@@ -61,6 +61,8 @@ interface IDEState {
   leftSidebarWidth: number;
   rightPanelWidth: number;
   bottomPanelHeight: number;
+  sidebarOpen: boolean;
+  rightPanelOpen: boolean;
 
   // Project
   projectName: string;
@@ -86,6 +88,9 @@ interface IDEState {
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
+  setRightPanelOpen: (open: boolean) => void;
   setPlayState: (state: PlayState) => void;
   setFps: (fps: number) => void;
   addLog: (level: LogLevel, message: string, source?: string) => void;
@@ -237,6 +242,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   leftSidebarWidth: 240,
   rightPanelWidth: 280,
   bottomPanelHeight: 180,
+  sidebarOpen: false,
+  rightPanelOpen: false,
 
   // Project
   projectName: 'MyPlatformer',
@@ -278,6 +285,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
 
   setPlayState: (state) => {
     set({ playState: state });

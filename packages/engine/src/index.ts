@@ -27,6 +27,26 @@ export { CharacterController } from './components/CharacterController.js';
 export { Animator } from './components/Animator.js';
 export type { AnimationClip } from './components/Animator.js';
 
+// New Systems
+export { VNSystem } from './systems/VNSystem.js';
+export type { DialogueNode, DialogueTree } from './systems/VNSystem.js';
+export { LightingSystem } from './systems/LightingSystem.js';
+export type { Light, LightType } from './systems/LightingSystem.js';
+export { PathfindingSystem } from './systems/PathfindingSystem.js';
+export type { GridCell, PathRequest, PathResult } from './systems/PathfindingSystem.js';
+export { SaveSystem } from './systems/SaveSystem.js';
+export type { SaveSlot } from './systems/SaveSystem.js';
+export { LocalisationSystem } from './systems/LocalisationSystem.js';
+export type { Locale, TranslationMap } from './systems/LocalisationSystem.js';
+export { CoroutineSystem, waitFrames, waitSeconds, waitUntil } from './systems/CoroutineSystem.js';
+export type { CoroutineGen, CoroutineYield } from './systems/CoroutineSystem.js';
+export { GamepadSystem } from './systems/GamepadSystem.js';
+export type { GamepadState, DualRumbleOptions } from './systems/GamepadSystem.js';
+
+// Core Manager
+export { SystemManager } from './core/SystemManager.js';
+export type { UpdatableSystem } from './core/SystemManager.js';
+
 // Compat
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
 export type { MaliInfo, MaliFixes } from './compat/mali.js';
