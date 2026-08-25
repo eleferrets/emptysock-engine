@@ -1,5 +1,5 @@
 import React from 'react';
-import { Code, Monitor, Layers, Terminal, Folder } from 'lucide-react';
+import { Code, Monitor, Layers, Terminal, Folder, Menu, X, PanelRight } from 'lucide-react';
 import { Toolbar } from './components/panels/Toolbar';
 import { LeftSidebar } from './components/panels/LeftSidebar';
 import { CanvasPreview } from './components/panels/CanvasPreview';
@@ -9,6 +9,16 @@ import { EntityProperties } from './components/panels/EntityProperties';
 import { ConsolePanel } from './components/panels/ConsolePanel';
 import { AssetBrowser } from './components/panels/AssetBrowser';
 import { useIDEStore } from './store/ideStore';
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = React.useState(() => window.innerWidth < 768);
+  React.useEffect(() => {
+    const handler = (): void => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
 
 function CenterTabBar(): React.ReactElement {
   const { activeTab, setActiveTab } = useIDEStore();
@@ -48,7 +58,7 @@ function CenterTabBar(): React.ReactElement {
   );
 }
 
-function BottomPanel(): React.ReactElement {
+function BottomPanel({ height }: { height: number }): React.ReactElement {
   const { bottomTab, setBottomTab } = useIDEStore();
 
   const tabs = [
@@ -60,12 +70,11 @@ function BottomPanel(): React.ReactElement {
     <div
       className="flex flex-col flex-shrink-0"
       style={{
-        height: 180,
+        height,
         borderTop: '1px solid var(--border)',
         background: 'var(--surface)',
       }}
     >
-      {/* Tab bar */}
       <div
         className="flex items-center gap-0 flex-shrink-0"
         style={{ height: 28, borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}
@@ -86,7 +95,6 @@ function BottomPanel(): React.ReactElement {
         ))}
       </div>
 
-      {/* Panel content */}
       <div className="flex flex-1 overflow-hidden">
         {bottomTab === 'console' ? <ConsolePanel /> : <AssetBrowser />}
       </div>
@@ -94,21 +102,111 @@ function BottomPanel(): React.ReactElement {
   );
 }
 
+function MobileDrawer({ onClose }: { onClose: () => void }): React.ReactElement {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 40,
+        }}
+      />
+      {/* Drawer */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 280,
+          background: 'var(--surface)',
+          zIndex: 50,
+          borderRight: '1px solid var(--border)',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '8px 12px',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Files</span>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <LeftSidebar />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function App(): React.ReactElement {
-  const { activeTab } = useIDEStore();
+  const { activeTab, sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelOpen, setRightPanelOpen } = useIDEStore();
+  const isMobile = useIsMobile();
+  const bottomPanelHeight = isMobile ? 140 : 180;
 
   return (
     <div
       className="flex flex-col"
-      style={{ height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}
+      style={{ height: '100dvh', background: 'var(--bg)', overflow: 'hidden' }}
     >
       {/* Top toolbar */}
       <Toolbar />
 
+      {/* Mobile hamburger row */}
+      {isMobile && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: 36,
+            padding: '0 8px',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--surface)',
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={toggleSidebar}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Menu size={18} />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Files</span>
+          </button>
+          <button
+            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: rightPanelOpen ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <PanelRight size={18} />
+            <span style={{ fontSize: 12 }}>Properties</span>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile sidebar drawer */}
+      {isMobile && sidebarOpen && <MobileDrawer onClose={() => setSidebarOpen(false)} />}
+
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar */}
-        <LeftSidebar />
+        {/* Left sidebar — desktop only */}
+        {!isMobile && <LeftSidebar />}
 
         {/* Center workspace */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -123,12 +221,11 @@ export function App(): React.ReactElement {
                 {activeTab === 'scene' && <SceneInspector />}
               </div>
 
-              {/* Bottom panel */}
-              <BottomPanel />
+              <BottomPanel height={bottomPanelHeight} />
             </div>
 
-            {/* Right panel */}
-            <EntityProperties />
+            {/* Right panel — desktop always, mobile only when toggled */}
+            {(!isMobile || rightPanelOpen) && <EntityProperties />}
           </div>
         </div>
       </div>
