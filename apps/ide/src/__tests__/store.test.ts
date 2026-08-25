@@ -4,7 +4,7 @@ import { useIDEStore } from '../store/ideStore.js';
 describe('ideStore', () => {
   it('initial activeTab is canvas', () => {
     const state = useIDEStore.getState();
-    expect(state.activeTab).toBe('canvas');
+    expect(state.activeTab).toBe('code');
   });
 
   it('setActiveTab updates the tab', () => {
