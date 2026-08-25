@@ -2,8 +2,19 @@ import React from 'react';
 import MonacoEditor from '@monaco-editor/react';
 import { useIDEStore } from '../../store/ideStore';
 
+function useIsNarrow(): boolean {
+  const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
+  React.useEffect(() => {
+    const handler = (): void => setNarrow(window.innerWidth < 600);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return narrow;
+}
+
 export function CodeEditor(): React.ReactElement {
   const { editorCode, setEditorCode, selectedFile } = useIDEStore();
+  const isNarrow = useIsNarrow();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -44,7 +55,7 @@ export function CodeEditor(): React.ReactElement {
             fontFamily: '"JetBrains Mono", ui-monospace, monospace',
             fontLigatures: true,
             lineHeight: 1.6,
-            minimap: { enabled: true, scale: 1 },
+            minimap: { enabled: !isNarrow, scale: 1 },
             scrollBeyondLastLine: false,
             wordWrap: 'on',
             padding: { top: 12, bottom: 12 },

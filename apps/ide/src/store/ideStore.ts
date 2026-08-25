@@ -317,8 +317,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       set({ selectedEntityId: null, selectedEntity: null });
       return;
     }
-    const entity = INITIAL_ENTITIES.find(e => e.id === id) ??
-      INITIAL_ENTITIES.flatMap(e => e.children).find(e => e.id === id);
+    const { entities } = get();
+    const entity = entities.find(e => e.id === id) ??
+      entities.flatMap(e => e.children).find(e => e.id === id);
     if (entity === undefined) return;
 
     set({
