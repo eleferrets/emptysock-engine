@@ -10,6 +10,12 @@ export interface DualRumbleOptions {
   readonly duration: number;
 }
 
+interface GamepadWithVibration extends Gamepad {
+  vibrationActuator?: {
+    playEffect(type: string, params: unknown): void;
+  };
+}
+
 export class GamepadSystem {
   private readonly _states: Map<number, GamepadState> = new Map();
 
@@ -17,7 +23,7 @@ export class GamepadSystem {
     const pads = navigator.getGamepads();
     for (let i = 0; i < pads.length; i++) {
       const pad = pads[i];
-      if (pad === null) {
+      if (pad === null || pad === undefined) {
         this._states.delete(i);
         continue;
       }
@@ -35,12 +41,9 @@ export class GamepadSystem {
 
   rumble(index: number, intensity: number, duration: number): void {
     const pads = navigator.getGamepads();
-    const pad = pads[index];
-    if (pad === null) return;
-    // vibrationActuator is non-standard; guard carefully
-    const actuator = (pad as unknown as { vibrationActuator?: { playEffect(type: string, params: unknown): void } }).vibrationActuator;
-    if (actuator === undefined) return;
-    actuator.playEffect('dual-rumble', {
+    const pad = pads[index] as GamepadWithVibration | null | undefined;
+    if (pad === null || pad === undefined) return;
+    pad.vibrationActuator?.playEffect('dual-rumble', {
       startDelay: 0,
       duration,
       weakMagnitude: intensity,
@@ -50,11 +53,9 @@ export class GamepadSystem {
 
   rumbleDual(index: number, opts: DualRumbleOptions): void {
     const pads = navigator.getGamepads();
-    const pad = pads[index];
-    if (pad === null) return;
-    const actuator = (pad as unknown as { vibrationActuator?: { playEffect(type: string, params: unknown): void } }).vibrationActuator;
-    if (actuator === undefined) return;
-    actuator.playEffect('dual-rumble', {
+    const pad = pads[index] as GamepadWithVibration | null | undefined;
+    if (pad === null || pad === undefined) return;
+    pad.vibrationActuator?.playEffect('dual-rumble', {
       startDelay: 0,
       duration: opts.duration,
       weakMagnitude: opts.weakMagnitude,

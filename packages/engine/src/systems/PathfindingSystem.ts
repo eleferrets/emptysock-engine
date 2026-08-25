@@ -29,7 +29,8 @@ export class PathfindingSystem {
     const { from, to, grid, allowDiagonal } = request;
     const rows = grid.length;
     if (rows === 0) return { path: [], found: false };
-    const cols = grid[0].length;
+    const cols = grid[0]?.length ?? 0;
+    if (cols === 0) return { path: [], found: false };
 
     const key = (x: number, y: number): string => `${x},${y}`;
 
@@ -44,7 +45,6 @@ export class PathfindingSystem {
     open.set(key(from.x, from.y), start);
 
     while (open.size > 0) {
-      // Get node with lowest f
       let current: AStarNode | null = null;
       for (const node of open.values()) {
         if (current === null || node.f < current.f) current = node;
@@ -52,7 +52,6 @@ export class PathfindingSystem {
       if (current === null) break;
 
       if (current.x === to.x && current.y === to.y) {
-        // Reconstruct path
         const path: Array<{ x: number; y: number }> = [];
         let n: AStarNode | null = current;
         while (n !== null) {
@@ -65,16 +64,20 @@ export class PathfindingSystem {
       open.delete(key(current.x, current.y));
       closed.add(key(current.x, current.y));
 
-      const dirs = allowDiagonal
-        ? [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
-        : [[-1,0],[1,0],[0,-1],[0,1]];
+      const dirs: ReadonlyArray<readonly [number, number]> = allowDiagonal
+        ? [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]] as const
+        : [[-1,0],[1,0],[0,-1],[0,1]] as const;
 
-      for (const [dx, dy] of dirs) {
+      for (const dir of dirs) {
+        const dx = dir[0];
+        const dy = dir[1];
         const nx = current.x + dx;
         const ny = current.y + dy;
         if (nx < 0 || ny < 0 || ny >= rows || nx >= cols) continue;
-        const cell = grid[ny][nx];
-        if (!cell.walkable) continue;
+        const row = grid[ny];
+        if (row === undefined) continue;
+        const cell = row[nx];
+        if (cell === undefined || !cell.walkable) continue;
         const nk = key(nx, ny);
         if (closed.has(nk)) continue;
 
