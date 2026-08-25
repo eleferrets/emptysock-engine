@@ -1,0 +1,22 @@
+{
+  "name": "Visual Novel Template",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0",
+  "entryPoint": "src/main.ts",
+  "targetResolution": {
+    "width": 1280,
+    "height": 720
+  },
+  "physics": {
+    "gravity": { "x": 0, "y": 0 },
+    "enabled": false
+  },
+  "audio": {
+    "masterVolume": 1
+  },
+  "metadata": {
+    "author": "",
+    "description": "A visual novel template with branching dialogue, choices, and events",
+    "tags": ["visual-novel", "dialogue", "narrative"]
+  }
+}

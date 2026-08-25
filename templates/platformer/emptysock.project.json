@@ -1,0 +1,22 @@
+{
+  "name": "Platformer Template",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0",
+  "entryPoint": "src/main.ts",
+  "targetResolution": {
+    "width": 1280,
+    "height": 720
+  },
+  "physics": {
+    "gravity": { "x": 0, "y": -500 },
+    "enabled": true
+  },
+  "audio": {
+    "masterVolume": 1
+  },
+  "metadata": {
+    "author": "",
+    "description": "A side-scrolling platformer template with character controller and physics",
+    "tags": ["platformer", "physics", "2d"]
+  }
+}
