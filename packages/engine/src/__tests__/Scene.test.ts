@@ -28,7 +28,7 @@ describe('Scene', () => {
     e2.addTag('enemy');
     const players = scene.getEntitiesByTag('player');
     expect(players.length).toBe(1);
-    expect(players[0].name).toBe('A');
+    expect(players[0]?.name).toBe('A');
   });
 
   it('entity count after multiple operations', () => {

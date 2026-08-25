@@ -3,10 +3,9 @@ import { Entity } from '../core/Entity.js';
 import { Component } from '../core/Component.js';
 
 class TestComp extends Component {
-  public readonly type = 'TestComp';
   public value: number;
   constructor(v: number = 0) {
-    super();
+    super('TestComp');
     this.value = v;
   }
 }

@@ -40,7 +40,7 @@ describe('VNSystem', () => {
     const node = vn.currentNode;
     if (node?.type === 'choice') {
       expect(node.options.length).toBe(2);
-      expect(node.options[0].label).toBe('Go left');
+      expect(node.options[0]?.label).toBe('Go left');
     }
   });
 

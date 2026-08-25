@@ -10,10 +10,15 @@ export interface DualRumbleOptions {
   readonly duration: number;
 }
 
-interface GamepadWithVibration extends Gamepad {
-  vibrationActuator?: {
-    playEffect(type: string, params: unknown): void;
-  };
+interface VibrationActuator {
+  playEffect(type: string, params: unknown): void;
+}
+
+interface GamepadWithVibration {
+  connected: boolean;
+  buttons: ReadonlyArray<GamepadButton>;
+  axes: ReadonlyArray<number>;
+  vibrationActuator?: VibrationActuator;
 }
 
 export class GamepadSystem {

@@ -33,8 +33,11 @@ describe('PathfindingSystem', () => {
     expect(result.found).toBe(true);
     // No diagonal step should appear
     for (let i = 1; i < result.path.length; i++) {
-      const dx = Math.abs(result.path[i].x - result.path[i-1].x);
-      const dy = Math.abs(result.path[i].y - result.path[i-1].y);
+      const curr = result.path[i];
+      const prev = result.path[i - 1];
+      if (curr === undefined || prev === undefined) continue;
+      const dx = Math.abs(curr.x - prev.x);
+      const dy = Math.abs(curr.y - prev.y);
       expect(dx + dy).toBe(1);
     }
   });
