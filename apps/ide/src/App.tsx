@@ -9,6 +9,7 @@ import { EntityProperties } from './components/panels/EntityProperties';
 import { ConsolePanel } from './components/panels/ConsolePanel';
 import { AssetBrowser } from './components/panels/AssetBrowser';
 import { useIDEStore } from './store/ideStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function useIsMobile(): boolean {
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 768);
@@ -216,7 +217,7 @@ export function App(): React.ReactElement {
             {/* Main panel content */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
               <div className="flex-1 overflow-hidden flex flex-col">
-                {activeTab === 'canvas' && <CanvasPreview />}
+                {activeTab === 'canvas' && <ErrorBoundary><CanvasPreview /></ErrorBoundary>}
                 {activeTab === 'code' && <CodeEditor />}
                 {activeTab === 'scene' && <SceneInspector />}
               </div>

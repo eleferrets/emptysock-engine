@@ -237,7 +237,7 @@ let logCounter = 0;
 
 export const useIDEStore = create<IDEState>((set, get) => ({
   // Layout
-  activeTab: 'canvas',
+  activeTab: 'code',
   bottomTab: 'console',
   leftSidebarWidth: 240,
   rightPanelWidth: 280,
