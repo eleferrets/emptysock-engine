@@ -1,0 +1,22 @@
+{
+  "name": "MyGame",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0",
+  "entryPoint": "src/main.ts",
+  "targetResolution": {
+    "width": 1280,
+    "height": 720
+  },
+  "physics": {
+    "gravity": { "x": 0, "y": -9.81 },
+    "enabled": true
+  },
+  "audio": {
+    "masterVolume": 1
+  },
+  "metadata": {
+    "author": "",
+    "description": "A blank EmptySock game project",
+    "tags": []
+  }
+}

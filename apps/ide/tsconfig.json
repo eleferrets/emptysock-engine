@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "noEmit": true,
+    "paths": {
+      "@emptysock/types": ["../../packages/types/src/index.ts"],
+      "@emptysock/engine": ["../../packages/engine/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}
