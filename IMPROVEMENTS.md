@@ -62,14 +62,22 @@ Handlers are **user-defined code** — the developer writes them. They are not a
 - The full stack trace is written to the runner output panel.
 - The game stops.
 
-**With a user-defined handler:**
-- The handler intercepts the error before it becomes a crash. What happens next is up to the developer — writing to a log file, continuing past the error, silently skipping the failing system, etc.
-- The engine provides the mechanism (a global hook and per-file/per-class registration); the developer provides the logic.
-- Handler granularity:
-  - **Global handler** — a single catch-all registered once; catches anything not already handled at a lower level.
-  - **Per-file / per-class handler** — registered for a specific system (e.g. an audio subsystem that can fail gracefully without taking the whole game down).
+**With a handler:**
+- The engine provides ready-made functions — the developer just calls one and passes the error object. No boilerplate, no file I/O to write themselves.
+- Rough API shape (subject to naming at implementation time):
+  ```ts
+  // global catch-all
+  Engine.onError((err) => Engine.logError(err));
 
-The engine does not write to a log file by default. If a developer wants a log file, they write that in their handler. The platform just guarantees the error is delivered to the handler rather than crashing.
+  // per-class
+  class AudioSystem {
+    onError(err) { Engine.logError(err); }
+  }
+  ```
+- `Engine.logError(err)` (or equivalent) does the write. The argument is whatever the engine hands the handler — an object with message, file, line, stack, and anything else useful. The developer passes it straight through; they don't construct it.
+- Handler granularity:
+  - **Global handler** — registered once, catches anything not handled lower down.
+  - **Per-class handler** — an `onError` method (or decorator) on a specific system; scoped to that class only.
 
 Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay on the developer's machine.
 
