@@ -3,6 +3,14 @@ import { Component } from '../core/Component.js';
 export type RigidBodyType = 'dynamic' | 'fixed' | 'kinematicPositionBased' | 'kinematicVelocityBased';
 export type ColliderShape = 'box' | 'circle' | 'capsule';
 
+export interface ContactInfo {
+  /** Impact force in Newtons (approximate). */
+  impactForce: number;
+}
+
+export type CollisionCallback = (other: PhysicsBody, contact: ContactInfo) => void;
+export type SensorCallback = (other: PhysicsBody) => void;
+
 export class PhysicsBody extends Component {
   public bodyType: RigidBodyType;
   public shape: ColliderShape;
@@ -18,6 +26,14 @@ export class PhysicsBody extends Component {
   public bodyHandle: number | null = null;
   /** Runtime Rapier collider handle — set by PhysicsSystem */
   public colliderHandle: number | null = null;
+
+  // ─── Collision callbacks ─────────────────────────────────────────────────
+
+  private _onCollisionEnter: CollisionCallback | null = null;
+  private _onCollisionExit: CollisionCallback | null = null;
+  private _onSensorEnter: SensorCallback | null = null;
+  private _onSensorStay: SensorCallback | null = null;
+  private _onSensorExit: SensorCallback | null = null;
 
   constructor(options: {
     bodyType?: RigidBodyType;
@@ -41,6 +57,26 @@ export class PhysicsBody extends Component {
     this.restitution = options.restitution ?? 0.2;
     this.isSensor = options.isSensor ?? false;
   }
+
+  // ─── Callback registration ───────────────────────────────────────────────
+
+  onCollisionEnter(cb: CollisionCallback): void { this._onCollisionEnter = cb; }
+  onCollisionExit(cb: CollisionCallback): void { this._onCollisionExit = cb; }
+  onSensorEnter(cb: SensorCallback): void { this._onSensorEnter = cb; }
+  onSensorStay(cb: SensorCallback): void { this._onSensorStay = cb; }
+  onSensorExit(cb: SensorCallback): void { this._onSensorExit = cb; }
+
+  // ─── Dispatchers — called by PhysicsSystem ───────────────────────────────
+
+  dispatchCollisionEnter(other: PhysicsBody, contact: ContactInfo): void {
+    this._onCollisionEnter?.(other, contact);
+  }
+  dispatchCollisionExit(other: PhysicsBody, contact: ContactInfo): void {
+    this._onCollisionExit?.(other, contact);
+  }
+  dispatchSensorEnter(other: PhysicsBody): void { this._onSensorEnter?.(other); }
+  dispatchSensorStay(other: PhysicsBody): void { this._onSensorStay?.(other); }
+  dispatchSensorExit(other: PhysicsBody): void { this._onSensorExit?.(other); }
 
   override serialize(): Record<string, unknown> {
     return {

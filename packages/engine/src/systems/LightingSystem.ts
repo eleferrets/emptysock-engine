@@ -137,7 +137,7 @@ export class LightingFilter extends Filter {
       uPointPos: { value: new Float32Array(MAX_POINT_LIGHTS * 2), type: 'vec2<f32>', size: MAX_POINT_LIGHTS },
       uPointRadius: { value: new Float32Array(MAX_POINT_LIGHTS), type: 'f32', size: MAX_POINT_LIGHTS },
       uUseNormalMap: { value: 0, type: 'i32' },
-      uTextureSize: { value: [1280, 720], type: 'vec2<f32>' },
+      uTextureSize: { value: new Float32Array([1280, 720]), type: 'vec2<f32>' },
     };
   }
 }
@@ -153,6 +153,8 @@ export class LightingSystem {
   private _filter: LightingFilter | null = null;
   private _stage: Container | null = null;
   private _useNormalMap: boolean = false;
+  private _canvasWidth: number = 1280;
+  private _canvasHeight: number = 720;
 
   // ---------------------------------------------------------------------------
   // Light registry
@@ -182,11 +184,18 @@ export class LightingSystem {
    * Attach the GPU lighting filter to a PixiJS container (typically the scene stage).
    * This replaces the previous registry-only placeholder with real GPU rendering.
    */
-  attachFilter(stage: Container, useNormalMap = false): void {
+  attachFilter(stage: Container, useNormalMap = false, canvasWidth = 1280, canvasHeight = 720): void {
     this._filter = new LightingFilter();
     this._useNormalMap = useNormalMap;
     this._stage = stage;
+    this._canvasWidth = canvasWidth;
+    this._canvasHeight = canvasHeight;
     stage.filters = [...(stage.filters ?? []), this._filter];
+  }
+
+  setResolution(width: number, height: number): void {
+    this._canvasWidth = width;
+    this._canvasHeight = height;
   }
 
   detachFilter(): void {
@@ -211,6 +220,7 @@ export class LightingSystem {
     // Ambient
     res['uAmbientColour']!.value = hexToVec3(this._ambientColour);
     res['uAmbientIntensity']!.value = this._ambientIntensity;
+    res['uTextureSize']!.value = new Float32Array([this._canvasWidth, this._canvasHeight]);
     res['uUseNormalMap']!.value = this._useNormalMap ? 1 : 0;
 
     // Partition lights
@@ -231,10 +241,10 @@ export class LightingSystem {
       pColour[i * 3 + 1] = rgb[1]!;
       pColour[i * 3 + 2] = rgb[2]!;
       pIntensity[i] = l.intensity;
-      // Normalise world position to 0..1 UV space assuming 1280x720
-      pPos[i * 2] = (l.x ?? 0) / 1280;
-      pPos[i * 2 + 1] = (l.y ?? 0) / 720;
-      pRadius[i] = (l.radius ?? 200) / 1280;
+      // Normalise world position to 0..1 UV space using actual canvas dimensions
+      pPos[i * 2] = (l.x ?? 0) / this._canvasWidth;
+      pPos[i * 2 + 1] = (l.y ?? 0) / this._canvasHeight;
+      pRadius[i] = (l.radius ?? 200) / this._canvasWidth;
     }
     res['uPointColour']!.value = pColour;
     res['uPointIntensity']!.value = pIntensity;
