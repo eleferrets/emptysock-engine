@@ -24,9 +24,9 @@ There is only one build type: **release**. There is no debug build. The debugger
 
 ### Linux
 - Architecture: **x86**, **x64**, **ARM** (ARM is the implicit Raspberry Pi target — no separate Pi option; ARM should just work on Pi)
-- Output format, in priority order: **Flatpak** (standard), **AppImage**, **tar.gz**
-- ARM does not support AppImage — remove it from the dropdown when ARM is selected; default to tar.gz
-- Flatpak is the preferred Linux distribution format; AppImage is the universal fallback; tar.gz is the bare minimum
+- Output format: developer chooses from **Flatpak**, **AppImage**, **tar.gz** — these are independent choices, not a fallback chain. Multiple can be selected per export.
+- AppImage ARM support: verify at implementation time — if ARM AppImage is supported by the time this is built, include it; if not, omit it from the ARM format options and note why.
+- tar.gz is the minimum that must always be available on all Linux architectures.
 
 ### macOS
 - Universal binary (ARM + x64 in one app) is the target
@@ -45,20 +45,29 @@ There is only one build type: **release**. There is no debug build. The debugger
 
 ## Debugger
 
-The debugger is a **live run tool**, not a build phase. Clarifications:
+The debugger is an **alternative live run tool** — a second play mode alongside the normal run, not a build phase and not a separate build type. There is only one build: release.
 
-- "Debug" in the toolbar means launching the game in a debug play runner, not producing a debug build. There is no debug build.
-- The debug overlay (variable inspector, entity state, etc.) appears during a debug play run, not during a release build.
-- The **restart button** belongs in the debug run phase UI, alongside the overlay. It restarts the live run, not a build.
+- "Debug" in the toolbar launches the game in the debug play runner with the debug overlay active.
+- The debug overlay (variable inspector, entity state, hot reload controls, etc.) is only present during a debug run, never during a normal run or a release build.
+- The **restart button** lives in the debug run phase UI alongside the overlay. It restarts the live run.
+- Hot reload is a debug run feature — see Hot Reload section.
 - For handing off source to another dev: archive/ZIP the project folder. That is the dev-to-dev transfer unit.
 
 ### Runtime Error Handling
-- In debug run mode, runtime exceptions and errors from the game should surface as visible overlays or panels — the developer needs to see them.
-- In release builds sent to testers or end users, errors should be suppressed from the UI.
-- Suppression should be configurable at two levels:
-  - **Global handler**: a single catch-all that silences or logs errors without showing them to users
-  - **Per-file / per-class handler**: finer-grained suppression for specific systems (e.g. a known-noisy audio subsystem)
-- Source maps should **not** be included in tester builds. Tester builds are release builds without source maps — they test the finished artifact, not the source. Source maps stay internal.
+
+The word "suppress" is the wrong frame. Errors are **handled** — written to a log file and kept from crashing or cluttering the user-facing experience. Nothing is discarded silently.
+
+**In debug run mode:**
+- Runtime errors surface immediately as a **centered popup** in the runner window. The popup shows the error message clearly. The runner output panel captures the full stack trace.
+- Errors are also always written to the log file during debug runs regardless of any handler settings.
+
+**In release (including tester builds):**
+- If the **global error handler** is toggled on: errors are caught, written to a log file, and the game continues running if it can. No popup, no crash to desktop.
+- If the global handler is off: unhandled errors behave as the runtime defaults (likely crash).
+- Handler granularity:
+  - **Global handler** — catches everything not already handled lower down. One toggle in release settings.
+  - **Per-file / per-class handler** — finer control for specific systems (e.g. an audio subsystem that can fail gracefully without taking down the whole game). Decorated or registered in code by the developer.
+- Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay internal to the developer's machine.
 
 ### Collaboration / Tester Distribution (recommendation)
 The right model here is two distinct flows:
