@@ -111,8 +111,8 @@ export async function exportGame(config: ExportConfig): Promise<ExportResult> {
     define: {
       'process.env.NODE_ENV': '"production"',
     },
-    drop: config.dropConsole === true ? ['console'] : undefined,
-    mangleProps: config.mangleProps === true ? /^_/ : undefined,
+    ...(config.dropConsole === true ? { drop: ['console'] as const } : {}),
+    ...(config.mangleProps === true ? { mangleProps: /^_/ } : {}),
   };
 
   try {
@@ -180,14 +180,14 @@ export interface VerificationResult {
 
 function walkDir(dir: string): string[] {
   let results: string[] = [];
-  let entries: ReturnType<typeof readdirSync>;
+  let entries: import('node:fs').Dirent[];
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync(dir, { withFileTypes: true }) as import('node:fs').Dirent[];
   } catch {
     return results;
   }
   for (const entry of entries) {
-    const full = join(dir, entry.name);
+    const full = join(dir, String(entry.name));
     if (entry.isDirectory()) {
       results = results.concat(walkDir(full));
     } else {
@@ -350,7 +350,7 @@ export async function buildForPreview(config: PreviewBuildConfig): Promise<Previ
       globalName: 'EmptySockPreview',
       minify: config.mode === 'release',
       sourcemap: config.mode === 'debug' ? 'inline' : false,
-      drop: config.mode === 'release' ? ['console'] : undefined,
+      ...(config.mode === 'release' ? { drop: ['console'] as const } : {}),
       target: ['es2020'],
     });
 

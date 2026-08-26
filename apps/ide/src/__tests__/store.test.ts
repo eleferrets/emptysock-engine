@@ -95,7 +95,7 @@ describe('ideStore — clearBuildCache', () => {
     expect(s.buildDuration).toBeNull();
     expect(s.lastBuildAt).toBeNull();
     const lastLog = s.logs[s.logs.length - 1];
-    expect(lastLog.message).toContain('Build cache cleared');
+    expect(lastLog!.message).toContain('Build cache cleared');
   });
 });
 

@@ -163,7 +163,7 @@ describe('hashAssets', () => {
     const results = await hashAssets(assetsDir, outDir);
     expect(results.length).toBe(1);
 
-    const outFile = join(outDir, `${results[0].hash}.webp`);
+    const outFile = join(outDir, `${results[0]!.hash}.webp`);
     const written = readFileSync(outFile, 'utf-8');
     expect(written).toBe(content);
   });
@@ -181,7 +181,7 @@ describe('hashAssets', () => {
     const [r1] = await hashAssets(assetsDir1, outDir1);
     const [r2] = await hashAssets(assetsDir2, outDir2);
 
-    expect(r1.hash).not.toBe(r2.hash);
+    expect(r1!.hash).not.toBe(r2!.hash);
   });
 
   it('returns empty array for empty directory', async () => {

@@ -32,7 +32,11 @@ describe('GamepadSystem', () => {
       ] as GamepadButton[],
       axes: [0.5, -0.3],
       index: 0,
-    } as Gamepad]);
+      id: 'Mock Gamepad',
+      mapping: 'standard' as GamepadMappingType,
+      timestamp: 0,
+      vibrationActuator: null,
+    } as unknown as Gamepad]);
     sys.update();
     const state = sys.getState(0);
     expect(state).not.toBeNull();
