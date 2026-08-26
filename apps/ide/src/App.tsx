@@ -25,6 +25,18 @@ function useIsMobile(): boolean {
   return mobile;
 }
 
+function useApplyTheme(): void {
+  const theme = useIDEStore(s => s.theme);
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', theme);
+    }
+  }, [theme]);
+}
+
 function CenterTabBar(): React.ReactElement {
   const { activeTab, setActiveTab } = useIDEStore();
 
@@ -110,7 +122,6 @@ function BottomPanel({ height }: { height: number }): React.ReactElement {
 function MobileDrawer({ onClose }: { onClose: () => void }): React.ReactElement {
   return (
     <>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
@@ -120,7 +131,6 @@ function MobileDrawer({ onClose }: { onClose: () => void }): React.ReactElement 
           zIndex: 40,
         }}
       />
-      {/* Drawer */}
       <div
         style={{
           position: 'fixed',
@@ -168,7 +178,8 @@ export function App(): React.ReactElement {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
 
-  // Ctrl+K / Ctrl+P opens command palette
+  useApplyTheme();
+
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
@@ -185,16 +196,12 @@ export function App(): React.ReactElement {
       className="flex flex-col"
       style={{ height: '100dvh', background: 'var(--bg)', overflow: 'hidden' }}
     >
-      {/* Menu bar */}
       <MenuBar onOpenExport={() => setExportOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
-
-      {/* Top toolbar */}
       <Toolbar onExport={() => setExportOpen(true)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenExport={() => { setPaletteOpen(false); setExportOpen(true); }} />
 
-      {/* Mobile hamburger row */}
       {isMobile && (
         <div
           style={{
@@ -225,20 +232,15 @@ export function App(): React.ReactElement {
         </div>
       )}
 
-      {/* Mobile sidebar drawer */}
       {isMobile && sidebarOpen && <MobileDrawer onClose={() => setSidebarOpen(false)} />}
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar — desktop only */}
         {!isMobile && <LeftSidebar />}
 
-        {/* Center workspace */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <CenterTabBar />
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Main panel content */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
               <div className="flex-1 overflow-hidden flex flex-col">
                 {activeTab === 'canvas' && <ErrorBoundary><CanvasPreview /></ErrorBoundary>}
@@ -249,7 +251,6 @@ export function App(): React.ReactElement {
               <BottomPanel height={bottomPanelHeight} />
             </div>
 
-            {/* Right panel — desktop always, mobile only when toggled */}
             {(!isMobile || rightPanelOpen) && <EntityProperties />}
           </div>
         </div>
