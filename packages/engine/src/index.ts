@@ -6,6 +6,9 @@ export type { SystemFn } from './core/Scene.js';
 export { detectGPUTier } from './core/GPUTier.js';
 export type { GPUTier } from './core/GPUTier.js';
 
+// Engine API
+export { Engine } from './core/EngineAPI.js';
+
 // Systems
 export { RenderSystem } from './systems/RenderSystem.js';
 export type { RenderSystemOptions } from './systems/RenderSystem.js';
@@ -55,23 +58,23 @@ export type { TransitionOptions as SceneTransitionOptions, SceneFactory } from '
 export { ObjectPool } from './core/ObjectPool.js';
 export type { Poolable, PoolFactory } from './core/ObjectPool.js';
 
-// New Systems — Tilemap
+// Tilemap
 export { TilemapSystem, Tilemap } from './systems/TilemapSystem.js';
 export type { TilemapData, TilemapLayer, TileCell, TilesetConfig } from './systems/TilemapSystem.js';
 
-// New Systems — Particles
+// Particles
 export { ParticleSystem, ParticleEmitter } from './systems/ParticleSystem.js';
 export type { ParticleEmitterOptions, EmitterShape } from './systems/ParticleSystem.js';
 
-// New Systems — Tweens & Timers
+// Tweens & Timers
 export { Tween, Timer } from './systems/TweenSystem.js';
 export type { TweenOptions, EasingName } from './systems/TweenSystem.js';
 
-// New Systems — UI
+// UI
 export { UISystem, UIComponent } from './systems/UISystem.js';
 export type { UIComponentType, UIComponentOptions, UIStyle, UIAnchor } from './systems/UISystem.js';
 
-// New Systems — Post-processing
+// Post-processing
 export { PostProcessSystem } from './systems/PostProcessSystem.js';
 export type {
   PostEffectType,
@@ -82,7 +85,7 @@ export type {
   TransitionEffect as PostTransitionEffect,
 } from './systems/PostProcessSystem.js';
 
-// Components — RigidJoint
+// RigidJoint
 export { RigidJoint } from './components/RigidJoint.js';
 export type { JointType, RevoluteOptions, PrismaticOptions, SpringOptions } from './components/RigidJoint.js';
 
@@ -93,5 +96,5 @@ export type { ContactInfo, CollisionCallback, SensorCallback } from './component
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
 export type { MaliInfo, MaliFixes } from './compat/mali.js';
 
-// Public type aliases — use these instead of importing from pixi.js/rapier/howler directly
+// Public type aliases
 export type { GameStage } from './types/aliases.js';
