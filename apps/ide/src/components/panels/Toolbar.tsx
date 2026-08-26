@@ -5,7 +5,6 @@ import {
   Square,
   Download,
   Settings,
-  Zap,
   ChevronDown,
   Bug,
 } from 'lucide-react';
@@ -162,12 +161,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 mr-2">
-          <div
-            className="w-6 h-6 rounded flex items-center justify-center"
-            style={{ background: 'var(--accent)' }}
-          >
-            <Zap size={13} color="white" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.svg" alt="EmptySock" className="w-6 h-6" />
           <span
             className="font-semibold text-sm tracking-tight"
             style={{ color: 'var(--text)' }}
