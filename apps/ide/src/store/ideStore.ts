@@ -69,6 +69,7 @@ interface IDEState {
 
   // Project
   projectName: string;
+  projectFolder: string;
   files: ProjectFile[];
   selectedFile: string | null;
   editorCode: string;
@@ -129,6 +130,9 @@ interface IDEState {
 
   // Theme action
   setTheme: (theme: Theme) => void;
+
+  // Project folder
+  setProjectFolder: (folder: string) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -163,53 +167,13 @@ export class GameScene extends Scene {
 `;
 
 const INITIAL_ENTITIES: EntityItem[] = [
+  { id: 'ent-1', name: 'Player', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'CharacterController'], children: [] },
+  { id: 'ent-2', name: 'Ground', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
+  { id: 'ent-3', name: 'Camera', type: 'Entity', active: true, components: ['Transform', 'CameraSystem'], children: [] },
   {
-    id: 'ent-1',
-    name: 'Player',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'Sprite', 'CharacterController'],
-    children: [],
-  },
-  {
-    id: 'ent-2',
-    name: 'Ground',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'Sprite', 'PhysicsBody'],
-    children: [],
-  },
-  {
-    id: 'ent-3',
-    name: 'Camera',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'CameraSystem'],
-    children: [],
-  },
-  {
-    id: 'ent-4',
-    name: 'Enemies',
-    type: 'Entity',
-    active: true,
-    components: ['Transform'],
-    children: [
-      {
-        id: 'ent-4-1',
-        name: 'Slime_01',
-        type: 'Entity',
-        active: true,
-        components: ['Transform', 'Sprite', 'PhysicsBody'],
-        children: [],
-      },
-      {
-        id: 'ent-4-2',
-        name: 'Slime_02',
-        type: 'Entity',
-        active: false,
-        components: ['Transform', 'Sprite', 'PhysicsBody'],
-        children: [],
-      },
+    id: 'ent-4', name: 'Enemies', type: 'Entity', active: true, components: ['Transform'], children: [
+      { id: 'ent-4-1', name: 'Slime_01', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
+      { id: 'ent-4-2', name: 'Slime_02', type: 'Entity', active: false, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
     ],
   },
 ];
@@ -225,35 +189,14 @@ const INITIAL_ASSETS: AssetItem[] = [
 
 const INITIAL_FILES: ProjectFile[] = [
   {
-    name: 'src',
-    path: 'src',
-    type: 'folder',
-    children: [
+    name: 'src', path: 'src', type: 'folder', children: [
       { name: 'main.ts', path: 'src/main.ts', type: 'file' },
-      {
-        name: 'scenes',
-        path: 'src/scenes',
-        type: 'folder',
-        children: [
-          { name: 'GameScene.ts', path: 'src/scenes/GameScene.ts', type: 'file' },
-          { name: 'MenuScene.ts', path: 'src/scenes/MenuScene.ts', type: 'file' },
-        ],
-      },
-      {
-        name: 'entities',
-        path: 'src/entities',
-        type: 'folder',
-        children: [
-          { name: 'Player.ts', path: 'src/entities/Player.ts', type: 'file' },
-        ],
-      },
+      { name: 'scenes', path: 'src/scenes', type: 'folder', children: [{ name: 'GameScene.ts', path: 'src/scenes/GameScene.ts', type: 'file' }, { name: 'MenuScene.ts', path: 'src/scenes/MenuScene.ts', type: 'file' }] },
+      { name: 'entities', path: 'src/entities', type: 'folder', children: [{ name: 'Player.ts', path: 'src/entities/Player.ts', type: 'file' }] },
     ],
   },
   {
-    name: 'assets',
-    path: 'assets',
-    type: 'folder',
-    children: [
+    name: 'assets', path: 'assets', type: 'folder', children: [
       { name: 'player.png', path: 'assets/player.png', type: 'file' },
       { name: 'tileset.png', path: 'assets/tileset.png', type: 'file' },
       { name: 'jump.ogg', path: 'assets/jump.ogg', type: 'file' },
@@ -277,6 +220,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Project
   projectName: 'MyPlatformer',
+  projectFolder: '',
   files: INITIAL_FILES,
   selectedFile: 'src/scenes/GameScene.ts',
   editorCode: INITIAL_CODE,
@@ -344,28 +288,17 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setFps: (fps) => set({ fps }),
 
   addLog: (level, message, source) => {
-    const entry: LogEntry = {
-      id: `log-${logCounter++}`,
-      level,
-      message,
-      timestamp: Date.now(),
-      source,
-    };
+    const entry: LogEntry = { id: `log-${logCounter++}`, level, message, timestamp: Date.now(), source };
     set((s) => ({ logs: [...s.logs.slice(-199), entry] }));
   },
 
   clearLogs: () => set({ logs: [] }),
 
   selectEntity: (id) => {
-    if (id === null) {
-      set({ selectedEntityId: null, selectedEntity: null });
-      return;
-    }
+    if (id === null) { set({ selectedEntityId: null, selectedEntity: null }); return; }
     const { entities } = get();
-    const entity = entities.find(e => e.id === id) ??
-      entities.flatMap(e => e.children).find(e => e.id === id);
+    const entity = entities.find(e => e.id === id) ?? entities.flatMap(e => e.children).find(e => e.id === id);
     if (entity === undefined) return;
-
     set({
       selectedEntityId: id,
       selectedEntity: {
@@ -373,62 +306,38 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         name: entity.name,
         type: entity.type,
         transform: { x: '640', y: '360', rotation: '0', scaleX: '1', scaleY: '1' },
-        components: entity.components.map(c => ({
-          type: c,
-          enabled: true,
-          properties: getDefaultProperties(c),
-        })),
+        components: entity.components.map(c => ({ type: c, enabled: true, properties: getDefaultProperties(c) })),
       },
     });
   },
 
   selectFile: (path) => set({ selectedFile: path }),
-
   setEditorCode: (code) => set({ editorCode: code }),
 
   updateEntityTransform: (entityId, transform) => {
     set((s) => {
       if (s.selectedEntity?.id !== entityId) return s;
-      return {
-        selectedEntity: {
-          ...s.selectedEntity,
-          transform: { ...s.selectedEntity.transform, ...transform },
-        },
-      };
+      return { selectedEntity: { ...s.selectedEntity, transform: { ...s.selectedEntity.transform, ...transform } } };
     });
   },
 
-  // Build actions
   setBuildMode: (mode) => set({ buildMode: mode }),
-
   toggleBuildMode: () => set((s) => ({ buildMode: s.buildMode === 'debug' ? 'release' : 'debug' })),
 
   setBuildStatus: (status, errors, duration) => {
-    set({
-      buildStatus: status,
-      buildErrors: errors ?? [],
-      buildDuration: duration !== undefined ? duration : null,
-      lastBuildAt: status === 'success' || status === 'error' ? Date.now() : get().lastBuildAt,
-    });
+    set({ buildStatus: status, buildErrors: errors ?? [], buildDuration: duration !== undefined ? duration : null, lastBuildAt: status === 'success' || status === 'error' ? Date.now() : get().lastBuildAt });
   },
 
   toggleDebugOverlay: () => set((s) => ({ debugOverlay: !s.debugOverlay })),
 
   clearBuildCache: () => {
-    set({
-      buildStatus: 'idle',
-      buildErrors: [],
-      lastBuildAt: null,
-      buildDuration: null,
-    });
+    set({ buildStatus: 'idle', buildErrors: [], lastBuildAt: null, buildDuration: null });
     get().addLog('info', 'Build cache cleared', 'BuildService');
   },
 
-  // Settings modal
   setSettingsOpen: (open) => set({ settingsOpen: open }),
-
-  // Theme
   setTheme: (t) => set({ theme: t }),
+  setProjectFolder: (folder) => set({ projectFolder: folder }),
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {
