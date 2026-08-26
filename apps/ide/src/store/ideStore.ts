@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 export type BuildMode = 'debug' | 'release';
 export type BuildStatus = 'idle' | 'building' | 'success' | 'error';
+export type Theme = 'dark' | 'light' | 'system';
 
 export interface LogEntry {
   id: string;
@@ -98,6 +99,9 @@ interface IDEState {
   // Settings modal
   settingsOpen: boolean;
 
+  // Theme
+  theme: Theme;
+
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
@@ -122,6 +126,9 @@ interface IDEState {
 
   // Settings modal action
   setSettingsOpen: (open: boolean) => void;
+
+  // Theme action
+  setTheme: (theme: Theme) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -316,6 +323,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Settings modal
   settingsOpen: false,
 
+  // Theme
+  theme: 'dark',
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -416,6 +426,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Settings modal
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+
+  // Theme
+  setTheme: (t) => set({ theme: t }),
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {
