@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, Play, Square, Pause, Download, Bug, Trash2, Settings, Code, Monitor, Layers } from 'lucide-react';
+import { Search, Play, Square, Pause, Download, Bug, Trash2, Settings, Code, Monitor, Layers, FolderOpen, Save } from 'lucide-react';
 import { useIDEStore } from '../../store/ideStore';
+import { BrowserFileService } from '../../services/BrowserFileService';
+import { TauriFileService } from '../../services/TauriFileService';
 
 interface Command {
   id: string;
@@ -39,6 +41,7 @@ export function CommandPalette({ open, onClose, onOpenExport }: CommandPalettePr
   const {
     playState, setPlayState, toggleDebugOverlay, clearLogs,
     setActiveTab, setSettingsOpen, toggleBuildMode, buildMode, clearBuildCache,
+    setEditorCode, editorCode, projectName,
   } = useIDEStore();
 
   const commands = useMemo<Command[]>(() => [
@@ -120,13 +123,40 @@ export function CommandPalette({ open, onClose, onOpenExport }: CommandPalettePr
       keywords: ['scene', 'inspector', 'entities', 'tab'],
     },
     {
+      id: 'open-file',
+      label: 'Open File',
+      description: 'Open a .ts file from disk into the editor',
+      icon: <FolderOpen size={14} />,
+      action: () => {
+        const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+        const svc = isTauri ? TauriFileService : BrowserFileService;
+        void svc.openFile().then(r => { if (r.success && r.content !== undefined) setEditorCode(r.content); });
+      },
+      keywords: ['open', 'file', 'load', 'import'],
+    },
+    {
+      id: 'save-file',
+      label: 'Save File',
+      description: 'Save the current editor code to disk',
+      icon: <Save size={14} />,
+      action: () => {
+        const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+        if (isTauri) {
+          void TauriFileService.saveFile(null, editorCode);
+        } else {
+          void BrowserFileService.saveFile(`${projectName}.ts`, editorCode);
+        }
+      },
+      keywords: ['save', 'file', 'write', 'export'],
+    },
+    {
       id: 'settings',
       label: 'Open Settings',
       icon: <Settings size={14} />,
       action: () => { setSettingsOpen(true); },
       keywords: ['settings', 'preferences', 'config'],
     },
-  ], [playState, setPlayState, onOpenExport, toggleDebugOverlay, buildMode, toggleBuildMode, clearLogs, clearBuildCache, setActiveTab, setSettingsOpen]);
+  ], [playState, setPlayState, onOpenExport, toggleDebugOverlay, buildMode, toggleBuildMode, clearLogs, clearBuildCache, setActiveTab, setSettingsOpen, setEditorCode, editorCode, projectName]);
 
   const filtered = useMemo(() => {
     if (query.trim() === '') return commands;

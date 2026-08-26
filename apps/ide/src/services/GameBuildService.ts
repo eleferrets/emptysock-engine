@@ -1,90 +1,92 @@
 /**
- * GameBuildService — orchestrates hot-reload builds for the IDE editor.
- *
- * In production this would invoke a Tauri command backed by esbuild on the
- * native side. The real implementation would call:
- *   import { buildForPreview } from '@emptysock/export-utils';
- * and delegate to that. For now the service does lightweight in-process
- * validation to keep the web prototype dependency-free at runtime.
+ * GameBuildService — transforms the editor's TypeScript source using
+ * esbuild-wasm, bundling it as an IIFE with @emptysock/engine resolved
+ * to the pre-bundled window.EmptySockEngine global.
  */
 
-export interface BuildJob {
-  code: string;
-  mode: 'debug' | 'release';
-  onStart: () => void;
-  onComplete: (result: {
-    success: boolean;
-    errors: string[];
-    duration: number;
-    byteSize: number;
-  }) => void;
-}
+import * as esbuild from 'esbuild-wasm';
 
-type BuildJobResult = {
+export interface BuildJobResult {
   success: boolean;
   errors: string[];
   duration: number;
   byteSize: number;
+  js: string;
+}
+
+type BuildJob = {
+  code: string;
+  mode: 'debug' | 'release';
+  onStart: () => void;
+  onComplete: (result: BuildJobResult) => void;
 };
 
-function countChar(str: string, ch: string): number {
-  let count = 0;
-  for (const c of str) {
-    if (c === ch) count++;
+let esbuildReady: Promise<void> | null = null;
+
+function ensureEsbuild(): Promise<void> {
+  if (esbuildReady === null) {
+    esbuildReady = esbuild.initialize({
+      wasmURL: 'https://unpkg.com/esbuild-wasm@0.25.5/esbuild.wasm',
+      worker: true,
+    });
   }
-  return count;
+  return esbuildReady;
 }
 
-function validateCode(code: string): string[] {
-  const errors: string[] = [];
+// esbuild plugin: resolves @emptysock/engine to window.EmptySockEngine
+const engineGlobalPlugin: esbuild.Plugin = {
+  name: 'engine-global',
+  setup(build) {
+    build.onResolve({ filter: /^@emptysock\/engine$/ }, () => ({
+      path: '@emptysock/engine',
+      namespace: 'engine-global',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'engine-global' }, () => ({
+      contents: 'module.exports = window.EmptySockEngine',
+      loader: 'js',
+    }));
+  },
+};
 
-  // Check for unmatched braces (simple heuristic)
-  const opens = countChar(code, '{');
-  const closes = countChar(code, '}');
-  if (opens !== closes) {
-    errors.push(`Unmatched braces: ${opens} '{' vs ${closes} '}'`);
-  }
-
-  // Check for import statements — they should be present in a module
-  // (This is informational; not an error if absent.)
-
-  return errors;
-}
-
-function stripConsoleLog(code: string): string {
-  // Simple regex replace to simulate console dropping in release mode.
-  // The real esbuild 'drop' option handles this more robustly.
-  return code.replace(/console\s*\.\s*log\s*\([^)]*\)\s*;?/g, '');
-}
-
-async function runBuild(
-  code: string,
-  mode: 'debug' | 'release'
-): Promise<BuildJobResult> {
+async function runBuild(code: string, mode: 'debug' | 'release'): Promise<BuildJobResult> {
   const start = Date.now();
+  try {
+    await ensureEsbuild();
 
-  const errors = validateCode(code);
-  if (errors.length > 0) {
-    const duration = Date.now() - start;
-    return { success: false, errors, duration, byteSize: 0 };
+    const result = await esbuild.build({
+      stdin: {
+        contents: code,
+        loader: 'ts',
+        sourcefile: 'game.ts',
+      },
+      bundle: true,
+      format: 'iife',
+      globalName: 'UserGame',
+      minify: mode === 'release',
+      sourcemap: mode === 'debug' ? 'inline' : false,
+      target: ['es2020'],
+      ...(mode === 'release' ? { drop: ['console'] as const } : {}),
+      plugins: [engineGlobalPlugin],
+      write: false,
+    });
+
+    const errors = result.errors.map(e => `${e.location?.file ?? 'game.ts'}:${e.location?.line ?? 0}: ${e.text}`);
+    if (errors.length > 0) {
+      return { success: false, errors, duration: Date.now() - start, byteSize: 0, js: '' };
+    }
+
+    const js = result.outputFiles[0]?.text ?? '';
+    return { success: true, errors: [], duration: Date.now() - start, byteSize: js.length, js };
+  } catch (e: unknown) {
+    const errors: string[] = [];
+    if (e !== null && typeof e === 'object' && 'errors' in e) {
+      const eb = e as { errors: Array<{ text: string; location?: { line?: number } | null }> };
+      errors.push(...eb.errors.map(err => err.text));
+    } else {
+      errors.push(String(e));
+    }
+    return { success: false, errors, duration: Date.now() - start, byteSize: 0, js: '' };
   }
-
-  let outputCode = code;
-  if (mode === 'release') {
-    outputCode = stripConsoleLog(outputCode);
-  }
-
-  // Add artificial 50–150ms to simulate esbuild transform latency
-  const artificial = 50 + Math.floor(Math.random() * 100);
-  await new Promise<void>(resolve => setTimeout(resolve, artificial));
-
-  const duration = Date.now() - start;
-  return {
-    success: true,
-    errors: [],
-    duration,
-    byteSize: outputCode.length,
-  };
 }
 
 export class GameBuildService {
@@ -93,25 +95,22 @@ export class GameBuildService {
 
   constructor(debounceMs = 300) {
     this.debounceMs = debounceMs;
+    // Kick off esbuild-wasm initialization eagerly so the first build is fast
+    void ensureEsbuild();
   }
 
-  /** Queue a build — debounced so rapid edits coalesce into one build. */
   queueBuild(job: BuildJob): void {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
-
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       job.onStart();
-      void runBuild(job.code, job.mode).then(result => {
-        job.onComplete(result);
-      });
+      void runBuild(job.code, job.mode).then(result => job.onComplete(result));
     }, this.debounceMs);
   }
 
-  /** Cancel any pending debounced build. */
   cancel(): void {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
@@ -119,22 +118,14 @@ export class GameBuildService {
     }
   }
 
-  /**
-   * Synchronous (awaitable) build for immediate use, e.g. triggered by Ctrl+S.
-   * Cancels any pending debounced build first.
-   */
-  async buildNow(
-    job: Omit<BuildJob, 'onStart' | 'onComplete'>
-  ): Promise<BuildJobResult> {
+  async buildNow(job: Omit<BuildJob, 'onStart' | 'onComplete'>): Promise<BuildJobResult> {
     this.cancel();
     return runBuild(job.code, job.mode);
   }
 
-  /** Clean up — cancel any pending timers. */
   destroy(): void {
     this.cancel();
   }
 }
 
-/** Singleton GameBuildService for use across the IDE. */
 export const gameBuildService = new GameBuildService(300);

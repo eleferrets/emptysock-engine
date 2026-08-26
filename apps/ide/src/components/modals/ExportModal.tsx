@@ -1,8 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { X, Download, Globe, Monitor, Apple, Terminal, Smartphone } from 'lucide-react';
+import JSZip from 'jszip';
 import { Button } from '../ui/Button';
 import { useIDEStore } from '../../store/ideStore';
-import { invoke } from '@tauri-apps/api/core';
+import { gameBuildService } from '../../services/GameBuildService';
+import { BrowserFileService } from '../../services/BrowserFileService';
+import { ENGINE_BUNDLE } from '../../runtime/engineBundle.generated';
 
 export type ExportPlatform = 'web' | 'windows' | 'macos' | 'linux' | 'android' | 'ios';
 
@@ -52,7 +55,9 @@ export function ExportModal({ open, onClose }: ExportModalProps): React.ReactEle
     try {
       const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-      if (isTauri) {
+      if (isTauri && selectedPlatform !== 'web') {
+        // Desktop platforms: delegate to Tauri backend
+        const { invoke } = await import('@tauri-apps/api/core');
         const result = await invoke<{ success: boolean; outputPath: string; error?: string }>('export_game', {
           platform: selectedPlatform,
           format: selectedFormats[selectedPlatform],
@@ -68,12 +73,52 @@ export function ExportModal({ open, onClose }: ExportModalProps): React.ReactEle
           setStatus('error');
           setErrorMsg(result.error ?? 'Export failed');
         }
-      } else {
-        // Browser-only: simulate with a short delay and show instructions
-        await new Promise<void>(resolve => setTimeout(resolve, 800));
-        setStatus('success');
-        setOutputPath(`~/Desktop/${projectName}-export/`);
+        return;
       }
+
+      // Web export: runs entirely in the browser
+      if (selectedPlatform !== 'web') {
+        setStatus('error');
+        setErrorMsg('Non-web exports require the desktop app.');
+        return;
+      }
+
+      // 1. Compile user code with esbuild-wasm
+      const buildResult = await gameBuildService.buildNow({ code: editorCode, mode: minify ? 'release' : 'debug' });
+      if (!buildResult.success) {
+        setStatus('error');
+        setErrorMsg(buildResult.errors.join('\n'));
+        return;
+      }
+
+      // 2. Build the index.html
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${projectName}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;display:flex;align-items:center;justify-content:center;height:100dvh;overflow:hidden}canvas{display:block;max-width:100%;max-height:100%}</style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>`;
+
+      // 3. Package into ZIP
+      const zip = new JSZip();
+      zip.file('index.html', html);
+      zip.file('engine.js', ENGINE_BUNDLE);
+      zip.file('game.js', buildResult.js);
+
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const filename = `${projectName.replace(/\s+/g, '-').toLowerCase()}-web.zip`;
+      BrowserFileService.downloadBlob(filename, blob);
+
+      setStatus('success');
+      setOutputPath(filename);
     } catch (e) {
       setStatus('error');
       setErrorMsg(String(e));

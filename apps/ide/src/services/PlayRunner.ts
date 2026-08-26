@@ -14,6 +14,7 @@
  */
 
 import { gameBuildService } from './GameBuildService.js';
+import { ENGINE_BUNDLE } from '../runtime/engineBundle.generated.js';
 
 export interface RunnerMessage {
   type: 'log' | 'fps' | 'error' | 'ready';
@@ -25,7 +26,8 @@ export interface RunnerMessage {
 
 export type MessageHandler = (msg: RunnerMessage) => void;
 
-function buildIframeHtml(bundle: string): string {
+function buildIframeHtml(engineBundle: string, userBundle: string): string {
+  const bundle = userBundle;
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -84,7 +86,15 @@ function buildIframeHtml(bundle: string): string {
 window.parent.postMessage({ type: 'ready' }, '*');
 </script>
 <script>
-// Game bundle injected below
+// Engine runtime
+try {
+${engineBundle}
+} catch(e) {
+  window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
+}
+</script>
+<script>
+// User game bundle
 try {
 ${bundle}
 } catch(e) {
@@ -123,7 +133,7 @@ export class PlayRunner {
       return;
     }
 
-    const html = buildIframeHtml(code);
+    const html = buildIframeHtml(ENGINE_BUNDLE, result.js);
     const blob = new Blob([html], { type: 'text/html' });
     this._blobUrl = URL.createObjectURL(blob);
 

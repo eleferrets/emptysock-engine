@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['@dimforge/rapier2d-compat'],
+    exclude: ['@dimforge/rapier2d-compat', 'esbuild-wasm'],
   },
   server: {
     port: 5173,
