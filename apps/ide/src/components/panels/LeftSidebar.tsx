@@ -86,9 +86,11 @@ function FileTreeNode({
   );
 }
 
+type SidebarSection = 'files' | 'tools' | 'images' | 'audio';
+
 export function LeftSidebar(): React.ReactElement {
   const { files } = useIDEStore();
-  const [section, setSection] = useState<'files' | 'tools'>('files');
+  const [section, setSection] = useState<SidebarSection>('files');
 
   return (
     <aside
@@ -118,7 +120,7 @@ export function LeftSidebar(): React.ReactElement {
         ].map(item => (
           <button
             key={item.id}
-            onClick={() => setSection(item.id as 'files' | 'tools')}
+            onClick={() => setSection(item.id as SidebarSection)}
             title={item.label}
             className="w-7 h-7 flex items-center justify-center rounded transition-colors"
             style={{
@@ -141,18 +143,20 @@ export function LeftSidebar(): React.ReactElement {
             className="text-[10px] uppercase tracking-widest font-semibold"
             style={{ color: 'var(--text-muted)' }}
           >
-            {section === 'files' ? 'Project' : 'Components'}
+            {section === 'files' ? 'Project' : section === 'tools' ? 'Components' : section === 'images' ? 'Textures' : 'Audio'}
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1">
-          {section === 'files' ? (
+          {section === 'files' && (
             <>
               {files.map(file => (
                 <FileTreeNode key={file.path} file={file} />
               ))}
             </>
-          ) : (
+          )}
+
+          {section === 'tools' && (
             <div className="px-3 py-4">
               {[
                 { name: 'Transform', color: 'var(--blue)' },
@@ -175,6 +179,19 @@ export function LeftSidebar(): React.ReactElement {
                   {c.name}
                 </div>
               ))}
+            </div>
+          )}
+
+          {(section === 'images' || section === 'audio') && (
+            <div
+              className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center"
+              style={{ color: 'var(--text-muted)', fontSize: 11 }}
+            >
+              {section === 'images' ? <ImageIcon size={24} strokeWidth={1} /> : <Music size={24} strokeWidth={1} />}
+              <span>
+                {section === 'images' ? 'Texture' : 'Audio'} browser coming soon.
+                <br />Use the Asset panel below.
+              </span>
             </div>
           )}
         </div>

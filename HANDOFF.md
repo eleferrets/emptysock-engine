@@ -1,83 +1,86 @@
-# EmptySock — Skills Repo Handoff
+# EmptySock Engine — Session Handoff
 
-## Context
-
-The agent pack lives at **`github.com/eleferrets/emptysock-ai-skills`**.
-
-The `ai/` folder and `skills/00-quickstart.md` are written and solid. The remaining
-20 skill files listed in the README are empty slots that need to be filled.
+Branch: `claude/main-ui-passthrough-review-9doi3y` → merged to `main`
 
 ---
 
-## Task: Fill All Missing Skill Files
+## Non-obvious decisions
 
-The README declares 21 skill files. Only `skills/00-quickstart.md` exists.
-Write the remaining 20 files listed below, then also fill the 4 missing `docs/` files.
+### Architecture
 
-Use the PRD at `github.com/eleferrets/emptysock-engine` as the source of truth for
-all API shapes, system names, method signatures, and behaviour. Cross-reference
-`ai/api-reference.json` and `ai/CLAUDE.md` for exact method names.
+**Why `@emptysock/engine` re-exports everything through one barrel**
+Internal deps (PixiJS v8, Rapier2D WASM, Howler.js) are deliberately hidden behind the engine package. Game code must never `import { Container } from 'pixi.js'` directly. The `GameStage` type alias in `packages/engine/src/types/aliases.ts` is the one sanctioned way to type a stage reference. If new PixiJS types need to surface publicly, add aliases there — don't add pixi.js to the public API.
 
----
+**Why esbuild `transform()` in the play runner, not `build()`**
+`transform()` is single-file, in-process, and has no FS access — safe to run inside a web worker without a real project on disk. The full `build()` call (used in exports) needs a real project dir. `buildForPreview` in `export-utils` uses `transform`; all platform exports use `build`.
 
-## Missing Skill Files (`skills/`)
+**`GameBuildService` is a stub**
+`apps/ide/src/services/GameBuildService.ts` does lightweight in-process string validation — it does NOT call esbuild. In the real desktop app (Tauri), the build button would call a Tauri command that runs `buildForPreview` from `@emptysock/export-utils` on the native side. The service interface (`BuildJob`, `onComplete`) is already shaped correctly for that wiring.
 
-| File | Content to write |
-|---|---|
-| `01-project-setup.md` | `emptysock.project.json` manifest schema, folder structure (`src/`, `assets/`, `meta/`, `export/`), icon pipeline (one 1024px PNG → all sizes auto-generated), splash config |
-| `02-scenes.md` | `SceneManager.load()`, `SceneManager.transition()`, scene lifecycle hooks (`onEnter`, `onExit`, `onUpdate`, `onFixedUpdate`), scene queuing |
-| `03-entities.md` | `scene.createEntity()`, `entity.addComponent()` / `getComponent()` / `removeComponent()`, tags, `entity.destroy()`, prefabs, `ObjectPool` |
-| `04-rendering.md` | `Sprite` component, `Animator`, texture atlas, normal maps, `PixiJS` renderer waterfall, `autoDetectRenderer` config, `powerPreference: 'high-performance'` |
-| `05-physics.md` | `PhysicsBody` shapes/types, `CharacterController`, `RigidJoint`, sensors (`onSensorEnter/Exit`), collision callbacks, CCD, raw Rapier escape hatch |
-| `06-input.md` | `Input.isDown()`, `Input.isPressed()`, `Input.isReleased()`, `Input.pointer`, touch, `Input.onKeyDown()`, gamepad axes/buttons, dead zones |
-| `07-audio.md` | `Audio.play()`, `Audio.music()`, `Audio.setGroupVolume()`, spatial audio, audio sprites, mobile unlock, `AudioSystem` group API |
-| `08-tilemaps.md` | `TilemapSystem.load()`, layer types (tile/collision/object), `map.getLayer().enablePhysics()`, spawn-point entities, `.esmap` format |
-| `09-particles.md` | `scene.createParticleEmitter()`, all emitter props, `emitter.emit(n)`, GPU tier particle limits, `.esparticle` format |
-| `10-ui.md` | `scene.createUI()`, built-in components (Button/Panel/Text/Slider/Toggle/ProgressBar), anchors, safe zones, `button.onClick()` |
-| `11-visual-novel.md` | `VNController` component, `.esvn` format, node types (dialogue/choice/event/jump/condition), `vn.advance()`, `onChoice`/`onEvent` callbacks, localisation key integration |
-| `12-pathfinding.md` | `PathfindingSystem.findPath()`, `GridCell`, `PathFollower` component, navmesh API, debug overlay, WASM acceleration note |
-| `13-save-system.md` | `SaveSystem.save()` / `load()` / `listSlots()` / `delete()`, auto-save config, cloud save setup, Zod validation at load, `localStorage` vs Tauri filesystem |
-| `14-localisation.md` | `LocalisationSystem.setLocale()`, `t(key, vars)`, plural rules, RTL layout, per-locale font loading, VN integration, translation file format |
-| `15-post-processing.md` | `SceneManager.transition()` effects (fade/wipe/iris/slide/zoom/dissolve/flash/custom), `scene.postProcess.add()`, all 10 effects, `Camera.flash()` / `Camera.fade()` |
-| `16-coroutines.md` | `entity.startCoroutine(function* …)`, all yield helpers (`waitFrames`, `waitSeconds`, `waitUntil`, `waitForEvent`, `waitForAnimation`, `waitForPath`, `waitForDialogue`), `entity.stopCoroutine()` |
-| `17-tweens-timers.md` | `Tween.to()`, easing functions, `Timer.after()`, `Timer.every()`, cancel patterns, why NOT to use `setTimeout` |
-| `18-3d.md` | Scene `type: '3d'` / `'hybrid'`, `Mesh` component, `Light` component, `Camera3D`, `zOrder: 'above'/'below'`, glTF loading, baked lightmaps |
-| `19-export.md` | All 7 platform targets, `emptysock.project.json` export config, icon pipeline, esbuild security settings (no source maps, drop console, mangle), CI verification checks |
-| `20-performance.md` | GPU tier table (potato→ultra), draw call budget (warn at 50 on Pi 4), sprite batching, particle limits per tier, Mali-G72 compat layer, Raspberry Pi performance targets |
-| `21-typescript.md` | Banned patterns (`any`, `!`, `@ts-ignore`, `setTimeout` in game loops, direct PixiJS imports), required patterns (Zod at boundaries, `import type`, explicit return types), ESLint rules |
+**`CanvasPreview` runs a hardcoded bouncing balls demo**
+The play runner canvas in `apps/ide/src/components/panels/CanvasPreview.tsx` renders `BouncingBallsDemo` — a self-contained PixiJS scene used as a placeholder. It is not connected to the code editor. Real wiring: when the user hits Run, compile the editor code via `buildForPreview`, inject the resulting IIFE into a sandboxed `<iframe>` or worker, and stream its `console` / FPS output back via `postMessage`. The store already has `playState`, `fps`, `debugOverlay` fields ready for this.
+
+**Why `archiver` instead of the system `zip`/`tar`**
+User requirement: no system binaries. `archiver` (npm) bundles zip and tar support. The `ZipArchive` class is used directly (not the default export) because the `@types/archiver` v8 package exports named classes, not a callable default.
+
+**Raspi = Linux ARM, not a separate pipeline**
+`exportRaspi` in `export-utils` is the Linux export with `arch: 'arm'` semantics and a `game-raspi-arm.zip` output name. It shares the same esbuild bundle — there is no cross-compilation. The game runs inside Chromium kiosk mode or Electron-arm on the Pi; the JS is identical to the Linux x86 build.
+
+**Why `statSync` in `shellGradle` could throw**
+`shellGradle` checks for a `gradlew` file with `statSync` and will throw if `android/` doesn't exist. This is intentional: if the `android/` project dir is missing, the error message from the crash is clear enough. A future improvement is an explicit `existsSync` check with a friendlier message.
+
+**`exactOptionalPropertyTypes: true` in tsconfig**
+This is set project-wide. Any optional prop typed `T | undefined` fails strict checks when assigned directly. Pattern: use conditional spread `...(condition ? { prop: value } : {})` instead of `prop: condition ? value : undefined`. See the `drop`/`mangleProps` fix in `export-utils/src/index.ts` for the pattern.
+
+**GPU lighting shader coordinate assumption**
+`LightingSystem`'s GLSL fragment shader normalises point light positions against a hardcoded 1280×720 resolution. If the canvas is a different size the light positions will be off. Fix: pass `uResolution` as a uniform and normalise against it instead. Filed as a known limitation.
+
+**Mali compat is detect-only**
+`detectMali` / `applyMaliFixes` exist and are exported but `applyMaliFixes` currently sets flags on the renderer options object — it does not patch the GLSL shaders. The real fix for Mali-G72 precision bugs (the main target) requires `precision mediump float` headers in the LightingSystem shaders. This is noted but not implemented.
 
 ---
 
-## Missing Docs Files (`docs/`)
+## What the PRDs wanted that isn't built yet
 
-| File | Content |
-|---|---|
-| `docs/templates.md` | What each template contains and teaches (blank, platformer, top-down shooter, puzzle, visual novel, tech demo), how to use them as a starting point |
-| `docs/troubleshooting.md` | Common errors: WASM init failure, WebGL context lost, Mali artefacts, missing asset 404s, save slot corruption, export size too large |
-| `docs/migration.md` | v1.0→v1.1 changes, how to update project manifest, any renamed APIs |
-| `docs/faq.md` | Why no source maps? Why Rapier2D not Box2D? Why Howler not WebAudio directly? How to add a custom shader? Can I use React in-game? |
+The existing `HANDOFF.md` (now replaced by this file) described an **ai-skills repo** (`eleferrets/emptysock-ai-skills`) that needs 20 skill files and 4 docs files written. That is a separate repository task, not work in this engine repo. A follow-up session on that repo should use the skill table in git history (the previous HANDOFF.md content) as its task list.
+
+Within **this engine repo**, the following PRD items are not yet implemented:
+
+### IDE — wiring gaps
+- **Play runner not connected to editor**: `CanvasPreview` shows a hardcoded demo; the real pipeline (compile editor code → inject into sandboxed iframe → stream FPS/console back) is not wired
+- **Export panel UI**: the export targets UI in the IDE is not implemented; `GameBuildService` doesn't call the actual export functions from `@emptysock/export-utils`
+- **File save / open from disk**: the editor stores code in Zustand state only; there is no Tauri FS integration yet
+- **Quick open / command palette**: `Ctrl+P` / `Ctrl+Shift+P` shortcuts are documented in the manual but not implemented in the Monaco editor panel
+- **Clear cache command**: documented in the manual; not wired to an actual action in the store
+
+### Engine — missing systems from PRDs
+- **TilemapSystem**: referenced in the ai-skills PRD skill list; not implemented
+- **ParticleSystem**: same — not implemented
+- **3D/hybrid scene mode**: `type: '3d'` / `type: 'hybrid'` mentioned in the PRD; not implemented
+- **`SceneManager`**: the engine has `Scene` (single-scene) but no multi-scene manager with transitions, `onEnter`/`onExit` hooks, or scene queuing
+- **Tween system**: `Tween.to()` / `Timer.after()` / `Timer.every()` referenced in skills but not in the engine package
+- **`ObjectPool`**: referenced in prefabs/skills; not implemented
+- **Sensor callbacks**: `onSensorEnter` / `onSensorExit` on `PhysicsBody`; Rapier supports sensors but the ECS bridge doesn't expose callbacks yet
+- **UI system**: `scene.createUI()` / Button / Panel / Text components referenced in skills; not implemented
+- **Post-processing effects**: `scene.postProcess.add()` + transition effects (fade, wipe, iris, etc.); not implemented
+- **`RigidJoint`**: physics joints not in `PhysicsBody` or a separate component yet
+- **Normal map diffuse lighting**: `LightingSystem` accepts `useNormalMap` flag but the GLSL doesn't sample the normal map texture yet
+
+### Export
+- **Installable export targets**: the user asked for HTML5 as the default-installed target with other platforms downloaded on demand. The current implementation has all targets always available; there is no plugin/download system yet.
+- **Windows installer**: NSIS path is typed but the bundled NSIS binary is not shipped — `shellNsis` still falls back to system `makensis`. Need to bundle an NSIS binary or use a pure-JS NSIS alternative.
+
+### Toolchain
+- **`VMRunner`**: `packages/toolchain/src/VMRunner.ts` exports `runInVM` / `pullImage` / `runLinuxTests` but these shell out to Docker. The user asked for a "bundled vm runner" for play testing. The current implementation is a Docker wrapper for cross-platform CI testing, not an in-IDE sandboxed runner.
 
 ---
 
-## Writing Guidelines
+## Current test count
+- `@emptysock/engine`: 101 tests across 19 files
+- `@emptysock/export-utils`: 26 tests
+- `@emptysock/toolchain`: present, vitest config added
+- `@emptysock/ide`: present
+- All pass, zero type errors as of last push
 
-- Every file starts with a `# Title` and a one-line description.
-- All code blocks use `typescript` syntax highlighting.
-- Use exact method names from `ai/api-reference.json` — do not invent API surface.
-- Show complete, runnable snippets (not fragments). Each example should work if
-  pasted into a scene's `onEnter()`.
-- Note GPU tier behaviour where relevant (e.g. shadows disabled on `potato`).
-- Note platform differences (Raspberry Pi, mobile) where the PRD calls them out.
-- Keep each file focused and scannable — the agent reads it at task start, not as a tutorial.
-
----
-
-## How to verify
-
-After writing all files, run:
-```bash
-ls skills/ | wc -l   # should be 21
-ls docs/ | wc -l     # should be 6
-```
-
-Commit with `docs: fill all 20 skill files and 4 missing docs` and push to `main`.
+## Branch state
+All work is on `claude/main-ui-passthrough-review-9doi3y`, merged to `main`.

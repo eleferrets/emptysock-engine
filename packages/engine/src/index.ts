@@ -30,7 +30,7 @@ export type { AnimationClip } from './components/Animator.js';
 // New Systems
 export { VNSystem } from './systems/VNSystem.js';
 export type { DialogueNode, DialogueTree } from './systems/VNSystem.js';
-export { LightingSystem } from './systems/LightingSystem.js';
+export { LightingSystem, LightingFilter } from './systems/LightingSystem.js';
 export type { Light, LightType } from './systems/LightingSystem.js';
 export { PathfindingSystem } from './systems/PathfindingSystem.js';
 export type { GridCell, PathRequest, PathResult } from './systems/PathfindingSystem.js';
@@ -50,3 +50,6 @@ export type { UpdatableSystem } from './core/SystemManager.js';
 // Compat
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
 export type { MaliInfo, MaliFixes } from './compat/mali.js';
+
+// Public type aliases — use these instead of importing from pixi.js/rapier/howler directly
+export type { GameStage } from './types/aliases.js';

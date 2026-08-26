@@ -12,6 +12,16 @@ import type { EntityItem } from '../../store/ideStore';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = React.useState(() => window.innerWidth < 768);
+  React.useEffect(() => {
+    const handler = (): void => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 function EntityRow({
   entity,
   depth = 0,
@@ -20,7 +30,8 @@ function EntityRow({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = React.useState(true);
-  const { selectedEntityId, selectEntity } = useIDEStore();
+  const { selectedEntityId, selectEntity, setRightPanelOpen } = useIDEStore();
+  const isMobile = useIsMobile();
 
   const isSelected = selectedEntityId === entity.id;
   const hasChildren = entity.children.length > 0;
@@ -28,7 +39,10 @@ function EntityRow({
   return (
     <div>
       <button
-        onClick={() => selectEntity(entity.id)}
+        onClick={() => {
+          selectEntity(entity.id);
+          if (isMobile) setRightPanelOpen(true);
+        }}
         className="flex items-center w-full gap-1 py-1 pr-2 group"
         style={{
           paddingLeft: `${8 + depth * 14}px`,
