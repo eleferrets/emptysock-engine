@@ -67,29 +67,38 @@ Handlers are **user-defined code** — the developer writes them. They are not a
 - `Engine.logError(err)` writes the error. The second argument is an optional filename to write to. Defaults vary by handler scope (see below).
 - The error object is whatever the engine hands the handler — message, file, line, stack, and anything else useful. The developer passes it straight through; they don't construct it.
 
-**Handler scopes and default log filenames:**
+**Two distinct mechanisms:**
+
+**1. Global handler — a recognized file**
+
+The engine looks for a reserved file in the project root (e.g. `errorHandler.ts` / `errorHandler.js`). If it exists, the engine treats it as the catch-all for any error not handled at the file/class level. The developer doesn't register it — the engine picks it up automatically by filename convention.
 
 ```ts
-// Global — catches any error not already caught by a file/class handler
-// Default log: globalError
-Engine.onError((err) => Engine.logError(err));
-Engine.onError((err) => Engine.logError(err, 'myGame'));  // → myGame.log
-
-// Per-file — registered in a specific file, catches errors from that file only
-// Default log: name of the file the handler lives in
-Engine.onFileError((err) => Engine.logError(err));
-Engine.onFileError((err) => Engine.logError(err, 'audio'));  // → audio.log
-
-// Per-class — same shape, scoped to a class
-class AudioSystem {
-  onError(err) { Engine.logError(err); }           // → AudioSystem.log (class name)
-  onError(err) { Engine.logError(err, 'audio'); }  // → audio.log
+// errorHandler.ts — engine finds and runs this automatically
+export default function(err) {
+  Engine.logError(err);             // → globalError.log
+  Engine.logError(err, 'myGame');   // → myGame.log
 }
 ```
 
-- File/class handlers run first. Anything they don't catch falls through to the global handler.
-- Default log name: the source file's name for file/class handlers; `globalError` for the global handler.
-- The filename argument is just a base name — the engine appends the extension and writes it to the standard log output location for the platform.
+**2. Per-file/per-class handler — a function call**
+
+Inside any file or class, call `Engine.onError` to register a handler scoped to that file or class. Errors that originate there hit this handler first; anything unhandled falls through to the global file.
+
+```ts
+// AudioSystem.ts
+Engine.onError((err) => Engine.logError(err));          // → AudioSystem.log
+Engine.onError((err) => Engine.logError(err, 'audio')); // → audio.log
+
+class AudioSystem {
+  onError(err) { Engine.logError(err); }  // class-level, same idea
+}
+```
+
+- Per-file/class handlers run first; unhandled errors fall through to `errorHandler.ts`.
+- If `errorHandler.ts` doesn't exist, unhandled errors show the centered modal popup as normal.
+- Default log name: source filename for per-file/class; `globalError` when called from `errorHandler.ts`.
+- The filename argument to `Engine.logError` is a base name — the engine appends the extension and writes to the platform's standard log location.
 
 Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay on the developer's machine.
 
