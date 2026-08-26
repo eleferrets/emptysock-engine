@@ -55,19 +55,23 @@ The debugger is an **alternative live run tool** — a second play mode alongsid
 
 ### Runtime Error Handling
 
-The word "suppress" is the wrong frame. Errors are **handled** — written to a log file and kept from crashing or cluttering the user-facing experience. Nothing is discarded silently.
+Handlers are **user-defined code** — the developer writes them. They are not a platform toggle that automatically logs things. Without a handler in place, an unhandled runtime error behaves the same in both debug and live run: it stops the game and surfaces the error visibly.
 
-**In debug run mode:**
-- Runtime errors surface immediately as a **centered popup** in the runner window. The popup shows the error message clearly. The runner output panel captures the full stack trace.
-- Errors are also always written to the log file during debug runs regardless of any handler settings.
+**Without any handler (debug run or normal live run):**
+- A **centered modal popup** appears in the runner window showing the error message and the file that produced it.
+- The full stack trace is written to the runner output panel.
+- The game stops.
 
-**In release (including tester builds):**
-- If the **global error handler** is toggled on: errors are caught, written to a log file, and the game continues running if it can. No popup, no crash to desktop.
-- If the global handler is off: unhandled errors behave as the runtime defaults (likely crash).
+**With a user-defined handler:**
+- The handler intercepts the error before it becomes a crash. What happens next is up to the developer — writing to a log file, continuing past the error, silently skipping the failing system, etc.
+- The engine provides the mechanism (a global hook and per-file/per-class registration); the developer provides the logic.
 - Handler granularity:
-  - **Global handler** — catches everything not already handled lower down. One toggle in release settings.
-  - **Per-file / per-class handler** — finer control for specific systems (e.g. an audio subsystem that can fail gracefully without taking down the whole game). Decorated or registered in code by the developer.
-- Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay internal to the developer's machine.
+  - **Global handler** — a single catch-all registered once; catches anything not already handled at a lower level.
+  - **Per-file / per-class handler** — registered for a specific system (e.g. an audio subsystem that can fail gracefully without taking the whole game down).
+
+The engine does not write to a log file by default. If a developer wants a log file, they write that in their handler. The platform just guarantees the error is delivered to the handler rather than crashing.
+
+Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay on the developer's machine.
 
 ### Collaboration / Tester Distribution (recommendation)
 The right model here is two distinct flows:
