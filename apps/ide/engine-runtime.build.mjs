@@ -4,6 +4,9 @@
  *
  * Output: src/runtime/engineBundle.generated.ts
  * Run automatically via the predev / prebuild npm scripts.
+ *
+ * Pass --minify or set NODE_ENV=production for a minified, smaller bundle.
+ * Minification reduces iframe startup time at the cost of a longer build step.
  */
 
 import { build } from 'vite';
@@ -13,11 +16,13 @@ import { writeFileSync, mkdirSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const isProd = process.argv.includes('--minify') || process.env.NODE_ENV === 'production';
+
 const engineEntry = resolve(__dirname, '../../packages/engine/src/index.ts');
 const outDir = resolve(__dirname, 'src/runtime');
 const outFile = resolve(outDir, 'engineBundle.generated.ts');
 
-console.log('[engine-runtime] Bundling engine as IIFE...');
+console.log(`[engine-runtime] Bundling engine as IIFE${isProd ? ' (minified)' : ''}...`);
 
 const result = await build({
   configFile: false,
@@ -32,7 +37,7 @@ const result = await build({
   },
   build: {
     write: false,
-    minify: false,
+    minify: isProd,
     lib: {
       entry: engineEntry,
       name: 'EmptySockEngine',

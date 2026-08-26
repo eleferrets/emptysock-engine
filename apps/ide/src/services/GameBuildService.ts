@@ -1,7 +1,9 @@
 /**
- * GameBuildService — transforms the editor's TypeScript source using
- * esbuild-wasm, bundling it as an IIFE with @emptysock/engine resolved
+ * GameBuildService — transforms the editor's TypeScript/JavaScript source
+ * using esbuild-wasm, bundling it as an IIFE with @emptysock/engine resolved
  * to the pre-bundled window.EmptySockEngine global.
+ *
+ * Supports both .ts/.tsx and .js/.jsx source files as first-class inputs.
  */
 
 import * as esbuild from 'esbuild-wasm';
@@ -16,7 +18,11 @@ export interface BuildJobResult {
 
 type BuildJob = {
   code: string;
+  /** Source filename — used to pick the correct esbuild loader. Defaults to 'game.ts'. */
+  filename?: string;
   mode: 'debug' | 'release';
+  /** When true, applies full tree-shaking, identifier/syntax/whitespace minification on top of the normal release minify. */
+  aggressiveMode?: boolean;
   onStart: () => void;
   onComplete: (result: BuildJobResult) => void;
 };
@@ -31,6 +37,17 @@ function ensureEsbuild(): Promise<void> {
     });
   }
   return esbuildReady;
+}
+
+function loaderForFilename(filename: string): esbuild.Loader {
+  const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
+  switch (ext) {
+    case 'js':  return 'js';
+    case 'jsx': return 'jsx';
+    case 'tsx': return 'tsx';
+    case 'ts':
+    default:    return 'ts';
+  }
 }
 
 // esbuild plugin: resolves @emptysock/engine to window.EmptySockEngine
@@ -48,29 +65,43 @@ const engineGlobalPlugin: esbuild.Plugin = {
   },
 };
 
-async function runBuild(code: string, mode: 'debug' | 'release'): Promise<BuildJobResult> {
+async function runBuild(
+  code: string,
+  mode: 'debug' | 'release',
+  filename = 'game.ts',
+  aggressiveMode = false,
+): Promise<BuildJobResult> {
   const start = Date.now();
   try {
     await ensureEsbuild();
 
+    const isRelease = mode === 'release';
+    const loader = loaderForFilename(filename);
+
     const result = await esbuild.build({
       stdin: {
         contents: code,
-        loader: 'ts',
-        sourcefile: 'game.ts',
+        loader,
+        sourcefile: filename,
       },
       bundle: true,
       format: 'iife',
       globalName: 'UserGame',
-      minify: mode === 'release',
+      minify: isRelease,
+      ...(isRelease && aggressiveMode ? {
+        minifyIdentifiers: true,
+        minifySyntax: true,
+        minifyWhitespace: true,
+        treeShaking: true,
+      } : {}),
       sourcemap: mode === 'debug' ? 'inline' : false,
       target: ['es2020'],
-      ...(mode === 'release' ? { drop: ['console'] as const } : {}),
+      ...(isRelease ? { drop: ['console'] as const } : {}),
       plugins: [engineGlobalPlugin],
       write: false,
     });
 
-    const errors = result.errors.map(e => `${e.location?.file ?? 'game.ts'}:${e.location?.line ?? 0}: ${e.text}`);
+    const errors = result.errors.map(e => `${e.location?.file ?? filename}:${e.location?.line ?? 0}: ${e.text}`);
     if (errors.length > 0) {
       return { success: false, errors, duration: Date.now() - start, byteSize: 0, js: '' };
     }
@@ -107,7 +138,7 @@ export class GameBuildService {
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       job.onStart();
-      void runBuild(job.code, job.mode).then(result => job.onComplete(result));
+      void runBuild(job.code, job.mode, job.filename, job.aggressiveMode).then(result => job.onComplete(result));
     }, this.debounceMs);
   }
 
@@ -120,7 +151,7 @@ export class GameBuildService {
 
   async buildNow(job: Omit<BuildJob, 'onStart' | 'onComplete'>): Promise<BuildJobResult> {
     this.cancel();
-    return runBuild(job.code, job.mode);
+    return runBuild(job.code, job.mode, job.filename, job.aggressiveMode);
   }
 
   destroy(): void {
