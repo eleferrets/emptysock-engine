@@ -64,20 +64,32 @@ Handlers are **user-defined code** — the developer writes them. They are not a
 
 **With a handler:**
 - The engine provides ready-made functions — the developer just calls one and passes the error object. No boilerplate, no file I/O to write themselves.
-- Rough API shape (subject to naming at implementation time):
-  ```ts
-  // global catch-all
-  Engine.onError((err) => Engine.logError(err));
+- `Engine.logError(err)` writes the error. The second argument is an optional filename to write to. Defaults vary by handler scope (see below).
+- The error object is whatever the engine hands the handler — message, file, line, stack, and anything else useful. The developer passes it straight through; they don't construct it.
 
-  // per-class
-  class AudioSystem {
-    onError(err) { Engine.logError(err); }
-  }
-  ```
-- `Engine.logError(err)` (or equivalent) does the write. The argument is whatever the engine hands the handler — an object with message, file, line, stack, and anything else useful. The developer passes it straight through; they don't construct it.
-- Handler granularity:
-  - **Global handler** — registered once, catches anything not handled lower down.
-  - **Per-class handler** — an `onError` method (or decorator) on a specific system; scoped to that class only.
+**Handler scopes and default log filenames:**
+
+```ts
+// Global — catches any error not already caught by a file/class handler
+// Default log: globalError
+Engine.onError((err) => Engine.logError(err));
+Engine.onError((err) => Engine.logError(err, 'myGame'));  // → myGame.log
+
+// Per-file — registered in a specific file, catches errors from that file only
+// Default log: name of the file the handler lives in
+Engine.onFileError((err) => Engine.logError(err));
+Engine.onFileError((err) => Engine.logError(err, 'audio'));  // → audio.log
+
+// Per-class — same shape, scoped to a class
+class AudioSystem {
+  onError(err) { Engine.logError(err); }           // → AudioSystem.log (class name)
+  onError(err) { Engine.logError(err, 'audio'); }  // → audio.log
+}
+```
+
+- File/class handlers run first. Anything they don't catch falls through to the global handler.
+- Default log name: the source file's name for file/class handlers; `globalError` for the global handler.
+- The filename argument is just a base name — the engine appends the extension and writes it to the standard log output location for the platform.
 
 Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay on the developer's machine.
 
