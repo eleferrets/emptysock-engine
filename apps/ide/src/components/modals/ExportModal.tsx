@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { X, Download, Globe, Monitor, Apple, Terminal, Smartphone } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useIDEStore } from '../../store/ideStore';
+import { invoke } from '@tauri-apps/api/core';
 
 export type ExportPlatform = 'web' | 'windows' | 'macos' | 'linux' | 'android' | 'ios';
 
@@ -49,14 +50,10 @@ export function ExportModal({ open, onClose }: ExportModalProps): React.ReactEle
     setOutputPath('');
 
     try {
-      // In a real Tauri app this would invoke the backend export command.
-      // In the browser-only IDE we show a descriptive response.
-      const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+      const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
       if (isTauri) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invoke = (window as any).__TAURI__.core.invoke as (cmd: string, args: unknown) => Promise<{ success: boolean; outputPath: string; error?: string }>;
-        const result = await invoke('export_game', {
+        const result = await invoke<{ success: boolean; outputPath: string; error?: string }>('export_game', {
           platform: selectedPlatform,
           format: selectedFormats[selectedPlatform],
           code: editorCode,
