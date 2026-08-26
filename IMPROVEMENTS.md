@@ -64,7 +64,7 @@ Handlers are **user-defined code** — the developer writes them. They are not a
 
 **With a handler:**
 - The engine provides ready-made functions — the developer just calls one and passes the error object. No boilerplate, no file I/O to write themselves.
-- `Engine.logError(err)` writes the error. The second argument is an optional filename to write to. Defaults vary by handler scope (see below).
+- `Engine.logErrorToFile(err)` writes the error to a log file. The second argument is an optional filename to write to. Defaults vary by handler scope (see below). Name TBD at implementation — something in the `log` / `handler` space, clearly indicating it writes to a file.
 - The error object is whatever the engine hands the handler — message, file, line, stack, and anything else useful. The developer passes it straight through; they don't construct it.
 
 **Two distinct mechanisms:**
@@ -76,7 +76,7 @@ The engine looks for a reserved file in the project root (e.g. `errorHandler.ts`
 ```ts
 // errorHandler.ts — engine finds and runs this automatically
 export default function(err) {
-  Engine.logError(err);             // → globalError.log
+  Engine.logErrorToFile(err);             // → globalError.log
   Engine.logError(err, 'myGame');   // → myGame.log
 }
 ```
@@ -87,18 +87,26 @@ Inside any file or class, call `Engine.onError` to register a handler scoped to 
 
 ```ts
 // AudioSystem.ts
-Engine.onError((err) => Engine.logError(err));          // → AudioSystem.log
+Engine.onError((err) => Engine.logErrorToFile(err));          // → AudioSystem.log
 Engine.onError((err) => Engine.logError(err, 'audio')); // → audio.log
 
 class AudioSystem {
-  onError(err) { Engine.logError(err); }  // class-level, same idea
+  onError(err) { Engine.logErrorToFile(err); }  // class-level, same idea
 }
 ```
 
 - Per-file/class handlers run first; unhandled errors fall through to `errorHandler.ts`.
 - If `errorHandler.ts` doesn't exist, unhandled errors show the centered modal popup as normal.
 - Default log name: source filename for per-file/class; `globalError` when called from `errorHandler.ts`.
-- The filename argument to `Engine.logError` is a base name — the engine appends the extension and writes to the platform's standard log location.
+- The filename argument to `Engine.logErrorToFile` is a base name — the engine appends the extension and writes to the platform's standard log location.
+
+**`Engine.logDebugError(message)`**
+
+A separate utility for writing a debug message to the runner output window. Unlike the error handler path, this is not tied to a thrown error — the developer calls it explicitly anywhere in their code. It writes to the output window in both normal run mode and debug run mode, so it works as a lightweight "always-visible" diagnostic regardless of which runner is active. Not a replacement for the error handler; just a convenient way to surface intentional debug output without stopping the game.
+
+```ts
+Engine.logDebugError('AudioSystem: buffer underrun at frame 142');
+```
 
 Source maps are **not** included in tester builds. Tester builds are release builds without source maps — they test the finished artifact. Source maps stay on the developer's machine.
 
