@@ -341,7 +341,7 @@ describe('platform exports — failure shape', () => {
   it('exportRaspi returns correct shape on failure', async () => {
     const { exportRaspi } = await import('../index.js');
     const outDir = mkdtempSync(join(tmpdir(), 'es-raspi-'));
-    const result = await exportRaspi({ projectDir: badProjectDir, outDir, formats: ['tar'] });
+    const result = await exportRaspi({ projectDir: badProjectDir, outDir, formats: ['zip'] });
     expect(result.success).toBe(false);
     expect(Array.isArray(result.errors)).toBe(true);
   });

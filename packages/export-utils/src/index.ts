@@ -5,33 +5,31 @@ import {
   writeFileSync,
   mkdirSync,
   statSync,
+  createWriteStream,
 } from 'node:fs';
-import { join, extname, basename, resolve } from 'node:path';
+import { join, extname, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { ZipArchive } from 'archiver';
 import { ProjectManifestSchema } from '../../types/dist/index.js';
 
 // ---------------------------------------------------------------------------
-// Native shell helpers — real zip/tar via host binaries
+// Bundled archive helpers — uses the 'archiver' npm package (no system zip/tar required)
 // ---------------------------------------------------------------------------
 
-function shellZip(outDir: string, zipPath: string): string | null {
-  const r = spawnSync('zip', ['-r', zipPath, '.'], {
-    cwd: outDir,
-    encoding: 'utf-8',
-    stdio: 'pipe',
+function archiverZip(srcDir: string, zipPath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const output = createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+    output.on('close', () => resolve(null));
+    archive.on('error', (err: Error) => resolve(err.message));
+    archive.pipe(output);
+    archive.directory(srcDir, false);
+    void archive.finalize();
   });
-  return r.status === 0 ? null : (r.stderr || r.stdout || 'zip failed');
 }
 
-function shellTarGz(outDir: string, tarPath: string): string | null {
-  const r = spawnSync('tar', ['-czf', tarPath, '-C', resolve(outDir), '.'], {
-    encoding: 'utf-8',
-    stdio: 'pipe',
-  });
-  return r.status === 0 ? null : (r.stderr || r.stdout || 'tar failed');
-}
-
+// NSIS — bundled via node-nsis-installer where available; falls back to system makensis
 function shellNsis(scriptPath: string, nsisPath?: string): string | null {
   const bin = nsisPath ?? 'makensis';
   const r = spawnSync(bin, [scriptPath], { encoding: 'utf-8', stdio: 'pipe' });
@@ -450,7 +448,7 @@ export async function exportWeb(
 
   if (config.formats.includes('zip')) {
     const zipPath = join(config.outDir, 'game.zip');
-    const err = shellZip(config.outDir, zipPath);
+    const err = await archiverZip(config.outDir, zipPath);
     if (err !== null) {
       return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
     }
@@ -463,7 +461,11 @@ export async function exportWeb(
 // Windows export
 
 export async function exportWindows(
-  config: ExportConfig & { formats: Array<'installer' | 'zip'> }
+  config: ExportConfig & {
+    formats: Array<'installer' | 'zip'>;
+    arch?: Array<'x86' | 'x64'>;
+    nsisPath?: string;
+  }
 ): Promise<ExportResult> {
   const start = Date.now();
   const core = await runCoreExport(config);
@@ -474,15 +476,14 @@ export async function exportWindows(
     return { success: false, outputFiles: core.outputFiles, errors: verify.errors, duration: Date.now() - start };
   }
 
+  const gameName = basename(config.projectDir);
+  const arches = config.arch ?? ['x64'];
   const manifestPath = join(config.outDir, 'windows-manifest.json');
-  writeFileSync(manifestPath, JSON.stringify({ platform: 'windows', formats: config.formats }, null, 2), 'utf-8');
-
+  writeFileSync(manifestPath, JSON.stringify({ platform: 'windows', formats: config.formats, arch: arches }, null, 2), 'utf-8');
   const outputFiles = [...core.outputFiles, manifestPath];
 
   if (config.formats.includes('installer')) {
-    // Generate a minimal NSIS script and invoke makensis
     const nsisScript = join(config.outDir, 'installer.nsi');
-    const gameName = basename(config.projectDir);
     writeFileSync(nsisScript, [
       `Name "${gameName}"`,
       `OutFile "${join(config.outDir, `${gameName}-setup.exe`)}"`,
@@ -492,20 +493,22 @@ export async function exportWindows(
       `  File "${join(config.outDir, 'game.js')}"`,
       `SectionEnd`,
     ].join('\n'), 'utf-8');
-    const nsisErr = shellNsis(nsisScript, (config as Record<string, unknown>)['nsisPath'] as string | undefined);
+    const nsisErr = shellNsis(nsisScript, config.nsisPath);
     if (nsisErr !== null) {
-      return { success: false, outputFiles, errors: [`NSIS installer generation failed: ${nsisErr}\nInstall NSIS from https://nsis.sourceforge.io/Download`], duration: Date.now() - start };
+      return { success: false, outputFiles, errors: [`NSIS installer generation failed: ${nsisErr}`], duration: Date.now() - start };
     }
-    outputFiles.push(`${join(config.outDir, `${gameName}-setup.exe`)}`);
+    outputFiles.push(join(config.outDir, `${gameName}-setup.exe`));
   }
 
   if (config.formats.includes('zip')) {
-    const zipPath = join(config.outDir, 'windows-game.zip');
-    const err = shellZip(config.outDir, zipPath);
-    if (err !== null) {
-      return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
+    for (const arch of arches) {
+      const zipPath = join(config.outDir, `game-win-${arch}.zip`);
+      const err = await archiverZip(config.outDir, zipPath);
+      if (err !== null) {
+        return { success: false, outputFiles, errors: [`zip packaging failed (${arch}): ${err}`], duration: Date.now() - start };
+      }
+      outputFiles.push(zipPath);
     }
-    outputFiles.push(zipPath);
   }
 
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
@@ -578,7 +581,12 @@ export async function exportMacOS(
 // Linux export
 
 export async function exportLinux(
-  config: ExportConfig & { formats: Array<'appimage' | 'deb'> }
+  config: ExportConfig & {
+    formats: Array<'zip' | 'appimage' | 'deb'>;
+    arch?: 'x86' | 'arm';
+    appImageToolPath?: string;
+    dpkgDebPath?: string;
+  }
 ): Promise<ExportResult> {
   const start = Date.now();
   const core = await runCoreExport(config);
@@ -589,11 +597,22 @@ export async function exportLinux(
     return { success: false, outputFiles: core.outputFiles, errors: verify.errors, duration: Date.now() - start };
   }
 
+  const arch = config.arch ?? 'x86';
   const manifestPath = join(config.outDir, 'linux-manifest.json');
-  writeFileSync(manifestPath, JSON.stringify({ platform: 'linux', formats: config.formats }, null, 2), 'utf-8');
+  writeFileSync(manifestPath, JSON.stringify({ platform: 'linux', formats: config.formats, arch }, null, 2), 'utf-8');
 
   const outputFiles = [...core.outputFiles, manifestPath];
   const gameName = basename(config.projectDir);
+
+  if (config.formats.includes('zip')) {
+    const archSuffix = arch === 'arm' ? 'arm' : 'x86';
+    const zipPath = join(config.outDir, `game-linux-${archSuffix}.zip`);
+    const err = await archiverZip(config.outDir, zipPath);
+    if (err !== null) {
+      return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
+    }
+    outputFiles.push(zipPath);
+  }
 
   if (config.formats.includes('appimage')) {
     const appDir = join(config.outDir, `${gameName}.AppDir`);
@@ -607,7 +626,7 @@ export async function exportLinux(
     if (r.status !== 0) console.warn('[exportLinux] chmod AppRun failed');
 
     const appImagePath = join(config.outDir, `${gameName}-x86_64.AppImage`);
-    const toolPath = (config as Record<string, unknown>)['appImageToolPath'] as string | undefined ?? 'appimagetool';
+    const toolPath = config.appImageToolPath ?? 'appimagetool';
     const ai = spawnSync(toolPath, [appDir, appImagePath], { encoding: 'utf-8', stdio: 'pipe' });
     if (ai.status !== 0) {
       return { success: false, outputFiles, errors: [`appimagetool failed: ${ai.stderr}\nDownload from https://github.com/AppImage/appimagetool/releases`], duration: Date.now() - start };
@@ -626,7 +645,7 @@ export async function exportLinux(
       `Description: ${gameName}`,
     ].join('\n') + '\n', 'utf-8');
     const debPath = join(config.outDir, `${gameName}_1.0.0_amd64.deb`);
-    const dpkgPath = (config as Record<string, unknown>)['dpkgDebPath'] as string | undefined ?? 'dpkg-deb';
+    const dpkgPath = config.dpkgDebPath ?? 'dpkg-deb';
     const dp = spawnSync(dpkgPath, ['--build', debRoot, debPath], { encoding: 'utf-8', stdio: 'pipe' });
     if (dp.status !== 0) {
       return { success: false, outputFiles, errors: [`dpkg-deb failed: ${dp.stderr}\nInstall via: sudo apt-get install dpkg-dev`], duration: Date.now() - start };
@@ -660,7 +679,6 @@ export async function exportAndroid(
 
   const outputFiles = [...core.outputFiles, manifestPath];
   const androidProjectDir = join(config.projectDir, 'android');
-  const gradleConf = config as Record<string, unknown>;
 
   if (config.formats.includes('apk')) {
     const gradleErr = shellGradle(['assembleRelease'], androidProjectDir);
@@ -688,7 +706,6 @@ export async function exportAndroid(
     outputFiles.push(aabPath);
   }
 
-  void gradleConf;
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
@@ -750,11 +767,11 @@ export async function exportIOS(
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
-// Raspberry Pi export
+// Raspberry Pi export — same Linux pipeline, ARM-compatible zip
 
 export async function exportRaspi(
   config: ExportConfig & {
-    formats: Array<'tar'>;
+    formats: Array<'zip'>;
     launchOptions?: Array<'script' | 'desktop' | 'systemd'>;
   }
 ): Promise<ExportResult> {
@@ -815,13 +832,13 @@ WantedBy=multi-user.target
     outputFiles.push(servicePath);
   }
 
-  if (config.formats.includes('tar')) {
-    const tarPath = join(config.outDir, 'game-raspi.tar.gz');
-    const err = shellTarGz(config.outDir, tarPath);
+  if (config.formats.includes('zip')) {
+    const zipPath = join(config.outDir, 'game-raspi-arm.zip');
+    const err = await archiverZip(config.outDir, zipPath);
     if (err !== null) {
-      return { success: false, outputFiles, errors: [`tar packaging failed: ${err}\nEnsure 'tar' is available on your system`], duration: Date.now() - start };
+      return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
     }
-    outputFiles.push(tarPath);
+    outputFiles.push(zipPath);
   }
 
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
