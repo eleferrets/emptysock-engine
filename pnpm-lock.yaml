@@ -135,7 +135,7 @@ importers:
         version: 2.2.13
       '@vitest/browser':
         specifier: ^4.1.11
-        version: 4.1.11(vite@5.4.21(@types/node@26.3.0))(vitest@2.1.9)
+        version: 4.1.11(vitest@2.1.9)
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1
@@ -154,6 +154,22 @@ importers:
       esbuild:
         specifier: ^0.24.2
         version: 0.24.2
+    devDependencies:
+      '@types/node':
+        specifier: ^26.3.0
+        version: 26.3.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@26.3.0)(@vitest/browser@4.1.11)(jsdom@30.0.1)
+
+  packages/toolchain:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^26.3.0
@@ -3539,10 +3555,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/browser@4.1.11(vite@5.4.21(@types/node@26.3.0))(vitest@2.1.9)':
+  '@vitest/browser@4.1.11(vitest@2.1.9)':
     dependencies:
       '@blazediff/core': 1.9.1
-      '@vitest/mocker': 4.1.11(vite@5.4.21(@types/node@26.3.0))
+      '@vitest/mocker': 4.1.11
       '@vitest/utils': 4.1.11
       magic-string: 0.30.21
       pngjs: 7.0.0
@@ -3571,13 +3587,11 @@ snapshots:
     optionalDependencies:
       vite: 5.4.21(@types/node@26.3.0)
 
-  '@vitest/mocker@4.1.11(vite@5.4.21(@types/node@26.3.0))':
+  '@vitest/mocker@4.1.11':
     dependencies:
       '@vitest/spy': 4.1.11
       estree-walker: 3.0.3
       magic-string: 0.30.21
-    optionalDependencies:
-      vite: 5.4.21(@types/node@26.3.0)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -4606,7 +4620,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 26.3.0
-      '@vitest/browser': 4.1.11(vite@5.4.21(@types/node@26.3.0))(vitest@2.1.9)
+      '@vitest/browser': 4.1.11(vitest@2.1.9)
       jsdom: 30.0.1
     transitivePeerDependencies:
       - less

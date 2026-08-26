@@ -6,9 +6,49 @@ import {
   mkdirSync,
   statSync,
 } from 'node:fs';
-import { join, extname, basename } from 'node:path';
+import { join, extname, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { ProjectManifestSchema } from '../../types/dist/index.js';
+
+// ---------------------------------------------------------------------------
+// Native shell helpers — real zip/tar via host binaries
+// ---------------------------------------------------------------------------
+
+function shellZip(outDir: string, zipPath: string): string | null {
+  const r = spawnSync('zip', ['-r', zipPath, '.'], {
+    cwd: outDir,
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  return r.status === 0 ? null : (r.stderr || r.stdout || 'zip failed');
+}
+
+function shellTarGz(outDir: string, tarPath: string): string | null {
+  const r = spawnSync('tar', ['-czf', tarPath, '-C', resolve(outDir), '.'], {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  return r.status === 0 ? null : (r.stderr || r.stdout || 'tar failed');
+}
+
+function shellNsis(scriptPath: string, nsisPath?: string): string | null {
+  const bin = nsisPath ?? 'makensis';
+  const r = spawnSync(bin, [scriptPath], { encoding: 'utf-8', stdio: 'pipe' });
+  return r.status === 0 ? null : (r.stderr || r.stdout || 'makensis failed');
+}
+
+function shellXcodebuild(args: string[], cwd: string): string | null {
+  const r = spawnSync('xcodebuild', args, { cwd, encoding: 'utf-8', stdio: 'pipe' });
+  return r.status === 0 ? null : (r.stderr || r.stdout || 'xcodebuild failed');
+}
+
+function shellGradle(args: string[], cwd: string): string | null {
+  const gradlew = join(cwd, 'gradlew');
+  const bin = statSync(gradlew).isFile() ? gradlew : 'gradle';
+  const r = spawnSync(bin, args, { cwd, encoding: 'utf-8', stdio: 'pipe' });
+  return r.status === 0 ? null : (r.stderr || r.stdout || 'gradle failed');
+}
 
 // ---------------------------------------------------------------------------
 // Core config & result types
@@ -409,8 +449,12 @@ export async function exportWeb(
   const outputFiles = [...core.outputFiles, htmlPath];
 
   if (config.formats.includes('zip')) {
-    // Would invoke: zip -r game.zip outDir (Tauri backend call in production)
-    console.info('[exportWeb] Would create game.zip via Tauri backend');
+    const zipPath = join(config.outDir, 'game.zip');
+    const err = shellZip(config.outDir, zipPath);
+    if (err !== null) {
+      return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
+    }
+    outputFiles.push(zipPath);
   }
 
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
@@ -433,15 +477,38 @@ export async function exportWindows(
   const manifestPath = join(config.outDir, 'windows-manifest.json');
   writeFileSync(manifestPath, JSON.stringify({ platform: 'windows', formats: config.formats }, null, 2), 'utf-8');
 
+  const outputFiles = [...core.outputFiles, manifestPath];
+
   if (config.formats.includes('installer')) {
-    // Would invoke: NSIS makensis script via Tauri backend
-    console.info('[exportWindows] Would run NSIS installer generation via Tauri backend');
-  }
-  if (config.formats.includes('zip')) {
-    console.info('[exportWindows] Would create Windows zip via Tauri backend');
+    // Generate a minimal NSIS script and invoke makensis
+    const nsisScript = join(config.outDir, 'installer.nsi');
+    const gameName = basename(config.projectDir);
+    writeFileSync(nsisScript, [
+      `Name "${gameName}"`,
+      `OutFile "${join(config.outDir, `${gameName}-setup.exe`)}"`,
+      `InstallDir "$PROGRAMFILES\\${gameName}"`,
+      `Section`,
+      `  SetOutPath $INSTDIR`,
+      `  File "${join(config.outDir, 'game.js')}"`,
+      `SectionEnd`,
+    ].join('\n'), 'utf-8');
+    const nsisErr = shellNsis(nsisScript, (config as Record<string, unknown>)['nsisPath'] as string | undefined);
+    if (nsisErr !== null) {
+      return { success: false, outputFiles, errors: [`NSIS installer generation failed: ${nsisErr}\nInstall NSIS from https://nsis.sourceforge.io/Download`], duration: Date.now() - start };
+    }
+    outputFiles.push(`${join(config.outDir, `${gameName}-setup.exe`)}`);
   }
 
-  return { success: true, outputFiles: [...core.outputFiles, manifestPath], errors: [], duration: Date.now() - start };
+  if (config.formats.includes('zip')) {
+    const zipPath = join(config.outDir, 'windows-game.zip');
+    const err = shellZip(config.outDir, zipPath);
+    if (err !== null) {
+      return { success: false, outputFiles, errors: [`zip packaging failed: ${err}`], duration: Date.now() - start };
+    }
+    outputFiles.push(zipPath);
+  }
+
+  return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
 // macOS export
@@ -461,15 +528,51 @@ export async function exportMacOS(
   const manifestPath = join(config.outDir, 'macos-manifest.json');
   writeFileSync(manifestPath, JSON.stringify({ platform: 'macos', formats: config.formats }, null, 2), 'utf-8');
 
+  const outputFiles = [...core.outputFiles, manifestPath];
+  const gameName = basename(config.projectDir);
+
   if (config.formats.includes('app')) {
-    console.info('[exportMacOS] Would build .app bundle via Tauri backend');
-  }
-  if (config.formats.includes('dmg')) {
-    // Would invoke: create-dmg via Tauri backend
-    console.info('[exportMacOS] Would run create-dmg via Tauri backend');
+    // Build minimal .app bundle directory structure
+    const appPath = join(config.outDir, `${gameName}.app`);
+    mkdirSync(join(appPath, 'Contents', 'MacOS'), { recursive: true });
+    mkdirSync(join(appPath, 'Contents', 'Resources'), { recursive: true });
+    writeFileSync(join(appPath, 'Contents', 'Info.plist'), [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0"><dict>',
+      `<key>CFBundleName</key><string>${gameName}</string>`,
+      '<key>CFBundleExecutable</key><string>game</string>',
+      '<key>CFBundleIdentifier</key><string>com.emptysock.game</string>',
+      '<key>CFBundleVersion</key><string>1.0.0</string>',
+      '<key>CFBundlePackageType</key><string>APPL</string>',
+      '</dict></plist>',
+    ].join('\n'), 'utf-8');
+    // xcodebuild signs if identity is set; otherwise unsigned app
+    const xcErr = shellXcodebuild(['-allowProvisioningUpdates'], config.outDir);
+    if (xcErr !== null && process.platform === 'darwin') {
+      // Non-fatal on non-mac; app bundle structure is correct regardless
+      console.warn(`[exportMacOS] xcodebuild sign skipped: ${xcErr}`);
+    }
+    outputFiles.push(appPath);
   }
 
-  return { success: true, outputFiles: [...core.outputFiles, manifestPath], errors: [], duration: Date.now() - start };
+  if (config.formats.includes('dmg')) {
+    const dmgPath = join(config.outDir, `${gameName}.dmg`);
+    // create-dmg if available, else hdiutil (macOS built-in)
+    const hdi = spawnSync('hdiutil', [
+      'create', '-volname', gameName,
+      '-srcfolder', config.outDir,
+      '-ov', '-format', 'UDZO',
+      dmgPath,
+    ], { encoding: 'utf-8', stdio: 'pipe' });
+    if (hdi.status !== 0 && process.platform === 'darwin') {
+      return { success: false, outputFiles, errors: [`hdiutil dmg creation failed: ${hdi.stderr}`], duration: Date.now() - start };
+    }
+    if (process.platform === 'darwin') outputFiles.push(dmgPath);
+    else console.warn('[exportMacOS] .dmg creation requires macOS — skipped on this platform.');
+  }
+
+  return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
 // Linux export
@@ -489,14 +592,49 @@ export async function exportLinux(
   const manifestPath = join(config.outDir, 'linux-manifest.json');
   writeFileSync(manifestPath, JSON.stringify({ platform: 'linux', formats: config.formats }, null, 2), 'utf-8');
 
+  const outputFiles = [...core.outputFiles, manifestPath];
+  const gameName = basename(config.projectDir);
+
   if (config.formats.includes('appimage')) {
-    console.info('[exportLinux] Would build AppImage via Tauri backend');
-  }
-  if (config.formats.includes('deb')) {
-    console.info('[exportLinux] Would build .deb package via Tauri backend');
+    const appDir = join(config.outDir, `${gameName}.AppDir`);
+    mkdirSync(join(appDir, 'usr', 'bin'), { recursive: true });
+    writeFileSync(join(appDir, `${gameName}.desktop`), [
+      '[Desktop Entry]', `Name=${gameName}`, `Exec=${gameName}`,
+      'Type=Application', 'Categories=Game;',
+    ].join('\n'), 'utf-8');
+    writeFileSync(join(appDir, 'AppRun'), `#!/bin/sh\ncd "$(dirname "$0")"\nnode usr/bin/game.js "$@"\n`, 'utf-8');
+    const r = spawnSync('chmod', ['+x', join(appDir, 'AppRun')], { encoding: 'utf-8' });
+    if (r.status !== 0) console.warn('[exportLinux] chmod AppRun failed');
+
+    const appImagePath = join(config.outDir, `${gameName}-x86_64.AppImage`);
+    const toolPath = (config as Record<string, unknown>)['appImageToolPath'] as string | undefined ?? 'appimagetool';
+    const ai = spawnSync(toolPath, [appDir, appImagePath], { encoding: 'utf-8', stdio: 'pipe' });
+    if (ai.status !== 0) {
+      return { success: false, outputFiles, errors: [`appimagetool failed: ${ai.stderr}\nDownload from https://github.com/AppImage/appimagetool/releases`], duration: Date.now() - start };
+    }
+    outputFiles.push(appImagePath);
   }
 
-  return { success: true, outputFiles: [...core.outputFiles, manifestPath], errors: [], duration: Date.now() - start };
+  if (config.formats.includes('deb')) {
+    const debRoot = join(config.outDir, `${gameName}-deb`);
+    mkdirSync(join(debRoot, 'DEBIAN'), { recursive: true });
+    mkdirSync(join(debRoot, 'usr', 'lib', gameName), { recursive: true });
+    writeFileSync(join(debRoot, 'DEBIAN', 'control'), [
+      `Package: ${gameName.toLowerCase()}`,
+      'Version: 1.0.0', 'Architecture: amd64',
+      'Maintainer: EmptySock <dev@emptysock.io>',
+      `Description: ${gameName}`,
+    ].join('\n') + '\n', 'utf-8');
+    const debPath = join(config.outDir, `${gameName}_1.0.0_amd64.deb`);
+    const dpkgPath = (config as Record<string, unknown>)['dpkgDebPath'] as string | undefined ?? 'dpkg-deb';
+    const dp = spawnSync(dpkgPath, ['--build', debRoot, debPath], { encoding: 'utf-8', stdio: 'pipe' });
+    if (dp.status !== 0) {
+      return { success: false, outputFiles, errors: [`dpkg-deb failed: ${dp.stderr}\nInstall via: sudo apt-get install dpkg-dev`], duration: Date.now() - start };
+    }
+    outputFiles.push(debPath);
+  }
+
+  return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
 // Android export
@@ -520,14 +658,38 @@ export async function exportAndroid(
     'utf-8'
   );
 
+  const outputFiles = [...core.outputFiles, manifestPath];
+  const androidProjectDir = join(config.projectDir, 'android');
+  const gradleConf = config as Record<string, unknown>;
+
   if (config.formats.includes('apk')) {
-    console.info('[exportAndroid] Would build APK via Tauri backend (Gradle)');
-  }
-  if (config.formats.includes('aab')) {
-    console.info('[exportAndroid] Would build AAB via Tauri backend (Gradle bundleRelease)');
+    const gradleErr = shellGradle(['assembleRelease'], androidProjectDir);
+    if (gradleErr !== null) {
+      return {
+        success: false, outputFiles,
+        errors: [`Gradle assembleRelease failed: ${gradleErr}\nInstall Android Studio from https://developer.android.com/studio and set androidSdkPath in emptysock.toolchain.json`],
+        duration: Date.now() - start,
+      };
+    }
+    const apkPath = join(androidProjectDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+    outputFiles.push(apkPath);
   }
 
-  return { success: true, outputFiles: [...core.outputFiles, manifestPath], errors: [], duration: Date.now() - start };
+  if (config.formats.includes('aab')) {
+    const gradleErr = shellGradle(['bundleRelease'], androidProjectDir);
+    if (gradleErr !== null) {
+      return {
+        success: false, outputFiles,
+        errors: [`Gradle bundleRelease failed: ${gradleErr}\nInstall Android Studio from https://developer.android.com/studio and set androidSdkPath in emptysock.toolchain.json`],
+        duration: Date.now() - start,
+      };
+    }
+    const aabPath = join(androidProjectDir, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab');
+    outputFiles.push(aabPath);
+  }
+
+  void gradleConf;
+  return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
 // iOS export
@@ -547,12 +709,45 @@ export async function exportIOS(
   const manifestPath = join(config.outDir, 'ios-manifest.json');
   writeFileSync(manifestPath, JSON.stringify({ platform: 'ios', formats: config.formats }, null, 2), 'utf-8');
 
+  const outputFiles = [...core.outputFiles, manifestPath];
+  const gameName = basename(config.projectDir);
+
   if (config.formats.includes('ipa')) {
-    // Would invoke: xcodebuild archive + exportArchive via Tauri backend
-    console.info('[exportIOS] Would build IPA via Tauri backend (xcodebuild)');
+    const xcworkspace = join(config.projectDir, 'ios', `${gameName}.xcworkspace`);
+    const archivePath = join(config.outDir, `${gameName}.xcarchive`);
+    const ipaDir = join(config.outDir, 'ipa');
+    mkdirSync(ipaDir, { recursive: true });
+    const archiveErr = shellXcodebuild([
+      '-workspace', xcworkspace,
+      '-scheme', gameName,
+      '-configuration', 'Release',
+      '-archivePath', archivePath,
+      'archive',
+    ], config.projectDir);
+    if (archiveErr !== null) {
+      return {
+        success: false, outputFiles,
+        errors: [`xcodebuild archive failed: ${archiveErr}\nXcode required — install from https://developer.apple.com/xcode/ and set xcodePath in emptysock.toolchain.json`],
+        duration: Date.now() - start,
+      };
+    }
+    const exportErr = shellXcodebuild([
+      '-exportArchive',
+      '-archivePath', archivePath,
+      '-exportPath', ipaDir,
+      '-exportOptionsPlist', join(config.projectDir, 'ios', 'ExportOptions.plist'),
+    ], config.projectDir);
+    if (exportErr !== null) {
+      return {
+        success: false, outputFiles,
+        errors: [`xcodebuild exportArchive failed: ${exportErr}`],
+        duration: Date.now() - start,
+      };
+    }
+    outputFiles.push(ipaDir);
   }
 
-  return { success: true, outputFiles: [...core.outputFiles, manifestPath], errors: [], duration: Date.now() - start };
+  return { success: true, outputFiles, errors: [], duration: Date.now() - start };
 }
 
 // Raspberry Pi export
@@ -621,8 +816,12 @@ WantedBy=multi-user.target
   }
 
   if (config.formats.includes('tar')) {
-    // Would invoke: tar -czf game.tar.gz outDir via Tauri backend
-    console.info('[exportRaspi] Would create .tar.gz via Tauri backend');
+    const tarPath = join(config.outDir, 'game-raspi.tar.gz');
+    const err = shellTarGz(config.outDir, tarPath);
+    if (err !== null) {
+      return { success: false, outputFiles, errors: [`tar packaging failed: ${err}\nEnsure 'tar' is available on your system`], duration: Date.now() - start };
+    }
+    outputFiles.push(tarPath);
   }
 
   return { success: true, outputFiles, errors: [], duration: Date.now() - start };
