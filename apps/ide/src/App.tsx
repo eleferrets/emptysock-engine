@@ -8,6 +8,7 @@ import { SceneInspector } from './components/panels/SceneInspector';
 import { EntityProperties } from './components/panels/EntityProperties';
 import { ConsolePanel } from './components/panels/ConsolePanel';
 import { AssetBrowser } from './components/panels/AssetBrowser';
+import { SettingsModal } from './components/modals/SettingsModal';
 import { useIDEStore } from './store/ideStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -158,7 +159,7 @@ function MobileDrawer({ onClose }: { onClose: () => void }): React.ReactElement 
 }
 
 export function App(): React.ReactElement {
-  const { activeTab, sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelOpen, setRightPanelOpen } = useIDEStore();
+  const { activeTab, sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelOpen, setRightPanelOpen, settingsOpen, setSettingsOpen } = useIDEStore();
   const isMobile = useIsMobile();
   const bottomPanelHeight = isMobile ? 140 : 180;
 
@@ -169,6 +170,7 @@ export function App(): React.ReactElement {
     >
       {/* Top toolbar */}
       <Toolbar />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Mobile hamburger row */}
       {isMobile && (

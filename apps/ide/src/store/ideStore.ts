@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+export type BuildMode = 'debug' | 'release';
+export type BuildStatus = 'idle' | 'building' | 'success' | 'error';
 
 export interface LogEntry {
   id: string;
@@ -85,6 +87,17 @@ interface IDEState {
   // Console
   logs: LogEntry[];
 
+  // Build
+  buildMode: BuildMode;
+  buildStatus: BuildStatus;
+  buildErrors: string[];
+  buildDuration: number | null;
+  debugOverlay: boolean;
+  lastBuildAt: number | null;
+
+  // Settings modal
+  settingsOpen: boolean;
+
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
@@ -99,6 +112,16 @@ interface IDEState {
   selectFile: (path: string | null) => void;
   setEditorCode: (code: string) => void;
   updateEntityTransform: (entityId: string, transform: Partial<TransformValues>) => void;
+
+  // Build actions
+  setBuildMode: (mode: BuildMode) => void;
+  toggleBuildMode: () => void;
+  setBuildStatus: (status: BuildStatus, errors?: string[], duration?: number) => void;
+  toggleDebugOverlay: () => void;
+  clearBuildCache: () => void;
+
+  // Settings modal action
+  setSettingsOpen: (open: boolean) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -282,6 +305,17 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     { id: 'log-4', level: 'info', message: 'Scene "GameScene" loaded — 4 entities', timestamp: Date.now() - 3000, source: 'Scene' },
   ],
 
+  // Build
+  buildMode: 'debug',
+  buildStatus: 'idle',
+  buildErrors: [],
+  buildDuration: null,
+  debugOverlay: false,
+  lastBuildAt: null,
+
+  // Settings modal
+  settingsOpen: false,
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -353,6 +387,35 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       };
     });
   },
+
+  // Build actions
+  setBuildMode: (mode) => set({ buildMode: mode }),
+
+  toggleBuildMode: () => set((s) => ({ buildMode: s.buildMode === 'debug' ? 'release' : 'debug' })),
+
+  setBuildStatus: (status, errors, duration) => {
+    set({
+      buildStatus: status,
+      buildErrors: errors ?? [],
+      buildDuration: duration !== undefined ? duration : null,
+      lastBuildAt: status === 'success' || status === 'error' ? Date.now() : get().lastBuildAt,
+    });
+  },
+
+  toggleDebugOverlay: () => set((s) => ({ debugOverlay: !s.debugOverlay })),
+
+  clearBuildCache: () => {
+    set({
+      buildStatus: 'idle',
+      buildErrors: [],
+      lastBuildAt: null,
+      buildDuration: null,
+    });
+    get().addLog('info', 'Build cache cleared', 'BuildService');
+  },
+
+  // Settings modal
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {

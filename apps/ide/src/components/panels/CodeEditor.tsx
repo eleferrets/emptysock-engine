@@ -1,6 +1,9 @@
 import React from 'react';
 import MonacoEditor from '@monaco-editor/react';
 import { useIDEStore } from '../../store/ideStore';
+import { gameBuildService } from '../../services/GameBuildService';
+import { loadSettings } from '../../services/SettingsService';
+import type { IDESettings } from '../../services/SettingsService';
 
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
@@ -13,11 +16,97 @@ function useIsNarrow(): boolean {
 }
 
 export function CodeEditor(): React.ReactElement {
-  const { editorCode, setEditorCode, selectedFile } = useIDEStore();
+  const { editorCode, setEditorCode, selectedFile, buildMode, setBuildStatus, addLog } = useIDEStore();
   const isNarrow = useIsNarrow();
 
+  // Load settings once on mount
+  const [settings] = React.useState<IDESettings>(() => loadSettings());
+
+  // Trigger a build and update store state
+  const triggerBuild = React.useCallback(
+    (code: string, immediate: boolean): void => {
+      if (immediate) {
+        setBuildStatus('building');
+        addLog('info', 'Building…', 'BuildService');
+        void gameBuildService.buildNow({ code, mode: buildMode }).then(result => {
+          if (result.success) {
+            setBuildStatus('success', [], result.duration);
+            addLog(
+              'info',
+              `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`,
+              'BuildService'
+            );
+          } else {
+            setBuildStatus('error', result.errors, result.duration);
+            for (const err of result.errors) {
+              addLog('error', err, 'BuildService');
+            }
+          }
+        });
+      } else {
+        gameBuildService.queueBuild({
+          code,
+          mode: buildMode,
+          onStart: () => {
+            setBuildStatus('building');
+            addLog('info', 'Building…', 'BuildService');
+          },
+          onComplete: (result) => {
+            if (result.success) {
+              setBuildStatus('success', [], result.duration);
+              addLog(
+                'info',
+                `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`,
+                'BuildService'
+              );
+            } else {
+              setBuildStatus('error', result.errors, result.duration);
+              for (const err of result.errors) {
+                addLog('error', err, 'BuildService');
+              }
+            }
+          },
+        });
+      }
+    },
+    [buildMode, setBuildStatus, addLog]
+  );
+
+  // Handle code changes from Monaco
+  const handleChange = React.useCallback(
+    (value: string | undefined): void => {
+      if (value === undefined) return;
+      setEditorCode(value);
+      if (settings.autoBuild) {
+        triggerBuild(value, false);
+      }
+    },
+    [setEditorCode, settings.autoBuild, triggerBuild]
+  );
+
+  // Ctrl+S handler — attach to container div
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        triggerBuild(editorCode, true);
+      }
+    },
+    [editorCode, triggerBuild]
+  );
+
+  // Destroy service on unmount
+  React.useEffect(() => {
+    return () => {
+      gameBuildService.cancel();
+    };
+  }, []);
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div
+      className="flex-1 flex flex-col overflow-hidden"
+      onKeyDown={handleKeyDown}
+    >
       {/* File tab bar */}
       {selectedFile !== null && (
         <div
@@ -47,11 +136,9 @@ export function CodeEditor(): React.ReactElement {
           language="typescript"
           theme="vs-dark"
           value={editorCode}
-          onChange={value => {
-            if (value !== undefined) setEditorCode(value);
-          }}
+          onChange={handleChange}
           options={{
-            fontSize: 13,
+            fontSize: settings.editorFontSize,
             fontFamily: '"JetBrains Mono", ui-monospace, monospace',
             fontLigatures: true,
             lineHeight: 1.6,

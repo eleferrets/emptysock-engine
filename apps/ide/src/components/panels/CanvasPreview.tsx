@@ -7,7 +7,7 @@ export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const demoRef = useRef<BouncingBallsDemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { fps, setFps, playState } = useIDEStore();
+  const { fps, setFps, playState, debugOverlay, entities } = useIDEStore();
 
   const initDemo = useCallback(async (): Promise<void> => {
     if (canvasRef.current === null) return;
@@ -90,6 +90,44 @@ export function CanvasPreview(): React.ReactElement {
             {rendererType}
           </div>
         </div>
+
+        {/* Debug overlay */}
+        {debugOverlay && (
+          <>
+            {/* CSS grid overlay */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(124,106,247,0.12) 31px,rgba(124,106,247,0.12) 32px),repeating-linear-gradient(90deg,transparent,transparent 31px,rgba(124,106,247,0.12) 31px,rgba(124,106,247,0.12) 32px)',
+              }}
+            />
+            {/* Debug info panel */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                background: 'rgba(14,14,16,0.9)',
+                border: '1px solid rgba(124,106,247,0.4)',
+                borderRadius: 6,
+                padding: '8px 12px',
+                fontSize: 10,
+                fontFamily: 'JetBrains Mono, monospace',
+                color: 'var(--text-muted)',
+                lineHeight: 1.8,
+                pointerEvents: 'none',
+              }}
+            >
+              <div style={{ color: '#7c6af7', fontWeight: 700, marginBottom: 4, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Debug</div>
+              <div>Entities: <span style={{ color: 'var(--text)' }}>{entities.length}</span></div>
+              <div>Draw calls: <span style={{ color: 'var(--text)' }}>–</span></div>
+              <div>Physics: <span style={{ color: 'var(--text)' }}>–</span></div>
+              <div>Mode: <span style={{ color: '#7c6af7' }}>DEBUG</span></div>
+            </div>
+          </>
+        )}
 
         {/* Play state overlay */}
         {playState === 'stopped' && (
