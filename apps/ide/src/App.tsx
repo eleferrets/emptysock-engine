@@ -11,6 +11,7 @@ import { AssetBrowser } from './components/panels/AssetBrowser';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { ExportModal } from './components/modals/ExportModal';
 import { CommandPalette } from './components/modals/CommandPalette';
+import { MenuBar } from './components/panels/MenuBar';
 import { useIDEStore } from './store/ideStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -184,6 +185,9 @@ export function App(): React.ReactElement {
       className="flex flex-col"
       style={{ height: '100dvh', background: 'var(--bg)', overflow: 'hidden' }}
     >
+      {/* Menu bar */}
+      <MenuBar onOpenExport={() => setExportOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
+
       {/* Top toolbar */}
       <Toolbar onExport={() => setExportOpen(true)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
