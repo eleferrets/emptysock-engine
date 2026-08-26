@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Monitor, Wifi } from 'lucide-react';
 import { BouncingBallsDemo } from '../../demo/BouncingBalls';
 import { useIDEStore } from '../../store/ideStore';
+import { playRunner } from '../../services/PlayRunner';
 
 export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const demoRef = useRef<BouncingBallsDemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { fps, setFps, playState, debugOverlay, entities } = useIDEStore();
+  const runnerContainerRef = useRef<HTMLDivElement>(null);
+  const { fps, setFps, playState, debugOverlay, entities, editorCode, buildMode, addLog } = useIDEStore();
 
   const initDemo = useCallback(async (): Promise<void> => {
     if (canvasRef.current === null) return;
@@ -18,6 +20,34 @@ export function CanvasPreview(): React.ReactElement {
     demoRef.current = demo;
     await demo.init(canvasRef.current, setFps);
   }, [setFps]);
+
+  // Start/stop playRunner based on playState
+  useEffect(() => {
+    if (playState === 'playing') {
+      // Pause/hide the demo canvas while game is running
+      const unsubscribe = playRunner.onMessage(msg => {
+        if (msg.type === 'fps' && msg.fps !== undefined) {
+          setFps(msg.fps);
+        } else if (msg.type === 'log' && msg.message !== undefined) {
+          addLog(msg.level ?? 'info', msg.message, msg.source);
+        } else if (msg.type === 'error' && msg.message !== undefined) {
+          addLog('error', msg.message, msg.source);
+        }
+      });
+
+      if (runnerContainerRef.current !== null) {
+        void playRunner.start(editorCode, buildMode, runnerContainerRef.current);
+      }
+
+      return () => {
+        unsubscribe();
+        playRunner.stop();
+      };
+    } else {
+      playRunner.stop();
+      return undefined;
+    }
+  }, [playState, editorCode, buildMode, setFps, addLog]);
 
   useEffect(() => {
     void initDemo();
@@ -33,6 +63,17 @@ export function CanvasPreview(): React.ReactElement {
     <div className="relative flex-1 flex flex-col overflow-hidden" ref={containerRef}>
       {/* Canvas fills the area */}
       <div className="flex-1 relative overflow-hidden" style={{ background: '#0e0e10' }}>
+        {/* Iframe runner container — visible only when playing */}
+        <div
+          ref={runnerContainerRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: playState === 'playing' ? 'block' : 'none',
+            zIndex: 10,
+          }}
+        />
+
         <canvas
           ref={canvasRef}
           style={{
@@ -40,6 +81,7 @@ export function CanvasPreview(): React.ReactElement {
             inset: 0,
             width: '100%',
             height: '100%',
+            display: playState === 'playing' ? 'none' : 'block',
           }}
         />
 
@@ -146,7 +188,7 @@ export function CanvasPreview(): React.ReactElement {
               }}
             >
               <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-                Demo running — click Play to start the game
+                Click Play to run your game
               </div>
               <div
                 className="flex items-center justify-center gap-1.5 text-xs"

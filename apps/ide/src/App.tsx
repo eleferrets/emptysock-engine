@@ -9,6 +9,8 @@ import { EntityProperties } from './components/panels/EntityProperties';
 import { ConsolePanel } from './components/panels/ConsolePanel';
 import { AssetBrowser } from './components/panels/AssetBrowser';
 import { SettingsModal } from './components/modals/SettingsModal';
+import { ExportModal } from './components/modals/ExportModal';
+import { CommandPalette } from './components/modals/CommandPalette';
 import { useIDEStore } from './store/ideStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -162,6 +164,20 @@ export function App(): React.ReactElement {
   const { activeTab, sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelOpen, setRightPanelOpen, settingsOpen, setSettingsOpen } = useIDEStore();
   const isMobile = useIsMobile();
   const bottomPanelHeight = isMobile ? 140 : 180;
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  // Ctrl+K / Ctrl+P opens command palette
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+        e.preventDefault();
+        setPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div
@@ -169,8 +185,10 @@ export function App(): React.ReactElement {
       style={{ height: '100dvh', background: 'var(--bg)', overflow: 'hidden' }}
     >
       {/* Top toolbar */}
-      <Toolbar />
+      <Toolbar onExport={() => setExportOpen(true)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenExport={() => { setPaletteOpen(false); setExportOpen(true); }} />
 
       {/* Mobile hamburger row */}
       {isMobile && (

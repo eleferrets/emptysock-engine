@@ -117,7 +117,11 @@ function BuildStatusPill(): React.ReactElement | null {
   return null;
 }
 
-export function Toolbar(): React.ReactElement {
+interface ToolbarProps {
+  onExport: () => void;
+}
+
+export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
   const { playState, projectName, setPlayState, buildMode, toggleBuildMode, setSettingsOpen } = useIDEStore();
 
   const handlePlay = (): void => {
@@ -255,7 +259,7 @@ export function Toolbar(): React.ReactElement {
         <div className="w-px h-5 mx-1" style={{ background: 'var(--border)' }} />
 
         {/* Export */}
-        <Button variant="accent" size="sm">
+        <Button variant="accent" size="sm" onClick={onExport}>
           <Download size={11} />
           Export
         </Button>
