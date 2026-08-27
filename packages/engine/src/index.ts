@@ -6,13 +6,29 @@ export type { SystemFn } from './core/Scene.js';
 export { detectGPUTier } from './core/GPUTier.js';
 export type { GPUTier } from './core/GPUTier.js';
 
+// Engine API
+export { Engine } from './core/EngineAPI.js';
+
+// Actor Model
+export { Actor } from './core/Actor.js';
+export type { Message, ActorId } from './core/Actor.js';
+export { NetworkActor } from './core/NetworkActor.js';
+export type { Transport, TransportMessage } from './core/Transport.js';
+export { ActorSystem } from './core/ActorSystem.js';
+
+// Plugin System
+export { PluginSystem, pluginSystem } from './core/PluginSystem.js';
+export type { Plugin, PluginContext } from './core/PluginSystem.js';
+
 // Systems
 export { RenderSystem } from './systems/RenderSystem.js';
 export type { RenderSystemOptions } from './systems/RenderSystem.js';
 export { PhysicsSystem } from './systems/PhysicsSystem.js';
 export type { PhysicsWorldOptions } from './systems/PhysicsSystem.js';
+export { PhysicsSystem3D } from './systems/PhysicsSystem3D.js';
+export type { PhysicsBody3DOptions, Physics3DHandle, Vec3, Vec3 as NavVec3, BodyType3D, Shape3D, Quat } from './systems/PhysicsSystem3D.js';
 export { InputSystem } from './systems/InputSystem.js';
-export type { KeyState, MouseState } from './systems/InputSystem.js';
+export type { KeyState, MouseState, TouchPoint } from './systems/InputSystem.js';
 export { AudioSystem } from './systems/AudioSystem.js';
 export type { SoundOptions } from './systems/AudioSystem.js';
 export { CameraSystem } from './systems/CameraSystem.js';
@@ -34,6 +50,8 @@ export { LightingSystem, LightingFilter } from './systems/LightingSystem.js';
 export type { Light, LightType } from './systems/LightingSystem.js';
 export { PathfindingSystem } from './systems/PathfindingSystem.js';
 export type { GridCell, PathRequest, PathResult } from './systems/PathfindingSystem.js';
+export { NavMeshSystem } from './systems/NavMeshSystem.js';
+export type { NavMeshData, NavPolygon, Vec2 } from './systems/NavMeshSystem.js';
 export { SaveSystem } from './systems/SaveSystem.js';
 export type { SaveSlot } from './systems/SaveSystem.js';
 export { LocalisationSystem } from './systems/LocalisationSystem.js';
@@ -55,23 +73,23 @@ export type { TransitionOptions as SceneTransitionOptions, SceneFactory } from '
 export { ObjectPool } from './core/ObjectPool.js';
 export type { Poolable, PoolFactory } from './core/ObjectPool.js';
 
-// New Systems — Tilemap
+// Tilemap
 export { TilemapSystem, Tilemap } from './systems/TilemapSystem.js';
 export type { TilemapData, TilemapLayer, TileCell, TilesetConfig } from './systems/TilemapSystem.js';
 
-// New Systems — Particles
+// Particles
 export { ParticleSystem, ParticleEmitter } from './systems/ParticleSystem.js';
 export type { ParticleEmitterOptions, EmitterShape } from './systems/ParticleSystem.js';
 
-// New Systems — Tweens & Timers
+// Tweens & Timers
 export { Tween, Timer } from './systems/TweenSystem.js';
 export type { TweenOptions, EasingName } from './systems/TweenSystem.js';
 
-// New Systems — UI
+// UI
 export { UISystem, UIComponent } from './systems/UISystem.js';
 export type { UIComponentType, UIComponentOptions, UIStyle, UIAnchor } from './systems/UISystem.js';
 
-// New Systems — Post-processing
+// Post-processing
 export { PostProcessSystem } from './systems/PostProcessSystem.js';
 export type {
   PostEffectType,
@@ -82,7 +100,7 @@ export type {
   TransitionEffect as PostTransitionEffect,
 } from './systems/PostProcessSystem.js';
 
-// Components — RigidJoint
+// RigidJoint
 export { RigidJoint } from './components/RigidJoint.js';
 export type { JointType, RevoluteOptions, PrismaticOptions, SpringOptions } from './components/RigidJoint.js';
 
@@ -93,5 +111,5 @@ export type { ContactInfo, CollisionCallback, SensorCallback } from './component
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
 export type { MaliInfo, MaliFixes } from './compat/mali.js';
 
-// Public type aliases — use these instead of importing from pixi.js/rapier/howler directly
+// Public type aliases
 export type { GameStage } from './types/aliases.js';

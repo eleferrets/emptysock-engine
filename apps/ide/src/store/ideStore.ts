@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 export type BuildMode = 'debug' | 'release';
 export type BuildStatus = 'idle' | 'building' | 'success' | 'error';
+export type Theme = 'dark' | 'light' | 'system';
 
 export interface LogEntry {
   id: string;
@@ -68,9 +69,14 @@ interface IDEState {
 
   // Project
   projectName: string;
+  projectFolder: string;
   files: ProjectFile[];
   selectedFile: string | null;
   editorCode: string;
+
+  // Multi-file editing
+  openFiles: Record<string, string>;
+  activeFilePath: string | null;
 
   // Scene
   entities: EntityItem[];
@@ -98,6 +104,9 @@ interface IDEState {
   // Settings modal
   settingsOpen: boolean;
 
+  // Theme
+  theme: Theme;
+
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
@@ -113,6 +122,11 @@ interface IDEState {
   setEditorCode: (code: string) => void;
   updateEntityTransform: (entityId: string, transform: Partial<TransformValues>) => void;
 
+  // Multi-file actions
+  openFile: (path: string, content?: string) => void;
+  closeFile: (path: string) => void;
+  setFileContent: (path: string, content: string) => void;
+
   // Build actions
   setBuildMode: (mode: BuildMode) => void;
   toggleBuildMode: () => void;
@@ -122,14 +136,16 @@ interface IDEState {
 
   // Settings modal action
   setSettingsOpen: (open: boolean) => void;
+
+  // Theme action
+  setTheme: (theme: Theme) => void;
+
+  // Project folder
+  setProjectFolder: (folder: string) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
 
-/**
- * GameScene — the main game scene.
- * Add entities and systems here.
- */
 export class GameScene extends Scene {
   constructor() {
     super('GameScene');
@@ -137,14 +153,11 @@ export class GameScene extends Scene {
 
   override start(): void {
     super.start();
-
-    // Create player entity
     const player = this.createEntity('Player');
     player.addComponent(new Transform({ x: 640, y: 360 }));
     player.addComponent(new Sprite({ tint: 0x7c6af7 }));
     player.addTag('player');
 
-    // Create ground
     const ground = this.createEntity('Ground');
     ground.addComponent(new Transform({ x: 640, y: 680 }));
     ground.addComponent(new Sprite({ tint: 0x4ade80 }));
@@ -155,54 +168,38 @@ export class GameScene extends Scene {
 }
 `;
 
+const INITIAL_FILES: ProjectFile[] = [
+  {
+    name: 'src', path: 'src', type: 'folder', children: [
+      { name: 'main.ts', path: 'src/main.ts', type: 'file' },
+      { name: 'scenes', path: 'src/scenes', type: 'folder', children: [
+        { name: 'GameScene.ts', path: 'src/scenes/GameScene.ts', type: 'file' },
+        { name: 'MenuScene.ts', path: 'src/scenes/MenuScene.ts', type: 'file' },
+      ]},
+      { name: 'entities', path: 'src/entities', type: 'folder', children: [
+        { name: 'Player.ts', path: 'src/entities/Player.ts', type: 'file' },
+      ]},
+    ],
+  },
+  {
+    name: 'assets', path: 'assets', type: 'folder', children: [
+      { name: 'player.png', path: 'assets/player.png', type: 'file' },
+      { name: 'tileset.png', path: 'assets/tileset.png', type: 'file' },
+      { name: 'jump.ogg', path: 'assets/jump.ogg', type: 'file' },
+      { name: 'music.ogg', path: 'assets/music.ogg', type: 'file' },
+    ],
+  },
+  { name: 'emptysock.project.json', path: 'emptysock.project.json', type: 'file' },
+];
+
 const INITIAL_ENTITIES: EntityItem[] = [
+  { id: 'ent-1', name: 'Player', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'CharacterController'], children: [] },
+  { id: 'ent-2', name: 'Ground', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
+  { id: 'ent-3', name: 'Camera', type: 'Entity', active: true, components: ['Transform', 'CameraSystem'], children: [] },
   {
-    id: 'ent-1',
-    name: 'Player',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'Sprite', 'CharacterController'],
-    children: [],
-  },
-  {
-    id: 'ent-2',
-    name: 'Ground',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'Sprite', 'PhysicsBody'],
-    children: [],
-  },
-  {
-    id: 'ent-3',
-    name: 'Camera',
-    type: 'Entity',
-    active: true,
-    components: ['Transform', 'CameraSystem'],
-    children: [],
-  },
-  {
-    id: 'ent-4',
-    name: 'Enemies',
-    type: 'Entity',
-    active: true,
-    components: ['Transform'],
-    children: [
-      {
-        id: 'ent-4-1',
-        name: 'Slime_01',
-        type: 'Entity',
-        active: true,
-        components: ['Transform', 'Sprite', 'PhysicsBody'],
-        children: [],
-      },
-      {
-        id: 'ent-4-2',
-        name: 'Slime_02',
-        type: 'Entity',
-        active: false,
-        components: ['Transform', 'Sprite', 'PhysicsBody'],
-        children: [],
-      },
+    id: 'ent-4', name: 'Enemies', type: 'Entity', active: true, components: ['Transform'], children: [
+      { id: 'ent-4-1', name: 'Slime_01', type: 'Entity', active: true, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
+      { id: 'ent-4-2', name: 'Slime_02', type: 'Entity', active: false, components: ['Transform', 'Sprite', 'PhysicsBody'], children: [] },
     ],
   },
 ];
@@ -214,46 +211,6 @@ const INITIAL_ASSETS: AssetItem[] = [
   { id: 'ast-4', name: 'music.ogg', type: 'audio', path: 'assets/music.ogg', size: 2800000 },
   { id: 'ast-5', name: 'GameScene.ts', type: 'script', path: 'src/scenes/GameScene.ts', size: 1200 },
   { id: 'ast-6', name: 'ui.json', type: 'json', path: 'src/ui.json', size: 4400 },
-];
-
-const INITIAL_FILES: ProjectFile[] = [
-  {
-    name: 'src',
-    path: 'src',
-    type: 'folder',
-    children: [
-      { name: 'main.ts', path: 'src/main.ts', type: 'file' },
-      {
-        name: 'scenes',
-        path: 'src/scenes',
-        type: 'folder',
-        children: [
-          { name: 'GameScene.ts', path: 'src/scenes/GameScene.ts', type: 'file' },
-          { name: 'MenuScene.ts', path: 'src/scenes/MenuScene.ts', type: 'file' },
-        ],
-      },
-      {
-        name: 'entities',
-        path: 'src/entities',
-        type: 'folder',
-        children: [
-          { name: 'Player.ts', path: 'src/entities/Player.ts', type: 'file' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'assets',
-    path: 'assets',
-    type: 'folder',
-    children: [
-      { name: 'player.png', path: 'assets/player.png', type: 'file' },
-      { name: 'tileset.png', path: 'assets/tileset.png', type: 'file' },
-      { name: 'jump.ogg', path: 'assets/jump.ogg', type: 'file' },
-      { name: 'music.ogg', path: 'assets/music.ogg', type: 'file' },
-    ],
-  },
-  { name: 'emptysock.project.json', path: 'emptysock.project.json', type: 'file' },
 ];
 
 let logCounter = 0;
@@ -270,9 +227,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Project
   projectName: 'MyPlatformer',
+  projectFolder: '',
   files: INITIAL_FILES,
   selectedFile: 'src/scenes/GameScene.ts',
   editorCode: INITIAL_CODE,
+
+  // Multi-file editing — seed with the default file open
+  openFiles: { 'src/scenes/GameScene.ts': INITIAL_CODE },
+  activeFilePath: 'src/scenes/GameScene.ts',
 
   // Scene
   entities: INITIAL_ENTITIES,
@@ -316,6 +278,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Settings modal
   settingsOpen: false,
 
+  // Theme
+  theme: 'dark',
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -334,28 +299,17 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setFps: (fps) => set({ fps }),
 
   addLog: (level, message, source) => {
-    const entry: LogEntry = {
-      id: `log-${logCounter++}`,
-      level,
-      message,
-      timestamp: Date.now(),
-      source,
-    };
+    const entry: LogEntry = { id: `log-${logCounter++}`, level, message, timestamp: Date.now(), source };
     set((s) => ({ logs: [...s.logs.slice(-199), entry] }));
   },
 
   clearLogs: () => set({ logs: [] }),
 
   selectEntity: (id) => {
-    if (id === null) {
-      set({ selectedEntityId: null, selectedEntity: null });
-      return;
-    }
+    if (id === null) { set({ selectedEntityId: null, selectedEntity: null }); return; }
     const { entities } = get();
-    const entity = entities.find(e => e.id === id) ??
-      entities.flatMap(e => e.children).find(e => e.id === id);
+    const entity = entities.find(e => e.id === id) ?? entities.flatMap(e => e.children).find(e => e.id === id);
     if (entity === undefined) return;
-
     set({
       selectedEntityId: id,
       selectedEntity: {
@@ -363,59 +317,76 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         name: entity.name,
         type: entity.type,
         transform: { x: '640', y: '360', rotation: '0', scaleX: '1', scaleY: '1' },
-        components: entity.components.map(c => ({
-          type: c,
-          enabled: true,
-          properties: getDefaultProperties(c),
-        })),
+        components: entity.components.map(c => ({ type: c, enabled: true, properties: getDefaultProperties(c) })),
       },
     });
   },
 
   selectFile: (path) => set({ selectedFile: path }),
-
-  setEditorCode: (code) => set({ editorCode: code }),
+  setEditorCode: (code) => {
+    const { activeFilePath } = get();
+    set({ editorCode: code });
+    if (activeFilePath !== null) {
+      set((s) => ({ openFiles: { ...s.openFiles, [activeFilePath]: code } }));
+    }
+  },
 
   updateEntityTransform: (entityId, transform) => {
     set((s) => {
       if (s.selectedEntity?.id !== entityId) return s;
+      return { selectedEntity: { ...s.selectedEntity, transform: { ...s.selectedEntity.transform, ...transform } } };
+    });
+  },
+
+  // Multi-file actions
+  openFile: (path, content) => {
+    set((s) => {
+      const existing = s.openFiles[path];
+      const newContent = content ?? existing ?? '';
       return {
-        selectedEntity: {
-          ...s.selectedEntity,
-          transform: { ...s.selectedEntity.transform, ...transform },
-        },
+        openFiles: { ...s.openFiles, [path]: newContent },
+        activeFilePath: path,
+        selectedFile: path,
+        editorCode: newContent,
       };
     });
   },
 
-  // Build actions
-  setBuildMode: (mode) => set({ buildMode: mode }),
+  closeFile: (path) => {
+    set((s) => {
+      const next = { ...s.openFiles };
+      delete next[path];
+      const keys = Object.keys(next);
+      const newActive = s.activeFilePath === path ? (keys[keys.length - 1] ?? null) : s.activeFilePath;
+      const newCode = newActive !== null ? (next[newActive] ?? s.editorCode) : s.editorCode;
+      return { openFiles: next, activeFilePath: newActive, editorCode: newCode };
+    });
+  },
 
+  setFileContent: (path, content) => {
+    set((s) => ({
+      openFiles: { ...s.openFiles, [path]: content },
+      editorCode: s.activeFilePath === path ? content : s.editorCode,
+    }));
+  },
+
+  setBuildMode: (mode) => set({ buildMode: mode }),
   toggleBuildMode: () => set((s) => ({ buildMode: s.buildMode === 'debug' ? 'release' : 'debug' })),
 
   setBuildStatus: (status, errors, duration) => {
-    set({
-      buildStatus: status,
-      buildErrors: errors ?? [],
-      buildDuration: duration !== undefined ? duration : null,
-      lastBuildAt: status === 'success' || status === 'error' ? Date.now() : get().lastBuildAt,
-    });
+    set({ buildStatus: status, buildErrors: errors ?? [], buildDuration: duration !== undefined ? duration : null, lastBuildAt: status === 'success' || status === 'error' ? Date.now() : get().lastBuildAt });
   },
 
   toggleDebugOverlay: () => set((s) => ({ debugOverlay: !s.debugOverlay })),
 
   clearBuildCache: () => {
-    set({
-      buildStatus: 'idle',
-      buildErrors: [],
-      lastBuildAt: null,
-      buildDuration: null,
-    });
+    set({ buildStatus: 'idle', buildErrors: [], lastBuildAt: null, buildDuration: null });
     get().addLog('info', 'Build cache cleared', 'BuildService');
   },
 
-  // Settings modal
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setTheme: (t) => set({ theme: t }),
+  setProjectFolder: (folder) => set({ projectFolder: folder }),
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {

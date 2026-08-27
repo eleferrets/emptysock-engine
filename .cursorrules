@@ -1,0 +1,33 @@
+# EmptySock Engine — Cursor Rules
+
+You are working on EmptySock, a Tauri v2 + React/TypeScript game engine IDE.
+
+## Core rules
+
+- Engine code lives in `packages/engine/` and must be environment-agnostic (no DOM, no Tauri).
+- IDE code lives in `apps/ide/` and is the React + Tauri frontend.
+- All editor state goes through `useIDEStore` (Zustand). Do not add new local state for things that belong in the store.
+- Multi-file project editing uses `openFiles`, `activeFilePath`, `openFile`, `closeFile`, `setFileContent` in the store, and the `virtualFiles` option in `GameBuildService`.
+- Layout panels are added to `DEFAULT_LAYOUT` in `App.tsx` as `rc-dock` tabs, not as fixed flex children.
+- Actor Model: actors communicate only through `Message` objects via their `ActorSystem`. No direct method calls between actors.
+- Multiplayer transport: extend `NetworkActor`, set a `Transport` via `setTransport()`. Never hardcode a transport inside an actor.
+- Tauri: always guard with `'__TAURI_INTERNALS__' in window` before calling Tauri APIs. Provide browser stub/fallback.
+- GPU flags in `lib.rs` (`NvOptimusEnablement`, `AmdPowerXpressRequestHighPerformance`) must not be removed.
+- Commits follow Conventional Commits: `type(scope): subject`.
+
+## File naming
+- React components: PascalCase `.tsx`
+- Engine systems: PascalCase `.ts` in `packages/engine/src/systems/`
+- Engine core abstractions: PascalCase `.ts` in `packages/engine/src/core/`
+
+## Imports
+- Engine types/classes: `from '@emptysock/engine'`
+- Store: `from '../../store/ideStore'` (relative)
+- Services: `from '../../services/...'` (relative)
+
+## Do not
+- Add `console.log` to production engine code
+- Import Tauri APIs without the `isTauri()` guard
+- Mutate Zustand state directly (always use `set()`)
+- Add shared mutable state between actors
+- Hardcode transport implementations in `NetworkActor` subclasses

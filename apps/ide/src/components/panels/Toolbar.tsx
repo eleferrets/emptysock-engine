@@ -7,9 +7,13 @@ import {
   Settings,
   ChevronDown,
   Bug,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useIDEStore } from '../../store/ideStore';
+import type { Theme } from '../../store/ideStore';
 
 function BuildStatusPill(): React.ReactElement | null {
   const buildStatus = useIDEStore(s => s.buildStatus);
@@ -116,12 +120,60 @@ function BuildStatusPill(): React.ReactElement | null {
   return null;
 }
 
+function LogoMark(): React.ReactElement {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="24" height="24" aria-hidden="true">
+      <defs>
+        <style>{`
+          .es-logo-ring { opacity: var(--logo-ring-opacity, 0.4); }
+          .es-logo-hole { opacity: var(--logo-hole-opacity, 0.55); }
+        `}</style>
+        <linearGradient id="es-logo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: 'var(--logo-bg-start, #0f0f1a)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--logo-bg-end, #1a1a3e)' }} />
+        </linearGradient>
+        <linearGradient id="es-logo-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6c63ff" />
+          <stop offset="100%" stopColor="#ff6ca8" />
+        </linearGradient>
+        <linearGradient id="es-logo-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#5b52ee" />
+          <stop offset="100%" stopColor="#e85a96" />
+        </linearGradient>
+        <filter id="es-logo-blur">
+          <feGaussianBlur stdDeviation="8" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <circle cx="160" cy="160" r="150" fill="url(#es-logo-bg)" />
+      <circle cx="160" cy="160" r="148" fill="none" stroke="url(#es-logo-accent)" strokeWidth="2" className="es-logo-ring" />
+      <rect x="117" y="108" width="26" height="40" rx="13" fill="url(#es-logo-accent)" filter="url(#es-logo-blur)" className="es-logo-hole" />
+      <rect x="177" y="108" width="26" height="40" rx="13" fill="url(#es-logo-accent)" filter="url(#es-logo-blur)" className="es-logo-hole" />
+      <rect x="119" y="110" width="22" height="36" rx="11" fill="url(#es-logo-glow)" />
+      <rect x="179" y="110" width="22" height="36" rx="11" fill="url(#es-logo-glow)" />
+      <rect x="90" y="90" width="140" height="140" rx="20" fill="none" stroke="url(#es-logo-accent)" strokeWidth="3" />
+    </svg>
+  );
+}
+
+const THEME_CYCLE: Record<Theme, Theme> = { dark: 'light', light: 'system', system: 'dark' };
+const THEME_ICON: Record<Theme, React.ReactElement> = {
+  dark: <Moon size={13} />,
+  light: <Sun size={13} />,
+  system: <Monitor size={13} />,
+};
+const THEME_LABEL: Record<Theme, string> = {
+  dark: 'Dark theme (click to switch)',
+  light: 'Light theme (click to switch)',
+  system: 'System theme (click to switch)',
+};
+
 interface ToolbarProps {
   onExport: () => void;
 }
 
 export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
-  const { playState, projectName, setPlayState, buildMode, toggleBuildMode, setSettingsOpen } = useIDEStore();
+  const { playState, projectName, setPlayState, buildMode, toggleBuildMode, setSettingsOpen, theme, setTheme } = useIDEStore();
 
   const handlePlay = (): void => {
     if (playState === 'playing') {
@@ -142,7 +194,6 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
 
   return (
     <>
-      {/* Keyframe for the building spinner */}
       <style>{`
         @keyframes es-spin {
           from { opacity: 1; }
@@ -161,7 +212,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 mr-2">
-          <img src="/logo.svg" alt="EmptySock" className="w-6 h-6" />
+          <LogoMark />
           <span
             className="font-semibold text-sm tracking-tight"
             style={{ color: 'var(--text)' }}
@@ -256,6 +307,16 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
         <Button variant="accent" size="sm" onClick={onExport}>
           <Download size={11} />
           Export
+        </Button>
+
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={THEME_LABEL[theme]}
+          onClick={() => setTheme(THEME_CYCLE[theme])}
+        >
+          {THEME_ICON[theme]}
         </Button>
 
         {/* Settings */}

@@ -1,18 +1,3 @@
-/**
- * PlayRunner — compiles the editor's TypeScript source and injects it into a
- * sandboxed <iframe>, then streams console output and FPS back via postMessage.
- *
- * Architecture:
- *   Editor code (TS) → GameBuildService.buildNow() → IIFE bundle string
- *   → injected into blob-URL HTML page in <iframe sandbox>
- *   → iframe posts { type: 'log'|'fps'|'error', ... } to parent via postMessage
- *
- * The iframe HTML wraps the game bundle in a minimal PixiJS canvas host.
- * In production the build step would call the real esbuild transform via a
- * Tauri command; here we use GameBuildService which does lightweight
- * in-process validation and returns the (un-minified) source as the bundle.
- */
-
 import { gameBuildService } from './GameBuildService.js';
 import { ENGINE_BUNDLE } from '../runtime/engineBundle.generated.js';
 
@@ -27,7 +12,6 @@ export interface RunnerMessage {
 export type MessageHandler = (msg: RunnerMessage) => void;
 
 function buildIframeHtml(engineBundle: string, userBundle: string): string {
-  const bundle = userBundle;
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -36,68 +20,93 @@ function buildIframeHtml(engineBundle: string, userBundle: string): string {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0e0e10; overflow: hidden; width: 100vw; height: 100vh; }
   canvas { display: block; width: 100%; height: 100%; }
+  #es-error-modal {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.72); z-index: 9999; padding: 16px;
+  }
+  #es-error-modal .box {
+    background: #1a1a2e; border: 1px solid rgba(248,113,113,0.4); border-radius: 10px;
+    padding: 20px 24px; max-width: 480px; width: 100%; font-family: monospace;
+  }
+  #es-error-modal .title { color: #f87171; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  #es-error-modal pre { color: #fca5a5; font-size: 11px; white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.5; }
+  #es-error-modal button { margin-top: 12px; background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: #f87171; padding: 4px 14px; border-radius: 5px; font-size: 11px; cursor: pointer; }
 </style>
 </head>
 <body>
 <canvas id="game-canvas"></canvas>
 <script>
-// Intercept console so we can relay to the IDE
 (function() {
+  function showErrorModal(msg) {
+    var existing = document.getElementById('es-error-modal');
+    if (existing) existing.remove();
+    var modal = document.createElement('div');
+    modal.id = 'es-error-modal';
+    var safe = String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    modal.innerHTML = '<div class="box"><div class="title">Runtime Error</div><pre>' + safe + '</pre><button onclick="document.getElementById(\'es-error-modal\').remove()">Dismiss</button></div>';
+    document.body.appendChild(modal);
+  }
+
+  // Relay console to IDE
   var _send = function(level, args) {
     try {
-      window.parent.postMessage({
-        type: 'log',
-        level: level,
-        message: Array.from(args).map(function(a) {
-          return typeof a === 'object' ? JSON.stringify(a) : String(a);
-        }).join(' '),
-        source: 'Game'
-      }, '*');
+      window.parent.postMessage({ type: 'log', level: level, message: Array.from(args).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' '), source: 'Game' }, '*');
     } catch(e) {}
   };
-  var _levels = ['log','info','warn','error','debug'];
-  _levels.forEach(function(l) {
+  ['log','info','warn','error','debug'].forEach(function(l) {
     var orig = console[l].bind(console);
     console[l] = function() { orig.apply(console, arguments); _send(l === 'log' ? 'info' : l, arguments); };
   });
-  window.addEventListener('error', function(e) {
-    window.parent.postMessage({ type: 'error', level: 'error', message: e.message, source: 'Runtime' }, '*');
-  });
-})();
 
-// Minimal FPS counter
-(function() {
-  var last = performance.now();
-  var frames = 0;
+  window.addEventListener('error', function(e) {
+    var msg = e.message + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : '');
+    showErrorModal(msg);
+    window.parent.postMessage({ type: 'error', level: 'error', message: msg, source: 'Runtime' }, '*');
+  });
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var msg = e.reason instanceof Error ? e.reason.message : String(e.reason);
+    showErrorModal('Unhandled rejection: ' + msg);
+    window.parent.postMessage({ type: 'error', level: 'error', message: 'Unhandled rejection: ' + msg, source: 'Runtime' }, '*');
+  });
+
+  // Hot reload listener
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'es-hot-reload' || typeof e.data.code !== 'string') return;
+    try {
+      // eslint-disable-next-line no-new-func
+      (new Function(e.data.code))();
+      window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
+    } catch(err) {
+      var errMsg = String(err);
+      showErrorModal('Hot reload failed: ' + errMsg);
+      window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
+    }
+  });
+
+  // FPS counter
+  var last = performance.now(), frames = 0;
   function tick() {
     frames++;
     var now = performance.now();
     if (now - last >= 500) {
-      var fps = Math.round(frames * 1000 / (now - last));
-      window.parent.postMessage({ type: 'fps', fps: fps }, '*');
-      frames = 0;
-      last = now;
+      window.parent.postMessage({ type: 'fps', fps: Math.round(frames * 1000 / (now - last)) }, '*');
+      frames = 0; last = now;
     }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-})();
 
-window.parent.postMessage({ type: 'ready' }, '*');
+  window.parent.postMessage({ type: 'ready' }, '*');
+})();
 </script>
 <script>
-// Engine runtime
-try {
-${engineBundle}
-} catch(e) {
+try { ${engineBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
 }
 </script>
 <script>
-// User game bundle
-try {
-${bundle}
-} catch(e) {
+try { ${userBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: String(e), source: 'Bundle' }, '*');
 }
 </script>
@@ -150,6 +159,10 @@ export class PlayRunner {
       this._emit(data);
     };
     window.addEventListener('message', this._msgListener);
+  }
+
+  hotReload(code: string): void {
+    this._iframe?.contentWindow?.postMessage({ type: 'es-hot-reload', code }, '*');
   }
 
   stop(): void {
