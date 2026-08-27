@@ -1,0 +1,107 @@
+{
+  "version": "0.1.0",
+  "engine": "@emptysock/engine",
+  "modules": {
+    "Actor": {
+      "description": "Base class for all actors in the Actor Model",
+      "extends": null,
+      "constructor": "new Actor(id: ActorId)",
+      "methods": {
+        "send": "(msg: Message) => void",
+        "flush": "() => void",
+        "receive": "(msg: Message) => void  // abstract",
+        "update": "(dt: number) => void",
+        "start": "() => void",
+        "stop": "() => void",
+        "destroy": "() => void"
+      },
+      "properties": {
+        "id": "ActorId",
+        "isRunning": "boolean"
+      }
+    },
+    "NetworkActor": {
+      "description": "Actor with optional pluggable Transport for multiplayer",
+      "extends": "Actor",
+      "methods": {
+        "setTransport": "(transport: Transport) => void",
+        "sendRemote": "(targetActorId: string, msg: Message) => void"
+      }
+    },
+    "ActorSystem": {
+      "description": "Registry and scheduler for actors",
+      "constructor": "new ActorSystem()",
+      "methods": {
+        "register": "(actor: Actor) => void",
+        "unregister": "(id: ActorId) => void",
+        "send": "(actorId: ActorId, msg: Message) => void",
+        "broadcast": "(msg: Message) => void",
+        "update": "(dt: number) => void",
+        "destroy": "() => void"
+      }
+    },
+    "Transport": {
+      "description": "Interface for pluggable network transports",
+      "kind": "interface",
+      "methods": {
+        "send": "(actorId: string, msg: Record<string, unknown>) => void",
+        "onReceive": "(handler: (payload: TransportMessage) => void) => void",
+        "connect": "() => Promise<void>",
+        "disconnect": "() => void"
+      }
+    },
+    "PluginSystem": {
+      "description": "Service registry for optional engine extensions",
+      "singleton": "pluginSystem",
+      "methods": {
+        "register": "(plugin: Plugin) => Promise<void>",
+        "unregister": "(name: string) => Promise<void>",
+        "inject": "<T>(key: string) => T | undefined",
+        "registeredPlugins": "readonly string[]"
+      }
+    },
+    "NavMeshSystem": {
+      "description": "Polygon-based 2D pathfinding using A*",
+      "constructor": "new NavMeshSystem()",
+      "methods": {
+        "load": "(data: NavMeshData) => void",
+        "findPath": "(from: Vec2, to: Vec2) => Vec2[]",
+        "update": "(dt: number) => void"
+      }
+    },
+    "PhysicsSystem3D": {
+      "description": "Full Rapier3D integration. Must await init() before use.",
+      "constructor": "new PhysicsSystem3D()",
+      "methods": {
+        "init": "(gravity?: Vec3) => Promise<void>",
+        "addBody": "(options?: PhysicsBody3DOptions) => Physics3DHandle",
+        "removeBody": "(index: number) => void",
+        "update": "(dt: number) => void",
+        "destroy": "() => void"
+      },
+      "properties": {
+        "isInitialized": "boolean"
+      }
+    },
+    "InputSystem": {
+      "description": "Keyboard, mouse, and touch input with frame-accurate events",
+      "constructor": "new InputSystem()",
+      "methods": {
+        "attach": "(canvas: HTMLElement) => void",
+        "detach": "(canvas: HTMLElement) => void",
+        "flush": "() => void",
+        "isKeyDown": "(key: string) => boolean",
+        "isKeyPressed": "(key: string) => boolean",
+        "isKeyReleased": "(key: string) => boolean",
+        "getTouch": "(id: number) => TouchPoint | undefined",
+        "isTouchStarted": "(id?: number) => boolean",
+        "isTouchEnded": "(id?: number) => boolean"
+      },
+      "properties": {
+        "touchCount": "number",
+        "touches": "IterableIterator<TouchPoint>",
+        "primaryTouch": "TouchPoint | undefined"
+      }
+    }
+  }
+}
