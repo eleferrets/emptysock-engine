@@ -2,6 +2,25 @@
 
 This monorepo contains the EmptySock game engine IDE. Use this file as the primary reference when making changes.
 
+---
+
+## Offline manual
+
+The full developer manual lives in [`docs/manual/`](./docs/manual/). Read it before making non-trivial changes.
+
+| Section | Path | Topic |
+|---------|------|-------|
+| Prerequisites | [01-prerequisites.md](docs/manual/01-prerequisites.md) | Node, Rust, Android/iOS SDKs |
+| Getting Started | [02-getting-started.md](docs/manual/02-getting-started.md) | Install, run, export |
+| Architecture | [03-architecture.md](docs/manual/03-architecture.md) | Layers, ECS, Actor Model, data flow |
+| Core Reference | [04-core-reference.md](docs/manual/04-core-reference.md) | Scene, Entity, Timer, Coroutine, Camera |
+| Systems Reference | [05-systems-reference.md](docs/manual/05-systems-reference.md) | Physics 2D/3D, Input, NavMesh, Save, i18n, Plugin |
+| Actor Model | [06-actor-model.md](docs/manual/06-actor-model.md) | Actor, ActorSystem, NetworkActor, Transport |
+| IDE Reference | [07-ide-reference.md](docs/manual/07-ide-reference.md) | All panels, shortcuts, build pipeline, PWA |
+| Pong Tutorial | [08-tutorial-pong.md](docs/manual/08-tutorial-pong.md) | Step-by-step: full game from scratch |
+
+---
+
 ## Repo layout
 
 ```
@@ -9,8 +28,10 @@ packages/
   engine/        — @emptysock/engine  (runtime, systems, Actor Model)
   types/         — @emptysock/types   (shared TS interfaces)
   toolchain/     — @emptysock/toolchain + emptysock-toolchain CLI
-app/
+apps/
   ide/           — Tauri v2 + React/Vite IDE
+docs/
+  manual/        — offline developer manual (8 sections)
 ```
 
 ## Key architecture rules
@@ -33,7 +54,7 @@ app/
 | Actor Model | `Actor`, `ActorSystem`, `NetworkActor` | `new ActorSystem()` |
 | Plugin | `pluginSystem` | singleton, no init |
 | NavMesh | `NavMeshSystem` | `navMesh.load(data)` |
-| Physics 2D | `PhysicsSystem` | sync, no init needed |
+| Physics 2D | `PhysicsBody`, `CharacterController` | sync, no init needed |
 | Physics 3D | `PhysicsSystem3D` | `await physics.init()` |
 | Input | `InputSystem` | `input.attach(canvas)` |
 | Touch | `InputSystem` | same; call `input.flush()` per frame |
@@ -42,13 +63,16 @@ app/
 
 1. Create `packages/engine/src/systems/MySystem.ts` or `packages/engine/src/core/My.ts`.
 2. Export from `packages/engine/src/index.ts`.
-3. Add a skill to `eleferrets/emptysock-ai-skills/skills/`.
+3. Add an entry to `api-reference.json`.
+4. Add a skill to `eleferrets/emptysock-ai-skills/skills/`.
+5. Add a section to `docs/manual/05-systems-reference.md`.
 
 ## Adding a new IDE panel
 
 1. Create `apps/ide/src/components/panels/MyPanel.tsx`.
 2. Import into `apps/ide/src/App.tsx` and add a `makeTab('my-panel', 'My Panel', <MyPanel />)` entry to `DEFAULT_LAYOUT`.
 3. If the panel needs store state, use `useIDEStore`.
+4. Document it in `docs/manual/07-ide-reference.md`.
 
 ## Commit convention
 
