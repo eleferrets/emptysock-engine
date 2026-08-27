@@ -23,15 +23,14 @@ player.addComponent(CharacterController, { slopeAngle: 45 });
 
 // In onUpdate:
 const ctrl = player.requireComponent(CharacterController);
-if (ctrl.isGrounded()) {
-  if (Input.isPressed('Space')) ctrl.jump(600);
-}
+if (ctrl.isGrounded() && Input.isPressed('Space')) ctrl.jump(600);
 ctrl.moveAndSlide({ x: Input.axis('Horizontal') * 200 * dt, y: 0 });
 ```
 
 **Collision events:**
 
 ```typescript
+const body = player.requireComponent(PhysicsBody);
 body.onCollisionEnter((other) => {
   if (other.entity.name === 'Spike') playerDie();
 });
@@ -42,7 +41,7 @@ body.onCollisionExit((other) => { /* ... */ });
 
 ## 5.2 PhysicsSystem3D
 
-Full Rapier3D integration. **Must `await physics.init()` before adding bodies.**
+Full Rapier3D integration. **Must `await physics.init()` before adding bodies. Must call `physics.destroy()` in `onDestroy` — omitting it leaks WASM memory permanently.**
 
 ```typescript
 import { PhysicsSystem3D } from '@emptysock/engine';
@@ -76,31 +75,20 @@ box.applyImpulse({ x: 0, y: 10, z: 0 });
 
 // In onDestroy:
 physics.removeBody(box.bodyIndex);
-physics.destroy(); // MUST call to free Rapier WASM memory
+physics.destroy(); // REQUIRED
 ```
 
-**Supported shapes:**
+**Supported shapes:** `box` (`halfExtents: Vec3`), `sphere` (`radius`), `capsule` (`radius`, `halfHeight`), `cylinder` (`radius`, `halfHeight`), `cone` (`radius`, `halfHeight`).
 
-| Shape | Required options |
-|-------|------------------|
-| `box` | `halfExtents: Vec3` |
-| `sphere` | `radius: number` |
-| `capsule` | `radius`, `halfHeight` |
-| `cylinder` | `radius`, `halfHeight` |
-| `cone` | `radius`, `halfHeight` |
+**Body types:** `dynamic` (simulated), `static` (immovable collider), `kinematic` (moved by code, pushes dynamics).
 
-**Body types:**
-- `dynamic` — fully simulated, affected by forces and gravity
-- `static` — immovable, acts as a collider for dynamics
-- `kinematic` — moved by code, pushes dynamic bodies without being pushed back
-
-> **Warning:** Omitting `physics.destroy()` in `onDestroy` leaks WASM memory. Each scene transition that creates a `PhysicsSystem3D` without destroying it will accumulate leaked memory.
+**Sensor bodies** (`isSensor: true`) detect overlaps without generating forces.
 
 ---
 
-## 5.3 InputSystem (advanced / engine-level)
+## 5.3 InputSystem (advanced)
 
-The high-level `Input` API (Section 4.8) covers most cases. For direct system access (e.g., inside a custom system or actor):
+The high-level `Input` static class covers most cases (see Section 4.8). For direct system access inside a custom system or actor:
 
 ```typescript
 import { InputSystem } from '@emptysock/engine';
@@ -111,7 +99,6 @@ input.attach(canvasElement);
 // Call once per frame, before reading state:
 input.flush();
 
-// Keyboard:
 input.isKeyDown('Space');
 input.isKeyPressed('ArrowRight');
 input.isKeyReleased('Escape');
@@ -122,7 +109,7 @@ input.isKeyReleased('Escape');
 ## 5.4 Touch Input
 
 ```typescript
-// After flush() each frame:
+// After input.flush() each frame:
 
 const count = input.touchCount;
 const primary = input.primaryTouch; // TouchPoint | undefined
@@ -133,19 +120,16 @@ if (primary) {
   // primary.id            — browser touch identifier
 }
 
-// Multi-touch:
 for (const touch of input.touches) {
   drawTouchIndicator(touch.x, touch.y);
 }
 
-// Frame-accurate events:
-if (input.isTouchStarted())       { /* any new touch this frame */ }
-if (input.isTouchStarted(id))     { /* specific touch started */ }
-if (input.isTouchEnded(id))       { /* specific touch lifted */ }
-
-// All listeners are registered as { passive: true }.
-// Never call e.preventDefault() on touch events you did not add.
+if (input.isTouchStarted())   { /* any new touch this frame */ }
+if (input.isTouchStarted(id)) { /* specific touch started */ }
+if (input.isTouchEnded(id))   { /* specific touch lifted */ }
 ```
+
+All listeners are `{ passive: true }`. Never call `e.preventDefault()` on events you did not add.
 
 ---
 
@@ -158,8 +142,6 @@ import { NavMeshSystem, type NavMeshData } from '@emptysock/engine';
 
 const navMesh = new NavMeshSystem();
 
-// Build the data offline (in a level editor or from a tilemap)
-// and load it at scene startup:
 const data: NavMeshData = {
   polygons: [
     {
@@ -184,43 +166,15 @@ const data: NavMeshData = {
 };
 
 navMesh.load(data);
-
-// Find a path (returns centroid waypoints, empty array if no path):
 const path = navMesh.findPath({ x: 10, y: 10 }, { x: 190, y: 90 });
 // path = [{ x: 50, y: 50 }, { x: 150, y: 50 }]
 
-// Call in game loop (reserved for dynamic obstacle support):
-navMesh.update(dt);
+navMesh.update(dt); // call each frame (reserved for dynamic obstacles)
 ```
 
-**Point-to-polygon resolution:** `findPath` uses ray-cast point-in-polygon containment to find the start and end polygons, falling back to nearest centroid distance if the point is outside all polygons.
+**Point resolution:** `findPath` uses ray-cast point-in-polygon containment first, then centroid distance fallback for points outside all polygons.
 
-**Typical AI usage:**
-
-```typescript
-class EnemyActor extends Actor {
-  private _path: Vec2[] = [];
-  private _pathIdx = 0;
-
-  receive(msg: Message): void {
-    if (msg.type === 'CHASE') {
-      this._path = navMesh.findPath(this.position, (msg as any).target);
-      this._pathIdx = 0;
-    }
-  }
-
-  update(dt: number): void {
-    const wp = this._path[this._pathIdx];
-    if (!wp) return;
-    const dx = wp.x - this.position.x;
-    const dy = wp.y - this.position.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 4) { this._pathIdx++; return; }
-    this.position.x += (dx / dist) * 120 * dt;
-    this.position.y += (dy / dist) * 120 * dt;
-  }
-}
-```
+**NavMesh data must be built offline** (in the TilemapEditor or a preprocessing step). See the CLAUDE.md decision record for why runtime generation is not supported.
 
 ---
 
@@ -235,18 +189,18 @@ const Schema = z.object({
   score:  z.number(),
   flags:  z.record(z.boolean()),
 });
-type Save = z.infer<typeof Schema>;
+type SaveData = z.infer<typeof Schema>;
 
-await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: { bossDefeated: true } });
+await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} });
 
-const raw  = await SaveSystem.load('slot-1');
-const data = Schema.parse(raw.data); // always validate, throws on corrupt data
+const raw  = await SaveSystem.load('slot-1');  // throws SlotNotFoundError if missing
+const data = Schema.parse(raw.data);           // always validate
 
 await SaveSystem.delete('slot-1');
-const slots = await SaveSystem.listSlots(); // string[]
+const slots = await SaveSystem.listSlots();    // string[]
 ```
 
-> **Warning:** Never cast `raw.data as MyType` without schema validation. Save files can be corrupted, edited, or from a different game version.
+> **Warning:** Never cast `raw.data as MyType`. Save files can be corrupt, edited, or from a different game version. Schema validation is the contract.
 
 ---
 
@@ -255,18 +209,19 @@ const slots = await SaveSystem.listSlots(); // string[]
 ```typescript
 import { i18n } from '@emptysock/engine';
 
-// Load a locale bundle (JSON file with key: value pairs):
 await i18n.load('en', () => import('./locales/en.json'));
 await i18n.load('fr', () => import('./locales/fr.json'));
 
 i18n.setLocale('fr');
 
-i18n.t('greeting')        // → "Bonjour"
-i18n.t('score', { n: 42 }) // → "Score: 42" (template substitution)
-i18n.t('missing.key')     // → 'missing.key' (key returned, never throws)
+i18n.t('greeting')             // → "Bonjour"
+i18n.t('score', { n: 42 })    // → "Score : 42"
+i18n.t('missing.key')         // → 'missing.key' (never throws)
 ```
 
-The LocalisationEditor panel (Section 7) can export CSV that maps directly to these locale JSON files.
+Locale JSON format: `{ "key": "value", "score": "Score : {{n}}" }`. Template tokens use `{{name}}` syntax.
+
+The LocalisationEditor panel can export CSV that maps directly to these JSON files.
 
 ---
 
@@ -286,14 +241,103 @@ const myPlugin: Plugin = {
 
 await pluginSystem.register(myPlugin);
 
-// Anywhere in code:
 const svc = pluginSystem.inject<MyService>('myService');
 svc?.doSomething();
 
 await pluginSystem.unregister('my-plugin');
-console.log(pluginSystem.registeredPlugins); // ['my-plugin'] before unregister
 ```
 
-- `install()` may be `async`.
-- Registering a duplicate name throws.
-- `pluginSystem` is a singleton — import and use directly.
+`install()` may be async. Registering a duplicate name throws. `pluginSystem` is a process-global singleton — do not construct a new one.
+
+---
+
+## 5.9 Animator
+
+Spritesheet animation component. Requires a `Sprite` on the same entity.
+
+```typescript
+import { Animator } from '@emptysock/engine';
+
+player.addComponent(Animator, {
+  spritesheet: 'assets/hero.esanim',
+  defaultClip: 'idle',
+});
+
+const anim = player.requireComponent(Animator);
+
+// Play a clip:
+anim.play('run');                    // loops by default
+anim.play('attack', { loop: false }); // one-shot
+anim.onComplete(() => anim.play('idle')); // callback when one-shot ends
+
+// Control:
+anim.pause();
+anim.resume();
+anim.stop(); // returns to first frame of defaultClip
+
+// Read state:
+console.log(anim.currentClip, anim.isPlaying, anim.frame);
+```
+
+**Clip names** are defined in the `.esanim` file created by the spritesheet importer. The TilemapEditor does not produce `.esanim` files — use the asset importer for that.
+
+---
+
+## 5.10 TilemapSystem
+
+Loads tilemap files exported from the TilemapEditor panel.
+
+```typescript
+import { TilemapSystem } from '@emptysock/engine';
+
+// Load (synchronous after assets are preloaded):
+const map = TilemapSystem.load('assets/levels/level1.esmap');
+
+// Enable physics colliders on a layer (static bodies):
+map.getLayer('Collision').enablePhysics();
+
+// Access spawn-point entities placed in the editor:
+const spawns = map.getLayer('Spawns').entities;
+for (const spawn of spawns) {
+  spawnEnemy(spawn.position);
+}
+
+// Get all layers:
+const layers = map.getLayers(); // TilemapLayer[]
+
+// Unload when the scene ends:
+TilemapSystem.unload('assets/levels/level1.esmap');
+```
+
+**Exporting from the editor:** In the TilemapEditor panel, use the Export button to save the map as `.esmap` JSON. Place it under `apps/ide/public/assets/` so Vite serves it. The path in `TilemapSystem.load()` is relative to the public root.
+
+---
+
+## 5.11 Tween
+
+Interpolates numeric properties on any object over a duration, integrated with the game loop.
+
+```typescript
+import { Tween } from '@emptysock/engine';
+
+// Move an entity:
+Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: 'bounceOut' });
+
+// Fade out a sprite and destroy on complete:
+Tween.to(sprite, { alpha: 0 }, {
+  duration: 0.3,
+  ease: 'sineIn',
+  onComplete: () => entity.destroy(),
+});
+
+// Tween from a starting value:
+Tween.from(entity, { y: -100 }, { duration: 0.4, ease: 'cubicOut' });
+
+// Cancel a running tween:
+const handle = Tween.to(enemy, { alpha: 0.5 }, { duration: 1.0 });
+Tween.kill(handle);
+```
+
+**Easing functions:** `linear`, `sineIn/Out/InOut`, `quadIn/Out/InOut`, `cubicIn/Out/InOut`, `bounceOut`, `elasticOut`, `backIn/Out`.
+
+> **Tip:** Tweens do not need to be cancelled in `onDestroy` if the target object is destroyed — the engine detects the destroyed entity and stops the tween automatically. For tweens on plain objects (not entities), cancel them manually.

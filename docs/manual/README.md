@@ -12,10 +12,11 @@ This manual is the complete offline reference for EmptySock Engine and its IDE. 
 | 2 | [Getting Started](./02-getting-started.md) | Install, first run, project layout, dev loop |
 | 3 | [Architecture Overview](./03-architecture.md) | Monorepo design, Actor Model, ECS, data flow |
 | 4 | [Core Engine Reference](./04-core-reference.md) | Scene, Entity, Component, Engine, Timer, Coroutine, SceneManager |
-| 5 | [Systems Reference](./05-systems-reference.md) | Physics 2D/3D, Input, Touch, NavMesh, Audio, Camera, Save, Localisation, Plugin |
+| 5 | [Systems Reference](./05-systems-reference.md) | Physics 2D/3D, Input, Touch, NavMesh, Audio, Camera, Save, Localisation, Plugin, Animator, Tilemap, Tween |
 | 6 | [Actor Model & Multiplayer](./06-actor-model.md) | Actor, ActorSystem, NetworkActor, Transport interface |
 | 7 | [IDE Reference](./07-ide-reference.md) | All docked panels, keyboard shortcuts, build pipeline, PWA |
 | 8 | [Tutorial — Build a Pong Clone](./08-tutorial-pong.md) | Step-by-step: two paddles, a ball, score, sound, export |
+| 9 | [Troubleshooting](./09-troubleshooting.md) | Common pitfalls, error messages, diagnostic steps |
 
 ---
 
