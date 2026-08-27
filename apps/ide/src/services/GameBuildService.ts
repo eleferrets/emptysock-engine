@@ -1,9 +1,10 @@
 /**
- * GameBuildService — transforms the editor's TypeScript/JavaScript source
- * using esbuild-wasm, bundling it as an IIFE with @emptysock/engine resolved
- * to the pre-bundled window.EmptySockEngine global.
+ * GameBuildService — transforms TypeScript/JavaScript source using esbuild-wasm,
+ * bundling it as an IIFE with @emptysock/engine resolved to the pre-bundled
+ * window.EmptySockEngine global.
  *
- * Supports both .ts/.tsx and .js/.jsx source files as first-class inputs.
+ * Supports a virtualFiles map for multi-file projects: relative imports in the
+ * entry file are resolved against the in-memory file system.
  */
 
 import * as esbuild from 'esbuild-wasm';
@@ -18,11 +19,10 @@ export interface BuildJobResult {
 
 type BuildJob = {
   code: string;
-  /** Source filename — used to pick the correct esbuild loader. Defaults to 'game.ts'. */
   filename?: string;
   mode: 'debug' | 'release';
-  /** When true, applies full tree-shaking, identifier/syntax/whitespace minification on top of the normal release minify. */
   aggressiveMode?: boolean;
+  virtualFiles?: Record<string, string>;
   onStart: () => void;
   onComplete: (result: BuildJobResult) => void;
 };
@@ -50,7 +50,26 @@ function loaderForFilename(filename: string): esbuild.Loader {
   }
 }
 
-// esbuild plugin: resolves @emptysock/engine to window.EmptySockEngine
+function normalizePath(base: string, rel: string): string {
+  const dir = base.includes('/') ? base.slice(0, base.lastIndexOf('/') + 1) : '';
+  const parts = (dir + rel).split('/');
+  const resolved: string[] = [];
+  for (const p of parts) {
+    if (p === '..') resolved.pop();
+    else if (p !== '.') resolved.push(p);
+  }
+  return resolved.join('/');
+}
+
+function resolveVirtualPath(importer: string, path: string, files: Record<string, string>): string | null {
+  const candidates = ['', '.ts', '.tsx', '.js', '/index.ts', '/index.js'];
+  const base = normalizePath(importer, path);
+  for (const ext of candidates) {
+    if (files[base + ext] !== undefined) return base + ext;
+  }
+  return null;
+}
+
 const engineGlobalPlugin: esbuild.Plugin = {
   name: 'engine-global',
   setup(build) {
@@ -65,25 +84,39 @@ const engineGlobalPlugin: esbuild.Plugin = {
   },
 };
 
+function virtualFsPlugin(files: Record<string, string>): esbuild.Plugin {
+  return {
+    name: 'virtual-fs',
+    setup(build) {
+      build.onResolve({ filter: /^\./ }, (args) => {
+        const resolved = resolveVirtualPath(args.importer, args.path, files);
+        if (resolved !== null) return { path: resolved, namespace: 'virtual-fs' };
+        return null;
+      });
+      build.onLoad({ filter: /.*/, namespace: 'virtual-fs' }, (args) => {
+        const content = files[args.path];
+        if (content === undefined) return null;
+        return { contents: content, loader: loaderForFilename(args.path) };
+      });
+    },
+  };
+}
+
 async function runBuild(
   code: string,
   mode: 'debug' | 'release',
   filename = 'game.ts',
   aggressiveMode = false,
+  virtualFiles: Record<string, string> = {},
 ): Promise<BuildJobResult> {
   const start = Date.now();
   try {
     await ensureEsbuild();
-
     const isRelease = mode === 'release';
     const loader = loaderForFilename(filename);
 
     const result = await esbuild.build({
-      stdin: {
-        contents: code,
-        loader,
-        sourcefile: filename,
-      },
+      stdin: { contents: code, loader, sourcefile: filename },
       bundle: true,
       format: 'iife',
       globalName: 'UserGame',
@@ -97,7 +130,7 @@ async function runBuild(
       sourcemap: mode === 'debug' ? 'inline' : false,
       target: ['es2020'],
       ...(isRelease ? { drop: ['console'] as const } : {}),
-      plugins: [engineGlobalPlugin],
+      plugins: [engineGlobalPlugin, virtualFsPlugin(virtualFiles)],
       write: false,
     });
 
@@ -105,13 +138,12 @@ async function runBuild(
     if (errors.length > 0) {
       return { success: false, errors, duration: Date.now() - start, byteSize: 0, js: '' };
     }
-
     const js = result.outputFiles[0]?.text ?? '';
     return { success: true, errors: [], duration: Date.now() - start, byteSize: js.length, js };
   } catch (e: unknown) {
     const errors: string[] = [];
     if (e !== null && typeof e === 'object' && 'errors' in e) {
-      const eb = e as { errors: Array<{ text: string; location?: { line?: number } | null }> };
+      const eb = e as { errors: Array<{ text: string }> };
       errors.push(...eb.errors.map(err => err.text));
     } else {
       errors.push(String(e));
@@ -126,37 +158,28 @@ export class GameBuildService {
 
   constructor(debounceMs = 300) {
     this.debounceMs = debounceMs;
-    // Kick off esbuild-wasm initialization eagerly so the first build is fast
     void ensureEsbuild();
   }
 
   queueBuild(job: BuildJob): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    if (this.debounceTimer !== null) { clearTimeout(this.debounceTimer); this.debounceTimer = null; }
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       job.onStart();
-      void runBuild(job.code, job.mode, job.filename, job.aggressiveMode).then(result => job.onComplete(result));
+      void runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles).then(r => job.onComplete(r));
     }, this.debounceMs);
   }
 
   cancel(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    if (this.debounceTimer !== null) { clearTimeout(this.debounceTimer); this.debounceTimer = null; }
   }
 
   async buildNow(job: Omit<BuildJob, 'onStart' | 'onComplete'>): Promise<BuildJobResult> {
     this.cancel();
-    return runBuild(job.code, job.mode, job.filename, job.aggressiveMode);
+    return runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles);
   }
 
-  destroy(): void {
-    this.cancel();
-  }
+  destroy(): void { this.cancel(); }
 }
 
 export const gameBuildService = new GameBuildService(300);
