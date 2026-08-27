@@ -2,6 +2,12 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+// Force discrete GPU on NVIDIA Optimus and AMD PowerXpress laptops.
+#[no_mangle]
+pub static NvOptimusEnablement: u32 = 1;
+#[no_mangle]
+pub static AmdPowerXpressRequestHighPerformance: i32 = 1;
+
 // ---------------------------------------------------------------------------
 // File I/O commands
 // ---------------------------------------------------------------------------
@@ -109,6 +115,15 @@ async fn save_file(app: tauri::AppHandle, path: Option<String>, content: String)
 }
 
 // ---------------------------------------------------------------------------
+// Logging command
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn log_error(message: String) {
+    eprintln!("[EmptySock IDE] {message}");
+}
+
+// ---------------------------------------------------------------------------
 // Export command — shells out to the emptysock-toolchain CLI
 // ---------------------------------------------------------------------------
 
@@ -121,6 +136,14 @@ pub struct ExportArgs {
     #[serde(rename = "dropConsole")]
     pub drop_console: bool,
     pub sourcemap: bool,
+    #[serde(rename = "aggressiveMode", default)]
+    pub aggressive_mode: bool,
+    #[serde(default = "default_arch")]
+    pub arch: String,
+}
+
+fn default_arch() -> String {
+    String::from("x86_64")
 }
 
 #[derive(Serialize)]
@@ -133,7 +156,6 @@ pub struct ExportResult {
 
 #[tauri::command]
 async fn export_game(args: ExportArgs) -> ExportResult {
-    // Resolve a temp working directory for the export
     let tmp_dir = std::env::temp_dir().join("emptysock-export");
     let out_dir = tmp_dir.join(&args.platform);
     if let Err(e) = std::fs::create_dir_all(&out_dir) {
@@ -144,7 +166,6 @@ async fn export_game(args: ExportArgs) -> ExportResult {
         };
     }
 
-    // Write the editor code to a temp file for the toolchain to pick up
     let entry = tmp_dir.join("main.ts");
     if let Err(e) = std::fs::write(&entry, &args.code) {
         return ExportResult {
@@ -154,18 +175,18 @@ async fn export_game(args: ExportArgs) -> ExportResult {
         };
     }
 
-    // Try to invoke the emptysock-toolchain CLI if it is on PATH.
-    // In dev the toolchain may not be installed — fall back to a descriptive message.
     let mut cmd = std::process::Command::new("emptysock-toolchain");
     cmd.arg("export")
         .arg("--platform").arg(&args.platform)
         .arg("--format").arg(&args.format)
         .arg("--entry").arg(&entry)
-        .arg("--out").arg(&out_dir);
+        .arg("--out").arg(&out_dir)
+        .arg("--arch").arg(&args.arch);
 
     if args.minify { cmd.arg("--minify"); }
     if args.drop_console { cmd.arg("--drop-console"); }
     if args.sourcemap { cmd.arg("--sourcemap"); }
+    if args.aggressive_mode { cmd.arg("--aggressive"); }
 
     match cmd.output() {
         Ok(output) if output.status.success() => ExportResult {
@@ -185,14 +206,11 @@ async fn export_game(args: ExportArgs) -> ExportResult {
                 }),
             }
         }
-        Err(_) => {
-            // Toolchain not installed — write the source and tell user where it is
-            ExportResult {
-                success: true,
-                output_path: out_dir.to_string_lossy().to_string(),
-                error: None,
-            }
-        }
+        Err(_) => ExportResult {
+            success: true,
+            output_path: out_dir.to_string_lossy().to_string(),
+            error: None,
+        },
     }
 }
 
@@ -216,7 +234,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![open_file, save_file, export_game])
+        .invoke_handler(tauri::generate_handler![open_file, save_file, export_game, log_error])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
