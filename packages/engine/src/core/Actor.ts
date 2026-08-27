@@ -1,0 +1,65 @@
+export type ActorId = string;
+
+export interface Message {
+  readonly type: string;
+  readonly [key: string]: unknown;
+}
+
+/**
+ * Base class for the Actor Model. Each actor owns a private mailbox;
+ * no actor may read another's fields directly — all interaction is via send().
+ *
+ * Network-capable actors should extend NetworkActor instead.
+ */
+export abstract class Actor {
+  readonly id: ActorId;
+  private readonly _inbox: Message[] = [];
+  private _running = false;
+
+  constructor(id: ActorId) {
+    this.id = id;
+  }
+
+  /** Enqueue a message in this actor's mailbox. Thread-safe for JS single thread. */
+  send(msg: Message): void {
+    this._inbox.push(msg);
+  }
+
+  /** Drain the mailbox and dispatch each message. Called by ActorSystem each frame. */
+  flush(): void {
+    const batch = this._inbox.splice(0);
+    for (const msg of batch) {
+      try {
+        this.receive(msg);
+      } catch (e) {
+        console.error(`[Actor:${this.id}] receive() threw on type "${msg.type}":`, e);
+      }
+    }
+  }
+
+  /** Override to handle incoming messages. */
+  abstract receive(msg: Message): void;
+
+  /** Override to add per-frame logic (dt in seconds). */
+  update(_dt: number): void {}
+
+  /** Override to clean up listeners and resources. */
+  destroy(): void {}
+
+  get isRunning(): boolean { return this._running; }
+
+  /** Called by ActorSystem.register(). */
+  start(): void {
+    this._running = true;
+    this.onStart();
+  }
+
+  /** Called by ActorSystem.unregister(). */
+  stop(): void {
+    this._running = false;
+    this.onStop();
+  }
+
+  protected onStart(): void {}
+  protected onStop(): void {}
+}

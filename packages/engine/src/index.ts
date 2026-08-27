@@ -9,13 +9,26 @@ export type { GPUTier } from './core/GPUTier.js';
 // Engine API
 export { Engine } from './core/EngineAPI.js';
 
+// Actor Model
+export { Actor } from './core/Actor.js';
+export type { Message, ActorId } from './core/Actor.js';
+export { NetworkActor } from './core/NetworkActor.js';
+export type { Transport, TransportMessage } from './core/Transport.js';
+export { ActorSystem } from './core/ActorSystem.js';
+
+// Plugin System
+export { PluginSystem, pluginSystem } from './core/PluginSystem.js';
+export type { Plugin, PluginContext } from './core/PluginSystem.js';
+
 // Systems
 export { RenderSystem } from './systems/RenderSystem.js';
 export type { RenderSystemOptions } from './systems/RenderSystem.js';
 export { PhysicsSystem } from './systems/PhysicsSystem.js';
 export type { PhysicsWorldOptions } from './systems/PhysicsSystem.js';
+export { PhysicsSystem3D } from './systems/PhysicsSystem3D.js';
+export type { PhysicsBody3DOptions, Physics3DHandle, Vec3, Vec3 as NavVec3, BodyType3D, Shape3D, Quat } from './systems/PhysicsSystem3D.js';
 export { InputSystem } from './systems/InputSystem.js';
-export type { KeyState, MouseState } from './systems/InputSystem.js';
+export type { KeyState, MouseState, TouchPoint } from './systems/InputSystem.js';
 export { AudioSystem } from './systems/AudioSystem.js';
 export type { SoundOptions } from './systems/AudioSystem.js';
 export { CameraSystem } from './systems/CameraSystem.js';
@@ -37,6 +50,8 @@ export { LightingSystem, LightingFilter } from './systems/LightingSystem.js';
 export type { Light, LightType } from './systems/LightingSystem.js';
 export { PathfindingSystem } from './systems/PathfindingSystem.js';
 export type { GridCell, PathRequest, PathResult } from './systems/PathfindingSystem.js';
+export { NavMeshSystem } from './systems/NavMeshSystem.js';
+export type { NavMeshData, NavPolygon, Vec2 } from './systems/NavMeshSystem.js';
 export { SaveSystem } from './systems/SaveSystem.js';
 export type { SaveSlot } from './systems/SaveSystem.js';
 export { LocalisationSystem } from './systems/LocalisationSystem.js';
