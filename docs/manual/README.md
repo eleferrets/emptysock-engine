@@ -17,6 +17,7 @@ This manual is the complete offline reference for EmptySock Engine and its IDE. 
 | 7 | [IDE Reference](./07-ide-reference.md) | All docked panels, keyboard shortcuts, build pipeline, PWA |
 | 8 | [Tutorial — Build a Pong Clone](./08-tutorial-pong.md) | Step-by-step: two paddles, a ball, score, sound, export |
 | 9 | [Troubleshooting](./09-troubleshooting.md) | Common pitfalls, error messages, diagnostic steps |
+| 10 | [TypeScript & JavaScript Language Reference](./10-language-reference.md) | Variables, types, classes, async, modules, engine patterns — offline TS/JS reference |
 
 ---
 

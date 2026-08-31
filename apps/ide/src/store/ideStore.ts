@@ -178,6 +178,7 @@ const INITIAL_FILES: ProjectFile[] = [
       ]},
       { name: 'entities', path: 'src/entities', type: 'folder', children: [
         { name: 'Player.ts', path: 'src/entities/Player.ts', type: 'file' },
+        { name: 'Enemy.js', path: 'src/entities/Enemy.js', type: 'file' },
       ]},
     ],
   },

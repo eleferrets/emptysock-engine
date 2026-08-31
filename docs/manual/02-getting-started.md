@@ -116,7 +116,35 @@ import { Player } from '../entities/Player';
 // Works — the virtual FS resolves the import from the open-files map.
 ```
 
-Supported file types: `.ts`, `.tsx`, `.js`, `.json`.
+Supported file types: `.ts`, `.tsx`, `.js`, `.jsx`, `.json`.
+
+Both **TypeScript** and **JavaScript** are first-class scripting languages in the engine. The same esbuild pipeline handles both — use whichever you prefer.
+
+**TypeScript example** (type-checked, autocompletion in Monaco):
+```typescript
+// src/scenes/GameScene.ts
+import { Scene, Entity, Transform } from '@emptysock/engine';
+
+export class GameScene extends Scene {
+  override onUpdate(dt: number): void {
+    // dt is typed as number — TypeScript checks it at build time
+  }
+}
+```
+
+**JavaScript example** (no compilation step, looser types):
+```javascript
+// src/scenes/GameScene.js
+import { Scene, Transform } from '@emptysock/engine';
+
+export class GameScene extends Scene {
+  onUpdate(dt) {
+    // Works identically — esbuild compiles .js with the same pipeline
+  }
+}
+```
+
+You can freely mix `.ts` and `.js` files in the same project. A `.js` file can import a `.ts` file and vice versa — the virtual FS resolver handles both extensions.
 
 ---
 
@@ -138,18 +166,46 @@ Use the `emptysock-toolchain` CLI (installed as a workspace binary):
 
 ```bash
 pnpm emptysock-toolchain detect          # prints detected platform
-pnpm emptysock-toolchain export --platform linux --format appimage
+```
+
+### Portable zip (no installer required)
+
+The `--format zip` flag produces a self-contained zip on every platform. Recipients unzip and run — no setup wizard, no registry writes, no `sudo`.
+
+```bash
+# Web — zips the Vite dist/ folder; serve with any static host
+pnpm emptysock-toolchain export --platform web   --format zip --entry src/scenes/GameScene.ts --out dist/
+
+# Linux — zips the AppImage (chmod +x, run directly)
+pnpm emptysock-toolchain export --platform linux   --format zip --entry src/scenes/GameScene.ts --out dist/
+
+# macOS — zips the .app bundle (double-click or run from anywhere)
+pnpm emptysock-toolchain export --platform mac     --format zip --entry src/scenes/GameScene.ts --out dist/
+
+# Windows — zips the portable .exe directory (no registry writes)
+pnpm emptysock-toolchain export --platform windows --format zip --entry src/scenes/GameScene.ts --out dist/
+```
+
+> **Web zip note:** The web build needs a static file server because browsers block `file://` requests for WASM files.  
+> After unzipping: `npx serve dist` (Node) or `python3 -m http.server --directory dist` (Python).
+
+### Platform-specific formats
+
+```bash
+pnpm emptysock-toolchain export --platform linux   --format appimage
+pnpm emptysock-toolchain export --platform linux   --format deb
 pnpm emptysock-toolchain export --platform windows --format installer
 pnpm emptysock-toolchain export --platform android
 pnpm emptysock-toolchain export --platform ios
 ```
 
-Common flags:
+### Common flags
 
 | Flag | Purpose |
 |------|---------|
-| `--entry src/scenes/GameScene.ts` | Entry point (default: first scene) |
+| `--entry src/scenes/GameScene.ts` | Entry point (default: first scene). Accepts `.ts` or `.js`. |
 | `--out dist/` | Output directory |
+| `--format zip` | Portable zip — no installer needed on any platform |
 | `--minify` | Minify JS bundle |
 | `--drop-console` | Strip all console.* calls |
 | `--sourcemap` | Emit source maps alongside bundle |
