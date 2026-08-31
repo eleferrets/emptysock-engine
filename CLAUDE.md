@@ -17,6 +17,7 @@ This file is the decision record for the monorepo. It records conventions and no
 | 7 | docs/manual/07-ide-reference.md | All panels, shortcuts, build pipeline, PWA |
 | 8 | docs/manual/08-tutorial-pong.md | Step-by-step: full game from scratch |
 | 9 | docs/manual/09-troubleshooting.md | Common pitfalls and how to diagnose them |
+| 10 | docs/manual/10-language-reference.md | Offline TypeScript & JavaScript reference for engine scripting |
 
 ---
 

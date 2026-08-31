@@ -95,6 +95,19 @@ export function CodeEditor(): React.ReactElement {
     return () => { gameBuildService.cancel(); };
   }, []);
 
+  const editorLanguage = React.useMemo(() => {
+    if (activeFilePath === null) return 'typescript';
+    const ext = activeFilePath.slice(activeFilePath.lastIndexOf('.') + 1).toLowerCase();
+    switch (ext) {
+      case 'js':   return 'javascript';
+      case 'jsx':  return 'javascript';
+      case 'tsx':  return 'typescript';
+      case 'json': return 'json';
+      case 'ts':
+      default:     return 'typescript';
+    }
+  }, [activeFilePath]);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden" onKeyDown={handleKeyDown}>
       {/* Multi-tab bar */}
@@ -147,7 +160,7 @@ export function CodeEditor(): React.ReactElement {
         {activeFilePath !== null ? (
           <MonacoEditor
             key={activeFilePath}
-            language="typescript"
+            language={editorLanguage}
             theme="vs-dark"
             value={editorCode}
             onChange={handleChange}
