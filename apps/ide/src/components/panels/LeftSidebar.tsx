@@ -12,6 +12,8 @@ import {
   ImageIcon,
   Music,
   Box,
+  Clock,
+  X,
 } from 'lucide-react';
 import { useIDEStore } from '../../store/ideStore';
 import type { ProjectFile } from '../../store/ideStore';
@@ -86,6 +88,60 @@ function FileTreeNode({
   );
 }
 
+function RecentFilesSection(): React.ReactElement {
+  const { recentFiles, openFile, clearRecentFiles } = useIDEStore();
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (recentFiles.length === 0) return <></>;
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="flex items-center w-full gap-1 px-3 h-7"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+      >
+        <span style={{ marginRight: 2 }}>
+          {collapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+        </span>
+        <Clock size={11} />
+        <span className="text-[10px] uppercase tracking-widest font-semibold flex-1 text-left" style={{ marginLeft: 4 }}>
+          Recent
+        </span>
+        <span
+          role="button"
+          title="Clear recent"
+          onClick={e => { e.stopPropagation(); clearRecentFiles(); }}
+          style={{ opacity: 0.4, display: 'flex', alignItems: 'center', padding: 2, borderRadius: 3 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.4'; }}
+        >
+          <X size={10} />
+        </span>
+      </button>
+
+      {!collapsed && (
+        <div className="py-0.5">
+          {recentFiles.map(rf => (
+            <button
+              key={rf.path}
+              onClick={() => openFile(rf.path)}
+              className="flex items-center w-full gap-1.5 py-0.5 pr-2 text-left transition-colors truncate"
+              style={{ paddingLeft: 20, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
+              title={rf.path}
+            >
+              <FileCode size={11} style={{ flexShrink: 0, color: 'var(--text-muted)', opacity: 0.7 }} />
+              <span className="truncate text-xs">{rf.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type SidebarSection = 'files' | 'tools' | 'images' | 'audio';
 
 export function LeftSidebar(): React.ReactElement {
@@ -147,7 +203,9 @@ export function LeftSidebar(): React.ReactElement {
           </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-1">
+        <div className="flex-1 overflow-y-auto">
+          {section === 'files' && <RecentFilesSection />}
+          <div className="py-1">
           {section === 'files' && (
             <>
               {files.map(file => (
@@ -194,6 +252,7 @@ export function LeftSidebar(): React.ReactElement {
               </span>
             </div>
           )}
+          </div>
         </div>
       </div>
     </aside>

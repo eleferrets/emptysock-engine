@@ -128,3 +128,45 @@ select {
   background: rgba(248, 113, 113, 0.08) !important;
   color: var(--red) !important;
 }
+
+/* ── Responsive / adaptive layout ─────────────────────────────────────────── */
+
+/* Narrow viewport: hide icon rail labels, shrink sidebar hint */
+@media (max-width: 960px) {
+  .es-left-sidebar {
+    width: 36px !important; /* collapse to icon-rail only */
+  }
+  .es-left-sidebar-content {
+    display: none !important;
+  }
+  .es-right-panel {
+    display: none !important;
+  }
+}
+
+/* Touch / tablet: larger hit targets */
+@media (pointer: coarse) {
+  button, [role='button'] {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* Very narrow (phone landscape or small tablet): full-screen single panel */
+@media (max-width: 640px) {
+  .es-dock-container {
+    /* rc-dock panels stack; hide sidebars entirely */
+    --es-sidebar-display: none;
+  }
+}
+
+/* Fluid font scaling between 640px and 1280px viewports */
+@media (min-width: 640px) and (max-width: 1280px) {
+  html, body, #root {
+    font-size: clamp(11px, 1vw, 13px);
+  }
+}

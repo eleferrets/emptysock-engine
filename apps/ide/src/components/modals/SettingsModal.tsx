@@ -1,7 +1,7 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
-import { loadSettings, saveSettings, resetSettings, type IDESettings } from '../../services/SettingsService';
+import { X, Upload } from 'lucide-react';
+import { loadSettings, saveSettings, resetSettings, importVSCodeSettings, type IDESettings } from '../../services/SettingsService';
 import { useIDEStore } from '../../store/ideStore';
 import { Button } from '../ui/Button';
 
@@ -160,8 +160,10 @@ function SelectRow({ label, value, options, onChange }: SelectRowProps): React.R
 // ---------------------------------------------------------------------------
 
 export function SettingsModal({ open, onClose }: Props): React.ReactElement {
-  const clearBuildCache = useIDEStore(s => s.clearBuildCache);
+  const { clearBuildCache, setTheme } = useIDEStore();
   const [settings, setSettings] = React.useState<IDESettings>(() => loadSettings());
+  const [vscodeImportStatus, setVscodeImportStatus] = React.useState<{ applied: string[]; skipped: string[] } | null>(null);
+  const vscodeFileRef = React.useRef<HTMLInputElement>(null);
 
   // Reload from storage whenever the modal opens
   React.useEffect(() => {
@@ -176,7 +178,26 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
 
   function handleSave(): void {
     saveSettings(settings);
+    setTheme(settings.theme);
     onClose();
+  }
+
+  function handleVSCodeImport(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0];
+    if (file === undefined) return;
+    const reader = new FileReader();
+    reader.onload = (): void => {
+      try {
+        const parsed: unknown = JSON.parse(reader.result as string);
+        const { patch, result } = importVSCodeSettings(parsed);
+        setSettings(prev => ({ ...prev, ...patch }));
+        setVscodeImportStatus(result);
+      } catch {
+        setVscodeImportStatus({ applied: [], skipped: ['Invalid JSON'] });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   }
 
   function handleReset(): void {
@@ -326,6 +347,16 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
             <div style={{ marginTop: 20 }}>
               <SectionHeader label="Editor" />
             </div>
+            <SelectRow
+              label="Theme"
+              value={settings.theme}
+              options={[
+                { value: 'dark', label: 'Dark' },
+                { value: 'light', label: 'Light' },
+                { value: 'system', label: 'System (follow OS)' },
+              ]}
+              onChange={v => patch('theme', v as IDESettings['theme'])}
+            />
             <SliderRow
               label="Font size"
               value={settings.editorFontSize}
@@ -334,6 +365,72 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               format={v => `${v}px`}
               onChange={v => patch('editorFontSize', v)}
             />
+            <SliderRow
+              label="Tab size"
+              value={settings.editorTabSize}
+              min={2}
+              max={8}
+              format={v => `${v} spaces`}
+              onChange={v => patch('editorTabSize', v)}
+            />
+            <ToggleRow
+              label="Word wrap"
+              value={settings.editorWordWrap}
+              onChange={v => patch('editorWordWrap', v)}
+            />
+            <ToggleRow
+              label="Minimap"
+              value={settings.editorMinimap}
+              onChange={v => patch('editorMinimap', v)}
+            />
+            <ToggleRow
+              label="Line numbers"
+              value={settings.editorLineNumbers}
+              onChange={v => patch('editorLineNumbers', v)}
+            />
+
+            {/* VS Code Import */}
+            <div style={{ marginTop: 20 }}>
+              <SectionHeader label="Import VS Code Settings" />
+            </div>
+            <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Import a VS Code <code style={{ background: 'var(--surface-2)', padding: '1px 4px', borderRadius: 3 }}>settings.json</code> or <code style={{ background: 'var(--surface-2)', padding: '1px 4px', borderRadius: 3 }}>extensions.json</code> file to apply compatible settings.
+              Mapped: font size, tab size, word wrap, minimap, line numbers, color theme.
+            </div>
+            <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                ref={vscodeFileRef}
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={handleVSCodeImport}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setVscodeImportStatus(null); vscodeFileRef.current?.click(); }}
+              >
+                <Upload size={12} style={{ marginRight: 5 }} />
+                Choose settings.json
+              </Button>
+            </div>
+            {vscodeImportStatus !== null && (
+              <div style={{ fontSize: 11, lineHeight: 1.6, padding: '8px 10px', borderRadius: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 10 }}>
+                {vscodeImportStatus.applied.length > 0 && (
+                  <div style={{ color: 'var(--green)' }}>
+                    Applied: {vscodeImportStatus.applied.join(', ')}
+                  </div>
+                )}
+                {vscodeImportStatus.skipped.length > 0 && (
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    Skipped: {vscodeImportStatus.skipped.join(', ')}
+                  </div>
+                )}
+                {vscodeImportStatus.applied.length === 0 && vscodeImportStatus.skipped.length === 0 && (
+                  <div style={{ color: 'var(--text-muted)' }}>No recognised settings found.</div>
+                )}
+              </div>
+            )}
 
             {/* Cache */}
             <div style={{ marginTop: 20 }}>

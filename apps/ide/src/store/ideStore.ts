@@ -37,6 +37,12 @@ export interface ProjectFile {
   children?: ProjectFile[];
 }
 
+export interface RecentFile {
+  path: string;
+  name: string;
+  openedAt: number;
+}
+
 export type PlayState = 'stopped' | 'playing' | 'paused';
 export type ActiveTab = 'code' | 'canvas' | 'scene';
 export type BottomTab = 'console' | 'assets';
@@ -85,6 +91,9 @@ interface IDEState {
 
   // Assets
   assets: AssetItem[];
+
+  // Recent files
+  recentFiles: RecentFile[];
 
   // Playback
   playState: PlayState;
@@ -142,6 +151,10 @@ interface IDEState {
 
   // Project folder
   setProjectFolder: (folder: string) => void;
+
+  // Recent files action
+  addRecentFile: (path: string, name: string) => void;
+  clearRecentFiles: () => void;
 
   // Project lifecycle
   resetProject: () => void;
@@ -259,6 +272,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Assets
   assets: INITIAL_ASSETS,
 
+  // Recent files
+  recentFiles: [],
+
   // Playback
   playState: 'stopped',
   fps: 0,
@@ -348,11 +364,16 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set((s) => {
       const existing = s.openFiles[path];
       const newContent = content ?? existing ?? '';
+      const name = path.split('/').pop() ?? path;
+      const entry: RecentFile = { path, name, openedAt: Date.now() };
+      const filtered = s.recentFiles.filter(r => r.path !== path);
+      const recentFiles = [entry, ...filtered].slice(0, 10);
       return {
         openFiles: { ...s.openFiles, [path]: newContent },
         activeFilePath: path,
         selectedFile: path,
         editorCode: newContent,
+        recentFiles,
       };
     });
   },
@@ -388,6 +409,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set({ buildStatus: 'idle', buildErrors: [], lastBuildAt: null, buildDuration: null });
     get().addLog('info', 'Build cache cleared', 'BuildService');
   },
+
+  addRecentFile: (path, name) => {
+    set((s) => {
+      const entry: RecentFile = { path, name, openedAt: Date.now() };
+      const filtered = s.recentFiles.filter(r => r.path !== path);
+      return { recentFiles: [entry, ...filtered].slice(0, 10) };
+    });
+  },
+  clearRecentFiles: () => set({ recentFiles: [] }),
 
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setTheme: (t) => set({ theme: t }),

@@ -130,7 +130,7 @@ export function App(): React.ReactElement {
         onOpenExport={() => { setPaletteOpen(false); setExportOpen(true); }}
       />
 
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }} className="es-dock-container">
         <DockLayout
           defaultLayout={DEFAULT_LAYOUT}
           style={{ position: 'absolute', inset: 0 }}
