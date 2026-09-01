@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import { detectToolchain, formatToolchainReport } from './ToolchainDetector.js';
 import { loadToolchainSettings, saveToolchainSettings } from './ToolchainSettings.js';
+import { importGMS2Project } from './gms2-import.js';
 
 program
   .name('emptysock-toolchain')
@@ -47,6 +48,49 @@ program
       console.log(`Entry: ${opts.entry}`);
       console.log(`Output: ${opts.out}`);
       console.log('Done.');
+    }
+  });
+
+program
+  .command('import')
+  .description('Import a project from another engine')
+  .requiredOption('--from <engine>', 'Source engine (currently only: gms2)')
+  .requiredOption('--project <path>', 'Path to the source project file (e.g. game.yyp)')
+  .option('--out <dir>', 'Output directory (default: ./imported-<projectName>/)')
+  .option('--dry-run', 'Print what would be generated without writing files', false)
+  .option('--verbose', 'Log each asset as it is processed', false)
+  .action(async (opts: { from: string; project: string; out?: string; dryRun: boolean; verbose: boolean }) => {
+    if (opts.from !== 'gms2') {
+      console.error(`Unsupported --from value: "${opts.from}". Currently only "gms2" is supported.`);
+      console.error('Example: emptysock-toolchain import --from gms2 --project game.yyp');
+      process.exit(1);
+    }
+
+    const path = await import('path');
+    const yypPath = path.resolve(opts.project);
+
+    // Derive default project name for output directory
+    const projectName = path.basename(yypPath, '.yyp');
+    const outDir = opts.out ? path.resolve(opts.out) : path.resolve(`./imported-${projectName}`);
+
+    console.log(`Importing GMS2 project: ${yypPath}`);
+    if (opts.dryRun) console.log('[dry-run mode — no files will be written]');
+    console.log(`Output directory: ${outDir}`);
+
+    const result = await importGMS2Project(yypPath, outDir, { dryRun: opts.dryRun, verbose: opts.verbose });
+
+    console.log(`\nDone. Converted: ${result.converted} asset(s).`);
+    if (result.skipped.length > 0) {
+      console.log(`Skipped (manual work required): ${result.skipped.length} asset(s).`);
+    }
+    if (result.warnings.length > 0) {
+      console.log('\nWarnings:');
+      for (const w of result.warnings) {
+        console.warn(`  [warn] ${w}`);
+      }
+    }
+    if (!opts.dryRun) {
+      console.log(`\nSee ${path.join(outDir, 'migration-report.md')} for next steps.`);
     }
   });
 

@@ -107,9 +107,14 @@ export type { JointType, RevoluteOptions, PrismaticOptions, SpringOptions } from
 // PhysicsBody callbacks
 export type { ContactInfo, CollisionCallback, SensorCallback } from './components/PhysicsBody.js';
 
+// Layer System
+export { LayerSystem } from './systems/LayerSystem.js';
+export type { LayerConfig } from './systems/LayerSystem.js';
+
 // Compat
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
 export type { MaliInfo, MaliFixes } from './compat/mali.js';
+export * as GMLCompat from './compat/index.js';
 
 // Public type aliases
 export type { GameStage } from './types/aliases.js';

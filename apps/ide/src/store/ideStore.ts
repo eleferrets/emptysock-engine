@@ -142,6 +142,10 @@ interface IDEState {
 
   // Project folder
   setProjectFolder: (folder: string) => void;
+
+  // Project lifecycle
+  resetProject: () => void;
+  loadProjectFiles: (files: Record<string, string>, name?: string) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -388,6 +392,44 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
+
+  resetProject: () => {
+    set({
+      projectName: 'MyPlatformer',
+      projectFolder: '',
+      files: INITIAL_FILES,
+      selectedFile: 'src/scenes/GameScene.ts',
+      editorCode: INITIAL_CODE,
+      openFiles: { 'src/scenes/GameScene.ts': INITIAL_CODE },
+      activeFilePath: 'src/scenes/GameScene.ts',
+      playState: 'stopped',
+      buildStatus: 'idle',
+      buildErrors: [],
+      buildDuration: null,
+      lastBuildAt: null,
+      logs: [],
+    });
+    get().addLog('info', 'New project created', 'IDE');
+  },
+
+  loadProjectFiles: (files, name) => {
+    const paths = Object.keys(files);
+    const firstPath = paths[0] ?? null;
+    const projectFiles: ProjectFile[] = paths.map(p => ({ name: p.split('/').pop() ?? p, path: p, type: 'file' as const }));
+    set({
+      projectName: name ?? 'LoadedProject',
+      files: projectFiles,
+      openFiles: files,
+      activeFilePath: firstPath,
+      selectedFile: firstPath,
+      editorCode: firstPath !== null ? (files[firstPath] ?? '') : '',
+      playState: 'stopped',
+      buildStatus: 'idle',
+      buildErrors: [],
+      logs: [],
+    });
+    get().addLog('info', `Loaded ${paths.length} file(s)`, 'IDE');
+  },
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {

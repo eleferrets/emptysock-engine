@@ -117,3 +117,14 @@ body,
 .font-mono {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
+
+/* Ensure all native selects feel interactive */
+select {
+  cursor: pointer;
+}
+
+/* Destructive hover tint for buttons/rows */
+.es-danger-hover:hover {
+  background: rgba(248, 113, 113, 0.08) !important;
+  color: var(--red) !important;
+}

@@ -4,6 +4,36 @@ This section is a self-contained offline reference for TypeScript and JavaScript
 
 ---
 
+## Coming from JavaScript?
+
+If you already know JavaScript, you can start writing EmptySock games immediately. Everything in this reference that uses `const`, `let`, arrow functions, classes, and `async/await` is standard JavaScript — TypeScript is a superset that adds type annotations on top.
+
+The main things to know:
+- **Type annotations** like `dt: number` are optional extras that help the IDE catch mistakes. You can omit them and use `.js` files.
+- **`override`** before a method is a TypeScript signal meaning "I'm intentionally replacing a method from the parent class." It is not required in `.js` files.
+- **Engine-specific rule:** never use `async/await` inside `onUpdate()`. The game loop discards the returned Promise. For multi-frame sequences, use coroutines (`entity.startCoroutine`).
+
+---
+
+## Coming from GML (GameMaker Language)?
+
+If you are migrating from GMS2, the language difference is bigger than the engine difference. Here are the most common adjustments:
+
+| GML habit | EmptySock equivalent | Why this matters |
+|-----------|---------------------|-----------------|
+| `var x = 5` | `let x = 5` or `const x = 5` | `const` is safer — use it by default |
+| `x = 5` (event variable) | `this.x = 5` (class field) | Object state is on `this`, not a local variable scope |
+| `show_debug_message(s)` | `console.log(s)` | Appears in the Console panel |
+| `alarm[0] = 60` | `Timer.after(1.0, fn)` or `waitFrames(60)` | Timers are time-based, not frame-counted |
+| `with (obj_enemy) { ... }` | `this.query(EnemyTag).forEach(e => { ... })` | Query by component type |
+| `global.score` | module-level `let score = 0` | Module scope is process-global |
+| `instance_create_layer(...)` | `this.createEntity(name)` + `addComponent(...)` | Entities need explicit components |
+| `draw_sprite(spr, img, x, y)` | `entity.addComponent(Sprite, { texture: 'spr.png' })` | Drawing is declarative |
+
+For the full GML → TypeScript mapping table and the automated import tool, see **Section 11 — GMS2 Migration Guide**.
+
+---
+
 ## 10.1 Which language should I use?
 
 Both TypeScript and JavaScript are fully supported. The esbuild-wasm pipeline that runs inside the IDE handles `.ts`, `.tsx`, `.js`, and `.jsx` files through the same compilation path. You can mix languages freely within one project.

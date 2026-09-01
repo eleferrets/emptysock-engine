@@ -18,6 +18,7 @@ This file is the decision record for the monorepo. It records conventions and no
 | 8 | docs/manual/08-tutorial-pong.md | Step-by-step: full game from scratch |
 | 9 | docs/manual/09-troubleshooting.md | Common pitfalls and how to diagnose them |
 | 10 | docs/manual/10-language-reference.md | Offline TypeScript & JavaScript reference for engine scripting |
+| 11 | docs/manual/11-gms2-migration.md | GMS2 → EmptySock migration guide: import tool, GML mapping, asset status |
 
 ---
 

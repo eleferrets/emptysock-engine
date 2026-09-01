@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { loadSettings, saveSettings, resetSettings, type IDESettings } from '../../services/SettingsService';
 import { useIDEStore } from '../../store/ideStore';
+import { Button } from '../ui/Button';
 
 interface Props {
   open: boolean;
@@ -200,6 +201,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
             position: 'fixed',
             inset: 0,
             background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
             zIndex: 100,
           }}
         />
@@ -337,23 +339,11 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
             <div style={{ marginTop: 20 }}>
               <SectionHeader label="Cache" />
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <button
-                type="button"
-                onClick={clearBuildCache}
-                style={{
-                  background: 'none',
-                  border: '1px solid var(--border)',
-                  borderRadius: 4,
-                  color: 'var(--text)',
-                  fontSize: 12,
-                  padding: '6px 12px',
-                  cursor: 'pointer',
-                }}
-              >
+            <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Button variant="outline" size="sm" onClick={clearBuildCache}>
                 Clear Build Cache
-              </button>
-              <span style={{ marginLeft: 10, fontSize: 11, color: 'var(--text-muted)' }}>
+              </Button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Resets build status and clears errors
               </span>
             </div>
@@ -370,53 +360,12 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               flexShrink: 0,
             }}
           >
-            <button
-              type="button"
-              onClick={handleReset}
-              style={{
-                background: 'none',
-                border: '1px solid var(--border)',
-                borderRadius: 4,
-                color: 'var(--text-muted)',
-                fontSize: 12,
-                padding: '5px 12px',
-                cursor: 'pointer',
-              }}
-            >
+            <Button variant="danger" size="sm" onClick={handleReset}>
               Reset to defaults
-            </button>
+            </Button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  background: 'none',
-                  border: '1px solid var(--border)',
-                  borderRadius: 4,
-                  color: 'var(--text-muted)',
-                  fontSize: 12,
-                  padding: '5px 12px',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                style={{
-                  background: 'var(--accent)',
-                  border: 'none',
-                  borderRadius: 4,
-                  color: 'white',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '5px 16px',
-                  cursor: 'pointer',
-                }}
-              >
-                Save
-              </button>
+              <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+              <Button variant="accent" size="sm" onClick={handleSave}>Save</Button>
             </div>
           </div>
         </Dialog.Content>

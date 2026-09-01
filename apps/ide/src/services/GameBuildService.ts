@@ -22,6 +22,7 @@ type BuildJob = {
   filename?: string;
   mode: 'debug' | 'release';
   aggressiveMode?: boolean;
+  target?: string[];
   virtualFiles?: Record<string, string>;
   onStart: () => void;
   onComplete: (result: BuildJobResult) => void;
@@ -108,6 +109,7 @@ async function runBuild(
   filename = 'game.ts',
   aggressiveMode = false,
   virtualFiles: Record<string, string> = {},
+  target: string[] = ['es2020'],
 ): Promise<BuildJobResult> {
   const start = Date.now();
   try {
@@ -128,7 +130,7 @@ async function runBuild(
         treeShaking: true,
       } : {}),
       sourcemap: mode === 'debug' ? 'inline' : false,
-      target: ['es2020'],
+      target,
       ...(isRelease ? { drop: ['console'] as const } : {}),
       plugins: [engineGlobalPlugin, virtualFsPlugin(virtualFiles)],
       write: false,
@@ -166,7 +168,7 @@ export class GameBuildService {
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       job.onStart();
-      void runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles).then(r => job.onComplete(r));
+      void runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles, job.target).then(r => job.onComplete(r));
     }, this.debounceMs);
   }
 
@@ -176,7 +178,7 @@ export class GameBuildService {
 
   async buildNow(job: Omit<BuildJob, 'onStart' | 'onComplete'>): Promise<BuildJobResult> {
     this.cancel();
-    return runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles);
+    return runBuild(job.code, job.mode, job.filename, job.aggressiveMode, job.virtualFiles, job.target);
   }
 
   destroy(): void { this.cancel(); }

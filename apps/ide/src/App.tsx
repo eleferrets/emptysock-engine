@@ -13,6 +13,8 @@ import { AssetBrowser } from './components/panels/AssetBrowser';
 import { TilemapEditor } from './components/panels/TilemapEditor';
 import { ParticleEditor } from './components/panels/ParticleEditor';
 import { VNEditor } from './components/panels/VNEditor';
+import { VisualScriptEditor } from './components/panels/VisualScriptEditor';
+import { SequenceEditor } from './components/panels/SequenceEditor';
 import { AudioMixer } from './components/panels/AudioMixer';
 import { Profiler } from './components/panels/Profiler';
 import { LocalisationEditor } from './components/panels/LocalisationEditor';
@@ -20,6 +22,8 @@ import { GitPanel } from './components/panels/GitPanel';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { ExportModal } from './components/modals/ExportModal';
 import { CommandPalette } from './components/modals/CommandPalette';
+import { ShortcutsModal } from './components/modals/ShortcutsModal';
+import { DownloadEngineModal } from './components/modals/DownloadEngineModal';
 import { MenuBar } from './components/panels/MenuBar';
 import { useIDEStore } from './store/ideStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -58,6 +62,8 @@ const DEFAULT_LAYOUT: LayoutData = {
               makeTab('tilemap', 'Tilemap', <TilemapEditor />, true),
               makeTab('particle', 'Particles', <ParticleEditor />, true),
               makeTab('vn', 'VN Graph', <VNEditor />, true),
+              makeTab('visual-script', 'Visual Script', <VisualScriptEditor />, true),
+              makeTab('sequence', 'Sequence', <SequenceEditor />, true),
             ],
           },
           {
@@ -85,6 +91,8 @@ export function App(): React.ReactElement {
   const { settingsOpen, setSettingsOpen } = useIDEStore();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [downloadEngineOpen, setDownloadEngineOpen] = React.useState(false);
 
   useApplyTheme();
 
@@ -109,11 +117,13 @@ export function App(): React.ReactElement {
         overflow: 'hidden',
       }}
     >
-      <MenuBar onOpenExport={() => setExportOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
+      <MenuBar onOpenExport={() => setExportOpen(true)} onOpenPalette={() => setPaletteOpen(true)} onOpenShortcuts={() => setShortcutsOpen(true)} onOpenDownload={() => setDownloadEngineOpen(true)} />
       <Toolbar onExport={() => setExportOpen(true)} />
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <DownloadEngineModal open={downloadEngineOpen} onClose={() => setDownloadEngineOpen(false)} />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
