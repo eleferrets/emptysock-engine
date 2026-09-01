@@ -37,9 +37,27 @@ function isTauri(): boolean {
 
 function Kbd({ shortcut }: { shortcut: string }): React.ReactElement {
   return (
-    <span style={{ marginLeft: 'auto', paddingLeft: 24, color: 'var(--text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', opacity: 0.8 }}>
-      {shortcut}
-    </span>
+    <kbd style={{
+      marginLeft: 'auto',
+      paddingLeft: 20,
+      color: 'var(--text-muted)',
+      fontSize: 10,
+      fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+      fontStyle: 'normal',
+      display: 'inline-flex',
+      alignItems: 'center',
+    }}>
+      <span style={{
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        padding: '1px 4px',
+        fontSize: 10,
+        lineHeight: 1.4,
+        background: 'rgba(255,255,255,0.04)',
+      }}>
+        {shortcut}
+      </span>
+    </kbd>
   );
 }
 
