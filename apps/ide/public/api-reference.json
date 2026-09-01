@@ -1,0 +1,306 @@
+{
+  "version": "0.2.0",
+  "engine": "@emptysock/engine",
+  "note": "All types are exported from the package root. Static classes have no constructor.",
+  "modules": {
+    "Actor": {
+      "description": "Base class for all actors in the Actor Model. Subclass and implement receive().",
+      "constructor": "new Actor(id: ActorId)",
+      "methods": {
+        "send": "(msg: Message) => void",
+        "flush": "() => void",
+        "receive": "(msg: Message) => void  // abstract — must implement",
+        "update": "(dt: number) => void",
+        "start": "() => void",
+        "stop": "() => void",
+        "destroy": "() => void"
+      },
+      "properties": {
+        "id": "ActorId",
+        "isRunning": "boolean"
+      }
+    },
+    "NetworkActor": {
+      "description": "Actor extended with a pluggable Transport for multiplayer. Remote messages route into receive() identically to local messages.",
+      "extends": "Actor",
+      "methods": {
+        "setTransport": "(transport: Transport) => void",
+        "sendRemote": "(targetActorId: string, msg: Message) => void"
+      }
+    },
+    "ActorSystem": {
+      "description": "Registry and per-frame scheduler for actors. Create one per scene; destroy in onDestroy.",
+      "constructor": "new ActorSystem()",
+      "methods": {
+        "register": "(actor: Actor) => void  // throws on duplicate id",
+        "unregister": "(id: ActorId) => void",
+        "send": "(actorId: ActorId, msg: Message) => void",
+        "broadcast": "(msg: Message) => void  // O(n actors)",
+        "update": "(dt: number) => void  // flush all inboxes then call update() on running actors",
+        "destroy": "() => void"
+      }
+    },
+    "Transport": {
+      "description": "Interface for pluggable network transports. Implement in game code; never import a concrete transport into the engine.",
+      "kind": "interface",
+      "methods": {
+        "send": "(actorId: string, msg: Record<string, unknown>) => void",
+        "onReceive": "(handler: (payload: TransportMessage) => void) => void",
+        "connect": "() => Promise<void>",
+        "disconnect": "() => void"
+      }
+    },
+    "PluginSystem": {
+      "description": "Process-global service registry. Import the singleton directly — do not construct.",
+      "singleton": "pluginSystem",
+      "methods": {
+        "register": "(plugin: Plugin) => Promise<void>  // throws on duplicate name",
+        "unregister": "(name: string) => Promise<void>",
+        "inject": "<T>(key: string) => T | undefined",
+        "registeredPlugins": "readonly string[]"
+      }
+    },
+    "NavMeshSystem": {
+      "description": "Polygon-based 2D pathfinding. Load pre-built polygon data; do not generate at runtime.",
+      "constructor": "new NavMeshSystem()",
+      "methods": {
+        "load": "(data: NavMeshData) => void",
+        "findPath": "(from: Vec2, to: Vec2) => Vec2[]  // returns centroid waypoints, empty if no path",
+        "update": "(dt: number) => void  // reserved for dynamic obstacles"
+      }
+    },
+    "PhysicsSystem3D": {
+      "description": "Full Rapier3D integration. Must await init() before adding bodies. Must call destroy() in onDestroy to free WASM memory.",
+      "constructor": "new PhysicsSystem3D()",
+      "methods": {
+        "init": "(gravity?: Vec3) => Promise<void>",
+        "addBody": "(options?: PhysicsBody3DOptions) => Physics3DHandle",
+        "removeBody": "(index: number) => void",
+        "update": "(dt: number) => void",
+        "destroy": "() => void  // required — frees WASM heap allocation"
+      },
+      "properties": {
+        "isInitialized": "boolean"
+      }
+    },
+    "Physics3DHandle": {
+      "description": "Handle returned by PhysicsSystem3D.addBody(). Read transform, apply forces.",
+      "kind": "class",
+      "methods": {
+        "getPosition": "() => Vec3",
+        "getRotation": "() => Quat",
+        "applyImpulse": "(impulse: Vec3) => void",
+        "applyForce": "(force: Vec3) => void",
+        "setLinvel": "(vel: Vec3) => void"
+      },
+      "properties": {
+        "bodyIndex": "number  // pass to removeBody()"
+      }
+    },
+    "PhysicsBody": {
+      "description": "2D physics component. Attach to an entity. Synchronous — no init required.",
+      "kind": "component",
+      "attachWith": "entity.addComponent(PhysicsBody, options)",
+      "options": {
+        "shape": "'box' | 'circle' | 'capsule' | 'polygon'",
+        "bodyType": "'dynamic' | 'static' | 'kinematic'",
+        "gravityScale": "number",
+        "friction": "number",
+        "restitution": "number",
+        "isSensor": "boolean"
+      },
+      "methods": {
+        "onCollisionEnter": "(cb: (other: PhysicsBody) => void) => void",
+        "onCollisionExit": "(cb: (other: PhysicsBody) => void) => void",
+        "applyImpulse": "(impulse: Vec2) => void",
+        "setLinvel": "(vel: Vec2) => void",
+        "getLinvel": "() => Vec2"
+      }
+    },
+    "CharacterController": {
+      "description": "2D character movement component. Handles slope, step-up, one-way platforms. Requires a PhysicsBody on the same entity.",
+      "kind": "component",
+      "attachWith": "entity.addComponent(CharacterController, options)",
+      "options": {
+        "slopeAngle": "number  // max walkable slope in degrees",
+        "stepHeight": "number  // max step-up height in px"
+      },
+      "methods": {
+        "moveAndSlide": "(velocity: Vec2) => void",
+        "jump": "(impulse: number) => void",
+        "isGrounded": "() => boolean",
+        "isOnWall": "() => boolean",
+        "isOnCeiling": "() => boolean"
+      }
+    },
+    "Animator": {
+      "description": "Spritesheet animation component. Drives a Sprite component on the same entity.",
+      "kind": "component",
+      "attachWith": "entity.addComponent(Animator, options)",
+      "options": {
+        "spritesheet": "string  // path to .esanim file",
+        "defaultClip": "string"
+      },
+      "methods": {
+        "play": "(clipName: string, options?: { loop?: boolean; speed?: number }) => void",
+        "pause": "() => void",
+        "resume": "() => void",
+        "stop": "() => void",
+        "onComplete": "(cb: () => void) => void  // fires when a non-looping clip ends"
+      },
+      "properties": {
+        "currentClip": "string",
+        "isPlaying": "boolean",
+        "frame": "number"
+      }
+    },
+    "InputSystem": {
+      "description": "Low-level keyboard, mouse, and touch input with frame-accurate events. attach() and flush() must be called manually when using this class directly. The high-level Input static class wraps this automatically.",
+      "constructor": "new InputSystem()",
+      "methods": {
+        "attach": "(canvas: HTMLElement) => void",
+        "detach": "(canvas: HTMLElement) => void",
+        "flush": "() => void  // call once per frame before reading state",
+        "isKeyDown": "(key: string) => boolean",
+        "isKeyPressed": "(key: string) => boolean",
+        "isKeyReleased": "(key: string) => boolean",
+        "getTouch": "(id: number) => TouchPoint | undefined",
+        "isTouchStarted": "(id?: number) => boolean",
+        "isTouchEnded": "(id?: number) => boolean"
+      },
+      "properties": {
+        "touchCount": "number",
+        "touches": "IterableIterator<TouchPoint>",
+        "primaryTouch": "TouchPoint | undefined"
+      }
+    },
+    "Audio": {
+      "description": "Static audio playback class. Manages sfx, music, and spatial audio.",
+      "kind": "static",
+      "methods": {
+        "preload": "(key: string, path: string) => Promise<void>",
+        "play": "(key: string, options?: { volume?: number; spatial?: boolean; position?: Vec2 }) => void",
+        "music": "(key: string, options?: { loop?: boolean; fade?: number }) => void",
+        "stopMusic": "(options?: { fade?: number }) => void",
+        "setGroupVolume": "(group: string, volume: number) => void  // groups: master, music, sfx, voice, ambient",
+        "stop": "(key: string) => void"
+      }
+    },
+    "Camera": {
+      "description": "Static camera controller. Follows entities, shakes, zooms, fades.",
+      "kind": "static",
+      "methods": {
+        "follow": "(entity: Entity, options?: { lerp?: number; deadzone?: { x: number; y: number } }) => void",
+        "stopFollowing": "() => void",
+        "shake": "(options: { intensity: number; duration: number }) => void",
+        "zoom": "(factor: number, options?: { duration?: number; ease?: string }) => void",
+        "fade": "(options: { to?: number; from?: number; duration: number }) => void"
+      },
+      "properties": {
+        "position": "Vec2",
+        "zoomLevel": "number"
+      }
+    },
+    "SaveSystem": {
+      "description": "Async save/load. Uses native filesystem in Tauri, localStorage in browser. Always validate loaded data with a schema.",
+      "kind": "static",
+      "methods": {
+        "save": "(slot: string, data: unknown) => Promise<void>",
+        "load": "(slot: string) => Promise<{ data: unknown }>  // throws SlotNotFoundError if missing",
+        "delete": "(slot: string) => Promise<void>",
+        "listSlots": "() => Promise<string[]>"
+      }
+    },
+    "i18n": {
+      "description": "Localisation singleton. Load locale bundles in onLoad; call setLocale before t().",
+      "kind": "singleton",
+      "methods": {
+        "load": "(locale: string, importer: () => Promise<{ default: Record<string, string> }>) => Promise<void>",
+        "setLocale": "(locale: string) => void",
+        "t": "(key: string, vars?: Record<string, unknown>) => string  // returns key if missing, never throws"
+      },
+      "properties": {
+        "currentLocale": "string"
+      }
+    },
+    "TilemapSystem": {
+      "description": "Static tilemap loader. Load .esmap files exported from the TilemapEditor panel.",
+      "kind": "static",
+      "methods": {
+        "load": "(path: string) => Tilemap",
+        "unload": "(path: string) => void"
+      }
+    },
+    "Tilemap": {
+      "description": "Loaded tilemap instance returned by TilemapSystem.load().",
+      "kind": "class",
+      "methods": {
+        "getLayer": "(name: string) => TilemapLayer",
+        "getLayers": "() => TilemapLayer[]"
+      }
+    },
+    "TilemapLayer": {
+      "description": "One layer of a loaded tilemap.",
+      "kind": "class",
+      "methods": {
+        "enablePhysics": "() => void  // generates static PhysicsBody colliders from solid tiles",
+        "disablePhysics": "() => void"
+      },
+      "properties": {
+        "name": "string",
+        "entities": "Entity[]  // spawn-point entities placed in this layer"
+      }
+    },
+    "Tween": {
+      "description": "Static tween runner. Interpolates numeric properties on any object over a duration.",
+      "kind": "static",
+      "methods": {
+        "to": "(target: object, props: Record<string, number>, options: TweenOptions) => TweenHandle",
+        "from": "(target: object, props: Record<string, number>, options: TweenOptions) => TweenHandle",
+        "kill": "(handle: TweenHandle) => void"
+      }
+    },
+    "TweenOptions": {
+      "kind": "interface",
+      "fields": {
+        "duration": "number",
+        "ease": "string  // linear | sineIn/Out/InOut | quadIn/Out/InOut | cubicIn/Out/InOut | bounceOut | elasticOut | backIn/Out",
+        "delay": "number",
+        "onComplete": "() => void"
+      }
+    },
+    "Timer": {
+      "description": "Game-loop-integrated timer. Pauses with the scene. Always cancel handles in onDestroy.",
+      "kind": "static",
+      "methods": {
+        "after": "(seconds: number, cb: () => void) => TimerHandle",
+        "every": "(seconds: number, cb: () => void) => TimerHandle"
+      }
+    },
+    "LayerSystem": {
+      "description": "Named rendering layers with z-order and entity membership. Lower index = drawn first. Pre-defines 'default' (index 0) and 'ui' (index 1000). Create one per scene and call destroy() in onDestroy.",
+      "constructor": "new LayerSystem()",
+      "methods": {
+        "defineLayer": "(name: string, index: number) => void",
+        "addToLayer": "(entityId: number | string, layerName: string) => void",
+        "removeFromLayer": "(entityId: number | string) => void",
+        "getEntityLayer": "(entityId: number | string) => string | null",
+        "getLayerIndex": "(name: string) => number  // returns 0 for unknown layers",
+        "setVisible": "(name: string, visible: boolean) => void",
+        "isVisible": "(name: string) => boolean  // unknown layers default to true",
+        "getLayersSorted": "() => LayerConfig[]  // sorted by index ascending",
+        "destroy": "() => void"
+      },
+      "types": {
+        "LayerConfig": "{ name: string; index: number; visible: boolean }"
+      }
+    },
+    "GMLCompat": {
+      "description": "Namespace export (import * as GMLCompat from '@emptysock/engine') providing ~50 thin wrappers that map GameMaker Language built-in function names to JS/EmptySock equivalents. Covers math (lerp, clamp, sign, frac, lengthdir_x/y, point_distance/direction, degtorad, radtodeg, irandom, irandom_range, random, random_range, choose), strings (string, string_length, string_copy, string_pos, string_lower, string_upper, string_repeat, string_delete), ds_map and ds_list stubs backed by JS Map/Array, room_width/room_height (configurable via setRoomSize), show_message (console.log), and game_end (no-op with warning). Import from '@emptysock/engine/compat/gml' for tree-shakeable individual functions.",
+      "kind": "namespace",
+      "helpers": {
+        "setRoomSize": "(w: number, h: number) => void  // configure room_width() / room_height() return values"
+      }
+    }
+  }
+}
