@@ -1,8 +1,21 @@
 # 11 — GameMaker Studio 2 Migration Guide
 
-## Overview
+---
 
-The EmptySock toolchain includes a GMS2 importer that reads a `.yyp` project file and generates TypeScript stub files — one per GML object and one per GML script. The stubs preserve object names, variable declarations, and event signatures so your project compiles immediately (with type errors to fix). GML → TypeScript transpilation is not automated; the migration report identifies every site that needs manual attention.
+## Is this guide for me?
+
+This guide is for developers who have an existing **GameMaker Studio 2 (GMS2)** project and want to move it to EmptySock Engine.
+
+You should read this guide if:
+- You have a `.yyp` GMS2 project file and want to bring it over
+- You want to understand how GML code maps to TypeScript
+- You are wondering what will be automated vs. what you'll need to do manually
+
+You do not need this guide if you are starting a new project from scratch. Go to Section 2 — Getting Started instead.
+
+**What is automated:** The toolchain reads your `.yyp` project and generates TypeScript stub files — one per GML object and one per GML script. Your project will compile immediately (with type errors to fix). Object names and variable declarations are preserved.
+
+**What is not automated:** The actual GML logic inside events. GML → TypeScript transpilation is not automated; the migration report identifies every line that needs manual attention.
 
 ---
 
@@ -47,31 +60,29 @@ Work through the report top-to-bottom; fix the highest-confidence mappings first
 
 ## Step 4: GML → TypeScript mapping
 
-Common GML patterns and their EmptySock equivalents:
-
-| GML | TypeScript / EmptySock |
-|-----|------------------------|
-| `instance_create_layer(x, y, layer, obj)` | `scene.createEntity()` + `addComponent` |
-| `instance_destroy()` | `entity.destroy()` |
-| `object_index` | Entity constructor reference / `getComponent` |
-| `alarm[0] = 60` | `entity.startCoroutine(waitFrames(60, fn))` |
-| `hspeed` / `vspeed` | Physics body velocity via `PhysicsBody` |
-| `sprite_index` / `image_index` | `Sprite` component + `Animator` |
-| `global.variable` | Module-level `let` / `const` |
-| `with (obj_enemy) { ... }` | `scene.query(EnemyComponent).forEach(...)` |
-| `room_goto(rm_next)` | `SceneManager.load('SceneName')` |
-| `draw_sprite(spr, img, x, y)` | `Sprite` component (declarative, drawn by engine) |
-| `audio_play_sound(snd, priority, loop)` | `AudioSystem.play('sound-name', { loop })` |
-| `draw_set_color(c_red)` | Draw via `UISystem` or a custom `PostProcessSystem` pass |
-| `instance_number(obj)` | `scene.query(MyComponent).length` |
-| `place_meeting(x, y, obj)` | Overlap query via `PhysicsBody` sensors |
-| `path_start(path, speed, ...)` | `NavMeshSystem` + waypoint coroutine |
-| `draw_text(x, y, string)` | `UISystem.createLabel(...)` |
-| `game_restart()` | `SceneManager.load(currentSceneName)` |
-| `irandom(n)` | `Math.floor(Math.random() * (n + 1))` |
-| `choose(a, b, c)` | `[a, b, c][Math.floor(Math.random() * 3)]` |
-| `point_direction(x1, y1, x2, y2)` | `Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI)` |
-| `lengthdir_x(len, dir)` | `Math.cos(dir * Math.PI / 180) * len` |
+| GML | TypeScript / EmptySock | Notes |
+|-----|------------------------|-------|
+| `instance_create_layer(x, y, layer, obj)` | `scene.createEntity()` + `addComponent` | Objects become entities with components |
+| `instance_destroy()` | `entity.destroy()` | Same concept, different name |
+| `object_index` | Entity constructor reference / `getComponent` | Use component type as identity |
+| `alarm[0] = 60` | `entity.startCoroutine(function*() { yield waitFrames(60); fn(); })` | Coroutines replace alarms |
+| `hspeed` / `vspeed` | Physics body velocity via `PhysicsBody` | Set velocity on the physics component |
+| `sprite_index` / `image_index` | `Sprite` component + `Animator` | Sprites are components, not built-ins |
+| `global.variable` | Module-level `let` / `const` | Module scope is process-global |
+| `with (obj_enemy) { ... }` | `scene.query(EnemyComponent).forEach(...)` | Query by component type |
+| `room_goto(rm_next)` | `SceneManager.load('SceneName')` | Rooms are Scenes |
+| `draw_sprite(spr, img, x, y)` | `Sprite` component (declarative, drawn by engine) | You don't call draw explicitly |
+| `audio_play_sound(snd, priority, loop)` | `AudioSystem.play('sound-name', { loop })` | Name must match asset filename |
+| `draw_set_color(c_red)` | Draw via `UISystem` or a custom `PostProcessSystem` pass | No immediate-mode drawing API |
+| `instance_number(obj)` | `scene.query(MyComponent).length` | Count entities with a component |
+| `place_meeting(x, y, obj)` | Overlap query via `PhysicsBody` sensors | Physics handles collision detection |
+| `path_start(path, speed, ...)` | `NavMeshSystem` + waypoint coroutine | See Section 5.7 |
+| `draw_text(x, y, string)` | `UISystem.createLabel(...)` | UI is component-based |
+| `game_restart()` | `SceneManager.load(currentSceneName)` | Reload the scene |
+| `irandom(n)` | `Math.floor(Math.random() * (n + 1))` | 0..n inclusive |
+| `choose(a, b, c)` | `[a, b, c][Math.floor(Math.random() * 3)]` | Random array element |
+| `point_direction(x1, y1, x2, y2)` | `Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI)` | Returns degrees |
+| `lengthdir_x(len, dir)` | `Math.cos(dir * Math.PI / 180) * len` | Degrees → radians conversion required |
 
 ---
 
@@ -83,21 +94,21 @@ During migration, use the `@emptysock/engine/compat` shim to avoid rewriting low
 import * as GML from '@emptysock/engine/compat';
 
 // These work identically to their GML equivalents:
-GML.lerp(a, b, t);         // linear interpolate
-GML.clamp(v, lo, hi);      // clamp
-GML.irandom(n);            // integer in 0..n inclusive
-GML.string(v);             // coerce to string
-GML.string_length(s);      // s.length
-GML.string_pos(sub, s);    // s.indexOf(sub) + 1 (1-based, 0 = not found)
-GML.ds_map_create();       // returns a Map<string, unknown>
+GML.lerp(a, b, t);             // linear interpolate
+GML.clamp(v, lo, hi);          // clamp a value
+GML.irandom(n);                // integer in 0..n inclusive
+GML.string(v);                 // coerce any value to string
+GML.string_length(s);          // s.length
+GML.string_pos(sub, s);        // s.indexOf(sub) + 1 (1-based, 0 = not found)
+GML.ds_map_create();           // returns a Map<string, unknown>
 GML.ds_map_set(m, k, v);
 GML.ds_map_find_value(m, k);
-GML.ds_map_destroy(m);     // no-op; GC handles it, but safe to call
-GML.ds_list_create();      // returns an Array<unknown>
+GML.ds_map_destroy(m);         // no-op; GC handles it, but safe to call
+GML.ds_list_create();          // returns an Array<unknown>
 GML.ds_list_add(l, v);
 GML.ds_list_find_value(l, i);
 GML.ds_list_size(l);
-GML.ds_list_destroy(l);    // no-op
+GML.ds_list_destroy(l);        // no-op
 ```
 
 > **Plan:** The compat shim is a migration aid, not a production dependency. Replace shim calls with idiomatic TypeScript as you stabilise each object.
@@ -119,6 +130,63 @@ GML.ds_list_destroy(l);    // no-op
 | Shaders | Not automated | Port `.glsl` to `PostProcessSystem` custom effect (section 5.13) |
 | Fonts | Not automated | Use Google Fonts or inline a `@font-face` via UISystem |
 | Extensions | Not automated | Evaluate per extension; most map to a Plugin (section 5.8) |
+
+---
+
+## Common migration errors
+
+These are the errors you are most likely to see after running the importer, with fixes.
+
+---
+
+**Error:** `Property 'x' does not exist on type 'Entity'`
+
+**Cause:** In GML, `x` and `y` are built-in instance variables. In EmptySock, position is on the `Transform` component.
+
+**Fix:**
+```typescript
+// Before (GML style):
+// x = 100;
+
+// After (EmptySock):
+const t = entity.requireComponent(Transform);
+t.x = 100;
+
+// Or use the shorthand:
+entity.position = { x: 100, y: entity.position.y };
+```
+
+---
+
+**Error:** `Cannot find module '../entities/Player'` (import fails silently during play)
+
+**Cause:** The file exists on disk but is not open in the IDE's Files panel. The in-browser build only sees files in the open-files map.
+
+**Fix:** Open the file in the IDE's Files panel. It will then be included in the virtual filesystem at build time.
+
+---
+
+**Error:** `ComponentNotFoundError: Health not found on entity 'Enemy'`
+
+**Cause:** You called `entity.requireComponent(Health)` but the entity was created without `addComponent(Health, ...)`.
+
+**Fix:** Add the component in `onLoad()`:
+```typescript
+enemy.addComponent(Health, 100); // must be added before requireComponent
+```
+
+---
+
+**Error:** `[Timer] callback fired after scene destroyed`
+
+**Cause:** You forgot to cancel a `Timer` handle in `onDestroy()`.
+
+**Fix:**
+```typescript
+override onDestroy(): void {
+  this.spawnTimer.cancel(); // always cancel in onDestroy
+}
+```
 
 ---
 
