@@ -128,6 +128,36 @@ function buildDefaultLayout(): LayoutData {
 
 const DEFAULT_LAYOUT: LayoutData = buildDefaultLayout();
 
+const ALL_PANEL_TABS: Record<string, () => TabData> = {
+  code: () => makeTab("code", "Code", <CodeEditor />),
+  canvas: () => makeTab("canvas", "Preview", <CanvasPreview />),
+  scene: () => makeTab("scene", "Scene", <SceneInspector />),
+  files: () => makeTab("files", "Files", <LeftSidebar />),
+  console: () => makeTab("console", "Console", <ConsolePanel />),
+  assets: () => makeTab("assets", "Assets", <AssetBrowser />),
+  inspector: () => makeTab("inspector", "Inspector", <EntityProperties />),
+  tilemap: () =>
+    GATED_TABS["tilemap"] ?? makeTab("tilemap", "Tilemap", <TilemapEditor />),
+  particle: () =>
+    GATED_TABS["particle"] ??
+    makeTab("particle", "Particles", <ParticleEditor />),
+  vn: () => GATED_TABS["vn"] ?? makeTab("vn", "VN Graph", <VNEditor />),
+  "visual-script": () =>
+    GATED_TABS["visual-script"] ??
+    makeTab("visual-script", "Visual Script", <VisualScriptEditor />),
+  sequence: () =>
+    GATED_TABS["sequence"] ??
+    makeTab("sequence", "Sequence", <SequenceEditor />),
+  audio: () =>
+    GATED_TABS["audio"] ?? makeTab("audio", "Audio Mixer", <AudioMixer />),
+  profiler: () =>
+    GATED_TABS["profiler"] ?? makeTab("profiler", "Profiler", <Profiler />),
+  git: () => GATED_TABS["git"] ?? makeTab("git", "Git", <GitPanel />),
+  i18n: () =>
+    GATED_TABS["i18n"] ??
+    makeTab("i18n", "Localisation", <LocalisationEditor />),
+};
+
 export function App(): React.ReactElement {
   const {
     settingsOpen,
@@ -140,6 +170,20 @@ export function App(): React.ReactElement {
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const [downloadEngineOpen, setDownloadEngineOpen] = React.useState(false);
+  const layoutRef = React.useRef<DockLayout>(null);
+
+  const openPanelInLayout = React.useCallback((tabId: string): void => {
+    const layout = layoutRef.current;
+    if (!layout) return;
+    const existing = layout.find(tabId);
+    if (existing) {
+      layout.updateTab(tabId, null, true);
+      return;
+    }
+    const factory = ALL_PANEL_TABS[tabId];
+    if (!factory) return;
+    layout.dockMove(factory(), null, "float");
+  }, []);
 
   useApplyTheme();
 
@@ -171,6 +215,8 @@ export function App(): React.ReactElement {
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenShortcuts={() => setShortcutsOpen(true)}
             onOpenDownload={() => setDownloadEngineOpen(true)}
+            onOpenPanel={openPanelInLayout}
+            onOpenModules={() => setProjectSettingsOpen(true)}
           />
           <Toolbar onExport={() => setExportOpen(true)} />
         </>
@@ -210,6 +256,7 @@ export function App(): React.ReactElement {
           className="es-dock-container"
         >
           <DockLayout
+            ref={layoutRef}
             defaultLayout={DEFAULT_LAYOUT}
             style={{ position: "absolute", inset: 0 }}
           />
