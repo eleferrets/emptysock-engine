@@ -114,15 +114,13 @@ export function MobileLayout(): React.ReactElement {
       {/* Top header bar */}
       <header className="es-mobile-header">
         <span className="es-mobile-project-name">{projectName}</span>
-        <div className="es-mobile-header-actions">
-          <button
-            className="es-mobile-play-btn"
-            aria-label={isPlaying ? "Stop" : "Play"}
-            onClick={() => setPlayState(isPlaying ? "stopped" : "playing")}
-          >
-            {isPlaying ? <Square size={18} /> : <Play size={18} />}
-          </button>
-        </div>
+        <button
+          className={`es-mobile-run-btn${isPlaying ? " es-mobile-run-btn--stop" : ""}`}
+          onClick={() => setPlayState(isPlaying ? "stopped" : "playing")}
+        >
+          {isPlaying ? <Square size={14} /> : <Play size={14} />}
+          <span>{isPlaying ? "Stop" : "Run"}</span>
+        </button>
       </header>
 
       {/* Main panel area with swipe */}
@@ -243,27 +241,29 @@ export function MobileLayout(): React.ReactElement {
           max-width: 60%;
         }
 
-        .es-mobile-header-actions {
+        .es-mobile-run-btn {
           display: flex;
           align-items: center;
-          gap: 8px;
-        }
-
-        .es-mobile-play-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 44px;
+          gap: 5px;
+          height: 32px;
+          padding: 0 14px;
           border: none;
-          border-radius: 8px;
+          border-radius: 16px;
           background: var(--accent);
           color: #fff;
+          font-size: 13px;
+          font-weight: 600;
           cursor: pointer;
+          flex-shrink: 0;
+          white-space: nowrap;
         }
 
-        .es-mobile-play-btn:active {
-          opacity: 0.8;
+        .es-mobile-run-btn--stop {
+          background: var(--red, #ef4444);
+        }
+
+        .es-mobile-run-btn:active {
+          opacity: 0.85;
         }
 
         /* ── Panel area ──────────────────────────── */
