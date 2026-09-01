@@ -1,25 +1,29 @@
 /* ── rc-dock theme overrides ────────────────────────────────────────────────
-   Maps rc-dock chrome to IDE CSS variables for dark/light support.
+   rc-dock ships hardcoded #fff/#fafafd backgrounds. Override every surface
+   with IDE CSS variables so dark mode actually looks dark.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Tab bar */
-.dock-tab-bar {
+/* Tab bar (rc-dock uses .dock-top .dock-bar for the tab strip) */
+.dock-bar,
+.dock-top .dock-bar {
   background: var(--surface) !important;
   border-bottom: 1px solid var(--border) !important;
 }
 
-/* Individual tabs */
-.dock-tab {
+/* Individual tab buttons */
+.dock-tab,
+.dock-tab > div {
+  background: transparent !important;
   color: var(--text-muted) !important;
-  background: transparent !important;
 }
 
-.dock-tab.dock-tab-active {
+.dock-tab.dock-tab-active,
+.dock-tab.dock-tab-active > div {
+  background: transparent !important;
   color: var(--text) !important;
-  background: transparent !important;
 }
 
-/* Active tab underline */
+/* Active underline */
 .dock-ink-bar {
   background: var(--accent) !important;
 }
@@ -28,9 +32,12 @@
 .dock-panel {
   background: var(--bg) !important;
   border: 1px solid var(--border) !important;
+  color: var(--text) !important;
 }
 
-.dock-content-animated {
+/* Animated content wrapper */
+.dock-content-animated,
+.dock-content {
   background: var(--bg) !important;
 }
 
@@ -39,15 +46,36 @@
   background: var(--border) !important;
 }
 
-/* Hide the maximize / float action buttons at the end of every tab bar.
-   Tabs can still be dragged out to float windows — the buttons are redundant. */
+/* Drop squares (shown during drag) */
+.dock-drop-square {
+  background: var(--surface-2) !important;
+  border-color: var(--accent) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Dropdown overflow menu */
+.dock-dropdown-menu {
+  background-color: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+.dock-dropdown-menu-item {
+  color: var(--text) !important;
+}
+
+.dock-dropdown-menu-item:hover {
+  background: var(--surface) !important;
+}
+
+/* Hide the maximize/float action buttons — drag to float still works */
 .dock-extra-content {
   display: none !important;
 }
 
-/* Float window drop shadow */
+/* Float window polish */
 .dock-float .dock-panel {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
   border-radius: 8px !important;
   overflow: hidden !important;
 }
