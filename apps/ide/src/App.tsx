@@ -27,9 +27,11 @@ import { DownloadEngineModal } from './components/modals/DownloadEngineModal';
 import { MenuBar } from './components/panels/MenuBar';
 import { useIDEStore } from './store/ideStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useBreakpoint } from './hooks/useBreakpoint';
+import { MobileLayout } from './components/MobileLayout';
 
 function useApplyTheme(): void {
-  const theme = useIDEStore(s => s.theme);
+  const theme = useIDEStore((s) => s.theme);
   React.useEffect(() => {
     const root = document.documentElement;
     if (theme === 'system') root.removeAttribute('data-theme');
@@ -89,6 +91,7 @@ const DEFAULT_LAYOUT: LayoutData = {
 
 export function App(): React.ReactElement {
   const { settingsOpen, setSettingsOpen } = useIDEStore();
+  const { isMobile } = useBreakpoint();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
@@ -100,7 +103,7 @@ export function App(): React.ReactElement {
     const handler = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
         e.preventDefault();
-        setPaletteOpen(prev => !prev);
+        setPaletteOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handler);
@@ -130,12 +133,16 @@ export function App(): React.ReactElement {
         onOpenExport={() => { setPaletteOpen(false); setExportOpen(true); }}
       />
 
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }} className="es-dock-container">
-        <DockLayout
-          defaultLayout={DEFAULT_LAYOUT}
-          style={{ position: 'absolute', inset: 0 }}
-        />
-      </div>
+      {isMobile ? (
+        <MobileLayout />
+      ) : (
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }} className="es-dock-container">
+          <DockLayout
+            defaultLayout={DEFAULT_LAYOUT}
+            style={{ position: 'absolute', inset: 0 }}
+          />
+        </div>
+      )}
     </div>
   );
 }
