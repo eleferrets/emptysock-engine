@@ -157,9 +157,10 @@ interface MenuBarProps {
   onOpenExport: () => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
+  onOpenDownload: () => void;
 }
 
-export function MenuBar({ onOpenExport, onOpenPalette, onOpenShortcuts }: MenuBarProps): React.ReactElement {
+export function MenuBar({ onOpenExport, onOpenPalette, onOpenShortcuts, onOpenDownload }: MenuBarProps): React.ReactElement {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   const {
@@ -324,6 +325,10 @@ export function MenuBar({ onOpenExport, onOpenPalette, onOpenShortcuts }: MenuBa
         { type: 'item', label: 'API Reference (JSON)', action: openApiRef },
         { type: 'separator' },
         { type: 'item', label: 'Keyboard Shortcuts', shortcut: '?', action: onOpenShortcuts },
+        ...(!isTauri() ? [
+          { type: 'separator' as const },
+          { type: 'item' as const, label: 'Download EmptySock Engine…', action: onOpenDownload },
+        ] : []),
         { type: 'separator' },
         { type: 'item', label: 'About EmptySock Engine v0.1.0', action: () => { window.alert('EmptySock Engine v0.1.0\n\nA portable, cross-platform game engine.\nBuild games with TypeScript or JavaScript.'); } },
       ],
