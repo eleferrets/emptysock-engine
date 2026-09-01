@@ -26,6 +26,7 @@ import { ShortcutsModal } from './components/modals/ShortcutsModal';
 import { DownloadEngineModal } from './components/modals/DownloadEngineModal';
 import { MenuBar } from './components/panels/MenuBar';
 import { useIDEStore } from './store/ideStore';
+import { ProjectSettingsModal } from './components/modals/ProjectSettingsModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import { MobileLayout } from './components/MobileLayout';
@@ -43,54 +44,73 @@ function makeTab(id: string, title: string, content: React.ReactElement, closabl
   return { id, title, content: <ErrorBoundary>{content}</ErrorBoundary>, closable };
 }
 
-const DEFAULT_LAYOUT: LayoutData = {
-  dockbox: {
-    mode: 'horizontal',
-    children: [
-      {
-        size: 220,
-        tabs: [makeTab('files', 'Files', <LeftSidebar />)],
-      },
-      {
-        size: 800,
-        mode: 'vertical',
-        children: [
-          {
-            size: 580,
-            tabs: [
-              makeTab('code', 'Code', <CodeEditor />),
-              makeTab('canvas', 'Preview', <CanvasPreview />),
-              makeTab('scene', 'Scene', <SceneInspector />),
-              makeTab('tilemap', 'Tilemap', <TilemapEditor />, true),
-              makeTab('particle', 'Particles', <ParticleEditor />, true),
-              makeTab('vn', 'VN Graph', <VNEditor />, true),
-              makeTab('visual-script', 'Visual Script', <VisualScriptEditor />, true),
-              makeTab('sequence', 'Sequence', <SequenceEditor />, true),
-            ],
-          },
-          {
-            size: 200,
-            tabs: [
-              makeTab('console', 'Console', <ConsolePanel />),
-              makeTab('assets', 'Assets', <AssetBrowser />),
-              makeTab('profiler', 'Profiler', <Profiler />, true),
-              makeTab('git', 'Git', <GitPanel />, true),
-              makeTab('i18n', 'Localisation', <LocalisationEditor />, true),
-              makeTab('audio', 'Audio Mixer', <AudioMixer />, true),
-            ],
-          },
-        ],
-      },
-      {
-        size: 280,
-        tabs: [makeTab('inspector', 'Inspector', <EntityProperties />)],
-      },
-    ],
-  },
+const GATED_TABS: Record<string, TabData> = {
+  tilemap: makeTab('tilemap', 'Tilemap', <TilemapEditor />, true),
+  particle: makeTab('particle', 'Particles', <ParticleEditor />, true),
+  vn: makeTab('vn', 'VN Graph', <VNEditor />, true),
+  'visual-script': makeTab('visual-script', 'Visual Script', <VisualScriptEditor />, true),
+  sequence: makeTab('sequence', 'Sequence', <SequenceEditor />, true),
+  audio: makeTab('audio', 'Audio Mixer', <AudioMixer />, true),
+  profiler: makeTab('profiler', 'Profiler', <Profiler />, true),
+  git: makeTab('git', 'Git', <GitPanel />, true),
+  i18n: makeTab('i18n', 'Localisation', <LocalisationEditor />, true),
 };
 
+function getModuleTabs(ids: string[]): TabData[] {
+  return ids.flatMap((id) => {
+    const tab = GATED_TABS[id];
+    return tab !== undefined ? [tab] : [];
+  });
+}
+
+function buildDefaultLayout(): LayoutData {
+  const enabledModules = useIDEStore.getState().enabledModules;
+  const mainGated = ['tilemap', 'particle', 'vn', 'visual-script', 'sequence'];
+  const bottomGated = ['profiler', 'git', 'i18n', 'audio'];
+  return {
+    dockbox: {
+      mode: 'horizontal',
+      children: [
+        {
+          size: 220,
+          tabs: [makeTab('files', 'Files', <LeftSidebar />)],
+        },
+        {
+          size: 800,
+          mode: 'vertical',
+          children: [
+            {
+              size: 580,
+              tabs: [
+                makeTab('code', 'Code', <CodeEditor />),
+                makeTab('canvas', 'Preview', <CanvasPreview />),
+                makeTab('scene', 'Scene', <SceneInspector />),
+                ...getModuleTabs(mainGated.filter((id) => enabledModules.includes(id))),
+              ],
+            },
+            {
+              size: 200,
+              tabs: [
+                makeTab('console', 'Console', <ConsolePanel />),
+                makeTab('assets', 'Assets', <AssetBrowser />),
+                ...getModuleTabs(bottomGated.filter((id) => enabledModules.includes(id))),
+              ],
+            },
+          ],
+        },
+        {
+          size: 280,
+          tabs: [makeTab('inspector', 'Inspector', <EntityProperties />)],
+        },
+      ],
+    },
+  };
+}
+
+const DEFAULT_LAYOUT: LayoutData = buildDefaultLayout();
+
 export function App(): React.ReactElement {
-  const { settingsOpen, setSettingsOpen } = useIDEStore();
+  const { settingsOpen, setSettingsOpen, projectSettingsOpen, setProjectSettingsOpen } = useIDEStore();
   const { isMobile } = useBreakpoint();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -124,6 +144,7 @@ export function App(): React.ReactElement {
       <Toolbar onExport={() => setExportOpen(true)} />
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ProjectSettingsModal open={projectSettingsOpen} onClose={() => setProjectSettingsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <DownloadEngineModal open={downloadEngineOpen} onClose={() => setDownloadEngineOpen(false)} />
