@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import JSZip from 'jszip';
 import { useIDEStore } from '../../store/ideStore';
 import { BrowserFileService } from '../../services/BrowserFileService';
 import { TauriFileService } from '../../services/TauriFileService';
@@ -103,7 +104,7 @@ function Dropdown({ def, open, onOpen, onClose, onHoverSibling }: DropdownProps)
             border: '1px solid var(--border)',
             borderRadius: 7,
             boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-            minWidth: 220,
+            minWidth: 240,
             padding: '4px 0',
             marginTop: 2,
           }}
@@ -155,19 +156,56 @@ function Dropdown({ def, open, onOpen, onClose, onHoverSibling }: DropdownProps)
 interface MenuBarProps {
   onOpenExport: () => void;
   onOpenPalette: () => void;
+  onOpenShortcuts: () => void;
 }
 
-export function MenuBar({ onOpenExport, onOpenPalette }: MenuBarProps): React.ReactElement {
+export function MenuBar({ onOpenExport, onOpenPalette, onOpenShortcuts }: MenuBarProps): React.ReactElement {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   const {
     playState, setPlayState, toggleDebugOverlay, clearLogs,
     setActiveTab, setSettingsOpen, toggleBuildMode, buildMode, clearBuildCache,
-    setEditorCode, editorCode, projectName,
+    setEditorCode, editorCode, projectName, openFiles, resetProject, loadProjectFiles,
   } = useIDEStore();
 
   const isMac = navigator.platform.toUpperCase().includes('MAC');
   const mod = isMac ? '⌘' : 'Ctrl';
+
+  // ── File actions ────────────────────────────────────────────────────────
+
+  const newProject = useCallback((): void => {
+    if (!window.confirm('Create a new project? Unsaved changes will be lost.')) return;
+    resetProject();
+  }, [resetProject]);
+
+  const openProjectFiles = useCallback((): void => {
+    // Use showOpenFilePicker (multi-select) so users can open several files at once.
+    // Falls back to single-file open when the API is unavailable.
+    if ('showOpenFilePicker' in window) {
+      void (async () => {
+        try {
+          const handles = await window.showOpenFilePicker({
+            multiple: true,
+            types: [{ description: 'Script files', accept: { 'text/plain': ['.ts', '.tsx', '.js', '.jsx', '.json'] } }],
+          });
+          const entries: Record<string, string> = {};
+          for (const handle of handles) {
+            const file = await handle.getFile();
+            entries[file.name] = await file.text();
+          }
+          if (Object.keys(entries).length > 0) loadProjectFiles(entries);
+        } catch (e) {
+          if (e instanceof Error && e.name !== 'AbortError') console.error(e);
+        }
+      })();
+    } else {
+      // Firefox / unsupported — fall back to single-file open
+      const svc = isTauri() ? TauriFileService : BrowserFileService;
+      void svc.openFile().then(r => { if (r.success && r.content !== undefined && r.path !== undefined) {
+        loadProjectFiles({ [r.path]: r.content });
+      }});
+    }
+  }, [loadProjectFiles]);
 
   const openFile = useCallback((): void => {
     const svc = isTauri() ? TauriFileService : BrowserFileService;
@@ -182,13 +220,45 @@ export function MenuBar({ onOpenExport, onOpenPalette }: MenuBarProps): React.Re
     }
   }, [editorCode, projectName]);
 
+  const downloadProjectZip = useCallback((): void => {
+    const zip = new JSZip();
+    const files = useIDEStore.getState().openFiles;
+    const name = useIDEStore.getState().projectName;
+    for (const [path, content] of Object.entries(files)) {
+      zip.file(path, content);
+    }
+    void zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } }).then(blob => {
+      BrowserFileService.downloadBlob(`${name}.zip`, blob);
+    });
+  }, []);
+
+  // ── Help actions ────────────────────────────────────────────────────────
+
+  const openManual = useCallback((): void => {
+    window.open('/manual/', '_blank', 'noopener');
+  }, []);
+
+  const openLanguageRef = useCallback((): void => {
+    window.open('/manual/10-language-reference.md', '_blank', 'noopener');
+  }, []);
+
+  const openApiRef = useCallback((): void => {
+    window.open('/api-reference.json', '_blank', 'noopener');
+  }, []);
+
+  // ── Menu definitions ────────────────────────────────────────────────────
+
   const menus: MenuDef[] = [
     {
       label: 'File',
       items: [
+        { type: 'item', label: 'New Project', shortcut: `${mod}+N`, action: newProject },
+        { type: 'item', label: 'Open Project…', action: openProjectFiles },
+        { type: 'separator' },
         { type: 'item', label: 'Open File…', shortcut: `${mod}+O`, action: openFile },
         { type: 'item', label: 'Save File', shortcut: `${mod}+S`, action: saveFile },
         { type: 'separator' },
+        { type: 'item', label: 'Download Project as ZIP', shortcut: `${mod}+Shift+Z`, action: downloadProjectZip },
         { type: 'item', label: 'Export…', shortcut: `${mod}+Shift+E`, action: onOpenExport },
         { type: 'separator' },
         { type: 'item', label: 'Settings', shortcut: `${mod}+,`, action: () => setSettingsOpen(true) },
@@ -236,34 +306,63 @@ export function MenuBar({ onOpenExport, onOpenPalette }: MenuBarProps): React.Re
         },
       ],
     },
+    {
+      label: 'Window',
+      items: [
+        { type: 'item', label: 'Reset Layout', action: () => window.location.reload() },
+        { type: 'separator' },
+        { type: 'item', label: 'Code Editor', shortcut: `${mod}+1`, action: () => setActiveTab('code') },
+        { type: 'item', label: 'Preview Canvas', shortcut: `${mod}+2`, action: () => setActiveTab('canvas') },
+        { type: 'item', label: 'Scene Inspector', shortcut: `${mod}+3`, action: () => setActiveTab('scene') },
+      ],
+    },
+    {
+      label: 'Help',
+      items: [
+        { type: 'item', label: 'View Manual', action: openManual },
+        { type: 'item', label: 'Language Reference (TS & JS)', action: openLanguageRef },
+        { type: 'item', label: 'API Reference (JSON)', action: openApiRef },
+        { type: 'separator' },
+        { type: 'item', label: 'Keyboard Shortcuts', shortcut: '?', action: onOpenShortcuts },
+        { type: 'separator' },
+        { type: 'item', label: 'About EmptySock Engine v0.1.0', action: () => { window.alert('EmptySock Engine v0.1.0\n\nA portable, cross-platform game engine.\nBuild games with TypeScript or JavaScript.'); } },
+      ],
+    },
   ];
 
-  // Close menu on Escape
+  // ── Global keyboard shortcuts ────────────────────────────────────────────
+
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOpenIdx(null); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Additional keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       const ctrl = e.ctrlKey || e.metaKey;
-      if (!ctrl) return;
-      if (e.key === 'o') { e.preventDefault(); openFile(); }
-      else if (e.key === 's') { e.preventDefault(); saveFile(); }
-      else if (e.key === 'Enter') { e.preventDefault(); setPlayState(playState === 'playing' ? 'paused' : 'playing'); }
-      else if (e.key === '.') { e.preventDefault(); setPlayState('stopped'); }
-      else if (e.key === '1') { e.preventDefault(); setActiveTab('code'); }
-      else if (e.key === '2') { e.preventDefault(); setActiveTab('canvas'); }
-      else if (e.key === '3') { e.preventDefault(); setActiveTab('scene'); }
-      else if (e.key === 'd') { e.preventDefault(); toggleDebugOverlay(); }
-      else if (e.key === ',' ) { e.preventDefault(); setSettingsOpen(true); }
-      else if (e.shiftKey && e.key === 'E') { e.preventDefault(); onOpenExport(); }
+      if (ctrl) {
+        if (e.key === 'n') { e.preventDefault(); newProject(); }
+        else if (e.key === 'o') { e.preventDefault(); openFile(); }
+        else if (e.key === 's') { e.preventDefault(); saveFile(); }
+        else if (e.shiftKey && e.key === 'Z') { e.preventDefault(); downloadProjectZip(); }
+        else if (e.shiftKey && e.key === 'E') { e.preventDefault(); onOpenExport(); }
+        else if (e.key === 'Enter') { e.preventDefault(); setPlayState(playState === 'playing' ? 'paused' : 'playing'); }
+        else if (e.key === '.') { e.preventDefault(); setPlayState('stopped'); }
+        else if (e.key === '1') { e.preventDefault(); setActiveTab('code'); }
+        else if (e.key === '2') { e.preventDefault(); setActiveTab('canvas'); }
+        else if (e.key === '3') { e.preventDefault(); setActiveTab('scene'); }
+        else if (e.key === 'd') { e.preventDefault(); toggleDebugOverlay(); }
+        else if (e.key === ',') { e.preventDefault(); setSettingsOpen(true); }
+      } else if (e.key === '?' && !e.shiftKey && (e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        onOpenShortcuts();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [openFile, saveFile, playState, setPlayState, setActiveTab, toggleDebugOverlay, setSettingsOpen, onOpenExport]);
+  }, [newProject, openFile, saveFile, downloadProjectZip, playState, setPlayState,
+      setActiveTab, toggleDebugOverlay, setSettingsOpen, onOpenExport, onOpenShortcuts]);
 
   return (
     <div
