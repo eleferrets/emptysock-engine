@@ -8,6 +8,7 @@
  */
 
 import * as esbuild from 'esbuild-wasm';
+import esbuildWasmUrl from 'esbuild-wasm/esbuild.wasm?url';
 
 export interface BuildJobResult {
   success: boolean;
@@ -33,7 +34,7 @@ let esbuildReady: Promise<void> | null = null;
 function ensureEsbuild(): Promise<void> {
   if (esbuildReady === null) {
     esbuildReady = esbuild.initialize({
-      wasmURL: 'https://unpkg.com/esbuild-wasm@0.25.5/esbuild.wasm',
+      wasmURL: esbuildWasmUrl,
       worker: true,
     });
   }

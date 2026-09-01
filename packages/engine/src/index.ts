@@ -26,7 +26,7 @@ export type { RenderSystemOptions } from './systems/RenderSystem.js';
 export { PhysicsSystem } from './systems/PhysicsSystem.js';
 export type { PhysicsWorldOptions } from './systems/PhysicsSystem.js';
 export { PhysicsSystem3D } from './systems/PhysicsSystem3D.js';
-export type { PhysicsBody3DOptions, Physics3DHandle, Vec3, Vec3 as NavVec3, BodyType3D, Shape3D, Quat } from './systems/PhysicsSystem3D.js';
+export type { PhysicsBody3DOptions, Physics3DHandle, Vec3, Vec3 as NavVec3, BodyType3D, Shape3D, Quat, RaycastHit, CollisionEvent } from './systems/PhysicsSystem3D.js';
 export { InputSystem } from './systems/InputSystem.js';
 export type { KeyState, MouseState, TouchPoint } from './systems/InputSystem.js';
 export { AudioSystem } from './systems/AudioSystem.js';
@@ -108,8 +108,8 @@ export type { JointType, RevoluteOptions, PrismaticOptions, SpringOptions } from
 export type { ContactInfo, CollisionCallback, SensorCallback } from './components/PhysicsBody.js';
 
 // Layer System
-export { LayerSystem } from './systems/LayerSystem.js';
-export type { LayerConfig } from './systems/LayerSystem.js';
+export { LayerSystem, LAYER } from './systems/LayerSystem.js';
+export type { LayerConfig, LayerSortKey } from './systems/LayerSystem.js';
 
 // Compat
 export { detectMali, getMaliFixes, applyMaliFixes } from './compat/mali.js';
