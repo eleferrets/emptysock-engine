@@ -44,7 +44,7 @@ function makeTab(
   id: string,
   title: string,
   content: React.ReactElement,
-  closable = false,
+  closable = true,
 ): TabData {
   return {
     id,
