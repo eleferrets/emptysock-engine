@@ -127,6 +127,17 @@ function buildDefaultLayout(): LayoutData {
 }
 
 const DEFAULT_LAYOUT: LayoutData = buildDefaultLayout();
+const LAYOUT_STORAGE_KEY = "es-dock-layout";
+
+function loadPersistedLayout(): LayoutData {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as LayoutData;
+  } catch {
+    // corrupted — fall through to default
+  }
+  return DEFAULT_LAYOUT;
+}
 
 const ALL_PANEL_TABS: Record<string, () => TabData> = {
   code: () => makeTab("code", "Code", <CodeEditor />),
@@ -171,6 +182,25 @@ export function App(): React.ReactElement {
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const [downloadEngineOpen, setDownloadEngineOpen] = React.useState(false);
   const layoutRef = React.useRef<DockLayout>(null);
+  const [dockLayout, setDockLayout] =
+    React.useState<LayoutData>(loadPersistedLayout);
+
+  const handleLayoutChange = React.useCallback(
+    (newLayout: LayoutData): void => {
+      setDockLayout(newLayout);
+      try {
+        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(newLayout));
+      } catch {
+        // storage full — ignore
+      }
+    },
+    [],
+  );
+
+  const loadTab = React.useCallback((tab: TabData): TabData => {
+    const factory = ALL_PANEL_TABS[tab.id ?? ""];
+    return factory ? factory() : tab;
+  }, []);
 
   const openPanelInLayout = React.useCallback((tabId: string): void => {
     const layout = layoutRef.current;
@@ -257,7 +287,9 @@ export function App(): React.ReactElement {
         >
           <DockLayout
             ref={layoutRef}
-            defaultLayout={DEFAULT_LAYOUT}
+            layout={dockLayout}
+            onLayoutChange={handleLayoutChange}
+            loadTab={loadTab}
             style={{ position: "absolute", inset: 0 }}
           />
         </div>

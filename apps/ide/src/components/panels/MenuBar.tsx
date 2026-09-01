@@ -471,7 +471,14 @@ export function MenuBar({
         {
           type: "item",
           label: "Reset Layout",
-          action: () => window.location.reload(),
+          action: () => {
+            try {
+              localStorage.removeItem("es-dock-layout");
+            } catch {
+              // ignore
+            }
+            window.location.reload();
+          },
         },
         { type: "separator" },
         {
