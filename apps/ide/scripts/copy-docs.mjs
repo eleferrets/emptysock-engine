@@ -34,6 +34,7 @@ const sections = [
   { file: '08-tutorial-pong.md',    title: '8 — Tutorial: Build a Pong Clone' },
   { file: '09-troubleshooting.md',  title: '9 — Troubleshooting' },
   { file: '10-language-reference.md', title: '10 — TypeScript & JavaScript Language Reference' },
+  { file: '11-gms2-migration.md',     title: '11 — GameMaker Studio 2 Migration Guide' },
 ];
 
 const html = `<!doctype html>

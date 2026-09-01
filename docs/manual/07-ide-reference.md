@@ -185,3 +185,84 @@ Requires `git` on `PATH` and the project saved to disk.
 The IDE is a Progressive Web App. When served over HTTPS, the browser will offer to install it as a desktop shortcut. The Vite PWA plugin registers a service worker that caches the IDE shell for offline use.
 
 The `public/manifest.webmanifest` file contains the app name, theme color (`#7c6af7`), and icon paths.
+
+---
+
+## 7.14 Visual Script Editor
+
+A node graph panel for wiring component logic without writing TypeScript. Nodes represent entities, components, events, and operations; edges represent data or control flow between them.
+
+**Opening the panel:** Drag the Visual Script Editor tab from the tab bar into a docked pane, or open it via View → Panels → Visual Script Editor.
+
+**Canvas controls:**
+
+| Action | Input |
+|--------|-------|
+| Pan | Middle-click drag, or Space + drag |
+| Zoom | Scroll wheel |
+| Select node | Click |
+| Multi-select | Shift-click or drag a selection box |
+| Move nodes | Drag selected nodes |
+| Delete selected | `Delete` or `Backspace` |
+| Connect ports | Drag from an output port to an input port |
+| Disconnect | Click a connected port and drag off |
+
+**Adding nodes:**
+
+Right-click the canvas (or press `Tab`) to open the node picker. Categories:
+
+- **Entity** — `Get Entity`, `Create Entity`, `Destroy Entity`
+- **Component** — `Add Component`, `Get Component`, `Set Property`, `Get Property`
+- **Events** — `On Update`, `On Collision Enter`, `On Message`
+- **Flow** — `Branch` (if/else), `Sequence`, `For Each`
+- **Math** — `Add`, `Subtract`, `Multiply`, `Compare`, `Lerp`
+- **Output** — `Log`, `Play Audio`, `Load Scene`
+
+**Edges:** A yellow edge carries a control-flow signal (execution order). A white edge carries a data value. Ports are colour-coded by type — connecting incompatible types shows a red error indicator on the edge.
+
+**Saving:** The graph is saved as a `.esvs` JSON file. Use the **Save** button in the toolbar or `Ctrl+S`. The saved file can be referenced by the engine as a component behaviour via `VisualScriptComponent`.
+
+**Limitations:** Visual scripts run through a graph interpreter at runtime — expect ~10× slower execution than native TypeScript for hot paths (e.g., heavy per-frame computation). Use TypeScript for performance-critical logic; use visual scripts for event-driven, low-frequency logic (cutscenes, dialogue triggers, UI flows).
+
+---
+
+## 7.15 Sequence Editor
+
+A keyframe timeline panel for authoring animation sequences, cutscenes, and timed events. Each sequence drives properties on entities and components over time without per-frame code.
+
+**Opening the panel:** View → Panels → Sequence Editor.
+
+**Layout:**
+
+- **Playhead** (red vertical line): current time cursor. Drag it or click the timeline ruler to seek.
+- **Track list** (left column): one row per animated property. Click **+ Track** to add a track and pick an entity, component, and property to animate.
+- **Keyframe area** (right): the timeline canvas. Each diamond marker is a keyframe.
+- **Toolbar:** Play, Stop, Loop toggle, duration input, snapping controls.
+
+**Adding keyframes:**
+
+1. Move the playhead to the desired time.
+2. In the track list, click the keyframe button (◆) next to a track — this records the property's current value at that time.
+3. Repeat at other times to create a curve.
+
+**Editing keyframes:**
+
+- Click a diamond to select it; its value and easing appear in the property panel below.
+- Drag a diamond horizontally to shift its time.
+- Right-click a diamond → Easing to choose `linear`, `sineIn/Out`, `cubicIn/Out`, `step`.
+
+**Exporting:** Click **Export** to save the sequence as a `.esseq` JSON file. Load it at runtime:
+
+```typescript
+import { SequencePlayer } from '@emptysock/engine';
+
+const seq = await SequencePlayer.load('assets/cutscene-intro.esseq');
+seq.bind('Player', playerEntity);
+seq.bind('Camera', cameraEntity);
+seq.play();                          // plays once
+seq.play({ loop: true });            // loops
+seq.onComplete(() => SceneManager.load('GameScene'));
+seq.stop();                          // stops and rewinds
+```
+
+**GMS2 note:** Sequences in GameMaker Studio 2 map directly to this panel — see section 11 for the migration guide.
