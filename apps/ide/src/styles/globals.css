@@ -31,6 +31,10 @@
     --accent-dim: #4035a8;
     --text: #1a1030;
     --text-muted: #5a4e80;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #ca8a04;
+    --blue: #2563eb;
     --logo-bg-start: #ece9ff;
     --logo-bg-end: #dcd7ff;
     --logo-ring-opacity: 0.35;
@@ -47,6 +51,10 @@
   --accent-dim: #4035a8;
   --text: #1a1030;
   --text-muted: #5a4e80;
+  --green: #16a34a;
+  --red: #dc2626;
+  --yellow: #ca8a04;
+  --blue: #2563eb;
   --logo-bg-start: #ece9ff;
   --logo-bg-end: #dcd7ff;
   --logo-ring-opacity: 0.35;
@@ -103,6 +111,24 @@ body,
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3a3a48;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) ::-webkit-scrollbar-thumb {
+    background: var(--border);
+  }
+
+  :root:not([data-theme='dark']) ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 }
 
 :focus-visible {
