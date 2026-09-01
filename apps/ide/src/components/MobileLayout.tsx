@@ -4,7 +4,7 @@ import {
   Layers,
   FolderOpen,
   Terminal,
-  Plus,
+  PanelRight,
   X,
   Play,
   Square,
@@ -153,10 +153,17 @@ export function MobileLayout(): React.ReactElement {
         )}
         <button
           className="es-mobile-fab"
-          aria-label={fabOpen ? "Close tools menu" : "Open tools menu"}
+          aria-label={fabOpen ? "Close panels menu" : "Open panels"}
           onClick={() => setFabOpen((prev) => !prev)}
         >
-          {fabOpen ? <X size={22} /> : <Plus size={22} />}
+          {fabOpen ? (
+            <X size={20} />
+          ) : (
+            <>
+              <PanelRight size={18} />
+              <span className="es-mobile-fab-label">Panels</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -286,18 +293,26 @@ export function MobileLayout(): React.ReactElement {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
+          gap: 6px;
+          height: 40px;
+          padding: 0 16px;
+          border-radius: 20px;
           border: none;
-          background: var(--accent);
-          color: #fff;
+          background: var(--surface-2);
+          color: var(--text);
           cursor: pointer;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          font-size: 13px;
+          font-weight: 500;
         }
 
         .es-mobile-fab:active {
-          opacity: 0.85;
+          opacity: 0.8;
+        }
+
+        .es-mobile-fab-label {
+          font-size: 13px;
+          font-weight: 500;
         }
 
         .es-mobile-fab-menu {
