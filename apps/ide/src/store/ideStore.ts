@@ -1,10 +1,5 @@
 import { create } from "zustand";
-import {
-  type ProjectType,
-  defaultModulesFor,
-} from "../services/ModuleRegistry";
-
-export type { ProjectType };
+import { DEFAULT_ENABLED_MODULES } from "../services/ModuleRegistry";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -125,8 +120,7 @@ interface IDEState {
   // Project settings modal
   projectSettingsOpen: boolean;
 
-  // Project type and module registry
-  projectType: ProjectType;
+  // Module registry
   enabledModules: string[];
 
   // Theme
@@ -172,8 +166,7 @@ interface IDEState {
   // Project settings modal action
   setProjectSettingsOpen: (open: boolean) => void;
 
-  // Project type and module actions
-  setProjectType: (type: ProjectType) => void;
+  // Module actions
   toggleModule: (id: string) => void;
 
   // Theme action
@@ -227,8 +220,16 @@ const INITIAL_FILES: ProjectFile[] = [
         path: "src/scenes",
         type: "folder",
         children: [
-          { name: "GameScene.ts", path: "src/scenes/GameScene.ts", type: "file" },
-          { name: "MenuScene.ts", path: "src/scenes/MenuScene.ts", type: "file" },
+          {
+            name: "GameScene.ts",
+            path: "src/scenes/GameScene.ts",
+            type: "file",
+          },
+          {
+            name: "MenuScene.ts",
+            path: "src/scenes/MenuScene.ts",
+            type: "file",
+          },
         ],
       },
       {
@@ -470,9 +471,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Project settings modal
   projectSettingsOpen: false,
 
-  // Project type and module registry
-  projectType: "platformer" as ProjectType,
-  enabledModules: defaultModulesFor("platformer"),
+  // Module registry
+  enabledModules: DEFAULT_ENABLED_MODULES,
 
   // Theme
   theme: "dark",
@@ -636,7 +636,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   addRecentFile: (path, name) => {
     set((s) => {
       const entry: RecentFile = { path, name, openedAt: Date.now() };
-      const filtered = s.recentFiles.filter(r => r.path !== path);
+      const filtered = s.recentFiles.filter((r) => r.path !== path);
       return { recentFiles: [entry, ...filtered].slice(0, 10) };
     });
   },
@@ -644,8 +644,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setProjectSettingsOpen: (open) => set({ projectSettingsOpen: open }),
-  setProjectType: (type) =>
-    set({ projectType: type, enabledModules: defaultModulesFor(type) }),
   toggleModule: (id) =>
     set((s) => ({
       enabledModules: s.enabledModules.includes(id)
@@ -657,40 +655,44 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   resetProject: () => {
     set({
-      projectName: 'MyPlatformer',
-      projectFolder: '',
+      projectName: "MyPlatformer",
+      projectFolder: "",
       files: INITIAL_FILES,
-      selectedFile: 'src/scenes/GameScene.ts',
+      selectedFile: "src/scenes/GameScene.ts",
       editorCode: INITIAL_CODE,
-      openFiles: { 'src/scenes/GameScene.ts': INITIAL_CODE },
-      activeFilePath: 'src/scenes/GameScene.ts',
-      playState: 'stopped',
-      buildStatus: 'idle',
+      openFiles: { "src/scenes/GameScene.ts": INITIAL_CODE },
+      activeFilePath: "src/scenes/GameScene.ts",
+      playState: "stopped",
+      buildStatus: "idle",
       buildErrors: [],
       buildDuration: null,
       lastBuildAt: null,
       logs: [],
     });
-    get().addLog('info', 'New project created', 'IDE');
+    get().addLog("info", "New project created", "IDE");
   },
 
   loadProjectFiles: (files, name) => {
     const paths = Object.keys(files);
     const firstPath = paths[0] ?? null;
-    const projectFiles: ProjectFile[] = paths.map(p => ({ name: p.split('/').pop() ?? p, path: p, type: 'file' as const }));
+    const projectFiles: ProjectFile[] = paths.map((p) => ({
+      name: p.split("/").pop() ?? p,
+      path: p,
+      type: "file" as const,
+    }));
     set({
-      projectName: name ?? 'LoadedProject',
+      projectName: name ?? "LoadedProject",
       files: projectFiles,
       openFiles: files,
       activeFilePath: firstPath,
       selectedFile: firstPath,
-      editorCode: firstPath !== null ? (files[firstPath] ?? '') : '',
-      playState: 'stopped',
-      buildStatus: 'idle',
+      editorCode: firstPath !== null ? (files[firstPath] ?? "") : "",
+      playState: "stopped",
+      buildStatus: "idle",
       buildErrors: [],
       logs: [],
     });
-    get().addLog('info', `Loaded ${paths.length} file(s)`, 'IDE');
+    get().addLog("info", `Loaded ${paths.length} file(s)`, "IDE");
   },
 }));
 
