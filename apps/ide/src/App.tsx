@@ -13,6 +13,8 @@ import { AssetBrowser } from './components/panels/AssetBrowser';
 import { TilemapEditor } from './components/panels/TilemapEditor';
 import { ParticleEditor } from './components/panels/ParticleEditor';
 import { VNEditor } from './components/panels/VNEditor';
+import { VisualScriptEditor } from './components/panels/VisualScriptEditor';
+import { SequenceEditor } from './components/panels/SequenceEditor';
 import { AudioMixer } from './components/panels/AudioMixer';
 import { Profiler } from './components/panels/Profiler';
 import { LocalisationEditor } from './components/panels/LocalisationEditor';
@@ -60,6 +62,8 @@ const DEFAULT_LAYOUT: LayoutData = {
               makeTab('tilemap', 'Tilemap', <TilemapEditor />, true),
               makeTab('particle', 'Particles', <ParticleEditor />, true),
               makeTab('vn', 'VN Graph', <VNEditor />, true),
+              makeTab('visual-script', 'Visual Script', <VisualScriptEditor />, true),
+              makeTab('sequence', 'Sequence', <SequenceEditor />, true),
             ],
           },
           {
