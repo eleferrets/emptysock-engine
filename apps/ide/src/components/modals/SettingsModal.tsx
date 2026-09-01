@@ -143,6 +143,7 @@ function SelectRow({ label, value, options, onChange }: SelectRowProps): React.R
           fontSize: 12,
           padding: '4px 8px',
           cursor: 'pointer',
+          colorScheme: 'dark light',
         }}
       >
         {options.map(o => (

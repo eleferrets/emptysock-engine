@@ -1,0 +1,72 @@
+/* ── rc-dock colour overrides ──────────────────────────────────────────────
+   rc-dock ships a stylesheet with hardcoded dark colours. Override every
+   colour token here so the panel chrome respects the IDE's CSS variables in
+   both dark and light mode.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Tab bar background */
+.dock-tab-bar {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* Individual tabs */
+.dock-tab {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+.dock-tab.dock-tab-active {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+/* Active tab underline */
+.dock-ink-bar {
+  background: var(--accent) !important;
+}
+
+/* Panel body */
+.dock-panel {
+  background: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Animated content area */
+.dock-content-animated {
+  background: var(--bg) !important;
+}
+
+/* Divider / resize handle */
+.dock-divider {
+  background: var(--border) !important;
+}
+
+/* Maximize / float action buttons (the "squares next to each pane") */
+.dock-tab-btn {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.dock-tab-btn:hover {
+  color: var(--text) !important;
+  opacity: 1;
+  background: color-mix(in srgb, var(--text) 10%, transparent) !important;
+}
+
+/* Float window chrome */
+.dock-extra-content {
+  background: var(--surface) !important;
+}
+
+/* Nav buttons on overflow (left/right scroll arrows in tab bar) */
+.dock-tab-btn-skip {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}

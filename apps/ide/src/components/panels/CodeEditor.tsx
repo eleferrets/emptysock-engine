@@ -27,9 +27,22 @@ export function CodeEditor(): React.ReactElement {
     buildMode,
     setBuildStatus,
     addLog,
+    theme,
   } = useIDEStore();
   const isNarrow = useIsNarrow();
   const [settings] = React.useState<IDESettings>(() => loadSettings());
+
+  const [systemDark, setSystemDark] = React.useState<boolean>(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent): void => setSystemDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const isDark = theme === "dark" || (theme === "system" && systemDark);
+  const monacoTheme = isDark ? "vs-dark" : "vs";
 
   const tabPaths = Object.keys(openFiles);
 
@@ -217,7 +230,7 @@ export function CodeEditor(): React.ReactElement {
           <MonacoEditor
             key={activeFilePath}
             language={editorLanguage}
-            theme="vs-dark"
+            theme={monacoTheme}
             value={editorCode}
             onChange={handleChange}
             options={{
