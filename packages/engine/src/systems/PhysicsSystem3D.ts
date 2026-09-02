@@ -373,6 +373,8 @@ export class PhysicsSystem3D {
     this._colliderHandleToIndex.clear();
   }
 
+  [Symbol.dispose](): void { this.destroy(); }
+
   get isInitialized(): boolean {
     return this._world !== null;
   }

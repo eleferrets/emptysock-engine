@@ -102,7 +102,9 @@ export class NavMeshSystem {
 
     const waypoints: Vec2[] = [from];
     for (let i = 1; i < polyIds.length; i++) {
-      const poly = this._polygons.get(polyIds[i]!);
+      const pid = polyIds[i];
+      if (pid === undefined) continue;
+      const poly = this._polygons.get(pid);
       if (poly !== undefined) waypoints.push(poly.centroid);
     }
     waypoints.push(to);
@@ -123,8 +125,9 @@ export class NavMeshSystem {
   private _pointInPolygon(p: Vec2, verts: ReadonlyArray<Vec2>): boolean {
     let inside = false;
     for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
-      const vi = verts[i]!;
-      const vj = verts[j]!;
+      const vi = verts[i];
+      const vj = verts[j];
+      if (vi === undefined || vj === undefined) continue;
       if ((vi.y > p.y) !== (vj.y > p.y) &&
           p.x < ((vj.x - vi.x) * (p.y - vi.y)) / (vj.y - vi.y) + vi.x) {
         inside = !inside;

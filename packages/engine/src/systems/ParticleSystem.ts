@@ -15,11 +15,13 @@ function lerpColour(a: number, b: number, t: number): number {
 
 function sampleGradient(colours: number[], t: number): number {
   if (colours.length === 0) return 0xffffff;
-  if (colours.length === 1) return colours[0]!;
+  if (colours.length === 1) return colours[0] ?? colours[colours.length - 1] ?? 0xffffff;
   const seg = 1 / (colours.length - 1);
   const idx = Math.min(Math.floor(t / seg), colours.length - 2);
   const local = (t - idx * seg) / seg;
-  return lerpColour(colours[idx]!, colours[idx + 1]!, local);
+  const ca = colours[idx] ?? 0xffffff;
+  const cb = colours[idx + 1] ?? 0xffffff;
+  return lerpColour(ca, cb, local);
 }
 
 // ─── Emitter options ─────────────────────────────────────────────────────────

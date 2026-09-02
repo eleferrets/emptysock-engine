@@ -2,6 +2,7 @@ export type GPUTier = 'potato' | 'low' | 'mid' | 'high' | 'ultra';
 
 /** Detect GPU tier based on available context info */
 export async function detectGPUTier(): Promise<GPUTier> {
+  if (typeof document === 'undefined') return 'mid';
   // Try WebGL debug renderer info
   const canvas = document.createElement('canvas');
 

@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: WindowConfig = {
 };
 
 function isTauri(): boolean {
-  return "__TAURI_INTERNALS__" in window;
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 async function getTauriWindow(): Promise<TauriWindow | null> {
@@ -50,6 +50,7 @@ interface TauriWindow {
 }
 
 function applyBrowserSize(w: number, h: number): void {
+  if (typeof document === "undefined") return;
   const canvas = document.querySelector<HTMLElement>("#game-canvas");
   if (canvas === null) return;
   canvas.style.width = `${w}px`;
@@ -59,6 +60,7 @@ function applyBrowserSize(w: number, h: number): void {
 }
 
 function applyBrowserFill(): void {
+  if (typeof document === "undefined") return;
   const canvas = document.querySelector<HTMLElement>("#game-canvas");
   if (canvas === null) return;
   canvas.style.width = "100vw";
@@ -69,6 +71,7 @@ function applyBrowserFill(): void {
 
 export class WindowSystem {
   private config: WindowConfig = { ...DEFAULT_CONFIG };
+  private _f11Handler: ((e: KeyboardEvent) => void) | null = null;
 
   /**
    * Apply an initial config at game startup. Mirrors the project's window
@@ -114,6 +117,7 @@ export class WindowSystem {
   }
 
   async setTitle(title: string): Promise<void> {
+    if (typeof document === "undefined") return;
     this.config.title = title;
     const win = await getTauriWindow();
     if (win !== null) {
@@ -172,6 +176,13 @@ export class WindowSystem {
     return this.config;
   }
 
+  destroy(): void {
+    if (this._f11Handler && typeof window !== "undefined") {
+      window.removeEventListener("keydown", this._f11Handler);
+      this._f11Handler = null;
+    }
+  }
+
   // ─── private helpers ───────────────────────────────────────────────────────
 
   private async _applyModeTauri(
@@ -201,6 +212,7 @@ export class WindowSystem {
   }
 
   private _applyModeBrowser(mode: WindowMode): void {
+    if (typeof document === "undefined") return;
     switch (mode) {
       case "fullscreen":
         void document.documentElement.requestFullscreen?.();
@@ -214,20 +226,24 @@ export class WindowSystem {
     }
   }
 
-  private _f11Installed = false;
   private _installBrowserF11(): void {
-    if (this._f11Installed) return;
-    this._f11Installed = true;
-    window.addEventListener("keydown", (e) => {
+    if (typeof window === "undefined") return;
+    this._f11Handler = (e: KeyboardEvent) => {
       if (e.key === "F11") {
         e.preventDefault();
-        if (document.fullscreenElement !== null) {
-          void document.exitFullscreen?.();
-        } else {
-          void document.documentElement.requestFullscreen?.();
-        }
+        this._toggleBrowserFullscreen();
       }
-    });
+    };
+    window.addEventListener("keydown", this._f11Handler);
+  }
+
+  private _toggleBrowserFullscreen(): void {
+    if (typeof document === "undefined") return;
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen?.();
+    } else {
+      void document.documentElement.requestFullscreen?.();
+    }
   }
 }
 

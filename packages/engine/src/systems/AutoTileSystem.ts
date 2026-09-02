@@ -98,6 +98,7 @@ export class AutoTileSystem {
     );
     for (const [key] of affected) {
       const [c, r] = key.split(",").map(Number);
+      if (!Number.isFinite(c) || !Number.isFinite(r)) continue;
       const base = baseTileIndex;
       data[key] = this.resolve(c, r, base, tileAt);
     }

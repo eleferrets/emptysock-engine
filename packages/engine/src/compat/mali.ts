@@ -7,6 +7,7 @@ export interface MaliInfo {
 }
 
 export function detectMali(): MaliInfo {
+  if (typeof document === 'undefined') return { isMali: false, renderer: '', generation: 'unknown' };
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl') ?? canvas.getContext('webgl2');
 
@@ -74,6 +75,7 @@ export function getMaliFixes(info: MaliInfo): MaliFixes {
 
 /** Apply Mali compatibility fixes to a canvas context */
 export function applyMaliFixes(fixes: MaliFixes): void {
+  if (typeof HTMLCanvasElement === 'undefined') return;
   if (fixes.disableInstancedArrays) {
     // Monkey-patch to disable instanced arrays extension
     const origGetContext = HTMLCanvasElement.prototype.getContext;
@@ -83,8 +85,7 @@ export function applyMaliFixes(fixes: MaliFixes): void {
       contextId: string,
       options?: unknown
     ): unknown {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional monkey-patch
-      const ctx = (origGetContext as (ctx: string, opts?: unknown) => unknown).call(this, contextId, options) as any;
+      const ctx = (origGetContext as (ctx: string, opts?: unknown) => unknown).call(this, contextId, options) as WebGLRenderingContext | null;
       if (ctx !== null && (contextId === 'webgl' || contextId === 'experimental-webgl')) {
         const origGetExt = (ctx as { getExtension: (name: string) => unknown }).getExtension.bind(ctx);
         (ctx as { getExtension: (name: string) => unknown }).getExtension = (name: string) => {

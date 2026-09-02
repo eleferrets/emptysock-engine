@@ -33,6 +33,7 @@ export class HotReloadSystem {
   }
 
   install(): void {
+    if (typeof window === 'undefined') return;
     const win = window as unknown as Record<string, unknown>;
     win["__es_before_reload__"] = (): void => {
       this.beforeHooks.forEach((h) => h());
@@ -52,6 +53,7 @@ export class HotReloadSystem {
   }
 
   destroy(): void {
+    if (typeof window === 'undefined') return;
     const win = window as unknown as Record<string, unknown>;
     delete win["__es_before_reload__"];
     delete win["__es_after_reload__"];

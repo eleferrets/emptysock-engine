@@ -143,6 +143,16 @@ export class LightingFilter extends Filter {
 }
 
 // ---------------------------------------------------------------------------
+// Uniform helper
+// ---------------------------------------------------------------------------
+
+function setUniform(res: Record<string, { value: unknown }>, key: string, val: unknown): void {
+  const u = res[key];
+  if (u === undefined) { console.warn('[LightingSystem] missing uniform:', key); return; }
+  u.value = val;
+}
+
+// ---------------------------------------------------------------------------
 // LightingSystem
 // ---------------------------------------------------------------------------
 
@@ -218,10 +228,10 @@ export class LightingSystem {
     if (res === undefined) return;
 
     // Ambient
-    res['uAmbientColour']!.value = hexToVec3(this._ambientColour);
-    res['uAmbientIntensity']!.value = this._ambientIntensity;
-    res['uTextureSize']!.value = new Float32Array([this._canvasWidth, this._canvasHeight]);
-    res['uUseNormalMap']!.value = this._useNormalMap ? 1 : 0;
+    setUniform(res, 'uAmbientColour', hexToVec3(this._ambientColour));
+    setUniform(res, 'uAmbientIntensity', this._ambientIntensity);
+    setUniform(res, 'uTextureSize', new Float32Array([this._canvasWidth, this._canvasHeight]));
+    setUniform(res, 'uUseNormalMap', this._useNormalMap ? 1 : 0);
 
     // Partition lights
     const pointLights = [...this.lights.values()].filter(l => l.type === 'point');
@@ -229,48 +239,50 @@ export class LightingSystem {
 
     // Point lights
     const pc = Math.min(pointLights.length, MAX_POINT_LIGHTS);
-    res['uPointCount']!.value = pc;
+    setUniform(res, 'uPointCount', pc);
     const pColour = new Float32Array(MAX_POINT_LIGHTS * 3);
     const pIntensity = new Float32Array(MAX_POINT_LIGHTS);
     const pPos = new Float32Array(MAX_POINT_LIGHTS * 2);
     const pRadius = new Float32Array(MAX_POINT_LIGHTS);
     for (let i = 0; i < pc; i++) {
-      const l = pointLights[i]!;
+      const l = pointLights[i];
+      if (!l) continue;
       const rgb = hexToVec3(l.colour);
-      pColour[i * 3] = rgb[0]!;
-      pColour[i * 3 + 1] = rgb[1]!;
-      pColour[i * 3 + 2] = rgb[2]!;
+      pColour[i * 3] = rgb[0];
+      pColour[i * 3 + 1] = rgb[1];
+      pColour[i * 3 + 2] = rgb[2];
       pIntensity[i] = l.intensity;
       // Normalise world position to 0..1 UV space using actual canvas dimensions
       pPos[i * 2] = (l.x ?? 0) / this._canvasWidth;
       pPos[i * 2 + 1] = (l.y ?? 0) / this._canvasHeight;
       pRadius[i] = (l.radius ?? 200) / this._canvasWidth;
     }
-    res['uPointColour']!.value = pColour;
-    res['uPointIntensity']!.value = pIntensity;
-    res['uPointPos']!.value = pPos;
-    res['uPointRadius']!.value = pRadius;
+    setUniform(res, 'uPointColour', pColour);
+    setUniform(res, 'uPointIntensity', pIntensity);
+    setUniform(res, 'uPointPos', pPos);
+    setUniform(res, 'uPointRadius', pRadius);
 
     // Directional lights
     const dc = Math.min(dirLights.length, 4);
-    res['uDirCount']!.value = dc;
+    setUniform(res, 'uDirCount', dc);
     const dColour = new Float32Array(12);
     const dIntensity = new Float32Array(4);
     const dDir = new Float32Array(8);
     for (let i = 0; i < dc; i++) {
-      const l = dirLights[i]!;
+      const l = dirLights[i];
+      if (!l) continue;
       const rgb = hexToVec3(l.colour);
-      dColour[i * 3] = rgb[0]!;
-      dColour[i * 3 + 1] = rgb[1]!;
-      dColour[i * 3 + 2] = rgb[2]!;
+      dColour[i * 3] = rgb[0];
+      dColour[i * 3 + 1] = rgb[1];
+      dColour[i * 3 + 2] = rgb[2];
       dIntensity[i] = l.intensity;
       const dir = l.direction ?? { x: 0, y: -1 };
       dDir[i * 2] = dir.x;
       dDir[i * 2 + 1] = dir.y;
     }
-    res['uDirColour']!.value = dColour;
-    res['uDirIntensity']!.value = dIntensity;
-    res['uDirDirection']!.value = dDir;
+    setUniform(res, 'uDirColour', dColour);
+    setUniform(res, 'uDirIntensity', dIntensity);
+    setUniform(res, 'uDirDirection', dDir);
   }
 }
 

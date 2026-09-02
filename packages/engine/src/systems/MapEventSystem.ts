@@ -29,6 +29,7 @@ export class MapEventSystem {
   private _handler: EventCommandHandler | null = null;
   private _running: RunningEvent | null = null;
   private _triggered: Set<string> = new Set();
+  private _parallelRunning: Set<string> = new Set();
 
   /** Register the handler that executes each command */
   setHandler(handler: EventCommandHandler): void {
@@ -50,14 +51,18 @@ export class MapEventSystem {
 
   /** Call each frame; tileX/tileY = player tile position; actionPressed = action button was pressed this frame */
   update(playerTileX: number, playerTileY: number, actionPressed: boolean): void {
+    // Fire all parallel events that are not already running (concurrent — not blocked by _running)
+    for (const event of this._events.values()) {
+      if (event.trigger === 'parallel' && !this._parallelRunning.has(event.id)) {
+        this._runParallelEvent(event);
+      }
+    }
+
     if (this._running?.running) return;
 
     for (const event of this._events.values()) {
+      if (event.trigger === 'parallel') continue;
       if (event.trigger === 'autorun' && !this._triggered.has(event.id)) {
-        this._runEvent(event);
-        return;
-      }
-      if (event.trigger === 'parallel') {
         this._runEvent(event);
         return;
       }
@@ -82,6 +87,32 @@ export class MapEventSystem {
     this._executeNext(state);
   }
 
+  private _runParallelEvent(event: MapEvent): void {
+    if (!this._handler || event.commands.length === 0) return;
+    this._parallelRunning.add(event.id);
+    const state: RunningEvent = { event, commandIndex: 0, running: true };
+    this._executeParallelNext(state);
+  }
+
+  private _executeParallelNext(state: RunningEvent): void {
+    if (!this._handler) return;
+    const { event } = state;
+    if (state.commandIndex >= event.commands.length) {
+      state.running = false;
+      this._parallelRunning.delete(event.id);
+      return;
+    }
+    const cmd = event.commands[state.commandIndex];
+    if (cmd === undefined) { state.running = false; this._parallelRunning.delete(event.id); return; }
+    state.commandIndex++;
+    const result = this._handler(cmd);
+    if (result instanceof Promise) {
+      result.then(() => this._executeParallelNext(state));
+    } else {
+      this._executeParallelNext(state);
+    }
+  }
+
   private _executeNext(state: RunningEvent): void {
     if (!this._handler) return;
     const { event } = state;
@@ -94,6 +125,7 @@ export class MapEventSystem {
       return;
     }
     const cmd = event.commands[state.commandIndex];
+    if (cmd === undefined) { state.running = false; return; }
     state.commandIndex++;
     const result = this._handler(cmd);
     if (result instanceof Promise) {

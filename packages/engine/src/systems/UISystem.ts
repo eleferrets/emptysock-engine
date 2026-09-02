@@ -274,7 +274,8 @@ class UISystemImpl {
     x: number, y: number, cw: number, ch: number
   ): UIComponent | null {
     for (let i = comps.length - 1; i >= 0; i--) {
-      const c = comps[i]!;
+      const c = comps[i];
+      if (c === undefined) continue;
       const child = this._findHit(c.children, x, y, cw, ch);
       if (child !== null) return child;
       if (c.contains(x, y, cw, ch)) return c;
