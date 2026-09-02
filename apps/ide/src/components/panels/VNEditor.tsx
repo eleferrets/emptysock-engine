@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 
-type NodeType = 'dialogue' | 'choice';
+type NodeType = "dialogue" | "choice";
 
 interface VNNode {
   id: string;
@@ -19,37 +19,168 @@ interface VNEdge {
   to: string;
 }
 
+interface ViewTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 const INITIAL_NODES: VNNode[] = [
-  { id: 'n1', type: 'dialogue', x: 60, y: 80, speaker: 'Hero', text: 'Hello, traveller.' },
-  { id: 'n2', type: 'choice', x: 320, y: 80, text: 'Choose a response', options: ['Who are you?', 'Goodbye.'] },
-  { id: 'n3', type: 'dialogue', x: 580, y: 40, speaker: 'Hero', text: 'I am the last guardian.' },
-  { id: 'n4', type: 'dialogue', x: 580, y: 160, speaker: 'Hero', text: 'Safe travels.' },
+  {
+    id: "n1",
+    type: "dialogue",
+    x: 60,
+    y: 80,
+    speaker: "Hero",
+    text: "Hello, traveller.",
+  },
+  {
+    id: "n2",
+    type: "choice",
+    x: 320,
+    y: 80,
+    text: "Choose a response",
+    options: ["Who are you?", "Goodbye."],
+  },
+  {
+    id: "n3",
+    type: "dialogue",
+    x: 580,
+    y: 40,
+    speaker: "Hero",
+    text: "I am the last guardian.",
+  },
+  {
+    id: "n4",
+    type: "dialogue",
+    x: 580,
+    y: 160,
+    speaker: "Hero",
+    text: "Safe travels.",
+  },
 ];
 
 const INITIAL_EDGES: VNEdge[] = [
-  { id: 'e1', from: 'n1', fromPort: 0, to: 'n2' },
-  { id: 'e2', from: 'n2', fromPort: 0, to: 'n3' },
-  { id: 'e3', from: 'n2', fromPort: 1, to: 'n4' },
+  { id: "e1", from: "n1", fromPort: 0, to: "n2" },
+  { id: "e2", from: "n2", fromPort: 0, to: "n3" },
+  { id: "e3", from: "n2", fromPort: 1, to: "n4" },
 ];
 
 const NODE_W = 220;
 const NODE_H = 100;
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 2.5;
+const STORAGE_KEY = "es-story-graph";
+
+function clampScale(s: number): number {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+}
+
+function loadGraph(): { nodes: VNNode[]; edges: VNEdge[] } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as { nodes: VNNode[]; edges: VNEdge[] };
+  } catch {
+    /* ignore */
+  }
+  return { nodes: INITIAL_NODES, edges: INITIAL_EDGES };
+}
+
+function saveGraph(nodes: VNNode[], edges: VNEdge[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, edges }));
+  } catch {
+    /* storage full */
+  }
+}
 
 export function VNEditor(): React.ReactElement {
-  const [nodes, setNodes] = React.useState<VNNode[]>(INITIAL_NODES);
-  const [edges, setEdges] = React.useState<VNEdge[]>(INITIAL_EDGES);
+  const saved = React.useMemo(loadGraph, []);
+  const [nodes, setNodes] = React.useState<VNNode[]>(saved.nodes);
+  const [edges, setEdges] = React.useState<VNEdge[]>(saved.edges);
   const [selected, setSelected] = React.useState<string | null>(null);
-  const [dragging, setDragging] = React.useState<{ id: string; ox: number; oy: number } | null>(null);
+  const [dragging, setDragging] = React.useState<{
+    id: string;
+    ox: number;
+    oy: number;
+  } | null>(null);
   const [editNode, setEditNode] = React.useState<VNNode | null>(null);
+  const [view, setView] = React.useState<ViewTransform>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const [panning, setPanning] = React.useState<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
-  const nodeById = (id: string): VNNode | undefined => nodes.find(n => n.id === id);
+  // Persist on change
+  React.useEffect(() => {
+    saveGraph(nodes, edges);
+  }, [nodes, edges]);
 
-  const portPos = (node: VNNode, port: number, side: 'in' | 'out'): { x: number; y: number } => {
-    const portCount = side === 'out' ? Math.max(1, node.options?.length ?? 1) : 1;
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selected &&
+        editNode === null
+      ) {
+        e.preventDefault();
+        setNodes((prev) => prev.filter((n) => n.id !== selected));
+        setEdges((prev) =>
+          prev.filter((ed) => ed.from !== selected && ed.to !== selected),
+        );
+        setSelected(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selected, editNode]);
+
+  // Wheel zoom
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setView((v) => {
+        const newScale = clampScale(v.scale * delta);
+        const ratio = newScale / v.scale;
+        return {
+          scale: newScale,
+          x: mx - ratio * (mx - v.x),
+          y: my - ratio * (my - v.y),
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const nodeById = (id: string): VNNode | undefined =>
+    nodes.find((n) => n.id === id);
+
+  const portPos = (
+    node: VNNode,
+    port: number,
+    side: "in" | "out",
+  ): { x: number; y: number } => {
+    const portCount =
+      side === "out" ? Math.max(1, node.options?.length ?? 1) : 1;
     const spacing = NODE_H / (portCount + 1);
     return {
-      x: side === 'in' ? node.x : node.x + NODE_W,
+      x: side === "in" ? node.x : node.x + NODE_W,
       y: node.y + spacing * (port + 1),
     };
   };
@@ -57,134 +188,676 @@ export function VNEditor(): React.ReactElement {
   const edgePath = (edge: VNEdge): string => {
     const from = nodeById(edge.from);
     const to = nodeById(edge.to);
-    if (!from || !to) return '';
-    const p1 = portPos(from, edge.fromPort, 'out');
-    const p2 = portPos(to, 0, 'in');
+    if (!from || !to) return "";
+    const p1 = portPos(from, edge.fromPort, "out");
+    const p2 = portPos(to, 0, "in");
     const cx = (p1.x + p2.x) / 2;
     return `M${p1.x},${p1.y} C${cx},${p1.y} ${cx},${p2.y} ${p2.x},${p2.y}`;
   };
 
+  const svgCoordsFromClient = (
+    cx: number,
+    cy: number,
+  ): { x: number; y: number } => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: (cx - rect.left - view.x) / view.scale,
+      y: (cy - rect.top - view.y) / view.scale,
+    };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>): void => {
+    if (
+      e.target === svgRef.current ||
+      (e.target as SVGElement).tagName === "svg"
+    ) {
+      setSelected(null);
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPanning({
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: view.x,
+        originY: view.y,
+      });
+    }
+  };
+
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
-    if (!dragging) return;
-    const rect = svgRef.current!.getBoundingClientRect();
-    const x = e.clientX - rect.left - dragging.ox;
-    const y = e.clientY - rect.top - dragging.oy;
-    setNodes(prev => prev.map(n => n.id === dragging.id ? { ...n, x, y } : n));
+    if (dragging) {
+      const coords = svgCoordsFromClient(e.clientX, e.clientY);
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === dragging.id
+            ? { ...n, x: coords.x - dragging.ox, y: coords.y - dragging.oy }
+            : n,
+        ),
+      );
+    } else if (panning) {
+      setView((v) => ({
+        ...v,
+        x: panning.originX + e.clientX - panning.startX,
+        y: panning.originY + e.clientY - panning.startY,
+      }));
+    }
+  };
+
+  const handleMouseUp = (): void => {
+    setDragging(null);
+    setPanning(null);
+  };
+
+  // Touch support: one-finger pan, two-finger pinch
+  const lastTouchRef = React.useRef<{
+    x: number;
+    y: number;
+    dist: number;
+  } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>): void => {
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    if (e.touches.length === 1 && t0) {
+      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
+    } else if (e.touches.length === 2 && t0 && t1) {
+      const dx = t0.clientX - t1.clientX;
+      const dy = t0.clientY - t1.clientY;
+      lastTouchRef.current = { x: 0, y: 0, dist: Math.sqrt(dx * dx + dy * dy) };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>): void => {
+    e.preventDefault();
+    if (!lastTouchRef.current) return;
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    if (e.touches.length === 1 && !dragging && t0) {
+      const dx = t0.clientX - lastTouchRef.current.x;
+      const dy = t0.clientY - lastTouchRef.current.y;
+      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
+    } else if (e.touches.length === 2 && t0 && t1) {
+      const dx = t0.clientX - t1.clientX;
+      const dy = t0.clientY - t1.clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ratio = dist / (lastTouchRef.current.dist || dist);
+      const midX = (t0.clientX + t1.clientX) / 2;
+      const midY = (t0.clientY + t1.clientY) / 2;
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (rect) {
+        const mx = midX - rect.left;
+        const my = midY - rect.top;
+        setView((v) => {
+          const newScale = clampScale(v.scale * ratio);
+          const r = newScale / v.scale;
+          return {
+            scale: newScale,
+            x: mx - r * (mx - v.x),
+            y: my - r * (my - v.y),
+          };
+        });
+      }
+      lastTouchRef.current = { x: 0, y: 0, dist };
+    }
   };
 
   const addNode = (type: NodeType): void => {
     const id = `n${Date.now()}`;
-    setNodes(prev => [...prev, { id, type, x: 100 + Math.random() * 200, y: 100 + Math.random() * 200, text: type === 'dialogue' ? 'New dialogue...' : 'Choose...', speaker: type === 'dialogue' ? 'Speaker' : undefined, options: type === 'choice' ? ['Option A', 'Option B'] : undefined }]);
+    const cx = (containerRef.current?.clientWidth ?? 600) / 2;
+    const cy = (containerRef.current?.clientHeight ?? 400) / 2;
+    const x = (cx - view.x) / view.scale - NODE_W / 2;
+    const y = (cy - view.y) / view.scale - NODE_H / 2;
+    const newNode: VNNode =
+      type === "dialogue"
+        ? { id, type, x, y, text: "New dialogue...", speaker: "Speaker" }
+        : {
+            id,
+            type,
+            x,
+            y,
+            text: "Choose...",
+            options: ["Option A", "Option B"],
+          };
+    setNodes((prev) => [...prev, newNode]);
   };
 
   const deleteSelected = (): void => {
     if (!selected) return;
-    setNodes(prev => prev.filter(n => n.id !== selected));
-    setEdges(prev => prev.filter(e => e.from !== selected && e.to !== selected));
+    setNodes((prev) => prev.filter((n) => n.id !== selected));
+    setEdges((prev) =>
+      prev.filter((e) => e.from !== selected && e.to !== selected),
+    );
     setSelected(null);
   };
 
+  const importJSON = (): void => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (): void => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (): void => {
+        try {
+          const data = JSON.parse(reader.result as string) as {
+            nodes?: VNNode[];
+            edges?: VNEdge[];
+          };
+          if (Array.isArray(data.nodes)) setNodes(data.nodes);
+          if (Array.isArray(data.edges)) setEdges(data.edges);
+        } catch {
+          /* invalid */
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const exportJSON = (): void => {
-    const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'dialogue.json'; a.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "story.json";
+    a.click();
     URL.revokeObjectURL(url);
   };
 
+  const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', color: 'var(--text)', fontSize: 12 }}>
-      <div style={{ display: 'flex', gap: 6, padding: '6px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-        <button onClick={() => addNode('dialogue')} style={{ padding: '3px 10px', background: 'var(--accent)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer' }}>+ Dialogue</button>
-        <button onClick={() => addNode('choice')} style={{ padding: '3px 10px', background: '#7c3aed', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer' }}>+ Choice</button>
-        <button onClick={deleteSelected} disabled={!selected} style={{ padding: '3px 10px', background: selected ? '#dc2626' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', cursor: selected ? 'pointer' : 'default' }}>Delete</button>
-        <button onClick={exportJSON} style={{ padding: '3px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', cursor: 'pointer', marginLeft: 'auto' }}>Export JSON</button>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
+        fontSize: 12,
+      }}
+    >
+      {/* Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          padding: "6px 10px",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
+          flexShrink: 0,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <button
+          onClick={() => addNode("dialogue")}
+          style={{
+            padding: "3px 10px",
+            background: "var(--es-accent)",
+            border: "none",
+            borderRadius: 4,
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          + Dialogue
+        </button>
+        <button
+          onClick={() => addNode("choice")}
+          style={{
+            padding: "3px 10px",
+            background: "#7c3aed",
+            border: "none",
+            borderRadius: 4,
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          + Choice
+        </button>
+        <button
+          onClick={deleteSelected}
+          disabled={!selected}
+          style={{
+            padding: "3px 10px",
+            background: selected ? "#dc2626" : "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: selected ? "pointer" : "default",
+            opacity: selected ? 1 : 0.4,
+          }}
+        >
+          Delete
+        </button>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={resetView}
+          style={{
+            padding: "3px 8px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text-muted)",
+            cursor: "pointer",
+            fontSize: 11,
+          }}
+        >
+          Reset view
+        </button>
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--es-text-muted)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {Math.round(view.scale * 100)}%
+        </span>
+        <button
+          onClick={importJSON}
+          style={{
+            padding: "3px 8px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: "pointer",
+          }}
+        >
+          Import
+        </button>
+        <button
+          onClick={exportJSON}
+          style={{
+            padding: "3px 10px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: "pointer",
+          }}
+        >
+          Export
+        </button>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+
+      {/* Canvas */}
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          overflow: "hidden",
+          position: "relative",
+          cursor: panning ? "grabbing" : "default",
+          touchAction: "none",
+        }}
+      >
         <svg
           ref={svgRef}
-          style={{ width: '100%', height: '100%', minWidth: 1200, minHeight: 600 }}
+          style={{ width: "100%", height: "100%", userSelect: "none" }}
+          onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
-          onMouseUp={() => setDragging(null)}
-          onClick={() => setSelected(null)}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={() => {
+            setDragging(null);
+            lastTouchRef.current = null;
+          }}
+          onClick={() => {
+            if (!dragging) setSelected(null);
+          }}
         >
           <defs>
-            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)" />
+            <marker
+              id="arrow"
+              markerWidth="8"
+              markerHeight="8"
+              refX="6"
+              refY="3"
+              orient="auto"
+            >
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--es-accent)" />
             </marker>
+            <pattern
+              id="grid"
+              width={20 * view.scale}
+              height={20 * view.scale}
+              x={view.x % (20 * view.scale)}
+              y={view.y % (20 * view.scale)}
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d={`M ${20 * view.scale} 0 L 0 0 0 ${20 * view.scale}`}
+                fill="none"
+                stroke="rgba(255,255,255,0.04)"
+                strokeWidth={0.5}
+              />
+            </pattern>
           </defs>
 
-          {/* Edges */}
-          {edges.map(edge => (
-            <path key={edge.id} d={edgePath(edge)} fill="none" stroke="var(--accent)" strokeWidth={1.5}
-              markerEnd="url(#arrow)" strokeDasharray={undefined} />
-          ))}
+          {/* Background grid */}
+          <rect width="100%" height="100%" fill="url(#grid)" />
 
-          {/* Nodes */}
-          {nodes.map(node => (
-            <g
-              key={node.id}
-              transform={`translate(${node.x},${node.y})`}
-              style={{ cursor: 'grab' }}
-              onMouseDown={e => {
-                e.stopPropagation();
-                setSelected(node.id);
-                const rect = svgRef.current!.getBoundingClientRect();
-                setDragging({ id: node.id, ox: e.clientX - rect.left - node.x, oy: e.clientY - rect.top - node.y });
-              }}
-              onDoubleClick={e => { e.stopPropagation(); setEditNode({ ...node }); }}
-            >
-              <rect width={NODE_W} height={NODE_H} rx={6}
-                fill={node.type === 'dialogue' ? '#1e1b4b' : '#1a1a2e'}
-                stroke={selected === node.id ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}
-                strokeWidth={selected === node.id ? 2 : 1} />
-              <text x={8} y={18} fill={node.type === 'dialogue' ? '#a78bfa' : '#f87171'} fontSize={10} fontWeight={600}>
-                {node.type === 'dialogue' ? `🗨 ${node.speaker ?? ''}` : '🔀 Choice'}
-              </text>
-              <foreignObject x={6} y={24} width={NODE_W - 12} height={NODE_H - 30}>
-                <div style={{ fontSize: 11, color: '#e2e8f0', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-                  {node.text}
-                </div>
-              </foreignObject>
-              {/* Input port */}
-              <circle cx={0} cy={NODE_H / 2} r={5} fill="#334155" stroke="var(--accent)" strokeWidth={1.5} />
-              {/* Output ports */}
-              {(node.options ?? [null]).map((opt, i) => {
-                const portCount = node.options?.length ?? 1;
-                const spacing = NODE_H / (portCount + 1);
-                const py = spacing * (i + 1);
-                return (
-                  <g key={i}>
-                    <circle cx={NODE_W} cy={py} r={5} fill="#334155" stroke="#a78bfa" strokeWidth={1.5} />
-                    {opt !== null && <text x={NODE_W - 8} y={py + 4} textAnchor="end" fill="#94a3b8" fontSize={9}>{opt}</text>}
-                  </g>
-                );
-              })}
-            </g>
-          ))}
+          <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
+            {/* Edges */}
+            {edges.map((edge) => (
+              <path
+                key={edge.id}
+                d={edgePath(edge)}
+                fill="none"
+                stroke="var(--es-accent)"
+                strokeWidth={1.5 / view.scale}
+                markerEnd="url(#arrow)"
+              />
+            ))}
+
+            {/* Nodes */}
+            {nodes.map((node) => {
+              const isSelected = selected === node.id;
+              return (
+                <g
+                  key={node.id}
+                  transform={`translate(${node.x},${node.y})`}
+                  style={{
+                    cursor: dragging?.id === node.id ? "grabbing" : "grab",
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setSelected(node.id);
+                    const coords = svgCoordsFromClient(e.clientX, e.clientY);
+                    setDragging({
+                      id: node.id,
+                      ox: coords.x - node.x,
+                      oy: coords.y - node.y,
+                    });
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditNode({ ...node });
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <rect
+                    width={NODE_W}
+                    height={NODE_H}
+                    rx={6}
+                    fill={node.type === "dialogue" ? "#1e1b4b" : "#1a1a2e"}
+                    stroke={
+                      isSelected ? "var(--es-accent)" : "rgba(255,255,255,0.15)"
+                    }
+                    strokeWidth={isSelected ? 2 / view.scale : 1 / view.scale}
+                  />
+                  <text
+                    x={8}
+                    y={18}
+                    fill={node.type === "dialogue" ? "#a78bfa" : "#f87171"}
+                    fontSize={10}
+                    fontWeight={600}
+                  >
+                    {node.type === "dialogue"
+                      ? `🗨 ${node.speaker ?? ""}`
+                      : "🔀 Choice"}
+                  </text>
+                  <foreignObject
+                    x={6}
+                    y={24}
+                    width={NODE_W - 12}
+                    height={NODE_H - 30}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#e2e8f0",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {node.text}
+                    </div>
+                  </foreignObject>
+                  {/* Input port */}
+                  <circle
+                    cx={0}
+                    cy={NODE_H / 2}
+                    r={5}
+                    fill="#334155"
+                    stroke="var(--es-accent)"
+                    strokeWidth={1.5 / view.scale}
+                  />
+                  {/* Output ports */}
+                  {(node.options ?? [null]).map((opt, i) => {
+                    const portCount = node.options?.length ?? 1;
+                    const spacing = NODE_H / (portCount + 1);
+                    const py = spacing * (i + 1);
+                    return (
+                      <g key={i}>
+                        <circle
+                          cx={NODE_W}
+                          cy={py}
+                          r={5}
+                          fill="#334155"
+                          stroke="#a78bfa"
+                          strokeWidth={1.5 / view.scale}
+                        />
+                        {opt !== null && (
+                          <text
+                            x={NODE_W - 8}
+                            y={py + 4}
+                            textAnchor="end"
+                            fill="#94a3b8"
+                            fontSize={9}
+                          >
+                            {opt}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+          </g>
         </svg>
+
+        {/* Hint overlay */}
+        {nodes.length === 0 && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              color: "var(--es-text-muted)",
+              fontSize: 13,
+              gap: 6,
+            }}
+          >
+            <div>Story Graph is empty</div>
+            <div style={{ fontSize: 11 }}>
+              Click + Dialogue or + Choice to add nodes
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Edit modal */}
       {editNode !== null && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 16, width: 360, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--es-surface)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 8,
+              padding: 16,
+              width: 360,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
             <div style={{ fontWeight: 600 }}>Edit Node</div>
-            {editNode.type === 'dialogue' && (
-              <input value={editNode.speaker ?? ''} onChange={e => setEditNode(n => n ? { ...n, speaker: e.target.value } : n)}
-                placeholder="Speaker" style={{ padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }} />
+            {editNode.type === "dialogue" && (
+              <input
+                value={editNode.speaker ?? ""}
+                onChange={(e) =>
+                  setEditNode((n) =>
+                    n ? { ...n, speaker: e.target.value } : n,
+                  )
+                }
+                placeholder="Speaker"
+                style={{
+                  padding: "4px 8px",
+                  background: "var(--es-bg)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                }}
+              />
             )}
-            <textarea value={editNode.text} rows={4} onChange={e => setEditNode(n => n ? { ...n, text: e.target.value } : n)}
-              style={{ padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', resize: 'vertical' }} />
-            {editNode.type === 'choice' && editNode.options?.map((opt, i) => (
-              <input key={i} value={opt} onChange={e => setEditNode(n => { if (!n?.options) return n; const opts = [...n.options]; opts[i] = e.target.value; return { ...n, options: opts }; })}
-                placeholder={`Option ${i + 1}`} style={{ padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }} />
-            ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { setNodes(prev => prev.map(n => n.id === editNode.id ? editNode : n)); setEditNode(null); }}
-                style={{ flex: 1, padding: '5px 0', background: 'var(--accent)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setEditNode(null)}
-                style={{ flex: 1, padding: '5px 0', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', cursor: 'pointer' }}>Cancel</button>
+            <textarea
+              value={editNode.text}
+              rows={4}
+              onChange={(e) =>
+                setEditNode((n) => (n ? { ...n, text: e.target.value } : n))
+              }
+              style={{
+                padding: "4px 8px",
+                background: "var(--es-bg)",
+                border: "1px solid var(--es-border)",
+                borderRadius: 4,
+                color: "var(--es-text)",
+                resize: "vertical",
+              }}
+            />
+            {editNode.type === "choice" &&
+              editNode.options?.map((opt, i) => (
+                <div key={i} style={{ display: "flex", gap: 4 }}>
+                  <input
+                    value={opt}
+                    onChange={(e) =>
+                      setEditNode((n) => {
+                        if (!n?.options) return n;
+                        const opts = [...n.options];
+                        opts[i] = e.target.value;
+                        return { ...n, options: opts };
+                      })
+                    }
+                    placeholder={`Option ${i + 1}`}
+                    style={{
+                      flex: 1,
+                      padding: "4px 8px",
+                      background: "var(--es-bg)",
+                      border: "1px solid var(--es-border)",
+                      borderRadius: 4,
+                      color: "var(--es-text)",
+                    }}
+                  />
+                  <button
+                    onClick={() =>
+                      setEditNode((n) => {
+                        if (!n?.options) return n;
+                        const opts = n.options.filter((_, j) => j !== i);
+                        return { ...n, options: opts };
+                      })
+                    }
+                    style={{
+                      padding: "2px 6px",
+                      background: "none",
+                      border: "1px solid var(--es-border)",
+                      borderRadius: 4,
+                      color: "var(--es-red)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            {editNode.type === "choice" && (
+              <button
+                onClick={() =>
+                  setEditNode((n) =>
+                    n
+                      ? {
+                          ...n,
+                          options: [
+                            ...(n.options ?? []),
+                            `Option ${(n.options?.length ?? 0) + 1}`,
+                          ],
+                        }
+                      : n,
+                  )
+                }
+                style={{
+                  padding: "3px 8px",
+                  background: "var(--es-surface)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                  cursor: "pointer",
+                  fontSize: 11,
+                }}
+              >
+                + Add option
+              </button>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => {
+                  setNodes((prev) =>
+                    prev.map((n) => (n.id === editNode.id ? editNode : n)),
+                  );
+                  setEditNode(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "5px 0",
+                  background: "var(--es-accent)",
+                  border: "none",
+                  borderRadius: 4,
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditNode(null)}
+                style={{
+                  flex: 1,
+                  padding: "5px 0",
+                  background: "var(--es-surface)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

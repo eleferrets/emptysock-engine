@@ -1,0 +1,153 @@
+import { promises as fs } from "node:fs";
+
+export interface TileEntry {
+  tilesetId: string;
+  x: number;
+  y: number;
+  tileIndex: number;
+}
+
+export interface InstanceEntry {
+  objectName: string;
+  x: number;
+  y: number;
+}
+
+export interface RoomLayer {
+  name: string;
+  type: string;
+  tiles: TileEntry[];
+  instances: InstanceEntry[];
+}
+
+export interface RoomData {
+  name: string;
+  width: number;
+  height: number;
+  layers: RoomLayer[];
+}
+
+// ── Internal shapes for the GMS2 room .yy JSON ──────────────────────────────
+
+interface YyInstance {
+  objectId?: { name?: string };
+  x?: number;
+  y?: number;
+  [key: string]: unknown;
+}
+
+interface YyLayer {
+  name?: string;
+  layerType?: string;
+  tiles?: {
+    TileData?: number[][];
+    tilesetId?: { name?: string };
+    [key: string]: unknown;
+  };
+  instances?: YyInstance[];
+  [key: string]: unknown;
+}
+
+interface YyRoom {
+  name?: string;
+  roomSettings?: { Width?: number; Height?: number; [key: string]: unknown };
+  layers?: YyLayer[];
+  [key: string]: unknown;
+}
+
+function isYyRoom(val: unknown): val is YyRoom {
+  return typeof val === "object" && val !== null;
+}
+
+function parseTiles(layer: YyLayer): TileEntry[] {
+  const tiles = layer.tiles;
+  if (tiles === undefined || tiles === null || typeof tiles !== "object")
+    return [];
+
+  const tilesetId =
+    typeof tiles.tilesetId === "object" &&
+    tiles.tilesetId !== null &&
+    typeof (tiles.tilesetId as Record<string, unknown>)["name"] === "string"
+      ? ((tiles.tilesetId as Record<string, unknown>)["name"] as string)
+      : "";
+
+  const tileData = Array.isArray(tiles["TileData"])
+    ? (tiles["TileData"] as number[][])
+    : [];
+
+  const result: TileEntry[] = [];
+  tileData.forEach((row, rowIdx) => {
+    if (!Array.isArray(row)) return;
+    row.forEach((tileIndex, colIdx) => {
+      if (typeof tileIndex === "number" && tileIndex !== 0) {
+        result.push({ tilesetId, x: colIdx, y: rowIdx, tileIndex });
+      }
+    });
+  });
+  return result;
+}
+
+function parseInstances(layer: YyLayer): InstanceEntry[] {
+  const instances = layer.instances;
+  if (!Array.isArray(instances)) return [];
+  return instances.map((inst) => ({
+    objectName:
+      typeof inst.objectId === "object" &&
+      inst.objectId !== null &&
+      typeof (inst.objectId as Record<string, unknown>)["name"] === "string"
+        ? ((inst.objectId as Record<string, unknown>)["name"] as string)
+        : "Unknown",
+    x: typeof inst.x === "number" ? inst.x : 0,
+    y: typeof inst.y === "number" ? inst.y : 0,
+  }));
+}
+
+/**
+ * Convert a GMS2 room .yy file path into a RoomData object.
+ * Throws a descriptive Error on missing file, unreadable file, or invalid JSON.
+ */
+export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(roomYyPath, "utf-8");
+  } catch (err) {
+    throw new Error(
+      `convertGms2Room: cannot read "${roomYyPath}": ${String(err)}`,
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `convertGms2Room: invalid JSON in "${roomYyPath}": ${String(err)}`,
+    );
+  }
+
+  if (!isYyRoom(parsed)) {
+    throw new Error(
+      `convertGms2Room: unexpected .yy structure in "${roomYyPath}"`,
+    );
+  }
+
+  const name = typeof parsed.name === "string" ? parsed.name : "Room";
+  const settings = parsed.roomSettings ?? {};
+  const width = typeof settings.Width === "number" ? settings.Width : 1024;
+  const height = typeof settings.Height === "number" ? settings.Height : 768;
+
+  const rawLayers = Array.isArray(parsed.layers) ? parsed.layers : [];
+  const layers: RoomLayer[] = rawLayers.map((layer) => {
+    const layerName = typeof layer.name === "string" ? layer.name : "Layer";
+    const layerType =
+      typeof layer.layerType === "string" ? layer.layerType : "unknown";
+    return {
+      name: layerName,
+      type: layerType,
+      tiles: parseTiles(layer),
+      instances: parseInstances(layer),
+    };
+  });
+
+  return { name, width, height, layers };
+}

@@ -341,3 +341,299 @@ Tween.kill(handle);
 **Easing functions:** `linear`, `sineIn/Out/InOut`, `quadIn/Out/InOut`, `cubicIn/Out/InOut`, `bounceOut`, `elasticOut`, `backIn/Out`.
 
 > **Tip:** Tweens do not need to be cancelled in `onDestroy` if the target object is destroyed — the engine detects the destroyed entity and stops the tween automatically. For tweens on plain objects (not entities), cancel them manually.
+
+---
+
+## 5.12 UISystem
+
+A retained-mode 2D UI layer rendered on top of the scene canvas. Widgets live in a tree separate from the entity graph; they do not participate in the physics simulation.
+
+```typescript
+import { UISystem } from '@emptysock/engine';
+
+const ui = new UISystem();
+
+// Build a simple health bar:
+const root  = ui.createPanel({ x: 16, y: 16, width: 200, height: 20 });
+const label = ui.createLabel({ text: 'HP', parent: root, color: '#fff' });
+const bar   = ui.createProgressBar({
+  parent: root,
+  value: 1.0,           // 0.0–1.0
+  fill: '#e74c3c',
+  background: '#333',
+});
+
+// Update each frame:
+bar.setValue(player.hp / player.maxHp);
+
+// Button with click handler:
+const btn = ui.createButton({
+  text: 'Retry',
+  x: 320, y: 240,
+  width: 120, height: 40,
+  onClick: () => SceneManager.load('GameScene'),
+});
+
+// Render (called automatically if ui is passed to scene.setUI):
+ui.render();
+
+// Destroy when scene ends:
+ui.destroy();
+```
+
+**Key methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `createPanel(opts)` | `UIPanel` | Container with optional background and border |
+| `createLabel(opts)` | `UILabel` | Static or dynamic text element |
+| `createButton(opts)` | `UIButton` | Clickable region with text label |
+| `createProgressBar(opts)` | `UIProgressBar` | Horizontal fill bar |
+| `createImage(opts)` | `UIImage` | Texture rect |
+| `setVisible(node, visible)` | `void` | Show/hide any node |
+| `destroy()` | `void` | Frees all widget state |
+
+> **Note:** UI coordinates are in canvas pixels. (0, 0) is the top-left of the canvas. No layout engine runs automatically — position nodes manually or compute positions in `onUpdate`.
+
+---
+
+## 5.13 PostProcessSystem
+
+Screen-space post-processing pipeline. Effects are applied as WebGL fragment shader passes after the scene is rendered to an offscreen framebuffer.
+
+```typescript
+import { PostProcessSystem } from '@emptysock/engine';
+
+const post = new PostProcessSystem();
+
+// Add effects (order is draw order, not importance):
+const bloom  = post.add('bloom',  { threshold: 0.7, intensity: 0.4, radius: 1.0 });
+const vignette = post.add('vignette', { strength: 0.45, color: '#000' });
+const chromo = post.add('chromaticAberration', { offset: 0.003 });
+
+// Toggle at runtime:
+bloom.enabled = false;
+
+// Change parameters mid-game:
+vignette.setParam('strength', 0.7);
+
+// Remove one effect:
+post.remove(chromo);
+
+// Destroy with scene:
+post.destroy();
+```
+
+**Built-in effects:**
+
+| Effect name | Key params | Description |
+|-------------|-----------|-------------|
+| `bloom` | `threshold`, `intensity`, `radius` | Bright-pass blur and additive composite |
+| `vignette` | `strength`, `color` | Screen-edge darkening |
+| `chromaticAberration` | `offset` | RGB channel split |
+| `blur` | `radius` | Gaussian blur |
+| `pixelate` | `pixelSize` | Nearest-neighbour downscale |
+| `scanlines` | `density`, `opacity` | CRT scanline overlay |
+| `colorGrade` | `saturation`, `contrast`, `brightness` | Global tone controls |
+
+> **Tip:** Effects are composited in add order. Put bloom before colorGrade to grade the bloomed result.
+
+> **Warning:** PostProcessSystem uses a second WebGL framebuffer. On low-end hardware or when rendering at native resolution on a high-DPI display, this can halve frame rate. Test on target hardware before shipping.
+
+---
+
+## 5.14 GamepadSystem
+
+Provides access to the Gamepad API with normalised stick dead-zones and button mapping. Works alongside the `Input` static class — gamepad axes and buttons are also readable through `Input.axis()` and `Input.isPressed()` when a standard mapping is set.
+
+```typescript
+import { GamepadSystem } from '@emptysock/engine';
+
+const pads = new GamepadSystem({ deadZone: 0.15 });
+
+// In onUpdate:
+pads.poll();   // must call once per frame before reading state
+
+const p0 = pads.get(0); // GamepadState | undefined
+if (p0) {
+  const { lx, ly, rx, ry } = p0.axes;   // -1..1, dead-zone applied
+  const jump   = p0.isPressed('A');      // button pressed this frame
+  const attack = p0.isDown('X');         // button held
+  const lt     = p0.trigger('LT');       // 0..1 analog trigger
+}
+
+// Enumerate connected pads:
+for (const pad of pads.connected()) {
+  console.log(pad.index, pad.id);
+}
+
+// Rumble (where supported):
+pads.get(0)?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 });
+```
+
+**Standard button names:** `A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `Start`, `Select`, `L3`, `R3`, `DUp`, `DDown`, `DLeft`, `DRight`.
+
+> **Note:** `pads.poll()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
+
+---
+
+## 5.15 ParticleSystem
+
+Component-based particle emitter. Attach to any entity and the system drives particle emission, physics, and rendering each frame.
+
+**Sprite-based particles:** Pass a `texture` path to render each particle as a sprite instead of a solid-colour circle. The texture is tinted by `colorStart`/`colorEnd` at runtime, so a white-on-transparent PNG gives you maximum colour flexibility. Omit `texture` entirely for the default solid-colour circle renderer.
+
+```typescript
+import { ParticleSystem } from '@emptysock/engine';
+
+// Attach emitter to an entity:
+const emitter = explosion.addComponent(ParticleSystem, {
+  texture: 'assets/spark.png',   // sprite-based; omit for a solid-colour circle
+  emissionRate: 80,              // particles per second
+  maxParticles: 400,
+  lifetime:  { min: 0.4, max: 0.9 },
+  speed:     { min: 120, max: 280 },
+  angle:     { min: 0,   max: 360 },
+  gravity:   200,                // px/s² downward
+  scaleStart: 1.0,
+  scaleEnd:   0.0,
+  colorStart: '#ffdd44',
+  colorEnd:   '#ff4400',
+  blendMode: 'additive',         // 'normal' | 'additive'
+  shape: { type: 'point' },      // or { type: 'circle', radius: 24 }
+});
+
+// One-shot burst (stops emission after the burst):
+emitter.burst(60);
+
+// Stop emitting but let existing particles finish:
+emitter.stop();
+
+// Stop emitting and immediately clear particles:
+emitter.clear();
+```
+
+> **Tip:** Export emitter configs from the Particle Editor panel (section 7.7) and paste them directly as the second argument to `addComponent(ParticleSystem, config)`.
+
+> **Note:** `destroy()` is handled by `entity.destroy()` — no separate teardown is required.
+
+---
+
+## 5.16 LayerSystem
+
+Manages named render layers and controls draw order, visibility, and per-layer camera parallax. Entities are assigned to a layer; the `RenderSystem` draws layers in ascending `zOrder`.
+
+```typescript
+import { LayerSystem } from '@emptysock/engine';
+
+// Set up layers once in onLoad:
+const layers = new LayerSystem();
+
+layers.defineLayer({ name: 'Background', zOrder: 0,  parallax: { x: 0.2, y: 0.2 } });
+layers.defineLayer({ name: 'Midground',  zOrder: 10, parallax: { x: 0.6, y: 0.6 } });
+layers.defineLayer({ name: 'Gameplay',   zOrder: 20 });                 // scrolls 1:1
+layers.defineLayer({ name: 'FX',         zOrder: 30, blendMode: 'additive' });
+layers.defineLayer({ name: 'UI',         zOrder: 40, fixed: true });    // camera-fixed
+
+// Assign entities to layers:
+layers.addToLayer('Background', backgroundSprite);
+layers.addToLayer('Gameplay',   player);
+layers.addToLayer('FX',         explosionEmitter);
+
+// Toggle visibility (culls the whole layer from the render pass):
+layers.setVisible('FX', false);
+layers.setVisible('FX', true);
+
+// Change parallax at runtime:
+layers.setParallax('Background', { x: 0.3, y: 0.1 });
+
+// Remove an entity from its layer (entity retains its data, just excluded from render):
+layers.removeFromLayer('Gameplay', player);
+
+// Enumerate layers in draw order:
+for (const layer of layers.sorted()) {
+  console.log(layer.name, layer.zOrder, layer.visible);
+}
+
+// Destroy with scene:
+layers.destroy();
+```
+
+**Key options on `defineLayer`:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `name` | `string` | Unique layer identifier |
+| `zOrder` | `number` | Ascending draw order (lower = further back) |
+| `parallax` | `{ x, y }` | Camera offset multiplier; defaults to `{ x: 1, y: 1 }` |
+| `blendMode` | `'normal' \| 'additive'` | Composite mode for the layer |
+| `fixed` | `boolean` | If true, layer ignores camera translation (UI use case) |
+
+> **Integration with RenderSystem:** Pass the `LayerSystem` instance to `scene.setLayerSystem(layers)` and the render pipeline reads layer assignments automatically. Without this call, all entities render in insertion order with no parallax.
+
+---
+
+## 5.17 VNSystem (Story Graph)
+
+Plays back a branching dialogue script exported from the **Story Graph** panel (Module → Story Graph). The script is a JSON file produced by the Story Graph's Export button; it contains Dialogue nodes, Choice nodes, and Condition nodes.
+
+```typescript
+import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine';
+
+const vn = new VNSystem();
+
+// Load a script exported from the Story Graph panel:
+await vn.loadScript('assets/story/chapter1.vnscript');
+
+// Register a node callback — called each time the active node changes:
+vn.onNode((node: VNNode) => {
+  if (node.type === 'dialogue') {
+    const d = node as VNDialogueNode;
+    renderDialogue(d.speaker, d.text);  // render however you like
+  } else if (node.type === 'choice') {
+    const c = node as VNChoiceNode;
+    renderChoices(c.options.map((o) => o.label));
+  }
+});
+
+// Begin playback from the first node:
+vn.play();
+
+// Advance a Dialogue node to its successor:
+vn.advance();
+
+// Select a choice (zero-indexed) on a Choice node:
+vn.choose(1);
+
+// Skip auto-advance delay (if configured in the script):
+vn.skip();
+
+// Jump to a specific node by its id (use for save/resume):
+vn.jumpToNode('node-uuid-here');
+
+// Variables — read and write arbitrary flags for Condition nodes:
+vn.setVariable('metStranger', true);
+const met = vn.getVariable('metStranger');  // boolean | string | number | undefined
+
+// Read the full variable map (for serialisation):
+const vars = vn.getVariables();  // Record<string, string | number | boolean>
+
+// Destroy when the scene ends:
+vn.destroy();
+```
+
+**Node types returned by `onNode`:**
+
+| `node.type` | Interface | Key fields |
+|-------------|-----------|-----------|
+| `'dialogue'` | `VNDialogueNode` | `id`, `speaker`, `text` |
+| `'choice'` | `VNChoiceNode` | `id`, `options: { label, targetId }[]` |
+| `'condition'` | `VNConditionNode` | `id`, `variable`, `value`, `trueTargetId`, `falseTargetId` |
+
+**Condition nodes** are evaluated automatically when the system reaches them — `onNode` is not called for Condition nodes. The system reads the stored variable with `getVariable()`, compares it to `node.value`, and follows the appropriate branch.
+
+**Auto-advance:** If a Dialogue node in the script has a `delay` property set (configured in the Story Graph editor), the system automatically calls `advance()` after the delay in seconds. Call `skip()` to bypass the delay immediately.
+
+> **Story Graph panel:** Open it via **Module → Story Graph** in the IDE menu bar. The panel is an SVG-based node graph. See Section 7 (IDE Reference) for panel controls and the Story Graph panel description. Export the finished graph as `.vnscript` JSON and load it with `vn.loadScript()`.
+
+> **Save/resume pattern:** Call `vn.jumpToNode(savedNodeId)` and restore variables with `vn.setVariable()` before calling `vn.play()`. See the visual novel tutorial (Section 13) for a full example.

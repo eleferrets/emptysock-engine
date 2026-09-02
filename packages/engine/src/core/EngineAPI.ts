@@ -1,11 +1,21 @@
 type ErrorHandler = (msg: string) => void;
 
 const _errorHandlers: ErrorHandler[] = [];
+let _fileLogHandler: ErrorHandler | null = null;
 
 export const Engine = {
   /** Register a callback invoked whenever Engine.logError is called. */
   onError(handler: ErrorHandler): void {
     _errorHandlers.push(handler);
+  },
+
+  /**
+   * Register a callback that receives the message when logErrorToFile is called.
+   * Wire this up in the IDE/Tauri layer; game code and the engine core must not
+   * import Tauri APIs directly.
+   */
+  onFileLog(handler: ErrorHandler): void {
+    _fileLogHandler = handler;
   },
 
   /** Log a runtime error to registered handlers and the console. */
@@ -14,21 +24,13 @@ export const Engine = {
     for (const h of _errorHandlers) h(msg);
   },
 
-  /** Log a debug-level error without triggering error handlers. */
+  /** Log a debug-level message without triggering error handlers. */
   logDebugError(msg: string): void {
     console.debug('[Engine]', msg);
   },
 
-  /**
-   * In the desktop app this writes to the project log file.
-   * In-browser it is a no-op stub.
-   */
+  /** Delegate to the file-log handler registered by the host layer. No-op if not set. */
   logErrorToFile(msg: string): void {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      // Fire-and-forget Tauri command; import is dynamic to keep web bundle clean.
-      void import('@tauri-apps/api/core').then(({ invoke }) =>
-        invoke('log_error', { message: msg }).catch(() => undefined)
-      );
-    }
+    _fileLogHandler?.(msg);
   },
 };

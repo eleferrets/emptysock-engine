@@ -1,9 +1,9 @@
-import { gameBuildService } from './GameBuildService.js';
-import { ENGINE_BUNDLE } from '../runtime/engineBundle.generated.js';
+import { gameBuildService, GameBuildService } from "./GameBuildService.js";
+import { ENGINE_BUNDLE } from "../runtime/engineBundle.generated.js";
 
 export interface RunnerMessage {
-  type: 'log' | 'fps' | 'error' | 'ready';
-  level?: 'info' | 'warn' | 'error' | 'debug';
+  type: "log" | "fps" | "error" | "ready";
+  level?: "info" | "warn" | "error" | "debug";
   message?: string;
   fps?: number;
   source?: string;
@@ -11,7 +11,7 @@ export interface RunnerMessage {
 
 export type MessageHandler = (msg: RunnerMessage) => void;
 
-function buildIframeHtml(engineBundle: string, userBundle: string): string {
+function buildIframeHtml(engineBundle: string, userModuleUrl: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -70,17 +70,46 @@ function buildIframeHtml(engineBundle: string, userBundle: string): string {
     window.parent.postMessage({ type: 'error', level: 'error', message: 'Unhandled rejection: ' + msg, source: 'Runtime' }, '*');
   });
 
-  // Hot reload listener
+  // RAF throttle — patched before engine bundle loads so the engine inherits the cap
+  var _rafCap = 0;
+  var _rafLastFrame = 0;
+  var _origRaf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function(cb) {
+    if (_rafCap <= 0) return _origRaf(cb);
+    var minInterval = 1000 / _rafCap;
+    return _origRaf(function(ts) {
+      if (ts - _rafLastFrame >= minInterval) {
+        _rafLastFrame = ts;
+        cb(ts);
+      } else {
+        window.requestAnimationFrame(cb);
+      }
+    });
+  };
+
+  // Message listener: hot reload + fps cap
   window.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'es-hot-reload' || typeof e.data.code !== 'string') return;
-    try {
-      // eslint-disable-next-line no-new-func
-      (new Function(e.data.code))();
-      window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
-    } catch(err) {
-      var errMsg = String(err);
-      showErrorModal('Hot reload failed: ' + errMsg);
-      window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
+    if (!e.data || typeof e.data.type !== 'string') return;
+    if (e.data.type === 'es-hot-reload' && typeof e.data.code === 'string') {
+      try {
+        if (typeof window.__es_before_reload__ === 'function') window.__es_before_reload__();
+        (new Function(e.data.code))();
+        if (typeof window.__es_after_reload__ === 'function') window.__es_after_reload__();
+        window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
+      } catch(err) {
+        var errMsg = String(err);
+        showErrorModal('Hot reload failed: ' + errMsg);
+        window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
+      }
+    } else if (e.data.type === 'es-hot-reload-sprite' && typeof e.data.name === 'string' && typeof e.data.dataUrl === 'string') {
+      if (typeof window.__es_hmr_sprite__ === 'function') window.__es_hmr_sprite__(e.data.name, e.data.dataUrl);
+    } else if (e.data.type === 'es-hot-reload-shader' && typeof e.data.name === 'string' && typeof e.data.vert === 'string' && typeof e.data.frag === 'string') {
+      if (typeof window.__es_hmr_shader__ === 'function') window.__es_hmr_shader__(e.data.name, e.data.vert, e.data.frag);
+    } else if (e.data.type === 'es-hot-reload-room' && typeof e.data.name === 'string' && typeof e.data.roomJson === 'string') {
+      if (typeof window.__es_hmr_room__ === 'function') window.__es_hmr_room__(e.data.name, e.data.roomJson);
+    } else if (e.data.type === 'set-fps-cap' && typeof e.data.cap === 'number') {
+      _rafCap = Math.max(0, e.data.cap);
+      _rafLastFrame = 0;
     }
   });
 
@@ -105,11 +134,7 @@ try { ${engineBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
 }
 </script>
-<script>
-try { ${userBundle} } catch(e) {
-  window.parent.postMessage({ type: 'error', level: 'error', message: String(e), source: 'Bundle' }, '*');
-}
-</script>
+<script type="module" src="${userModuleUrl}"></script>
 </body>
 </html>`;
 }
@@ -117,9 +142,11 @@ try { ${userBundle} } catch(e) {
 export class PlayRunner {
   private _iframe: HTMLIFrameElement | null = null;
   private _blobUrl: string | null = null;
+  private _moduleBlobUrl: string | null = null;
   private readonly _handlers: Set<MessageHandler> = new Set();
   private _msgListener: ((e: MessageEvent) => void) | null = null;
   private _container: HTMLElement | null = null;
+  private readonly _buildService: GameBuildService = new GameBuildService(0);
 
   onMessage(handler: MessageHandler): () => void {
     this._handlers.add(handler);
@@ -130,44 +157,101 @@ export class PlayRunner {
     for (const h of this._handlers) h(msg);
   }
 
-  async start(code: string, mode: 'debug' | 'release', container: HTMLElement): Promise<void> {
+  async start(
+    code: string,
+    mode: "debug" | "release",
+    container: HTMLElement,
+    define: Record<string, string> = {},
+  ): Promise<void> {
     this.stop();
     this._container = container;
 
-    const result = await gameBuildService.buildNow({ code, mode });
+    const result = await gameBuildService.buildNow({ code, mode, define });
     if (!result.success) {
       for (const err of result.errors) {
-        this._emit({ type: 'error', level: 'error', message: err, source: 'BuildService' });
+        this._emit({
+          type: "error",
+          level: "error",
+          message: err,
+          source: "BuildService",
+        });
       }
       return;
     }
 
-    const html = buildIframeHtml(ENGINE_BUNDLE, result.js);
-    const blob = new Blob([html], { type: 'text/html' });
+    const moduleBlob = new Blob([result.js], {
+      type: "application/javascript",
+    });
+    this._moduleBlobUrl = URL.createObjectURL(moduleBlob);
+
+    const html = buildIframeHtml(ENGINE_BUNDLE, this._moduleBlobUrl);
+    const blob = new Blob([html], { type: "text/html" });
     this._blobUrl = URL.createObjectURL(blob);
 
-    const iframe = document.createElement('iframe');
+    const iframe = document.createElement("iframe");
     iframe.src = this._blobUrl;
-    iframe.sandbox.add('allow-scripts');
-    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;';
+    iframe.sandbox.add("allow-scripts");
+    iframe.sandbox.add("allow-same-origin");
+    iframe.style.cssText =
+      "position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;";
     container.appendChild(iframe);
     this._iframe = iframe;
 
     this._msgListener = (e: MessageEvent) => {
       const data = e.data as RunnerMessage | undefined;
-      if (data === undefined || typeof data.type !== 'string') return;
+      if (data === undefined || typeof data.type !== "string") return;
       this._emit(data);
     };
-    window.addEventListener('message', this._msgListener);
+    window.addEventListener("message", this._msgListener);
   }
 
   hotReload(code: string): void {
-    this._iframe?.contentWindow?.postMessage({ type: 'es-hot-reload', code }, '*');
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload", code },
+      "*",
+    );
+  }
+
+  hotReloadSprite(name: string, dataUrl: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-sprite", name, dataUrl },
+      "*",
+    );
+  }
+
+  hotReloadShader(name: string, vert: string, frag: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-shader", name, vert, frag },
+      "*",
+    );
+  }
+
+  hotReloadRoom(name: string, roomJson: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-room", name, roomJson },
+      "*",
+    );
+  }
+
+  async hotReloadFast(code: string): Promise<void> {
+    const transformed = await this._buildService.transformOnly(code, "game.ts");
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload", code: transformed },
+      "*",
+    );
+  }
+
+  /**
+   * Tell the iframe to cap its requestAnimationFrame loop to `cap` fps.
+   * Pass 0 to remove the cap (uncapped / native RAF rate).
+   */
+  postFpsCap(cap: number): void {
+    this._iframe?.contentWindow?.postMessage({ type: "set-fps-cap", cap }, "*");
   }
 
   stop(): void {
     if (this._msgListener !== null) {
-      window.removeEventListener('message', this._msgListener);
+      window.removeEventListener("message", this._msgListener);
       this._msgListener = null;
     }
     if (this._iframe !== null) {
@@ -178,9 +262,15 @@ export class PlayRunner {
       URL.revokeObjectURL(this._blobUrl);
       this._blobUrl = null;
     }
+    if (this._moduleBlobUrl !== null) {
+      URL.revokeObjectURL(this._moduleBlobUrl);
+      this._moduleBlobUrl = null;
+    }
   }
 
-  get isRunning(): boolean { return this._iframe !== null; }
+  get isRunning(): boolean {
+    return this._iframe !== null;
+  }
 }
 
 export const playRunner = new PlayRunner();

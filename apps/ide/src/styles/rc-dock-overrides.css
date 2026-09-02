@@ -1,0 +1,87 @@
+/* ── rc-dock theme overrides ────────────────────────────────────────────────
+   rc-dock ships hardcoded #fff/#fafafd backgrounds. Override every surface
+   with IDE CSS variables so dark mode actually looks dark.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Tab bar (rc-dock uses .dock-top .dock-bar for the tab strip) */
+.dock-bar,
+.dock-top .dock-bar {
+  background: var(--es-surface) !important;
+  border-bottom: 1px solid var(--es-border) !important;
+}
+
+/* Individual tab buttons */
+.dock-tab,
+.dock-tab > div {
+  background: transparent !important;
+  color: var(--es-text-muted) !important;
+}
+
+.dock-tab.dock-tab-active,
+.dock-tab.dock-tab-active > div {
+  background: transparent !important;
+  color: var(--es-text) !important;
+}
+
+/* Active underline */
+.dock-ink-bar {
+  background: var(--es-accent) !important;
+}
+
+/* Panel body */
+.dock-panel {
+  background: var(--es-bg) !important;
+  border: 1px solid var(--es-border) !important;
+  color: var(--es-text) !important;
+}
+
+/* Animated content wrapper */
+.dock-content-animated,
+.dock-content {
+  background: var(--es-bg) !important;
+}
+
+/* Resize handle */
+.dock-divider {
+  background: var(--es-border) !important;
+}
+
+/* Drop squares (shown during drag) */
+.dock-drop-square {
+  background: var(--es-surface-2) !important;
+  border-color: var(--es-accent) !important;
+  color: var(--es-text-muted) !important;
+}
+
+/* Dropdown overflow menu */
+.dock-dropdown-menu {
+  background-color: var(--es-surface-2) !important;
+  border: 1px solid var(--es-border) !important;
+  color: var(--es-text) !important;
+}
+
+.dock-dropdown-menu-item {
+  color: var(--es-text) !important;
+}
+
+.dock-dropdown-menu-item:hover {
+  background: var(--es-surface) !important;
+}
+
+/* Hide the maximize/float action buttons — drag to float still works */
+.dock-extra-content {
+  display: none !important;
+}
+
+/* Float window polish */
+.dock-float .dock-panel {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* Tab overflow scroll arrows */
+.dock-tab-btn-skip {
+  color: var(--es-text-muted) !important;
+  background: transparent !important;
+}

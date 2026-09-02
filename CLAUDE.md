@@ -6,17 +6,20 @@ This file is the decision record for the monorepo. It records conventions and no
 
 ## Offline manual
 
-| Section | Path | Topic |
-|---------|------|-------|
-| 1 | docs/manual/01-prerequisites.md | Node, Rust, Android/iOS SDKs, system libs |
-| 2 | docs/manual/02-getting-started.md | Install, run, export pipeline |
-| 3 | docs/manual/03-architecture.md | Layers, ECS, Actor Model, data flow |
-| 4 | docs/manual/04-core-reference.md | Scene, Entity, Timer, Coroutine, Camera |
-| 5 | docs/manual/05-systems-reference.md | Physics 2D/3D, Input, NavMesh, Save, i18n, Plugin |
-| 6 | docs/manual/06-actor-model.md | Actor, ActorSystem, NetworkActor, Transport |
-| 7 | docs/manual/07-ide-reference.md | All panels, shortcuts, build pipeline, PWA |
-| 8 | docs/manual/08-tutorial-pong.md | Step-by-step: full game from scratch |
-| 9 | docs/manual/09-troubleshooting.md | Common pitfalls and how to diagnose them |
+| Section | Path                                 | Topic                                                                    |
+| ------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| 1       | docs/manual/01-prerequisites.md      | Node, Rust, Android/iOS SDKs, system libs                                |
+| 2       | docs/manual/02-getting-started.md    | Install, run, export pipeline                                            |
+| 3       | docs/manual/03-architecture.md       | Layers, ECS, Actor Model, data flow                                      |
+| 4       | docs/manual/04-core-reference.md     | Scene, Entity, Timer, Coroutine, Camera                                  |
+| 5       | docs/manual/05-systems-reference.md  | Physics 2D/3D, Input, NavMesh, Save, i18n, Plugin                        |
+| 6       | docs/manual/06-actor-model.md        | Actor, ActorSystem, NetworkActor, Transport                              |
+| 7       | docs/manual/07-ide-reference.md      | All panels, shortcuts, build pipeline, PWA                               |
+| 8       | docs/manual/08-tutorial-pong.md      | Step-by-step: full game from scratch                                     |
+| 9       | docs/manual/09-troubleshooting.md    | Common pitfalls and how to diagnose them                                 |
+| 10      | docs/manual/10-language-reference.md | Offline TypeScript & JavaScript reference for engine scripting           |
+| 11      | docs/manual/11-gms2-migration.md     | GMS2 → EmptySock migration guide: import tool, GML mapping, asset status |
+| 14      | docs/manual/14-glossary.md           | Canonical terms, deprecated aliases, definitions                         |
 
 ---
 
@@ -52,6 +55,10 @@ Code that needs Tauri capabilities must check `'__TAURI_INTERNALS__' in window` 
 
 DockLayout is the sole child of the IDE's root flex container. Never add a sibling element with fixed height alongside it. rc-dock calculates panel sizes from its own bounding box. A sibling that consumes vertical space causes the layout to overflow — the bottom panels become partially hidden and the overflow does not scroll because DockLayout sets its own overflow policy. Add persistent UI (a title bar, a status bar) by making it a DockLayout tab, not a flex sibling.
 
+### No loading screen, no splash screen
+
+The engine does not own a loading screen or a splash screen. The first scene starts immediately once the engine bundle and user bundle have executed — there is no engine-inserted transition, delay, or branded screen before the developer's code runs. Do not add one. If a game needs a loading screen or a splash screen, the developer creates it as a scene like any other (typically the `startScene`), controls its duration with `async onLoad`, and navigates away when ready. The engine's job is to get out of the way.
+
 ### GPU flags in lib.rs
 
 NvOptimusEnablement and AmdPowerXpressRequestHighPerformance are declared as `#[no_mangle] pub static` in the Tauri lib.rs. The `#[no_mangle]` attribute prevents Rust's linker from mangling or eliminating the symbol. The GPU driver on Windows and Linux reads these symbol names from the compiled binary's export table at the OS level — there is no API call involved. If these symbols are removed or marked private, the driver silently falls back to the integrated GPU. This is not detectable at runtime.
@@ -79,6 +86,21 @@ addComponent and getComponent use the component constructor function as the key.
 ### One ActorSystem per scene
 
 Create a new ActorSystem in onLoad and destroy it in onDestroy. A shared ActorSystem that persists across scenes will process stale messages from actors that belong to an unloaded scene. Since actors from the old scene are still registered, broadcast() will invoke them after their scene's onDestroy has run, causing use-after-destroy bugs that are difficult to reproduce.
+
+---
+
+## Canonical terms
+
+All documentation, skill files, and agent prompts must use the canonical spelling from [`docs/manual/14-glossary.md`](docs/manual/14-glossary.md). That file lists every term with its deprecated aliases and a one-line definition. Key points:
+
+- `ActorSystem` — one word, never "Actor System"
+- `NavMeshSystem` / `NavMesh` — capital M, never "navmesh" or "Navmesh"
+- `PluginSystem` — one word; the singleton instance is `pluginSystem` (lowercase p)
+- `Story Graph` — two words with spaces; the runtime is `VNSystem` (not "VN System"); the deprecated panel name "VN Graph" must not appear in new docs
+- `VisualScriptComponent` — one word; the panel label "Visual Script Editor" uses spaces only in prose, not in class names
+- `Tilemap` — one word, capital T; not "TileMap" or "tile map"
+- `Localisation` — British spelling throughout; never "Localization"
+- `esbuild` — all lowercase, one word; never "ESBuild" or "Esbuild"
 
 ---
 

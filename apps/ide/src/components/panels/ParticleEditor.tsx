@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface EmitterConfig {
   emissionRate: number;
@@ -11,16 +11,25 @@ interface EmitterConfig {
   scaleEnd: number;
   colorStart: string;
   colorEnd: string;
-  shape: 'point' | 'circle' | 'rect';
+  shape: "point" | "circle" | "rect";
   shapeRadius: number;
+  rotationSpeed: number;
+  alphaEnd: number;
+  /** Name of the loaded sprite texture (display only; the canvas uses spriteImg). */
+  textureName: string;
 }
 
 interface Particle {
-  x: number; y: number;
-  vx: number; vy: number;
-  life: number; maxLife: number;
-  scale: number; alpha: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  scale: number;
+  alpha: number;
   color: string;
+  rotation: number;
 }
 
 const DEFAULT_CONFIG: EmitterConfig = {
@@ -32,10 +41,13 @@ const DEFAULT_CONFIG: EmitterConfig = {
   gravity: 120,
   scaleStart: 1.0,
   scaleEnd: 0.0,
-  colorStart: '#a78bfa',
-  colorEnd: '#f87171',
-  shape: 'point',
+  colorStart: "#a78bfa",
+  colorEnd: "#f87171",
+  shape: "point",
   shapeRadius: 20,
+  rotationSpeed: 0,
+  alphaEnd: 0,
+  textureName: "",
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -57,31 +69,71 @@ function lerpColor(a: string, b: string, t: number): string {
 export function ParticleEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [config, setConfig] = React.useState<EmitterConfig>(DEFAULT_CONFIG);
+  const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
+    null,
+  );
   const particlesRef = React.useRef<Particle[]>([]);
   const lastTimeRef = React.useRef<number>(0);
   const accumRef = React.useRef<number>(0);
   const rafRef = React.useRef<number>(0);
+  const spriteImgRef = React.useRef<HTMLImageElement | null>(null);
+
+  React.useEffect(() => {
+    spriteImgRef.current = spriteImg;
+  }, [spriteImg]);
+
+  const handleSpriteUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = (): void => {
+      setSpriteImg(img);
+      setConfig((c) => ({ ...c, textureName: file.name }));
+    };
+    img.src = url;
+    e.target.value = "";
+  };
+
+  const clearSprite = (): void => {
+    setSpriteImg(null);
+    setConfig((c) => ({ ...c, textureName: "" }));
+  };
 
   const spawn = (cfg: EmitterConfig): Particle => {
     const angle = Math.random() * Math.PI * 2;
     const speed = cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin);
-    let ox = 0, oy = 0;
-    if (cfg.shape === 'circle') {
+    let ox = 0,
+      oy = 0;
+    if (cfg.shape === "circle") {
       ox = Math.cos(angle) * Math.random() * cfg.shapeRadius;
       oy = Math.sin(angle) * Math.random() * cfg.shapeRadius;
-    } else if (cfg.shape === 'rect') {
+    } else if (cfg.shape === "rect") {
       ox = (Math.random() - 0.5) * cfg.shapeRadius * 2;
       oy = (Math.random() - 0.5) * cfg.shapeRadius * 2;
     }
-    const cx = 200, cy = 250;
-    const lifetime = cfg.lifetimeMin + Math.random() * (cfg.lifetimeMax - cfg.lifetimeMin);
-    return { x: cx + ox, y: cy + oy, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - speed * 0.5, life: lifetime, maxLife: lifetime, scale: cfg.scaleStart, alpha: 1, color: cfg.colorStart };
+    const cx = 200,
+      cy = 250;
+    const lifetime =
+      cfg.lifetimeMin + Math.random() * (cfg.lifetimeMax - cfg.lifetimeMin);
+    return {
+      x: cx + ox,
+      y: cy + oy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - speed * 0.5,
+      life: lifetime,
+      maxLife: lifetime,
+      scale: cfg.scaleStart,
+      alpha: 1,
+      color: cfg.colorStart,
+      rotation: Math.random() * Math.PI * 2,
+    };
   };
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const loop = (now: number): void => {
@@ -95,29 +147,40 @@ export function ParticleEditor(): React.ReactElement {
         particlesRef.current.push(spawn(config));
       }
 
-      particlesRef.current = particlesRef.current.filter(p => p.life > 0);
+      particlesRef.current = particlesRef.current.filter((p) => p.life > 0);
       for (const p of particlesRef.current) {
         p.life -= dt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.vy += config.gravity * dt;
+        p.rotation += config.rotationSpeed * dt;
         const t = 1 - p.life / p.maxLife;
         p.scale = config.scaleStart + (config.scaleEnd - config.scaleStart) * t;
-        p.alpha = 1 - t * 0.5;
+        p.alpha = 1 - t * (1 - config.alphaEnd);
         p.color = lerpColor(config.colorStart, config.colorEnd, t);
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#0a0a0f';
+      ctx.fillStyle = "#0a0a0f";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      const img = spriteImgRef.current;
       for (const p of particlesRef.current) {
-        const r = 4 * p.scale;
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.5, r), 0, Math.PI * 2);
-        ctx.fill();
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        if (img !== null) {
+          const size = 24 * p.scale;
+          ctx.drawImage(img, -size / 2, -size / 2, size, size);
+        } else {
+          const r = 4 * p.scale;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(0, 0, Math.max(0.5, r), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
       ctx.globalAlpha = 1;
 
@@ -128,55 +191,262 @@ export function ParticleEditor(): React.ReactElement {
     return () => cancelAnimationFrame(rafRef.current);
   }, [config]);
 
-  const field = (label: string, key: keyof EmitterConfig, min: number, max: number, step = 1): React.ReactElement => (
+  const field = (
+    label: string,
+    key: keyof EmitterConfig,
+    min: number,
+    max: number,
+    step = 1,
+  ): React.ReactElement => (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-        <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-        <span style={{ color: 'var(--text)' }}>{typeof config[key] === 'number' ? (config[key] as number).toFixed(step < 1 ? 2 : 0) : config[key]}</span>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 2,
+        }}
+      >
+        <span style={{ color: "var(--es-text-muted)" }}>{label}</span>
+        <span style={{ color: "var(--es-text)" }}>
+          {typeof config[key] === "number"
+            ? (config[key] as number).toFixed(step < 1 ? 2 : 0)
+            : config[key]}
+        </span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={config[key] as number}
-        onChange={e => setConfig(c => ({ ...c, [key]: Number(e.target.value) }))}
-        style={{ width: '100%' }} />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={config[key] as number}
+        onChange={(e) =>
+          setConfig((c) => ({ ...c, [key]: Number(e.target.value) }))
+        }
+        style={{ width: "100%", accentColor: "var(--es-accent)" }}
+      />
     </div>
   );
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: 'var(--bg)', color: 'var(--text)', fontSize: 12 }}>
-      <div style={{ width: 200, borderRight: '1px solid var(--border)', padding: 12, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
+        fontSize: 12,
+      }}
+    >
+      {/* Controls */}
+      <div
+        style={{
+          width: 220,
+          borderRight: "1px solid var(--es-border)",
+          padding: 12,
+          overflow: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          flexShrink: 0,
+        }}
+      >
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Emitter</div>
-        {field('Emission Rate', 'emissionRate', 1, 200)}
-        {field('Speed Min', 'speedMin', 0, 500)}
-        {field('Speed Max', 'speedMax', 0, 500)}
-        {field('Lifetime Min', 'lifetimeMin', 0.1, 10, 0.1)}
-        {field('Lifetime Max', 'lifetimeMax', 0.1, 10, 0.1)}
-        {field('Gravity', 'gravity', -500, 500)}
-        {field('Scale Start', 'scaleStart', 0, 5, 0.1)}
-        {field('Scale End', 'scaleEnd', 0, 5, 0.1)}
-        {field('Shape Radius', 'shapeRadius', 0, 200)}
+
+        {/* Sprite texture */}
+        <div style={{ marginBottom: 10 }}>
+          <div
+            style={{
+              color: "var(--es-text-muted)",
+              marginBottom: 4,
+              fontSize: 11,
+              fontWeight: 600,
+            }}
+          >
+            Sprite Texture
+          </div>
+          {config.textureName ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 10,
+                  color: "var(--es-accent)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {config.textureName}
+              </span>
+              <button
+                onClick={clearSprite}
+                style={{
+                  padding: "2px 6px",
+                  background: "none",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-red)",
+                  cursor: "pointer",
+                  fontSize: 10,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <label
+              style={{
+                display: "block",
+                padding: "5px 0",
+                textAlign: "center",
+                border: "1px dashed var(--es-border)",
+                borderRadius: 4,
+                cursor: "pointer",
+                color: "var(--es-text-muted)",
+                fontSize: 11,
+              }}
+            >
+              Upload image…
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleSpriteUpload}
+                style={{ display: "none" }}
+              />
+            </label>
+          )}
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--es-text-muted)",
+              marginTop: 3,
+            }}
+          >
+            PNG, JPG, GIF, WebP accepted
+          </div>
+        </div>
+
+        {field("Emission Rate", "emissionRate", 1, 200)}
+        {field("Speed Min", "speedMin", 0, 500)}
+        {field("Speed Max", "speedMax", 0, 500)}
+        {field("Lifetime Min", "lifetimeMin", 0.1, 10, 0.1)}
+        {field("Lifetime Max", "lifetimeMax", 0.1, 10, 0.1)}
+        {field("Gravity", "gravity", -500, 500)}
+        {field("Scale Start", "scaleStart", 0, 5, 0.1)}
+        {field("Scale End", "scaleEnd", 0, 5, 0.1)}
+        {field("Alpha End", "alphaEnd", 0, 1, 0.05)}
+        {field("Rotation Speed", "rotationSpeed", -20, 20, 0.1)}
+        {field("Shape Radius", "shapeRadius", 0, 200)}
+
         <div style={{ marginBottom: 8 }}>
-          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Shape</div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(['point', 'circle', 'rect'] as const).map(s => (
-              <button key={s} onClick={() => setConfig(c => ({ ...c, shape: s }))}
-                style={{ flex: 1, padding: '3px 0', background: config.shape === s ? 'var(--accent)' : 'var(--surface)', border: 'none', borderRadius: 4, color: 'var(--text)', cursor: 'pointer', fontSize: 11 }}>{s}</button>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+            Shape
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["point", "circle", "rect"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setConfig((c) => ({ ...c, shape: s }))}
+                style={{
+                  flex: 1,
+                  padding: "3px 0",
+                  background:
+                    config.shape === s
+                      ? "var(--es-accent)"
+                      : "var(--es-surface)",
+                  border: "none",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                  cursor: "pointer",
+                  fontSize: 11,
+                }}
+              >
+                {s}
+              </button>
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Start Color</div>
-            <input type="color" value={config.colorStart} onChange={e => setConfig(c => ({ ...c, colorStart: e.target.value }))} style={{ width: '100%', height: 28 }} />
+
+        {!spriteImg && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
+                Start Color
+              </div>
+              <input
+                type="color"
+                value={config.colorStart}
+                onChange={(e) =>
+                  setConfig((c) => ({ ...c, colorStart: e.target.value }))
+                }
+                style={{ width: "100%", height: 28 }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
+                End Color
+              </div>
+              <input
+                type="color"
+                value={config.colorEnd}
+                onChange={(e) =>
+                  setConfig((c) => ({ ...c, colorEnd: e.target.value }))
+                }
+                style={{ width: "100%", height: 28 }}
+              />
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>End Color</div>
-            <input type="color" value={config.colorEnd} onChange={e => setConfig(c => ({ ...c, colorEnd: e.target.value }))} style={{ width: '100%', height: 28 }} />
-          </div>
+        )}
+
+        <button
+          onClick={() => {
+            particlesRef.current = [];
+          }}
+          style={{
+            marginTop: 8,
+            padding: "5px 0",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: "pointer",
+          }}
+        >
+          Clear Particles
+        </button>
+
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--es-text-muted)",
+            marginTop: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          Use the <code>texture</code> property in <code>ParticleEmitter</code>{" "}
+          options to reference your sprite at runtime.
         </div>
-        <button onClick={() => { particlesRef.current = []; }}
-          style={{ marginTop: 8, padding: '5px 0', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', cursor: 'pointer' }}>Clear Particles</button>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        <canvas ref={canvasRef} width={400} height={500} style={{ width: '100%', height: '100%' }} />
+
+      {/* Preview canvas */}
+      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={500}
+          style={{ width: "100%", height: "100%" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            right: 10,
+            fontSize: 10,
+            color: "rgba(255,255,255,0.3)",
+          }}
+        >
+          {particlesRef.current.length} particles
+        </div>
       </div>
     </div>
   );

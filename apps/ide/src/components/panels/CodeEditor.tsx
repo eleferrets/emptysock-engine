@@ -1,28 +1,67 @@
-import React from 'react';
-import MonacoEditor from '@monaco-editor/react';
-import { X } from 'lucide-react';
-import { useIDEStore } from '../../store/ideStore';
-import { gameBuildService } from '../../services/GameBuildService';
-import { loadSettings } from '../../services/SettingsService';
-import type { IDESettings } from '../../services/SettingsService';
+import React from "react";
+import MonacoEditor from "@monaco-editor/react";
+import { X } from "lucide-react";
+import { useIDEStore } from "../../store/ideStore";
+import { gameBuildService } from "../../services/GameBuildService";
+import { loadSettings } from "../../services/SettingsService";
+import type { IDESettings } from "../../services/SettingsService";
+import { TauriFileService } from "../../services/TauriFileService";
 
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
   React.useEffect(() => {
     const handler = (): void => setNarrow(window.innerWidth < 600);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
   }, []);
   return narrow;
 }
 
+function useVirtualKeyboardPadding(): number {
+  const [padding, setPadding] = React.useState(0);
+  React.useEffect(() => {
+    if (typeof window.visualViewport === "undefined") return;
+    const vv = window.visualViewport;
+    if (vv === null) return;
+    const handler = (): void => {
+      if (vv === null) return;
+      const keyboardHeight = window.innerHeight - vv.height;
+      setPadding(keyboardHeight > 0 ? keyboardHeight : 0);
+    };
+    vv.addEventListener("resize", handler);
+    return () => vv.removeEventListener("resize", handler);
+  }, []);
+  return padding;
+}
+
 export function CodeEditor(): React.ReactElement {
   const {
-    editorCode, setEditorCode, activeFilePath, openFiles,
-    openFile, closeFile, buildMode, setBuildStatus, addLog,
+    editorCode,
+    setEditorCode,
+    activeFilePath,
+    openFiles,
+    openFile,
+    closeFile,
+    buildMode,
+    setBuildStatus,
+    addLog,
+    theme,
   } = useIDEStore();
   const isNarrow = useIsNarrow();
+  const keyboardPadding = useVirtualKeyboardPadding();
   const [settings] = React.useState<IDESettings>(() => loadSettings());
+
+  const [systemDark, setSystemDark] = React.useState<boolean>(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent): void => setSystemDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const isDark = theme === "dark" || (theme === "system" && systemDark);
+  const monacoTheme = isDark ? "vs-dark" : "vs";
 
   const tabPaths = Object.keys(openFiles);
 
@@ -30,36 +69,51 @@ export function CodeEditor(): React.ReactElement {
     (code: string, immediate: boolean): void => {
       const allFiles = useIDEStore.getState().openFiles;
       if (immediate) {
-        setBuildStatus('building');
-        addLog('info', 'Building…', 'BuildService');
-        void gameBuildService.buildNow({ code, mode: buildMode, virtualFiles: allFiles }).then(result => {
-          if (result.success) {
-            setBuildStatus('success', [], result.duration);
-            addLog('info', `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`, 'BuildService');
-          } else {
-            setBuildStatus('error', result.errors, result.duration);
-            for (const err of result.errors) addLog('error', err, 'BuildService');
-          }
-        });
+        setBuildStatus("building");
+        addLog("info", "Building…", "BuildService");
+        void gameBuildService
+          .buildNow({ code, mode: buildMode, virtualFiles: allFiles })
+          .then((result) => {
+            if (result.success) {
+              setBuildStatus("success", [], result.duration);
+              addLog(
+                "info",
+                `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`,
+                "BuildService",
+              );
+            } else {
+              setBuildStatus("error", result.errors, result.duration);
+              for (const err of result.errors)
+                addLog("error", err, "BuildService");
+            }
+          });
       } else {
         gameBuildService.queueBuild({
           code,
           mode: buildMode,
           virtualFiles: allFiles,
-          onStart: () => { setBuildStatus('building'); addLog('info', 'Building…', 'BuildService'); },
+          onStart: () => {
+            setBuildStatus("building");
+            addLog("info", "Building…", "BuildService");
+          },
           onComplete: (result) => {
             if (result.success) {
-              setBuildStatus('success', [], result.duration);
-              addLog('info', `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`, 'BuildService');
+              setBuildStatus("success", [], result.duration);
+              addLog(
+                "info",
+                `Build succeeded in ${result.duration}ms (${result.byteSize} bytes)`,
+                "BuildService",
+              );
             } else {
-              setBuildStatus('error', result.errors, result.duration);
-              for (const err of result.errors) addLog('error', err, 'BuildService');
+              setBuildStatus("error", result.errors, result.duration);
+              for (const err of result.errors)
+                addLog("error", err, "BuildService");
             }
           },
         });
       }
     },
-    [buildMode, setBuildStatus, addLog]
+    [buildMode, setBuildStatus, addLog],
   );
 
   const handleChange = React.useCallback(
@@ -68,21 +122,46 @@ export function CodeEditor(): React.ReactElement {
       setEditorCode(value);
       if (settings.autoBuild) triggerBuild(value, false);
     },
-    [setEditorCode, settings.autoBuild, triggerBuild]
+    [setEditorCode, settings.autoBuild, triggerBuild],
   );
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         triggerBuild(editorCode, true);
+        if (activeFilePath === null) return;
+        if ("__TAURI_INTERNALS__" in window) {
+          void TauriFileService.saveFile(activeFilePath, editorCode).then(
+            (result) => {
+              if (result.success) {
+                addLog("info", `Saved ${activeFilePath}`, "CodeEditor");
+              } else {
+                addLog(
+                  "error",
+                  `Save failed: ${result.error ?? "unknown error"}`,
+                  "CodeEditor",
+                );
+              }
+            },
+          );
+        } else {
+          const blob = new Blob([editorCode], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = activeFilePath.split("/").pop() ?? activeFilePath;
+          a.click();
+          URL.revokeObjectURL(url);
+          addLog("info", `Downloaded ${activeFilePath}`, "CodeEditor");
+        }
       }
     },
-    [editorCode, triggerBuild]
+    [editorCode, triggerBuild, activeFilePath, addLog],
   );
 
   const handleTabClick = (path: string): void => {
-    const content = openFiles[path] ?? '';
+    const content = openFiles[path] ?? "";
     openFile(path, content);
   };
 
@@ -92,21 +171,62 @@ export function CodeEditor(): React.ReactElement {
   };
 
   React.useEffect(() => {
-    return () => { gameBuildService.cancel(); };
+    return () => {
+      gameBuildService.cancel();
+    };
   }, []);
 
+  const editorLanguage = React.useMemo(() => {
+    if (activeFilePath === null) return "typescript";
+    const ext = activeFilePath
+      .slice(activeFilePath.lastIndexOf(".") + 1)
+      .toLowerCase();
+    switch (ext) {
+      case "js":
+        return "javascript";
+      case "jsx":
+        return "javascript";
+      case "tsx":
+        return "typescript";
+      case "json":
+        return "json";
+      case "ts":
+      default:
+        return "typescript";
+    }
+  }, [activeFilePath]);
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden" onKeyDown={handleKeyDown}>
+    <div
+      className="flex-1 flex flex-col overflow-hidden"
+      onKeyDown={handleKeyDown}
+      style={
+        keyboardPadding > 0 ? { paddingBottom: keyboardPadding } : undefined
+      }
+    >
       {/* Multi-tab bar */}
       <div
         className="flex items-center overflow-x-auto flex-shrink-0"
-        style={{ height: 33, borderBottom: '1px solid var(--border)', background: 'var(--surface)', scrollbarWidth: 'none' }}
+        style={{
+          height: 33,
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
+          scrollbarWidth: "none",
+        }}
       >
         {tabPaths.length === 0 ? (
-          <span style={{ padding: '0 12px', fontSize: 11, color: 'var(--text-muted)' }}>No files open</span>
+          <span
+            style={{
+              padding: "0 12px",
+              fontSize: 11,
+              color: "var(--es-text-muted)",
+            }}
+          >
+            No files open
+          </span>
         ) : (
-          tabPaths.map(path => {
-            const label = path.split('/').pop() ?? path;
+          tabPaths.map((path) => {
+            const label = path.split("/").pop() ?? path;
             const active = path === activeFilePath;
             return (
               <div
@@ -114,24 +234,33 @@ export function CodeEditor(): React.ReactElement {
                 onClick={() => handleTabClick(path)}
                 className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer select-none"
                 style={{
-                  height: '100%',
-                  padding: '0 10px',
+                  height: "100%",
+                  padding: "0 10px",
                   fontSize: 11,
                   fontFamily: '"JetBrains Mono", monospace',
-                  borderRight: '1px solid var(--border)',
-                  borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                  color: active ? 'var(--text)' : 'var(--text-muted)',
-                  background: active ? 'rgba(124,106,247,0.06)' : undefined,
+                  borderRight: "1px solid var(--es-border)",
+                  borderBottom: active
+                    ? "2px solid var(--es-accent)"
+                    : "2px solid transparent",
+                  color: active ? "var(--es-text)" : "var(--es-text-muted)",
+                  background: active ? "rgba(124,106,247,0.06)" : undefined,
                   maxWidth: 180,
                 }}
               >
-                <span className="truncate" style={{ maxWidth: 120 }}>{label}</span>
+                <span className="truncate" style={{ maxWidth: 120 }}>
+                  {label}
+                </span>
                 <button
                   onClick={(e) => handleTabClose(e, path)}
                   className="flex-shrink-0"
                   style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', display: 'flex', padding: 1, borderRadius: 2,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--es-text-muted)",
+                    display: "flex",
+                    padding: 1,
+                    borderRadius: 2,
                   }}
                 >
                   <X size={10} />
@@ -147,23 +276,28 @@ export function CodeEditor(): React.ReactElement {
         {activeFilePath !== null ? (
           <MonacoEditor
             key={activeFilePath}
-            language="typescript"
-            theme="vs-dark"
+            language={editorLanguage}
+            theme={monacoTheme}
             value={editorCode}
             onChange={handleChange}
             options={{
               fontSize: settings.editorFontSize,
+              tabSize: settings.editorTabSize,
               fontFamily: '"JetBrains Mono", ui-monospace, monospace',
               fontLigatures: true,
               lineHeight: 1.6,
-              minimap: { enabled: !isNarrow, scale: 1 },
+              minimap: {
+                enabled: settings.editorMinimap && !isNarrow,
+                scale: 1,
+              },
+              lineNumbers: settings.editorLineNumbers ? "on" : "off",
               scrollBeyondLastLine: false,
-              wordWrap: 'on',
+              wordWrap: settings.editorWordWrap ? "on" : "off",
               padding: { top: 12, bottom: 12 },
               overviewRulerBorder: false,
-              renderLineHighlight: 'gutter',
+              renderLineHighlight: "gutter",
               smoothScrolling: true,
-              cursorBlinking: 'smooth',
+              cursorBlinking: "smooth",
               bracketPairColorization: { enabled: true },
               guides: { indentation: true },
             }}
@@ -171,7 +305,7 @@ export function CodeEditor(): React.ReactElement {
         ) : (
           <div
             className="flex-1 flex items-center justify-center h-full"
-            style={{ color: 'var(--text-muted)', fontSize: 13 }}
+            style={{ color: "var(--es-text-muted)", fontSize: 13 }}
           >
             Open a file from the sidebar
           </div>

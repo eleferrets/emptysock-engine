@@ -45,8 +45,13 @@ const result = await build({
       fileName: () => 'engine.iife.js',
     },
     rollupOptions: {
+      external: ['@dimforge/rapier2d-compat', '@dimforge/rapier3d-compat'],
       output: {
         name: 'EmptySockEngine',
+        globals: {
+          '@dimforge/rapier2d-compat': 'RAPIER2D',
+          '@dimforge/rapier3d-compat': 'RAPIER3D',
+        },
       },
     },
   },

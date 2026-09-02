@@ -6,3 +6,5 @@ coverage/
 .env
 .DS_Store
 *.log
+.claude/worktrees/
+apps/ide/public/manual/
