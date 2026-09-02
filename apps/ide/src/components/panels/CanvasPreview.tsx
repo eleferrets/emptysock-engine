@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useCallback } from "react";
-import { Monitor, Wifi, RefreshCw } from "lucide-react";
+import { Monitor, Wifi, RefreshCw, Grid3X3, Ruler, Magnet, AlignCenter } from "lucide-react";
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
 import { useIDEStore } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
+import { drawGrid, drawRulers, drawGuides } from "../../lib/editorGrid";
 
 export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const demoRef = useRef<BouncingBallsDemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const runnerContainerRef = useRef<HTMLDivElement>(null);
@@ -21,6 +23,16 @@ export function CanvasPreview(): React.ReactElement {
     addLog,
     projectName,
     windowConfig,
+    editorGridSize,
+    editorShowGrid,
+    editorShowRuler,
+    editorSnapToGrid,
+    editorShowGuides,
+    setEditorGridSize,
+    setEditorShowGrid,
+    setEditorShowRuler,
+    setEditorSnapToGrid,
+    setEditorShowGuides,
   } = useIDEStore();
 
   const initDemo = useCallback(async (): Promise<void> => {
@@ -91,13 +103,192 @@ export function CanvasPreview(): React.ReactElement {
     };
   }, [editorCode, playState, buildMode]);
 
+  // Draw the grid/ruler overlay whenever relevant state changes
+  useEffect(() => {
+    const overlay = overlayCanvasRef.current;
+    if (overlay === null) return;
+    const ctx = overlay.getContext("2d");
+    if (ctx === null) return;
+
+    const w = overlay.width;
+    const h = overlay.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const opts = {
+      gridSize: editorGridSize,
+      showGrid: editorShowGrid,
+      showRuler: editorShowRuler,
+      snapToGrid: editorSnapToGrid,
+      showGuides: editorShowGuides,
+      scrollX: 0,
+      scrollY: 0,
+      zoom: 1,
+    };
+
+    drawGrid(ctx, w, h, opts);
+    drawGuides(ctx, w, h, [], opts);
+    drawRulers(ctx, w, h, opts);
+  }, [
+    editorGridSize,
+    editorShowGrid,
+    editorShowRuler,
+    editorSnapToGrid,
+    editorShowGuides,
+  ]);
+
+  // Sync overlay canvas size to game canvas whenever the container resizes
+  useEffect(() => {
+    const gameCanvas = canvasRef.current;
+    const overlay = overlayCanvasRef.current;
+    if (gameCanvas === null || overlay === null) return;
+
+    const observer = new ResizeObserver(() => {
+      const rect = gameCanvas.getBoundingClientRect();
+      overlay.width = rect.width;
+      overlay.height = rect.height;
+      // Trigger a redraw after resize
+      const ctx = overlay.getContext("2d");
+      if (ctx === null) return;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      const opts = {
+        gridSize: editorGridSize,
+        showGrid: editorShowGrid,
+        showRuler: editorShowRuler,
+        snapToGrid: editorSnapToGrid,
+        showGuides: editorShowGuides,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: 1,
+      };
+      drawGrid(ctx, overlay.width, overlay.height, opts);
+      drawGuides(ctx, overlay.width, overlay.height, [], opts);
+      drawRulers(ctx, overlay.width, overlay.height, opts);
+    });
+    observer.observe(gameCanvas);
+    return () => observer.disconnect();
+  }, [
+    editorGridSize,
+    editorShowGrid,
+    editorShowRuler,
+    editorSnapToGrid,
+    editorShowGuides,
+  ]);
+
   const rendererType = "WebGL2";
+
+  const toolbarButtonStyle = (active: boolean): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "3px 8px",
+    borderRadius: 4,
+    border: `1px solid ${active ? "rgba(124,106,247,0.5)" : "rgba(42,42,46,0.8)"}`,
+    background: active ? "rgba(124,106,247,0.15)" : "rgba(14,14,16,0.6)",
+    color: active ? "var(--es-accent)" : "var(--es-text-muted)",
+    cursor: "pointer",
+    fontSize: 11,
+    fontFamily: "inherit",
+    whiteSpace: "nowrap" as const,
+    transition: "background 0.15s, border-color 0.15s",
+  });
 
   return (
     <div
       className="relative flex-1 flex flex-col overflow-hidden"
       ref={containerRef}
     >
+      {/* Toolbar strip */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "4px 8px",
+          borderBottom: "1px solid rgba(42,42,46,0.8)",
+          background: "rgba(14,14,16,0.85)",
+          flexShrink: 0,
+          overflowX: "auto",
+        }}
+      >
+        <button
+          type="button"
+          title="Toggle grid"
+          style={toolbarButtonStyle(editorShowGrid)}
+          onClick={() => setEditorShowGrid(!editorShowGrid)}
+        >
+          <Grid3X3 size={12} />
+          Grid
+        </button>
+        <button
+          type="button"
+          title="Toggle rulers"
+          style={toolbarButtonStyle(editorShowRuler)}
+          onClick={() => setEditorShowRuler(!editorShowRuler)}
+        >
+          <Ruler size={12} />
+          Rulers
+        </button>
+        <button
+          type="button"
+          title="Toggle snap to grid"
+          style={toolbarButtonStyle(editorSnapToGrid)}
+          onClick={() => setEditorSnapToGrid(!editorSnapToGrid)}
+        >
+          <Magnet size={12} />
+          Snap
+        </button>
+        <button
+          type="button"
+          title="Toggle alignment guides"
+          style={toolbarButtonStyle(editorShowGuides)}
+          onClick={() => setEditorShowGuides(!editorShowGuides)}
+        >
+          <AlignCenter size={12} />
+          Guides
+        </button>
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: "rgba(42,42,46,0.8)",
+            margin: "0 2px",
+            flexShrink: 0,
+          }}
+        />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            color: "var(--es-text-muted)",
+            fontSize: 11,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Grid size
+          <input
+            type="number"
+            min={4}
+            max={256}
+            value={editorGridSize}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (v >= 4 && v <= 256) setEditorGridSize(v);
+            }}
+            style={{
+              width: 52,
+              padding: "2px 4px",
+              borderRadius: 4,
+              border: "1px solid rgba(42,42,46,0.8)",
+              background: "rgba(14,14,16,0.6)",
+              color: "var(--es-text)",
+              fontSize: 11,
+              fontFamily: "inherit",
+            }}
+          />
+        </label>
+      </div>
+
       <div
         className="flex-1 relative overflow-hidden"
         style={{ background: "#0e0e10" }}
@@ -121,6 +312,20 @@ export function CanvasPreview(): React.ReactElement {
             width: "100%",
             height: "100%",
             display: playState === "playing" ? "none" : "block",
+          }}
+        />
+
+        {/* Grid/ruler overlay — sits above game canvas, below UI chrome */}
+        <canvas
+          ref={overlayCanvasRef}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            display: playState === "playing" ? "none" : "block",
+            zIndex: 5,
           }}
         />
 
