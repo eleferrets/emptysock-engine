@@ -297,6 +297,18 @@ interface IDEState {
   setDBItems: (v: unknown[]) => void;
   setDBEnemies: (v: unknown[]) => void;
 
+  // Editor grid / ruler / alignment guides
+  editorGridSize: number;
+  editorShowGrid: boolean;
+  editorShowRuler: boolean;
+  editorSnapToGrid: boolean;
+  editorShowGuides: boolean;
+  setEditorGridSize: (size: number) => void;
+  setEditorShowGrid: (show: boolean) => void;
+  setEditorShowRuler: (show: boolean) => void;
+  setEditorSnapToGrid: (snap: boolean) => void;
+  setEditorShowGuides: (show: boolean) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -673,6 +685,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   dbItems: [],
   dbEnemies: [],
 
+  // Editor grid / ruler / alignment guides
+  editorGridSize: 32,
+  editorShowGrid: true,
+  editorShowRuler: true,
+  editorSnapToGrid: true,
+  editorShowGuides: true,
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -897,6 +916,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setDBClasses: (v) => set({ dbClasses: v }),
   setDBItems: (v) => set({ dbItems: v }),
   setDBEnemies: (v) => set({ dbEnemies: v }),
+
+  setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
+  setEditorShowGrid: (show) => set({ editorShowGrid: show }),
+  setEditorShowRuler: (show) => set({ editorShowRuler: show }),
+  setEditorSnapToGrid: (snap) => set({ editorSnapToGrid: snap }),
+  setEditorShowGuides: (show) => set({ editorShowGuides: show }),
 
   resetProject: () => {
     set({
