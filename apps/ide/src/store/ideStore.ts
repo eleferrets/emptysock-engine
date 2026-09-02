@@ -269,6 +269,16 @@ interface IDEState {
   setLocalisationTranslations: (t: LocalisationTranslations) => void;
   setLocalisationLocales: (locales: string[]) => void;
 
+  // VariableStore persistent state
+  variableStoreVars: Record<number, number>;
+  variableStoreSwitches: Record<number, boolean>;
+  variableStoreVarNames: Record<number, string>;
+  variableStoreSwitchNames: Record<number, string>;
+  setVar: (index: number, value: number) => void;
+  setSwitch: (index: number, value: boolean) => void;
+  setVarName: (index: number, name: string) => void;
+  setSwitchName: (index: number, name: string) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -627,6 +637,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   localisationTranslations: INITIAL_LOCALISATION_TRANSLATIONS,
   localisationLocales: INITIAL_LOCALISATION_LOCALES,
 
+  // VariableStore persistent state
+  variableStoreVars: {},
+  variableStoreSwitches: {},
+  variableStoreVarNames: {},
+  variableStoreSwitchNames: {},
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -825,6 +841,26 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setLocalisationTranslations: (t) => set({ localisationTranslations: t }),
   setLocalisationLocales: (locales) => set({ localisationLocales: locales }),
 
+  setVar: (index, value) =>
+    set((s) => ({
+      variableStoreVars: { ...s.variableStoreVars, [index]: Math.floor(value) },
+    })),
+  setSwitch: (index, value) =>
+    set((s) => ({
+      variableStoreSwitches: { ...s.variableStoreSwitches, [index]: value },
+    })),
+  setVarName: (index, name) =>
+    set((s) => ({
+      variableStoreVarNames: { ...s.variableStoreVarNames, [index]: name },
+    })),
+  setSwitchName: (index, name) =>
+    set((s) => ({
+      variableStoreSwitchNames: {
+        ...s.variableStoreSwitchNames,
+        [index]: name,
+      },
+    })),
+
   resetProject: () => {
     set({
       projectName: "MyPlatformer",
@@ -1004,6 +1040,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         sequenceDuration: s.sequenceDuration,
         localisationTranslations: s.localisationTranslations,
         localisationLocales: s.localisationLocales,
+        variableStoreVars: s.variableStoreVars,
+        variableStoreSwitches: s.variableStoreSwitches,
+        variableStoreVarNames: s.variableStoreVarNames,
+        variableStoreSwitchNames: s.variableStoreSwitchNames,
         windowConfig: s.windowConfig,
       },
       null,
@@ -1080,6 +1120,38 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             updates.localisationLocales = proj[
               "localisationLocales"
             ] as string[];
+          }
+          if (
+            proj["variableStoreVars"] !== null &&
+            typeof proj["variableStoreVars"] === "object"
+          ) {
+            updates.variableStoreVars = proj[
+              "variableStoreVars"
+            ] as Record<number, number>;
+          }
+          if (
+            proj["variableStoreSwitches"] !== null &&
+            typeof proj["variableStoreSwitches"] === "object"
+          ) {
+            updates.variableStoreSwitches = proj[
+              "variableStoreSwitches"
+            ] as Record<number, boolean>;
+          }
+          if (
+            proj["variableStoreVarNames"] !== null &&
+            typeof proj["variableStoreVarNames"] === "object"
+          ) {
+            updates.variableStoreVarNames = proj[
+              "variableStoreVarNames"
+            ] as Record<number, string>;
+          }
+          if (
+            proj["variableStoreSwitchNames"] !== null &&
+            typeof proj["variableStoreSwitchNames"] === "object"
+          ) {
+            updates.variableStoreSwitchNames = proj[
+              "variableStoreSwitchNames"
+            ] as Record<number, string>;
           }
           if (
             proj["windowConfig"] !== null &&

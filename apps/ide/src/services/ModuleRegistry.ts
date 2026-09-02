@@ -55,6 +55,11 @@ export const ALL_MODULES: ModuleDef[] = [
     label: "Shader Editor",
     description: "GLSL snippet editor with live WebGL preview",
   },
+  {
+    id: "variables",
+    label: "Variables",
+    description: "Named integer variables and boolean switches store",
+  },
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [

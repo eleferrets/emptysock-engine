@@ -96,6 +96,9 @@ export type {
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
 
+export { VariableStore, variableStore } from "./systems/VariableStore.js";
+export type { VariableStoreData } from "./systems/VariableStore.js";
+
 // Core Manager
 export { SystemManager } from "./core/SystemManager.js";
 export type { UpdatableSystem } from "./core/SystemManager.js";

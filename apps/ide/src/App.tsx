@@ -18,6 +18,7 @@ import { SequenceEditor } from "./components/panels/SequenceEditor";
 import { AudioMixer } from "./components/panels/AudioMixer";
 import { Profiler } from "./components/panels/Profiler";
 import { LocalisationEditor } from "./components/panels/LocalisationEditor";
+import { VariablesPanel } from "./components/panels/VariablesPanel";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { SettingsModal } from "./components/modals/SettingsModal";
@@ -72,6 +73,7 @@ const GATED_TABS: Record<string, TabData> = {
   git: makeTab("git", "Git", <GitPanel />, true),
   i18n: makeTab("i18n", "Localisation", <LocalisationEditor />, true),
   shader: makeTab("shader", "Shader Editor", <ShaderEditor />, true),
+  variables: makeTab("variables", "Variables", <VariablesPanel />, true),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -84,7 +86,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
   const mainGated = ["tilemap", "particle", "vn", "visual-script", "sequence"];
-  const bottomGated = ["profiler", "git", "i18n", "audio"];
+  const bottomGated = ["profiler", "git", "i18n", "audio", "variables"];
   return {
     dockbox: {
       mode: "horizontal",
@@ -173,6 +175,9 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   shader: () =>
     GATED_TABS["shader"] ??
     makeTab("shader", "Shader Editor", <ShaderEditor />),
+  variables: () =>
+    GATED_TABS["variables"] ??
+    makeTab("variables", "Variables", <VariablesPanel />),
 };
 
 export function App(): React.ReactElement {
