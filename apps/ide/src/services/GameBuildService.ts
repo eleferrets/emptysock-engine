@@ -27,6 +27,7 @@ type BuildJob = {
   aggressiveMode?: boolean;
   target?: string[];
   virtualFiles?: Record<string, string>;
+  define?: Record<string, string>;
   onStart: () => void;
   onComplete: (result: BuildJobResult) => void;
 };
@@ -152,6 +153,7 @@ async function runBuild(
   aggressiveMode = false,
   virtualFiles: Record<string, string> = {},
   target: string[] = ["es2026"],
+  define: Record<string, string> = {},
 ): Promise<BuildJobResult> {
   checkVirtualFilesCompleteness(virtualFiles);
   const start = Date.now();
@@ -163,8 +165,8 @@ async function runBuild(
     const result = await esbuild.build({
       stdin: { contents: code, loader, sourcefile: filename },
       bundle: true,
-      format: "iife",
-      globalName: "UserGame",
+      format: "esm",
+      define,
       minify: isRelease,
       ...(isRelease && aggressiveMode
         ? {
@@ -244,6 +246,7 @@ export class GameBuildService {
         job.aggressiveMode,
         job.virtualFiles,
         job.target,
+        job.define,
       ).then((r) => job.onComplete(r));
     }, this.debounceMs);
   }
@@ -266,6 +269,7 @@ export class GameBuildService {
       job.aggressiveMode,
       job.virtualFiles,
       job.target,
+      job.define,
     );
   }
 

@@ -11,7 +11,7 @@ export interface RunnerMessage {
 
 export type MessageHandler = (msg: RunnerMessage) => void;
 
-function buildIframeHtml(engineBundle: string, userBundle: string): string {
+function buildIframeHtml(engineBundle: string, userModuleUrl: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -134,11 +134,7 @@ try { ${engineBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
 }
 </script>
-<script>
-try { ${userBundle} } catch(e) {
-  window.parent.postMessage({ type: 'error', level: 'error', message: String(e), source: 'Bundle' }, '*');
-}
-</script>
+<script type="module" src="${userModuleUrl}"></script>
 </body>
 </html>`;
 }
@@ -146,6 +142,7 @@ try { ${userBundle} } catch(e) {
 export class PlayRunner {
   private _iframe: HTMLIFrameElement | null = null;
   private _blobUrl: string | null = null;
+  private _moduleBlobUrl: string | null = null;
   private readonly _handlers: Set<MessageHandler> = new Set();
   private _msgListener: ((e: MessageEvent) => void) | null = null;
   private _container: HTMLElement | null = null;
@@ -164,11 +161,12 @@ export class PlayRunner {
     code: string,
     mode: "debug" | "release",
     container: HTMLElement,
+    define: Record<string, string> = {},
   ): Promise<void> {
     this.stop();
     this._container = container;
 
-    const result = await gameBuildService.buildNow({ code, mode });
+    const result = await gameBuildService.buildNow({ code, mode, define });
     if (!result.success) {
       for (const err of result.errors) {
         this._emit({
@@ -181,13 +179,19 @@ export class PlayRunner {
       return;
     }
 
-    const html = buildIframeHtml(ENGINE_BUNDLE, result.js);
+    const moduleBlob = new Blob([result.js], {
+      type: "application/javascript",
+    });
+    this._moduleBlobUrl = URL.createObjectURL(moduleBlob);
+
+    const html = buildIframeHtml(ENGINE_BUNDLE, this._moduleBlobUrl);
     const blob = new Blob([html], { type: "text/html" });
     this._blobUrl = URL.createObjectURL(blob);
 
     const iframe = document.createElement("iframe");
     iframe.src = this._blobUrl;
     iframe.sandbox.add("allow-scripts");
+    iframe.sandbox.add("allow-same-origin");
     iframe.style.cssText =
       "position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;";
     container.appendChild(iframe);
@@ -257,6 +261,10 @@ export class PlayRunner {
     if (this._blobUrl !== null) {
       URL.revokeObjectURL(this._blobUrl);
       this._blobUrl = null;
+    }
+    if (this._moduleBlobUrl !== null) {
+      URL.revokeObjectURL(this._moduleBlobUrl);
+      this._moduleBlobUrl = null;
     }
   }
 

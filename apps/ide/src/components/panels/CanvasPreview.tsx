@@ -19,6 +19,8 @@ export function CanvasPreview(): React.ReactElement {
     editorCode,
     buildMode,
     addLog,
+    projectName,
+    windowConfig,
   } = useIDEStore();
 
   const initDemo = useCallback(async (): Promise<void> => {
@@ -39,10 +41,18 @@ export function CanvasPreview(): React.ReactElement {
           addLog("error", msg.message, msg.source);
       });
       if (runnerContainerRef.current !== null) {
+        const define: Record<string, string> = {
+          PROJECT_TITLE: JSON.stringify(windowConfig.title),
+          PROJECT_NAME: JSON.stringify(projectName),
+          GAME_WIDTH: String(windowConfig.width),
+          GAME_HEIGHT: String(windowConfig.height),
+          DEBUG: buildMode === "debug" ? "true" : "false",
+        };
         void playRunner.start(
           editorCode,
           buildMode,
           runnerContainerRef.current,
+          define,
         );
       }
       return () => {
