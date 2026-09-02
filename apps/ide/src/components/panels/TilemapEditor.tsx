@@ -326,6 +326,28 @@ export function TilemapEditor(): React.ReactElement {
           onMouseUp={() => setIsPainting(false)}
           onMouseLeave={() => setIsPainting(false)}
           onWheel={handleWheel}
+          onTouchStart={(e: React.TouchEvent<HTMLCanvasElement>) => {
+            const t0 = e.touches[0];
+            if (!t0) return;
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const col = Math.floor((t0.clientX - rect.left) / zoom / tileSize);
+            const row = Math.floor((t0.clientY - rect.top) / zoom / tileSize);
+            setIsPainting(true);
+            applyTool(col, row);
+          }}
+          onTouchMove={(e: React.TouchEvent<HTMLCanvasElement>) => {
+            if (!isPainting) return;
+            const t0 = e.touches[0];
+            if (!t0) return;
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const col = Math.floor((t0.clientX - rect.left) / zoom / tileSize);
+            const row = Math.floor((t0.clientY - rect.top) / zoom / tileSize);
+            applyTool(col, row);
+          }}
         />
       </div>
     </div>
