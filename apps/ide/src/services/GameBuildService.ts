@@ -151,7 +151,7 @@ async function runBuild(
   filename = "game.ts",
   aggressiveMode = false,
   virtualFiles: Record<string, string> = {},
-  target: string[] = ["es2020"],
+  target: string[] = ["es2026"],
 ): Promise<BuildJobResult> {
   checkVirtualFilesCompleteness(virtualFiles);
   const start = Date.now();
@@ -267,6 +267,17 @@ export class GameBuildService {
       job.virtualFiles,
       job.target,
     );
+  }
+
+  async transformOnly(code: string, filename: string): Promise<string> {
+    await ensureEsbuild();
+    const loader = loaderForFilename(filename);
+    const result = await esbuild.transform(code, {
+      loader,
+      format: "iife",
+      target: ["es2026"],
+    });
+    return result.code;
   }
 
   destroy(): void {
