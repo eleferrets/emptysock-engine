@@ -481,12 +481,14 @@ pads.get(0)?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 }
 
 Component-based particle emitter. Attach to any entity and the system drives particle emission, physics, and rendering each frame.
 
+**Sprite-based particles:** Pass a `texture` path to render each particle as a sprite instead of a solid-colour circle. The texture is tinted by `colorStart`/`colorEnd` at runtime, so a white-on-transparent PNG gives you maximum colour flexibility. Omit `texture` entirely for the default solid-colour circle renderer.
+
 ```typescript
 import { ParticleSystem } from '@emptysock/engine';
 
 // Attach emitter to an entity:
 const emitter = explosion.addComponent(ParticleSystem, {
-  texture: 'assets/spark.png',   // omit for a solid-color circle
+  texture: 'assets/spark.png',   // sprite-based; omit for a solid-colour circle
   emissionRate: 80,              // particles per second
   maxParticles: 400,
   lifetime:  { min: 0.4, max: 0.9 },
@@ -568,3 +570,70 @@ layers.destroy();
 | `fixed` | `boolean` | If true, layer ignores camera translation (UI use case) |
 
 > **Integration with RenderSystem:** Pass the `LayerSystem` instance to `scene.setLayerSystem(layers)` and the render pipeline reads layer assignments automatically. Without this call, all entities render in insertion order with no parallax.
+
+---
+
+## 5.17 VNSystem (Story Graph)
+
+Plays back a branching dialogue script exported from the **Story Graph** panel (Module → Story Graph). The script is a JSON file produced by the Story Graph's Export button; it contains Dialogue nodes, Choice nodes, and Condition nodes.
+
+```typescript
+import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine';
+
+const vn = new VNSystem();
+
+// Load a script exported from the Story Graph panel:
+await vn.loadScript('assets/story/chapter1.vnscript');
+
+// Register a node callback — called each time the active node changes:
+vn.onNode((node: VNNode) => {
+  if (node.type === 'dialogue') {
+    const d = node as VNDialogueNode;
+    renderDialogue(d.speaker, d.text);  // render however you like
+  } else if (node.type === 'choice') {
+    const c = node as VNChoiceNode;
+    renderChoices(c.options.map((o) => o.label));
+  }
+});
+
+// Begin playback from the first node:
+vn.play();
+
+// Advance a Dialogue node to its successor:
+vn.advance();
+
+// Select a choice (zero-indexed) on a Choice node:
+vn.choose(1);
+
+// Skip auto-advance delay (if configured in the script):
+vn.skip();
+
+// Jump to a specific node by its id (use for save/resume):
+vn.jumpToNode('node-uuid-here');
+
+// Variables — read and write arbitrary flags for Condition nodes:
+vn.setVariable('metStranger', true);
+const met = vn.getVariable('metStranger');  // boolean | string | number | undefined
+
+// Read the full variable map (for serialisation):
+const vars = vn.getVariables();  // Record<string, string | number | boolean>
+
+// Destroy when the scene ends:
+vn.destroy();
+```
+
+**Node types returned by `onNode`:**
+
+| `node.type` | Interface | Key fields |
+|-------------|-----------|-----------|
+| `'dialogue'` | `VNDialogueNode` | `id`, `speaker`, `text` |
+| `'choice'` | `VNChoiceNode` | `id`, `options: { label, targetId }[]` |
+| `'condition'` | `VNConditionNode` | `id`, `variable`, `value`, `trueTargetId`, `falseTargetId` |
+
+**Condition nodes** are evaluated automatically when the system reaches them — `onNode` is not called for Condition nodes. The system reads the stored variable with `getVariable()`, compares it to `node.value`, and follows the appropriate branch.
+
+**Auto-advance:** If a Dialogue node in the script has a `delay` property set (configured in the Story Graph editor), the system automatically calls `advance()` after the delay in seconds. Call `skip()` to bypass the delay immediately.
+
+> **Story Graph panel:** Open it via **Module → Story Graph** in the IDE menu bar. The panel is an SVG-based node graph. See Section 7 (IDE Reference) for panel controls and the Story Graph panel description. Export the finished graph as `.vnscript` JSON and load it with `vn.loadScript()`.
+
+> **Save/resume pattern:** Call `vn.jumpToNode(savedNodeId)` and restore variables with `vn.setVariable()` before calling `vn.play()`. See the visual novel tutorial (Section 13) for a full example.

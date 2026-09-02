@@ -94,20 +94,30 @@ Export settings as JSON to pass directly to the engine's ParticleSystem componen
 
 ---
 
-## 7.8 VNEditor (Visual Novel Node Graph)
+## 7.8 Story Graph (formerly VN Graph)
 
-An SVG-based node graph editor for branching dialogue trees.
+An SVG-based node graph editor for branching dialogue trees. Open it via **Module → Story Graph** in the menu bar, or drag its tab from the panel bar.
 
 **Node types:**
-- **Dialogue** — speaker name + text body. One output port.
-- **Choice** — array of option strings. One output port per option.
+- **Dialogue** — speaker name + text body. One output port (continues to next node).
+- **Choice** — array of option strings. One output port per option (fan-out).
+- **Condition** — reads a variable set by `VNSystem.setVariable()` and routes to a "true" or "false" successor.
 
-**Interactions:**
-- Drag a node's header to move it.
-- Drag from an output port to an input port to connect nodes.
-- Double-click a node to open the edit modal (change text, add/remove options).
+**Canvas controls:**
 
-**Export:** Click Export JSON to get a graph compatible with `VNSystem.loadScript()`.
+| Action | Input |
+|--------|-------|
+| Pan | Middle-click drag, Space + drag, or two-finger trackpad swipe |
+| Zoom | Scroll wheel or trackpad pinch |
+| Move node | Drag the node's header bar |
+| Connect nodes | Drag from an output port to an input port |
+| Disconnect | Click a connected port and drag off it |
+| Edit node | Double-click the node body |
+| Delete node | Select then press `Delete` or `Backspace` |
+
+> **Touchpad and touch pan:** On a trackpad, two-finger swipe pans the canvas. On a touch device (tablet, touch monitor), use two fingers to pan and pinch to zoom. Single-touch always drags the selected node; no modifier needed.
+
+**Export:** Click **Export JSON** in the toolbar to save the graph as a `.vnscript` file. Load it at runtime with `VNSystem.loadScript(path)`.
 
 ---
 
@@ -266,3 +276,23 @@ seq.stop();                          // stops and rewinds
 ```
 
 **GMS2 note:** Sequences in GameMaker Studio 2 map directly to this panel — see section 11 for the migration guide.
+
+---
+
+## 7.16 Settings
+
+Open the Settings panel via **IDE → Settings** or the gear icon in the top-right toolbar.
+
+### Power Saver Mode
+
+When **Power Saver** is enabled, the IDE throttles the Canvas Preview's requestAnimationFrame loop to a maximum of 30 fps while the canvas is not the active focus window. This reduces CPU/GPU load and battery drain on laptops during extended editing sessions.
+
+Power Saver does **not** affect the game loop when the game is focused — only the background render rate. Disable Power Saver if you are testing animations that require consistent frame timing even when the canvas is unfocused (for example, cutscene timing tests).
+
+Toggle: **Settings → Performance → Power Saver**. The setting is persisted in the IDE store and survives page refreshes.
+
+### Download Engine (web version only)
+
+The **Download Engine** button appears in Settings only when the IDE is running in the browser (not in the Tauri desktop app). It downloads the current engine bundle as a `.js` file for offline use or for embedding in a project outside the IDE.
+
+This button is hidden in the desktop app because the engine bundle is already bundled inside the Tauri binary. If you do not see the button, you are running the desktop version — use the export pipeline (`pnpm emptysock-toolchain export`) instead.
