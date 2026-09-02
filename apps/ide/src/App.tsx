@@ -57,7 +57,7 @@ function makeTab(
 const GATED_TABS: Record<string, TabData> = {
   tilemap: makeTab("tilemap", "Tilemap", <TilemapEditor />, true),
   particle: makeTab("particle", "Particles", <ParticleEditor />, true),
-  vn: makeTab("vn", "VN Graph", <VNEditor />, true),
+  vn: makeTab("vn", "Story Graph", <VNEditor />, true),
   "visual-script": makeTab(
     "visual-script",
     "Visual Script",
@@ -152,7 +152,7 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   particle: () =>
     GATED_TABS["particle"] ??
     makeTab("particle", "Particles", <ParticleEditor />),
-  vn: () => GATED_TABS["vn"] ?? makeTab("vn", "VN Graph", <VNEditor />),
+  vn: () => GATED_TABS["vn"] ?? makeTab("vn", "Story Graph", <VNEditor />),
   "visual-script": () =>
     GATED_TABS["visual-script"] ??
     makeTab("visual-script", "Visual Script", <VisualScriptEditor />),
@@ -216,6 +216,18 @@ export function App(): React.ReactElement {
   }, []);
 
   useApplyTheme();
+
+  // Auto-open a module's panel when the module is enabled
+  const enabledModules = useIDEStore((s) => s.enabledModules);
+  const prevModulesRef = React.useRef<string[]>(enabledModules);
+  React.useEffect(() => {
+    const prev = prevModulesRef.current;
+    const added = enabledModules.filter((id) => !prev.includes(id));
+    for (const id of added) {
+      openPanelInLayout(id);
+    }
+    prevModulesRef.current = enabledModules;
+  }, [enabledModules, openPanelInLayout]);
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {

@@ -17,8 +17,8 @@ export const ALL_MODULES: ModuleDef[] = [
   },
   {
     id: "vn",
-    label: "VN Graph",
-    description: "Visual novel dialogue trees",
+    label: "Story Graph",
+    description: "Visual novel and branching dialogue trees",
   },
   {
     id: "visual-script",
