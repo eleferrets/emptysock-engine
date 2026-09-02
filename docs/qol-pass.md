@@ -68,10 +68,10 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 ## UI & Scene
 
-- ⬜ **[P0]** UISystem render layer — wire to Canvas 2D draw pass
+- ✅ UISystem render layer — wire to Canvas 2D draw pass
   UISystemImpl tracks components and dispatches click events but nothing draws. Need a render pass walking \_roots per frame.
 
-- ⬜ **[P1]** Built-in component animations (hover, fade-in, slide-in)
+- ✅ Built-in component animations (hover, fade-in, slide-in)
   Declarative animation options on Button/Label/Panel without requiring coroutines.
 
 - ⬜ **[P1]** Scene editor drag-and-drop UI placement
@@ -180,10 +180,10 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 - ✅ MCP gms2_inspect_project — validate actual .yyp parsing
 
-- ⬜ **[P1]** GMS2 sprite import — convert PNG sheets to engine Sprite assets
+- ✅ GMS2 sprite import — convert PNG sheets to engine Sprite assets
   Parse .yy sprite metadata, strip frame data, output engine-compatible asset JSON.
 
-- ⬜ **[P1]** GMS2 room import — convert room JSON to TilemapEditor format
+- ✅ GMS2 room import — convert room JSON to TilemapEditor format
   Parse room layers (tiles, instances, assets), output tilemap + entity list.
 
 - ⬜ **[P2]** GMS2 GML → TypeScript stub converter
@@ -202,7 +202,8 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 - ⬜ **[P2]** docs/manual/08-tutorial-pong.md — verify complete and uses current API
 
-- ⬜ **[P1]** Add beginner "concepts" page — ECS, Scenes, Entities in plain language
+- ✅ Add beginner "concepts" page — ECS, Scenes, Entities in plain language
+  docs/manual/00-concepts.md: ECS overview, Scene lifecycle, Entity/Component model.
 
 ---
 
@@ -212,9 +213,9 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ story_graph_export — export Story Graph JSON via MCP
 - ✅ scene_create_entity — add entity to scene via MCP
 
-- ⬜ **[P1]** Ensure all tools documented in README.md under "Available tools"
+- ✅ Ensure all tools documented in README.md under "Available tools"
 
-- ⬜ **[P1]** Add tests for new MCP tools in src/tests/tools.test.ts
+- ✅ Add tests for new MCP tools in src/tests/tools.test.ts
 
 ---
 
@@ -236,15 +237,17 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ⬜ **[P2]** Debugger integration — breakpoints + variable inspector in preview
   iframe DevTools protocol bridge or log-based step debugger in ConsolePanel.
 
-- ⬜ **[P2]** Multiplayer boilerplate — NetworkActor Transport interface example (WebSocket)
+- ✅ Multiplayer boilerplate — NetworkActor Transport interface example (WebSocket)
+  docs/manual/19-multiplayer-boilerplate.md: WebSocket Transport implementation, NetworkActor connect/disconnect, lobby pattern.
 
 - ✅ Spine / Spriter animation import — skeletal animation support (plan documented)
 
-- ⬜ **[P2]** Shader editor — GLSL snippet editor with live preview in CanvasPreview
+- ✅ Shader editor — GLSL snippet editor with live preview in CanvasPreview
+  ShaderEditor.tsx: vertex/fragment tab editor, WebGL live preview canvas, compile/error display.
 
-- ⬜ **[P2]** ds_map / ds_list compatibility shim for GML migrants
+- ✅ ds_map / ds_list compatibility shim for GML migrants
 
-- ⬜ **[P2]** draw\_\* compatibility layer — canvas API wrappers matching GML names
+- ✅ draw_* compatibility layer — canvas API wrappers matching GML names
 
 ---
 
@@ -252,21 +255,21 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 > Uses the existing VNSystem + Story Graph as the backbone. The JSON-based .vnscript format is the authoring target; the Story Graph editor is the visual interface into it.
 
-- ⬜ **[P0]** UISystem render layer (prerequisite — see UI & Scene above)
+- ✅ UISystem render layer (prerequisite — see UI & Scene above)
 
-- ⬜ **[P1]** VN scene preview panel
-  Select any Story Graph node; a preview pane renders the character sprites, background, and textbox at that exact point without running the full game.
+- ✅ VN scene preview panel
+  VNPreviewPanel.tsx: node picker, Canvas 2D renders background + characters + textbox at the selected Story Graph node without running the full game.
 
-- ⬜ **[P1]** Character sprite stage
-  Built-in left/centre/right position slots with expression variants. Sprites tween in/out on show/hide. Controlled by .vnscript commands or Story Graph node metadata.
+- ✅ Character sprite stage
+  CharacterStage: left/centre/right slots, opacity fade in/out, render(ctx) draws sprites. VNBackgroundLayer: background + CG overlay with fit modes and cross-fade.
 
-- ⬜ **[P1]** VN textbox component
+- ✅ VN textbox component
   Built-in dialogue box rendered by UISystem. Auto-advance on timer or wait for click/key. Speaker name plate. Wired to VNSystem.onNode() so no boilerplate needed in game code.
 
-- ⬜ **[P1]** Background and CG overlay layers
-  Two render layers beneath the character stage: a background layer and a CG overlay. Controlled from .vnscript or Story Graph node metadata.
+- ✅ Background and CG overlay layers
+  VNBackgroundLayer: setBackground(), showCG(), clearBackground(), hideCG() with fade and fit modes. Renders beneath CharacterStage.
 
-- ⬜ **[P1]** .vnscript ↔ Story Graph round-trip
+- ✅ .vnscript ↔ Story Graph round-trip
   Export the Story Graph to .vnscript JSON; import a .vnscript JSON back into the graph. Both directions lossless for dialogue, choice, jump, and variable-set nodes.
 
 - ⬜ **[P2]** CG gallery
@@ -278,13 +281,13 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 > Tilemap layers are already shipped. Auto-tiling is tracked above (Panels P1). Items here cover the database, event, and battle systems. Each is a sizeable module; treat as a phased backlog.
 
-- ⬜ **[P1]** Named game variable/switch store — panel UI
+- ✅ Named game variable/switch store — panel UI
   Persistent numbered variables (integers) and boolean switches, editable in a dedicated panel. Backed by SaveSystem.
 
-- ⬜ **[P1]** Map event system
-  Trigger tiles on TilemapEditor maps that carry an event script (autorun, player-touch, action-button, parallel). Script commands: show dialogue, set variable/switch, play audio, transition scene, move character.
+- ✅ Map event system
+  MapEventSystem: tile-bound events with autorun/player-touch/action-button/parallel triggers. Sequential command runner with async handler support. Commands: show-dialogue, set-variable, set-switch, play-audio, transition-scene, move-character.
 
-- ⬜ **[P1]** Grid-based character movement
+- ✅ Grid-based character movement
   4-directional tile-aligned movement with collision against a solid layer flag. Step events, move routes, face-direction commands.
 
 - ⬜ **[P2]** Database editor panel

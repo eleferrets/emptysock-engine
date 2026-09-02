@@ -279,6 +279,10 @@ interface IDEState {
   setVarName: (index: number, name: string) => void;
   setSwitchName: (index: number, name: string) => void;
 
+  // Story Graph node cache (shared with VN Preview)
+  vnNodes: unknown[];
+  setVNNodes: (nodes: unknown[]) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -643,6 +647,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   variableStoreVarNames: {},
   variableStoreSwitchNames: {},
 
+  // Story Graph node cache
+  vnNodes: [],
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -860,6 +867,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         [index]: name,
       },
     })),
+
+  setVNNodes: (nodes) => set({ vnNodes: nodes }),
 
   resetProject: () => {
     set({

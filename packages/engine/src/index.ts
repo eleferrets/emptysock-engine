@@ -190,5 +190,20 @@ export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 // Behaviors
 export * from "./behaviors/index.js";
 
+// VN stage & background layers
+export { CharacterStage } from "./systems/CharacterStage.js";
+export type { StageSlot, CharacterStageOptions, CharacterShowOptions } from "./systems/CharacterStage.js";
+export { VNBackgroundLayer } from "./systems/VNBackgroundLayer.js";
+export type { VNBackgroundLayerOptions } from "./systems/VNBackgroundLayer.js";
+
+// Map event system
+export { MapEventSystem } from "./systems/MapEventSystem.js";
+export type {
+  MapEvent,
+  EventTriggerType,
+  EventCommand,
+  EventCommandHandler,
+} from "./systems/MapEventSystem.js";
+
 // Public type aliases
 export type { GameStage } from "./types/aliases.js";

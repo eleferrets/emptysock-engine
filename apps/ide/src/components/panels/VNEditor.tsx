@@ -3,6 +3,7 @@ import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
 } from "@emptysock/engine";
+import { useIDEStore } from "../../store/ideStore";
 
 type NodeType = "dialogue" | "choice";
 
@@ -99,6 +100,7 @@ function saveGraph(nodes: VNNode[], edges: VNEdge[]): void {
 }
 
 export function VNEditor(): React.ReactElement {
+  const setVNNodes = useIDEStore((s) => s.setVNNodes);
   const saved = React.useMemo(loadGraph, []);
   const [nodes, setNodes] = React.useState<VNNode[]>(saved.nodes);
   const [edges, setEdges] = React.useState<VNEdge[]>(saved.edges);
@@ -123,10 +125,11 @@ export function VNEditor(): React.ReactElement {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  // Persist on change
+  // Persist on change and sync nodes to ideStore for VN Preview
   React.useEffect(() => {
     saveGraph(nodes, edges);
-  }, [nodes, edges]);
+    setVNNodes(nodes);
+  }, [nodes, edges, setVNNodes]);
 
   // Keyboard shortcuts
   React.useEffect(() => {

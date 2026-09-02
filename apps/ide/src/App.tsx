@@ -19,6 +19,7 @@ import { AudioMixer } from "./components/panels/AudioMixer";
 import { Profiler } from "./components/panels/Profiler";
 import { LocalisationEditor } from "./components/panels/LocalisationEditor";
 import { VariablesPanel } from "./components/panels/VariablesPanel";
+import { VNPreviewPanel } from "./components/panels/VNPreviewPanel";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { SettingsModal } from "./components/modals/SettingsModal";
@@ -74,6 +75,7 @@ const GATED_TABS: Record<string, TabData> = {
   i18n: makeTab("i18n", "Localisation", <LocalisationEditor />, true),
   shader: makeTab("shader", "Shader Editor", <ShaderEditor />, true),
   variables: makeTab("variables", "Variables", <VariablesPanel />, true),
+  "vn-preview": makeTab("vn-preview", "VN Preview", <VNPreviewPanel />, true),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -85,7 +87,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
-  const mainGated = ["tilemap", "particle", "vn", "visual-script", "sequence"];
+  const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence"];
   const bottomGated = ["profiler", "git", "i18n", "audio", "variables"];
   return {
     dockbox: {
@@ -178,6 +180,9 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   variables: () =>
     GATED_TABS["variables"] ??
     makeTab("variables", "Variables", <VariablesPanel />),
+  "vn-preview": () =>
+    GATED_TABS["vn-preview"] ??
+    makeTab("vn-preview", "VN Preview", <VNPreviewPanel />),
 };
 
 export function App(): React.ReactElement {
