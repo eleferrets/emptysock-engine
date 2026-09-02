@@ -242,17 +242,12 @@ export function VisualScriptEditor(): React.ReactElement {
   vsPanXRef.current = vsPanX;
   vsPanYRef.current = vsPanY;
 
-  const touchGestureRef = useRef<{
-    type: "pan" | "pinch";
-    startClientX: number;
-    startClientY: number;
-    startPanX: number;
-    startPanY: number;
-    startDist: number;
-    startScale: number;
-  } | null>(null);
+  // Active pointer tracking for pan (single pointer) and pinch (two pointers)
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStartRef = useRef<{ dist: number; scale: number } | null>(null);
+  const panStartRef = useRef<{ clientX: number; clientY: number; panX: number; panY: number } | null>(null);
 
-  // Wheel zoom on the outer scroll container
+  // Wheel zoom on the outer scroll container (ctrl/meta = zoom, bare scroll = ignored)
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
@@ -268,88 +263,58 @@ export function VisualScriptEditor(): React.ReactElement {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Touch pan (single finger) + pinch zoom (two fingers)
-  useEffect(() => {
-    const el = outerRef.current;
-    if (!el) return;
+  // Pointer-based pan (single finger / mouse) + pinch zoom (two fingers)
+  const onOuterPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
+    // Only handle pan/pinch on the outer container itself, not node drags
+    if ((e.target as HTMLElement).closest("[data-node]")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    const onTouchStart = (e: TouchEvent): void => {
-      const t0 = e.touches[0];
-      if (!t0) return;
-      if (e.touches.length === 1) {
-        touchGestureRef.current = {
-          type: "pan",
-          startClientX: t0.clientX,
-          startClientY: t0.clientY,
-          startPanX: vsPanXRef.current,
-          startPanY: vsPanYRef.current,
-          startDist: 0,
-          startScale: vsScaleRef.current,
-        };
-      } else if (e.touches.length === 2) {
-        const t1 = e.touches[1];
-        if (!t1) return;
-        const dist = Math.hypot(
-          t1.clientX - t0.clientX,
-          t1.clientY - t0.clientY,
-        );
-        touchGestureRef.current = {
-          type: "pinch",
-          startClientX: t0.clientX,
-          startClientY: t0.clientY,
-          startPanX: vsPanXRef.current,
-          startPanY: vsPanYRef.current,
-          startDist: dist,
-          startScale: vsScaleRef.current,
-        };
-        e.preventDefault();
+    if (activePointersRef.current.size === 1) {
+      panStartRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        panX: vsPanXRef.current,
+        panY: vsPanYRef.current,
+      };
+      pinchStartRef.current = null;
+    } else if (activePointersRef.current.size === 2) {
+      const pts = Array.from(activePointersRef.current.values());
+      const p0 = pts[0];
+      const p1 = pts[1];
+      if (p0 && p1) {
+        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        pinchStartRef.current = { dist, scale: vsScaleRef.current };
       }
-    };
+      panStartRef.current = null;
+    }
+  }, []);
 
-    const onTouchMove = (e: TouchEvent): void => {
-      const gesture = touchGestureRef.current;
-      if (!gesture) return;
-      const t0 = e.touches[0];
-      if (!t0) return;
-      if (gesture.type === "pan" && e.touches.length === 1) {
-        const dx = t0.clientX - gesture.startClientX;
-        const dy = t0.clientY - gesture.startClientY;
-        setVsPanX(gesture.startPanX + dx);
-        setVsPanY(gesture.startPanY + dy);
-        e.preventDefault();
-      } else if (gesture.type === "pinch" && e.touches.length === 2) {
-        const t1 = e.touches[1];
-        if (!t1) return;
-        const dist = Math.hypot(
-          t1.clientX - t0.clientX,
-          t1.clientY - t0.clientY,
-        );
-        if (gesture.startDist > 0) {
-          const ratio = dist / gesture.startDist;
-          const next = Math.min(
-            MAX_VS_SCALE,
-            Math.max(MIN_VS_SCALE, gesture.startScale * ratio),
-          );
-          setVsScale(next);
-        }
-        e.preventDefault();
+  const onOuterPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
+    if (!activePointersRef.current.has(e.pointerId)) return;
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointersRef.current.size === 1 && panStartRef.current) {
+      const dx = e.clientX - panStartRef.current.clientX;
+      const dy = e.clientY - panStartRef.current.clientY;
+      setVsPanX(panStartRef.current.panX + dx);
+      setVsPanY(panStartRef.current.panY + dy);
+    } else if (activePointersRef.current.size === 2 && pinchStartRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const p0 = pts[0];
+      const p1 = pts[1];
+      if (p0 && p1 && pinchStartRef.current.dist > 0) {
+        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        const ratio = dist / pinchStartRef.current.dist;
+        setVsScale(Math.min(MAX_VS_SCALE, Math.max(MIN_VS_SCALE, pinchStartRef.current.scale * ratio)));
       }
-    };
+    }
+  }, []);
 
-    const onTouchEnd = (): void => {
-      touchGestureRef.current = null;
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: false });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd);
-    el.addEventListener("touchcancel", onTouchEnd);
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("touchcancel", onTouchEnd);
-    };
+  const onOuterPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) pinchStartRef.current = null;
+    if (activePointersRef.current.size === 0) panStartRef.current = null;
   }, []);
 
   // ── Canvas coordinate from mouse event ────────────────────────────────────
@@ -605,7 +570,11 @@ export function VisualScriptEditor(): React.ReactElement {
       {/* Canvas area */}
       <div
         ref={outerRef}
-        style={{ flex: 1, overflow: "auto", position: "relative" }}
+        onPointerDown={onOuterPointerDown}
+        onPointerMove={onOuterPointerMove}
+        onPointerUp={onOuterPointerUp}
+        onPointerCancel={onOuterPointerUp}
+        style={{ flex: 1, overflow: "auto", position: "relative", touchAction: "none" }}
       >
         <div
           ref={canvasRef}

@@ -11,6 +11,10 @@ export interface LayerFilterOptions {
   radius?: number;
   /** colour-grade, brightness, contrast, saturate: 0..2 (1 = identity) */
   value?: number;
+  /** colour-grade: independent saturation override (0..2, 1 = identity) */
+  saturation?: number;
+  /** colour-grade: independent contrast override (0..2, 1 = identity) */
+  contrast?: number;
   /** hue-rotate: degrees */
   degrees?: number;
   /** outline: colour 0xRRGGBB */
@@ -113,8 +117,17 @@ class PostProcessSystemImpl {
       case 'saturate': return `saturate(${f.value ?? 1})`;
       case 'hue-rotate': return `hue-rotate(${f.degrees ?? 0}deg)`;
       case 'invert': return 'invert(1)';
-      case 'colour-grade': return `saturate(${f.value ?? 1}) brightness(${f.value ?? 1})`;
-      case 'outline': return ''; // outline requires a canvas pass
+      case 'colour-grade': {
+        const sat = f.saturation ?? f.value ?? 1;
+        const bri = f.value ?? 1;
+        const con = f.contrast ?? 1;
+        return `saturate(${sat}) brightness(${bri}) contrast(${con})`;
+      }
+      case 'outline': {
+        // CSS approximation using drop-shadow; a proper outline requires a canvas pass
+        const col = f.colour !== undefined ? '#' + (f.colour >>> 0).toString(16).padStart(6, '0') : '#000';
+        return `drop-shadow(0 0 1px ${col}) drop-shadow(0 0 1px ${col})`;
+      }
       default: return '';
     }
   }

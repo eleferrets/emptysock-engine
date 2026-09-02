@@ -171,25 +171,35 @@ export function VNEditor(): React.ReactElement {
     return () => window.removeEventListener("keydown", handler);
   }, [selected, editNode]);
 
-  // Wheel zoom
+  // Wheel zoom / pan
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setView((v) => {
-        const newScale = clampScale(v.scale * delta);
-        const ratio = newScale / v.scale;
-        return {
-          scale: newScale,
-          x: mx - ratio * (mx - v.x),
-          y: my - ratio * (my - v.y),
-        };
-      });
+      let delta = e.deltaY;
+      if (e.deltaMode === 1) delta *= 16;   // DOM_DELTA_LINE
+      if (e.deltaMode === 2) delta *= 600;  // DOM_DELTA_PAGE
+
+      if (e.ctrlKey || e.metaKey) {
+        // Pinch-zoom from touchpad, or ctrl+scroll from keyboard
+        const rect = el.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const factor = delta > 0 ? 0.9 : 1.1;
+        setView((v) => {
+          const newScale = clampScale(v.scale * factor);
+          const ratio = newScale / v.scale;
+          return {
+            scale: newScale,
+            x: mx - ratio * (mx - v.x),
+            y: my - ratio * (my - v.y),
+          };
+        });
+      } else {
+        // Two-finger scroll — pan
+        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - delta }));
+      }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -284,14 +294,13 @@ export function VNEditor(): React.ReactElement {
     });
   };
 
-  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>): void => {
+  const handlePointerDownSVG = (e: React.PointerEvent<SVGSVGElement>): void => {
     if (
       e.target === svgRef.current ||
       (e.target as SVGElement).tagName === "svg"
     ) {
       setSelected(null);
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
       setPanning({
         startX: e.clientX,
         startY: e.clientY,
@@ -301,7 +310,7 @@ export function VNEditor(): React.ReactElement {
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
+  const handlePointerMoveSVG = (e: React.PointerEvent<SVGSVGElement>): void => {
     if (dragging) {
       const coords = svgCoordsFromClient(e.clientX, e.clientY);
       let nx = coords.x - dragging.ox;
@@ -329,83 +338,10 @@ export function VNEditor(): React.ReactElement {
     }
   };
 
-  const handleMouseUp = (): void => {
+  const handlePointerUpSVG = (): void => {
     setDragging(null);
     setPanning(null);
     setGuides([]);
-  };
-
-  // Touch support: one-finger pan, two-finger pinch
-  const lastTouchRef = React.useRef<{
-    x: number;
-    y: number;
-    dist: number;
-  } | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>): void => {
-    const t0 = e.touches[0];
-    const t1 = e.touches[1];
-    if (e.touches.length === 1 && t0) {
-      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
-    } else if (e.touches.length === 2 && t0 && t1) {
-      const dx = t0.clientX - t1.clientX;
-      const dy = t0.clientY - t1.clientY;
-      lastTouchRef.current = { x: 0, y: 0, dist: Math.sqrt(dx * dx + dy * dy) };
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>): void => {
-    e.preventDefault();
-    if (!lastTouchRef.current) return;
-    const t0 = e.touches[0];
-    const t1 = e.touches[1];
-    if (e.touches.length === 1 && dragging && t0) {
-      const coords = svgCoordsFromClient(t0.clientX, t0.clientY);
-      let nx = coords.x - dragging.ox;
-      let ny = coords.y - dragging.oy;
-      if (editorSnapToGrid) {
-        nx = snapValue(nx, editorGridSize);
-        ny = snapValue(ny, editorGridSize);
-      }
-      setNodes((prev) => {
-        const next = prev.map((n) =>
-          n.id === dragging.id ? { ...n, x: nx, y: ny } : n,
-        );
-        if (editorShowGuides) {
-          const dragNode = next.find((n) => n.id === dragging.id);
-          if (dragNode) setGuides(computeGuides(dragNode, next));
-        }
-        return next;
-      });
-      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
-    } else if (e.touches.length === 1 && !dragging && t0) {
-      const dx = t0.clientX - lastTouchRef.current.x;
-      const dy = t0.clientY - lastTouchRef.current.y;
-      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
-      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
-    } else if (e.touches.length === 2 && t0 && t1) {
-      const dx = t0.clientX - t1.clientX;
-      const dy = t0.clientY - t1.clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const ratio = dist / (lastTouchRef.current.dist || dist);
-      const midX = (t0.clientX + t1.clientX) / 2;
-      const midY = (t0.clientY + t1.clientY) / 2;
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (rect) {
-        const mx = midX - rect.left;
-        const my = midY - rect.top;
-        setView((v) => {
-          const newScale = clampScale(v.scale * ratio);
-          const r = newScale / v.scale;
-          return {
-            scale: newScale,
-            x: mx - r * (mx - v.x),
-            y: my - r * (my - v.y),
-          };
-        });
-      }
-      lastTouchRef.current = { x: 0, y: 0, dist };
-    }
   };
 
   const addNode = (type: NodeType): void => {
@@ -730,17 +666,10 @@ export function VNEditor(): React.ReactElement {
         <svg
           ref={svgRef}
           style={{ width: "100%", height: "100%", userSelect: "none" }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={() => {
-            setDragging(null);
-            lastTouchRef.current = null;
-            setGuides([]);
-          }}
+          onPointerDown={handlePointerDownSVG}
+          onPointerMove={handlePointerMoveSVG}
+          onPointerUp={handlePointerUpSVG}
+          onPointerCancel={handlePointerUpSVG}
           onClick={() => {
             if (!dragging) setSelected(null);
           }}
@@ -801,23 +730,11 @@ export function VNEditor(): React.ReactElement {
                   style={{
                     cursor: dragging?.id === node.id ? "grabbing" : "grab",
                   }}
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     e.stopPropagation();
+                    e.currentTarget.setPointerCapture(e.pointerId);
                     setSelected(node.id);
                     const coords = svgCoordsFromClient(e.clientX, e.clientY);
-                    setDragging({
-                      id: node.id,
-                      ox: coords.x - node.x,
-                      oy: coords.y - node.y,
-                    });
-                  }}
-                  onTouchStart={(e) => {
-                    e.stopPropagation();
-                    const t0 = e.touches[0];
-                    if (!t0) return;
-                    setSelected(node.id);
-                    const coords = svgCoordsFromClient(t0.clientX, t0.clientY);
-                    lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
                     setDragging({
                       id: node.id,
                       ox: coords.x - node.x,

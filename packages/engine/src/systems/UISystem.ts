@@ -238,6 +238,27 @@ export class UIComponent {
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
 
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  if (r <= 0) {
+    ctx.rect(x, y, w, h);
+    return;
+  }
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+}
+
 function numToHex(n: number): string {
   return '#' + (n >>> 0).toString(16).padStart(6, '0');
 }
@@ -362,22 +383,32 @@ class UISystemImpl {
 
     switch (comp.type) {
       case 'panel': {
+        const pr = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
-        ctx.fillRect(x, y, w, h);
+        ctx.beginPath();
+        roundRect(ctx, x, y, w, h, pr);
+        ctx.fill();
         if (style.borderColor !== undefined && style.borderWidth !== undefined) {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
-          ctx.strokeRect(x, y, w, h);
+          ctx.beginPath();
+          roundRect(ctx, x, y, w, h, pr);
+          ctx.stroke();
         }
         break;
       }
       case 'button': {
+        const br = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
-        ctx.fillRect(x, y, w, h);
+        ctx.beginPath();
+        roundRect(ctx, x, y, w, h, br);
+        ctx.fill();
         if (style.borderColor !== undefined && style.borderWidth !== undefined) {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
-          ctx.strokeRect(x, y, w, h);
+          ctx.beginPath();
+          roundRect(ctx, x, y, w, h, br);
+          ctx.stroke();
         }
         ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.font = buildFont(comp);

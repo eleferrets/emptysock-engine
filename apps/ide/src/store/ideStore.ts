@@ -69,6 +69,24 @@ export type PlayState = "stopped" | "playing" | "paused";
 export type ActiveTab = "code" | "canvas" | "scene";
 export type BottomTab = "console" | "assets";
 
+// ── Audio Mixer ──────────────────────────────────────────────────────────────
+export interface AudioBus {
+  id: string;
+  label: string;
+  volume: number;
+  muted: boolean;
+  solo: boolean;
+  color: string;
+}
+
+const INITIAL_AUDIO_BUSES: AudioBus[] = [
+  { id: "master", label: "Master", volume: 80, muted: false, solo: false, color: "#a78bfa" },
+  { id: "music",  label: "Music",  volume: 70, muted: false, solo: false, color: "#60a5fa" },
+  { id: "sfx",    label: "SFX",    volume: 90, muted: false, solo: false, color: "#4ade80" },
+  { id: "voice",  label: "Voice",  volume: 100, muted: false, solo: false, color: "#fbbf24" },
+  { id: "ambient",label: "Ambient",volume: 50, muted: false, solo: false, color: "#f87171" },
+];
+
 // ── Tilemap editor ───────────────────────────────────────────────────────────
 export interface TileLayer {
   id: string;
@@ -250,6 +268,11 @@ interface IDEState {
   // Asset actions
   addAsset: (asset: AssetItem) => void;
   deleteAsset: (id: string) => void;
+
+  // AudioMixer persistent state
+  audioBuses: AudioBus[];
+  setAudioBus: (id: string, patch: Partial<Omit<AudioBus, "id">>) => void;
+  addAudioBus: () => void;
 
   // TilemapEditor persistent state
   tilemapLayers: TileLayer[];
@@ -654,6 +677,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Theme
   theme: "dark",
+
+  // AudioMixer persistent state
+  audioBuses: INITIAL_AUDIO_BUSES,
 
   // TilemapEditor persistent state
   tilemapLayers: INITIAL_TILEMAP_LAYERS,

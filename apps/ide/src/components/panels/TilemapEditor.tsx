@@ -99,11 +99,13 @@ function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement 
 
 export function TilemapEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const [activeTile, setActiveTile] = React.useState(0);
   const [tool, setTool] = React.useState<Tool>("paint");
   const [isPainting, setIsPainting] = React.useState(false);
   const [zoom, setZoom] = React.useState(1);
   const [showAutoTileRules, setShowAutoTileRules] = React.useState(false);
+  const [canvasSize, setCanvasSize] = React.useState({ w: 800, h: 600 });
 
   const layers = useIDEStore((s) => s.tilemapLayers);
   const activeLayer = useIDEStore((s) => s.tilemapActiveLayer);
@@ -118,21 +120,7 @@ export function TilemapEditor(): React.ReactElement {
   const { rulerSize } = getRulerMetrics();
   const rulerOffset = showRuler ? rulerSize : 0;
 
-  const getCell = (
-    e: React.MouseEvent<HTMLCanvasElement>,
-  ): { col: number; row: number } => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { col: 0, row: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom - rulerOffset;
-    const y = (e.clientY - rect.top) / zoom - rulerOffset;
-    return {
-      col: Math.max(0, Math.floor(x / tileSize)),
-      row: Math.max(0, Math.floor(y / tileSize)),
-    };
-  };
-
-  const floodFill = (
+const floodFill = (
     data: Record<string, number>,
     col: number,
     row: number,
@@ -174,12 +162,35 @@ export function TilemapEditor(): React.ReactElement {
     );
   };
 
+  // ResizeObserver: set physical canvas size and track logical size
+  React.useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      setCanvasSize({ w: width, h: height });
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    const lw = canvasSize.w;
+    const lh = canvasSize.h;
+    // Reset transform to identity then apply DPR scale so all drawing is in logical px
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, lw, lh);
     ctx.save();
     ctx.scale(zoom, zoom);
 
@@ -188,20 +199,20 @@ export function TilemapEditor(): React.ReactElement {
     // Grid
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 0.5;
-    const cols = Math.ceil((canvas.width / zoom - ro) / tileSize) + 1;
-    const rows = Math.ceil((canvas.height / zoom - ro) / tileSize) + 1;
+    const cols = Math.ceil((lw / zoom - ro) / tileSize) + 1;
+    const rows = Math.ceil((lh / zoom - ro) / tileSize) + 1;
     for (let c = 0; c <= cols; c++) {
       const x = ro + c * tileSize;
       ctx.beginPath();
       ctx.moveTo(x, ro);
-      ctx.lineTo(x, canvas.height / zoom);
+      ctx.lineTo(x, lh / zoom);
       ctx.stroke();
     }
     for (let r = 0; r <= rows; r++) {
       const y = ro + r * tileSize;
       ctx.beginPath();
       ctx.moveTo(ro, y);
-      ctx.lineTo(canvas.width / zoom, y);
+      ctx.lineTo(lw / zoom, y);
       ctx.stroke();
     }
 
@@ -223,8 +234,8 @@ export function TilemapEditor(): React.ReactElement {
     }
     ctx.restore();
 
-    // Rulers drawn last (on top), in canvas pixel space
-    drawRulers(ctx, canvas.width, canvas.height, {
+    // Rulers drawn last (on top), in logical pixel space
+    drawRulers(ctx, lw, lh, {
       gridSize: tileSize,
       showGrid: true,
       showRuler,
@@ -232,11 +243,20 @@ export function TilemapEditor(): React.ReactElement {
       showGuides: false,
       zoom,
     });
-  }, [layers, tileSize, zoom, showRuler, rulerOffset]);
+  }, [layers, tileSize, zoom, showRuler, rulerOffset, canvasSize]);
 
   const handleWheel = (e: React.WheelEvent): void => {
     e.preventDefault();
-    setZoom((z) => Math.max(0.25, Math.min(4, z - e.deltaY * 0.001)));
+    let delta = e.deltaY;
+    if (e.deltaMode === 1) delta *= 16;   // DOM_DELTA_LINE
+    if (e.deltaMode === 2) delta *= 600;  // DOM_DELTA_PAGE
+
+    if (e.ctrlKey || e.metaKey) {
+      // Pinch-zoom from touchpad, or ctrl+scroll from keyboard
+      setZoom((z) => Math.max(0.25, Math.min(4, z * (delta > 0 ? 0.9 : 1.1))));
+    }
+    // Two-finger scroll with no modifier: do nothing (prevent default already
+    // stops the page from scrolling; the canvas itself has no pan state yet)
   };
 
   const tools: { id: Tool; label: string }[] = [
@@ -426,50 +446,38 @@ export function TilemapEditor(): React.ReactElement {
       </div>
 
       {/* Canvas */}
-      <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
+      <div ref={containerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <canvas
           ref={canvasRef}
-          width={1600}
-          height={1200}
           style={{
             display: "block",
+            width: "100%",
+            height: "100%",
             cursor: tool === "erase" ? "cell" : "crosshair",
             touchAction: "none",
           }}
-          onMouseDown={(e) => {
-            setIsPainting(true);
-            applyTool(...(Object.values(getCell(e)) as [number, number]));
-          }}
-          onMouseMove={(e) => {
-            if (isPainting)
-              applyTool(...(Object.values(getCell(e)) as [number, number]));
-          }}
-          onMouseUp={() => setIsPainting(false)}
-          onMouseLeave={() => setIsPainting(false)}
-          onWheel={handleWheel}
-          onTouchStart={(e: React.TouchEvent<HTMLCanvasElement>) => {
-            const t0 = e.touches[0];
-            if (!t0) return;
+          onPointerDown={(e: React.PointerEvent<HTMLCanvasElement>) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.max(0, Math.floor(((t0.clientX - rect.left) / zoom - rulerOffset) / tileSize));
-            const row = Math.max(0, Math.floor(((t0.clientY - rect.top) / zoom - rulerOffset) / tileSize));
+            const col = Math.max(0, Math.floor(((e.clientX - rect.left) / zoom - rulerOffset) / tileSize));
+            const row = Math.max(0, Math.floor(((e.clientY - rect.top) / zoom - rulerOffset) / tileSize));
             setIsPainting(true);
             applyTool(col, row);
           }}
-          onTouchMove={(e: React.TouchEvent<HTMLCanvasElement>) => {
+          onPointerMove={(e: React.PointerEvent<HTMLCanvasElement>) => {
             if (!isPainting) return;
-            const t0 = e.touches[0];
-            if (!t0) return;
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.max(0, Math.floor(((t0.clientX - rect.left) / zoom - rulerOffset) / tileSize));
-            const row = Math.max(0, Math.floor(((t0.clientY - rect.top) / zoom - rulerOffset) / tileSize));
+            const col = Math.max(0, Math.floor(((e.clientX - rect.left) / zoom - rulerOffset) / tileSize));
+            const row = Math.max(0, Math.floor(((e.clientY - rect.top) / zoom - rulerOffset) / tileSize));
             applyTool(col, row);
           }}
-          onTouchEnd={() => setIsPainting(false)}
+          onPointerUp={() => setIsPainting(false)}
+          onPointerCancel={() => setIsPainting(false)}
+          onWheel={handleWheel}
         />
       </div>
       {showAutoTileRules && <AutoTileRulesModal onClose={() => setShowAutoTileRules(false)} />}

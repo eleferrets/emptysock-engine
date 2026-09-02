@@ -11,12 +11,32 @@ interface Sample {
 
 export function Profiler(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasSizeRef = React.useRef({ w: 960, h: 200 });
   const samplesRef = React.useRef<Sample[]>([]);
   const lastRef = React.useRef<number>(performance.now());
   const rafRef = React.useRef<number>(0);
   const [live, setLive] = React.useState<Sample>({ ft: 0, fps: 0, draws: 0 });
   const fps = useIDEStore((s) => s.fps);
   const playState = useIDEStore((s) => s.playState);
+
+  // ResizeObserver: set physical canvas size and track logical dimensions
+  React.useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvasSizeRef.current = { w: width, h: height };
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   React.useEffect(() => {
     if (playState !== "playing") return;
@@ -41,8 +61,12 @@ export function Profiler(): React.ReactElement {
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext("2d");
-        if (ctx)
-          drawChart(ctx, canvas.width, canvas.height, samplesRef.current);
+        if (ctx) {
+          const dpr = window.devicePixelRatio || 1;
+          const { w, h } = canvasSizeRef.current;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          drawChart(ctx, w, h, samplesRef.current);
+        }
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -161,12 +185,10 @@ export function Profiler(): React.ReactElement {
       </div>
 
       {/* Chart */}
-      <div style={{ flex: 1, padding: 8 }}>
+      <div ref={containerRef} style={{ flex: 1, padding: 8 }}>
         <canvas
           ref={canvasRef}
-          width={960}
-          height={200}
-          style={{ width: "100%", height: "100%", display: "block" }}
+          style={{ display: "block", width: "100%", height: "100%" }}
         />
       </div>
     </div>

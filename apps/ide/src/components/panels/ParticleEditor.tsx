@@ -68,6 +68,8 @@ function lerpColor(a: string, b: string, t: number): string {
 
 export function ParticleEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasSizeRef = React.useRef({ w: 400, h: 500 });
   const [config, setConfig] = React.useState<EmitterConfig>(DEFAULT_CONFIG);
   const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
     null,
@@ -81,6 +83,24 @@ export function ParticleEditor(): React.ReactElement {
   React.useEffect(() => {
     spriteImgRef.current = spriteImg;
   }, [spriteImg]);
+
+  // ResizeObserver: update physical canvas size and store logical dimensions
+  React.useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvasSizeRef.current = { w: width, h: height };
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const handleSpriteUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
@@ -112,8 +132,8 @@ export function ParticleEditor(): React.ReactElement {
       ox = (Math.random() - 0.5) * cfg.shapeRadius * 2;
       oy = (Math.random() - 0.5) * cfg.shapeRadius * 2;
     }
-    const cx = 200,
-      cy = 250;
+    const cx = canvasSizeRef.current.w / 2,
+      cy = canvasSizeRef.current.h / 2;
     const lifetime =
       cfg.lifetimeMin + Math.random() * (cfg.lifetimeMax - cfg.lifetimeMin);
     return {
@@ -160,9 +180,12 @@ export function ParticleEditor(): React.ReactElement {
         p.color = lerpColor(config.colorStart, config.colorEnd, t);
       }
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const dpr = window.devicePixelRatio || 1;
+      const { w: lw, h: lh } = canvasSizeRef.current;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, lw, lh);
       ctx.fillStyle = "#0a0a0f";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, lw, lh);
 
       const img = spriteImgRef.current;
       for (const p of particlesRef.current) {
@@ -429,12 +452,10 @@ export function ParticleEditor(): React.ReactElement {
       </div>
 
       {/* Preview canvas */}
-      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+      <div ref={containerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <canvas
           ref={canvasRef}
-          width={400}
-          height={500}
-          style={{ width: "100%", height: "100%" }}
+          style={{ display: "block", width: "100%", height: "100%" }}
         />
         <div
           style={{

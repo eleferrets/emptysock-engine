@@ -187,6 +187,16 @@ export function SequenceEditor(): React.ReactElement {
   const currentTimeRef = useRef<number>(0); // stays in sync for RAF
   const playingRef = useRef<boolean>(false);
 
+  const [draggingKf, setDraggingKf] = useState<{
+    trackId: string;
+    kfId: string;
+    pointerId: number;
+    startClientX: number;
+    startTime: number;
+    moved: boolean;
+  } | null>(null);
+  const containerDivRef = useRef<HTMLDivElement>(null);
+
   // Keep refs in sync
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -353,6 +363,109 @@ export function SequenceEditor(): React.ReactElement {
     }
   }, [selectedKf, kfEditValue, tracks, setTracks]);
 
+  // ── Keyframe delete ──────────────────────────────────────────────────────
+
+  const removeKeyframe = useCallback(
+    (trackId: string, kfId: string) => {
+      setTracks(
+        tracks.map((t) =>
+          t.id === trackId
+            ? { ...t, keyframes: t.keyframes.filter((k) => k.id !== kfId) }
+            : t,
+        ),
+      );
+      setSelectedKf((prev) =>
+        prev?.trackId === trackId && prev.kfId === kfId ? null : prev,
+      );
+    },
+    [tracks, setTracks],
+  );
+
+  // ── Keyframe drag handlers ───────────────────────────────────────────────
+
+  const handleKfPointerDown = useCallback(
+    (
+      e: React.PointerEvent<HTMLDivElement>,
+      trackId: string,
+      kfId: string,
+      kfTime: number,
+      kfValue: number,
+    ) => {
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setDraggingKf({
+        trackId,
+        kfId,
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startTime: kfTime,
+        moved: false,
+      });
+      // pre-select so value editor is ready if user doesn't drag
+      setSelectedKf({ trackId, kfId });
+      setKfEditValue(String(kfValue));
+    },
+    [],
+  );
+
+  const handleKfPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, trackId: string, kfId: string) => {
+      if (draggingKf === null) return;
+      if (draggingKf.trackId !== trackId || draggingKf.kfId !== kfId) return;
+      const dx = e.clientX - draggingKf.startClientX;
+      if (!draggingKf.moved && Math.abs(dx) < 4) return;
+      const newTime = Math.max(
+        0,
+        Math.min(duration, draggingKf.startTime + dx / pxPerSec),
+      );
+      const t = parseFloat(newTime.toFixed(2));
+      setDraggingKf((prev) => (prev ? { ...prev, moved: true } : prev));
+      setTracks(
+        tracks.map((track) =>
+          track.id === trackId
+            ? {
+                ...track,
+                keyframes: track.keyframes.map((kf) =>
+                  kf.id === kfId ? { ...kf, time: t } : kf,
+                ),
+              }
+            : track,
+        ),
+      );
+    },
+    [draggingKf, duration, pxPerSec, tracks, setTracks],
+  );
+
+  const handleKfPointerUp = useCallback(
+    (
+      e: React.PointerEvent<HTMLDivElement>,
+      trackId: string,
+      kfId: string,
+      kfValue: number,
+    ) => {
+      if (draggingKf === null) return;
+      if (draggingKf.trackId !== trackId || draggingKf.kfId !== kfId) return;
+      if (!draggingKf.moved) {
+        // treat as click — selection already set in pointerdown
+        setKfEditValue(String(kfValue));
+      }
+      setDraggingKf(null);
+    },
+    [draggingKf],
+  );
+
+  // ── Keyboard delete of selected keyframe ─────────────────────────────────
+
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedKf) {
+        e.preventDefault();
+        removeKeyframe(selectedKf.trackId, selectedKf.kfId);
+      }
+    },
+    [selectedKf, removeKeyframe],
+  );
+
   // ── Add track ─────────────────────────────────────────────────────────────
 
   const addTrack = useCallback(
@@ -372,12 +485,16 @@ export function SequenceEditor(): React.ReactElement {
 
   return (
     <div
+      ref={containerDivRef}
+      tabIndex={0}
+      onKeyDown={handleContainerKeyDown}
       style={{
         display: "flex",
         flexDirection: "column",
         height: "100%",
         background: "var(--es-bg, #1a1a2e)",
         overflow: "hidden",
+        outline: "none",
       }}
     >
       {/* Toolbar */}
@@ -707,8 +824,20 @@ export function SequenceEditor(): React.ReactElement {
                       key={kf.id}
                       data-kf="1"
                       title={`t=${kf.time}s  v=${kf.value}`}
-                      onClick={(e) =>
-                        selectKeyframe(e, track.id, kf.id, kf.value)
+                      onPointerDown={(e) =>
+                        handleKfPointerDown(
+                          e,
+                          track.id,
+                          kf.id,
+                          kf.time,
+                          kf.value,
+                        )
+                      }
+                      onPointerMove={(e) =>
+                        handleKfPointerMove(e, track.id, kf.id)
+                      }
+                      onPointerUp={(e) =>
+                        handleKfPointerUp(e, track.id, kf.id, kf.value)
                       }
                       style={{
                         position: "absolute",
@@ -721,10 +850,42 @@ export function SequenceEditor(): React.ReactElement {
                           ? "#fff"
                           : TYPE_COLORS[track.type],
                         border: `2px solid ${isSelected ? TYPE_COLORS[track.type] : "rgba(255,255,255,0.35)"}`,
-                        cursor: "pointer",
+                        cursor:
+                          draggingKf?.kfId === kf.id ? "grabbing" : "grab",
                         zIndex: 5,
+                        touchAction: "none",
                       }}
-                    />
+                    >
+                      {isSelected && (
+                        <div
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeKeyframe(track.id, kf.id);
+                          }}
+                          style={{
+                            position: "absolute",
+                            top: -12,
+                            left: "50%",
+                            transform: "translateX(-50%) rotate(-45deg)",
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            background: "#ef4444",
+                            color: "#fff",
+                            fontSize: 9,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            zIndex: 10,
+                            lineHeight: 1,
+                          }}
+                        >
+                          ×
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

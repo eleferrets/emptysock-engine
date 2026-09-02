@@ -28,6 +28,16 @@ export class AudioSystem {
     return this._groupVolumes.get(group) ?? 1;
   }
 
+  setBusVolume(busId: string, volume: number): void {
+    this.setGroupVolume(busId, volume);
+  }
+
+  getBusVolume(busId: string): number {
+    return this.getGroupVolume(busId);
+  }
+
+  readonly defaultBuses = ['master', 'music', 'sfx', 'voice', 'ambient'] as const;
+
   load(id: string, src: string, options: SoundOptions = {}): Howl {
     const groupVol = options.group ? this.getGroupVolume(options.group) : 1;
     const howl = new Howl({

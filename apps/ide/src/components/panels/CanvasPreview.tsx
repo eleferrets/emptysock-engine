@@ -144,12 +144,16 @@ export function CanvasPreview(): React.ReactElement {
 
     const observer = new ResizeObserver(() => {
       const rect = gameCanvas.getBoundingClientRect();
-      overlay.width = rect.width;
-      overlay.height = rect.height;
+      const dpr = window.devicePixelRatio || 1;
+      const lw = rect.width;
+      const lh = rect.height;
+      overlay.width = Math.round(lw * dpr);
+      overlay.height = Math.round(lh * dpr);
       // Trigger a redraw after resize
       const ctx = overlay.getContext("2d");
       if (ctx === null) return;
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, lw, lh);
       const opts = {
         gridSize: editorGridSize,
         showGrid: editorShowGrid,
@@ -160,9 +164,9 @@ export function CanvasPreview(): React.ReactElement {
         scrollY: 0,
         zoom: 1,
       };
-      drawGrid(ctx, overlay.width, overlay.height, opts);
-      drawGuides(ctx, overlay.width, overlay.height, [], opts);
-      drawRulers(ctx, overlay.width, overlay.height, opts);
+      drawGrid(ctx, lw, lh, opts);
+      drawGuides(ctx, lw, lh, [], opts);
+      drawRulers(ctx, lw, lh, opts);
     });
     observer.observe(gameCanvas);
     return () => observer.disconnect();
