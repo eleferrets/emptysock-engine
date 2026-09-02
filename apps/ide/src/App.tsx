@@ -21,6 +21,7 @@ import { LocalisationEditor } from "./components/panels/LocalisationEditor";
 import { VariablesPanel } from "./components/panels/VariablesPanel";
 import { VNPreviewPanel } from "./components/panels/VNPreviewPanel";
 import { UIPlacementPanel } from "./components/panels/UIPlacementPanel";
+import { DatabaseEditor } from "./components/panels/DatabaseEditor";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { SettingsModal } from "./components/modals/SettingsModal";
@@ -78,6 +79,7 @@ const GATED_TABS: Record<string, TabData> = {
   variables: makeTab("variables", "Variables", <VariablesPanel />, true),
   "vn-preview": makeTab("vn-preview", "VN Preview", <VNPreviewPanel />, true),
   "ui-placement": makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
+  database: makeTab("database", "Database", <DatabaseEditor />, true),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -188,6 +190,8 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   "ui-placement": () =>
     GATED_TABS["ui-placement"] ??
     makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
+  database: () =>
+    GATED_TABS["database"] ?? makeTab("database", "Database", <DatabaseEditor />),
 };
 
 export function App(): React.ReactElement {

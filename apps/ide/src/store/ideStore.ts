@@ -287,6 +287,16 @@ interface IDEState {
   autoTileRuleSets: Record<string, unknown[]>;
   setAutoTileRuleSets: (ruleSets: Record<string, unknown[]>) => void;
 
+  // RPG database
+  dbActors: unknown[];
+  dbClasses: unknown[];
+  dbItems: unknown[];
+  dbEnemies: unknown[];
+  setDBActors: (v: unknown[]) => void;
+  setDBClasses: (v: unknown[]) => void;
+  setDBItems: (v: unknown[]) => void;
+  setDBEnemies: (v: unknown[]) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -657,6 +667,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Auto-tile rule sets
   autoTileRuleSets: {},
 
+  // RPG database
+  dbActors: [],
+  dbClasses: [],
+  dbItems: [],
+  dbEnemies: [],
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -877,6 +893,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setVNNodes: (nodes) => set({ vnNodes: nodes }),
   setAutoTileRuleSets: (ruleSets) => set({ autoTileRuleSets: ruleSets }),
+  setDBActors: (v) => set({ dbActors: v }),
+  setDBClasses: (v) => set({ dbClasses: v }),
+  setDBItems: (v) => set({ dbItems: v }),
+  setDBEnemies: (v) => set({ dbEnemies: v }),
 
   resetProject: () => {
     set({
@@ -1064,6 +1084,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         windowConfig: s.windowConfig,
         vnNodes: s.vnNodes,
         autoTileRuleSets: s.autoTileRuleSets,
+        dbActors: s.dbActors,
+        dbClasses: s.dbClasses,
+        dbItems: s.dbItems,
+        dbEnemies: s.dbEnemies,
       },
       null,
       2,
@@ -1187,6 +1211,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           if (proj["autoTileRuleSets"] !== null && typeof proj["autoTileRuleSets"] === "object") {
             updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<string, unknown[]>;
           }
+          if (Array.isArray(proj["dbActors"])) updates.dbActors = proj["dbActors"];
+          if (Array.isArray(proj["dbClasses"])) updates.dbClasses = proj["dbClasses"];
+          if (Array.isArray(proj["dbItems"])) updates.dbItems = proj["dbItems"];
+          if (Array.isArray(proj["dbEnemies"])) updates.dbEnemies = proj["dbEnemies"];
           set(updates);
         } catch {
           get().addLog(

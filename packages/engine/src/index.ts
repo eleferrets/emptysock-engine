@@ -193,6 +193,10 @@ export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 // Behaviors
 export * from "./behaviors/index.js";
 
+// CG gallery
+export { CGGallery } from "./systems/CGGallery.js";
+export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
+
 // Auto-tile rule system
 export { AutoTileSystem } from "./systems/AutoTileSystem.js";
 export type { AutoTileRule, AutoTileRuleSet } from "./systems/AutoTileSystem.js";

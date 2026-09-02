@@ -200,7 +200,8 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ docs/manual/05-systems-reference.md — ParticleSystem texture, updated Story Graph
 - ✅ api-reference.json — ParticleSystem texture, Story Graph, WindowSystem, builtins
 
-- ⬜ **[P2]** docs/manual/08-tutorial-pong.md — verify complete and uses current API
+- ✅ docs/manual/08-tutorial-pong.md — verified complete, uses current API
+  All imports from @emptysock/engine; no async onUpdate; Actor pattern, UISystem HUD, AudioSystem on bounce.
 
 - ✅ Add beginner "concepts" page — ECS, Scenes, Entities in plain language
   docs/manual/00-concepts.md: ECS overview, Scene lifecycle, Entity/Component model.
@@ -272,7 +273,7 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ .vnscript ↔ Story Graph round-trip
   Export the Story Graph to .vnscript JSON; import a .vnscript JSON back into the graph. Both directions lossless for dialogue, choice, jump, and variable-set nodes.
 
-- ⬜ **[P2]** CG gallery
+- ✅ CG gallery
   Unlock-based image gallery backed by SaveSystem boolean flags. Unlocked on first view of a tagged CG node.
 
 ---
@@ -290,7 +291,7 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ Grid-based character movement
   4-directional tile-aligned movement with collision against a solid layer flag. Step events, move routes, face-direction commands.
 
-- ⬜ **[P2]** Database editor panel
+- ✅ Database editor panel
   Actors, classes, skills, items, enemies, states with formula fields (ATK, DEF, damage expressions). Stored as project JSON.
 
 - ⬜ **[P2]** Turn-based battle system module
