@@ -50,6 +50,11 @@ export const ALL_MODULES: ModuleDef[] = [
     label: "Localisation",
     description: "i18n string management",
   },
+  {
+    id: "shader",
+    label: "Shader Editor",
+    description: "GLSL snippet editor with live WebGL preview",
+  },
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [

@@ -18,6 +18,7 @@ import { SequenceEditor } from "./components/panels/SequenceEditor";
 import { AudioMixer } from "./components/panels/AudioMixer";
 import { Profiler } from "./components/panels/Profiler";
 import { LocalisationEditor } from "./components/panels/LocalisationEditor";
+import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { ExportModal } from "./components/modals/ExportModal";
@@ -70,6 +71,7 @@ const GATED_TABS: Record<string, TabData> = {
   profiler: makeTab("profiler", "Profiler", <Profiler />, true),
   git: makeTab("git", "Git", <GitPanel />, true),
   i18n: makeTab("i18n", "Localisation", <LocalisationEditor />, true),
+  shader: makeTab("shader", "Shader Editor", <ShaderEditor />, true),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -168,6 +170,9 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   i18n: () =>
     GATED_TABS["i18n"] ??
     makeTab("i18n", "Localisation", <LocalisationEditor />),
+  shader: () =>
+    GATED_TABS["shader"] ??
+    makeTab("shader", "Shader Editor", <ShaderEditor />),
 };
 
 export function App(): React.ReactElement {

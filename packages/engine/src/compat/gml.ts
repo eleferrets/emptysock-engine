@@ -224,6 +224,69 @@ export function ds_list_delete(id: number, pos: number): void {
 // Misc
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// draw_* wrappers — map GML draw calls to Canvas 2D operations
+// ---------------------------------------------------------------------------
+
+export function draw_set_colour(
+  ctx: CanvasRenderingContext2D,
+  hex: number,
+): void {
+  ctx.fillStyle = `#${hex.toString(16).padStart(6, "0")}`;
+  ctx.strokeStyle = ctx.fillStyle;
+}
+
+export function draw_rectangle(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  outline: boolean,
+): void {
+  if (outline) ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+  else ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+}
+
+export function draw_circle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  outline: boolean,
+): void {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (outline) ctx.stroke();
+  else ctx.fill();
+}
+
+export function draw_text(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  text: string,
+): void {
+  ctx.fillText(text, x, y);
+}
+
+export function draw_line(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+// ---------------------------------------------------------------------------
+// Misc
+// ---------------------------------------------------------------------------
+
 /** GML show_message — browser-safe: console.log instead of a blocking dialog */
 export function show_message(msg: string): void {
   console.log(msg);
