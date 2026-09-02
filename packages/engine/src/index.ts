@@ -60,6 +60,12 @@ export type { AnimationClip } from "./components/Animator.js";
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
 export type { DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+
+export { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from "./systems/VNScriptConvert.js";
+export type { StoryGraphNode, StoryGraphEdge, StoryGraph } from "./systems/VNScriptConvert.js";
+
+export { VNTextbox } from "./systems/VNTextbox.js";
+export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
 export { PathfindingSystem } from "./systems/PathfindingSystem.js";

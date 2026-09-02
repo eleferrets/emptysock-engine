@@ -1,4 +1,8 @@
 import React from "react";
+import {
+  storyGraphToDialogueTree,
+  dialogueTreeToStoryGraph,
+} from "@emptysock/engine";
 
 type NodeType = "dialogue" | "choice";
 
@@ -368,6 +372,47 @@ export function VNEditor(): React.ReactElement {
     URL.revokeObjectURL(url);
   };
 
+  const importVNScript = (): void => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,.vnscript";
+    input.onchange = (): void => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (): void => {
+        try {
+          const tree = JSON.parse(reader.result as string) as {
+            nodes?: unknown;
+            startNode?: string;
+          };
+          if (typeof tree.startNode !== "string" || typeof tree.nodes !== "object") return;
+          const graph = dialogueTreeToStoryGraph(
+            tree as Parameters<typeof dialogueTreeToStoryGraph>[0],
+          );
+          setNodes(graph.nodes as VNNode[]);
+          setEdges(graph.edges as VNEdge[]);
+        } catch {
+          /* invalid file */
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const exportVNScript = (): void => {
+    const startNodeId = nodes[0]?.id ?? "";
+    const tree = storyGraphToDialogueTree({ nodes: nodes as Parameters<typeof storyGraphToDialogueTree>[0]["nodes"], edges, startNodeId });
+    const blob = new Blob([JSON.stringify(tree, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "story.vnscript.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
 
   return (
@@ -484,6 +529,34 @@ export function VNEditor(): React.ReactElement {
           }}
         >
           Export
+        </button>
+        <button
+          onClick={importVNScript}
+          title="Import a .vnscript.json (DialogueTree) and convert to Story Graph"
+          style={{
+            padding: "3px 8px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: "pointer",
+          }}
+        >
+          Import .vnscript
+        </button>
+        <button
+          onClick={exportVNScript}
+          title="Export Story Graph as .vnscript.json for use with VNSystem"
+          style={{
+            padding: "3px 10px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: "pointer",
+          }}
+        >
+          Export .vnscript
         </button>
       </div>
 
