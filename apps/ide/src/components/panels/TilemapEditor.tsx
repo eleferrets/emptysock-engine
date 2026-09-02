@@ -1,5 +1,6 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { drawRulers, getRulerMetrics } from "../../lib/editorGrid";
 
 type Tool = "paint" | "erase" | "fill";
 
@@ -98,7 +99,6 @@ function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement 
 
 export function TilemapEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const [tileSize, setTileSize] = React.useState(32);
   const [activeTile, setActiveTile] = React.useState(0);
   const [tool, setTool] = React.useState<Tool>("paint");
   const [isPainting, setIsPainting] = React.useState(false);
@@ -110,15 +110,26 @@ export function TilemapEditor(): React.ReactElement {
   const setLayers = useIDEStore((s) => s.setTilemapLayers);
   const setActiveLayer = useIDEStore((s) => s.setTilemapActiveLayer);
 
+  const tileSize = useIDEStore((s) => s.editorGridSize);
+  const setTileSize = useIDEStore((s) => s.setEditorGridSize);
+  const showRuler = useIDEStore((s) => s.editorShowRuler);
+  const setShowRuler = useIDEStore((s) => s.setEditorShowRuler);
+
+  const { rulerSize } = getRulerMetrics();
+  const rulerOffset = showRuler ? rulerSize : 0;
+
   const getCell = (
     e: React.MouseEvent<HTMLCanvasElement>,
   ): { col: number; row: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { col: 0, row: 0 };
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
-    return { col: Math.floor(x / tileSize), row: Math.floor(y / tileSize) };
+    const x = (e.clientX - rect.left) / zoom - rulerOffset;
+    const y = (e.clientY - rect.top) / zoom - rulerOffset;
+    return {
+      col: Math.max(0, Math.floor(x / tileSize)),
+      row: Math.max(0, Math.floor(y / tileSize)),
+    };
   };
 
   const floodFill = (
@@ -172,19 +183,25 @@ export function TilemapEditor(): React.ReactElement {
     ctx.save();
     ctx.scale(zoom, zoom);
 
+    const ro = rulerOffset; // ruler offset in world (unscaled) px
+
     // Grid
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 0.5;
-    for (let c = 0; c <= canvas.width / tileSize; c++) {
+    const cols = Math.ceil((canvas.width / zoom - ro) / tileSize) + 1;
+    const rows = Math.ceil((canvas.height / zoom - ro) / tileSize) + 1;
+    for (let c = 0; c <= cols; c++) {
+      const x = ro + c * tileSize;
       ctx.beginPath();
-      ctx.moveTo(c * tileSize, 0);
-      ctx.lineTo(c * tileSize, canvas.height);
+      ctx.moveTo(x, ro);
+      ctx.lineTo(x, canvas.height / zoom);
       ctx.stroke();
     }
-    for (let r = 0; r <= canvas.height / tileSize; r++) {
+    for (let r = 0; r <= rows; r++) {
+      const y = ro + r * tileSize;
       ctx.beginPath();
-      ctx.moveTo(0, r * tileSize);
-      ctx.lineTo(canvas.width, r * tileSize);
+      ctx.moveTo(ro, y);
+      ctx.lineTo(canvas.width / zoom, y);
       ctx.stroke();
     }
 
@@ -197,15 +214,25 @@ export function TilemapEditor(): React.ReactElement {
         ctx.fillStyle =
           PALETTE_COLORS[tileIdx % PALETTE_COLORS.length] ?? "transparent";
         ctx.fillRect(
-          c * tileSize + 1,
-          r * tileSize + 1,
+          ro + c * tileSize + 1,
+          ro + r * tileSize + 1,
           tileSize - 2,
           tileSize - 2,
         );
       }
     }
     ctx.restore();
-  }, [layers, tileSize, zoom]);
+
+    // Rulers drawn last (on top), in canvas pixel space
+    drawRulers(ctx, canvas.width, canvas.height, {
+      gridSize: tileSize,
+      showGrid: true,
+      showRuler,
+      snapToGrid: true,
+      showGuides: false,
+      zoom,
+    });
+  }, [layers, tileSize, zoom, showRuler, rulerOffset]);
 
   const handleWheel = (e: React.WheelEvent): void => {
     e.preventDefault();
@@ -267,16 +294,37 @@ export function TilemapEditor(): React.ReactElement {
         </div>
         <div>
           <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
-            Tile Size: {tileSize}px
+            Grid Size (px)
+          </div>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <input
+              type="number"
+              min={4}
+              max={128}
+              value={tileSize}
+              onChange={(e) => setTileSize(Number(e.target.value))}
+              style={{ width: 56, padding: "3px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }}
+            />
+            <span style={{ opacity: 0.5 }}>px</span>
           </div>
           <input
             type="range"
-            min={8}
-            max={64}
+            min={4}
+            max={128}
             value={tileSize}
             onChange={(e) => setTileSize(Number(e.target.value))}
-            style={{ width: "100%" }}
+            style={{ width: "100%", marginTop: 4 }}
           />
+        </div>
+        <div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={showRuler}
+              onChange={(e) => setShowRuler(e.target.checked)}
+            />
+            <span>Show Ruler</span>
+          </label>
         </div>
         <button
           onClick={() => setShowAutoTileRules(true)}
@@ -404,8 +452,8 @@ export function TilemapEditor(): React.ReactElement {
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.floor((t0.clientX - rect.left) / zoom / tileSize);
-            const row = Math.floor((t0.clientY - rect.top) / zoom / tileSize);
+            const col = Math.max(0, Math.floor(((t0.clientX - rect.left) / zoom - rulerOffset) / tileSize));
+            const row = Math.max(0, Math.floor(((t0.clientY - rect.top) / zoom - rulerOffset) / tileSize));
             setIsPainting(true);
             applyTool(col, row);
           }}
@@ -416,8 +464,8 @@ export function TilemapEditor(): React.ReactElement {
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.floor((t0.clientX - rect.left) / zoom / tileSize);
-            const row = Math.floor((t0.clientY - rect.top) / zoom / tileSize);
+            const col = Math.max(0, Math.floor(((t0.clientX - rect.left) / zoom - rulerOffset) / tileSize));
+            const row = Math.max(0, Math.floor(((t0.clientY - rect.top) / zoom - rulerOffset) / tileSize));
             applyTool(col, row);
           }}
         />

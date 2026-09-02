@@ -1113,6 +1113,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         dbClasses: s.dbClasses,
         dbItems: s.dbItems,
         dbEnemies: s.dbEnemies,
+        editorGridSize: s.editorGridSize,
+        editorShowGrid: s.editorShowGrid,
+        editorShowRuler: s.editorShowRuler,
+        editorSnapToGrid: s.editorSnapToGrid,
+        editorShowGuides: s.editorShowGuides,
       },
       null,
       2,
@@ -1240,6 +1245,21 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           if (Array.isArray(proj["dbClasses"])) updates.dbClasses = proj["dbClasses"];
           if (Array.isArray(proj["dbItems"])) updates.dbItems = proj["dbItems"];
           if (Array.isArray(proj["dbEnemies"])) updates.dbEnemies = proj["dbEnemies"];
+          if (typeof proj["editorGridSize"] === "number") {
+            updates.editorGridSize = proj["editorGridSize"];
+          }
+          if (typeof proj["editorShowGrid"] === "boolean") {
+            updates.editorShowGrid = proj["editorShowGrid"];
+          }
+          if (typeof proj["editorShowRuler"] === "boolean") {
+            updates.editorShowRuler = proj["editorShowRuler"];
+          }
+          if (typeof proj["editorSnapToGrid"] === "boolean") {
+            updates.editorSnapToGrid = proj["editorSnapToGrid"];
+          }
+          if (typeof proj["editorShowGuides"] === "boolean") {
+            updates.editorShowGuides = proj["editorShowGuides"];
+          }
           set(updates);
         } catch {
           get().addLog(

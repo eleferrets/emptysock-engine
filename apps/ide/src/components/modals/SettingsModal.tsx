@@ -226,7 +226,20 @@ function SelectRow({
 // ---------------------------------------------------------------------------
 
 export function SettingsModal({ open, onClose }: Props): React.ReactElement {
-  const { clearBuildCache, setTheme } = useIDEStore();
+  const {
+    clearBuildCache,
+    setTheme,
+    editorGridSize,
+    editorShowGrid,
+    editorShowRuler,
+    editorSnapToGrid,
+    editorShowGuides,
+    setEditorGridSize,
+    setEditorShowGrid,
+    setEditorShowRuler,
+    setEditorSnapToGrid,
+    setEditorShowGuides,
+  } = useIDEStore();
   const [settings, setSettings] = React.useState<IDESettings>(() =>
     loadSettings(),
   );
@@ -612,6 +625,71 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
                   )}
               </div>
             )}
+
+            {/* Grid & Rulers */}
+            <div style={{ marginTop: 20 }}>
+              <SectionHeader label="Grid & Rulers" />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <label
+                style={{
+                  fontSize: 12,
+                  color: "var(--es-text)",
+                  width: 160,
+                  flexShrink: 0,
+                }}
+              >
+                Grid size (px)
+              </label>
+              <input
+                type="number"
+                min={4}
+                max={256}
+                step={4}
+                value={editorGridSize}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (v >= 4 && v <= 256) setEditorGridSize(v);
+                }}
+                style={{
+                  flex: 1,
+                  background: "var(--es-bg)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  colorScheme: "dark light",
+                }}
+              />
+            </div>
+            <ToggleRow
+              label="Show grid"
+              value={editorShowGrid}
+              onChange={setEditorShowGrid}
+            />
+            <ToggleRow
+              label="Show rulers"
+              value={editorShowRuler}
+              onChange={setEditorShowRuler}
+            />
+            <ToggleRow
+              label="Snap to grid"
+              value={editorSnapToGrid}
+              onChange={setEditorSnapToGrid}
+            />
+            <ToggleRow
+              label="Show alignment guides"
+              value={editorShowGuides}
+              onChange={setEditorShowGuides}
+            />
 
             {/* Cache */}
             <div style={{ marginTop: 20 }}>
