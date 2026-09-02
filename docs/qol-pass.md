@@ -74,8 +74,8 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ Built-in component animations (hover, fade-in, slide-in)
   Declarative animation options on Button/Label/Panel without requiring coroutines.
 
-- ⬜ **[P1]** Scene editor drag-and-drop UI placement
-  Drag component from palette onto preview; IDE generates UISystem.create() call. Requires UISystem render layer first.
+- ✅ Scene editor drag-and-drop UI placement
+  UIPlacementPanel: 9-point anchor picker + X/Y offset, component palette (panel, button, text, progress-bar, slider, toggle). Insert button appends UISystem.create() snippet to the active code file; copy button copies to clipboard.
 
 - ⬜ **[P2]** Alignment guides in scene editor
   Toggleable snap lines (centre, edge, margin) with distance labels while dragging.

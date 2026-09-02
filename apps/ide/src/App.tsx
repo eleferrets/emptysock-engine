@@ -20,6 +20,7 @@ import { Profiler } from "./components/panels/Profiler";
 import { LocalisationEditor } from "./components/panels/LocalisationEditor";
 import { VariablesPanel } from "./components/panels/VariablesPanel";
 import { VNPreviewPanel } from "./components/panels/VNPreviewPanel";
+import { UIPlacementPanel } from "./components/panels/UIPlacementPanel";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { SettingsModal } from "./components/modals/SettingsModal";
@@ -76,6 +77,7 @@ const GATED_TABS: Record<string, TabData> = {
   shader: makeTab("shader", "Shader Editor", <ShaderEditor />, true),
   variables: makeTab("variables", "Variables", <VariablesPanel />, true),
   "vn-preview": makeTab("vn-preview", "VN Preview", <VNPreviewPanel />, true),
+  "ui-placement": makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -88,7 +90,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
   const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence"];
-  const bottomGated = ["profiler", "git", "i18n", "audio", "variables"];
+  const bottomGated = ["profiler", "git", "i18n", "audio", "variables", "ui-placement"];
   return {
     dockbox: {
       mode: "horizontal",
@@ -183,6 +185,9 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   "vn-preview": () =>
     GATED_TABS["vn-preview"] ??
     makeTab("vn-preview", "VN Preview", <VNPreviewPanel />),
+  "ui-placement": () =>
+    GATED_TABS["ui-placement"] ??
+    makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
 };
 
 export function App(): React.ReactElement {
