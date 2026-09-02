@@ -138,7 +138,8 @@ export function DownloadEngineModal({
   if (!open) return null;
 
   const platformDef =
-    PLATFORMS.find((p) => p.id === activePlatform) ?? PLATFORMS[0];
+    PLATFORMS.find((p) => p.id === activePlatform) ??
+    (PLATFORMS[0] as PlatformConfig);
 
   const chip = (text: string, highlight = false): React.ReactElement => (
     <span

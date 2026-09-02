@@ -477,7 +477,6 @@ export function VisualScriptEditor(): React.ReactElement {
         <button
           onClick={() => {
             setVsScale(1);
-            setVsPan({ x: 0, y: 0 });
           }}
           style={{ ...btnStyleGhost, marginLeft: "auto" }}
         >

@@ -179,6 +179,18 @@ interface IDEState {
   addRecentFile: (path: string, name: string) => void;
   clearRecentFiles: () => void;
 
+  // Entity actions
+  addEntity: (name: string, parentId?: string) => void;
+  deleteEntity: (id: string) => void;
+  renameEntity: (id: string, name: string) => void;
+  toggleEntityActive: (id: string) => void;
+  addComponentToEntity: (entityId: string, componentType: string) => void;
+  removeComponentFromEntity: (entityId: string, componentType: string) => void;
+
+  // Asset actions
+  addAsset: (asset: AssetItem) => void;
+  deleteAsset: (id: string) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -423,37 +435,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     {
       id: "log-0",
       level: "info",
-      message: "EmptySock Engine v0.1.0 initialized",
-      timestamp: Date.now() - 5000,
-      source: "Engine",
-    },
-    {
-      id: "log-1",
-      level: "info",
-      message: "WebGPU renderer detected — using ultra quality preset",
-      timestamp: Date.now() - 4800,
-      source: "RenderSystem",
-    },
-    {
-      id: "log-2",
-      level: "debug",
-      message: "GPU tier: high (Apple M2)",
-      timestamp: Date.now() - 4700,
-      source: "GPUTier",
-    },
-    {
-      id: "log-3",
-      level: "warn",
-      message: "AudioSystem: no AudioContext — user gesture required",
-      timestamp: Date.now() - 4200,
-      source: "AudioSystem",
-    },
-    {
-      id: "log-4",
-      level: "info",
-      message: 'Scene "GameScene" loaded — 4 entities',
-      timestamp: Date.now() - 3000,
-      source: "Scene",
+      message: "EmptySock Engine ready. Press Run to start your game.",
+      timestamp: Date.now(),
+      source: "IDE",
     },
   ],
 
@@ -513,19 +497,29 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       return;
     }
     const { entities } = get();
-    const entity =
-      entities.find((e) => e.id === id) ??
-      entities.flatMap((e) => e.children).find((e) => e.id === id);
+    function findEntity(list: EntityItem[]): EntityItem | undefined {
+      for (const e of list) {
+        if (e.id === id) return e;
+        const found = findEntity(e.children);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    }
+    const entity = findEntity(entities);
     if (entity === undefined) return;
+    // Preserve existing transform if this entity is already selected (avoid clobbering edits)
+    const existing = get().selectedEntity;
+    const existingTransform =
+      existing?.id === id ? existing.transform : undefined;
     set({
       selectedEntityId: id,
       selectedEntity: {
         id: entity.id,
         name: entity.name,
         type: entity.type,
-        transform: {
-          x: "640",
-          y: "360",
+        transform: existingTransform ?? {
+          x: "0",
+          y: "0",
           rotation: "0",
           scaleX: "1",
           scaleY: "1",
@@ -670,6 +664,153 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       logs: [],
     });
     get().addLog("info", "New project created", "IDE");
+  },
+
+  addEntity: (name, parentId) => {
+    const newEntity: EntityItem = {
+      id: `ent-${Date.now()}`,
+      name,
+      type: "Entity",
+      active: true,
+      components: ["Transform"],
+      children: [],
+    };
+    set((s) => {
+      if (parentId === undefined) {
+        return { entities: [...s.entities, newEntity] };
+      }
+      function insertChild(list: EntityItem[]): EntityItem[] {
+        return list.map((e) => {
+          if (e.id === parentId) {
+            return { ...e, children: [...e.children, newEntity] };
+          }
+          return { ...e, children: insertChild(e.children) };
+        });
+      }
+      return { entities: insertChild(s.entities) };
+    });
+    get().addLog("info", `Entity "${name}" created`, "IDE");
+  },
+
+  deleteEntity: (id) => {
+    set((s) => {
+      function removeEntity(list: EntityItem[]): EntityItem[] {
+        return list
+          .filter((e) => e.id !== id)
+          .map((e) => ({ ...e, children: removeEntity(e.children) }));
+      }
+      const next = removeEntity(s.entities);
+      return {
+        entities: next,
+        selectedEntityId: s.selectedEntityId === id ? null : s.selectedEntityId,
+        selectedEntity: s.selectedEntity?.id === id ? null : s.selectedEntity,
+      };
+    });
+    get().addLog("info", `Entity deleted`, "IDE");
+  },
+
+  renameEntity: (id, name) => {
+    set((s) => {
+      function rename(list: EntityItem[]): EntityItem[] {
+        return list.map((e) => {
+          if (e.id === id) return { ...e, name };
+          return { ...e, children: rename(e.children) };
+        });
+      }
+      return {
+        entities: rename(s.entities),
+        selectedEntity:
+          s.selectedEntity?.id === id
+            ? { ...s.selectedEntity, name }
+            : s.selectedEntity,
+      };
+    });
+  },
+
+  toggleEntityActive: (id) => {
+    set((s) => {
+      function toggle(list: EntityItem[]): EntityItem[] {
+        return list.map((e) => {
+          if (e.id === id) return { ...e, active: !e.active };
+          return { ...e, children: toggle(e.children) };
+        });
+      }
+      return { entities: toggle(s.entities) };
+    });
+  },
+
+  addComponentToEntity: (entityId, componentType) => {
+    set((s) => {
+      function addComp(list: EntityItem[]): EntityItem[] {
+        return list.map((e) => {
+          if (e.id === entityId && !e.components.includes(componentType)) {
+            return { ...e, components: [...e.components, componentType] };
+          }
+          return { ...e, children: addComp(e.children) };
+        });
+      }
+      const newEntities = addComp(s.entities);
+      const newComponent = {
+        type: componentType,
+        enabled: true,
+        properties: getDefaultProperties(componentType),
+      };
+      return {
+        entities: newEntities,
+        selectedEntity:
+          s.selectedEntity?.id === entityId
+            ? {
+                ...s.selectedEntity,
+                components: [
+                  ...s.selectedEntity.components.filter(
+                    (c) => c.type !== componentType,
+                  ),
+                  newComponent,
+                ],
+              }
+            : s.selectedEntity,
+      };
+    });
+  },
+
+  removeComponentFromEntity: (entityId, componentType) => {
+    set((s) => {
+      function removeComp(list: EntityItem[]): EntityItem[] {
+        return list.map((e) => {
+          if (e.id === entityId) {
+            return {
+              ...e,
+              components: e.components.filter((c) => c !== componentType),
+            };
+          }
+          return { ...e, children: removeComp(e.children) };
+        });
+      }
+      return {
+        entities: removeComp(s.entities),
+        selectedEntity:
+          s.selectedEntity?.id === entityId
+            ? {
+                ...s.selectedEntity,
+                components: s.selectedEntity.components.filter(
+                  (c) => c.type !== componentType,
+                ),
+              }
+            : s.selectedEntity,
+      };
+    });
+  },
+
+  addAsset: (asset) => {
+    set((s) => ({
+      assets: [...s.assets.filter((a) => a.id !== asset.id), asset],
+    }));
+    get().addLog("info", `Asset "${asset.name}" imported`, "IDE");
+  },
+
+  deleteAsset: (id) => {
+    set((s) => ({ assets: s.assets.filter((a) => a.id !== id) }));
+    get().addLog("info", "Asset deleted", "IDE");
   },
 
   loadProjectFiles: (files, name) => {
