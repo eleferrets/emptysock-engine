@@ -250,6 +250,12 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
     setSettingsOpen,
     theme,
     setTheme,
+    editorShowGrid,
+    editorSnapToGrid,
+    editorShowRuler,
+    setEditorShowGrid,
+    setEditorSnapToGrid,
+    setEditorShowRuler,
   } = useIDEStore();
 
   const handlePlay = (): void => {
@@ -393,6 +399,81 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
           >
             <Bug size={10} />
             {buildMode === "debug" ? "DEBUG" : "RELEASE"}
+          </button>
+        </div>
+
+        {/* Separator */}
+        <div
+          className="w-px h-5 mx-1"
+          style={{ background: "var(--es-border)" }}
+        />
+
+        {/* Grid / Snap / Ruler quick toggles */}
+        <div
+          className="flex items-center rounded overflow-hidden border"
+          style={{ borderColor: "var(--es-border)" }}
+        >
+          <button
+            type="button"
+            title={editorShowGrid ? "Grid visible (click to hide)" : "Grid hidden (click to show)"}
+            onClick={() => setEditorShowGrid(!editorShowGrid)}
+            style={{
+              height: "100%",
+              padding: "0 8px",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.05em",
+              border: "none",
+              borderRadius: 0,
+              cursor: "pointer",
+              background: editorShowGrid ? "rgba(124,106,247,0.12)" : "transparent",
+              color: editorShowGrid ? "var(--es-accent)" : "var(--es-text-muted)",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            Grid
+          </button>
+          <div className="w-px h-5" style={{ background: "var(--es-border)" }} />
+          <button
+            type="button"
+            title={editorSnapToGrid ? "Snap to grid on (click to disable)" : "Snap to grid off (click to enable)"}
+            onClick={() => setEditorSnapToGrid(!editorSnapToGrid)}
+            style={{
+              height: "100%",
+              padding: "0 8px",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.05em",
+              border: "none",
+              borderRadius: 0,
+              cursor: "pointer",
+              background: editorSnapToGrid ? "rgba(124,106,247,0.12)" : "transparent",
+              color: editorSnapToGrid ? "var(--es-accent)" : "var(--es-text-muted)",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            Snap
+          </button>
+          <div className="w-px h-5" style={{ background: "var(--es-border)" }} />
+          <button
+            type="button"
+            title={editorShowRuler ? "Rulers visible (click to hide)" : "Rulers hidden (click to show)"}
+            onClick={() => setEditorShowRuler(!editorShowRuler)}
+            style={{
+              height: "100%",
+              padding: "0 8px",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.05em",
+              border: "none",
+              borderRadius: 0,
+              cursor: "pointer",
+              background: editorShowRuler ? "rgba(124,106,247,0.12)" : "transparent",
+              color: editorShowRuler ? "var(--es-accent)" : "var(--es-text-muted)",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            Ruler
           </button>
         </div>
 
