@@ -9,6 +9,7 @@ export function CanvasPreview(): React.ReactElement {
   const demoRef = useRef<BouncingBallsDemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const runnerContainerRef = useRef<HTMLDivElement>(null);
+  const hotReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     fps,
     setFps,
@@ -61,6 +62,24 @@ export function CanvasPreview(): React.ReactElement {
       demoRef.current = null;
     };
   }, [initDemo]);
+
+  // Auto hot reload when editorCode changes while playing (debounced 300ms)
+  useEffect(() => {
+    if (playState !== "playing" || buildMode !== "debug") return;
+    if (hotReloadTimerRef.current !== null) {
+      clearTimeout(hotReloadTimerRef.current);
+    }
+    hotReloadTimerRef.current = setTimeout(() => {
+      hotReloadTimerRef.current = null;
+      playRunner.hotReload(editorCode);
+    }, 300);
+    return () => {
+      if (hotReloadTimerRef.current !== null) {
+        clearTimeout(hotReloadTimerRef.current);
+        hotReloadTimerRef.current = null;
+      }
+    };
+  }, [editorCode, playState, buildMode]);
 
   const rendererType = "WebGL2";
 

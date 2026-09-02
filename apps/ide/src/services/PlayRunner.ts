@@ -1,4 +1,4 @@
-import { gameBuildService } from "./GameBuildService.js";
+import { gameBuildService, GameBuildService } from "./GameBuildService.js";
 import { ENGINE_BUNDLE } from "../runtime/engineBundle.generated.js";
 
 export interface RunnerMessage {
@@ -92,14 +92,21 @@ function buildIframeHtml(engineBundle: string, userBundle: string): string {
     if (!e.data || typeof e.data.type !== 'string') return;
     if (e.data.type === 'es-hot-reload' && typeof e.data.code === 'string') {
       try {
-        // eslint-disable-next-line no-new-func
+        if (typeof window.__es_before_reload__ === 'function') window.__es_before_reload__();
         (new Function(e.data.code))();
+        if (typeof window.__es_after_reload__ === 'function') window.__es_after_reload__();
         window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
       } catch(err) {
         var errMsg = String(err);
         showErrorModal('Hot reload failed: ' + errMsg);
         window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
       }
+    } else if (e.data.type === 'es-hot-reload-sprite' && typeof e.data.name === 'string' && typeof e.data.dataUrl === 'string') {
+      if (typeof window.__es_hmr_sprite__ === 'function') window.__es_hmr_sprite__(e.data.name, e.data.dataUrl);
+    } else if (e.data.type === 'es-hot-reload-shader' && typeof e.data.name === 'string' && typeof e.data.vert === 'string' && typeof e.data.frag === 'string') {
+      if (typeof window.__es_hmr_shader__ === 'function') window.__es_hmr_shader__(e.data.name, e.data.vert, e.data.frag);
+    } else if (e.data.type === 'es-hot-reload-room' && typeof e.data.name === 'string' && typeof e.data.roomJson === 'string') {
+      if (typeof window.__es_hmr_room__ === 'function') window.__es_hmr_room__(e.data.name, e.data.roomJson);
     } else if (e.data.type === 'set-fps-cap' && typeof e.data.cap === 'number') {
       _rafCap = Math.max(0, e.data.cap);
       _rafLastFrame = 0;
@@ -142,6 +149,7 @@ export class PlayRunner {
   private readonly _handlers: Set<MessageHandler> = new Set();
   private _msgListener: ((e: MessageEvent) => void) | null = null;
   private _container: HTMLElement | null = null;
+  private readonly _buildService: GameBuildService = new GameBuildService(0);
 
   onMessage(handler: MessageHandler): () => void {
     this._handlers.add(handler);
@@ -196,6 +204,35 @@ export class PlayRunner {
   hotReload(code: string): void {
     this._iframe?.contentWindow?.postMessage(
       { type: "es-hot-reload", code },
+      "*",
+    );
+  }
+
+  hotReloadSprite(name: string, dataUrl: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-sprite", name, dataUrl },
+      "*",
+    );
+  }
+
+  hotReloadShader(name: string, vert: string, frag: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-shader", name, vert, frag },
+      "*",
+    );
+  }
+
+  hotReloadRoom(name: string, roomJson: string): void {
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload-room", name, roomJson },
+      "*",
+    );
+  }
+
+  async hotReloadFast(code: string): Promise<void> {
+    const transformed = await this._buildService.transformOnly(code, "game.ts");
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload", code: transformed },
       "*",
     );
   }
