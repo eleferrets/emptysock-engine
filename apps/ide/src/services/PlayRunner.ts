@@ -1,9 +1,9 @@
-import { gameBuildService } from './GameBuildService.js';
-import { ENGINE_BUNDLE } from '../runtime/engineBundle.generated.js';
+import { gameBuildService } from "./GameBuildService.js";
+import { ENGINE_BUNDLE } from "../runtime/engineBundle.generated.js";
 
 export interface RunnerMessage {
-  type: 'log' | 'fps' | 'error' | 'ready';
-  level?: 'info' | 'warn' | 'error' | 'debug';
+  type: "log" | "fps" | "error" | "ready";
+  level?: "info" | "warn" | "error" | "debug";
   message?: string;
   fps?: number;
   source?: string;
@@ -70,17 +70,39 @@ function buildIframeHtml(engineBundle: string, userBundle: string): string {
     window.parent.postMessage({ type: 'error', level: 'error', message: 'Unhandled rejection: ' + msg, source: 'Runtime' }, '*');
   });
 
-  // Hot reload listener
+  // RAF throttle — patched before engine bundle loads so the engine inherits the cap
+  var _rafCap = 0;
+  var _rafLastFrame = 0;
+  var _origRaf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function(cb) {
+    if (_rafCap <= 0) return _origRaf(cb);
+    var minInterval = 1000 / _rafCap;
+    return _origRaf(function(ts) {
+      if (ts - _rafLastFrame >= minInterval) {
+        _rafLastFrame = ts;
+        cb(ts);
+      } else {
+        window.requestAnimationFrame(cb);
+      }
+    });
+  };
+
+  // Message listener: hot reload + fps cap
   window.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'es-hot-reload' || typeof e.data.code !== 'string') return;
-    try {
-      // eslint-disable-next-line no-new-func
-      (new Function(e.data.code))();
-      window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
-    } catch(err) {
-      var errMsg = String(err);
-      showErrorModal('Hot reload failed: ' + errMsg);
-      window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
+    if (!e.data || typeof e.data.type !== 'string') return;
+    if (e.data.type === 'es-hot-reload' && typeof e.data.code === 'string') {
+      try {
+        // eslint-disable-next-line no-new-func
+        (new Function(e.data.code))();
+        window.parent.postMessage({ type: 'log', level: 'info', message: 'Hot reload applied', source: 'HotReload' }, '*');
+      } catch(err) {
+        var errMsg = String(err);
+        showErrorModal('Hot reload failed: ' + errMsg);
+        window.parent.postMessage({ type: 'error', level: 'error', message: 'Hot reload failed: ' + errMsg, source: 'HotReload' }, '*');
+      }
+    } else if (e.data.type === 'set-fps-cap' && typeof e.data.cap === 'number') {
+      _rafCap = Math.max(0, e.data.cap);
+      _rafLastFrame = 0;
     }
   });
 
@@ -130,44 +152,65 @@ export class PlayRunner {
     for (const h of this._handlers) h(msg);
   }
 
-  async start(code: string, mode: 'debug' | 'release', container: HTMLElement): Promise<void> {
+  async start(
+    code: string,
+    mode: "debug" | "release",
+    container: HTMLElement,
+  ): Promise<void> {
     this.stop();
     this._container = container;
 
     const result = await gameBuildService.buildNow({ code, mode });
     if (!result.success) {
       for (const err of result.errors) {
-        this._emit({ type: 'error', level: 'error', message: err, source: 'BuildService' });
+        this._emit({
+          type: "error",
+          level: "error",
+          message: err,
+          source: "BuildService",
+        });
       }
       return;
     }
 
     const html = buildIframeHtml(ENGINE_BUNDLE, result.js);
-    const blob = new Blob([html], { type: 'text/html' });
+    const blob = new Blob([html], { type: "text/html" });
     this._blobUrl = URL.createObjectURL(blob);
 
-    const iframe = document.createElement('iframe');
+    const iframe = document.createElement("iframe");
     iframe.src = this._blobUrl;
-    iframe.sandbox.add('allow-scripts');
-    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;';
+    iframe.sandbox.add("allow-scripts");
+    iframe.style.cssText =
+      "position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;";
     container.appendChild(iframe);
     this._iframe = iframe;
 
     this._msgListener = (e: MessageEvent) => {
       const data = e.data as RunnerMessage | undefined;
-      if (data === undefined || typeof data.type !== 'string') return;
+      if (data === undefined || typeof data.type !== "string") return;
       this._emit(data);
     };
-    window.addEventListener('message', this._msgListener);
+    window.addEventListener("message", this._msgListener);
   }
 
   hotReload(code: string): void {
-    this._iframe?.contentWindow?.postMessage({ type: 'es-hot-reload', code }, '*');
+    this._iframe?.contentWindow?.postMessage(
+      { type: "es-hot-reload", code },
+      "*",
+    );
+  }
+
+  /**
+   * Tell the iframe to cap its requestAnimationFrame loop to `cap` fps.
+   * Pass 0 to remove the cap (uncapped / native RAF rate).
+   */
+  postFpsCap(cap: number): void {
+    this._iframe?.contentWindow?.postMessage({ type: "set-fps-cap", cap }, "*");
   }
 
   stop(): void {
     if (this._msgListener !== null) {
-      window.removeEventListener('message', this._msgListener);
+      window.removeEventListener("message", this._msgListener);
       this._msgListener = null;
     }
     if (this._iframe !== null) {
@@ -180,7 +223,9 @@ export class PlayRunner {
     }
   }
 
-  get isRunning(): boolean { return this._iframe !== null; }
+  get isRunning(): boolean {
+    return this._iframe !== null;
+  }
 }
 
 export const playRunner = new PlayRunner();

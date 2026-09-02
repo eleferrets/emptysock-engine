@@ -29,6 +29,7 @@ import { useIDEStore } from "./store/ideStore";
 import { ProjectSettingsModal } from "./components/modals/ProjectSettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useBreakpoint } from "./hooks/useBreakpoint";
+import { useIdleCpuCap } from "./hooks/useIdleCpuCap";
 import { MobileLayout } from "./components/MobileLayout";
 
 function useApplyTheme(): void {
@@ -216,6 +217,7 @@ export function App(): React.ReactElement {
   }, []);
 
   useApplyTheme();
+  useIdleCpuCap();
 
   // Auto-open a module's panel when the module is enabled
   const enabledModules = useIDEStore((s) => s.enabledModules);

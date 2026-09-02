@@ -1,4 +1,5 @@
 import React from "react";
+import { audioMixerService } from "../../services/AudioMixerService";
 
 interface Bus {
   id: string;
@@ -56,8 +57,22 @@ export function AudioMixer(): React.ReactElement {
   const [buses, setBuses] = React.useState<Bus[]>(INITIAL_BUSES);
 
   const update = (id: string, patch: Partial<Bus>): void => {
-    setBuses((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-    // In a real integration: AudioSystem.setBusVolume(id, volume / 100)
+    setBuses((prev) => {
+      const next = prev.map((b) => (b.id === id ? { ...b, ...patch } : b));
+      const updated = next.find((b) => b.id === id);
+      if (updated !== undefined) {
+        if (patch.volume !== undefined) {
+          audioMixerService.setVolume(id, updated.volume / 100);
+        }
+        if (patch.muted !== undefined) {
+          audioMixerService.setMute(id, updated.muted);
+        }
+        if (patch.solo !== undefined) {
+          audioMixerService.setSolo(id, updated.solo);
+        }
+      }
+      return next;
+    });
   };
 
   const hasSolo = buses.some((b) => b.solo);
