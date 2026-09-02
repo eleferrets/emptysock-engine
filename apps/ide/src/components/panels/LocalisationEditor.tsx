@@ -1,37 +1,18 @@
 import React from "react";
+import {
+  useIDEStore,
+  type LocalisationTranslations,
+} from "../../store/ideStore";
 
 type Locale = string;
 type Key = string;
-type Translations = Record<Key, Record<Locale, string>>;
-
-const INITIAL_LOCALES: Locale[] = ["en", "fr", "de", "ja"];
-const INITIAL_TRANSLATIONS: Translations = {
-  "ui.start_game": {
-    en: "Start Game",
-    fr: "Démarrer",
-    de: "Spiel Starten",
-    ja: "ゲーム開始",
-  },
-  "ui.settings": {
-    en: "Settings",
-    fr: "Paramètres",
-    de: "Einstellungen",
-    ja: "設定",
-  },
-  "ui.quit": { en: "Quit", fr: "Quitter", de: "Beenden", ja: "終了" },
-  "dialog.hero.greeting": {
-    en: "Hello, traveller!",
-    fr: "Bonjour, voyageur!",
-    de: "Hallo, Reisender!",
-    ja: "こんにちは、旅人！",
-  },
-  "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
-};
+type Translations = LocalisationTranslations;
 
 export function LocalisationEditor(): React.ReactElement {
-  const [locales, setLocales] = React.useState<Locale[]>(INITIAL_LOCALES);
-  const [translations, setTranslations] =
-    React.useState<Translations>(INITIAL_TRANSLATIONS);
+  const locales = useIDEStore((s) => s.localisationLocales);
+  const translations = useIDEStore((s) => s.localisationTranslations);
+  const setLocales = useIDEStore((s) => s.setLocalisationLocales);
+  const setTranslations = useIDEStore((s) => s.setLocalisationTranslations);
   const [editing, setEditing] = React.useState<{
     key: Key;
     locale: Locale;
@@ -59,23 +40,26 @@ export function LocalisationEditor(): React.ReactElement {
 
   const commitEdit = (): void => {
     if (!editing) return;
-    setTranslations((prev) => ({
-      ...prev,
-      [editing.key]: { ...prev[editing.key], [editing.locale]: editValue },
-    }));
+    setTranslations({
+      ...translations,
+      [editing.key]: {
+        ...translations[editing.key],
+        [editing.locale]: editValue,
+      },
+    });
     setEditing(null);
   };
 
   const addKey = (): void => {
     const k = newKey.trim();
     if (!k || translations[k]) return;
-    setTranslations((prev) => ({ ...prev, [k]: {} }));
+    setTranslations({ ...translations, [k]: {} });
     setNewKey("");
   };
 
   const addLocale = (): void => {
     const code = prompt("Locale code (e.g. es):")?.trim();
-    if (code && !locales.includes(code)) setLocales((prev) => [...prev, code]);
+    if (code && !locales.includes(code)) setLocales([...locales, code]);
   };
 
   const exportCSV = (): void => {
@@ -123,7 +107,7 @@ export function LocalisationEditor(): React.ReactElement {
       }
       setTranslations(imported);
       const newLocs = importedLocales.filter((l) => !locales.includes(l));
-      if (newLocs.length) setLocales((prev) => [...prev, ...newLocs]);
+      if (newLocs.length) setLocales([...locales, ...newLocs]);
     };
     reader.readAsText(file);
     e.target.value = "";

@@ -47,6 +47,38 @@ export type PlayState = "stopped" | "playing" | "paused";
 export type ActiveTab = "code" | "canvas" | "scene";
 export type BottomTab = "console" | "assets";
 
+// ── Tilemap editor ───────────────────────────────────────────────────────────
+export interface TileLayer {
+  id: string;
+  name: string;
+  data: Record<string, number>; // "col,row" -> tileIndex
+}
+
+// ── Sequence editor ──────────────────────────────────────────────────────────
+export type SequenceTrackType =
+  | "Position X"
+  | "Position Y"
+  | "Rotation"
+  | "Scale"
+  | "Opacity"
+  | "Custom";
+
+export interface SequenceKeyframe {
+  id: string;
+  time: number;
+  value: number;
+}
+
+export interface SequenceTrack {
+  id: string;
+  name: string;
+  type: SequenceTrackType;
+  keyframes: SequenceKeyframe[];
+}
+
+// ── Localisation editor ──────────────────────────────────────────────────────
+export type LocalisationTranslations = Record<string, Record<string, string>>;
+
 interface TransformValues {
   x: string;
   y: string;
@@ -190,6 +222,24 @@ interface IDEState {
   // Asset actions
   addAsset: (asset: AssetItem) => void;
   deleteAsset: (id: string) => void;
+
+  // TilemapEditor persistent state
+  tilemapLayers: TileLayer[];
+  tilemapActiveLayer: string;
+  setTilemapLayers: (layers: TileLayer[]) => void;
+  setTilemapActiveLayer: (id: string) => void;
+
+  // SequenceEditor persistent state
+  sequenceTracks: SequenceTrack[];
+  sequenceDuration: number;
+  setSequenceTracks: (tracks: SequenceTrack[]) => void;
+  setSequenceDuration: (duration: number) => void;
+
+  // LocalisationEditor persistent state
+  localisationTranslations: LocalisationTranslations;
+  localisationLocales: string[];
+  setLocalisationTranslations: (t: LocalisationTranslations) => void;
+  setLocalisationLocales: (locales: string[]) => void;
 
   // Project lifecycle
   resetProject: () => void;
@@ -370,6 +420,80 @@ const INITIAL_ASSETS: AssetItem[] = [
   },
 ];
 
+// ── Tilemap initial data ─────────────────────────────────────────────────────
+const INITIAL_TILEMAP_LAYERS: TileLayer[] = [
+  { id: "layer-0", name: "Ground", data: {} },
+  { id: "layer-1", name: "Objects", data: {} },
+];
+
+// ── Sequence initial data ────────────────────────────────────────────────────
+let _seqIdCounter = 0;
+function _seqUid(): string {
+  return `id-${_seqIdCounter++}`;
+}
+function _makeTrack(
+  type: SequenceTrackType,
+  kfs: Array<{ t: number; v: number }> = [],
+): SequenceTrack {
+  return {
+    id: _seqUid(),
+    name: type,
+    type,
+    keyframes: kfs.map(({ t, v }) => ({ id: _seqUid(), time: t, value: v })),
+  };
+}
+
+const INITIAL_SEQUENCE_TRACKS: SequenceTrack[] = [
+  _makeTrack("Position X", [
+    { t: 0, v: 0 },
+    { t: 1.5, v: 120 },
+    { t: 3, v: 0 },
+  ]),
+  _makeTrack("Position Y", [
+    { t: 0, v: 0 },
+    { t: 1, v: -60 },
+    { t: 2, v: 0 },
+  ]),
+  _makeTrack("Rotation", [
+    { t: 0.5, v: 0 },
+    { t: 2, v: 360 },
+  ]),
+  _makeTrack("Scale", [
+    { t: 0, v: 1 },
+    { t: 1, v: 1.5 },
+  ]),
+  _makeTrack("Opacity", [
+    { t: 0, v: 0 },
+    { t: 0.5, v: 1 },
+    { t: 4, v: 1 },
+  ]),
+];
+
+// ── Localisation initial data ────────────────────────────────────────────────
+const INITIAL_LOCALISATION_LOCALES: string[] = ["en", "fr", "de", "ja"];
+const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
+  "ui.start_game": {
+    en: "Start Game",
+    fr: "Démarrer",
+    de: "Spiel Starten",
+    ja: "ゲーム開始",
+  },
+  "ui.settings": {
+    en: "Settings",
+    fr: "Paramètres",
+    de: "Einstellungen",
+    ja: "設定",
+  },
+  "ui.quit": { en: "Quit", fr: "Quitter", de: "Beenden", ja: "終了" },
+  "dialog.hero.greeting": {
+    en: "Hello, traveller!",
+    fr: "Bonjour, voyageur!",
+    de: "Hallo, Reisender!",
+    ja: "こんにちは、旅人！",
+  },
+  "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
+};
+
 let logCounter = 0;
 
 export const useIDEStore = create<IDEState>((set, get) => ({
@@ -460,6 +584,18 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Theme
   theme: "dark",
+
+  // TilemapEditor persistent state
+  tilemapLayers: INITIAL_TILEMAP_LAYERS,
+  tilemapActiveLayer: "layer-0",
+
+  // SequenceEditor persistent state
+  sequenceTracks: INITIAL_SEQUENCE_TRACKS,
+  sequenceDuration: 4,
+
+  // LocalisationEditor persistent state
+  localisationTranslations: INITIAL_LOCALISATION_TRANSLATIONS,
+  localisationLocales: INITIAL_LOCALISATION_LOCALES,
 
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -646,6 +782,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     })),
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
+
+  setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
+  setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
+
+  setSequenceTracks: (tracks) => set({ sequenceTracks: tracks }),
+  setSequenceDuration: (duration) => set({ sequenceDuration: duration }),
+
+  setLocalisationTranslations: (t) => set({ localisationTranslations: t }),
+  setLocalisationLocales: (locales) => set({ localisationLocales: locales }),
 
   resetProject: () => {
     set({

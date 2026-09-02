@@ -1,12 +1,7 @@
 import React from "react";
+import { useIDEStore } from "../../store/ideStore";
 
 type Tool = "paint" | "erase" | "fill";
-
-interface TileLayer {
-  id: string;
-  name: string;
-  data: Record<string, number>; // "col,row" -> tileIndex
-}
 
 const PALETTE_COLORS = [
   "#4ade80",
@@ -36,13 +31,13 @@ export function TilemapEditor(): React.ReactElement {
   const [tileSize, setTileSize] = React.useState(32);
   const [activeTile, setActiveTile] = React.useState(0);
   const [tool, setTool] = React.useState<Tool>("paint");
-  const [layers, setLayers] = React.useState<TileLayer[]>([
-    { id: "layer-0", name: "Ground", data: {} },
-    { id: "layer-1", name: "Objects", data: {} },
-  ]);
-  const [activeLayer, setActiveLayer] = React.useState("layer-0");
   const [isPainting, setIsPainting] = React.useState(false);
   const [zoom, setZoom] = React.useState(1);
+
+  const layers = useIDEStore((s) => s.tilemapLayers);
+  const activeLayer = useIDEStore((s) => s.tilemapActiveLayer);
+  const setLayers = useIDEStore((s) => s.setTilemapLayers);
+  const setActiveLayer = useIDEStore((s) => s.setTilemapActiveLayer);
 
   const getCell = (
     e: React.MouseEvent<HTMLCanvasElement>,
@@ -82,8 +77,8 @@ export function TilemapEditor(): React.ReactElement {
   };
 
   const applyTool = (col: number, row: number): void => {
-    setLayers((prev) =>
-      prev.map((layer) => {
+    setLayers(
+      layers.map((layer) => {
         if (layer.id !== activeLayer) return layer;
         const key = `${col},${row}`;
         let newData = { ...layer.data };
@@ -280,11 +275,11 @@ export function TilemapEditor(): React.ReactElement {
           </div>
           <button
             onClick={() =>
-              setLayers((prev) => [
-                ...prev,
+              setLayers([
+                ...layers,
                 {
                   id: `layer-${Date.now()}`,
-                  name: `Layer ${prev.length}`,
+                  name: `Layer ${layers.length}`,
                   data: {},
                 },
               ])

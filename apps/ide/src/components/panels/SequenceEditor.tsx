@@ -1,14 +1,13 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
+import {
+  useIDEStore,
+  type SequenceTrack,
+  type SequenceTrackType,
+} from "../../store/ideStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type TrackType =
-  | "Position X"
-  | "Position Y"
-  | "Rotation"
-  | "Scale"
-  | "Opacity"
-  | "Custom";
+type TrackType = SequenceTrackType;
 
 interface Keyframe {
   id: string;
@@ -16,12 +15,7 @@ interface Keyframe {
   value: number; // numeric value for interpolation
 }
 
-interface Track {
-  id: string;
-  name: string;
-  type: TrackType;
-  keyframes: Keyframe[];
-}
+type Track = SequenceTrack;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,32 +60,6 @@ function makeTrack(
     keyframes: kfs.map(({ t, v }) => ({ id: uid(), time: t, value: v })),
   };
 }
-
-const DEFAULT_TRACKS: Track[] = [
-  makeTrack("Position X", [
-    { t: 0, v: 0 },
-    { t: 1.5, v: 120 },
-    { t: 3, v: 0 },
-  ]),
-  makeTrack("Position Y", [
-    { t: 0, v: 0 },
-    { t: 1, v: -60 },
-    { t: 2, v: 0 },
-  ]),
-  makeTrack("Rotation", [
-    { t: 0.5, v: 0 },
-    { t: 2, v: 360 },
-  ]),
-  makeTrack("Scale", [
-    { t: 0, v: 1 },
-    { t: 1, v: 1.5 },
-  ]),
-  makeTrack("Opacity", [
-    { t: 0, v: 0 },
-    { t: 0.5, v: 1 },
-    { t: 4, v: 1 },
-  ]),
-];
 
 // ── Keyframe interpolation ────────────────────────────────────────────────────
 
@@ -199,10 +167,13 @@ const TrackLabel: React.FC<{
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function SequenceEditor(): React.ReactElement {
-  const [tracks, setTracks] = useState<Track[]>(DEFAULT_TRACKS);
+  const tracks = useIDEStore((s) => s.sequenceTracks);
+  const setTracks = useIDEStore((s) => s.setSequenceTracks);
+  const duration = useIDEStore((s) => s.sequenceDuration);
+  const setDuration = useIDEStore((s) => s.setSequenceDuration);
+
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(4);
   const [selectedKf, setSelectedKf] = useState<{
     trackId: string;
     kfId: string;
@@ -335,8 +306,8 @@ export function SequenceEditor(): React.ReactElement {
       const x = e.clientX - rect.left + timelineRef.current.scrollLeft;
       const time = Math.max(0, Math.min(duration, x / pxPerSec));
       const t = parseFloat(time.toFixed(2));
-      setTracks((ts) =>
-        ts.map((track) =>
+      setTracks(
+        tracks.map((track) =>
           track.id === trackId
             ? {
                 ...track,
@@ -349,7 +320,7 @@ export function SequenceEditor(): React.ReactElement {
         ),
       );
     },
-    [duration, pxPerSec],
+    [duration, pxPerSec, tracks, setTracks],
   );
 
   // ── Keyframe selection + value edit ──────────────────────────────────────
@@ -367,8 +338,8 @@ export function SequenceEditor(): React.ReactElement {
     if (!selectedKf) return;
     const v = parseFloat(kfEditValue);
     if (!isNaN(v)) {
-      setTracks((ts) =>
-        ts.map((track) =>
+      setTracks(
+        tracks.map((track) =>
           track.id === selectedKf.trackId
             ? {
                 ...track,
@@ -380,13 +351,16 @@ export function SequenceEditor(): React.ReactElement {
         ),
       );
     }
-  }, [selectedKf, kfEditValue]);
+  }, [selectedKf, kfEditValue, tracks, setTracks]);
 
   // ── Add track ─────────────────────────────────────────────────────────────
 
-  const addTrack = useCallback((type: TrackType) => {
-    setTracks((ts) => [...ts, makeTrack(type)]);
-  }, []);
+  const addTrack = useCallback(
+    (type: TrackType) => {
+      setTracks([...tracks, makeTrack(type)]);
+    },
+    [tracks, setTracks],
+  );
 
   // ── Ticks for ruler ──────────────────────────────────────────────────────
 
