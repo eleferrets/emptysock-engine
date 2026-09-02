@@ -135,8 +135,8 @@ export function LocalisationEditor(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
@@ -147,8 +147,8 @@ export function LocalisationEditor(): React.ReactElement {
           gap: 6,
           alignItems: "center",
           padding: "6px 10px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           flexShrink: 0,
           flexWrap: "wrap",
         }}
@@ -159,10 +159,10 @@ export function LocalisationEditor(): React.ReactElement {
           placeholder="Filter keys..."
           style={{
             padding: "3px 8px",
-            background: "var(--bg)",
-            border: "1px solid var(--border)",
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             width: 160,
           }}
         />
@@ -173,10 +173,10 @@ export function LocalisationEditor(): React.ReactElement {
           placeholder="New key..."
           style={{
             padding: "3px 8px",
-            background: "var(--bg)",
-            border: "1px solid var(--border)",
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             width: 180,
           }}
         />
@@ -184,7 +184,7 @@ export function LocalisationEditor(): React.ReactElement {
           onClick={addKey}
           style={{
             padding: "3px 10px",
-            background: "var(--accent)",
+            background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
             color: "#fff",
@@ -197,10 +197,10 @@ export function LocalisationEditor(): React.ReactElement {
           onClick={addLocale}
           style={{
             padding: "3px 10px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -210,10 +210,10 @@ export function LocalisationEditor(): React.ReactElement {
           onClick={exportCSV}
           style={{
             padding: "3px 10px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
             marginLeft: "auto",
           }}
@@ -223,10 +223,10 @@ export function LocalisationEditor(): React.ReactElement {
         <label
           style={{
             padding: "3px 10px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -252,7 +252,7 @@ export function LocalisationEditor(): React.ReactElement {
           <thead>
             <tr
               style={{
-                background: "var(--surface)",
+                background: "var(--es-surface)",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
@@ -262,9 +262,9 @@ export function LocalisationEditor(): React.ReactElement {
                 style={{
                   padding: "6px 10px",
                   textAlign: "left",
-                  borderBottom: "1px solid var(--border)",
+                  borderBottom: "1px solid var(--es-border)",
                   width: 200,
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   fontWeight: 600,
                 }}
               >
@@ -276,8 +276,8 @@ export function LocalisationEditor(): React.ReactElement {
                   style={{
                     padding: "6px 10px",
                     textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-muted)",
+                    borderBottom: "1px solid var(--es-border)",
+                    color: "var(--es-text-muted)",
                     fontWeight: 600,
                   }}
                 >
@@ -298,10 +298,10 @@ export function LocalisationEditor(): React.ReactElement {
                 <td
                   style={{
                     padding: "4px 10px",
-                    borderBottom: "1px solid var(--border)",
+                    borderBottom: "1px solid var(--es-border)",
                     fontFamily: "monospace",
                     fontSize: 11,
-                    color: "var(--text-muted)",
+                    color: "var(--es-text-muted)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -318,7 +318,7 @@ export function LocalisationEditor(): React.ReactElement {
                       onClick={() => startEdit(key, locale)}
                       style={{
                         padding: "4px 10px",
-                        borderBottom: "1px solid var(--border)",
+                        borderBottom: "1px solid var(--es-border)",
                         cursor: "text",
                         maxWidth: 0,
                       }}
@@ -336,10 +336,10 @@ export function LocalisationEditor(): React.ReactElement {
                           style={{
                             width: "100%",
                             padding: "2px 4px",
-                            background: "var(--bg)",
-                            border: "1px solid var(--accent)",
+                            background: "var(--es-bg)",
+                            border: "1px solid var(--es-accent)",
                             borderRadius: 3,
-                            color: "var(--text)",
+                            color: "var(--es-text)",
                             fontSize: 12,
                           }}
                         />
@@ -351,8 +351,8 @@ export function LocalisationEditor(): React.ReactElement {
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                             color: translations[key]?.[locale]
-                              ? "var(--text)"
-                              : "var(--text-muted)",
+                              ? "var(--es-text)"
+                              : "var(--es-text-muted)",
                           }}
                         >
                           {translations[key]?.[locale] ?? <em>empty</em>}

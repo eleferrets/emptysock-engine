@@ -40,8 +40,8 @@ export function ProjectSettingsModal({
             width: 480,
             maxHeight: "80vh",
             overflowY: "auto",
-            background: "var(--bg-panel)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 8,
             padding: 24,
             zIndex: 201,
@@ -62,7 +62,7 @@ export function ProjectSettingsModal({
                 margin: 0,
                 fontSize: 15,
                 fontWeight: 600,
-                color: "var(--text)",
+                color: "var(--es-text)",
               }}
             >
               Modules
@@ -73,7 +73,7 @@ export function ProjectSettingsModal({
                 background: "none",
                 border: "none",
                 cursor: "pointer",
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 padding: 4,
                 display: "flex",
               }}
@@ -99,7 +99,9 @@ export function ProjectSettingsModal({
                       ? "rgba(124,106,247,0.08)"
                       : "transparent",
                     border: "1px solid",
-                    borderColor: enabled ? "var(--accent)" : "var(--border)",
+                    borderColor: enabled
+                      ? "var(--es-accent)"
+                      : "var(--es-border)",
                   }}
                 >
                   <input
@@ -108,7 +110,7 @@ export function ProjectSettingsModal({
                     onChange={() => toggleModule(mod.id)}
                     style={{
                       marginTop: 3,
-                      accentColor: "var(--accent)",
+                      accentColor: "var(--es-accent)",
                       cursor: "pointer",
                     }}
                   />
@@ -117,7 +119,7 @@ export function ProjectSettingsModal({
                       style={{
                         fontSize: 13,
                         fontWeight: 500,
-                        color: "var(--text)",
+                        color: "var(--es-text)",
                       }}
                     >
                       {mod.label}
@@ -125,7 +127,7 @@ export function ProjectSettingsModal({
                     <div
                       style={{
                         fontSize: 11,
-                        color: "var(--text-muted)",
+                        color: "var(--es-text-muted)",
                         marginTop: 2,
                       }}
                     >
@@ -137,7 +139,7 @@ export function ProjectSettingsModal({
             })}
           </div>
 
-          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+          <p style={{ fontSize: 11, color: "var(--es-text-muted)", margin: 0 }}>
             Changes take effect the next time the IDE layout is initialised
             (reload the app).
           </p>

@@ -42,7 +42,7 @@ function Kbd({ shortcut }: { shortcut: string }): React.ReactElement {
       style={{
         marginLeft: "auto",
         paddingLeft: 20,
-        color: "var(--text-muted)",
+        color: "var(--es-text-muted)",
         fontSize: 10,
         fontFamily: '"JetBrains Mono", ui-monospace, monospace',
         fontStyle: "normal",
@@ -52,7 +52,7 @@ function Kbd({ shortcut }: { shortcut: string }): React.ReactElement {
     >
       <span
         style={{
-          border: "1px solid var(--border)",
+          border: "1px solid var(--es-border)",
           borderRadius: 3,
           padding: "1px 4px",
           fontSize: 10,
@@ -108,7 +108,7 @@ function Dropdown({
         style={{
           background: open ? "rgba(124,106,247,0.14)" : "transparent",
           border: "none",
-          color: open ? "var(--text)" : "var(--text-muted)",
+          color: open ? "var(--es-text)" : "var(--es-text-muted)",
           cursor: "pointer",
           fontSize: 12,
           padding: "0 10px",
@@ -120,12 +120,12 @@ function Dropdown({
           userSelect: "none",
         }}
         onMouseOver={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--es-text)";
         }}
         onMouseOut={(e) => {
           if (!open)
             (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--text-muted)";
+              "var(--es-text-muted)";
         }}
       >
         {def.label}
@@ -138,8 +138,8 @@ function Dropdown({
             top: "100%",
             left: 0,
             zIndex: 1000,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 7,
             boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
             minWidth: 240,
@@ -154,7 +154,7 @@ function Dropdown({
                   key={i}
                   style={{
                     height: 1,
-                    background: "var(--border)",
+                    background: "var(--es-border)",
                     margin: "4px 0",
                   }}
                 />
@@ -182,8 +182,8 @@ function Dropdown({
                   cursor: item.disabled === true ? "default" : "pointer",
                   color:
                     item.disabled === true
-                      ? "var(--text-muted)"
-                      : "var(--text)",
+                      ? "var(--es-text-muted)"
+                      : "var(--es-text)",
                   fontSize: 12,
                   textAlign: "left",
                   opacity: item.disabled === true ? 0.45 : 1,
@@ -654,8 +654,8 @@ export function MenuBar({
         height: 28,
         padding: "0 6px",
         gap: 2,
-        background: "var(--bg)",
-        borderBottom: "1px solid var(--border)",
+        background: "var(--es-bg)",
+        borderBottom: "1px solid var(--es-border)",
         flexShrink: 0,
         userSelect: "none",
       }}

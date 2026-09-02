@@ -248,7 +248,7 @@ export function App(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100dvh",
-        background: "var(--bg)",
+        background: "var(--es-bg)",
         overflow: "hidden",
       }}
     >

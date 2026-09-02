@@ -3,18 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0e0e10;
-  --surface: #16161a;
-  --surface-2: #1e1e24;
-  --border: #2a2a2e;
-  --accent: #7c6af7;
-  --accent-dim: #5a4ed4;
-  --text: #e8e8f0;
-  --text-muted: #a0a0b0;
-  --green: #4ade80;
-  --red: #f87171;
-  --yellow: #facc15;
-  --blue: #60a5fa;
+  --es-bg: #0e0e10;
+  --es-surface: #16161a;
+  --es-surface-2: #1e1e24;
+  --es-border: #2a2a2e;
+  --es-accent: #7c6af7;
+  --es-accent-dim: #5a4ed4;
+  --es-text: #e8e8f0;
+  --es-text-muted: #a0a0b0;
+  --es-green: #4ade80;
+  --es-red: #f87171;
+  --es-yellow: #facc15;
+  --es-blue: #60a5fa;
   --logo-bg-start: #0f0f1a;
   --logo-bg-end: #1a1a3e;
   --logo-ring-opacity: 0.4;
@@ -23,18 +23,18 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
-    --bg: #f5f4ff;
-    --surface: #ece9ff;
-    --surface-2: #dcd7ff;
-    --border: #c4bff5;
-    --accent: #5b4ed4;
-    --accent-dim: #4035a8;
-    --text: #1a1030;
-    --text-muted: #5a4e80;
-    --green: #16a34a;
-    --red: #dc2626;
-    --yellow: #ca8a04;
-    --blue: #2563eb;
+    --es-bg: #f5f4ff;
+    --es-surface: #ece9ff;
+    --es-surface-2: #dcd7ff;
+    --es-border: #c4bff5;
+    --es-accent: #5b4ed4;
+    --es-accent-dim: #4035a8;
+    --es-text: #1a1030;
+    --es-text-muted: #5a4e80;
+    --es-green: #16a34a;
+    --es-red: #dc2626;
+    --es-yellow: #ca8a04;
+    --es-blue: #2563eb;
     --logo-bg-start: #ece9ff;
     --logo-bg-end: #dcd7ff;
     --logo-ring-opacity: 0.35;
@@ -43,18 +43,18 @@
 }
 
 [data-theme='light'] {
-  --bg: #f5f4ff;
-  --surface: #ece9ff;
-  --surface-2: #dcd7ff;
-  --border: #c4bff5;
-  --accent: #5b4ed4;
-  --accent-dim: #4035a8;
-  --text: #1a1030;
-  --text-muted: #5a4e80;
-  --green: #16a34a;
-  --red: #dc2626;
-  --yellow: #ca8a04;
-  --blue: #2563eb;
+  --es-bg: #f5f4ff;
+  --es-surface: #ece9ff;
+  --es-surface-2: #dcd7ff;
+  --es-border: #c4bff5;
+  --es-accent: #5b4ed4;
+  --es-accent-dim: #4035a8;
+  --es-text: #1a1030;
+  --es-text-muted: #5a4e80;
+  --es-green: #16a34a;
+  --es-red: #dc2626;
+  --es-yellow: #ca8a04;
+  --es-blue: #2563eb;
   --logo-bg-start: #ece9ff;
   --logo-bg-end: #dcd7ff;
   --logo-ring-opacity: 0.35;
@@ -62,14 +62,14 @@
 }
 
 [data-theme='dark'] {
-  --bg: #0e0e10;
-  --surface: #16161a;
-  --surface-2: #1e1e24;
-  --border: #2a2a2e;
-  --accent: #7c6af7;
-  --accent-dim: #5a4ed4;
-  --text: #e8e8f0;
-  --text-muted: #a0a0b0;
+  --es-bg: #0e0e10;
+  --es-surface: #16161a;
+  --es-surface-2: #1e1e24;
+  --es-border: #2a2a2e;
+  --es-accent: #7c6af7;
+  --es-accent-dim: #5a4ed4;
+  --es-text: #e8e8f0;
+  --es-text-muted: #a0a0b0;
   --logo-bg-start: #0f0f1a;
   --logo-bg-end: #1a1a3e;
   --logo-ring-opacity: 0.4;
@@ -87,8 +87,8 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--es-bg);
+  color: var(--es-text);
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
@@ -101,11 +101,11 @@ body,
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: var(--es-surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--es-border);
   border-radius: 3px;
 }
 
@@ -114,30 +114,30 @@ body,
 }
 
 [data-theme='light'] ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--es-border);
 }
 
 [data-theme='light'] ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--es-text-muted);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--es-border);
   }
 
   :root:not([data-theme='dark']) ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    background: var(--es-text-muted);
   }
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--es-accent);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--es-accent) 40%, transparent);
 }
 
 .font-mono {
@@ -152,7 +152,7 @@ select {
 /* Destructive hover tint for buttons/rows */
 .es-danger-hover:hover {
   background: rgba(248, 113, 113, 0.08) !important;
-  color: var(--red) !important;
+  color: var(--es-red) !important;
 }
 
 /* ── Layout tokens ──────────────────────────────────────────────────────────── */

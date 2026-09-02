@@ -20,6 +20,16 @@ import { GitPanel } from "./panels/GitPanel";
 import { useIDEStore } from "../store/ideStore";
 import { ErrorBoundary } from "./ErrorBoundary";
 
+function useWindowWidth(): number {
+  const [width, setWidth] = React.useState(() => window.innerWidth);
+  React.useEffect(() => {
+    const handler = (): void => setWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return width;
+}
+
 type MainTab = "code" | "scene" | "files" | "console";
 type SheetTab = "assets" | "inspector" | "profiler" | "git";
 
@@ -76,6 +86,9 @@ export function MobileLayout(): React.ReactElement {
   const playState = useIDEStore((s) => s.playState);
   const setPlayState = useIDEStore((s) => s.setPlayState);
 
+  const windowWidth = useWindowWidth();
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+
   // Swipe gesture state
   const touchStartX = React.useRef<number | null>(null);
 
@@ -123,16 +136,31 @@ export function MobileLayout(): React.ReactElement {
         </button>
       </header>
 
-      {/* Main panel area with swipe */}
-      <div
-        className="es-mobile-panel-area"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <ErrorBoundary>
-          <PanelForTab tab={activeTab} />
-        </ErrorBoundary>
-      </div>
+      {/* Main panel area */}
+      {isTablet ? (
+        <div className="es-tablet-panel-area">
+          <div className="es-tablet-left">
+            <ErrorBoundary>
+              <LeftSidebar />
+            </ErrorBoundary>
+          </div>
+          <div className="es-tablet-right">
+            <ErrorBoundary>
+              <CodeEditor />
+            </ErrorBoundary>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="es-mobile-panel-area"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <ErrorBoundary>
+            <PanelForTab tab={activeTab} />
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* Floating action button */}
       <div className="es-mobile-fab-area">
@@ -213,9 +241,35 @@ export function MobileLayout(): React.ReactElement {
           display: flex;
           flex-direction: column;
           height: 100%;
-          background: var(--bg);
+          background: var(--es-bg);
           overflow: hidden;
           position: relative;
+        }
+
+        /* ── Tablet two-column layout ───────────── */
+        .es-tablet-panel-area {
+          flex: 1;
+          display: flex;
+          flex-direction: row;
+          overflow: hidden;
+        }
+
+        .es-tablet-left {
+          width: 40%;
+          min-width: 0;
+          overflow: hidden;
+          border-right: 1px solid var(--es-border);
+        }
+
+        .es-tablet-right {
+          width: 60%;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .es-tablet-left > *,
+        .es-tablet-right > * {
+          height: 100%;
         }
 
         /* ── Header ──────────────────────────────── */
@@ -226,15 +280,15 @@ export function MobileLayout(): React.ReactElement {
           height: 44px;
           min-height: 44px;
           padding: 0 12px;
-          background: var(--surface);
-          border-bottom: 1px solid var(--border);
+          background: var(--es-surface);
+          border-bottom: 1px solid var(--es-border);
           flex-shrink: 0;
         }
 
         .es-mobile-project-name {
           font-size: 14px;
           font-weight: 600;
-          color: var(--text);
+          color: var(--es-text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -249,7 +303,7 @@ export function MobileLayout(): React.ReactElement {
           padding: 0 14px;
           border: none;
           border-radius: 16px;
-          background: var(--accent);
+          background: var(--es-accent);
           color: #fff;
           font-size: 13px;
           font-weight: 600;
@@ -298,8 +352,8 @@ export function MobileLayout(): React.ReactElement {
           padding: 0 16px;
           border-radius: 20px;
           border: none;
-          background: var(--surface-2);
-          color: var(--text);
+          background: var(--es-surface-2);
+          color: var(--es-text);
           cursor: pointer;
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           font-size: 13px;
@@ -327,8 +381,8 @@ export function MobileLayout(): React.ReactElement {
           padding: 0 20px;
           border-radius: 22px;
           border: none;
-          background: var(--surface-2);
-          color: var(--text);
+          background: var(--es-surface-2);
+          color: var(--es-text);
           font-size: 14px;
           font-weight: 500;
           cursor: pointer;
@@ -345,8 +399,8 @@ export function MobileLayout(): React.ReactElement {
           display: flex;
           height: var(--es-nav-height);
           padding-bottom: env(safe-area-inset-bottom);
-          background: var(--surface);
-          border-top: 1px solid var(--border);
+          background: var(--es-surface);
+          border-top: 1px solid var(--es-border);
           flex-shrink: 0;
         }
 
@@ -359,7 +413,7 @@ export function MobileLayout(): React.ReactElement {
           gap: 3px;
           border: none;
           background: transparent;
-          color: var(--text-muted);
+          color: var(--es-text-muted);
           cursor: pointer;
           min-height: var(--es-touch-target);
           position: relative;
@@ -367,7 +421,7 @@ export function MobileLayout(): React.ReactElement {
         }
 
         .es-mobile-nav-btn--active {
-          color: var(--accent);
+          color: var(--es-accent);
         }
 
         .es-mobile-nav-btn--active::after {
@@ -378,7 +432,7 @@ export function MobileLayout(): React.ReactElement {
           right: 20%;
           height: 2px;
           border-radius: 1px;
-          background: var(--accent);
+          background: var(--es-accent);
         }
 
         .es-mobile-nav-label {
@@ -401,8 +455,8 @@ export function MobileLayout(): React.ReactElement {
           right: 0;
           bottom: 0;
           height: 55vh;
-          background: var(--surface);
-          border-top: 1px solid var(--border);
+          background: var(--es-surface);
+          border-top: 1px solid var(--es-border);
           border-radius: 16px 16px 0 0;
           z-index: 31;
           display: flex;
@@ -420,7 +474,7 @@ export function MobileLayout(): React.ReactElement {
           width: 36px;
           height: 4px;
           border-radius: 2px;
-          background: var(--border);
+          background: var(--es-border);
           margin: 10px auto 0;
           flex-shrink: 0;
         }
@@ -433,13 +487,13 @@ export function MobileLayout(): React.ReactElement {
           min-height: 44px;
           padding: 0 16px;
           flex-shrink: 0;
-          border-bottom: 1px solid var(--border);
+          border-bottom: 1px solid var(--es-border);
         }
 
         .es-mobile-sheet-title {
           font-size: 15px;
           font-weight: 600;
-          color: var(--text);
+          color: var(--es-text);
         }
 
         .es-mobile-sheet-close {
@@ -450,13 +504,13 @@ export function MobileLayout(): React.ReactElement {
           height: 44px;
           border: none;
           background: transparent;
-          color: var(--text-muted);
+          color: var(--es-text-muted);
           cursor: pointer;
           border-radius: 8px;
         }
 
         .es-mobile-sheet-close:active {
-          background: var(--surface-2);
+          background: var(--es-surface-2);
         }
 
         .es-mobile-sheet-content {

@@ -152,10 +152,10 @@ export function DownloadEngineModal({
         background: highlight
           ? "rgba(124,106,247,0.18)"
           : "rgba(255,255,255,0.06)",
-        color: highlight ? "var(--accent)" : "var(--text-muted)",
+        color: highlight ? "var(--es-accent)" : "var(--es-text-muted)",
         border: highlight
           ? "1px solid rgba(124,106,247,0.35)"
-          : "1px solid var(--border)",
+          : "1px solid var(--es-border)",
       }}
     >
       {text}
@@ -180,8 +180,8 @@ export function DownloadEngineModal({
     >
       <div
         style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
+          background: "var(--es-surface)",
+          border: "1px solid var(--es-border)",
           borderRadius: 12,
           width: 500,
           maxWidth: "calc(100vw - 32px)",
@@ -198,17 +198,21 @@ export function DownloadEngineModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "16px 18px 12px",
-            borderBottom: "1px solid var(--border)",
+            borderBottom: "1px solid var(--es-border)",
           }}
         >
           <div>
             <div
-              style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}
+              style={{ fontSize: 14, fontWeight: 700, color: "var(--es-text)" }}
             >
               Download EmptySock Engine
             </div>
             <div
-              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+              style={{
+                fontSize: 11,
+                color: "var(--es-text-muted)",
+                marginTop: 2,
+              }}
             >
               Desktop app — full file system access, native performance
             </div>
@@ -220,7 +224,7 @@ export function DownloadEngineModal({
               background: "none",
               border: "none",
               cursor: "pointer",
-              color: "var(--text-muted)",
+              color: "var(--es-text-muted)",
               display: "flex",
               padding: 2,
             }}
@@ -233,10 +237,10 @@ export function DownloadEngineModal({
         <div
           style={{
             display: "flex",
-            borderBottom: "1px solid var(--border)",
+            borderBottom: "1px solid var(--es-border)",
             padding: "0 8px",
             gap: 2,
-            background: "var(--bg)",
+            background: "var(--es-bg)",
           }}
         >
           {PLATFORMS.map((p) => {
@@ -256,9 +260,9 @@ export function DownloadEngineModal({
                   border: "none",
                   cursor: "pointer",
                   borderBottom: active
-                    ? "2px solid var(--accent)"
+                    ? "2px solid var(--es-accent)"
                     : "2px solid transparent",
-                  color: active ? "var(--text)" : "var(--text-muted)",
+                  color: active ? "var(--es-text)" : "var(--es-text-muted)",
                   fontSize: 12,
                   fontWeight: active ? 600 : 400,
                   transition: "color 0.12s",
@@ -290,10 +294,10 @@ export function DownloadEngineModal({
                 gap: 12,
                 padding: "12px 14px",
                 borderRadius: 8,
-                border: `1px solid ${r.recommended ? "rgba(124,106,247,0.35)" : "var(--border)"}`,
+                border: `1px solid ${r.recommended ? "rgba(124,106,247,0.35)" : "var(--es-border)"}`,
                 background: r.recommended
                   ? "rgba(124,106,247,0.06)"
-                  : "var(--bg)",
+                  : "var(--es-bg)",
               }}
             >
               <div style={{ flex: 1 }}>
@@ -304,7 +308,7 @@ export function DownloadEngineModal({
                     gap: 6,
                     fontSize: 13,
                     fontWeight: 600,
-                    color: "var(--text)",
+                    color: "var(--es-text)",
                   }}
                 >
                   {r.label}
@@ -314,7 +318,7 @@ export function DownloadEngineModal({
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-muted)",
+                      color: "var(--es-text-muted)",
                       marginTop: 3,
                     }}
                   >
@@ -340,7 +344,7 @@ export function DownloadEngineModal({
             <div
               style={{
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 lineHeight: 1.6,
                 padding: "8px 10px",
                 borderRadius: 6,
@@ -348,8 +352,8 @@ export function DownloadEngineModal({
               }}
             >
               After downloading: unzip, right-click{" "}
-              <strong style={{ color: "var(--text)" }}>EmptySock.app</strong> →
-              Open (first launch only, to bypass Gatekeeper). Universal binary
+              <strong style={{ color: "var(--es-text)" }}>EmptySock.app</strong>{" "}
+              → Open (first launch only, to bypass Gatekeeper). Universal binary
               runs natively on both Intel and Apple Silicon.
             </div>
           )}
@@ -357,7 +361,7 @@ export function DownloadEngineModal({
             <div
               style={{
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 lineHeight: 1.6,
                 padding: "8px 10px",
                 borderRadius: 6,
@@ -365,7 +369,7 @@ export function DownloadEngineModal({
               }}
             >
               Portable ZIP — no installer. Unzip and run{" "}
-              <strong style={{ color: "var(--text)" }}>EmptySock.exe</strong>{" "}
+              <strong style={{ color: "var(--es-text)" }}>EmptySock.exe</strong>{" "}
               directly. No registry writes, no admin required.
             </div>
           )}
@@ -373,7 +377,7 @@ export function DownloadEngineModal({
             <div
               style={{
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 lineHeight: 1.6,
                 padding: "8px 10px",
                 borderRadius: 6,
@@ -386,7 +390,7 @@ export function DownloadEngineModal({
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
                   fontSize: 10,
-                  color: "var(--text)",
+                  color: "var(--es-text)",
                 }}
               >
                 chmod +x EmptySock-*.AppImage && ./EmptySock-*.AppImage
@@ -396,7 +400,7 @@ export function DownloadEngineModal({
 
           <div
             style={{
-              borderTop: "1px solid var(--border)",
+              borderTop: "1px solid var(--es-border)",
               paddingTop: 10,
               display: "flex",
               justifyContent: "center",
@@ -411,7 +415,7 @@ export function DownloadEngineModal({
                 alignItems: "center",
                 gap: 4,
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 textDecoration: "none",
               }}
             >

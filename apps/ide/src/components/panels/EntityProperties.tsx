@@ -32,28 +32,28 @@ function ComponentSection({
   const [open, setOpen] = React.useState(true);
 
   const componentColor: Record<string, string> = {
-    Transform: "var(--blue)",
-    Sprite: "var(--green)",
-    PhysicsBody: "var(--yellow)",
-    CharacterController: "var(--accent)",
-    Animator: "var(--red)",
-    CameraSystem: "var(--blue)",
+    Transform: "var(--es-blue)",
+    Sprite: "var(--es-green)",
+    PhysicsBody: "var(--es-yellow)",
+    CharacterController: "var(--es-accent)",
+    Animator: "var(--es-red)",
+    CameraSystem: "var(--es-blue)",
   };
 
-  const color = componentColor[component.type] ?? "var(--text-muted)";
+  const color = componentColor[component.type] ?? "var(--es-text-muted)";
 
   return (
     <div
       className="rounded overflow-hidden"
       style={{
-        border: "1px solid var(--border)",
-        background: "var(--surface)",
+        border: "1px solid var(--es-border)",
+        background: "var(--es-surface)",
       }}
     >
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center w-full gap-2 px-3 py-2 text-left transition-colors"
-        style={{ background: "var(--surface-2)" }}
+        style={{ background: "var(--es-surface-2)" }}
       >
         <div
           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -61,7 +61,7 @@ function ComponentSection({
         />
         <span
           className="flex-1 text-xs font-medium"
-          style={{ color: "var(--text)" }}
+          style={{ color: "var(--es-text)" }}
         >
           {component.type}
         </span>
@@ -71,12 +71,12 @@ function ComponentSection({
             e.stopPropagation();
             removeComponentFromEntity(entityId, component.type);
           }}
-          style={{ color: "var(--text-muted)", display: "flex", padding: 2 }}
+          style={{ color: "var(--es-text-muted)", display: "flex", padding: 2 }}
           title={`Remove ${component.type}`}
         >
           <Trash2 size={10} />
         </button>
-        <span style={{ color: "var(--text-muted)" }}>
+        <span style={{ color: "var(--es-text-muted)" }}>
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </span>
       </button>
@@ -111,9 +111,9 @@ export function EntityProperties(): React.ReactElement {
         style={{
           width: 280,
           flexShrink: 0,
-          borderLeft: "1px solid var(--border)",
-          background: "var(--surface)",
-          color: "var(--text-muted)",
+          borderLeft: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
+          color: "var(--es-text-muted)",
           fontSize: 12,
         }}
       >
@@ -132,8 +132,8 @@ export function EntityProperties(): React.ReactElement {
       style={{
         width: 280,
         flexShrink: 0,
-        borderLeft: "1px solid var(--border)",
-        background: "var(--surface)",
+        borderLeft: "1px solid var(--es-border)",
+        background: "var(--es-surface)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -144,14 +144,14 @@ export function EntityProperties(): React.ReactElement {
         className="flex items-center justify-between px-3 flex-shrink-0"
         style={{
           height: 36,
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface-2)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface-2)",
         }}
       >
         <div className="flex items-center gap-2 min-w-0">
           <span
             className="text-xs font-semibold truncate"
-            style={{ color: "var(--text)" }}
+            style={{ color: "var(--es-text)" }}
           >
             {selectedEntity.name}
           </span>
@@ -163,7 +163,7 @@ export function EntityProperties(): React.ReactElement {
           title="Delete entity"
           onClick={() => deleteEntity(selectedEntity.id)}
         >
-          <Trash2 size={11} style={{ color: "var(--red)" }} />
+          <Trash2 size={11} style={{ color: "var(--es-red)" }} />
         </Button>
       </div>
 
@@ -173,24 +173,24 @@ export function EntityProperties(): React.ReactElement {
         <div
           className="rounded p-3 flex flex-col gap-2"
           style={{
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
+            border: "1px solid var(--es-border)",
+            background: "var(--es-surface)",
           }}
         >
           <div
             className="flex items-center gap-2 mb-1"
             style={{
-              borderBottom: "1px solid var(--border)",
+              borderBottom: "1px solid var(--es-border)",
               paddingBottom: 6,
             }}
           >
             <div
               className="w-1.5 h-1.5 rounded-full"
-              style={{ background: "var(--blue)" }}
+              style={{ background: "var(--es-blue)" }}
             />
             <span
               className="text-xs font-medium"
-              style={{ color: "var(--text)" }}
+              style={{ color: "var(--es-text)" }}
             >
               Transform
             </span>
@@ -272,8 +272,8 @@ export function EntityProperties(): React.ReactElement {
                 bottom: "100%",
                 left: 0,
                 right: 0,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
+                background: "var(--es-surface)",
+                border: "1px solid var(--es-border)",
                 borderRadius: 6,
                 zIndex: 100,
                 overflow: "hidden",
@@ -294,14 +294,14 @@ export function EntityProperties(): React.ReactElement {
                     textAlign: "left",
                     padding: "6px 12px",
                     fontSize: 12,
-                    color: "var(--text)",
+                    color: "var(--es-text)",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.background =
-                      "var(--surface-2)";
+                      "var(--es-surface-2)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.background =

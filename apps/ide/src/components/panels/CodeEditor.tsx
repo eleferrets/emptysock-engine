@@ -17,6 +17,23 @@ function useIsNarrow(): boolean {
   return narrow;
 }
 
+function useVirtualKeyboardPadding(): number {
+  const [padding, setPadding] = React.useState(0);
+  React.useEffect(() => {
+    if (typeof window.visualViewport === "undefined") return;
+    const vv = window.visualViewport;
+    if (vv === null) return;
+    const handler = (): void => {
+      if (vv === null) return;
+      const keyboardHeight = window.innerHeight - vv.height;
+      setPadding(keyboardHeight > 0 ? keyboardHeight : 0);
+    };
+    vv.addEventListener("resize", handler);
+    return () => vv.removeEventListener("resize", handler);
+  }, []);
+  return padding;
+}
+
 export function CodeEditor(): React.ReactElement {
   const {
     editorCode,
@@ -31,6 +48,7 @@ export function CodeEditor(): React.ReactElement {
     theme,
   } = useIDEStore();
   const isNarrow = useIsNarrow();
+  const keyboardPadding = useVirtualKeyboardPadding();
   const [settings] = React.useState<IDESettings>(() => loadSettings());
 
   const [systemDark, setSystemDark] = React.useState<boolean>(
@@ -182,14 +200,17 @@ export function CodeEditor(): React.ReactElement {
     <div
       className="flex-1 flex flex-col overflow-hidden"
       onKeyDown={handleKeyDown}
+      style={
+        keyboardPadding > 0 ? { paddingBottom: keyboardPadding } : undefined
+      }
     >
       {/* Multi-tab bar */}
       <div
         className="flex items-center overflow-x-auto flex-shrink-0"
         style={{
           height: 33,
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           scrollbarWidth: "none",
         }}
       >
@@ -198,7 +219,7 @@ export function CodeEditor(): React.ReactElement {
             style={{
               padding: "0 12px",
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--es-text-muted)",
             }}
           >
             No files open
@@ -217,11 +238,11 @@ export function CodeEditor(): React.ReactElement {
                   padding: "0 10px",
                   fontSize: 11,
                   fontFamily: '"JetBrains Mono", monospace',
-                  borderRight: "1px solid var(--border)",
+                  borderRight: "1px solid var(--es-border)",
                   borderBottom: active
-                    ? "2px solid var(--accent)"
+                    ? "2px solid var(--es-accent)"
                     : "2px solid transparent",
-                  color: active ? "var(--text)" : "var(--text-muted)",
+                  color: active ? "var(--es-text)" : "var(--es-text-muted)",
                   background: active ? "rgba(124,106,247,0.06)" : undefined,
                   maxWidth: 180,
                 }}
@@ -236,7 +257,7 @@ export function CodeEditor(): React.ReactElement {
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    color: "var(--text-muted)",
+                    color: "var(--es-text-muted)",
                     display: "flex",
                     padding: 1,
                     borderRadius: 2,
@@ -284,7 +305,7 @@ export function CodeEditor(): React.ReactElement {
         ) : (
           <div
             className="flex-1 flex items-center justify-center h-full"
-            style={{ color: "var(--text-muted)", fontSize: 13 }}
+            style={{ color: "var(--es-text-muted)", fontSize: 13 }}
           >
             Open a file from the sidebar
           </div>

@@ -149,7 +149,7 @@ const TrackLabel: React.FC<{
         gap: 6,
         height: ROW_HEIGHT,
         paddingLeft: 8,
-        borderBottom: "1px solid var(--border, #333)",
+        borderBottom: "1px solid var(--es-border, #333)",
         flexShrink: 0,
       }}
     >
@@ -166,7 +166,7 @@ const TrackLabel: React.FC<{
       <span
         style={{
           fontSize: 12,
-          color: "var(--text, #e2e8f0)",
+          color: "var(--es-text, #e2e8f0)",
           flex: 1,
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -402,7 +402,7 @@ export function SequenceEditor(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg, #1a1a2e)",
+        background: "var(--es-bg, #1a1a2e)",
         overflow: "hidden",
       }}
     >
@@ -413,8 +413,8 @@ export function SequenceEditor(): React.ReactElement {
           alignItems: "center",
           gap: 8,
           padding: "6px 12px",
-          borderBottom: "1px solid var(--border, #333)",
-          background: "var(--surface, #16213e)",
+          borderBottom: "1px solid var(--es-border, #333)",
+          background: "var(--es-surface, #16213e)",
           flexShrink: 0,
           flexWrap: "wrap",
         }}
@@ -424,9 +424,9 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             padding: "4px 12px",
             borderRadius: 4,
-            border: `1px solid ${playing ? "#ef4444" : "var(--border, #444)"}`,
+            border: `1px solid ${playing ? "#ef4444" : "var(--es-border, #444)"}`,
             background: playing ? "#ef444422" : "transparent",
-            color: playing ? "#ef4444" : "var(--text, #e2e8f0)",
+            color: playing ? "#ef4444" : "var(--es-text, #e2e8f0)",
             cursor: "pointer",
             fontSize: 12,
             minWidth: 60,
@@ -440,9 +440,9 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             padding: "4px 10px",
             borderRadius: 4,
-            border: "1px solid var(--border, #444)",
+            border: "1px solid var(--es-border, #444)",
             background: "transparent",
-            color: "var(--text, #e2e8f0)",
+            color: "var(--es-text, #e2e8f0)",
             cursor: "pointer",
             fontSize: 12,
           }}
@@ -454,7 +454,7 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             fontFamily: "monospace",
             fontSize: 13,
-            color: playing ? "#ef4444" : "var(--text, #e2e8f0)",
+            color: playing ? "#ef4444" : "var(--es-text, #e2e8f0)",
             minWidth: 56,
           }}
         >
@@ -464,7 +464,7 @@ export function SequenceEditor(): React.ReactElement {
         <label
           style={{
             fontSize: 12,
-            color: "var(--text-muted, #888)",
+            color: "var(--es-text-muted, #888)",
             display: "flex",
             alignItems: "center",
             gap: 4,
@@ -484,9 +484,9 @@ export function SequenceEditor(): React.ReactElement {
               width: 52,
               padding: "2px 4px",
               borderRadius: 3,
-              border: "1px solid var(--border, #444)",
-              background: "var(--surface, #16213e)",
-              color: "var(--text, #e2e8f0)",
+              border: "1px solid var(--es-border, #444)",
+              background: "var(--es-surface, #16213e)",
+              color: "var(--es-text, #e2e8f0)",
               fontSize: 12,
             }}
           />
@@ -503,9 +503,9 @@ export function SequenceEditor(): React.ReactElement {
             marginLeft: "auto",
             padding: "4px 8px",
             borderRadius: 4,
-            border: "1px solid var(--border, #444)",
-            background: "var(--surface, #16213e)",
-            color: "var(--text, #e2e8f0)",
+            border: "1px solid var(--es-border, #444)",
+            background: "var(--es-surface, #16213e)",
+            color: "var(--es-text, #e2e8f0)",
             cursor: "pointer",
             fontSize: 12,
           }}
@@ -529,13 +529,13 @@ export function SequenceEditor(): React.ReactElement {
             alignItems: "center",
             gap: 6,
             padding: "4px 12px",
-            borderBottom: "1px solid var(--border, #333)",
-            background: "var(--surface, #16213e)",
+            borderBottom: "1px solid var(--es-border, #333)",
+            background: "var(--es-surface, #16213e)",
             flexShrink: 0,
             fontSize: 12,
           }}
         >
-          <span style={{ color: "var(--text-muted, #888)" }}>
+          <span style={{ color: "var(--es-text-muted, #888)" }}>
             Keyframe value:
           </span>
           <input
@@ -556,9 +556,9 @@ export function SequenceEditor(): React.ReactElement {
               width: 80,
               padding: "2px 4px",
               borderRadius: 3,
-              border: "1px solid var(--border, #444)",
-              background: "var(--surface, #16213e)",
-              color: "var(--text, #e2e8f0)",
+              border: "1px solid var(--es-border, #444)",
+              background: "var(--es-surface, #16213e)",
+              color: "var(--es-text, #e2e8f0)",
               fontSize: 12,
             }}
           />
@@ -584,9 +584,9 @@ export function SequenceEditor(): React.ReactElement {
             style={{
               padding: "2px 8px",
               borderRadius: 3,
-              border: "1px solid var(--border, #444)",
+              border: "1px solid var(--es-border, #444)",
               background: "transparent",
-              color: "var(--text, #e2e8f0)",
+              color: "var(--es-text, #e2e8f0)",
               cursor: "pointer",
               fontSize: 11,
             }}
@@ -603,15 +603,15 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             width: LABEL_WIDTH,
             flexShrink: 0,
-            borderRight: "1px solid var(--border, #333)",
+            borderRight: "1px solid var(--es-border, #333)",
             overflowY: "auto",
           }}
         >
           <div
             style={{
               height: RULER_H,
-              borderBottom: "1px solid var(--border, #333)",
-              background: "var(--surface, #16213e)",
+              borderBottom: "1px solid var(--es-border, #333)",
+              background: "var(--es-surface, #16213e)",
             }}
           />
           {tracks.map((t) => (
@@ -647,8 +647,8 @@ export function SequenceEditor(): React.ReactElement {
               onClick={handleRulerClick}
               style={{
                 height: RULER_H,
-                borderBottom: "1px solid var(--border, #333)",
-                background: "var(--surface, #16213e)",
+                borderBottom: "1px solid var(--es-border, #333)",
+                background: "var(--es-surface, #16213e)",
                 position: "sticky",
                 top: 0,
                 zIndex: 10,
@@ -673,7 +673,7 @@ export function SequenceEditor(): React.ReactElement {
                     <span
                       style={{
                         fontSize: 9,
-                        color: "var(--text-muted, #888)",
+                        color: "var(--es-text-muted, #888)",
                         paddingBottom: 3,
                         whiteSpace: "nowrap",
                       }}
@@ -684,7 +684,7 @@ export function SequenceEditor(): React.ReactElement {
                       style={{
                         width: 1,
                         height: 6,
-                        background: "var(--border, #555)",
+                        background: "var(--es-border, #555)",
                       }}
                     />
                   </div>
@@ -699,7 +699,7 @@ export function SequenceEditor(): React.ReactElement {
                 onClick={(e) => handleRowClick(e, track.id)}
                 style={{
                   height: ROW_HEIGHT,
-                  borderBottom: "1px solid var(--border, #333)",
+                  borderBottom: "1px solid var(--es-border, #333)",
                   position: "relative",
                   cursor: "crosshair",
                   background: "transparent",
@@ -716,7 +716,7 @@ export function SequenceEditor(): React.ReactElement {
                       top: 0,
                       width: 1,
                       height: "100%",
-                      background: "var(--border, #333)",
+                      background: "var(--es-border, #333)",
                       opacity: 0.4,
                       pointerEvents: "none",
                     }}

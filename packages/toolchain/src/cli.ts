@@ -13,7 +13,8 @@ program
   .command('detect')
   .description('Detect installed toolchain tools')
   .action(async () => {
-    const report = await detectToolchain();
+    const settings = loadToolchainSettings(process.cwd());
+    const report = detectToolchain(settings);
     console.log(formatToolchainReport(report));
   });
 
@@ -34,7 +35,7 @@ program
     minify: boolean; dropConsole: boolean; sourcemap: boolean;
     aggressive: boolean; arch: string;
   }) => {
-    const settings = loadToolchainSettings();
+    const settings = loadToolchainSettings(process.cwd());
     console.log(`Exporting for ${opts.platform} (${opts.arch}) — format: ${opts.format}`);
 
     if (opts.format === 'zip') {
@@ -100,7 +101,7 @@ program
   .option('--show', 'Print current settings')
   .option('--set <key=value>', 'Set a key=value pair')
   .action((opts: { show?: boolean; set?: string }) => {
-    const settings = loadToolchainSettings();
+    const settings = loadToolchainSettings(process.cwd());
     if (opts.show) {
       console.log(JSON.stringify(settings, null, 2));
     } else if (opts.set) {
@@ -109,7 +110,7 @@ program
       const key = opts.set.slice(0, eqIdx);
       const val = opts.set.slice(eqIdx + 1);
       (settings as Record<string, unknown>)[key] = val;
-      saveToolchainSettings(settings);
+      saveToolchainSettings(process.cwd(), settings);
       console.log(`Set ${key} = ${val}`);
     } else {
       console.log(JSON.stringify(settings, null, 2));
@@ -215,8 +216,12 @@ async function exportZip(opts: { platform: string; arch: string; out: string }):
         process.exit(1);
       }
       const appImage = appImages[0];
+      if (appImage === undefined) {
+        console.error('No .AppImage found in output dir.');
+        process.exit(1);
+      }
       console.log(`Zipping ${appImage} → ${zipName}`);
-      await exec('zip', [zipOut, appImage], { cwd: opts.out });
+      await exec('zip', [zipOut, appImage], { cwd: opts.out, encoding: 'utf8' as const });
       console.log(`Portable Linux zip: ${zipOut}`);
       console.log('To run: unzip, chmod +x *.AppImage, then ./game.AppImage');
       break;
@@ -230,8 +235,12 @@ async function exportZip(opts: { platform: string; arch: string; out: string }):
         process.exit(1);
       }
       const app = apps[0];
+      if (app === undefined) {
+        console.error('No .app bundle found in output dir.');
+        process.exit(1);
+      }
       console.log(`Zipping ${app} → ${zipName}`);
-      await exec('zip', ['-r', zipOut, app], { cwd: opts.out });
+      await exec('zip', ['-r', zipOut, app], { cwd: opts.out, encoding: 'utf8' as const });
       console.log(`Portable macOS zip: ${zipOut}`);
       console.log('To run: unzip, then open game.app (or double-click in Finder)');
       break;

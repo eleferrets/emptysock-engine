@@ -19,17 +19,17 @@ import type { ProjectFile } from "../../store/ideStore";
 
 function FileIcon({ file }: { file: ProjectFile }): React.ReactElement {
   if (file.type === "folder")
-    return <Folder size={13} style={{ color: "var(--yellow)" }} />;
+    return <Folder size={13} style={{ color: "var(--es-yellow)" }} />;
   const ext = file.name.split(".").pop() ?? "";
   if (["ts", "tsx", "js"].includes(ext))
-    return <FileCode size={13} style={{ color: "var(--blue)" }} />;
+    return <FileCode size={13} style={{ color: "var(--es-blue)" }} />;
   if (["png", "jpg", "svg", "webp"].includes(ext))
-    return <FileImage size={13} style={{ color: "var(--green)" }} />;
+    return <FileImage size={13} style={{ color: "var(--es-green)" }} />;
   if (["ogg", "mp3", "wav"].includes(ext))
-    return <FileAudio size={13} style={{ color: "var(--accent)" }} />;
+    return <FileAudio size={13} style={{ color: "var(--es-accent)" }} />;
   if (ext === "json")
-    return <FileJson size={13} style={{ color: "var(--yellow)" }} />;
-  return <FileCode size={13} style={{ color: "var(--text-muted)" }} />;
+    return <FileJson size={13} style={{ color: "var(--es-yellow)" }} />;
+  return <FileCode size={13} style={{ color: "var(--es-text-muted)" }} />;
 }
 
 function FileTreeNode({
@@ -60,12 +60,12 @@ function FileTreeNode({
         style={{
           paddingLeft: `${8 + depth * 12}px`,
           background: isSelected ? "rgba(124,106,247,0.15)" : undefined,
-          color: isSelected ? "var(--accent)" : "var(--text-muted)",
+          color: isSelected ? "var(--es-accent)" : "var(--es-text-muted)",
         }}
         onMouseEnter={(e) => {
           if (!isSelected)
             (e.currentTarget as HTMLElement).style.background =
-              "var(--surface-2)";
+              "var(--es-surface-2)";
         }}
         onMouseLeave={(e) => {
           if (!isSelected)
@@ -74,7 +74,11 @@ function FileTreeNode({
       >
         {file.type === "folder" && (
           <span
-            style={{ color: "var(--text-muted)", opacity: 0.6, flexShrink: 0 }}
+            style={{
+              color: "var(--es-text-muted)",
+              opacity: 0.6,
+              flexShrink: 0,
+            }}
           >
             {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           </span>
@@ -102,7 +106,7 @@ function RecentFilesSection(): React.ReactElement {
   if (recentFiles.length === 0) return <></>;
 
   return (
-    <div style={{ borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+    <div style={{ borderBottom: "1px solid var(--es-border)", flexShrink: 0 }}>
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center w-full gap-1 px-3 h-7"
@@ -110,7 +114,7 @@ function RecentFilesSection(): React.ReactElement {
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: "var(--text-muted)",
+          color: "var(--es-text-muted)",
         }}
       >
         <span style={{ marginRight: 2 }}>
@@ -157,14 +161,14 @@ function RecentFilesSection(): React.ReactElement {
               className="flex items-center w-full gap-1.5 py-0.5 pr-2 text-left transition-colors truncate"
               style={{
                 paddingLeft: 20,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 background: "none",
                 border: "none",
                 cursor: "pointer",
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background =
-                  "var(--surface-2)";
+                  "var(--es-surface-2)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "";
@@ -175,7 +179,7 @@ function RecentFilesSection(): React.ReactElement {
                 size={11}
                 style={{
                   flexShrink: 0,
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   opacity: 0.7,
                 }}
               />
@@ -200,8 +204,8 @@ export function LeftSidebar(): React.ReactElement {
       style={{
         width: 240,
         flexShrink: 0,
-        borderRight: "1px solid var(--border)",
-        background: "var(--surface)",
+        borderRight: "1px solid var(--es-border)",
+        background: "var(--es-surface)",
       }}
     >
       {/* Icon rail */}
@@ -210,8 +214,8 @@ export function LeftSidebar(): React.ReactElement {
         style={{
           width: 36,
           flexShrink: 0,
-          borderRight: "1px solid var(--border)",
-          background: "var(--bg)",
+          borderRight: "1px solid var(--es-border)",
+          background: "var(--es-bg)",
         }}
       >
         {[
@@ -227,7 +231,9 @@ export function LeftSidebar(): React.ReactElement {
             className="w-7 h-7 flex items-center justify-center rounded transition-colors"
             style={{
               color:
-                section === item.id ? "var(--accent)" : "var(--text-muted)",
+                section === item.id
+                  ? "var(--es-accent)"
+                  : "var(--es-text-muted)",
               background:
                 section === item.id ? "rgba(124,106,247,0.15)" : undefined,
             }}
@@ -241,11 +247,11 @@ export function LeftSidebar(): React.ReactElement {
       <div className="flex-1 overflow-hidden flex flex-col min-w-0">
         <div
           className="flex items-center px-3 h-8 flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--border)" }}
+          style={{ borderBottom: "1px solid var(--es-border)" }}
         >
           <span
             className="text-[10px] uppercase tracking-widest font-semibold"
-            style={{ color: "var(--text-muted)" }}
+            style={{ color: "var(--es-text-muted)" }}
           >
             {section === "files"
               ? "Project"
@@ -271,17 +277,17 @@ export function LeftSidebar(): React.ReactElement {
             {section === "tools" && (
               <div className="px-3 py-4">
                 {[
-                  { name: "Transform", color: "var(--blue)" },
-                  { name: "Sprite", color: "var(--green)" },
-                  { name: "PhysicsBody", color: "var(--yellow)" },
-                  { name: "CharacterController", color: "var(--accent)" },
-                  { name: "Animator", color: "var(--red)" },
-                  { name: "AudioSource", color: "var(--accent)" },
+                  { name: "Transform", color: "var(--es-blue)" },
+                  { name: "Sprite", color: "var(--es-green)" },
+                  { name: "PhysicsBody", color: "var(--es-yellow)" },
+                  { name: "CharacterController", color: "var(--es-accent)" },
+                  { name: "Animator", color: "var(--es-red)" },
+                  { name: "AudioSource", color: "var(--es-accent)" },
                 ].map((c) => (
                   <div
                     key={c.name}
                     className="flex items-center gap-2 px-2 py-1.5 rounded mb-0.5 cursor-grab text-xs"
-                    style={{ color: "var(--text-muted)" }}
+                    style={{ color: "var(--es-text-muted)" }}
                     draggable
                   >
                     <div
@@ -297,7 +303,7 @@ export function LeftSidebar(): React.ReactElement {
             {(section === "images" || section === "audio") && (
               <div
                 className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center"
-                style={{ color: "var(--text-muted)", fontSize: 11 }}
+                style={{ color: "var(--es-text-muted)", fontSize: 11 }}
               >
                 {section === "images" ? (
                   <ImageIcon size={24} strokeWidth={1} />

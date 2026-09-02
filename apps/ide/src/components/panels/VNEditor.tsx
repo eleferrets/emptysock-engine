@@ -376,8 +376,8 @@ export function VNEditor(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
@@ -387,8 +387,8 @@ export function VNEditor(): React.ReactElement {
           display: "flex",
           gap: 6,
           padding: "6px 10px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           flexShrink: 0,
           flexWrap: "wrap",
           alignItems: "center",
@@ -398,7 +398,7 @@ export function VNEditor(): React.ReactElement {
           onClick={() => addNode("dialogue")}
           style={{
             padding: "3px 10px",
-            background: "var(--accent)",
+            background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
             color: "#fff",
@@ -425,10 +425,10 @@ export function VNEditor(): React.ReactElement {
           disabled={!selected}
           style={{
             padding: "3px 10px",
-            background: selected ? "#dc2626" : "var(--surface)",
-            border: "1px solid var(--border)",
+            background: selected ? "#dc2626" : "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: selected ? "pointer" : "default",
             opacity: selected ? 1 : 0.4,
           }}
@@ -440,10 +440,10 @@ export function VNEditor(): React.ReactElement {
           onClick={resetView}
           style={{
             padding: "3px 8px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
             cursor: "pointer",
             fontSize: 11,
           }}
@@ -453,7 +453,7 @@ export function VNEditor(): React.ReactElement {
         <span
           style={{
             fontSize: 10,
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -463,10 +463,10 @@ export function VNEditor(): React.ReactElement {
           onClick={importJSON}
           style={{
             padding: "3px 8px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -476,10 +476,10 @@ export function VNEditor(): React.ReactElement {
           onClick={exportJSON}
           style={{
             padding: "3px 10px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -524,7 +524,7 @@ export function VNEditor(): React.ReactElement {
               refY="3"
               orient="auto"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--es-accent)" />
             </marker>
             <pattern
               id="grid"
@@ -553,7 +553,7 @@ export function VNEditor(): React.ReactElement {
                 key={edge.id}
                 d={edgePath(edge)}
                 fill="none"
-                stroke="var(--accent)"
+                stroke="var(--es-accent)"
                 strokeWidth={1.5 / view.scale}
                 markerEnd="url(#arrow)"
               />
@@ -591,7 +591,7 @@ export function VNEditor(): React.ReactElement {
                     rx={6}
                     fill={node.type === "dialogue" ? "#1e1b4b" : "#1a1a2e"}
                     stroke={
-                      isSelected ? "var(--accent)" : "rgba(255,255,255,0.15)"
+                      isSelected ? "var(--es-accent)" : "rgba(255,255,255,0.15)"
                     }
                     strokeWidth={isSelected ? 2 / view.scale : 1 / view.scale}
                   />
@@ -631,7 +631,7 @@ export function VNEditor(): React.ReactElement {
                     cy={NODE_H / 2}
                     r={5}
                     fill="#334155"
-                    stroke="var(--accent)"
+                    stroke="var(--es-accent)"
                     strokeWidth={1.5 / view.scale}
                   />
                   {/* Output ports */}
@@ -680,7 +680,7 @@ export function VNEditor(): React.ReactElement {
               alignItems: "center",
               justifyContent: "center",
               pointerEvents: "none",
-              color: "var(--text-muted)",
+              color: "var(--es-text-muted)",
               fontSize: 13,
               gap: 6,
             }}
@@ -708,8 +708,8 @@ export function VNEditor(): React.ReactElement {
         >
           <div
             style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
+              background: "var(--es-surface)",
+              border: "1px solid var(--es-border)",
               borderRadius: 8,
               padding: 16,
               width: 360,
@@ -730,10 +730,10 @@ export function VNEditor(): React.ReactElement {
                 placeholder="Speaker"
                 style={{
                   padding: "4px 8px",
-                  background: "var(--bg)",
-                  border: "1px solid var(--border)",
+                  background: "var(--es-bg)",
+                  border: "1px solid var(--es-border)",
                   borderRadius: 4,
-                  color: "var(--text)",
+                  color: "var(--es-text)",
                 }}
               />
             )}
@@ -745,10 +745,10 @@ export function VNEditor(): React.ReactElement {
               }
               style={{
                 padding: "4px 8px",
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
+                background: "var(--es-bg)",
+                border: "1px solid var(--es-border)",
                 borderRadius: 4,
-                color: "var(--text)",
+                color: "var(--es-text)",
                 resize: "vertical",
               }}
             />
@@ -769,10 +769,10 @@ export function VNEditor(): React.ReactElement {
                     style={{
                       flex: 1,
                       padding: "4px 8px",
-                      background: "var(--bg)",
-                      border: "1px solid var(--border)",
+                      background: "var(--es-bg)",
+                      border: "1px solid var(--es-border)",
                       borderRadius: 4,
-                      color: "var(--text)",
+                      color: "var(--es-text)",
                     }}
                   />
                   <button
@@ -786,9 +786,9 @@ export function VNEditor(): React.ReactElement {
                     style={{
                       padding: "2px 6px",
                       background: "none",
-                      border: "1px solid var(--border)",
+                      border: "1px solid var(--es-border)",
                       borderRadius: 4,
-                      color: "var(--red)",
+                      color: "var(--es-red)",
                       cursor: "pointer",
                     }}
                   >
@@ -813,10 +813,10 @@ export function VNEditor(): React.ReactElement {
                 }
                 style={{
                   padding: "3px 8px",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
+                  background: "var(--es-surface)",
+                  border: "1px solid var(--es-border)",
                   borderRadius: 4,
-                  color: "var(--text)",
+                  color: "var(--es-text)",
                   cursor: "pointer",
                   fontSize: 11,
                 }}
@@ -835,7 +835,7 @@ export function VNEditor(): React.ReactElement {
                 style={{
                   flex: 1,
                   padding: "5px 0",
-                  background: "var(--accent)",
+                  background: "var(--es-accent)",
                   border: "none",
                   borderRadius: 4,
                   color: "#fff",
@@ -849,10 +849,10 @@ export function VNEditor(): React.ReactElement {
                 style={{
                   flex: 1,
                   padding: "5px 0",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
+                  background: "var(--es-surface)",
+                  border: "1px solid var(--es-border)",
                   borderRadius: 4,
-                  color: "var(--text)",
+                  color: "var(--es-text)",
                   cursor: "pointer",
                 }}
               >

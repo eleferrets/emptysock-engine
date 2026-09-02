@@ -8,24 +8,123 @@ import {
   Upload,
   X,
   Grid,
+  PackageOpen,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
 import { Button } from "../ui/Button";
 
+// ---------------------------------------------------------------------------
+// GMS2 YYP types (minimal — only what we parse from the project file)
+// ---------------------------------------------------------------------------
+
+interface YYPResourceId {
+  name: string;
+  path: string;
+}
+
+interface YYPResource {
+  id: YYPResourceId;
+}
+
+interface YYProject {
+  resources: YYPResource[];
+}
+
+// FileSystemDirectoryHandle.values() is an async iterator defined in
+// DOM.AsyncIterable which is not in the base lib. Declare it inline.
+type DirHandleIterable = FileSystemDirectoryHandle & {
+  values(): AsyncIterableIterator<FileSystemHandle>;
+};
+
+async function importGMS2FromHandle(
+  dirHandle: FileSystemDirectoryHandle,
+): Promise<void> {
+  const { openFile, addAsset, addLog } = useIDEStore.getState();
+
+  // Find the first .yyp file in the directory.
+  let yypHandle: FileSystemFileHandle | null = null;
+  const iterable = dirHandle as DirHandleIterable;
+  for await (const entry of iterable.values()) {
+    if (entry.kind === "file" && entry.name.endsWith(".yyp")) {
+      yypHandle = entry as FileSystemFileHandle;
+      break;
+    }
+  }
+
+  if (yypHandle === null) {
+    addLog(
+      "warn",
+      "GMS2 import: no .yyp file found in the selected directory",
+      "GMS2",
+    );
+    return;
+  }
+
+  const file = await yypHandle.getFile();
+  const raw = await file.text();
+
+  let project: YYProject;
+  try {
+    project = JSON.parse(raw) as YYProject;
+  } catch {
+    addLog("error", "GMS2 import: failed to parse .yyp file as JSON", "GMS2");
+    return;
+  }
+
+  if (!Array.isArray(project.resources)) {
+    addLog("error", "GMS2 import: .yyp file has no resources array", "GMS2");
+    return;
+  }
+
+  let scriptCount = 0;
+  let spriteCount = 0;
+  let objectCount = 0;
+
+  for (const res of project.resources) {
+    const name = res.id?.name;
+    const resPath = res.id?.path ?? "";
+    if (typeof name !== "string" || name.length === 0) continue;
+
+    if (resPath.startsWith("scripts/")) {
+      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
+      openFile(`gms2/${name}.ts`, stub);
+      scriptCount += 1;
+    } else if (resPath.startsWith("objects/")) {
+      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
+      openFile(`gms2/${name}.ts`, stub);
+      objectCount += 1;
+    } else if (resPath.startsWith("sprites/")) {
+      addAsset({
+        id: `gms2-spr-${Date.now()}-${name}`,
+        name,
+        type: "image",
+        path: `gms2/sprites/${name}`,
+      });
+      spriteCount += 1;
+    }
+  }
+
+  addLog(
+    "info",
+    `GMS2 import complete: ${scriptCount} scripts, ${spriteCount} sprites, ${objectCount} objects`,
+    "GMS2",
+  );
+}
+
 function AssetIcon({ type }: { type: AssetItem["type"] }): React.ReactElement {
   const props = { size: 20, strokeWidth: 1.5 };
   switch (type) {
     case "image":
-      return <Image {...props} style={{ color: "var(--green)" }} />;
+      return <Image {...props} style={{ color: "var(--es-green)" }} />;
     case "audio":
-      return <Music {...props} style={{ color: "var(--accent)" }} />;
+      return <Music {...props} style={{ color: "var(--es-accent)" }} />;
     case "script":
-      return <FileCode {...props} style={{ color: "var(--blue)" }} />;
+      return <FileCode {...props} style={{ color: "var(--es-blue)" }} />;
     case "json":
-      return <FileJson {...props} style={{ color: "var(--yellow)" }} />;
+      return <FileJson {...props} style={{ color: "var(--es-yellow)" }} />;
     default:
-      return <FileCode {...props} style={{ color: "var(--text-muted)" }} />;
+      return <FileCode {...props} style={{ color: "var(--es-text-muted)" }} />;
   }
 }
 
@@ -128,20 +227,20 @@ export function AssetBrowser(): React.ReactElement {
         className="flex items-center gap-2 px-3 flex-shrink-0"
         style={{
           height: 28,
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface-2)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface-2)",
         }}
       >
         <Search
           size={11}
-          style={{ color: "var(--text-muted)", flexShrink: 0 }}
+          style={{ color: "var(--es-text-muted)", flexShrink: 0 }}
         />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search assets…"
           className="flex-1 bg-transparent text-xs outline-none"
-          style={{ color: "var(--text)", fontFamily: "inherit" }}
+          style={{ color: "var(--es-text)", fontFamily: "inherit" }}
         />
         <input
           ref={fileInputRef}
@@ -160,6 +259,36 @@ export function AssetBrowser(): React.ReactElement {
           <Upload size={11} />
           Import
         </Button>
+        {"showDirectoryPicker" in window ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Import GMS2 Project"
+            onClick={() => {
+              type WindowWithDirPicker = Window & {
+                showDirectoryPicker(opts?: {
+                  mode?: "read" | "readwrite";
+                }): Promise<FileSystemDirectoryHandle>;
+              };
+              void (window as unknown as WindowWithDirPicker)
+                .showDirectoryPicker({ mode: "read" })
+                .then((handle) => importGMS2FromHandle(handle));
+            }}
+          >
+            <PackageOpen size={11} />
+            Import GMS2 Project
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled
+            title="Requires a Chromium-based browser"
+          >
+            <PackageOpen size={11} />
+            Import GMS2 Project
+          </Button>
+        )}
       </div>
 
       {/* Asset grid */}
@@ -183,15 +312,15 @@ export function AssetBrowser(): React.ReactElement {
               background:
                 selectedId === asset.id
                   ? "rgba(124,106,247,0.15)"
-                  : "var(--surface-2)",
-              border: `1px solid ${selectedId === asset.id ? "var(--accent)" : "var(--border)"}`,
+                  : "var(--es-surface-2)",
+              border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
             }}
           >
             <AssetIcon type={asset.type} />
             <span
               className="text-[10px] w-full truncate"
               style={{
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 fontFamily: "JetBrains Mono, monospace",
               }}
             >
@@ -202,7 +331,7 @@ export function AssetBrowser(): React.ReactElement {
             {asset.size !== undefined && (
               <span
                 className="text-[9px]"
-                style={{ color: "var(--text-muted)", opacity: 0.6 }}
+                style={{ color: "var(--es-text-muted)", opacity: 0.6 }}
               >
                 {formatSize(asset.size)}
               </span>
@@ -230,8 +359,8 @@ export function AssetBrowser(): React.ReactElement {
         >
           <div
             style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
+              background: "var(--es-surface)",
+              border: "1px solid var(--es-border)",
               borderRadius: 10,
               width: 400,
               maxWidth: "calc(100vw - 32px)",
@@ -244,16 +373,16 @@ export function AssetBrowser(): React.ReactElement {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "12px 16px",
-                borderBottom: "1px solid var(--border)",
+                borderBottom: "1px solid var(--es-border)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Grid size={14} style={{ color: "var(--accent)" }} />
+                <Grid size={14} style={{ color: "var(--es-accent)" }} />
                 <span
                   style={{
                     fontSize: 13,
                     fontWeight: 600,
-                    color: "var(--text)",
+                    color: "var(--es-text)",
                   }}
                 >
                   Import Sprite Sheet
@@ -265,7 +394,7 @@ export function AssetBrowser(): React.ReactElement {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   display: "flex",
                 }}
               >
@@ -284,7 +413,7 @@ export function AssetBrowser(): React.ReactElement {
               <div
                 style={{
                   fontSize: 12,
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   fontFamily: "JetBrains Mono, monospace",
                   wordBreak: "break-all",
                 }}
@@ -300,7 +429,7 @@ export function AssetBrowser(): React.ReactElement {
                 style={{
                   borderRadius: 6,
                   overflow: "hidden",
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--es-border)",
                   background: "#0e0e10",
                   maxHeight: 120,
                   display: "flex",
@@ -324,7 +453,7 @@ export function AssetBrowser(): React.ReactElement {
                 <label
                   style={{
                     fontSize: 12,
-                    color: "var(--text)",
+                    color: "var(--es-text)",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -342,10 +471,10 @@ export function AssetBrowser(): React.ReactElement {
                   }
                   style={{
                     flex: 1,
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
+                    background: "var(--es-bg)",
+                    border: "1px solid var(--es-border)",
                     borderRadius: 5,
-                    color: "var(--text)",
+                    color: "var(--es-text)",
                     fontSize: 12,
                     padding: "4px 8px",
                     outline: "none",
@@ -353,7 +482,7 @@ export function AssetBrowser(): React.ReactElement {
                   }}
                 />
                 {stripDialog.detectedN > 0 && (
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
                     detected: {stripDialog.detectedN}
                   </span>
                 )}
@@ -362,7 +491,7 @@ export function AssetBrowser(): React.ReactElement {
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   lineHeight: 1.5,
                 }}
               >
@@ -378,7 +507,7 @@ export function AssetBrowser(): React.ReactElement {
                 justifyContent: "flex-end",
                 gap: 8,
                 padding: "10px 16px",
-                borderTop: "1px solid var(--border)",
+                borderTop: "1px solid var(--es-border)",
               }}
             >
               <Button variant="ghost" size="sm" onClick={cancelStripImport}>

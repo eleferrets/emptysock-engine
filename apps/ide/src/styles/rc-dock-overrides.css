@@ -6,66 +6,66 @@
 /* Tab bar (rc-dock uses .dock-top .dock-bar for the tab strip) */
 .dock-bar,
 .dock-top .dock-bar {
-  background: var(--surface) !important;
-  border-bottom: 1px solid var(--border) !important;
+  background: var(--es-surface) !important;
+  border-bottom: 1px solid var(--es-border) !important;
 }
 
 /* Individual tab buttons */
 .dock-tab,
 .dock-tab > div {
   background: transparent !important;
-  color: var(--text-muted) !important;
+  color: var(--es-text-muted) !important;
 }
 
 .dock-tab.dock-tab-active,
 .dock-tab.dock-tab-active > div {
   background: transparent !important;
-  color: var(--text) !important;
+  color: var(--es-text) !important;
 }
 
 /* Active underline */
 .dock-ink-bar {
-  background: var(--accent) !important;
+  background: var(--es-accent) !important;
 }
 
 /* Panel body */
 .dock-panel {
-  background: var(--bg) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text) !important;
+  background: var(--es-bg) !important;
+  border: 1px solid var(--es-border) !important;
+  color: var(--es-text) !important;
 }
 
 /* Animated content wrapper */
 .dock-content-animated,
 .dock-content {
-  background: var(--bg) !important;
+  background: var(--es-bg) !important;
 }
 
 /* Resize handle */
 .dock-divider {
-  background: var(--border) !important;
+  background: var(--es-border) !important;
 }
 
 /* Drop squares (shown during drag) */
 .dock-drop-square {
-  background: var(--surface-2) !important;
-  border-color: var(--accent) !important;
-  color: var(--text-muted) !important;
+  background: var(--es-surface-2) !important;
+  border-color: var(--es-accent) !important;
+  color: var(--es-text-muted) !important;
 }
 
 /* Dropdown overflow menu */
 .dock-dropdown-menu {
-  background-color: var(--surface-2) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text) !important;
+  background-color: var(--es-surface-2) !important;
+  border: 1px solid var(--es-border) !important;
+  color: var(--es-text) !important;
 }
 
 .dock-dropdown-menu-item {
-  color: var(--text) !important;
+  color: var(--es-text) !important;
 }
 
 .dock-dropdown-menu-item:hover {
-  background: var(--surface) !important;
+  background: var(--es-surface) !important;
 }
 
 /* Hide the maximize/float action buttons — drag to float still works */
@@ -82,6 +82,6 @@
 
 /* Tab overflow scroll arrows */
 .dock-tab-btn-skip {
-  color: var(--text-muted) !important;
+  color: var(--es-text-muted) !important;
   background: transparent !important;
 }

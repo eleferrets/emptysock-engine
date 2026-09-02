@@ -28,10 +28,10 @@ function SectionHeader({ label }: { label: string }): React.ReactElement {
         fontWeight: 600,
         letterSpacing: "0.08em",
         textTransform: "uppercase",
-        color: "var(--text-muted)",
+        color: "var(--es-text-muted)",
         marginBottom: 10,
         paddingBottom: 4,
-        borderBottom: "1px solid var(--border)",
+        borderBottom: "1px solid var(--es-border)",
       }}
     >
       {label}
@@ -71,7 +71,7 @@ function SliderRow({
       <label
         style={{
           fontSize: 12,
-          color: "var(--text)",
+          color: "var(--es-text)",
           width: 160,
           flexShrink: 0,
         }}
@@ -85,12 +85,12 @@ function SliderRow({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ flex: 1, accentColor: "var(--accent)", cursor: "pointer" }}
+        style={{ flex: 1, accentColor: "var(--es-accent)", cursor: "pointer" }}
       />
       <span
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--es-text-muted)",
           width: 44,
           textAlign: "right",
           fontVariantNumeric: "tabular-nums",
@@ -125,7 +125,7 @@ function ToggleRow({
       <label
         style={{
           fontSize: 12,
-          color: "var(--text)",
+          color: "var(--es-text)",
           flex: 1,
           cursor: "pointer",
         }}
@@ -141,7 +141,7 @@ function ToggleRow({
           borderRadius: 10,
           border: "none",
           cursor: "pointer",
-          background: value ? "var(--accent)" : "var(--border)",
+          background: value ? "var(--es-accent)" : "var(--es-border)",
           position: "relative",
           transition: "background 0.15s",
           flexShrink: 0,
@@ -189,7 +189,7 @@ function SelectRow({
       <label
         style={{
           fontSize: 12,
-          color: "var(--text)",
+          color: "var(--es-text)",
           width: 160,
           flexShrink: 0,
         }}
@@ -201,10 +201,10 @@ function SelectRow({
         onChange={(e) => onChange(e.target.value)}
         style={{
           flex: 1,
-          background: "var(--bg)",
-          border: "1px solid var(--border)",
+          background: "var(--es-bg)",
+          border: "1px solid var(--es-border)",
           borderRadius: 4,
-          color: "var(--text)",
+          color: "var(--es-text)",
           fontSize: 12,
           padding: "4px 8px",
           cursor: "pointer",
@@ -315,8 +315,8 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
             width: 480,
             maxWidth: "calc(100vw - 32px)",
             maxHeight: "calc(100dvh - 64px)",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 8,
             display: "flex",
             flexDirection: "column",
@@ -330,7 +330,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "12px 16px",
-              borderBottom: "1px solid var(--border)",
+              borderBottom: "1px solid var(--es-border)",
               flexShrink: 0,
             }}
           >
@@ -338,7 +338,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: "var(--text)",
+                color: "var(--es-text)",
                 margin: 0,
               }}
             >
@@ -351,7 +351,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  color: "var(--text-muted)",
+                  color: "var(--es-text-muted)",
                   display: "flex",
                   padding: 4,
                   borderRadius: 4,
@@ -528,14 +528,14 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               style={{
                 marginBottom: 8,
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 lineHeight: 1.5,
               }}
             >
               Import a VS Code{" "}
               <code
                 style={{
-                  background: "var(--surface-2)",
+                  background: "var(--es-surface-2)",
                   padding: "1px 4px",
                   borderRadius: 3,
                 }}
@@ -545,7 +545,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               or{" "}
               <code
                 style={{
-                  background: "var(--surface-2)",
+                  background: "var(--es-surface-2)",
                   padding: "1px 4px",
                   borderRadius: 3,
                 }}
@@ -589,24 +589,24 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
                   lineHeight: 1.6,
                   padding: "8px 10px",
                   borderRadius: 4,
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
+                  background: "var(--es-surface-2)",
+                  border: "1px solid var(--es-border)",
                   marginBottom: 10,
                 }}
               >
                 {vscodeImportStatus.applied.length > 0 && (
-                  <div style={{ color: "var(--green)" }}>
+                  <div style={{ color: "var(--es-green)" }}>
                     Applied: {vscodeImportStatus.applied.join(", ")}
                   </div>
                 )}
                 {vscodeImportStatus.skipped.length > 0 && (
-                  <div style={{ color: "var(--text-muted)" }}>
+                  <div style={{ color: "var(--es-text-muted)" }}>
                     Skipped: {vscodeImportStatus.skipped.join(", ")}
                   </div>
                 )}
                 {vscodeImportStatus.applied.length === 0 &&
                   vscodeImportStatus.skipped.length === 0 && (
-                    <div style={{ color: "var(--text-muted)" }}>
+                    <div style={{ color: "var(--es-text-muted)" }}>
                       No recognised settings found.
                     </div>
                   )}
@@ -628,7 +628,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               <Button variant="outline" size="sm" onClick={clearBuildCache}>
                 Clear Build Cache
               </Button>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
                 Resets build status and clears errors
               </span>
             </div>
@@ -641,7 +641,7 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "10px 16px",
-              borderTop: "1px solid var(--border)",
+              borderTop: "1px solid var(--es-border)",
               flexShrink: 0,
             }}
           >

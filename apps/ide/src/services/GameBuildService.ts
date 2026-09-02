@@ -10,6 +10,7 @@
 import * as esbuild from "esbuild-wasm";
 import esbuildWasmUrl from "esbuild-wasm/esbuild.wasm?url";
 import { loadSettings } from "./SettingsService";
+import { useIDEStore } from "../store/ideStore";
 
 export interface BuildJobResult {
   success: boolean;
@@ -117,6 +118,33 @@ function virtualFsPlugin(files: Record<string, string>): esbuild.Plugin {
   };
 }
 
+function checkVirtualFilesCompleteness(
+  virtualFiles: Record<string, string>,
+): void {
+  const addLog = useIDEStore.getState().addLog;
+  const importRe = /from\s+['"](\.[^'"]+)['"]/g;
+  for (const [importer, content] of Object.entries(virtualFiles)) {
+    let match: RegExpExecArray | null;
+    importRe.lastIndex = 0;
+    while ((match = importRe.exec(content)) !== null) {
+      const specifier = match[1];
+      if (specifier === undefined) continue;
+      const resolved = normalizePath(importer, specifier);
+      const candidates = ["", ".ts", ".tsx", ".js", "/index.ts", "/index.js"];
+      const found = candidates.some(
+        (ext) => virtualFiles[resolved + ext] !== undefined,
+      );
+      if (!found) {
+        addLog(
+          "warn",
+          `Build: missing virtual file "${resolved}" — open it in the editor before building`,
+          "BuildService",
+        );
+      }
+    }
+  }
+}
+
 async function runBuild(
   code: string,
   mode: "debug" | "release",
@@ -125,6 +153,7 @@ async function runBuild(
   virtualFiles: Record<string, string> = {},
   target: string[] = ["es2020"],
 ): Promise<BuildJobResult> {
+  checkVirtualFilesCompleteness(virtualFiles);
   const start = Date.now();
   try {
     await ensureEsbuild();

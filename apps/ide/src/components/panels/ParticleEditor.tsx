@@ -206,8 +206,8 @@ export function ParticleEditor(): React.ReactElement {
           marginBottom: 2,
         }}
       >
-        <span style={{ color: "var(--text-muted)" }}>{label}</span>
-        <span style={{ color: "var(--text)" }}>
+        <span style={{ color: "var(--es-text-muted)" }}>{label}</span>
+        <span style={{ color: "var(--es-text)" }}>
           {typeof config[key] === "number"
             ? (config[key] as number).toFixed(step < 1 ? 2 : 0)
             : config[key]}
@@ -222,7 +222,7 @@ export function ParticleEditor(): React.ReactElement {
         onChange={(e) =>
           setConfig((c) => ({ ...c, [key]: Number(e.target.value) }))
         }
-        style={{ width: "100%", accentColor: "var(--accent)" }}
+        style={{ width: "100%", accentColor: "var(--es-accent)" }}
       />
     </div>
   );
@@ -232,8 +232,8 @@ export function ParticleEditor(): React.ReactElement {
       style={{
         display: "flex",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
@@ -241,7 +241,7 @@ export function ParticleEditor(): React.ReactElement {
       <div
         style={{
           width: 220,
-          borderRight: "1px solid var(--border)",
+          borderRight: "1px solid var(--es-border)",
           padding: 12,
           overflow: "auto",
           display: "flex",
@@ -256,7 +256,7 @@ export function ParticleEditor(): React.ReactElement {
         <div style={{ marginBottom: 10 }}>
           <div
             style={{
-              color: "var(--text-muted)",
+              color: "var(--es-text-muted)",
               marginBottom: 4,
               fontSize: 11,
               fontWeight: 600,
@@ -270,7 +270,7 @@ export function ParticleEditor(): React.ReactElement {
                 style={{
                   flex: 1,
                   fontSize: 10,
-                  color: "var(--accent)",
+                  color: "var(--es-accent)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -283,9 +283,9 @@ export function ParticleEditor(): React.ReactElement {
                 style={{
                   padding: "2px 6px",
                   background: "none",
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--es-border)",
                   borderRadius: 4,
-                  color: "var(--red)",
+                  color: "var(--es-red)",
                   cursor: "pointer",
                   fontSize: 10,
                 }}
@@ -299,10 +299,10 @@ export function ParticleEditor(): React.ReactElement {
                 display: "block",
                 padding: "5px 0",
                 textAlign: "center",
-                border: "1px dashed var(--border)",
+                border: "1px dashed var(--es-border)",
                 borderRadius: 4,
                 cursor: "pointer",
-                color: "var(--text-muted)",
+                color: "var(--es-text-muted)",
                 fontSize: 11,
               }}
             >
@@ -316,7 +316,11 @@ export function ParticleEditor(): React.ReactElement {
             </label>
           )}
           <div
-            style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}
+            style={{
+              fontSize: 10,
+              color: "var(--es-text-muted)",
+              marginTop: 3,
+            }}
           >
             PNG, JPG, GIF, WebP accepted
           </div>
@@ -335,7 +339,7 @@ export function ParticleEditor(): React.ReactElement {
         {field("Shape Radius", "shapeRadius", 0, 200)}
 
         <div style={{ marginBottom: 8 }}>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Shape
           </div>
           <div style={{ display: "flex", gap: 4 }}>
@@ -347,10 +351,12 @@ export function ParticleEditor(): React.ReactElement {
                   flex: 1,
                   padding: "3px 0",
                   background:
-                    config.shape === s ? "var(--accent)" : "var(--surface)",
+                    config.shape === s
+                      ? "var(--es-accent)"
+                      : "var(--es-surface)",
                   border: "none",
                   borderRadius: 4,
-                  color: "var(--text)",
+                  color: "var(--es-text)",
                   cursor: "pointer",
                   fontSize: 11,
                 }}
@@ -364,7 +370,7 @@ export function ParticleEditor(): React.ReactElement {
         {!spriteImg && (
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>
+              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
                 Start Color
               </div>
               <input
@@ -377,7 +383,7 @@ export function ParticleEditor(): React.ReactElement {
               />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>
+              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
                 End Color
               </div>
               <input
@@ -399,10 +405,10 @@ export function ParticleEditor(): React.ReactElement {
           style={{
             marginTop: 8,
             padding: "5px 0",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -412,7 +418,7 @@ export function ParticleEditor(): React.ReactElement {
         <div
           style={{
             fontSize: 10,
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
             marginTop: 8,
             lineHeight: 1.5,
           }}

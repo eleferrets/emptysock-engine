@@ -111,16 +111,16 @@ export function GitPanel(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
       <div
         style={{
           padding: "6px 12px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -129,7 +129,7 @@ export function GitPanel(): React.ReactElement {
       >
         <span style={{ fontWeight: 600 }}>
           Git{" "}
-          <span style={{ color: "var(--accent)", fontWeight: 400 }}>
+          <span style={{ color: "var(--es-accent)", fontWeight: 400 }}>
             {branch}
           </span>
         </span>
@@ -137,10 +137,10 @@ export function GitPanel(): React.ReactElement {
           onClick={() => void refresh()}
           style={{
             padding: "2px 8px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             cursor: "pointer",
           }}
         >
@@ -160,7 +160,7 @@ export function GitPanel(): React.ReactElement {
         <div
           style={{
             padding: "6px 12px 2px",
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
             fontSize: 11,
             fontWeight: 600,
           }}
@@ -200,10 +200,10 @@ export function GitPanel(): React.ReactElement {
               onClick={() => void unstageFile(f.path)}
               style={{
                 padding: "1px 6px",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
+                background: "var(--es-surface)",
+                border: "1px solid var(--es-border)",
                 borderRadius: 3,
-                color: "var(--text)",
+                color: "var(--es-text)",
                 cursor: "pointer",
                 fontSize: 10,
               }}
@@ -217,7 +217,7 @@ export function GitPanel(): React.ReactElement {
         <div
           style={{
             padding: "6px 12px 2px",
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
             fontSize: 11,
             fontWeight: 600,
             marginTop: 4,
@@ -258,7 +258,7 @@ export function GitPanel(): React.ReactElement {
               onClick={() => void stageFile(f.path)}
               style={{
                 padding: "1px 6px",
-                background: "var(--accent)",
+                background: "var(--es-accent)",
                 border: "none",
                 borderRadius: 3,
                 color: "#fff",
@@ -272,12 +272,12 @@ export function GitPanel(): React.ReactElement {
         ))}
 
         {browserMode && (
-          <div style={{ padding: "16px 12px", color: "var(--text-muted)" }}>
+          <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
             Git is available in the desktop app
           </div>
         )}
         {!browserMode && files.length === 0 && (
-          <div style={{ padding: "16px 12px", color: "var(--text-muted)" }}>
+          <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
             Working tree clean
           </div>
         )}
@@ -286,7 +286,7 @@ export function GitPanel(): React.ReactElement {
       {/* Commit */}
       <div
         style={{
-          borderTop: "1px solid var(--border)",
+          borderTop: "1px solid var(--es-border)",
           padding: 12,
           display: "flex",
           flexDirection: "column",
@@ -304,10 +304,10 @@ export function GitPanel(): React.ReactElement {
           }}
           style={{
             padding: "4px 8px",
-            background: "var(--bg)",
-            border: "1px solid var(--border)",
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
-            color: "var(--text)",
+            color: "var(--es-text)",
             resize: "none",
             fontSize: 12,
             fontFamily: "inherit",
@@ -320,14 +320,14 @@ export function GitPanel(): React.ReactElement {
             padding: "5px 0",
             background:
               commitMsg.trim() && staged.length > 0
-                ? "var(--accent)"
-                : "var(--surface)",
+                ? "var(--es-accent)"
+                : "var(--es-surface)",
             border: "none",
             borderRadius: 4,
             color:
               commitMsg.trim() && staged.length > 0
                 ? "#fff"
-                : "var(--text-muted)",
+                : "var(--es-text-muted)",
             cursor:
               commitMsg.trim() && staged.length > 0 ? "pointer" : "default",
             fontWeight: 600,

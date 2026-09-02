@@ -89,16 +89,16 @@ export function AudioMixer(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
       <div
         style={{
           padding: "8px 12px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           fontWeight: 600,
           flexShrink: 0,
         }}
@@ -135,7 +135,7 @@ export function AudioMixer(): React.ReactElement {
               </div>
 
               {/* dB label */}
-              <div style={{ color: "var(--text-muted)", fontSize: 10 }}>
+              <div style={{ color: "var(--es-text-muted)", fontSize: 10 }}>
                 {vol === 0
                   ? "-∞ dB"
                   : `${(20 * Math.log10(vol / 100)).toFixed(1)} dB`}
@@ -155,7 +155,7 @@ export function AudioMixer(): React.ReactElement {
                   style={{
                     width: 6,
                     height: "100%",
-                    background: "var(--surface)",
+                    background: "var(--es-surface)",
                     borderRadius: 3,
                     position: "relative",
                     overflow: "hidden",
@@ -198,7 +198,7 @@ export function AudioMixer(): React.ReactElement {
               </div>
 
               {/* Volume number */}
-              <div style={{ fontSize: 11, color: "var(--text)" }}>
+              <div style={{ fontSize: 11, color: "var(--es-text)" }}>
                 {bus.volume}%
               </div>
 
@@ -212,8 +212,8 @@ export function AudioMixer(): React.ReactElement {
                   cursor: "pointer",
                   fontSize: 10,
                   fontWeight: 600,
-                  background: bus.muted ? "#ef4444" : "var(--surface)",
-                  color: bus.muted ? "#fff" : "var(--text-muted)",
+                  background: bus.muted ? "#ef4444" : "var(--es-surface)",
+                  color: bus.muted ? "#fff" : "var(--es-text-muted)",
                 }}
               >
                 M
@@ -229,8 +229,8 @@ export function AudioMixer(): React.ReactElement {
                   cursor: "pointer",
                   fontSize: 10,
                   fontWeight: 600,
-                  background: bus.solo ? "#fbbf24" : "var(--surface)",
-                  color: bus.solo ? "#000" : "var(--text-muted)",
+                  background: bus.solo ? "#fbbf24" : "var(--es-surface)",
+                  color: bus.solo ? "#000" : "var(--es-text-muted)",
                 }}
               >
                 S
@@ -264,10 +264,10 @@ export function AudioMixer(): React.ReactElement {
             }
             style={{
               padding: "6px 10px",
-              background: "var(--surface)",
-              border: "1px dashed var(--border)",
+              background: "var(--es-surface)",
+              border: "1px dashed var(--es-border)",
               borderRadius: 6,
-              color: "var(--text-muted)",
+              color: "var(--es-text-muted)",
               cursor: "pointer",
             }}
           >

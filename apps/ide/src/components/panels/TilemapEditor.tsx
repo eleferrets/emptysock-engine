@@ -157,8 +157,8 @@ export function TilemapEditor(): React.ReactElement {
       style={{
         display: "flex",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
@@ -166,7 +166,7 @@ export function TilemapEditor(): React.ReactElement {
       <div
         style={{
           width: 180,
-          borderRight: "1px solid var(--border)",
+          borderRight: "1px solid var(--es-border)",
           display: "flex",
           flexDirection: "column",
           padding: 8,
@@ -175,7 +175,7 @@ export function TilemapEditor(): React.ReactElement {
         }}
       >
         <div>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Tool
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -186,8 +186,8 @@ export function TilemapEditor(): React.ReactElement {
                 style={{
                   padding: "4px 8px",
                   background:
-                    tool === t.id ? "var(--accent)" : "var(--surface)",
-                  color: "var(--text)",
+                    tool === t.id ? "var(--es-accent)" : "var(--es-surface)",
+                  color: "var(--es-text)",
                   border: "none",
                   borderRadius: 4,
                   cursor: "pointer",
@@ -200,7 +200,7 @@ export function TilemapEditor(): React.ReactElement {
           </div>
         </div>
         <div>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Tile Size: {tileSize}px
           </div>
           <input
@@ -213,7 +213,7 @@ export function TilemapEditor(): React.ReactElement {
           />
         </div>
         <div>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Zoom: {(zoom * 100).toFixed(0)}%
           </div>
           <input
@@ -226,7 +226,7 @@ export function TilemapEditor(): React.ReactElement {
           />
         </div>
         <div>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Palette
           </div>
           <div
@@ -248,7 +248,7 @@ export function TilemapEditor(): React.ReactElement {
                   cursor: "pointer",
                   border:
                     activeTile === i
-                      ? "2px solid var(--accent)"
+                      ? "2px solid var(--es-accent)"
                       : "2px solid transparent",
                 }}
               />
@@ -256,7 +256,7 @@ export function TilemapEditor(): React.ReactElement {
           </div>
         </div>
         <div>
-          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Layers
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -267,7 +267,9 @@ export function TilemapEditor(): React.ReactElement {
                 style={{
                   padding: "3px 8px",
                   background:
-                    activeLayer === l.id ? "var(--accent)" : "var(--surface)",
+                    activeLayer === l.id
+                      ? "var(--es-accent)"
+                      : "var(--es-surface)",
                   borderRadius: 4,
                   cursor: "pointer",
                 }}
@@ -291,10 +293,10 @@ export function TilemapEditor(): React.ReactElement {
               marginTop: 4,
               width: "100%",
               padding: "3px 0",
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
+              background: "var(--es-surface)",
+              border: "1px solid var(--es-border)",
               borderRadius: 4,
-              color: "var(--text)",
+              color: "var(--es-text)",
               cursor: "pointer",
             }}
           >

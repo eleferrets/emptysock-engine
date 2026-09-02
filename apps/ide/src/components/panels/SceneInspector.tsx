@@ -51,9 +51,9 @@ function EntityRow({
           paddingLeft: `${8 + depth * 14}px`,
           background: isSelected ? "rgba(124,106,247,0.15)" : undefined,
           borderLeft: isSelected
-            ? "2px solid var(--accent)"
+            ? "2px solid var(--es-accent)"
             : "2px solid transparent",
-          color: entity.active ? "var(--text)" : "var(--text-muted)",
+          color: entity.active ? "var(--es-text)" : "var(--es-text-muted)",
         }}
       >
         {/* Expand toggle */}
@@ -65,7 +65,7 @@ function EntityRow({
           }}
           style={{
             cursor: hasChildren ? "pointer" : "default",
-            color: "var(--text-muted)",
+            color: "var(--es-text-muted)",
           }}
         >
           {hasChildren ? (
@@ -84,7 +84,7 @@ function EntityRow({
           size={11}
           style={{
             flexShrink: 0,
-            color: isSelected ? "var(--accent)" : "var(--text-muted)",
+            color: isSelected ? "var(--es-accent)" : "var(--es-text-muted)",
           }}
         />
 
@@ -100,7 +100,7 @@ function EntityRow({
             toggleEntityActive(entity.id);
           }}
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded transition-opacity"
-          style={{ color: "var(--text-muted)" }}
+          style={{ color: "var(--es-text-muted)" }}
           title={entity.active ? "Hide" : "Show"}
         >
           {entity.active ? <Eye size={11} /> : <EyeOff size={11} />}
@@ -128,9 +128,12 @@ export function SceneInspector(): React.ReactElement {
       {/* Header */}
       <div
         className="flex items-center justify-between px-3 flex-shrink-0"
-        style={{ height: 32, borderBottom: "1px solid var(--border)" }}
+        style={{ height: 32, borderBottom: "1px solid var(--es-border)" }}
       >
-        <span className="text-xs font-medium" style={{ color: "var(--text)" }}>
+        <span
+          className="text-xs font-medium"
+          style={{ color: "var(--es-text)" }}
+        >
           Scene
         </span>
         <div className="flex items-center gap-1">

@@ -107,8 +107,8 @@ export function Profiler(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--bg)",
-        color: "var(--text)",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontSize: 12,
       }}
     >
@@ -118,8 +118,8 @@ export function Profiler(): React.ReactElement {
           display: "flex",
           gap: 24,
           padding: "6px 12px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           flexShrink: 0,
         }}
       >
@@ -140,19 +140,23 @@ export function Profiler(): React.ReactElement {
         </span>
         <span>
           Frame:{" "}
-          <strong style={{ color: "var(--text)" }}>
+          <strong style={{ color: "var(--es-text)" }}>
             {live.ft.toFixed(1)}ms
           </strong>
         </span>
         <span>
           Avg:{" "}
-          <strong style={{ color: "var(--text)" }}>{avgFt.toFixed(1)}ms</strong>
+          <strong style={{ color: "var(--es-text)" }}>
+            {avgFt.toFixed(1)}ms
+          </strong>
         </span>
         <span>
           Draws: <strong style={{ color: "#60a5fa" }}>{live.draws}</strong>
         </span>
         {playState !== "playing" && (
-          <span style={{ color: "var(--text-muted)" }}>(play to profile)</span>
+          <span style={{ color: "var(--es-text-muted)" }}>
+            (play to profile)
+          </span>
         )}
       </div>
 
