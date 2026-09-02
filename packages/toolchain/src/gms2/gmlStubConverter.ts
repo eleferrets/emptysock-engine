@@ -45,6 +45,9 @@ function eventKey(eventtype: number, enumb: number): string {
 }
 
 function methodName(key: string): string {
+  // Collision events have keys like "Collision_0", "Collision_1" (enumb = target object index).
+  // All collision events map to the same handler regardless of the target object.
+  if (key.startsWith("Collision_")) return "onCollision";
   return EVENT_MAP[key] ?? `on_${key.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
 }
 

@@ -203,7 +203,10 @@ export function importGMS2Room(yyPath: string): RoomAsset {
 
   for (const layer of yy.layers) {
     if (layer.resourceType === "GMTileLayer" && layer.tiles !== undefined) {
-      if (layer.gridX !== undefined) tileSize = layer.gridX;
+      if (layer.gridX !== undefined) {
+        // Use the larger of gridX/gridY so non-square tilesets are not clipped.
+        tileSize = Math.max(layer.gridX, layer.gridY ?? layer.gridX);
+      }
       tileLayers.push({
         id: layer.name,
         name: layer.name,
@@ -239,17 +242,29 @@ export function importGMS2Room(yyPath: string): RoomAsset {
  * Files that fail to parse are skipped with a warning written to stderr.
  */
 export function importGMS2RoomDir(roomDir: string): RoomAsset[] {
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(roomDir);
-  } catch (err) {
-    throw new Error(`importGMS2RoomDir: cannot read directory "${roomDir}": ${String(err)}`);
-  }
+  // GMS2 stores each room in its own subdirectory: rooms/rm_level1/rm_level1.yy
+  // Use a recursive scan so nested .yy files are found.
+  const yyPaths: string[] = [];
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      process.stderr.write(`importGMS2RoomDir: cannot read directory "${dir}": ${String(err)}\n`);
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name));
+      } else if (entry.isFile() && entry.name.endsWith(".yy")) {
+        yyPaths.push(path.join(dir, entry.name));
+      }
+    }
+  };
+  walk(roomDir);
 
   const results: RoomAsset[] = [];
-  for (const entry of entries) {
-    if (!entry.endsWith(".yy")) continue;
-    const yyPath = path.join(roomDir, entry);
+  for (const yyPath of yyPaths) {
     try {
       results.push(importGMS2Room(yyPath));
     } catch (err) {

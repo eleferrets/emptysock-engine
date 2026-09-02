@@ -188,7 +188,8 @@ export function importGMS2Sprite(yyPath: string): SpriteAsset {
       ? yy.sequence.animationSpeed * 60
       : yy.sequence.animationSpeed;
 
-  const frames = yy.frames.map((f) => `${f.id.name}.png`);
+  // GMS2 stores each frame PNG under sprites/<name>/images/{uuid}.png
+  const frames = yy.frames.map((f) => `images/${f.id.name}.png`);
 
   return {
     type: "sprite",
@@ -215,17 +216,29 @@ export function importGMS2Sprite(yyPath: string): SpriteAsset {
  * Files that fail to parse are skipped with a warning written to stderr.
  */
 export function importGMS2SpriteDir(spriteDir: string): SpriteAsset[] {
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(spriteDir);
-  } catch (err) {
-    throw new Error(`importGMS2SpriteDir: cannot read directory "${spriteDir}": ${String(err)}`);
-  }
+  // GMS2 stores each sprite in its own subdirectory: sprites/spr_player/spr_player.yy
+  // Use a recursive scan so nested .yy files are found.
+  const yyPaths: string[] = [];
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      process.stderr.write(`importGMS2SpriteDir: cannot read directory "${dir}": ${String(err)}\n`);
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name));
+      } else if (entry.isFile() && entry.name.endsWith(".yy")) {
+        yyPaths.push(path.join(dir, entry.name));
+      }
+    }
+  };
+  walk(spriteDir);
 
   const results: SpriteAsset[] = [];
-  for (const entry of entries) {
-    if (!entry.endsWith(".yy")) continue;
-    const yyPath = path.join(spriteDir, entry);
+  for (const yyPath of yyPaths) {
     try {
       results.push(importGMS2Sprite(yyPath));
     } catch (err) {
