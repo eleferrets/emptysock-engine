@@ -138,6 +138,16 @@ export class UIComponent {
   }
 }
 
+// ─── Render helpers ───────────────────────────────────────────────────────────
+
+function numToHex(n: number): string {
+  return '#' + (n >>> 0).toString(16).padStart(6, '0');
+}
+
+function buildFont(comp: UIComponent): string {
+  return `${comp.style.fontSize ?? 14}px ${comp.style.fontFamily ?? 'sans-serif'}`;
+}
+
 // ─── System singleton ─────────────────────────────────────────────────────────
 
 class UISystemImpl {
@@ -177,6 +187,123 @@ class UISystemImpl {
   get roots(): ReadonlyArray<UIComponent> { return this._roots; }
 
   clear(): void { this._roots.length = 0; }
+
+  /** Alias for handleClick — preferred name for pointer-down dispatch. */
+  dispatchPointerDown(x: number, y: number, canvasWidth: number, canvasHeight: number): boolean {
+    return this.handleClick(x, y, canvasWidth, canvasHeight);
+  }
+
+  /** Draw all root UI components and their children to the given canvas context. */
+  render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
+    for (const root of this._roots) {
+      this._renderComponent(ctx, root, canvasWidth, canvasHeight);
+    }
+  }
+
+  private _renderComponent(
+    ctx: CanvasRenderingContext2D,
+    comp: UIComponent,
+    cw: number,
+    ch: number
+  ): void {
+    if (!comp.visible) return;
+
+    const { x, y } = comp.resolvedPosition(cw, ch);
+    const w = comp.width;
+    const h = comp.height;
+
+    ctx.save();
+    ctx.globalAlpha = comp.style.opacity ?? 1;
+
+    switch (comp.type) {
+      case 'panel': {
+        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x1a1a2e);
+        ctx.fillRect(x, y, w, h);
+        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(comp.style.borderColor);
+          ctx.lineWidth = comp.style.borderWidth;
+          ctx.strokeRect(x, y, w, h);
+        }
+        break;
+      }
+      case 'button': {
+        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x1a1a2e);
+        ctx.fillRect(x, y, w, h);
+        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(comp.style.borderColor);
+          ctx.lineWidth = comp.style.borderWidth;
+          ctx.strokeRect(x, y, w, h);
+        }
+        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.font = buildFont(comp);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(comp.text, x + w / 2, y + h / 2);
+        break;
+      }
+      case 'text': {
+        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.font = buildFont(comp);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(comp.text, x, y);
+        break;
+      }
+      case 'image': {
+        // Placeholder — no image loading in engine; the caller supplies a canvas.
+        ctx.fillStyle = '#888888';
+        ctx.fillRect(x, y, w, h);
+        break;
+      }
+      case 'progress-bar': {
+        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x333333);
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = numToHex(comp.style.color ?? 0x4caf50);
+        ctx.fillRect(x, y, w * Math.min(1, Math.max(0, comp.value)), h);
+        break;
+      }
+      case 'slider': {
+        const trackH = Math.max(4, h * 0.25);
+        const trackY = y + (h - trackH) / 2;
+        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x555555);
+        ctx.fillRect(x, trackY, w, trackH);
+        const thumbX = x + w * Math.min(1, Math.max(0, comp.value));
+        const thumbR = h * 0.4;
+        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.beginPath();
+        ctx.arc(thumbX, y + h / 2, thumbR, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'toggle': {
+        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x333333);
+        ctx.fillRect(x, y, w, h);
+        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(comp.style.borderColor);
+          ctx.lineWidth = comp.style.borderWidth;
+          ctx.strokeRect(x, y, w, h);
+        }
+        if (comp.checked) {
+          ctx.strokeStyle = numToHex(comp.style.color ?? 0xffffff);
+          ctx.lineWidth = 2;
+          const pad = Math.min(w, h) * 0.2;
+          ctx.beginPath();
+          ctx.moveTo(x + pad, y + pad);
+          ctx.lineTo(x + w - pad, y + h - pad);
+          ctx.moveTo(x + w - pad, y + pad);
+          ctx.lineTo(x + pad, y + h - pad);
+          ctx.stroke();
+        }
+        break;
+      }
+    }
+
+    ctx.restore();
+
+    for (const child of comp.children) {
+      this._renderComponent(ctx, child, cw, ch);
+    }
+  }
 }
 
 export const UISystem = new UISystemImpl();
