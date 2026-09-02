@@ -54,14 +54,24 @@ export function lengthdir_y(length: number, direction: number): number {
   return length * Math.sin((direction * Math.PI) / 180);
 }
 
-export function point_distance(x1: number, y1: number, x2: number, y2: number): number {
+export function point_distance(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
   const dx = x2 - x1;
   const dy = y2 - y1;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
 /** Direction in degrees from (x1,y1) to (x2,y2), GML convention (right=0, CCW) */
-export function point_direction(x1: number, y1: number, x2: number, y2: number): number {
+export function point_direction(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
   return (Math.atan2(-(y2 - y1), x2 - x1) * 180) / Math.PI;
 }
 
@@ -95,7 +105,7 @@ export function random_range(lo: number, hi: number): number {
 
 /** Pick a random argument */
 export function choose<T>(...args: T[]): T {
-  return args[Math.floor(Math.random() * args.length)];
+  return args[Math.floor(Math.random() * args.length)] as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +145,11 @@ export function string_repeat(str: string, count: number): string {
 }
 
 /** GML string_delete(str, index, count) — 1-based index */
-export function string_delete(str: string, index: number, count: number): string {
+export function string_delete(
+  str: string,
+  index: number,
+  count: number,
+): string {
   return str.substring(0, index - 1) + str.substring(index - 1 + count);
 }
 
@@ -217,5 +231,7 @@ export function show_message(msg: string): void {
 
 /** GML game_end — no-op in EmptySock; close/stop your scene manually */
 export function game_end(): void {
-  console.warn('game_end() called — this is a no-op in EmptySock. Stop or destroy your scene instead.');
+  console.warn(
+    "game_end() called — this is a no-op in EmptySock. Stop or destroy your scene instead.",
+  );
 }
