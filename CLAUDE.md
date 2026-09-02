@@ -55,6 +55,10 @@ Code that needs Tauri capabilities must check `'__TAURI_INTERNALS__' in window` 
 
 DockLayout is the sole child of the IDE's root flex container. Never add a sibling element with fixed height alongside it. rc-dock calculates panel sizes from its own bounding box. A sibling that consumes vertical space causes the layout to overflow — the bottom panels become partially hidden and the overflow does not scroll because DockLayout sets its own overflow policy. Add persistent UI (a title bar, a status bar) by making it a DockLayout tab, not a flex sibling.
 
+### No loading screen, no splash screen
+
+The engine does not own a loading screen or a splash screen. The first scene starts immediately once the engine bundle and user bundle have executed — there is no engine-inserted transition, delay, or branded screen before the developer's code runs. Do not add one. If a game needs a loading screen or a splash screen, the developer creates it as a scene like any other (typically the `startScene`), controls its duration with `async onLoad`, and navigates away when ready. The engine's job is to get out of the way.
+
 ### GPU flags in lib.rs
 
 NvOptimusEnablement and AmdPowerXpressRequestHighPerformance are declared as `#[no_mangle] pub static` in the Tauri lib.rs. The `#[no_mangle]` attribute prevents Rust's linker from mangling or eliminating the symbol. The GPU driver on Windows and Linux reads these symbol names from the compiled binary's export table at the OS level — there is no API call involved. If these symbols are removed or marked private, the driver silently falls back to the integrated GPU. This is not detectable at runtime.
