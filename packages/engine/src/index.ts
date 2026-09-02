@@ -153,6 +153,9 @@ export type {
   FlashOptions,
   FadeOptions,
   TransitionEffect as PostTransitionEffect,
+  LayerFilterType,
+  LayerFilterOptions,
+  LayerFilter,
 } from "./systems/PostProcessSystem.js";
 
 // RigidJoint
@@ -189,6 +192,10 @@ export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 
 // Behaviors
 export * from "./behaviors/index.js";
+
+// Auto-tile rule system
+export { AutoTileSystem } from "./systems/AutoTileSystem.js";
+export type { AutoTileRule, AutoTileRuleSet } from "./systems/AutoTileSystem.js";
 
 // VN stage & background layers
 export { CharacterStage } from "./systems/CharacterStage.js";

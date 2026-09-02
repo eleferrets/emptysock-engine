@@ -1,0 +1,119 @@
+/**
+ * Auto-tile rule system — selects a tile variant based on neighbour occupancy.
+ *
+ * A rule set is attached to a tileset. Each rule maps a neighbour bitmask
+ * (8-bit: NW|N|NE|W|E|SW|S|SE) to a tile index in the tileset.
+ * The painter calls resolve() with the 8-bit mask for the target cell and
+ * gets back the tile index to write.
+ */
+
+export interface AutoTileRule {
+  /** 8-bit neighbour mask; bit=1 means "same tile type present". Bits: 0=NW 1=N 2=NE 3=W 4=E 5=SW 6=S 7=SE */
+  mask: number;
+  /** Tile index (into the tileset) to use when this rule matches */
+  tileIndex: number;
+}
+
+export interface AutoTileRuleSet {
+  id: string;
+  /** Which base tile type triggers this rule set */
+  baseTileIndex: number;
+  rules: AutoTileRule[];
+  /** Fallback tile when no rule matches */
+  defaultTileIndex: number;
+}
+
+const DIRS: Array<{ dx: number; dy: number; bit: number }> = [
+  { dx: -1, dy: -1, bit: 0 },
+  { dx: 0,  dy: -1, bit: 1 },
+  { dx: 1,  dy: -1, bit: 2 },
+  { dx: -1, dy: 0,  bit: 3 },
+  { dx: 1,  dy: 0,  bit: 4 },
+  { dx: -1, dy: 1,  bit: 5 },
+  { dx: 0,  dy: 1,  bit: 6 },
+  { dx: 1,  dy: 1,  bit: 7 },
+];
+
+export class AutoTileSystem {
+  private _ruleSets: Map<number, AutoTileRuleSet> = new Map();
+
+  addRuleSet(ruleSet: AutoTileRuleSet): void {
+    this._ruleSets.set(ruleSet.baseTileIndex, ruleSet);
+  }
+
+  removeRuleSet(baseTileIndex: number): void {
+    this._ruleSets.delete(baseTileIndex);
+  }
+
+  getRuleSet(baseTileIndex: number): AutoTileRuleSet | undefined {
+    return this._ruleSets.get(baseTileIndex);
+  }
+
+  /**
+   * Resolve the correct tile variant for the cell at (col, row).
+   * tileAt is a callback returning the tile index at that cell, or -1 if empty.
+   */
+  resolve(
+    col: number,
+    row: number,
+    baseTileIndex: number,
+    tileAt: (col: number, row: number) => number,
+  ): number {
+    const rs = this._ruleSets.get(baseTileIndex);
+    if (!rs) return baseTileIndex;
+
+    let mask = 0;
+    for (const d of DIRS) {
+      const t = tileAt(col + d.dx, row + d.dy);
+      if (t === baseTileIndex || (rs && this._sameGroup(t, rs))) {
+        mask |= 1 << d.bit;
+      }
+    }
+
+    for (const rule of rs.rules) {
+      if ((mask & rule.mask) === rule.mask) {
+        return rule.tileIndex;
+      }
+    }
+    return rs.defaultTileIndex;
+  }
+
+  private _sameGroup(tileIndex: number, rs: AutoTileRuleSet): boolean {
+    return rs.rules.some((r) => r.tileIndex === tileIndex);
+  }
+
+  /**
+   * Re-resolve all cells in a layer that use this base tile type.
+   * data: "col,row" -> tileIndex map (mutated in-place).
+   */
+  applyToLayer(
+    data: Record<string, number>,
+    baseTileIndex: number,
+  ): void {
+    const tileAt = (c: number, r: number): number =>
+      data[`${c},${r}`] ?? -1;
+
+    const affected = Object.entries(data).filter(
+      ([, v]) => v === baseTileIndex || this._inGroup(v, baseTileIndex),
+    );
+    for (const [key] of affected) {
+      const [c, r] = key.split(",").map(Number);
+      const base = baseTileIndex;
+      data[key] = this.resolve(c, r, base, tileAt);
+    }
+  }
+
+  private _inGroup(tileIndex: number, baseTileIndex: number): boolean {
+    const rs = this._ruleSets.get(baseTileIndex);
+    return rs !== undefined && rs.rules.some((r) => r.tileIndex === tileIndex);
+  }
+
+  toJSON(): AutoTileRuleSet[] {
+    return Array.from(this._ruleSets.values());
+  }
+
+  fromJSON(ruleSets: AutoTileRuleSet[]): void {
+    this._ruleSets.clear();
+    for (const rs of ruleSets) this._ruleSets.set(rs.baseTileIndex, rs);
+  }
+}

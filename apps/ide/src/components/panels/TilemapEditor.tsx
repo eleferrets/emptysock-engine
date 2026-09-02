@@ -26,6 +26,76 @@ const PALETTE_COLORS = [
   "#be185d",
 ];
 
+function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement {
+  const ruleSets = useIDEStore((s) => s.autoTileRuleSets);
+  const setRuleSets = useIDEStore((s) => s.setAutoTileRuleSets);
+  const [baseTile, setBaseTile] = React.useState("0");
+  const [mask, setMask] = React.useState("");
+  const [variant, setVariant] = React.useState("");
+
+  const addRule = (): void => {
+    const base = baseTile.trim();
+    const maskNum = parseInt(mask, 10);
+    const variantNum = parseInt(variant, 10);
+    if (!base || isNaN(maskNum) || isNaN(variantNum)) return;
+    const existing = (ruleSets[base] as Array<{ mask: number; tileIndex: number }> | undefined) ?? [];
+    const updated = { ...ruleSets, [base]: [...existing, { mask: maskNum, tileIndex: variantNum }] };
+    setRuleSets(updated);
+    setMask("");
+    setVariant("");
+  };
+
+  const removeRule = (base: string, idx: number): void => {
+    const rules = (ruleSets[base] as Array<{ mask: number; tileIndex: number }> | undefined) ?? [];
+    const next = rules.filter((_, i) => i !== idx);
+    if (next.length === 0) {
+      const { [base]: _removed, ...rest } = ruleSets;
+      setRuleSets(rest);
+    } else {
+      setRuleSets({ ...ruleSets, [base]: next });
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div style={{ background: "var(--es-surface)", border: "1px solid var(--es-border)", borderRadius: 8, padding: 20, width: 480, maxHeight: "80vh", overflow: "auto", color: "var(--es-text)", fontSize: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+          <strong>Auto-Tile Rules</strong>
+          <button onClick={props.onClose} style={{ background: "none", border: "none", color: "var(--es-text)", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+        <p style={{ opacity: 0.6, marginBottom: 12 }}>
+          Each rule maps a neighbour bitmask (8-bit: NW|N|NE|W|E|SW|S|SE) to a tile variant index.
+          When painting, the engine picks the matching variant automatically.
+        </p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input placeholder="Base tile #" value={baseTile} onChange={(e) => setBaseTile(e.target.value)} style={{ width: 80, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
+          <input placeholder="Mask (0–255)" value={mask} onChange={(e) => setMask(e.target.value)} style={{ width: 100, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
+          <input placeholder="Variant tile #" value={variant} onChange={(e) => setVariant(e.target.value)} style={{ width: 100, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
+          <button onClick={addRule} style={{ padding: "4px 12px", background: "var(--es-accent)", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Add</button>
+        </div>
+        {Object.entries(ruleSets).map(([base, rules]) => (
+          <div key={base} style={{ marginBottom: 8 }}>
+            <strong>Base tile {base}</strong>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+              <thead><tr style={{ opacity: 0.6 }}><td>Mask</td><td>Variant tile</td><td></td></tr></thead>
+              <tbody>
+                {(rules as Array<{ mask: number; tileIndex: number }>).map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.mask} (0b{r.mask.toString(2).padStart(8, "0")})</td>
+                    <td>{r.tileIndex}</td>
+                    <td><button onClick={() => removeRule(base, i)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer" }}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+        {Object.keys(ruleSets).length === 0 && <p style={{ opacity: 0.4 }}>No rules defined yet.</p>}
+      </div>
+    </div>
+  );
+}
+
 export function TilemapEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [tileSize, setTileSize] = React.useState(32);
@@ -33,6 +103,7 @@ export function TilemapEditor(): React.ReactElement {
   const [tool, setTool] = React.useState<Tool>("paint");
   const [isPainting, setIsPainting] = React.useState(false);
   const [zoom, setZoom] = React.useState(1);
+  const [showAutoTileRules, setShowAutoTileRules] = React.useState(false);
 
   const layers = useIDEStore((s) => s.tilemapLayers);
   const activeLayer = useIDEStore((s) => s.tilemapActiveLayer);
@@ -207,6 +278,12 @@ export function TilemapEditor(): React.ReactElement {
             style={{ width: "100%" }}
           />
         </div>
+        <button
+          onClick={() => setShowAutoTileRules(true)}
+          style={{ padding: "4px 8px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4, cursor: "pointer", textAlign: "left", width: "100%" }}
+        >
+          Auto-Tile Rules…
+        </button>
         <div>
           <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Zoom: {(zoom * 100).toFixed(0)}%
@@ -345,6 +422,7 @@ export function TilemapEditor(): React.ReactElement {
           }}
         />
       </div>
+      {showAutoTileRules && <AutoTileRulesModal onClose={() => setShowAutoTileRules(false)} />}
     </div>
   );
 }

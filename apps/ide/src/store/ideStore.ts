@@ -283,6 +283,10 @@ interface IDEState {
   vnNodes: unknown[];
   setVNNodes: (nodes: unknown[]) => void;
 
+  // Auto-tile rule sets per tileset (baseTileIndex → serialised rules)
+  autoTileRuleSets: Record<string, unknown[]>;
+  setAutoTileRuleSets: (ruleSets: Record<string, unknown[]>) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
@@ -650,6 +654,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Story Graph node cache
   vnNodes: [],
 
+  // Auto-tile rule sets
+  autoTileRuleSets: {},
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -869,6 +876,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     })),
 
   setVNNodes: (nodes) => set({ vnNodes: nodes }),
+  setAutoTileRuleSets: (ruleSets) => set({ autoTileRuleSets: ruleSets }),
 
   resetProject: () => {
     set({
@@ -1054,6 +1062,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         variableStoreVarNames: s.variableStoreVarNames,
         variableStoreSwitchNames: s.variableStoreSwitchNames,
         windowConfig: s.windowConfig,
+        vnNodes: s.vnNodes,
+        autoTileRuleSets: s.autoTileRuleSets,
       },
       null,
       2,
@@ -1170,6 +1180,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               ...DEFAULT_WINDOW_CONFIG,
               ...(proj["windowConfig"] as Partial<WindowConfig>),
             };
+          }
+          if (Array.isArray(proj["vnNodes"])) {
+            updates.vnNodes = proj["vnNodes"];
+          }
+          if (proj["autoTileRuleSets"] !== null && typeof proj["autoTileRuleSets"] === "object") {
+            updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<string, unknown[]>;
           }
           set(updates);
         } catch {

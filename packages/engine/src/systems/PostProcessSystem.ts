@@ -1,6 +1,30 @@
 // Post-processing effect registry — framework-agnostic.
 // The RenderSystem/PixiJS layer reads this to apply PixiJS filters.
 
+// ─── Per-layer filter types ───────────────────────────────────────────────────
+
+export type LayerFilterType = 'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none';
+
+export interface LayerFilterOptions {
+  type: LayerFilterType;
+  /** blur: radius in px */
+  radius?: number;
+  /** colour-grade, brightness, contrast, saturate: 0..2 (1 = identity) */
+  value?: number;
+  /** hue-rotate: degrees */
+  degrees?: number;
+  /** outline: colour 0xRRGGBB */
+  colour?: number;
+  /** outline: thickness px */
+  thickness?: number;
+  enabled?: boolean;
+}
+
+export interface LayerFilter {
+  layerId: string;
+  filter: LayerFilterOptions;
+}
+
 export type PostEffectType =
   | 'bloom'
   | 'chromatic-aberration'
@@ -57,6 +81,45 @@ export interface FadeOptions {
 
 class PostProcessSystemImpl {
   private readonly _effects: ActiveEffect[] = [];
+  private readonly _layerFilters: Map<string, LayerFilterOptions> = new Map();
+
+  // ─── Per-layer filters ────────────────────────────────────────────────────
+
+  setLayerFilter(layerId: string, filter: LayerFilterOptions): void {
+    this._layerFilters.set(layerId, { enabled: true, ...filter });
+  }
+
+  clearLayerFilter(layerId: string): void {
+    this._layerFilters.delete(layerId);
+  }
+
+  toggleLayerFilter(layerId: string, enabled: boolean): void {
+    const existing = this._layerFilters.get(layerId);
+    if (existing) this._layerFilters.set(layerId, { ...existing, enabled });
+  }
+
+  getLayerFilter(layerId: string): LayerFilterOptions | undefined {
+    return this._layerFilters.get(layerId);
+  }
+
+  /** Returns a CSS filter string for a layer, or '' if disabled/not set */
+  cssFilterForLayer(layerId: string): string {
+    const f = this._layerFilters.get(layerId);
+    if (!f || f.enabled === false) return '';
+    switch (f.type) {
+      case 'blur': return `blur(${f.radius ?? 4}px)`;
+      case 'brightness': return `brightness(${f.value ?? 1})`;
+      case 'contrast': return `contrast(${f.value ?? 1})`;
+      case 'saturate': return `saturate(${f.value ?? 1})`;
+      case 'hue-rotate': return `hue-rotate(${f.degrees ?? 0}deg)`;
+      case 'invert': return 'invert(1)';
+      case 'colour-grade': return `saturate(${f.value ?? 1}) brightness(${f.value ?? 1})`;
+      case 'outline': return ''; // outline requires a canvas pass
+      default: return '';
+    }
+  }
+
+  get layerFilters(): ReadonlyMap<string, LayerFilterOptions> { return this._layerFilters; }
   public transitionEffect: TransitionEffect = 'none';
   public transitionProgress: number = 0; // 0..1
   public transitionColour: number = 0x000000;

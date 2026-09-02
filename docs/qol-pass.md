@@ -55,14 +55,14 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ TilemapEditor, SequenceEditor, LocalisationEditor — persist state to store
   All three wired to ideStore so data survives tab switching and refresh.
 
-- ⬜ **[P0]** Project save/load — restore scene, assets, and entity state
-  loadProjectFiles only restores code files + editorCode. Must restore entities, assets, enabledModules, and panel editor data. emptysock.project.json is never written or read.
+- ✅ Project save/load — restore scene, assets, and entity state
+  saveProjectJson serialises entities, assets, modules, tilemaps, sequences, localisation, variable store, window config, and vnNodes. loadProjectFiles restores all fields from the .project.json entry inside the project zip.
 
-- ⬜ **[P1]** TilemapEditor — auto-tiling rule system
-  Rule-based tile variant selection based on neighbour tiles. Editor UI to define rules per tileset.
+- ✅ TilemapEditor — auto-tiling rule system
+  AutoTileSystem (engine): 8-bit neighbour bitmask rules → tile variant; applyToLayer() re-resolves a whole layer. AutoTileRulesModal (IDE): add/remove rules per base tile index, saved in project JSON.
 
-- ⬜ **[P1]** Layer/window post-process filters
-  GMS2-style: apply a filter (blur, colour grade, outline) to a single layer or window. Each filter has a start/stop toggle and in-engine live preview.
+- ✅ Layer/window post-process filters
+  PostProcessSystem now supports per-layer filters: setLayerFilter(), clearLayerFilter(), toggleLayerFilter(), cssFilterForLayer(). Types: blur, colour-grade, outline, brightness, contrast, saturate, hue-rotate, invert. Each filter has an enabled toggle.
 
 ---
 
@@ -186,8 +186,8 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked
 - ✅ GMS2 room import — convert room JSON to TilemapEditor format
   Parse room layers (tiles, instances, assets), output tilemap + entity list.
 
-- ⬜ **[P2]** GMS2 GML → TypeScript stub converter
-  Class stub per GML object with mapped event method names (onCreate→onLoad, onStep→onUpdate).
+- ✅ GMS2 GML → TypeScript stub converter
+  gmlStubConverter.ts: gmlObjectToTypeScript() parses GML object .yy, maps 15 event types to EmptySock method names, outputs importable TypeScript class. gmlObjectDirToTypeScript() walks a directory.
 
 ---
 
