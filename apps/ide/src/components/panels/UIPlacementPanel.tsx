@@ -93,17 +93,29 @@ interface PlacedComponent {
   h: number;
 }
 
-/** Convert a canvas-element mouse event to world coords, accounting for rulers */
+/** Extract client coordinates from a mouse or touch event. */
+function getClientPos(
+  e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+): { clientX: number; clientY: number } {
+  if ("touches" in e) {
+    const t = e.type === "touchend" ? e.changedTouches[0] : e.touches[0];
+    return { clientX: t?.clientX ?? 0, clientY: t?.clientY ?? 0 };
+  }
+  return { clientX: e.clientX, clientY: e.clientY };
+}
+
+/** Convert a canvas-element mouse or touch event to world coords, accounting for rulers */
 function canvasEventToWorld(
-  e: React.MouseEvent<HTMLCanvasElement>,
+  e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
   canvas: HTMLCanvasElement,
   rulerSize: number,
 ): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
-  const px = (e.clientX - rect.left) * scaleX;
-  const py = (e.clientY - rect.top) * scaleY;
+  const { clientX, clientY } = getClientPos(e);
+  const px = (clientX - rect.left) * scaleX;
+  const py = (clientY - rect.top) * scaleY;
   return { x: Math.round(px - rulerSize), y: Math.round(py - rulerSize) };
 }
 
@@ -247,9 +259,11 @@ export function UIPlacementPanel(): React.ReactElement {
     drawCanvas();
   }, [drawCanvas]);
 
-  // --- Mouse handlers ---
+  // --- Mouse / touch helpers ---
   const resolveWorldPos = React.useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>): { x: number; y: number } | null => {
+    (
+      e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+    ): { x: number; y: number } | null => {
       const canvas = canvasRef.current;
       if (canvas === null) return null;
       const raw = canvasEventToWorld(e, canvas, R);
@@ -261,6 +275,17 @@ export function UIPlacementPanel(): React.ReactElement {
     },
     [R, editorSnapToGrid, editorGridSize],
   );
+
+  const placeComponent = (pos: { x: number; y: number }): void => {
+    const sz = COMPONENT_SIZE[selectedType];
+    setPlacedComponents((prev) => [
+      ...prev,
+      { type: selectedType, x: pos.x, y: pos.y, w: sz.w, h: sz.h },
+    ]);
+    setOffsetX(pos.x);
+    setOffsetY(pos.y);
+    addLog("info", `Placed ${selectedType} at (${pos.x}, ${pos.y}) on UIPlacementPanel canvas`);
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     const pos = resolveWorldPos(e);
@@ -274,14 +299,23 @@ export function UIPlacementPanel(): React.ReactElement {
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     const pos = resolveWorldPos(e);
     if (pos === null) return;
-    const sz = COMPONENT_SIZE[selectedType];
-    setPlacedComponents((prev) => [
-      ...prev,
-      { type: selectedType, x: pos.x, y: pos.y, w: sz.w, h: sz.h },
-    ]);
-    setOffsetX(pos.x);
-    setOffsetY(pos.y);
-    addLog("info", `Placed ${selectedType} at (${pos.x}, ${pos.y}) on UIPlacementPanel canvas`);
+    placeComponent(pos);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>): void => {
+    const pos = resolveWorldPos(e);
+    if (pos === null) { setGhostPos(null); return; }
+    setGhostPos(pos);
+    placeComponent(pos);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>): void => {
+    const pos = resolveWorldPos(e);
+    setGhostPos(pos);
+  };
+
+  const handleTouchEnd = (): void => {
+    setGhostPos(null);
   };
 
   // --- Snippet helpers (unchanged from original) ---
@@ -376,10 +410,13 @@ export function UIPlacementPanel(): React.ReactElement {
           ref={canvasRef}
           width={CANVAS_W + (editorShowRuler ? rulerSize : 0)}
           height={CANVAS_H + (editorShowRuler ? rulerSize : 0)}
-          style={{ display: "block", width: "100%", cursor: "crosshair", border: "1px solid var(--es-border)", borderRadius: 4, imageRendering: "pixelated" }}
+          style={{ display: "block", width: "100%", cursor: "crosshair", border: "1px solid var(--es-border)", borderRadius: 4, imageRendering: "pixelated", touchAction: "none" }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onClick={handleCanvasClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         />
         <div style={{ marginTop: 4, color: "var(--es-text-muted)", fontSize: 10 }}>
           {ghostPos !== null

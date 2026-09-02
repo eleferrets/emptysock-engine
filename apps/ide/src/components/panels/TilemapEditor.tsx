@@ -434,6 +434,7 @@ export function TilemapEditor(): React.ReactElement {
           style={{
             display: "block",
             cursor: tool === "erase" ? "cell" : "crosshair",
+            touchAction: "none",
           }}
           onMouseDown={(e) => {
             setIsPainting(true);
@@ -468,6 +469,7 @@ export function TilemapEditor(): React.ReactElement {
             const row = Math.max(0, Math.floor(((t0.clientY - rect.top) / zoom - rulerOffset) / tileSize));
             applyTool(col, row);
           }}
+          onTouchEnd={() => setIsPainting(false)}
         />
       </div>
       {showAutoTileRules && <AutoTileRulesModal onClose={() => setShowAutoTileRules(false)} />}

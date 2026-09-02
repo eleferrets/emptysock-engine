@@ -359,7 +359,26 @@ export function VNEditor(): React.ReactElement {
     if (!lastTouchRef.current) return;
     const t0 = e.touches[0];
     const t1 = e.touches[1];
-    if (e.touches.length === 1 && !dragging && t0) {
+    if (e.touches.length === 1 && dragging && t0) {
+      const coords = svgCoordsFromClient(t0.clientX, t0.clientY);
+      let nx = coords.x - dragging.ox;
+      let ny = coords.y - dragging.oy;
+      if (editorSnapToGrid) {
+        nx = snapValue(nx, editorGridSize);
+        ny = snapValue(ny, editorGridSize);
+      }
+      setNodes((prev) => {
+        const next = prev.map((n) =>
+          n.id === dragging.id ? { ...n, x: nx, y: ny } : n,
+        );
+        if (editorShowGuides) {
+          const dragNode = next.find((n) => n.id === dragging.id);
+          if (dragNode) setGuides(computeGuides(dragNode, next));
+        }
+        return next;
+      });
+      lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
+    } else if (e.touches.length === 1 && !dragging && t0) {
       const dx = t0.clientX - lastTouchRef.current.x;
       const dy = t0.clientY - lastTouchRef.current.y;
       setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
@@ -786,6 +805,19 @@ export function VNEditor(): React.ReactElement {
                     e.stopPropagation();
                     setSelected(node.id);
                     const coords = svgCoordsFromClient(e.clientX, e.clientY);
+                    setDragging({
+                      id: node.id,
+                      ox: coords.x - node.x,
+                      oy: coords.y - node.y,
+                    });
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    const t0 = e.touches[0];
+                    if (!t0) return;
+                    setSelected(node.id);
+                    const coords = svgCoordsFromClient(t0.clientX, t0.clientY);
+                    lastTouchRef.current = { x: t0.clientX, y: t0.clientY, dist: 0 };
                     setDragging({
                       id: node.id,
                       ox: coords.x - node.x,
