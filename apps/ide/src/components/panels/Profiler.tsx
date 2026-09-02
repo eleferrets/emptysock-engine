@@ -28,7 +28,9 @@ export function Profiler(): React.ReactElement {
       const sample: Sample = {
         ft,
         fps: fps || Math.round(1000 / ft),
-        draws: Math.floor(Math.random() * 30 + 10),
+        draws: Math.round(
+          (60 / Math.max(fps || Math.round(1000 / ft), 1)) * 12,
+        ),
       };
       samplesRef.current = [
         ...samplesRef.current.slice(-(HISTORY - 1)),

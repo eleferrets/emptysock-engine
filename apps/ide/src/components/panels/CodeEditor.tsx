@@ -5,6 +5,7 @@ import { useIDEStore } from "../../store/ideStore";
 import { gameBuildService } from "../../services/GameBuildService";
 import { loadSettings } from "../../services/SettingsService";
 import type { IDESettings } from "../../services/SettingsService";
+import { TauriFileService } from "../../services/TauriFileService";
 
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
@@ -111,9 +112,34 @@ export function CodeEditor(): React.ReactElement {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         triggerBuild(editorCode, true);
+        if (activeFilePath === null) return;
+        if ("__TAURI_INTERNALS__" in window) {
+          void TauriFileService.saveFile(activeFilePath, editorCode).then(
+            (result) => {
+              if (result.success) {
+                addLog("info", `Saved ${activeFilePath}`, "CodeEditor");
+              } else {
+                addLog(
+                  "error",
+                  `Save failed: ${result.error ?? "unknown error"}`,
+                  "CodeEditor",
+                );
+              }
+            },
+          );
+        } else {
+          const blob = new Blob([editorCode], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = activeFilePath.split("/").pop() ?? activeFilePath;
+          a.click();
+          URL.revokeObjectURL(url);
+          addLog("info", `Downloaded ${activeFilePath}`, "CodeEditor");
+        }
       }
     },
-    [editorCode, triggerBuild],
+    [editorCode, triggerBuild, activeFilePath, addLog],
   );
 
   const handleTabClick = (path: string): void => {

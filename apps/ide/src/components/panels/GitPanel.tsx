@@ -29,15 +29,12 @@ export function GitPanel(): React.ReactElement {
   const [commitMsg, setCommitMsg] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [branch, setBranch] = React.useState("main");
+  const [browserMode] = React.useState(() => !isTauri());
 
   const refresh = React.useCallback(async (): Promise<void> => {
     if (!isTauri()) {
-      // Stub data for browser preview
-      setFiles([
-        { path: "src/scenes/GameScene.ts", status: "modified", staged: false },
-        { path: "src/entities/Player.ts", status: "added", staged: false },
-      ]);
-      setBranch("main");
+      setFiles([]);
+      setBranch("");
       return;
     }
     const statusOut = await runGit([
@@ -274,7 +271,12 @@ export function GitPanel(): React.ReactElement {
           </div>
         ))}
 
-        {files.length === 0 && (
+        {browserMode && (
+          <div style={{ padding: "16px 12px", color: "var(--text-muted)" }}>
+            Git is available in the desktop app
+          </div>
+        )}
+        {!browserMode && files.length === 0 && (
           <div style={{ padding: "16px 12px", color: "var(--text-muted)" }}>
             Working tree clean
           </div>
