@@ -30,6 +30,11 @@ interface ViewTransform {
   scale: number;
 }
 
+interface GuideLine {
+  axis: "h" | "v";
+  pos: number; // canvas coordinate (pre-transform)
+}
+
 const INITIAL_NODES: VNNode[] = [
   {
     id: "n1",
@@ -76,9 +81,14 @@ const NODE_H = 100;
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.5;
 const STORAGE_KEY = "es-story-graph";
+const GUIDE_THRESHOLD = 6; // pixels in canvas space
 
 function clampScale(s: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+}
+
+function snapValue(v: number, gridSize: number): number {
+  return Math.round(v / gridSize) * gridSize;
 }
 
 function loadGraph(): { nodes: VNNode[]; edges: VNEdge[] } {
@@ -101,6 +111,15 @@ function saveGraph(nodes: VNNode[], edges: VNEdge[]): void {
 
 export function VNEditor(): React.ReactElement {
   const setVNNodes = useIDEStore((s) => s.setVNNodes);
+  const editorGridSize = useIDEStore((s) => s.editorGridSize);
+  const editorShowGrid = useIDEStore((s) => s.editorShowGrid);
+  const editorSnapToGrid = useIDEStore((s) => s.editorSnapToGrid);
+  const editorShowGuides = useIDEStore((s) => s.editorShowGuides);
+  const setEditorGridSize = useIDEStore((s) => s.setEditorGridSize);
+  const setEditorShowGrid = useIDEStore((s) => s.setEditorShowGrid);
+  const setEditorSnapToGrid = useIDEStore((s) => s.setEditorSnapToGrid);
+  const setEditorShowGuides = useIDEStore((s) => s.setEditorShowGuides);
+
   const saved = React.useMemo(loadGraph, []);
   const [nodes, setNodes] = React.useState<VNNode[]>(saved.nodes);
   const [edges, setEdges] = React.useState<VNEdge[]>(saved.edges);
@@ -122,6 +141,7 @@ export function VNEditor(): React.ReactElement {
     originX: number;
     originY: number;
   } | null>(null);
+  const [guides, setGuides] = React.useState<GuideLine[]>([]);
   const svgRef = React.useRef<SVGSVGElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -214,6 +234,56 @@ export function VNEditor(): React.ReactElement {
     };
   };
 
+  // Compute alignment guides for the dragging node against all other nodes
+  const computeGuides = (
+    dragNode: VNNode,
+    allNodes: VNNode[],
+  ): GuideLine[] => {
+    const result: GuideLine[] = [];
+    const dLeft = dragNode.x;
+    const dRight = dragNode.x + NODE_W;
+    const dCenterX = dragNode.x + NODE_W / 2;
+    const dTop = dragNode.y;
+    const dBottom = dragNode.y + NODE_H;
+    const dMiddleY = dragNode.y + NODE_H / 2;
+
+    for (const other of allNodes) {
+      if (other.id === dragNode.id) continue;
+      const oLeft = other.x;
+      const oRight = other.x + NODE_W;
+      const oCenterX = other.x + NODE_W / 2;
+      const oTop = other.y;
+      const oBottom = other.y + NODE_H;
+      const oMiddleY = other.y + NODE_H / 2;
+
+      // Vertical guides (x positions)
+      for (const dx of [dLeft, dRight, dCenterX]) {
+        for (const ox of [oLeft, oRight, oCenterX]) {
+          if (Math.abs(dx - ox) < GUIDE_THRESHOLD) {
+            result.push({ axis: "v", pos: ox });
+          }
+        }
+      }
+      // Horizontal guides (y positions)
+      for (const dy of [dTop, dBottom, dMiddleY]) {
+        for (const oy of [oTop, oBottom, oMiddleY]) {
+          if (Math.abs(dy - oy) < GUIDE_THRESHOLD) {
+            result.push({ axis: "h", pos: oy });
+          }
+        }
+      }
+    }
+
+    // Deduplicate
+    const seen = new Set<string>();
+    return result.filter((g) => {
+      const key = `${g.axis}:${g.pos}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>): void => {
     if (
       e.target === svgRef.current ||
@@ -234,13 +304,22 @@ export function VNEditor(): React.ReactElement {
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
     if (dragging) {
       const coords = svgCoordsFromClient(e.clientX, e.clientY);
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === dragging.id
-            ? { ...n, x: coords.x - dragging.ox, y: coords.y - dragging.oy }
-            : n,
-        ),
-      );
+      let nx = coords.x - dragging.ox;
+      let ny = coords.y - dragging.oy;
+      if (editorSnapToGrid) {
+        nx = snapValue(nx, editorGridSize);
+        ny = snapValue(ny, editorGridSize);
+      }
+      setNodes((prev) => {
+        const next = prev.map((n) =>
+          n.id === dragging.id ? { ...n, x: nx, y: ny } : n,
+        );
+        if (editorShowGuides) {
+          const dragNode = next.find((n) => n.id === dragging.id);
+          if (dragNode) setGuides(computeGuides(dragNode, next));
+        }
+        return next;
+      });
     } else if (panning) {
       setView((v) => ({
         ...v,
@@ -253,6 +332,7 @@ export function VNEditor(): React.ReactElement {
   const handleMouseUp = (): void => {
     setDragging(null);
     setPanning(null);
+    setGuides([]);
   };
 
   // Touch support: one-finger pan, two-finger pinch
@@ -313,8 +393,12 @@ export function VNEditor(): React.ReactElement {
     const id = `n${Date.now()}`;
     const cx = (containerRef.current?.clientWidth ?? 600) / 2;
     const cy = (containerRef.current?.clientHeight ?? 400) / 2;
-    const x = (cx - view.x) / view.scale - NODE_W / 2;
-    const y = (cy - view.y) / view.scale - NODE_H / 2;
+    let x = (cx - view.x) / view.scale - NODE_W / 2;
+    let y = (cy - view.y) / view.scale - NODE_H / 2;
+    if (editorSnapToGrid) {
+      x = snapValue(x, editorGridSize);
+      y = snapValue(y, editorGridSize);
+    }
     const newNode: VNNode =
       type === "dialogue"
         ? { id, type, x, y, text: "New dialogue...", speaker: "Speaker" }
@@ -418,6 +502,25 @@ export function VNEditor(): React.ReactElement {
 
   const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
 
+  // SVG size for guide lines — large enough to span the viewport
+  const GUIDE_EXTENT = 9999;
+
+  const btnStyle: React.CSSProperties = {
+    padding: "3px 8px",
+    background: "var(--es-surface)",
+    border: "1px solid var(--es-border)",
+    borderRadius: 4,
+    color: "var(--es-text)",
+    cursor: "pointer",
+    fontSize: 11,
+  };
+
+  const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+    ...btnStyle,
+    background: active ? "var(--es-accent)" : "var(--es-surface)",
+    color: active ? "#fff" : "var(--es-text)",
+  });
+
   return (
     <div
       style={{
@@ -429,7 +532,7 @@ export function VNEditor(): React.ReactElement {
         fontSize: 12,
       }}
     >
-      {/* Toolbar */}
+      {/* Primary Toolbar */}
       <div
         style={{
           display: "flex",
@@ -486,15 +589,7 @@ export function VNEditor(): React.ReactElement {
         <div style={{ flex: 1 }} />
         <button
           onClick={resetView}
-          style={{
-            padding: "3px 8px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text-muted)",
-            cursor: "pointer",
-            fontSize: 11,
-          }}
+          style={btnStyle}
         >
           Reset view
         </button>
@@ -509,58 +604,97 @@ export function VNEditor(): React.ReactElement {
         </span>
         <button
           onClick={importJSON}
-          style={{
-            padding: "3px 8px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            cursor: "pointer",
-          }}
+          style={btnStyle}
         >
           Import
         </button>
         <button
           onClick={exportJSON}
-          style={{
-            padding: "3px 10px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            cursor: "pointer",
-          }}
+          style={btnStyle}
         >
           Export
         </button>
         <button
           onClick={importVNScript}
           title="Import a .vnscript.json (DialogueTree) and convert to Story Graph"
-          style={{
-            padding: "3px 8px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            cursor: "pointer",
-          }}
+          style={btnStyle}
         >
           Import .vnscript
         </button>
         <button
           onClick={exportVNScript}
           title="Export Story Graph as .vnscript.json for use with VNSystem"
-          style={{
-            padding: "3px 10px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            cursor: "pointer",
-          }}
+          style={btnStyle}
         >
           Export .vnscript
         </button>
+      </div>
+
+      {/* Grid / Snap Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          padding: "4px 10px",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
+          flexShrink: 0,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => setEditorShowGrid(!editorShowGrid)}
+          style={toggleBtnStyle(editorShowGrid)}
+          title="Toggle grid visibility"
+        >
+          Grid
+        </button>
+        <button
+          onClick={() => setEditorSnapToGrid(!editorSnapToGrid)}
+          style={toggleBtnStyle(editorSnapToGrid)}
+          title="Toggle snap to grid"
+        >
+          Snap
+        </button>
+        <button
+          onClick={() => setEditorShowGuides(!editorShowGuides)}
+          style={toggleBtnStyle(editorShowGuides)}
+          title="Toggle alignment guides"
+        >
+          Guides
+        </button>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 11,
+            color: "var(--es-text-muted)",
+          }}
+        >
+          Grid size
+          <input
+            type="number"
+            min={4}
+            max={256}
+            step={4}
+            value={editorGridSize}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!isNaN(v)) setEditorGridSize(v);
+            }}
+            style={{
+              width: 52,
+              padding: "2px 4px",
+              background: "var(--es-bg)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 4,
+              color: "var(--es-text)",
+              fontSize: 11,
+            }}
+          />
+        </label>
       </div>
 
       {/* Canvas */}
@@ -586,6 +720,7 @@ export function VNEditor(): React.ReactElement {
           onTouchEnd={() => {
             setDragging(null);
             lastTouchRef.current = null;
+            setGuides([]);
           }}
           onClick={() => {
             if (!dragging) setSelected(null);
@@ -604,14 +739,14 @@ export function VNEditor(): React.ReactElement {
             </marker>
             <pattern
               id="grid"
-              width={20 * view.scale}
-              height={20 * view.scale}
-              x={view.x % (20 * view.scale)}
-              y={view.y % (20 * view.scale)}
+              width={editorGridSize * view.scale}
+              height={editorGridSize * view.scale}
+              x={view.x % (editorGridSize * view.scale)}
+              y={view.y % (editorGridSize * view.scale)}
               patternUnits="userSpaceOnUse"
             >
               <path
-                d={`M ${20 * view.scale} 0 L 0 0 0 ${20 * view.scale}`}
+                d={`M ${editorGridSize * view.scale} 0 L 0 0 0 ${editorGridSize * view.scale}`}
                 fill="none"
                 stroke="rgba(255,255,255,0.04)"
                 strokeWidth={0.5}
@@ -619,8 +754,10 @@ export function VNEditor(): React.ReactElement {
             </pattern>
           </defs>
 
-          {/* Background grid */}
-          <rect width="100%" height="100%" fill="url(#grid)" />
+          {/* Background grid — shown only when editorShowGrid is true */}
+          {editorShowGrid && (
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          )}
 
           <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
             {/* Edges */}
@@ -742,6 +879,37 @@ export function VNEditor(): React.ReactElement {
                 </g>
               );
             })}
+
+            {/* Alignment guide lines — rendered inside the transform group so they
+                use canvas coordinates and scale with the view */}
+            {editorShowGuides &&
+              guides.map((g, i) =>
+                g.axis === "v" ? (
+                  <line
+                    key={i}
+                    x1={g.pos}
+                    y1={-GUIDE_EXTENT}
+                    x2={g.pos}
+                    y2={GUIDE_EXTENT}
+                    stroke="#f59e0b"
+                    strokeWidth={1 / view.scale}
+                    strokeDasharray={`${4 / view.scale},${4 / view.scale}`}
+                    pointerEvents="none"
+                  />
+                ) : (
+                  <line
+                    key={i}
+                    x1={-GUIDE_EXTENT}
+                    y1={g.pos}
+                    x2={GUIDE_EXTENT}
+                    y2={g.pos}
+                    stroke="#f59e0b"
+                    strokeWidth={1 / view.scale}
+                    strokeDasharray={`${4 / view.scale},${4 / view.scale}`}
+                    pointerEvents="none"
+                  />
+                ),
+              )}
           </g>
         </svg>
 
