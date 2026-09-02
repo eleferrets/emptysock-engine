@@ -244,6 +244,7 @@ interface IDEState {
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
+  saveProjectJson: () => string;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -958,26 +959,106 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     get().addLog("info", "Asset deleted", "IDE");
   },
 
+  saveProjectJson: () => {
+    const s = get();
+    return JSON.stringify(
+      {
+        entities: s.entities,
+        assets: s.assets,
+        enabledModules: s.enabledModules,
+        tilemapLayers: s.tilemapLayers,
+        tilemapActiveLayer: s.tilemapActiveLayer,
+        sequenceTracks: s.sequenceTracks,
+        sequenceDuration: s.sequenceDuration,
+        localisationTranslations: s.localisationTranslations,
+        localisationLocales: s.localisationLocales,
+      },
+      null,
+      2,
+    );
+  },
+
   loadProjectFiles: (files, name) => {
     const paths = Object.keys(files);
-    const firstPath = paths[0] ?? null;
-    const projectFiles: ProjectFile[] = paths.map((p) => ({
+
+    // Separate the .project.json entry from code files
+    const projectJsonKey = paths.find((p) => p.endsWith(".project.json"));
+    const codeFiles = Object.fromEntries(
+      Object.entries(files).filter(([p]) => !p.endsWith(".project.json")),
+    );
+    const codePaths = Object.keys(codeFiles);
+    const firstPath = codePaths[0] ?? null;
+    const projectFiles: ProjectFile[] = codePaths.map((p) => ({
       name: p.split("/").pop() ?? p,
       path: p,
       type: "file" as const,
     }));
+
     set({
       projectName: name ?? "LoadedProject",
       files: projectFiles,
-      openFiles: files,
+      openFiles: codeFiles,
       activeFilePath: firstPath,
       selectedFile: firstPath,
-      editorCode: firstPath !== null ? (files[firstPath] ?? "") : "",
+      editorCode: firstPath !== null ? (codeFiles[firstPath] ?? "") : "",
       playState: "stopped",
       buildStatus: "idle",
       buildErrors: [],
       logs: [],
     });
+
+    // Restore project state from .project.json if present
+    if (projectJsonKey !== undefined) {
+      const raw = files[projectJsonKey];
+      if (raw !== undefined) {
+        try {
+          const proj = JSON.parse(raw) as Record<string, unknown>;
+          const updates: Partial<IDEState> = {};
+          if (Array.isArray(proj["entities"])) {
+            updates.entities = proj["entities"] as EntityItem[];
+          }
+          if (Array.isArray(proj["assets"])) {
+            updates.assets = proj["assets"] as AssetItem[];
+          }
+          if (Array.isArray(proj["enabledModules"])) {
+            updates.enabledModules = proj["enabledModules"] as string[];
+          }
+          if (Array.isArray(proj["tilemapLayers"])) {
+            updates.tilemapLayers = proj["tilemapLayers"] as TileLayer[];
+          }
+          if (typeof proj["tilemapActiveLayer"] === "string") {
+            updates.tilemapActiveLayer = proj["tilemapActiveLayer"];
+          }
+          if (Array.isArray(proj["sequenceTracks"])) {
+            updates.sequenceTracks = proj["sequenceTracks"] as SequenceTrack[];
+          }
+          if (typeof proj["sequenceDuration"] === "number") {
+            updates.sequenceDuration = proj["sequenceDuration"];
+          }
+          if (
+            proj["localisationTranslations"] !== null &&
+            typeof proj["localisationTranslations"] === "object"
+          ) {
+            updates.localisationTranslations = proj[
+              "localisationTranslations"
+            ] as LocalisationTranslations;
+          }
+          if (Array.isArray(proj["localisationLocales"])) {
+            updates.localisationLocales = proj[
+              "localisationLocales"
+            ] as string[];
+          }
+          set(updates);
+        } catch {
+          get().addLog(
+            "warn",
+            "Failed to parse .project.json — project state not restored",
+            "IDE",
+          );
+        }
+      }
+    }
+
     get().addLog("info", `Loaded ${paths.length} file(s)`, "IDE");
   },
 }));
