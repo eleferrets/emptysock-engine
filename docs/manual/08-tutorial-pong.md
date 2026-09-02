@@ -31,10 +31,10 @@ const H = 600;
 const PADDLE_W = 12;
 const PADDLE_H = 80;
 const BALL_R = 8;
-const PADDLE_SPEED = 400;   // px/s
+const PADDLE_SPEED = 400; // px/s
 const BALL_SPEED_INIT = 280; // px/s
-const BALL_SPEED_MAX = 600;  // px/s
-const SPEED_INCREMENT = 20;  // added on each bounce
+const BALL_SPEED_MAX = 600; // px/s
+const SPEED_INCREMENT = 20; // added on each bounce
 ```
 
 ---
@@ -44,11 +44,9 @@ const SPEED_INCREMENT = 20;  // added on each bounce
 In `src/actors/ScoreActor.ts`:
 
 ```typescript
-import { Actor, type Message } from '@emptysock/engine';
+import { Actor, type Message } from "@emptysock/engine";
 
-export type ScoreMessage =
-  | { type: 'SCORE'; player: 1 | 2 }
-  | { type: 'RESET' };
+export type ScoreMessage = { type: "SCORE"; player: 1 | 2 } | { type: "RESET" };
 
 export class ScoreActor extends Actor {
   private _scores: [number, number] = [0, 0];
@@ -61,16 +59,18 @@ export class ScoreActor extends Actor {
 
   receive(msg: Message): void {
     const m = msg as unknown as ScoreMessage;
-    if (m.type === 'SCORE') {
+    if (m.type === "SCORE") {
       this._scores[m.player - 1]++;
       this._onChange([...this._scores] as [number, number]);
-    } else if (m.type === 'RESET') {
+    } else if (m.type === "RESET") {
       this._scores = [0, 0];
       this._onChange([0, 0]);
     }
   }
 
-  get scores(): [number, number] { return this._scores; }
+  get scores(): [number, number] {
+    return this._scores;
+  }
 }
 ```
 
@@ -81,17 +81,26 @@ export class ScoreActor extends Actor {
 Replace `src/scenes/GameScene.ts` with:
 
 ```typescript
-import { Scene, Input, Audio, ActorSystem } from '@emptysock/engine';
-import { ScoreActor } from '../actors/ScoreActor';
+import {
+  Scene,
+  InputSystem,
+  AudioSystem,
+  ActorSystem,
+} from "@emptysock/engine";
+import { ScoreActor } from "../actors/ScoreActor";
 
 // --- constants (from Step 2) ---
-const W = 800, H = 600;
-const PADDLE_W = 12, PADDLE_H = 80;
+const W = 800,
+  H = 600;
+const PADDLE_W = 12,
+  PADDLE_H = 80;
 const BALL_R = 8;
 const PADDLE_SPEED = 400;
-const BALL_SPEED_INIT = 280, BALL_SPEED_MAX = 600, SPEED_INCREMENT = 20;
+const BALL_SPEED_INIT = 280,
+  BALL_SPEED_MAX = 600,
+  SPEED_INCREMENT = 20;
 
-type GameState = 'playing' | 'over';
+type GameState = "playing" | "over";
 
 export class GameScene extends Scene {
   // Paddle positions
@@ -99,7 +108,12 @@ export class GameScene extends Scene {
   private _p2 = { x: W - 20 - PADDLE_W, y: H / 2 };
 
   // Ball
-  private _ball = { x: W / 2, y: H / 2, vx: BALL_SPEED_INIT, vy: BALL_SPEED_INIT * 0.7 };
+  private _ball = {
+    x: W / 2,
+    y: H / 2,
+    vx: BALL_SPEED_INIT,
+    vy: BALL_SPEED_INIT * 0.7,
+  };
 
   // Rendering
   private _canvas!: HTMLCanvasElement;
@@ -110,27 +124,27 @@ export class GameScene extends Scene {
   private _scoreActor!: ScoreActor;
   private _scores: [number, number] = [0, 0];
 
-  private _state: GameState = 'playing';
+  private _state: GameState = "playing";
 
   override async onLoad(): Promise<void> {
     // Set up canvas
-    this._canvas = document.createElement('canvas');
+    this._canvas = document.createElement("canvas");
     this._canvas.width = W;
     this._canvas.height = H;
     document.body.appendChild(this._canvas);
-    this._ctx = this._canvas.getContext('2d')!;
+    this._ctx = this._canvas.getContext("2d")!;
 
     // Set up actor system
     this._actorSystem = new ActorSystem();
-    this._scoreActor = new ScoreActor('score', (s) => {
+    this._scoreActor = new ScoreActor("score", (s) => {
       this._scores = s;
-      if (s[0] >= 7 || s[1] >= 7) this._state = 'over';
+      if (s[0] >= 7 || s[1] >= 7) this._state = "over";
     });
     this._actorSystem.register(this._scoreActor);
   }
 
   override onUpdate(dt: number): void {
-    if (this._state === 'over') {
+    if (this._state === "over") {
       this._drawGameOver();
       return;
     }
@@ -156,12 +170,12 @@ Add `_movePaddles(dt)` inside the class:
 ```typescript
 private _movePaddles(dt: number): void {
   // Player 1: W/S keys
-  if (Input.isDown('KeyW')) this._p1.y -= PADDLE_SPEED * dt;
-  if (Input.isDown('KeyS')) this._p1.y += PADDLE_SPEED * dt;
+  if (InputSystem.isDown('KeyW')) this._p1.y -= PADDLE_SPEED * dt;
+  if (InputSystem.isDown('KeyS')) this._p1.y += PADDLE_SPEED * dt;
 
   // Player 2: ArrowUp/ArrowDown
-  if (Input.isDown('ArrowUp'))   this._p2.y -= PADDLE_SPEED * dt;
-  if (Input.isDown('ArrowDown')) this._p2.y += PADDLE_SPEED * dt;
+  if (InputSystem.isDown('ArrowUp'))   this._p2.y -= PADDLE_SPEED * dt;
+  if (InputSystem.isDown('ArrowDown')) this._p2.y += PADDLE_SPEED * dt;
 
   // Clamp to canvas bounds
   const clamp = (y: number) => Math.max(0, Math.min(H - PADDLE_H, y));
@@ -198,14 +212,14 @@ private _moveBall(dt: number): void {
     // Angle based on hit position relative to paddle center
     const relY = (b.y - (this._p1.y + PADDLE_H / 2)) / (PADDLE_H / 2);
     b.vy = relY * Math.abs(b.vx) * 0.75;
-    Audio.play('bounce_sfx');
+    AudioSystem.play('bounce_sfx');
   }
 
   if (hitPaddle(this._p2.x, this._p2.y) && b.vx > 0) {
     b.vx = -Math.min(Math.abs(b.vx) + SPEED_INCREMENT, BALL_SPEED_MAX);
     const relY = (b.y - (this._p2.y + PADDLE_H / 2)) / (PADDLE_H / 2);
     b.vy = relY * Math.abs(b.vx) * 0.75;
-    Audio.play('bounce_sfx');
+    AudioSystem.play('bounce_sfx');
   }
 
   // Scoring: ball exits left or right
@@ -278,7 +292,7 @@ private _drawGameOver(): void {
   ctx.fillStyle = '#888';
   ctx.fillText('Press R to restart', W / 2, H / 2 + 70);
 
-  if (Input.isPressed('KeyR')) this._restart();
+  if (InputSystem.isPressed('KeyR')) this._restart();
 }
 
 private _restart(): void {
@@ -305,11 +319,11 @@ Press **Play** (or `Ctrl+Enter`) in the IDE. The Pong game appears in the Canvas
 
 ## Step 9 — Add a sound effect
 
-The `Audio.play('bounce_sfx')` call in Step 6 looks up a preloaded audio clip. To wire in a real sound:
+The `AudioSystem.play('bounce_sfx')` call in Step 6 looks up a preloaded audio clip. To wire in a real sound:
 
 ```typescript
 // In onLoad(), before returning:
-await Audio.preload('bounce_sfx', 'assets/sounds/bounce.wav');
+await AudioSystem.preload("bounce_sfx", "assets/sounds/bounce.wav");
 ```
 
 Drop a `bounce.wav` (or any short audio file) into `apps/ide/public/assets/sounds/`. The Vite dev server serves `public/` at the root, so the path resolves correctly in both browser and Tauri modes.
@@ -334,15 +348,15 @@ pnpm emptysock-toolchain export --platform windows --format installer --entry sr
 
 ## What you practised
 
-| Concept | Where |
-|---------|-------|
-| Scene lifecycle (`onLoad`, `onUpdate`, `onDestroy`) | GameScene skeleton |
-| Frame-accurate keyboard input | `_movePaddles` |
-| Manual physics (velocity, AABB collision, angle reflection) | `_moveBall` |
-| Actor Model (message passing, no shared state) | ScoreActor |
-| `ActorSystem.send()` and `update()` in game loop | GameScene |
-| Canvas 2D rendering | `_draw()` |
-| Audio playback | `Audio.play('bounce_sfx')` |
-| Export pipeline | Step 10 |
+| Concept                                                     | Where                            |
+| ----------------------------------------------------------- | -------------------------------- |
+| Scene lifecycle (`onLoad`, `onUpdate`, `onDestroy`)         | GameScene skeleton               |
+| Frame-accurate keyboard input                               | `_movePaddles`                   |
+| Manual physics (velocity, AABB collision, angle reflection) | `_moveBall`                      |
+| Actor Model (message passing, no shared state)              | ScoreActor                       |
+| `ActorSystem.send()` and `update()` in game loop            | GameScene                        |
+| Canvas 2D rendering                                         | `_draw()`                        |
+| Audio playback                                              | `AudioSystem.play('bounce_sfx')` |
+| Export pipeline                                             | Step 10                          |
 
 From here you can extend the game: add a serving animation (Animator), add AI for Player 2 (NavMesh not needed — simple tracking works), or make it multiplayer by attaching a WebSocketTransport to the ScoreActor.
