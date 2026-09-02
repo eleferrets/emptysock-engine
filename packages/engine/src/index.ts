@@ -173,6 +173,10 @@ export * as GMLCompat from "./compat/index.js";
 // Hot reload
 export { HotReloadSystem } from "./systems/HotReloadSystem.js";
 
+// Window management
+export { windowSystem, WindowSystem } from "./systems/WindowSystem.js";
+export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
+
 // Behaviors
 export * from "./behaviors/index.js";
 

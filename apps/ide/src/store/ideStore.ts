@@ -5,6 +5,28 @@ export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
 export type Theme = "dark" | "light" | "system";
 
+export type WindowMode = "windowed" | "fullscreen" | "borderless";
+
+export interface WindowConfig {
+  mode: WindowMode;
+  width: number;
+  height: number;
+  title: string;
+  resizable: boolean;
+  minWidth: number;
+  minHeight: number;
+}
+
+export const DEFAULT_WINDOW_CONFIG: WindowConfig = {
+  mode: "windowed",
+  width: 1280,
+  height: 720,
+  title: "My Game",
+  resizable: true,
+  minWidth: 320,
+  minHeight: 240,
+};
+
 export interface LogEntry {
   id: string;
   level: LogLevel;
@@ -155,6 +177,9 @@ interface IDEState {
   // Module registry
   enabledModules: string[];
 
+  // Window
+  windowConfig: WindowConfig;
+
   // Theme
   theme: Theme;
 
@@ -200,6 +225,9 @@ interface IDEState {
 
   // Module actions
   toggleModule: (id: string) => void;
+
+  // Window action
+  setWindowConfig: (config: Partial<WindowConfig>) => void;
 
   // Theme action
   setTheme: (theme: Theme) => void;
@@ -582,6 +610,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Module registry
   enabledModules: DEFAULT_ENABLED_MODULES,
+  windowConfig: { ...DEFAULT_WINDOW_CONFIG },
 
   // Theme
   theme: "dark",
@@ -781,6 +810,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         ? s.enabledModules.filter((m) => m !== id)
         : [...s.enabledModules, id],
     })),
+  setWindowConfig: (config) =>
+    set((s) => ({ windowConfig: { ...s.windowConfig, ...config } })),
+
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
@@ -972,6 +1004,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         sequenceDuration: s.sequenceDuration,
         localisationTranslations: s.localisationTranslations,
         localisationLocales: s.localisationLocales,
+        windowConfig: s.windowConfig,
       },
       null,
       2,
@@ -1047,6 +1080,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             updates.localisationLocales = proj[
               "localisationLocales"
             ] as string[];
+          }
+          if (
+            proj["windowConfig"] !== null &&
+            typeof proj["windowConfig"] === "object"
+          ) {
+            updates.windowConfig = {
+              ...DEFAULT_WINDOW_CONFIG,
+              ...(proj["windowConfig"] as Partial<WindowConfig>),
+            };
           }
           set(updates);
         } catch {

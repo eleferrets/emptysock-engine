@@ -31,3 +31,10 @@ export type {
 } from "./gms2-room-import.js";
 
 export { generateObjectStub } from "./gms2-gml-stub.js";
+
+export {
+  readWindowConfig,
+  applyWindowConfigToTauri,
+  syncWindowConfigToTauri,
+} from "./window-config.js";
+export type { WindowConfig, WindowMode } from "./window-config.js";
