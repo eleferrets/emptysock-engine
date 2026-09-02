@@ -242,6 +242,16 @@ export function VisualScriptEditor(): React.ReactElement {
   vsPanXRef.current = vsPanX;
   vsPanYRef.current = vsPanY;
 
+  const touchGestureRef = useRef<{
+    type: "pan" | "pinch";
+    startClientX: number;
+    startClientY: number;
+    startPanX: number;
+    startPanY: number;
+    startDist: number;
+    startScale: number;
+  } | null>(null);
+
   // Wheel zoom on the outer scroll container
   useEffect(() => {
     const el = outerRef.current;
@@ -256,6 +266,90 @@ export function VisualScriptEditor(): React.ReactElement {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Touch pan (single finger) + pinch zoom (two fingers)
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent): void => {
+      const t0 = e.touches[0];
+      if (!t0) return;
+      if (e.touches.length === 1) {
+        touchGestureRef.current = {
+          type: "pan",
+          startClientX: t0.clientX,
+          startClientY: t0.clientY,
+          startPanX: vsPanXRef.current,
+          startPanY: vsPanYRef.current,
+          startDist: 0,
+          startScale: vsScaleRef.current,
+        };
+      } else if (e.touches.length === 2) {
+        const t1 = e.touches[1];
+        if (!t1) return;
+        const dist = Math.hypot(
+          t1.clientX - t0.clientX,
+          t1.clientY - t0.clientY,
+        );
+        touchGestureRef.current = {
+          type: "pinch",
+          startClientX: t0.clientX,
+          startClientY: t0.clientY,
+          startPanX: vsPanXRef.current,
+          startPanY: vsPanYRef.current,
+          startDist: dist,
+          startScale: vsScaleRef.current,
+        };
+        e.preventDefault();
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent): void => {
+      const gesture = touchGestureRef.current;
+      if (!gesture) return;
+      const t0 = e.touches[0];
+      if (!t0) return;
+      if (gesture.type === "pan" && e.touches.length === 1) {
+        const dx = t0.clientX - gesture.startClientX;
+        const dy = t0.clientY - gesture.startClientY;
+        setVsPanX(gesture.startPanX + dx);
+        setVsPanY(gesture.startPanY + dy);
+        e.preventDefault();
+      } else if (gesture.type === "pinch" && e.touches.length === 2) {
+        const t1 = e.touches[1];
+        if (!t1) return;
+        const dist = Math.hypot(
+          t1.clientX - t0.clientX,
+          t1.clientY - t0.clientY,
+        );
+        if (gesture.startDist > 0) {
+          const ratio = dist / gesture.startDist;
+          const next = Math.min(
+            MAX_VS_SCALE,
+            Math.max(MIN_VS_SCALE, gesture.startScale * ratio),
+          );
+          setVsScale(next);
+        }
+        e.preventDefault();
+      }
+    };
+
+    const onTouchEnd = (): void => {
+      touchGestureRef.current = null;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
   }, []);
 
   // ── Canvas coordinate from mouse event ────────────────────────────────────
