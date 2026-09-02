@@ -938,6 +938,34 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       buildDuration: null,
       lastBuildAt: null,
       logs: [],
+      // Reset all domain fields for a clean new project
+      entities: [],
+      selectedEntityId: null,
+      selectedEntity: null,
+      assets: [],
+      enabledModules: DEFAULT_ENABLED_MODULES,
+      tilemapLayers: [],
+      tilemapActiveLayer: "layer-0",
+      sequenceTracks: [],
+      sequenceDuration: 10,
+      localisationTranslations: {},
+      localisationLocales: ["en"],
+      variableStoreVars: {},
+      variableStoreSwitches: {},
+      variableStoreVarNames: {},
+      variableStoreSwitchNames: {},
+      vnNodes: [],
+      autoTileRuleSets: {},
+      dbActors: [],
+      dbClasses: [],
+      dbItems: [],
+      dbEnemies: [],
+      editorGridSize: 32,
+      editorShowGrid: true,
+      editorShowRuler: true,
+      editorSnapToGrid: true,
+      editorShowGuides: true,
+      windowConfig: { ...DEFAULT_WINDOW_CONFIG },
     });
     get().addLog("info", "New project created", "IDE");
   },
@@ -1093,6 +1121,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const s = get();
     return JSON.stringify(
       {
+        projectName: get().projectName,
         entities: s.entities,
         assets: s.assets,
         enabledModules: s.enabledModules,
@@ -1151,6 +1180,34 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       buildStatus: "idle",
       buildErrors: [],
       logs: [],
+      // Reset all domain fields so stale data from a previous project cannot bleed through
+      entities: [],
+      selectedEntityId: null,
+      selectedEntity: null,
+      assets: [],
+      enabledModules: DEFAULT_ENABLED_MODULES,
+      tilemapLayers: [],
+      tilemapActiveLayer: "layer-0",
+      sequenceTracks: [],
+      sequenceDuration: 10,
+      localisationTranslations: {},
+      localisationLocales: ["en"],
+      variableStoreVars: {},
+      variableStoreSwitches: {},
+      variableStoreVarNames: {},
+      variableStoreSwitchNames: {},
+      vnNodes: [],
+      autoTileRuleSets: {},
+      dbActors: [],
+      dbClasses: [],
+      dbItems: [],
+      dbEnemies: [],
+      editorGridSize: 32,
+      editorShowGrid: true,
+      editorShowRuler: true,
+      editorSnapToGrid: true,
+      editorShowGuides: true,
+      windowConfig: { ...DEFAULT_WINDOW_CONFIG },
     });
 
     // Restore project state from .project.json if present
@@ -1246,7 +1303,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           if (Array.isArray(proj["dbItems"])) updates.dbItems = proj["dbItems"];
           if (Array.isArray(proj["dbEnemies"])) updates.dbEnemies = proj["dbEnemies"];
           if (typeof proj["editorGridSize"] === "number") {
-            updates.editorGridSize = proj["editorGridSize"];
+            updates.editorGridSize = Math.max(4, proj["editorGridSize"] as number);
           }
           if (typeof proj["editorShowGrid"] === "boolean") {
             updates.editorShowGrid = proj["editorShowGrid"];
@@ -1261,10 +1318,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             updates.editorShowGuides = proj["editorShowGuides"];
           }
           set(updates);
-        } catch {
+        } catch (err) {
           get().addLog(
             "warn",
-            "Failed to parse .project.json — project state not restored",
+            `Failed to parse .project.json: ${String(err)}`,
             "IDE",
           );
         }

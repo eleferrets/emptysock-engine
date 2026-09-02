@@ -60,6 +60,21 @@ export const ALL_MODULES: ModuleDef[] = [
     label: "Variables",
     description: "Named integer variables and boolean switches store",
   },
+  {
+    id: "vn-preview",
+    label: "VN Preview",
+    description: "Live Story Graph playback preview",
+  },
+  {
+    id: "ui-placement",
+    label: "UI Placement",
+    description: "Drag-and-drop HUD and UI element layout",
+  },
+  {
+    id: "database",
+    label: "Database",
+    description: "RPG actor, class, item and enemy database editor",
+  },
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [

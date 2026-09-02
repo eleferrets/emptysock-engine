@@ -92,7 +92,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
   const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence"];
-  const bottomGated = ["profiler", "git", "i18n", "audio", "variables", "ui-placement"];
+  const bottomGated = ["profiler", "git", "i18n", "audio", "variables", "ui-placement", "database"];
   return {
     dockbox: {
       mode: "horizontal",
@@ -195,12 +195,10 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
 };
 
 export function App(): React.ReactElement {
-  const {
-    settingsOpen,
-    setSettingsOpen,
-    projectSettingsOpen,
-    setProjectSettingsOpen,
-  } = useIDEStore();
+  const settingsOpen = useIDEStore((s) => s.settingsOpen);
+  const setSettingsOpen = useIDEStore((s) => s.setSettingsOpen);
+  const projectSettingsOpen = useIDEStore((s) => s.projectSettingsOpen);
+  const setProjectSettingsOpen = useIDEStore((s) => s.setProjectSettingsOpen);
   const { isMobile } = useBreakpoint();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
