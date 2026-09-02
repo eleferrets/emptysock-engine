@@ -907,6 +907,18 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
+  setAudioBus: (id, patch) =>
+    set((s) => ({
+      audioBuses: s.audioBuses.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+    })),
+  addAudioBus: () =>
+    set((s) => ({
+      audioBuses: [
+        ...s.audioBuses,
+        { id: `bus-${Date.now()}`, label: "Bus", volume: 80, muted: false, solo: false, color: "#94a3b8" },
+      ],
+    })),
+
   setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
   setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
 
@@ -970,6 +982,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       selectedEntity: null,
       assets: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
+      audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
       sequenceTracks: [],
@@ -1151,6 +1164,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         entities: s.entities,
         assets: s.assets,
         enabledModules: s.enabledModules,
+        audioBuses: s.audioBuses,
         tilemapLayers: s.tilemapLayers,
         tilemapActiveLayer: s.tilemapActiveLayer,
         sequenceTracks: s.sequenceTracks,
@@ -1212,6 +1226,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       selectedEntity: null,
       assets: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
+      audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
       sequenceTracks: [],
@@ -1251,6 +1266,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           }
           if (Array.isArray(proj["enabledModules"])) {
             updates.enabledModules = proj["enabledModules"] as string[];
+          }
+          if (Array.isArray(proj["audioBuses"])) {
+            updates.audioBuses = proj["audioBuses"] as AudioBus[];
           }
           if (Array.isArray(proj["tilemapLayers"])) {
             updates.tilemapLayers = proj["tilemapLayers"] as TileLayer[];

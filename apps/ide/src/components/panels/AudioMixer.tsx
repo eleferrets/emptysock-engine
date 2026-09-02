@@ -1,83 +1,29 @@
 import React from "react";
 import { audioMixerService } from "../../services/AudioMixerService";
-
-interface Bus {
-  id: string;
-  name: string;
-  volume: number;
-  muted: boolean;
-  solo: boolean;
-  color: string;
-}
-
-const INITIAL_BUSES: Bus[] = [
-  {
-    id: "master",
-    name: "Master",
-    volume: 80,
-    muted: false,
-    solo: false,
-    color: "#a78bfa",
-  },
-  {
-    id: "music",
-    name: "Music",
-    volume: 70,
-    muted: false,
-    solo: false,
-    color: "#60a5fa",
-  },
-  {
-    id: "sfx",
-    name: "SFX",
-    volume: 90,
-    muted: false,
-    solo: false,
-    color: "#4ade80",
-  },
-  {
-    id: "voice",
-    name: "Voice",
-    volume: 100,
-    muted: false,
-    solo: false,
-    color: "#fbbf24",
-  },
-  {
-    id: "ambient",
-    name: "Ambient",
-    volume: 50,
-    muted: false,
-    solo: false,
-    color: "#f87171",
-  },
-];
+import { useIDEStore } from "../../store/ideStore";
+import type { AudioBus } from "../../store/ideStore";
 
 export function AudioMixer(): React.ReactElement {
-  const [buses, setBuses] = React.useState<Bus[]>(INITIAL_BUSES);
+  const buses = useIDEStore((s) => s.audioBuses);
+  const setAudioBus = useIDEStore((s) => s.setAudioBus);
+  const addAudioBus = useIDEStore((s) => s.addAudioBus);
 
-  const update = (id: string, patch: Partial<Bus>): void => {
-    setBuses((prev) => {
-      const next = prev.map((b) => (b.id === id ? { ...b, ...patch } : b));
-      const updated = next.find((b) => b.id === id);
-      if (updated !== undefined) {
-        if (patch.volume !== undefined) {
-          audioMixerService.setVolume(id, updated.volume / 100);
-        }
-        if (patch.muted !== undefined) {
-          audioMixerService.setMute(id, updated.muted);
-        }
-        if (patch.solo !== undefined) {
-          audioMixerService.setSolo(id, updated.solo);
-        }
-      }
-      return next;
-    });
+  const update = (id: string, patch: Partial<Omit<AudioBus, "id">>): void => {
+    setAudioBus(id, patch);
+    if (patch.volume !== undefined) {
+      audioMixerService.setVolume(id, patch.volume / 100);
+    }
+    if (patch.muted !== undefined) {
+      audioMixerService.setMute(id, patch.muted);
+    }
+    if (patch.solo !== undefined) {
+      audioMixerService.setSolo(id, patch.solo);
+    }
   };
 
   const hasSolo = buses.some((b) => b.solo);
 
-  const effectiveVolume = (bus: Bus): number => {
+  const effectiveVolume = (bus: AudioBus): number => {
     if (bus.muted) return 0;
     if (hasSolo && !bus.solo) return 0;
     return bus.volume;
@@ -131,7 +77,7 @@ export function AudioMixer(): React.ReactElement {
             >
               {/* Label */}
               <div style={{ fontWeight: 600, color: bus.color }}>
-                {bus.name}
+                {bus.label}
               </div>
 
               {/* dB label */}
@@ -183,17 +129,18 @@ export function AudioMixer(): React.ReactElement {
                   onChange={(e) =>
                     update(bus.id, { volume: Number(e.target.value) })
                   }
-                  style={
-                    {
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      WebkitAppearance: "slider-vertical",
-                      opacity: 0.01,
-                      cursor: "ns-resize",
-                    } as React.CSSProperties
-                  }
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    writingMode: "vertical-lr",
+                    direction: "rtl",
+                    width: 32,
+                    height: "100%",
+                    opacity: 0.01,
+                    cursor: "ns-resize",
+                  } as React.CSSProperties}
                 />
               </div>
 
@@ -249,19 +196,7 @@ export function AudioMixer(): React.ReactElement {
           }}
         >
           <button
-            onClick={() =>
-              setBuses((prev) => [
-                ...prev,
-                {
-                  id: `bus-${Date.now()}`,
-                  name: "Bus",
-                  volume: 80,
-                  muted: false,
-                  solo: false,
-                  color: "#94a3b8",
-                },
-              ])
-            }
+            onClick={addAudioBus}
             style={{
               padding: "6px 10px",
               background: "var(--es-surface)",

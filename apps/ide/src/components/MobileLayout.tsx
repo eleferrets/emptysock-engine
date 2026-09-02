@@ -77,10 +77,58 @@ function SheetContent({ tab }: { tab: SheetTab }): React.ReactElement {
   }
 }
 
+type TabletRightTab = "code" | "canvas" | "console";
+
+const TABLET_RIGHT_TABS: Array<{ id: TabletRightTab; label: string }> = [
+  { id: "code", label: "Code" },
+  { id: "canvas", label: "Preview" },
+  { id: "console", label: "Console" },
+];
+
+function TabletRightPanel({ tab }: { tab: TabletRightTab }): React.ReactElement {
+  switch (tab) {
+    case "code":
+      return <CodeEditor />;
+    case "canvas": {
+      // Lazy import to avoid pulling CanvasPreview into the mobile bundle unconditionally
+      const CanvasPreview = React.lazy(() =>
+        import("./panels/CanvasPreview").then((m) => ({ default: m.CanvasPreview })),
+      );
+      return (
+        <React.Suspense fallback={<div style={{ color: "var(--es-text-muted)", padding: 16 }}>Loading…</div>}>
+          <CanvasPreview />
+        </React.Suspense>
+      );
+    }
+    case "console":
+      return <ConsolePanel />;
+  }
+}
+
 export function MobileLayout(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState<MainTab>("code");
+  const [tabletRightTab, setTabletRightTab] = React.useState<TabletRightTab>("code");
   const [fabOpen, setFabOpen] = React.useState(false);
   const [sheetTab, setSheetTab] = React.useState<SheetTab | null>(null);
+
+  // Virtual keyboard avoidance via visualViewport
+  React.useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = (): void => {
+      const keyboardHeight = Math.max(0, window.innerHeight - vv.height);
+      document.documentElement.style.setProperty(
+        "--keyboard-height",
+        `${keyboardHeight}px`,
+      );
+    };
+    vv.addEventListener("resize", update);
+    update();
+    return () => {
+      vv.removeEventListener("resize", update);
+      document.documentElement.style.removeProperty("--keyboard-height");
+    };
+  }, []);
 
   const projectName = useIDEStore((s) => s.projectName);
   const playState = useIDEStore((s) => s.playState);
@@ -144,10 +192,23 @@ export function MobileLayout(): React.ReactElement {
               <LeftSidebar />
             </ErrorBoundary>
           </div>
-          <div className="es-tablet-right">
-            <ErrorBoundary>
-              <CodeEditor />
-            </ErrorBoundary>
+          <div className="es-tablet-right-wrapper">
+            <nav className="es-tablet-right-tabs" aria-label="Right panel tabs">
+              {TABLET_RIGHT_TABS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  className={`es-tablet-right-tab${tabletRightTab === id ? " es-tablet-right-tab--active" : ""}`}
+                  onClick={() => setTabletRightTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <div className="es-tablet-right">
+              <ErrorBoundary>
+                <TabletRightPanel tab={tabletRightTab} />
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
       ) : (
@@ -261,8 +322,40 @@ export function MobileLayout(): React.ReactElement {
           border-right: 1px solid var(--es-border);
         }
 
-        .es-tablet-right {
+        .es-tablet-right-wrapper {
           width: 60%;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .es-tablet-right-tabs {
+          display: flex;
+          flex-direction: row;
+          background: var(--es-surface);
+          border-bottom: 1px solid var(--es-border);
+          flex-shrink: 0;
+        }
+
+        .es-tablet-right-tab {
+          flex: 1;
+          height: 36px;
+          border: none;
+          background: transparent;
+          color: var(--es-text-muted);
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .es-tablet-right-tab--active {
+          color: var(--es-accent);
+          border-bottom: 2px solid var(--es-accent);
+        }
+
+        .es-tablet-right {
+          flex: 1;
           min-width: 0;
           overflow: hidden;
         }
@@ -325,6 +418,7 @@ export function MobileLayout(): React.ReactElement {
           flex: 1;
           overflow: hidden;
           position: relative;
+          padding-bottom: var(--keyboard-height, 0px);
         }
 
         .es-mobile-panel-area > * {
