@@ -141,6 +141,7 @@ export type {
   UIComponentOptions,
   UIStyle,
   UIAnchor,
+  UIAnimationType,
 } from "./systems/UISystem.js";
 
 // Post-processing

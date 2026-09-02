@@ -35,6 +35,18 @@ export interface UIComponentOptions {
 
 let _nextUIId = 0;
 
+// ─── Animation types ─────────────────────────────────────────────────────────
+
+export type UIAnimationType = 'fade-in' | 'fade-out' | 'slide-in-left' | 'slide-in-right' | 'slide-in-up' | 'slide-in-down';
+
+interface UIAnimState {
+  type: UIAnimationType;
+  t: number;         // elapsed seconds
+  duration: number;  // total seconds
+  /** slide distance in pixels (positive = how far it starts from final position) */
+  slideDistance: number;
+}
+
 export class UIComponent {
   public readonly id: number;
   public readonly type: UIComponentType;
@@ -48,6 +60,14 @@ export class UIComponent {
   public visible: boolean;
   public interactive: boolean;
   private readonly _children: UIComponent[] = [];
+
+  // Animation
+  _anim: UIAnimState | null = null;
+  /** Style overlay applied while the pointer is over this component. */
+  _hoverStyle: UIStyle | null = null;
+  _hovered: boolean = false;
+  /** Base opacity from style — preserved across fade animations. */
+  private _baseOpacity: number = 1;
   private _parent: UIComponent | null = null;
   private _clickHandlers: Array<() => void> = [];
   private _changeHandlers: Array<(value: number | boolean) => void> = [];
@@ -98,6 +118,84 @@ export class UIComponent {
   onChange(handler: (value: number | boolean) => void): this {
     this._changeHandlers.push(handler);
     return this;
+  }
+
+  // ─── Animations ─────────────────────────────────────────────────────────────
+
+  /**
+   * Play a fade-in animation. The component starts transparent and reaches its
+   * target opacity over `duration` seconds. May be called immediately after creation.
+   */
+  fadeIn(duration: number = 0.3): this {
+    this._baseOpacity = this.style.opacity ?? 1;
+    this.style = { ...this.style, opacity: 0 };
+    this.visible = true;
+    this._anim = { type: 'fade-in', t: 0, duration, slideDistance: 0 };
+    return this;
+  }
+
+  /**
+   * Play a fade-out animation. Sets `visible = false` when complete.
+   */
+  fadeOut(duration: number = 0.3): this {
+    this._baseOpacity = this.style.opacity ?? 1;
+    this._anim = { type: 'fade-out', t: 0, duration, slideDistance: 0 };
+    return this;
+  }
+
+  /**
+   * Slide the component in from off-screen (`direction` side) over `duration`
+   * seconds, moving `distance` pixels. The component ends at its declared x/y.
+   */
+  slideIn(direction: 'left' | 'right' | 'up' | 'down', distance: number = 40, duration: number = 0.3): this {
+    this.visible = true;
+    const type = `slide-in-${direction}` as UIAnimationType;
+    this._anim = { type, t: 0, duration, slideDistance: distance };
+    return this;
+  }
+
+  /**
+   * Set a style overlay applied while the pointer hovers over this component.
+   * Pass `null` to remove hover styling.
+   */
+  setHoverStyle(hoverStyle: UIStyle | null): this {
+    this._hoverStyle = hoverStyle;
+    return this;
+  }
+
+  /** Read-only: whether the pointer is currently over this component. */
+  get hovered(): boolean { return this._hovered; }
+
+  /** @internal tick called by UISystemImpl.update() */
+  _tickAnim(dt: number): void {
+    if (this._anim === null) return;
+    this._anim.t += dt;
+    const progress = Math.min(this._anim.t / this._anim.duration, 1);
+    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2; // ease-in-out quad
+
+    if (this._anim.type === 'fade-in') {
+      this.style = { ...this.style, opacity: eased * this._baseOpacity };
+    } else if (this._anim.type === 'fade-out') {
+      this.style = { ...this.style, opacity: (1 - eased) * this._baseOpacity };
+      if (progress >= 1) this.visible = false;
+    }
+
+    if (progress >= 1) this._anim = null;
+  }
+
+  /** @internal animation offset applied during render (does not mutate x/y) */
+  _animOffset(): { dx: number; dy: number } {
+    if (this._anim === null) return { dx: 0, dy: 0 };
+    const progress = Math.min(this._anim.t / this._anim.duration, 1);
+    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const remaining = (1 - eased) * this._anim.slideDistance;
+    switch (this._anim.type) {
+      case 'slide-in-left':  return { dx: -remaining, dy: 0 };
+      case 'slide-in-right': return { dx:  remaining, dy: 0 };
+      case 'slide-in-up':    return { dx: 0, dy: -remaining };
+      case 'slide-in-down':  return { dx: 0, dy:  remaining };
+      default: return { dx: 0, dy: 0 };
+    }
   }
 
   /** Called by the input/render layer when a click is detected on this component. */
@@ -193,6 +291,44 @@ class UISystemImpl {
     return this.handleClick(x, y, canvasWidth, canvasHeight);
   }
 
+  /**
+   * Advance all active animations and update hover state.
+   * Call once per frame before `render()`, passing the frame delta-time in seconds.
+   */
+  update(dt: number, pointerX?: number, pointerY?: number, canvasWidth?: number, canvasHeight?: number): void {
+    this._tickAnimsInList(this._roots, dt);
+
+    if (pointerX !== undefined && pointerY !== undefined && canvasWidth !== undefined && canvasHeight !== undefined) {
+      this._updateHover(this._roots, pointerX, pointerY, canvasWidth, canvasHeight);
+    }
+  }
+
+  /**
+   * Update hover state for all components given the current pointer position.
+   * Call from a pointermove / mousemove event handler.
+   */
+  handlePointerMove(x: number, y: number, canvasWidth: number, canvasHeight: number): void {
+    this._updateHover(this._roots, x, y, canvasWidth, canvasHeight);
+  }
+
+  private _tickAnimsInList(comps: ReadonlyArray<UIComponent>, dt: number): void {
+    for (const c of comps) {
+      c._tickAnim(dt);
+      this._tickAnimsInList(c.children, dt);
+    }
+  }
+
+  private _updateHover(comps: ReadonlyArray<UIComponent>, px: number, py: number, cw: number, ch: number): void {
+    for (const c of comps) {
+      const wasHovered = c._hovered;
+      c._hovered = c._hoverStyle !== null && c.contains(px, py, cw, ch);
+      if (c._hovered !== wasHovered && c._hoverStyle !== null) {
+        // nothing extra — the render pass reads _hovered each frame
+      }
+      this._updateHover(c.children, px, py, cw, ch);
+    }
+  }
+
   /** Draw all root UI components and their children to the given canvas context. */
   render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
     for (const root of this._roots) {
@@ -208,33 +344,41 @@ class UISystemImpl {
   ): void {
     if (!comp.visible) return;
 
-    const { x, y } = comp.resolvedPosition(cw, ch);
+    const { x: rx, y: ry } = comp.resolvedPosition(cw, ch);
+    const { dx, dy } = comp._animOffset();
+    const x = rx + dx;
+    const y = ry + dy;
     const w = comp.width;
     const h = comp.height;
 
+    // Merge hover style on top of base style when hovered
+    const style: UIStyle = comp._hovered && comp._hoverStyle !== null
+      ? { ...comp.style, ...comp._hoverStyle }
+      : comp.style;
+
     ctx.save();
-    ctx.globalAlpha = comp.style.opacity ?? 1;
+    ctx.globalAlpha = style.opacity ?? 1;
 
     switch (comp.type) {
       case 'panel': {
-        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x1a1a2e);
+        ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.fillRect(x, y, w, h);
-        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
-          ctx.strokeStyle = numToHex(comp.style.borderColor);
-          ctx.lineWidth = comp.style.borderWidth;
+        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(style.borderColor);
+          ctx.lineWidth = style.borderWidth;
           ctx.strokeRect(x, y, w, h);
         }
         break;
       }
       case 'button': {
-        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x1a1a2e);
+        ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.fillRect(x, y, w, h);
-        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
-          ctx.strokeStyle = numToHex(comp.style.borderColor);
-          ctx.lineWidth = comp.style.borderWidth;
+        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(style.borderColor);
+          ctx.lineWidth = style.borderWidth;
           ctx.strokeRect(x, y, w, h);
         }
-        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.font = buildFont(comp);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -242,7 +386,7 @@ class UISystemImpl {
         break;
       }
       case 'text': {
-        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.font = buildFont(comp);
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
@@ -256,35 +400,35 @@ class UISystemImpl {
         break;
       }
       case 'progress-bar': {
-        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x333333);
+        ctx.fillStyle = numToHex(style.backgroundColor ?? 0x333333);
         ctx.fillRect(x, y, w, h);
-        ctx.fillStyle = numToHex(comp.style.color ?? 0x4caf50);
+        ctx.fillStyle = numToHex(style.color ?? 0x4caf50);
         ctx.fillRect(x, y, w * Math.min(1, Math.max(0, comp.value)), h);
         break;
       }
       case 'slider': {
         const trackH = Math.max(4, h * 0.25);
         const trackY = y + (h - trackH) / 2;
-        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x555555);
+        ctx.fillStyle = numToHex(style.backgroundColor ?? 0x555555);
         ctx.fillRect(x, trackY, w, trackH);
         const thumbX = x + w * Math.min(1, Math.max(0, comp.value));
         const thumbR = h * 0.4;
-        ctx.fillStyle = numToHex(comp.style.color ?? 0xffffff);
+        ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.beginPath();
         ctx.arc(thumbX, y + h / 2, thumbR, 0, Math.PI * 2);
         ctx.fill();
         break;
       }
       case 'toggle': {
-        ctx.fillStyle = numToHex(comp.style.backgroundColor ?? 0x333333);
+        ctx.fillStyle = numToHex(style.backgroundColor ?? 0x333333);
         ctx.fillRect(x, y, w, h);
-        if (comp.style.borderColor !== undefined && comp.style.borderWidth !== undefined) {
-          ctx.strokeStyle = numToHex(comp.style.borderColor);
-          ctx.lineWidth = comp.style.borderWidth;
+        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+          ctx.strokeStyle = numToHex(style.borderColor);
+          ctx.lineWidth = style.borderWidth;
           ctx.strokeRect(x, y, w, h);
         }
         if (comp.checked) {
-          ctx.strokeStyle = numToHex(comp.style.color ?? 0xffffff);
+          ctx.strokeStyle = numToHex(style.color ?? 0xffffff);
           ctx.lineWidth = 2;
           const pad = Math.min(w, h) * 0.2;
           ctx.beginPath();
