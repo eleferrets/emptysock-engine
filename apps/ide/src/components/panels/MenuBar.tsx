@@ -316,11 +316,13 @@ export function MenuBar({
 
   const downloadProjectZip = useCallback((): void => {
     const zip = new JSZip();
-    const files = useIDEStore.getState().openFiles;
-    const name = useIDEStore.getState().projectName;
+    const store = useIDEStore.getState();
+    const files = store.openFiles;
+    const name = store.projectName;
     for (const [path, content] of Object.entries(files)) {
       zip.file(path, content);
     }
+    zip.file("emptysock.project.json", store.saveProjectJson());
     void zip
       .generateAsync({
         type: "blob",
