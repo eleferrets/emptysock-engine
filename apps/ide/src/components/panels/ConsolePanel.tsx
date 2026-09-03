@@ -36,9 +36,25 @@ function formatTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")}`;
 }
 
+const IDLE_QUIPS = [
+  "All quiet. Your game is probably fine.",
+  "Nothing to report. Go ship something.",
+  "Silence. Beautiful, terrifying silence.",
+  "No errors. You're either very good or very lucky.",
+  "Waiting for output… maybe grab a coffee.",
+  "Clean slate. Don't ruin it.",
+  "The console is empty. The possibilities are not.",
+  "Zero logs. Zero regrets. Probably.",
+  "Ready when you are. No rush.",
+  "Press Play. See what breaks.",
+];
+
 export function ConsolePanel(): React.ReactElement {
   const { logs, clearLogs } = useIDEStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const quip = useRef(
+    IDLE_QUIPS[Math.floor(Math.random() * IDLE_QUIPS.length)],
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,7 +75,7 @@ export function ConsolePanel(): React.ReactElement {
           className="text-[10px] uppercase tracking-wider flex-1"
           style={{ color: "var(--es-text-muted)" }}
         >
-          {logs.length} entries
+          {logs.length === 0 ? "Console" : `${logs.length} entries`}
         </span>
         <Button
           variant="ghost"
@@ -73,6 +89,19 @@ export function ConsolePanel(): React.ReactElement {
 
       {/* Log entries */}
       <div className="flex-1 overflow-y-auto">
+        {logs.length === 0 && (
+          <div
+            style={{
+              padding: "24px 16px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+              fontSize: 11,
+              fontStyle: "italic",
+            }}
+          >
+            {quip.current}
+          </div>
+        )}
         {logs.map((log) => (
           <div
             key={log.id}

@@ -124,10 +124,10 @@ export function DatabaseEditor(): React.ReactElement {
     canUndo,
     canRedo,
   } = useHistory<DBState>({
-    actors: storeActors,
-    classes: storeClasses,
-    items: storeItems,
-    enemies: storeEnemies,
+    actors: storeActors as DBActor[],
+    classes: storeClasses as DBClass[],
+    items: storeItems as DBItem[],
+    enemies: storeEnemies as DBEnemy[],
   });
 
   const dbActors = dbState.actors;
@@ -383,6 +383,21 @@ export function DatabaseEditor(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {dbActors.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      style={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        color: "var(--es-text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No actors yet — click <strong>+ Actor</strong> to add one.
+                    </td>
+                  </tr>
+                )}
                 {dbActors.map((a) => (
                   <tr key={a.id}>
                     <td style={{ padding: "2px 6px" }}>{a.id}</td>
@@ -467,6 +482,22 @@ export function DatabaseEditor(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {dbClasses.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      style={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        color: "var(--es-text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No classes yet — click <strong>+ Class</strong> to add
+                      one.
+                    </td>
+                  </tr>
+                )}
                 {dbClasses.map((c) => (
                   <tr key={c.id}>
                     <td style={{ padding: "2px 6px" }}>{c.id}</td>
@@ -534,6 +565,21 @@ export function DatabaseEditor(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {dbItems.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      style={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        color: "var(--es-text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No items yet — click <strong>+ Item</strong> to add one.
+                    </td>
+                  </tr>
+                )}
                 {dbItems.map((i) => (
                   <tr key={i.id}>
                     <td style={{ padding: "2px 6px" }}>{i.id}</td>
@@ -607,6 +653,22 @@ export function DatabaseEditor(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {dbEnemies.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      style={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        color: "var(--es-text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No enemies yet — click <strong>+ Enemy</strong> to add
+                      one.
+                    </td>
+                  </tr>
+                )}
                 {dbEnemies.map((e) => (
                   <tr key={e.id}>
                     <td style={{ padding: "2px 6px" }}>{e.id}</td>

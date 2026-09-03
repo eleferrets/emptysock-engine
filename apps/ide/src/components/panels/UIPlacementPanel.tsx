@@ -633,7 +633,9 @@ export function UIPlacementPanel(): React.ReactElement {
         >
           {ghostPos !== null
             ? `cursor: (${ghostPos.x}, ${ghostPos.y})`
-            : `placed: ${placedComponents.length} component${placedComponents.length !== 1 ? "s" : ""}`}
+            : placedComponents.length === 0
+              ? "Click the canvas to place a component"
+              : `${placedComponents.length} component${placedComponents.length !== 1 ? "s" : ""} placed`}
         </div>
       </div>
 

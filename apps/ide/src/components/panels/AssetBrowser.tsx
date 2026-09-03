@@ -10,6 +10,10 @@ import {
   X,
   Grid,
   PackageOpen,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  List,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
@@ -43,7 +47,6 @@ async function importGMS2FromHandle(
 ): Promise<void> {
   const { openFile, addAsset, addLog } = useIDEStore.getState();
 
-  // Find the first .yyp file in the directory.
   let yypHandle: FileSystemFileHandle | null = null;
   const iterable = dirHandle as DirHandleIterable;
   for await (const entry of iterable.values()) {
@@ -129,6 +132,26 @@ function AssetIcon({ type }: { type: AssetItem["type"] }): React.ReactElement {
   }
 }
 
+function AssetIconSmall({
+  type,
+}: {
+  type: AssetItem["type"];
+}): React.ReactElement {
+  const props = { size: 14, strokeWidth: 1.5 };
+  switch (type) {
+    case "image":
+      return <Image {...props} style={{ color: "var(--es-green)" }} />;
+    case "audio":
+      return <Music {...props} style={{ color: "var(--es-accent)" }} />;
+    case "script":
+      return <FileCode {...props} style={{ color: "var(--es-blue)" }} />;
+    case "json":
+      return <FileJson {...props} style={{ color: "var(--es-yellow)" }} />;
+    default:
+      return <FileCode {...props} style={{ color: "var(--es-text-muted)" }} />;
+  }
+}
+
 function formatSize(bytes?: number): string {
   if (bytes === undefined) return "";
   if (bytes < 1024) return `${bytes}B`;
@@ -138,6 +161,7 @@ function formatSize(bytes?: number): string {
 
 const STRIP_RE = /_strip(\d+)/i;
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"];
+const MAX_RECENT = 8;
 
 interface StripDialog {
   fileName: string;
@@ -155,9 +179,244 @@ function guessAssetType(file: File): AssetItem["type"] {
   return "json";
 }
 
+// ---------------------------------------------------------------------------
+// Room Order dialog
+// ---------------------------------------------------------------------------
+
+interface RoomOrderDialogProps {
+  scenes: AssetItem[];
+  savedOrder: string[];
+  onApply: (ids: string[]) => void;
+  onClose: () => void;
+}
+
+function RoomOrderDialog({
+  scenes,
+  savedOrder,
+  onApply,
+  onClose,
+}: RoomOrderDialogProps): React.ReactElement {
+  const [order, setOrder] = useState<AssetItem[]>(() => {
+    if (savedOrder.length === 0) return scenes;
+    const byId = new Map(scenes.map((s) => [s.id, s]));
+    const sorted: AssetItem[] = [];
+    for (const id of savedOrder) {
+      const item = byId.get(id);
+      if (item) sorted.push(item);
+    }
+    for (const s of scenes) {
+      if (!sorted.find((x) => x.id === s.id)) sorted.push(s);
+    }
+    return sorted;
+  });
+
+  const dragIdx = useRef<number | null>(null);
+
+  const handleDragStart = (i: number): void => {
+    dragIdx.current = i;
+  };
+
+  const handleDragOver = (
+    e: React.DragEvent<HTMLDivElement>,
+    i: number,
+  ): void => {
+    e.preventDefault();
+    const from = dragIdx.current;
+    if (from === null || from === i) return;
+    const next = [...order];
+    const [moved] = next.splice(from, 1);
+    if (moved === undefined) return;
+    next.splice(i, 0, moved);
+    dragIdx.current = i;
+    setOrder(next);
+  };
+
+  const handleDragEnd = (): void => {
+    dragIdx.current = null;
+  };
+
+  const apply = (): void => {
+    onApply(order.map((s) => s.id));
+    onClose();
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 400,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          background: "var(--es-surface)",
+          border: "1px solid var(--es-border)",
+          borderRadius: 10,
+          width: 360,
+          maxWidth: "calc(100vw - 32px)",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--es-border)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <List size={14} style={{ color: "var(--es-accent)" }} />
+            <span
+              style={{ fontSize: 13, fontWeight: 600, color: "var(--es-text)" }}
+            >
+              Room Order
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--es-text-muted)",
+              display: "flex",
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+          {order.length === 0 ? (
+            <div
+              style={{
+                padding: "24px 16px",
+                textAlign: "center",
+                color: "var(--es-text-muted)",
+                fontSize: 11,
+                fontStyle: "italic",
+              }}
+            >
+              No scene assets yet. Add a .scene file to the asset browser first.
+            </div>
+          ) : (
+            order.map((scene, i) => (
+              <div
+                key={scene.id}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 16px",
+                  cursor: "grab",
+                  userSelect: "none",
+                  borderBottom: "1px solid var(--es-border)",
+                  background: "var(--es-surface)",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background =
+                    "var(--es-surface-raised, var(--es-surface-2))";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background =
+                    "var(--es-surface)";
+                }}
+              >
+                <GripVertical
+                  size={14}
+                  style={{ color: "var(--es-text-muted)", flexShrink: 0 }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--es-text-muted)",
+                    width: 18,
+                    flexShrink: 0,
+                    textAlign: "right",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <FileCode
+                  size={14}
+                  style={{ color: "var(--es-blue)", flexShrink: 0 }}
+                />
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: 12,
+                    color: "var(--es-text)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {scene.name}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: "10px 16px",
+            borderTop: "1px solid var(--es-border)",
+            flexShrink: 0,
+          }}
+        >
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" size="sm" onClick={apply}>
+            <List size={11} />
+            Apply Order
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const addAsset = useIDEStore((s) => s.addAsset);
+  const recentIds = useIDEStore((s) => s.recentAssetIds);
+  const setRecentIds = useIDEStore((s) => s.setRecentAssetIds);
+  const roomOrder = useIDEStore((s) => s.roomOrder);
+  const setRoomOrder = useIDEStore((s) => s.setRoomOrder);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hover, setHover] = useState<{
@@ -166,12 +425,28 @@ export function AssetBrowser(): React.ReactElement {
     y: number;
   } | null>(null);
   const [stripDialog, setStripDialog] = useState<StripDialog | null>(null);
+  const [recentOpen, setRecentOpen] = useState(true);
+  const [roomOrderOpen, setRoomOrderOpen] = useState(false);
   const stripFileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = assets.filter((a) =>
     a.name.toLowerCase().includes(query.toLowerCase()),
   );
+
+  const scenes = assets.filter((a) => a.type === "scene");
+
+  const recentAssets = recentIds
+    .map((id) => assets.find((a) => a.id === id))
+    .filter((a): a is AssetItem => a !== undefined);
+
+  const trackRecent = (id: string): void => {
+    const next = [id, ...recentIds.filter((x) => x !== id)].slice(
+      0,
+      MAX_RECENT,
+    );
+    setRecentIds(next);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const files = Array.from(e.target.files ?? []);
@@ -245,7 +520,7 @@ export function AssetBrowser(): React.ReactElement {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search assets…"
+          placeholder="Filter assets…"
           className="flex-1 bg-transparent text-xs outline-none"
           style={{ color: "var(--es-text)", fontFamily: "inherit" }}
         />
@@ -266,6 +541,15 @@ export function AssetBrowser(): React.ReactElement {
           <Upload size={11} />
           Import
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Set scene load order"
+          onClick={() => setRoomOrderOpen(true)}
+        >
+          <List size={11} />
+          Room Order
+        </Button>
         {"showDirectoryPicker" in window ? (
           <Button
             variant="ghost"
@@ -283,7 +567,7 @@ export function AssetBrowser(): React.ReactElement {
             }}
           >
             <PackageOpen size={11} />
-            Import GMS2 Project
+            Import GMS2
           </Button>
         ) : (
           <Button
@@ -293,10 +577,102 @@ export function AssetBrowser(): React.ReactElement {
             title="Requires a Chromium-based browser"
           >
             <PackageOpen size={11} />
-            Import GMS2 Project
+            Import GMS2
           </Button>
         )}
       </div>
+
+      {/* Recent assets strip */}
+      {recentAssets.length > 0 && (
+        <div
+          style={{ flexShrink: 0, borderBottom: "1px solid var(--es-border)" }}
+        >
+          {/* Section header */}
+          <button
+            onClick={() => setRecentOpen((v) => !v)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              width: "100%",
+              padding: "4px 10px",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--es-text-muted)",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              userSelect: "none",
+            }}
+          >
+            {recentOpen ? (
+              <ChevronDown size={10} />
+            ) : (
+              <ChevronRight size={10} />
+            )}
+            Recent
+          </button>
+
+          {recentOpen && (
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: "0 10px 6px",
+                overflowX: "auto",
+                scrollbarWidth: "none",
+              }}
+            >
+              {recentAssets.map((asset) => (
+                <button
+                  key={asset.id}
+                  title={asset.name}
+                  onClick={() => {
+                    setSelectedId((id) => (id === asset.id ? null : asset.id));
+                    trackRecent(asset.id);
+                  }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                    padding: "4px 6px",
+                    borderRadius: 4,
+                    background:
+                      selectedId === asset.id
+                        ? "rgba(124,106,247,0.15)"
+                        : "var(--es-surface-2)",
+                    border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    minWidth: 48,
+                    maxWidth: 64,
+                  }}
+                >
+                  <AssetIconSmall type={asset.type} />
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: "var(--es-text-muted)",
+                      width: "100%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      textAlign: "center",
+                      fontFamily: "JetBrains Mono, monospace",
+                    }}
+                  >
+                    {asset.name.length > 8
+                      ? asset.name.substring(0, 7) + "…"
+                      : asset.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Asset grid */}
       <div
@@ -308,12 +684,29 @@ export function AssetBrowser(): React.ReactElement {
           alignContent: "start",
         }}
       >
+        {filtered.length === 0 && (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              padding: "24px 12px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+              fontSize: 11,
+              fontStyle: "italic",
+            }}
+          >
+            {assets.length === 0
+              ? "No assets yet — drag files here or click Upload."
+              : "No assets match your search."}
+          </div>
+        )}
         {filtered.map((asset) => (
           <button
             key={asset.id}
-            onClick={() =>
-              setSelectedId((id) => (id === asset.id ? null : asset.id))
-            }
+            onClick={() => {
+              setSelectedId((id) => (id === asset.id ? null : asset.id));
+              trackRecent(asset.id);
+            }}
             onMouseEnter={(e) => {
               if (
                 IMAGE_EXTS.some((ext) => asset.path.toLowerCase().endsWith(ext))
@@ -469,7 +862,6 @@ export function AssetBrowser(): React.ReactElement {
                 </span>
               </div>
 
-              {/* Preview */}
               <div
                 style={{
                   borderRadius: 6,
@@ -573,6 +965,16 @@ export function AssetBrowser(): React.ReactElement {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Room Order dialog */}
+      {roomOrderOpen && (
+        <RoomOrderDialog
+          scenes={scenes}
+          savedOrder={roomOrder}
+          onApply={setRoomOrder}
+          onClose={() => setRoomOrderOpen(false)}
+        />
       )}
     </div>
   );

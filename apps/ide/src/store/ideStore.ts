@@ -203,6 +203,10 @@ interface IDEState {
   // Assets
   assets: AssetItem[];
 
+  // Project asset state (recent + room order)
+  recentAssetIds: string[];
+  roomOrder: string[];
+
   // Recent files
   recentFiles: RecentFile[];
 
@@ -303,6 +307,8 @@ interface IDEState {
   // Asset actions
   addAsset: (asset: AssetItem) => void;
   deleteAsset: (id: string) => void;
+  setRecentAssetIds: (ids: string[]) => void;
+  setRoomOrder: (ids: string[]) => void;
 
   // AudioMixer persistent state
   audioBuses: AudioBus[];
@@ -677,6 +683,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Assets
   assets: INITIAL_ASSETS,
+  recentAssetIds: [],
+  roomOrder: [],
 
   // Recent files
   recentFiles: [],
@@ -1033,6 +1041,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       selectedEntityId: null,
       selectedEntity: null,
       assets: [],
+      recentAssetIds: [],
+      roomOrder: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
       audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
@@ -1208,6 +1218,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     get().addLog("info", "Asset deleted", "IDE");
   },
 
+  setRecentAssetIds: (ids) => set({ recentAssetIds: ids }),
+  setRoomOrder: (ids) => set({ roomOrder: ids }),
+
   saveProjectJson: () => {
     const s = get();
     return JSON.stringify(
@@ -1277,6 +1290,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       selectedEntityId: null,
       selectedEntity: null,
       assets: [],
+      recentAssetIds: [],
+      roomOrder: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
       audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],

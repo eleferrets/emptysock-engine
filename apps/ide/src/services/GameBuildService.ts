@@ -7,7 +7,7 @@
  * entry file are resolved against the in-memory file system.
  */
 
-import * as esbuild from "esbuild-wasm";
+import type * as esbuild from "esbuild-wasm";
 import esbuildWasmUrl from "esbuild-wasm/esbuild.wasm?url";
 import { loadSettings } from "./SettingsService";
 import { useIDEStore } from "../store/ideStore";
@@ -32,15 +32,20 @@ type BuildJob = {
   onComplete: (result: BuildJobResult) => void;
 };
 
-let esbuildReady: Promise<void> | null = null;
+// `esbuild` namespace used as a type reference — the static import is `import type`
+// so Vite/Rollup does not include esbuild-wasm in the initial chunk.
+type EsBuildModule = typeof esbuild;
 
-function ensureEsbuild(buildWorkers?: number): Promise<void> {
+let esbuildReady: Promise<EsBuildModule> | null = null;
+
+function ensureEsbuild(buildWorkers?: number): Promise<EsBuildModule> {
   if (esbuildReady === null) {
     const workers = buildWorkers ?? loadSettings().buildWorkers;
-    esbuildReady = esbuild.initialize({
-      wasmURL: esbuildWasmUrl,
-      worker: workers > 1,
-    });
+    esbuildReady = (async () => {
+      const mod = (await import("esbuild-wasm")) as EsBuildModule;
+      await mod.initialize({ wasmURL: esbuildWasmUrl, worker: workers > 1 });
+      return mod;
+    })();
   }
   return esbuildReady;
 }
@@ -178,11 +183,11 @@ async function runBuild(
   checkVirtualFilesCompleteness(virtualFiles);
   const start = Date.now();
   try {
-    await ensureEsbuild();
+    const eb = await ensureEsbuild();
     const isRelease = mode === "release";
     const loader = loaderForFilename(filename);
 
-    const result = await esbuild.build({
+    const result = await eb.build({
       stdin: { contents: code, loader, sourcefile: filename },
       bundle: true,
       format: "esm",
@@ -248,6 +253,7 @@ export class GameBuildService {
 
   constructor(debounceMs = 300) {
     this.debounceMs = debounceMs;
+    // Pre-warm: kick off the dynamic import + WASM init so first build is fast
     void ensureEsbuild(loadSettings().buildWorkers);
   }
 
@@ -294,9 +300,9 @@ export class GameBuildService {
   }
 
   async transformOnly(code: string, filename: string): Promise<string> {
-    await ensureEsbuild();
+    const eb = await ensureEsbuild();
     const loader = loaderForFilename(filename);
-    const result = await esbuild.transform(code, {
+    const result = await eb.transform(code, {
       loader,
       format: "esm",
       target: ["es2026"],

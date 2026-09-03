@@ -248,6 +248,7 @@ export function MenuBar({
     projectName,
     resetProject,
     loadProjectFiles,
+    setActiveTab,
   } = useIDEStore();
 
   const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -296,42 +297,6 @@ export function MenuBar({
           loadProjectFiles({ [r.path]: r.content });
         }
       });
-    }
-  }, [loadProjectFiles]);
-
-  // ── File actions ────────────────────────────────────────────────────────
-
-  const newProject = useCallback((): void => {
-    if (!window.confirm('Create a new project? Unsaved changes will be lost.')) return;
-    resetProject();
-  }, [resetProject]);
-
-  const openProjectFiles = useCallback((): void => {
-    // Use showOpenFilePicker (multi-select) so users can open several files at once.
-    // Falls back to single-file open when the API is unavailable.
-    if ('showOpenFilePicker' in window) {
-      void (async () => {
-        try {
-          const handles = await window.showOpenFilePicker({
-            multiple: true,
-            types: [{ description: 'Script files', accept: { 'text/plain': ['.ts', '.tsx', '.js', '.jsx', '.json'] } }],
-          });
-          const entries: Record<string, string> = {};
-          for (const handle of handles) {
-            const file = await handle.getFile();
-            entries[file.name] = await file.text();
-          }
-          if (Object.keys(entries).length > 0) loadProjectFiles(entries);
-        } catch (e) {
-          if (e instanceof Error && e.name !== 'AbortError') console.error(e);
-        }
-      })();
-    } else {
-      // Firefox / unsupported — fall back to single-file open
-      const svc = isTauri() ? TauriFileService : BrowserFileService;
-      void svc.openFile().then(r => { if (r.success && r.content !== undefined && r.path !== undefined) {
-        loadProjectFiles({ [r.path]: r.content });
-      }});
     }
   }, [loadProjectFiles]);
 
@@ -606,29 +571,71 @@ export function MenuBar({
       ],
     },
     {
-      label: 'Window',
+      label: "Window",
       items: [
-        { type: 'item', label: 'Reset Layout', action: () => window.location.reload() },
-        { type: 'separator' },
-        { type: 'item', label: 'Code Editor', shortcut: `${mod}+1`, action: () => setActiveTab('code') },
-        { type: 'item', label: 'Preview Canvas', shortcut: `${mod}+2`, action: () => setActiveTab('canvas') },
-        { type: 'item', label: 'Scene Inspector', shortcut: `${mod}+3`, action: () => setActiveTab('scene') },
+        {
+          type: "item",
+          label: "Reset Layout",
+          action: () => window.location.reload(),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Code Editor",
+          shortcut: `${mod}+1`,
+          action: () => setActiveTab("code"),
+        },
+        {
+          type: "item",
+          label: "Preview Canvas",
+          shortcut: `${mod}+2`,
+          action: () => setActiveTab("canvas"),
+        },
+        {
+          type: "item",
+          label: "Scene Inspector",
+          shortcut: `${mod}+3`,
+          action: () => setActiveTab("scene"),
+        },
       ],
     },
     {
-      label: 'Help',
+      label: "Help",
       items: [
-        { type: 'item', label: 'View Manual', action: openManual },
-        { type: 'item', label: 'Language Reference (TS & JS)', action: openLanguageRef },
-        { type: 'item', label: 'API Reference (JSON)', action: openApiRef },
-        { type: 'separator' },
-        { type: 'item', label: 'Keyboard Shortcuts', shortcut: '?', action: onOpenShortcuts },
-        ...(!isTauri() ? [
-          { type: 'separator' as const },
-          { type: 'item' as const, label: 'Download EmptySock Engine…', action: onOpenDownload },
-        ] : []),
-        { type: 'separator' },
-        { type: 'item', label: 'About EmptySock Engine v0.1.0', action: () => { window.alert('EmptySock Engine v0.1.0\n\nA portable, cross-platform game engine.\nBuild games with TypeScript or JavaScript.'); } },
+        { type: "item", label: "View Manual", action: openManual },
+        {
+          type: "item",
+          label: "Language Reference (TS & JS)",
+          action: openLanguageRef,
+        },
+        { type: "item", label: "API Reference (JSON)", action: openApiRef },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Keyboard Shortcuts",
+          shortcut: "?",
+          action: onOpenShortcuts,
+        },
+        ...(!isTauri()
+          ? [
+              { type: "separator" as const },
+              {
+                type: "item" as const,
+                label: "Download EmptySock Engine…",
+                action: onOpenDownload,
+              },
+            ]
+          : []),
+        { type: "separator" },
+        {
+          type: "item",
+          label: "About EmptySock Engine v0.1.0",
+          action: () => {
+            window.alert(
+              "EmptySock Engine v0.1.0\n\nA portable, cross-platform game engine.\nBuild games with TypeScript or JavaScript.",
+            );
+          },
+        },
       ],
     },
   ];
