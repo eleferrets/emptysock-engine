@@ -1,4 +1,5 @@
 import React from "react";
+import { useHistory } from "../../hooks/useHistory";
 
 interface EmitterConfig {
   emissionRate: number;
@@ -70,10 +71,43 @@ export function ParticleEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasSizeRef = React.useRef({ w: 400, h: 500 });
-  const [config, setConfig] = React.useState<EmitterConfig>(DEFAULT_CONFIG);
+  const {
+    state: config,
+    set: setConfig,
+    undo,
+    redo,
+  } = useHistory<EmitterConfig>(DEFAULT_CONFIG);
+  // Live ref for RAF loop (bypasses history during drag)
+  const liveConfigRef = React.useRef<EmitterConfig>(DEFAULT_CONFIG);
   const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
     null,
   );
+
+  // Keep liveConfig in sync with history config (on undo/redo)
+  const prevConfigRef = React.useRef<EmitterConfig>(config);
+  React.useEffect(() => {
+    if (config !== prevConfigRef.current) {
+      prevConfigRef.current = config;
+      liveConfigRef.current = config;
+    }
+  }, [config]);
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
   const particlesRef = React.useRef<Particle[]>([]);
   const lastTimeRef = React.useRef<number>(0);
   const accumRef = React.useRef<number>(0);
@@ -109,7 +143,8 @@ export function ParticleEditor(): React.ReactElement {
     const img = new Image();
     img.onload = (): void => {
       setSpriteImg(img);
-      setConfig((c) => ({ ...c, textureName: file.name }));
+      const next = { ...liveConfigRef.current, textureName: file.name };
+      setLiveConfig(next); liveConfigRef.current = next; prevConfigRef.current = next; setConfig(next);
     };
     img.src = url;
     e.target.value = "";
@@ -117,7 +152,8 @@ export function ParticleEditor(): React.ReactElement {
 
   const clearSprite = (): void => {
     setSpriteImg(null);
-    setConfig((c) => ({ ...c, textureName: "" }));
+    const next = { ...liveConfigRef.current, textureName: "" };
+    setLiveConfig(next); liveConfigRef.current = next; prevConfigRef.current = next; setConfig(next);
   };
 
   const spawn = (cfg: EmitterConfig): Particle => {
@@ -157,14 +193,15 @@ export function ParticleEditor(): React.ReactElement {
     if (!ctx) return;
 
     const loop = (now: number): void => {
+      const cfg = liveConfigRef.current;
       const dt = Math.min((now - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = now;
       accumRef.current += dt;
 
-      const interval = 1 / config.emissionRate;
+      const interval = 1 / cfg.emissionRate;
       while (accumRef.current >= interval) {
         accumRef.current -= interval;
-        particlesRef.current.push(spawn(config));
+        particlesRef.current.push(spawn(cfg));
       }
 
       particlesRef.current = particlesRef.current.filter((p) => p.life > 0);
@@ -172,12 +209,12 @@ export function ParticleEditor(): React.ReactElement {
         p.life -= dt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
-        p.vy += config.gravity * dt;
-        p.rotation += config.rotationSpeed * dt;
+        p.vy += cfg.gravity * dt;
+        p.rotation += cfg.rotationSpeed * dt;
         const t = 1 - p.life / p.maxLife;
-        p.scale = config.scaleStart + (config.scaleEnd - config.scaleStart) * t;
-        p.alpha = 1 - t * (1 - config.alphaEnd);
-        p.color = lerpColor(config.colorStart, config.colorEnd, t);
+        p.scale = cfg.scaleStart + (cfg.scaleEnd - cfg.scaleStart) * t;
+        p.alpha = 1 - t * (1 - cfg.alphaEnd);
+        p.color = lerpColor(cfg.colorStart, cfg.colorEnd, t);
       }
 
       const dpr = window.devicePixelRatio || 1;
@@ -212,7 +249,7 @@ export function ParticleEditor(): React.ReactElement {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [config]);
+  }, []); // Uses liveConfigRef so no deps needed
 
   const field = (
     label: string,
@@ -231,9 +268,9 @@ export function ParticleEditor(): React.ReactElement {
       >
         <span style={{ color: "var(--es-text-muted)" }}>{label}</span>
         <span style={{ color: "var(--es-text)" }}>
-          {typeof config[key] === "number"
-            ? (config[key] as number).toFixed(step < 1 ? 2 : 0)
-            : config[key]}
+          {typeof liveConfig[key] === "number"
+            ? (liveConfig[key] as number).toFixed(step < 1 ? 2 : 0)
+            : liveConfig[key]}
         </span>
       </div>
       <input
@@ -241,10 +278,17 @@ export function ParticleEditor(): React.ReactElement {
         min={min}
         max={max}
         step={step}
-        value={config[key] as number}
-        onChange={(e) =>
-          setConfig((c) => ({ ...c, [key]: Number(e.target.value) }))
-        }
+        value={liveConfig[key] as number}
+        onChange={(e) => {
+          const next = { ...liveConfig, [key]: Number(e.target.value) };
+          setLiveConfig(next);
+          liveConfigRef.current = next;
+        }}
+        onPointerUp={() => {
+          const next = liveConfigRef.current;
+          prevConfigRef.current = next;
+          setConfig(next);
+        }}
         style={{ width: "100%", accentColor: "var(--es-accent)" }}
       />
     </div>
@@ -287,7 +331,7 @@ export function ParticleEditor(): React.ReactElement {
           >
             Sprite Texture
           </div>
-          {config.textureName ? (
+          {liveConfig.textureName ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span
                 style={{
@@ -299,7 +343,7 @@ export function ParticleEditor(): React.ReactElement {
                   whiteSpace: "nowrap",
                 }}
               >
-                {config.textureName}
+                {liveConfig.textureName}
               </span>
               <button
                 onClick={clearSprite}
@@ -369,12 +413,18 @@ export function ParticleEditor(): React.ReactElement {
             {(["point", "circle", "rect"] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => setConfig((c) => ({ ...c, shape: s }))}
+                onClick={() => {
+                  const next = { ...liveConfig, shape: s };
+                  setLiveConfig(next);
+                  liveConfigRef.current = next;
+                  prevConfigRef.current = next;
+                  setConfig(next);
+                }}
                 style={{
                   flex: 1,
                   padding: "3px 0",
                   background:
-                    config.shape === s
+                    liveConfig.shape === s
                       ? "var(--es-accent)"
                       : "var(--es-surface)",
                   border: "none",
@@ -399,9 +449,13 @@ export function ParticleEditor(): React.ReactElement {
               <input
                 type="color"
                 value={config.colorStart}
-                onChange={(e) =>
-                  setConfig((c) => ({ ...c, colorStart: e.target.value }))
-                }
+                onChange={(e) => {
+                  const next = { ...liveConfig, colorStart: e.target.value };
+                  setLiveConfig(next);
+                  liveConfigRef.current = next;
+                  prevConfigRef.current = next;
+                  setConfig(next);
+                }}
                 style={{ width: "100%", height: 28 }}
               />
             </div>
@@ -412,9 +466,13 @@ export function ParticleEditor(): React.ReactElement {
               <input
                 type="color"
                 value={config.colorEnd}
-                onChange={(e) =>
-                  setConfig((c) => ({ ...c, colorEnd: e.target.value }))
-                }
+                onChange={(e) => {
+                  const next = { ...liveConfig, colorEnd: e.target.value };
+                  setLiveConfig(next);
+                  liveConfigRef.current = next;
+                  prevConfigRef.current = next;
+                  setConfig(next);
+                }}
                 style={{ width: "100%", height: 28 }}
               />
             </div>
@@ -452,7 +510,10 @@ export function ParticleEditor(): React.ReactElement {
       </div>
 
       {/* Preview canvas */}
-      <div ref={containerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+      <div
+        ref={containerRef}
+        style={{ flex: 1, overflow: "hidden", position: "relative" }}
+      >
         <canvas
           ref={canvasRef}
           style={{ display: "block", width: "100%", height: "100%" }}
