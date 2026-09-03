@@ -1,6 +1,7 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
 import { drawRulers, getRulerMetrics } from "../../lib/editorGrid";
+import { useHistory } from "../../hooks/useHistory";
 
 type Tool = "paint" | "erase" | "fill";
 
@@ -27,7 +28,11 @@ const PALETTE_COLORS = [
   "#be185d",
 ];
 
-function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement {
+type TilemapLayer = { id: string; name: string; data: Record<string, number> };
+
+function AutoTileRulesModal(props: {
+  onClose: () => void;
+}): React.ReactElement {
   const ruleSets = useIDEStore((s) => s.autoTileRuleSets);
   const setRuleSets = useIDEStore((s) => s.setAutoTileRuleSets);
   const [baseTile, setBaseTile] = React.useState("0");
@@ -39,18 +44,29 @@ function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement 
     const maskNum = parseInt(mask, 10);
     const variantNum = parseInt(variant, 10);
     if (!base || isNaN(maskNum) || isNaN(variantNum)) return;
-    const existing = (ruleSets[base] as Array<{ mask: number; tileIndex: number }> | undefined) ?? [];
-    const updated = { ...ruleSets, [base]: [...existing, { mask: maskNum, tileIndex: variantNum }] };
+    const existing =
+      (ruleSets[base] as
+        | Array<{ mask: number; tileIndex: number }>
+        | undefined) ?? [];
+    const updated = {
+      ...ruleSets,
+      [base]: [...existing, { mask: maskNum, tileIndex: variantNum }],
+    };
     setRuleSets(updated);
     setMask("");
     setVariant("");
   };
 
   const removeRule = (base: string, idx: number): void => {
-    const rules = (ruleSets[base] as Array<{ mask: number; tileIndex: number }> | undefined) ?? [];
+    const rules =
+      (ruleSets[base] as
+        | Array<{ mask: number; tileIndex: number }>
+        | undefined) ?? [];
     const next = rules.filter((_, i) => i !== idx);
     if (next.length === 0) {
-      const { [base]: _removed, ...rest } = ruleSets;
+      const rest = Object.fromEntries(
+        Object.entries(ruleSets).filter(([k]) => k !== base),
+      );
       setRuleSets(rest);
     } else {
       setRuleSets({ ...ruleSets, [base]: next });
@@ -58,40 +74,158 @@ function AutoTileRulesModal(props: { onClose: () => void }): React.ReactElement 
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: "var(--es-surface)", border: "1px solid var(--es-border)", borderRadius: 8, padding: 20, width: 480, maxHeight: "80vh", overflow: "auto", color: "var(--es-text)", fontSize: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{
+          background: "var(--es-surface)",
+          border: "1px solid var(--es-border)",
+          borderRadius: 8,
+          padding: 20,
+          width: 480,
+          maxHeight: "80vh",
+          overflow: "auto",
+          color: "var(--es-text)",
+          fontSize: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
           <strong>Auto-Tile Rules</strong>
-          <button onClick={props.onClose} style={{ background: "none", border: "none", color: "var(--es-text)", cursor: "pointer", fontSize: 16 }}>✕</button>
+          <button
+            onClick={props.onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--es-text)",
+              cursor: "pointer",
+              fontSize: 16,
+            }}
+          >
+            ✕
+          </button>
         </div>
         <p style={{ opacity: 0.6, marginBottom: 12 }}>
-          Each rule maps a neighbour bitmask (8-bit: NW|N|NE|W|E|SW|S|SE) to a tile variant index.
-          When painting, the engine picks the matching variant automatically.
+          Each rule maps a neighbour bitmask (8-bit: NW|N|NE|W|E|SW|S|SE) to a
+          tile variant index. When painting, the engine picks the matching
+          variant automatically.
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <input placeholder="Base tile #" value={baseTile} onChange={(e) => setBaseTile(e.target.value)} style={{ width: 80, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
-          <input placeholder="Mask (0–255)" value={mask} onChange={(e) => setMask(e.target.value)} style={{ width: 100, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
-          <input placeholder="Variant tile #" value={variant} onChange={(e) => setVariant(e.target.value)} style={{ width: 100, padding: "4px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
-          <button onClick={addRule} style={{ padding: "4px 12px", background: "var(--es-accent)", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Add</button>
+          <input
+            placeholder="Base tile #"
+            value={baseTile}
+            onChange={(e) => setBaseTile(e.target.value)}
+            style={{
+              width: 80,
+              padding: "4px 6px",
+              background: "var(--es-bg)",
+              color: "var(--es-text)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 4,
+            }}
+          />
+          <input
+            placeholder="Mask (0–255)"
+            value={mask}
+            onChange={(e) => setMask(e.target.value)}
+            style={{
+              width: 100,
+              padding: "4px 6px",
+              background: "var(--es-bg)",
+              color: "var(--es-text)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 4,
+            }}
+          />
+          <input
+            placeholder="Variant tile #"
+            value={variant}
+            onChange={(e) => setVariant(e.target.value)}
+            style={{
+              width: 100,
+              padding: "4px 6px",
+              background: "var(--es-bg)",
+              color: "var(--es-text)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 4,
+            }}
+          />
+          <button
+            onClick={addRule}
+            style={{
+              padding: "4px 12px",
+              background: "var(--es-accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            Add
+          </button>
         </div>
         {Object.entries(ruleSets).map(([base, rules]) => (
           <div key={base} style={{ marginBottom: 8 }}>
             <strong>Base tile {base}</strong>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
-              <thead><tr style={{ opacity: 0.6 }}><td>Mask</td><td>Variant tile</td><td></td></tr></thead>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginTop: 4,
+              }}
+            >
+              <thead>
+                <tr style={{ opacity: 0.6 }}>
+                  <td>Mask</td>
+                  <td>Variant tile</td>
+                  <td></td>
+                </tr>
+              </thead>
               <tbody>
-                {(rules as Array<{ mask: number; tileIndex: number }>).map((r, i) => (
-                  <tr key={i}>
-                    <td>{r.mask} (0b{r.mask.toString(2).padStart(8, "0")})</td>
-                    <td>{r.tileIndex}</td>
-                    <td><button onClick={() => removeRule(base, i)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer" }}>✕</button></td>
-                  </tr>
-                ))}
+                {(rules as Array<{ mask: number; tileIndex: number }>).map(
+                  (r, i) => (
+                    <tr key={i}>
+                      <td>
+                        {r.mask} (0b{r.mask.toString(2).padStart(8, "0")})
+                      </td>
+                      <td>{r.tileIndex}</td>
+                      <td>
+                        <button
+                          onClick={() => removeRule(base, i)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#f87171",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
         ))}
-        {Object.keys(ruleSets).length === 0 && <p style={{ opacity: 0.4 }}>No rules defined yet.</p>}
+        {Object.keys(ruleSets).length === 0 && (
+          <p style={{ opacity: 0.4 }}>No rules defined yet.</p>
+        )}
       </div>
     </div>
   );
@@ -107,9 +241,10 @@ export function TilemapEditor(): React.ReactElement {
   const [showAutoTileRules, setShowAutoTileRules] = React.useState(false);
   const [canvasSize, setCanvasSize] = React.useState({ w: 800, h: 600 });
 
-  const layers = useIDEStore((s) => s.tilemapLayers);
+  // Store refs for layers
+  const storeLayers = useIDEStore((s) => s.tilemapLayers);
+  const storeSetLayers = useIDEStore((s) => s.setTilemapLayers);
   const activeLayer = useIDEStore((s) => s.tilemapActiveLayer);
-  const setLayers = useIDEStore((s) => s.setTilemapLayers);
   const setActiveLayer = useIDEStore((s) => s.setTilemapActiveLayer);
 
   const tileSize = useIDEStore((s) => s.editorGridSize);
@@ -117,10 +252,84 @@ export function TilemapEditor(): React.ReactElement {
   const showRuler = useIDEStore((s) => s.editorShowRuler);
   const setShowRuler = useIDEStore((s) => s.setEditorShowRuler);
 
+  // ── Undo/redo ────────────────────────────────────────────────────────────────
+  // History tracks committed layer states (one entry per stroke/fill/layer-op).
+  // liveLayers is the fast-update state used during painting; it bypasses history
+  // on every pointer move and is committed to history only on pointerup.
+  const {
+    state: histLayers,
+    set: commitToHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<TilemapLayer[]>(storeLayers);
+
+  const [liveLayers, setLiveLayers] =
+    React.useState<TilemapLayer[]>(storeLayers);
+  const liveLayersRef = React.useRef<TilemapLayer[]>(liveLayers);
+
+  // When history changes (undo/redo), sync live layers and store
+  const prevHistRef = React.useRef(histLayers);
+  React.useEffect(() => {
+    if (prevHistRef.current !== histLayers) {
+      prevHistRef.current = histLayers;
+      liveLayersRef.current = histLayers;
+      setLiveLayers(histLayers);
+      storeSetLayers(histLayers);
+    }
+  }, [histLayers, storeSetLayers]);
+
+  // Internal setLayers: updates live state + ref (used during stroke)
+  const setLayers = React.useCallback(
+    (next: TilemapLayer[]) => {
+      liveLayersRef.current = next;
+      setLiveLayers(next);
+      storeSetLayers(next);
+    },
+    [storeSetLayers],
+  );
+
+  // Commit current live layers to history (one entry per stroke)
+  const commitStroke = React.useCallback(() => {
+    commitToHistory(liveLayersRef.current);
+  }, [commitToHistory]);
+
+  // Immediate commit: for fill, layer add/remove (not strokes)
+  const setLayersAndCommit = React.useCallback(
+    (next: TilemapLayer[]) => {
+      liveLayersRef.current = next;
+      setLiveLayers(next);
+      storeSetLayers(next);
+      commitToHistory(next);
+    },
+    [storeSetLayers, commitToHistory],
+  );
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        undo();
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "y" || (e.shiftKey && e.key === "z"))
+      ) {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
+  const layers = liveLayers;
+
   const { rulerSize } = getRulerMetrics();
   const rulerOffset = showRuler ? rulerSize : 0;
 
-const floodFill = (
+  const floodFill = (
     data: Record<string, number>,
     col: number,
     row: number,
@@ -141,28 +350,35 @@ const floodFill = (
       if ((filled[k] ?? -1) !== targetTile) continue;
       filled[k] = newTile;
       queue.push([c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]);
-      if (queue.length > 10000) break; // safety
+      if (queue.length > 10000) break;
     }
     return filled;
   };
 
   const applyTool = (col: number, row: number): void => {
-    setLayers(
-      layers.map((layer) => {
-        if (layer.id !== activeLayer) return layer;
-        const key = `${col},${row}`;
-        let newData = { ...layer.data };
-        if (tool === "paint") newData[key] = activeTile;
-        else if (tool === "erase") {
-          delete newData[key];
-        } else if (tool === "fill")
-          newData = floodFill(newData, col, row, activeTile);
+    const isFill = tool === "fill";
+    const next = liveLayersRef.current.map((layer) => {
+      if (layer.id !== activeLayer) return layer;
+      const key = `${col},${row}`;
+      let newData = { ...layer.data };
+      if (tool === "paint") newData[key] = activeTile;
+      else if (tool === "erase") {
+        delete newData[key];
+      } else if (isFill) {
+        // fill commits immediately
+        newData = floodFill(newData, col, row, activeTile);
         return { ...layer, data: newData };
-      }),
-    );
+      }
+      return { ...layer, data: newData };
+    });
+    if (isFill) {
+      setLayersAndCommit(next);
+    } else {
+      setLayers(next);
+    }
   };
 
-  // ResizeObserver: set physical canvas size and track logical size
+  // ResizeObserver
   React.useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -188,15 +404,13 @@ const floodFill = (
     const dpr = window.devicePixelRatio || 1;
     const lw = canvasSize.w;
     const lh = canvasSize.h;
-    // Reset transform to identity then apply DPR scale so all drawing is in logical px
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, lw, lh);
     ctx.save();
     ctx.scale(zoom, zoom);
 
-    const ro = rulerOffset; // ruler offset in world (unscaled) px
+    const ro = rulerOffset;
 
-    // Grid
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 0.5;
     const cols = Math.ceil((lw / zoom - ro) / tileSize) + 1;
@@ -216,7 +430,6 @@ const floodFill = (
       ctx.stroke();
     }
 
-    // Tiles
     for (const layer of layers) {
       for (const [key, tileIdx] of Object.entries(layer.data)) {
         const parts = key.split(",");
@@ -234,7 +447,6 @@ const floodFill = (
     }
     ctx.restore();
 
-    // Rulers drawn last (on top), in logical pixel space
     drawRulers(ctx, lw, lh, {
       gridSize: tileSize,
       showGrid: true,
@@ -248,15 +460,12 @@ const floodFill = (
   const handleWheel = (e: React.WheelEvent): void => {
     e.preventDefault();
     let delta = e.deltaY;
-    if (e.deltaMode === 1) delta *= 16;   // DOM_DELTA_LINE
-    if (e.deltaMode === 2) delta *= 600;  // DOM_DELTA_PAGE
+    if (e.deltaMode === 1) delta *= 16;
+    if (e.deltaMode === 2) delta *= 600;
 
     if (e.ctrlKey || e.metaKey) {
-      // Pinch-zoom from touchpad, or ctrl+scroll from keyboard
       setZoom((z) => Math.max(0.25, Math.min(4, z * (delta > 0 ? 0.9 : 1.1))));
     }
-    // Two-finger scroll with no modifier: do nothing (prevent default already
-    // stops the page from scrolling; the canvas itself has no pan state yet)
   };
 
   const tools: { id: Tool; label: string }[] = [
@@ -264,6 +473,21 @@ const floodFill = (
     { id: "erase", label: "Erase" },
     { id: "fill", label: "Fill" },
   ];
+
+  const undoBtnStyle: React.CSSProperties = {
+    padding: "3px 8px",
+    background: "var(--es-surface)",
+    border: "1px solid var(--es-border)",
+    borderRadius: 4,
+    color: "var(--es-text)",
+    cursor: canUndo ? "pointer" : "default",
+    opacity: canUndo ? 1 : 0.4,
+  };
+  const redoBtnStyle: React.CSSProperties = {
+    ...undoBtnStyle,
+    cursor: canRedo ? "pointer" : "default",
+    opacity: canRedo ? 1 : 0.4,
+  };
 
   return (
     <div
@@ -287,6 +511,25 @@ const floodFill = (
           overflow: "auto",
         }}
       >
+        {/* Undo/redo */}
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            style={undoBtnStyle}
+            title="Undo (Ctrl+Z)"
+          >
+            ↩
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            style={redoBtnStyle}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            ↪
+          </button>
+        </div>
         <div>
           <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Tool
@@ -323,7 +566,14 @@ const floodFill = (
               max={128}
               value={tileSize}
               onChange={(e) => setTileSize(Number(e.target.value))}
-              style={{ width: 56, padding: "3px 6px", background: "var(--es-bg)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }}
+              style={{
+                width: 56,
+                padding: "3px 6px",
+                background: "var(--es-bg)",
+                color: "var(--es-text)",
+                border: "1px solid var(--es-border)",
+                borderRadius: 4,
+              }}
             />
             <span style={{ opacity: 0.5 }}>px</span>
           </div>
@@ -337,7 +587,14 @@ const floodFill = (
           />
         </div>
         <div>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              cursor: "pointer",
+            }}
+          >
             <input
               type="checkbox"
               checked={showRuler}
@@ -348,7 +605,16 @@ const floodFill = (
         </div>
         <button
           onClick={() => setShowAutoTileRules(true)}
-          style={{ padding: "4px 8px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4, cursor: "pointer", textAlign: "left", width: "100%" }}
+          style={{
+            padding: "4px 8px",
+            background: "var(--es-surface)",
+            color: "var(--es-text)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            cursor: "pointer",
+            textAlign: "left",
+            width: "100%",
+          }}
         >
           Auto-Tile Rules…
         </button>
@@ -419,16 +685,17 @@ const floodFill = (
             ))}
           </div>
           <button
-            onClick={() =>
-              setLayers([
+            onClick={() => {
+              const next = [
                 ...layers,
                 {
                   id: `layer-${Date.now()}`,
                   name: `Layer ${layers.length}`,
                   data: {},
                 },
-              ])
-            }
+              ];
+              setLayersAndCommit(next);
+            }}
             style={{
               marginTop: 4,
               width: "100%",
@@ -446,7 +713,10 @@ const floodFill = (
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+      <div
+        ref={containerRef}
+        style={{ flex: 1, overflow: "hidden", position: "relative" }}
+      >
         <canvas
           ref={canvasRef}
           style={{
@@ -461,8 +731,18 @@ const floodFill = (
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.max(0, Math.floor(((e.clientX - rect.left) / zoom - rulerOffset) / tileSize));
-            const row = Math.max(0, Math.floor(((e.clientY - rect.top) / zoom - rulerOffset) / tileSize));
+            const col = Math.max(
+              0,
+              Math.floor(
+                ((e.clientX - rect.left) / zoom - rulerOffset) / tileSize,
+              ),
+            );
+            const row = Math.max(
+              0,
+              Math.floor(
+                ((e.clientY - rect.top) / zoom - rulerOffset) / tileSize,
+              ),
+            );
             setIsPainting(true);
             applyTool(col, row);
           }}
@@ -471,16 +751,38 @@ const floodFill = (
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            const col = Math.max(0, Math.floor(((e.clientX - rect.left) / zoom - rulerOffset) / tileSize));
-            const row = Math.max(0, Math.floor(((e.clientY - rect.top) / zoom - rulerOffset) / tileSize));
+            const col = Math.max(
+              0,
+              Math.floor(
+                ((e.clientX - rect.left) / zoom - rulerOffset) / tileSize,
+              ),
+            );
+            const row = Math.max(
+              0,
+              Math.floor(
+                ((e.clientY - rect.top) / zoom - rulerOffset) / tileSize,
+              ),
+            );
             applyTool(col, row);
           }}
-          onPointerUp={() => setIsPainting(false)}
-          onPointerCancel={() => setIsPainting(false)}
+          onPointerUp={() => {
+            if (isPainting && tool !== "fill") {
+              commitStroke();
+            }
+            setIsPainting(false);
+          }}
+          onPointerCancel={() => {
+            if (isPainting && tool !== "fill") {
+              commitStroke();
+            }
+            setIsPainting(false);
+          }}
           onWheel={handleWheel}
         />
       </div>
-      {showAutoTileRules && <AutoTileRulesModal onClose={() => setShowAutoTileRules(false)} />}
+      {showAutoTileRules && (
+        <AutoTileRulesModal onClose={() => setShowAutoTileRules(false)} />
+      )}
     </div>
   );
 }
