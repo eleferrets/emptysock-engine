@@ -4,6 +4,7 @@ import {
   type SequenceTrack,
   type SequenceTrackType,
 } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,10 +168,58 @@ const TrackLabel: React.FC<{
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function SequenceEditor(): React.ReactElement {
-  const tracks = useIDEStore((s) => s.sequenceTracks);
-  const setTracks = useIDEStore((s) => s.setSequenceTracks);
+  const storeTracks = useIDEStore((s) => s.sequenceTracks);
+  const setStoreTracks = useIDEStore((s) => s.setSequenceTracks);
   const duration = useIDEStore((s) => s.sequenceDuration);
   const setDuration = useIDEStore((s) => s.setSequenceDuration);
+
+  // Shadow history state
+  const {
+    state: tracks,
+    set: setHistoryTracks,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<Track[]>(storeTracks);
+  const prevTracksRef = useRef<Track[]>(tracks);
+
+  // Sync history → store (only on undo/redo, detected by reference change)
+  useEffect(() => {
+    if (tracks !== prevTracksRef.current) {
+      prevTracksRef.current = tracks;
+      setStoreTracks(tracks);
+    }
+  }, [tracks, setStoreTracks]);
+
+  const setTracks = useCallback(
+    (next: Track[]): void => {
+      prevTracksRef.current = next;
+      setHistoryTracks(next);
+      setStoreTracks(next);
+    },
+    [setHistoryTracks, setStoreTracks],
+  );
+
+  // Keyboard undo/redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
+  // Snapshot before keyframe drag
+  const dragStartTracksRef = useRef<Track[]>(tracks);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -335,15 +384,6 @@ export function SequenceEditor(): React.ReactElement {
 
   // ── Keyframe selection + value edit ──────────────────────────────────────
 
-  const selectKeyframe = useCallback(
-    (e: React.MouseEvent, trackId: string, kfId: string, value: number) => {
-      e.stopPropagation();
-      setSelectedKf({ trackId, kfId });
-      setKfEditValue(String(value));
-    },
-    [],
-  );
-
   const commitKfValue = useCallback(() => {
     if (!selectedKf) return;
     const v = parseFloat(kfEditValue);
@@ -393,6 +433,7 @@ export function SequenceEditor(): React.ReactElement {
     ) => {
       e.stopPropagation();
       e.currentTarget.setPointerCapture(e.pointerId);
+      dragStartTracksRef.current = tracks;
       setDraggingKf({
         trackId,
         kfId,
@@ -405,7 +446,7 @@ export function SequenceEditor(): React.ReactElement {
       setSelectedKf({ trackId, kfId });
       setKfEditValue(String(kfValue));
     },
-    [],
+    [tracks],
   );
 
   const handleKfPointerMove = useCallback(
@@ -420,20 +461,21 @@ export function SequenceEditor(): React.ReactElement {
       );
       const t = parseFloat(newTime.toFixed(2));
       setDraggingKf((prev) => (prev ? { ...prev, moved: true } : prev));
-      setTracks(
-        tracks.map((track) =>
-          track.id === trackId
-            ? {
-                ...track,
-                keyframes: track.keyframes.map((kf) =>
-                  kf.id === kfId ? { ...kf, time: t } : kf,
-                ),
-              }
-            : track,
-        ),
+      // Live update store only (no history entry during drag)
+      const next = tracks.map((track) =>
+        track.id === trackId
+          ? {
+              ...track,
+              keyframes: track.keyframes.map((kf) =>
+                kf.id === kfId ? { ...kf, time: t } : kf,
+              ),
+            }
+          : track,
       );
+      prevTracksRef.current = next;
+      setStoreTracks(next);
     },
-    [draggingKf, duration, pxPerSec, tracks, setTracks],
+    [draggingKf, duration, pxPerSec, tracks, setStoreTracks],
   );
 
   const handleKfPointerUp = useCallback(
@@ -445,20 +487,25 @@ export function SequenceEditor(): React.ReactElement {
     ) => {
       if (draggingKf === null) return;
       if (draggingKf.trackId !== trackId || draggingKf.kfId !== kfId) return;
-      if (!draggingKf.moved) {
+      if (draggingKf.moved) {
+        // Use the live store value via ref to compute final state
+        const finalTracks = storeTracks;
+        prevTracksRef.current = finalTracks;
+        setHistoryTracks(finalTracks);
+      } else {
         // treat as click — selection already set in pointerdown
         setKfEditValue(String(kfValue));
       }
       setDraggingKf(null);
     },
-    [draggingKf],
+    [draggingKf, tracks, storeTracks, setHistoryTracks],
   );
 
   // ── Keyboard delete of selected keyframe ─────────────────────────────────
 
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedKf) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedKf) {
         e.preventDefault();
         removeKeyframe(selectedKf.trackId, selectedKf.kfId);
       }
@@ -583,6 +630,41 @@ export function SequenceEditor(): React.ReactElement {
           />
           s
         </label>
+
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            padding: "4px 8px",
+            borderRadius: 4,
+            border: "1px solid var(--es-border, #444)",
+            background: "transparent",
+            color: "var(--es-text, #e2e8f0)",
+            cursor: canUndo ? "pointer" : "default",
+            opacity: canUndo ? 1 : 0.4,
+            fontSize: 14,
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            padding: "4px 8px",
+            borderRadius: 4,
+            border: "1px solid var(--es-border, #444)",
+            background: "transparent",
+            color: "var(--es-text, #e2e8f0)",
+            cursor: canRedo ? "pointer" : "default",
+            opacity: canRedo ? 1 : 0.4,
+            fontSize: 14,
+          }}
+        >
+          ↪
+        </button>
 
         <select
           defaultValue=""

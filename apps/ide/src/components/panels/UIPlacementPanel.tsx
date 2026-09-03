@@ -1,5 +1,6 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 import {
   drawGrid,
   drawRulers,
@@ -10,20 +11,32 @@ import {
   type GuideLineData,
 } from "../../lib/editorGrid";
 
-type UIComponentType = "panel" | "button" | "text" | "progress-bar" | "slider" | "toggle";
+type UIComponentType =
+  | "panel"
+  | "button"
+  | "text"
+  | "progress-bar"
+  | "slider"
+  | "toggle";
 type UIAnchor =
-  | "top-left" | "top-center" | "top-right"
-  | "middle-left" | "middle-center" | "middle-right"
-  | "bottom-left" | "bottom-center" | "bottom-right";
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 /** Default size of each component type on the canvas preview */
 const COMPONENT_SIZE: Record<UIComponentType, { w: number; h: number }> = {
-  "panel":        { w: 200, h: 120 },
-  "button":       { w: 120, h: 36 },
-  "text":         { w: 80,  h: 20 },
+  panel: { w: 200, h: 120 },
+  button: { w: 120, h: 36 },
+  text: { w: 80, h: 20 },
   "progress-bar": { w: 200, h: 20 },
-  "slider":       { w: 160, h: 24 },
-  "toggle":       { w: 40,  h: 24 },
+  slider: { w: 160, h: 24 },
+  toggle: { w: 40, h: 24 },
 };
 
 const COMPONENT_TEMPLATES: Array<{
@@ -70,15 +83,27 @@ const COMPONENT_TEMPLATES: Array<{
 ];
 
 const ANCHORS: UIAnchor[] = [
-  "top-left", "top-center", "top-right",
-  "middle-left", "middle-center", "middle-right",
-  "bottom-left", "bottom-center", "bottom-right",
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
 ];
 
 const ANCHOR_GRID_POS: Record<UIAnchor, { col: number; row: number }> = {
-  "top-left":      { col: 0, row: 0 }, "top-center":    { col: 1, row: 0 }, "top-right":     { col: 2, row: 0 },
-  "middle-left":   { col: 0, row: 1 }, "middle-center": { col: 1, row: 1 }, "middle-right":  { col: 2, row: 1 },
-  "bottom-left":   { col: 0, row: 2 }, "bottom-center": { col: 1, row: 2 }, "bottom-right":  { col: 2, row: 2 },
+  "top-left": { col: 0, row: 0 },
+  "top-center": { col: 1, row: 0 },
+  "top-right": { col: 2, row: 0 },
+  "middle-left": { col: 0, row: 1 },
+  "middle-center": { col: 1, row: 1 },
+  "middle-right": { col: 2, row: 1 },
+  "bottom-left": { col: 0, row: 2 },
+  "bottom-center": { col: 1, row: 2 },
+  "bottom-right": { col: 2, row: 2 },
 };
 
 /** Preview canvas logical size (world units = screen pixels at zoom 1) */
@@ -124,27 +149,56 @@ export function UIPlacementPanel(): React.ReactElement {
   const editorCode = useIDEStore((s) => s.editorCode);
   const addLog = useIDEStore((s) => s.addLog);
 
-  const editorGridSize   = useIDEStore((s) => s.editorGridSize);
-  const editorShowGrid   = useIDEStore((s) => s.editorShowGrid);
-  const editorShowRuler  = useIDEStore((s) => s.editorShowRuler);
+  const editorGridSize = useIDEStore((s) => s.editorGridSize);
+  const editorShowGrid = useIDEStore((s) => s.editorShowGrid);
+  const editorShowRuler = useIDEStore((s) => s.editorShowRuler);
   const editorSnapToGrid = useIDEStore((s) => s.editorSnapToGrid);
   const editorShowGuides = useIDEStore((s) => s.editorShowGuides);
 
-  const setEditorGridSize   = useIDEStore((s) => s.setEditorGridSize);
-  const setEditorShowGrid   = useIDEStore((s) => s.setEditorShowGrid);
-  const setEditorShowRuler  = useIDEStore((s) => s.setEditorShowRuler);
+  const setEditorGridSize = useIDEStore((s) => s.setEditorGridSize);
+  const setEditorShowGrid = useIDEStore((s) => s.setEditorShowGrid);
+  const setEditorShowRuler = useIDEStore((s) => s.setEditorShowRuler);
   const setEditorSnapToGrid = useIDEStore((s) => s.setEditorSnapToGrid);
 
-  const [selectedAnchor, setSelectedAnchor] = React.useState<UIAnchor>("bottom-center");
-  const [selectedType, setSelectedType] = React.useState<UIComponentType>("button");
+  const [selectedAnchor, setSelectedAnchor] =
+    React.useState<UIAnchor>("bottom-center");
+  const [selectedType, setSelectedType] =
+    React.useState<UIComponentType>("button");
   const [offsetX, setOffsetX] = React.useState(0);
   const [offsetY, setOffsetY] = React.useState(-20);
   const [copied, setCopied] = React.useState<string | null>(null);
 
   // Canvas preview state
-  const [ghostPos, setGhostPos] = React.useState<{ x: number; y: number } | null>(null);
-  const [placedComponents, setPlacedComponents] = React.useState<PlacedComponent[]>([]);
+  const [ghostPos, setGhostPos] = React.useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const {
+    state: placedComponents,
+    set: setPlacedComponents,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<PlacedComponent[]>([]);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const { rulerSize } = getRulerMetrics();
   const R = editorShowRuler ? rulerSize : 0;
@@ -203,12 +257,12 @@ export function UIPlacementPanel(): React.ReactElement {
     let activeGuides: GuideLineData[] = [];
     if (ghostPos !== null && editorShowGuides && placedComponents.length > 0) {
       const sz = COMPONENT_SIZE[selectedType];
-      const ghostLeft  = R + ghostPos.x;
+      const ghostLeft = R + ghostPos.x;
       const ghostRight = ghostLeft + sz.w;
-      const ghostTop   = R + ghostPos.y;
-      const ghostBot   = ghostTop + sz.h;
-      const ghostCx    = (ghostLeft + ghostRight) / 2;
-      const ghostCy    = (ghostTop + ghostBot) / 2;
+      const ghostTop = R + ghostPos.y;
+      const ghostBot = ghostTop + sz.h;
+      const ghostCx = (ghostLeft + ghostRight) / 2;
+      const ghostCy = (ghostTop + ghostBot) / 2;
 
       const refX: number[] = [];
       const refY: number[] = [];
@@ -218,7 +272,14 @@ export function UIPlacementPanel(): React.ReactElement {
       }
 
       const alignGuides = computeAlignmentGuides(
-        { left: ghostLeft, right: ghostRight, top: ghostTop, bottom: ghostBot, cx: ghostCx, cy: ghostCy },
+        {
+          left: ghostLeft,
+          right: ghostRight,
+          top: ghostTop,
+          bottom: ghostBot,
+          cx: ghostCx,
+          cy: ghostCy,
+        },
         { x: refX, y: refY },
       );
 
@@ -251,8 +312,15 @@ export function UIPlacementPanel(): React.ReactElement {
     // Rulers on top (not clipped)
     drawRulers(ctx, cw, ch, gridOpts);
   }, [
-    editorGridSize, editorShowGrid, editorShowRuler, editorSnapToGrid, editorShowGuides,
-    ghostPos, placedComponents, selectedType, R,
+    editorGridSize,
+    editorShowGrid,
+    editorShowRuler,
+    editorSnapToGrid,
+    editorShowGuides,
+    ghostPos,
+    placedComponents,
+    selectedType,
+    R,
   ]);
 
   React.useEffect(() => {
@@ -262,12 +330,15 @@ export function UIPlacementPanel(): React.ReactElement {
   // --- Mouse / touch helpers ---
   const resolveWorldPos = React.useCallback(
     (
-      e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+      e:
+        | React.MouseEvent<HTMLCanvasElement>
+        | React.TouchEvent<HTMLCanvasElement>,
     ): { x: number; y: number } | null => {
       const canvas = canvasRef.current;
       if (canvas === null) return null;
       const raw = canvasEventToWorld(e, canvas, R);
-      if (raw.x < 0 || raw.y < 0 || raw.x > CANVAS_W || raw.y > CANVAS_H) return null;
+      if (raw.x < 0 || raw.y < 0 || raw.x > CANVAS_W || raw.y > CANVAS_H)
+        return null;
       if (editorSnapToGrid) {
         return snapPoint(raw.x, raw.y, editorGridSize);
       }
@@ -278,13 +349,16 @@ export function UIPlacementPanel(): React.ReactElement {
 
   const placeComponent = (pos: { x: number; y: number }): void => {
     const sz = COMPONENT_SIZE[selectedType];
-    setPlacedComponents((prev) => [
-      ...prev,
+    setPlacedComponents([
+      ...placedComponents,
       { type: selectedType, x: pos.x, y: pos.y, w: sz.w, h: sz.h },
     ]);
     setOffsetX(pos.x);
     setOffsetY(pos.y);
-    addLog("info", `Placed ${selectedType} at (${pos.x}, ${pos.y}) on UIPlacementPanel canvas`);
+    addLog(
+      "info",
+      `Placed ${selectedType} at (${pos.x}, ${pos.y}) on UIPlacementPanel canvas`,
+    );
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
@@ -304,7 +378,10 @@ export function UIPlacementPanel(): React.ReactElement {
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>): void => {
     const pos = resolveWorldPos(e);
-    if (pos === null) { setGhostPos(null); return; }
+    if (pos === null) {
+      setGhostPos(null);
+      return;
+    }
     setGhostPos(pos);
     placeComponent(pos);
   };
@@ -319,31 +396,62 @@ export function UIPlacementPanel(): React.ReactElement {
   };
 
   // --- Snippet helpers (unchanged from original) ---
-  const insertSnippet = (tmpl: typeof COMPONENT_TEMPLATES[0]): void => {
+  const insertSnippet = (tmpl: (typeof COMPONENT_TEMPLATES)[0]): void => {
     const code = tmpl.defaultCode(selectedAnchor, offsetX, offsetY);
     const existing = editorCode.trim();
     const insertion = `\n// UISystem component: ${tmpl.label}\n${code}\n`;
     setEditorCode(existing + insertion);
-    addLog("info", `Inserted UISystem.create('${tmpl.type}') snippet into editor`);
+    addLog(
+      "info",
+      `Inserted UISystem.create('${tmpl.type}') snippet into editor`,
+    );
     setCopied(tmpl.type);
     setTimeout(() => setCopied(null), 1200);
   };
 
-  const copySnippet = (tmpl: typeof COMPONENT_TEMPLATES[0]): void => {
+  const copySnippet = (tmpl: (typeof COMPONENT_TEMPLATES)[0]): void => {
     const code = tmpl.defaultCode(selectedAnchor, offsetX, offsetY);
-    navigator.clipboard.writeText(code).catch(() => { /* ignore */ });
+    navigator.clipboard.writeText(code).catch(() => {
+      /* ignore */
+    });
     setCopied(tmpl.type + "-copy");
     setTimeout(() => setCopied(null), 1200);
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--es-bg)", color: "var(--es-text)", fontSize: 12, overflow: "auto" }}>
-      <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--es-border)", fontWeight: 600, color: "var(--es-text-muted)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
+        fontSize: 12,
+        overflow: "auto",
+      }}
+    >
+      <div
+        style={{
+          padding: "8px 10px",
+          borderBottom: "1px solid var(--es-border)",
+          fontWeight: 600,
+          color: "var(--es-text-muted)",
+        }}
+      >
         UI Placement
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid var(--es-border)", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderBottom: "1px solid var(--es-border)",
+          flexWrap: "wrap",
+        }}
+      >
         <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
           Grid size
           <input
@@ -352,33 +460,119 @@ export function UIPlacementPanel(): React.ReactElement {
             min={4}
             max={128}
             onChange={(e) => setEditorGridSize(Number(e.target.value))}
-            style={{ width: 48, padding: "2px 4px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 3 }}
+            style={{
+              width: 48,
+              padding: "2px 4px",
+              background: "var(--es-surface)",
+              color: "var(--es-text)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 3,
+            }}
           />
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={editorShowGrid} onChange={(e) => setEditorShowGrid(e.target.checked)} />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={editorShowGrid}
+            onChange={(e) => setEditorShowGrid(e.target.checked)}
+          />
           Grid
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={editorShowRuler} onChange={(e) => setEditorShowRuler(e.target.checked)} />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={editorShowRuler}
+            onChange={(e) => setEditorShowRuler(e.target.checked)}
+          />
           Ruler
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={editorSnapToGrid} onChange={(e) => setEditorSnapToGrid(e.target.checked)} />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={editorSnapToGrid}
+            onChange={(e) => setEditorSnapToGrid(e.target.checked)}
+          />
           Snap
         </label>
         <button
+          onClick={() => undo()}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            padding: "2px 8px",
+            background: "var(--es-surface)",
+            color: "var(--es-text)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            cursor: canUndo ? "pointer" : "default",
+            opacity: canUndo ? 1 : 0.4,
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={() => redo()}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            padding: "2px 8px",
+            background: "var(--es-surface)",
+            color: "var(--es-text)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            cursor: canRedo ? "pointer" : "default",
+            opacity: canRedo ? 1 : 0.4,
+          }}
+        >
+          ↪
+        </button>
+        <button
           onClick={() => setPlacedComponents([])}
           title="Clear all placed components from canvas"
-          style={{ padding: "2px 8px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 3, cursor: "pointer" }}
+          style={{
+            padding: "2px 8px",
+            background: "var(--es-surface)",
+            color: "var(--es-text)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            cursor: "pointer",
+          }}
         >
           Clear
         </button>
       </div>
 
       {/* Component type selector */}
-      <div style={{ padding: "6px 10px", borderBottom: "1px solid var(--es-border)" }}>
-        <div style={{ marginBottom: 4, color: "var(--es-text-muted)" }}>Place type</div>
+      <div
+        style={{
+          padding: "6px 10px",
+          borderBottom: "1px solid var(--es-border)",
+        }}
+      >
+        <div style={{ marginBottom: 4, color: "var(--es-text-muted)" }}>
+          Place type
+        </div>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {COMPONENT_TEMPLATES.map((t) => (
             <button
@@ -386,7 +580,10 @@ export function UIPlacementPanel(): React.ReactElement {
               onClick={() => setSelectedType(t.type)}
               style={{
                 padding: "3px 8px",
-                background: selectedType === t.type ? "var(--es-accent)" : "var(--es-surface)",
+                background:
+                  selectedType === t.type
+                    ? "var(--es-accent)"
+                    : "var(--es-surface)",
                 color: "var(--es-text)",
                 border: "1px solid var(--es-border)",
                 borderRadius: 3,
@@ -400,7 +597,12 @@ export function UIPlacementPanel(): React.ReactElement {
       </div>
 
       {/* Canvas preview */}
-      <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--es-border)" }}>
+      <div
+        style={{
+          padding: "8px 10px",
+          borderBottom: "1px solid var(--es-border)",
+        }}
+      >
         <div style={{ marginBottom: 4, color: "var(--es-text-muted)" }}>
           Canvas preview — click to place&nbsp;
           <span style={{ color: "var(--es-text)" }}>{selectedType}</span>
@@ -410,7 +612,15 @@ export function UIPlacementPanel(): React.ReactElement {
           ref={canvasRef}
           width={CANVAS_W + (editorShowRuler ? rulerSize : 0)}
           height={CANVAS_H + (editorShowRuler ? rulerSize : 0)}
-          style={{ display: "block", width: "100%", cursor: "crosshair", border: "1px solid var(--es-border)", borderRadius: 4, imageRendering: "pixelated", touchAction: "none" }}
+          style={{
+            display: "block",
+            width: "100%",
+            cursor: "crosshair",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            imageRendering: "pixelated",
+            touchAction: "none",
+          }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onClick={handleCanvasClick}
@@ -418,7 +628,9 @@ export function UIPlacementPanel(): React.ReactElement {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         />
-        <div style={{ marginTop: 4, color: "var(--es-text-muted)", fontSize: 10 }}>
+        <div
+          style={{ marginTop: 4, color: "var(--es-text-muted)", fontSize: 10 }}
+        >
           {ghostPos !== null
             ? `cursor: (${ghostPos.x}, ${ghostPos.y})`
             : `placed: ${placedComponents.length} component${placedComponents.length !== 1 ? "s" : ""}`}
@@ -427,8 +639,17 @@ export function UIPlacementPanel(): React.ReactElement {
 
       {/* Anchor picker */}
       <div style={{ padding: "10px 10px 6px" }}>
-        <div style={{ marginBottom: 6, color: "var(--es-text-muted)" }}>Anchor</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 28px)", gap: 3, marginBottom: 10 }}>
+        <div style={{ marginBottom: 6, color: "var(--es-text-muted)" }}>
+          Anchor
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 28px)",
+            gap: 3,
+            marginBottom: 10,
+          }}
+        >
           {ANCHORS.map((a) => {
             const pos = ANCHOR_GRID_POS[a];
             return (
@@ -441,7 +662,10 @@ export function UIPlacementPanel(): React.ReactElement {
                   gridRow: pos.row + 1,
                   width: 28,
                   height: 28,
-                  background: selectedAnchor === a ? "var(--es-accent)" : "var(--es-surface)",
+                  background:
+                    selectedAnchor === a
+                      ? "var(--es-accent)"
+                      : "var(--es-surface)",
                   border: "1px solid var(--es-border)",
                   borderRadius: 4,
                   cursor: "pointer",
@@ -451,27 +675,60 @@ export function UIPlacementPanel(): React.ReactElement {
                   fontSize: 8,
                 }}
               >
-                {a.split("-").map((w) => w[0]?.toUpperCase() ?? "").join("")}
+                {a
+                  .split("-")
+                  .map((w) => w[0]?.toUpperCase() ?? "")
+                  .join("")}
               </div>
             );
           })}
         </div>
-        <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>Selected: <strong>{selectedAnchor}</strong></div>
+        <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+          Selected: <strong>{selectedAnchor}</strong>
+        </div>
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <label style={{ flex: 1 }}>
             X offset
-            <input type="number" value={offsetX} onChange={(e) => setOffsetX(Number(e.target.value))} style={{ width: "100%", marginTop: 2, padding: "3px 6px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
+            <input
+              type="number"
+              value={offsetX}
+              onChange={(e) => setOffsetX(Number(e.target.value))}
+              style={{
+                width: "100%",
+                marginTop: 2,
+                padding: "3px 6px",
+                background: "var(--es-surface)",
+                color: "var(--es-text)",
+                border: "1px solid var(--es-border)",
+                borderRadius: 4,
+              }}
+            />
           </label>
           <label style={{ flex: 1 }}>
             Y offset
-            <input type="number" value={offsetY} onChange={(e) => setOffsetY(Number(e.target.value))} style={{ width: "100%", marginTop: 2, padding: "3px 6px", background: "var(--es-surface)", color: "var(--es-text)", border: "1px solid var(--es-border)", borderRadius: 4 }} />
+            <input
+              type="number"
+              value={offsetY}
+              onChange={(e) => setOffsetY(Number(e.target.value))}
+              style={{
+                width: "100%",
+                marginTop: 2,
+                padding: "3px 6px",
+                background: "var(--es-surface)",
+                color: "var(--es-text)",
+                border: "1px solid var(--es-border)",
+                borderRadius: 4,
+              }}
+            />
           </label>
         </div>
       </div>
 
       {/* Component palette */}
       <div style={{ padding: "0 10px 10px" }}>
-        <div style={{ marginBottom: 6, color: "var(--es-text-muted)" }}>Components</div>
+        <div style={{ marginBottom: 6, color: "var(--es-text-muted)" }}>
+          Components
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {COMPONENT_TEMPLATES.map((tmpl) => (
             <div key={tmpl.type} style={{ display: "flex", gap: 4 }}>
@@ -481,7 +738,8 @@ export function UIPlacementPanel(): React.ReactElement {
                 style={{
                   flex: 1,
                   padding: "6px 10px",
-                  background: copied === tmpl.type ? "#16a34a" : "var(--es-surface)",
+                  background:
+                    copied === tmpl.type ? "#16a34a" : "var(--es-surface)",
                   color: "var(--es-text)",
                   border: "1px solid var(--es-border)",
                   borderRadius: 4,
@@ -497,7 +755,10 @@ export function UIPlacementPanel(): React.ReactElement {
                 title="Copy snippet to clipboard"
                 style={{
                   padding: "6px 8px",
-                  background: copied === tmpl.type + "-copy" ? "#16a34a" : "var(--es-surface)",
+                  background:
+                    copied === tmpl.type + "-copy"
+                      ? "#16a34a"
+                      : "var(--es-surface)",
                   color: "var(--es-text)",
                   border: "1px solid var(--es-border)",
                   borderRadius: 4,
@@ -511,9 +772,17 @@ export function UIPlacementPanel(): React.ReactElement {
         </div>
       </div>
 
-      <div style={{ padding: "0 10px 10px", color: "var(--es-text-muted)", fontSize: 11 }}>
-        Click <strong>＋</strong> to insert a snippet at the end of your code file, or <strong>⧉</strong> to copy to clipboard.
-        Anchor and offset are reflected in the generated code. Click the canvas to set the x/y offset directly.
+      <div
+        style={{
+          padding: "0 10px 10px",
+          color: "var(--es-text-muted)",
+          fontSize: 11,
+        }}
+      >
+        Click <strong>＋</strong> to insert a snippet at the end of your code
+        file, or <strong>⧉</strong> to copy to clipboard. Anchor and offset are
+        reflected in the generated code. Click the canvas to set the x/y offset
+        directly.
       </div>
     </div>
   );
