@@ -4,6 +4,7 @@ import {
   dialogueTreeToStoryGraph,
 } from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 type NodeType = "dialogue" | "choice";
 
@@ -32,7 +33,12 @@ interface ViewTransform {
 
 interface GuideLine {
   axis: "h" | "v";
-  pos: number; // canvas coordinate (pre-transform)
+  pos: number;
+}
+
+interface GraphState {
+  nodes: VNNode[];
+  edges: VNEdge[];
 }
 
 const INITIAL_NODES: VNNode[] = [
@@ -81,7 +87,7 @@ const NODE_H = 100;
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.5;
 const STORAGE_KEY = "es-story-graph";
-const GUIDE_THRESHOLD = 6; // pixels in canvas space
+const GUIDE_THRESHOLD = 6;
 
 function clampScale(s: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
@@ -91,10 +97,10 @@ function snapValue(v: number, gridSize: number): number {
   return Math.round(v / gridSize) * gridSize;
 }
 
-function loadGraph(): { nodes: VNNode[]; edges: VNEdge[] } {
+function loadGraph(): GraphState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { nodes: VNNode[]; edges: VNEdge[] };
+    if (raw) return JSON.parse(raw) as GraphState;
   } catch {
     /* ignore */
   }
@@ -121,14 +127,59 @@ export function VNEditor(): React.ReactElement {
   const setEditorShowGuides = useIDEStore((s) => s.setEditorShowGuides);
 
   const saved = React.useMemo(loadGraph, []);
-  const [nodes, setNodes] = React.useState<VNNode[]>(saved.nodes);
-  const [edges, setEdges] = React.useState<VNEdge[]>(saved.edges);
+
+  // ── Undo/redo: {nodes, edges} as one atomic snapshot ────────────────────────
+  const {
+    state: graph,
+    set: setGraph,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<GraphState>({ nodes: saved.nodes, edges: saved.edges });
+
+  const nodes = graph.nodes;
+  const edges = graph.edges;
+
+  // Fast local state for drag (doesn't go through history on every move)
+  const [localNodes, setLocalNodes] = React.useState<VNNode[]>(nodes);
+  const [localEdges, setLocalEdges] = React.useState<VNEdge[]>(edges);
+
+  // Keep local in sync with history (undo/redo)
+  const prevGraphRef = React.useRef(graph);
+  React.useEffect(() => {
+    if (prevGraphRef.current !== graph) {
+      prevGraphRef.current = graph;
+      setLocalNodes(graph.nodes);
+      setLocalEdges(graph.edges);
+    }
+  }, [graph]);
+
+  // Committed graph mutations
+  const commitNodes = React.useCallback(
+    (next: VNNode[]) => {
+      setLocalNodes(next);
+      setGraph({ nodes: next, edges: localEdges });
+    },
+    [localEdges, setGraph],
+  );
+
+  const commitBoth = React.useCallback(
+    (n: VNNode[], e: VNEdge[]) => {
+      setLocalNodes(n);
+      setLocalEdges(e);
+      setGraph({ nodes: n, edges: e });
+    },
+    [setGraph],
+  );
+
   const [selected, setSelected] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState<{
     id: string;
     ox: number;
     oy: number;
   } | null>(null);
+  const dragStartNodesRef = React.useRef<VNNode[] | null>(null);
   const [editNode, setEditNode] = React.useState<VNNode | null>(null);
   const [view, setView] = React.useState<ViewTransform>({
     x: 0,
@@ -145,31 +196,53 @@ export function VNEditor(): React.ReactElement {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
+  // Minimap
+  const [showMinimap, setShowMinimap] = React.useState(true);
+  const MINI_W = 200;
+  const MINI_H = 120;
+
+  const displayNodes = localNodes;
+  const displayEdges = localEdges;
+
   // Persist on change and sync nodes to ideStore for VN Preview
   React.useEffect(() => {
-    saveGraph(nodes, edges);
-    setVNNodes(nodes);
-  }, [nodes, edges, setVNNodes]);
+    saveGraph(displayNodes, displayEdges);
+    setVNNodes(displayNodes);
+  }, [displayNodes, displayEdges, setVNNodes]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (undo/redo + delete)
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "y" || (e.shiftKey && e.key === "z"))
+      ) {
+        e.preventDefault();
+        redo();
+        return;
+      }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selected &&
         editNode === null
       ) {
         e.preventDefault();
-        setNodes((prev) => prev.filter((n) => n.id !== selected));
-        setEdges((prev) =>
-          prev.filter((ed) => ed.from !== selected && ed.to !== selected),
+        const nextNodes = localNodes.filter((n) => n.id !== selected);
+        const nextEdges = localEdges.filter(
+          (ed) => ed.from !== selected && ed.to !== selected,
         );
+        commitBoth(nextNodes, nextEdges);
         setSelected(null);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selected, editNode]);
+  }, [selected, editNode, localNodes, localEdges, commitBoth, undo, redo]);
 
   // Wheel zoom / pan
   React.useEffect(() => {
@@ -178,11 +251,10 @@ export function VNEditor(): React.ReactElement {
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       let delta = e.deltaY;
-      if (e.deltaMode === 1) delta *= 16;   // DOM_DELTA_LINE
-      if (e.deltaMode === 2) delta *= 600;  // DOM_DELTA_PAGE
+      if (e.deltaMode === 1) delta *= 16;
+      if (e.deltaMode === 2) delta *= 600;
 
       if (e.ctrlKey || e.metaKey) {
-        // Pinch-zoom from touchpad, or ctrl+scroll from keyboard
         const rect = el.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
@@ -197,7 +269,6 @@ export function VNEditor(): React.ReactElement {
           };
         });
       } else {
-        // Two-finger scroll — pan
         setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - delta }));
       }
     };
@@ -206,7 +277,7 @@ export function VNEditor(): React.ReactElement {
   }, []);
 
   const nodeById = (id: string): VNNode | undefined =>
-    nodes.find((n) => n.id === id);
+    displayNodes.find((n) => n.id === id);
 
   const portPos = (
     node: VNNode,
@@ -244,11 +315,7 @@ export function VNEditor(): React.ReactElement {
     };
   };
 
-  // Compute alignment guides for the dragging node against all other nodes
-  const computeGuides = (
-    dragNode: VNNode,
-    allNodes: VNNode[],
-  ): GuideLine[] => {
+  const computeGuides = (dragNode: VNNode, allNodes: VNNode[]): GuideLine[] => {
     const result: GuideLine[] = [];
     const dLeft = dragNode.x;
     const dRight = dragNode.x + NODE_W;
@@ -256,7 +323,6 @@ export function VNEditor(): React.ReactElement {
     const dTop = dragNode.y;
     const dBottom = dragNode.y + NODE_H;
     const dMiddleY = dragNode.y + NODE_H / 2;
-
     for (const other of allNodes) {
       if (other.id === dragNode.id) continue;
       const oLeft = other.x;
@@ -265,26 +331,19 @@ export function VNEditor(): React.ReactElement {
       const oTop = other.y;
       const oBottom = other.y + NODE_H;
       const oMiddleY = other.y + NODE_H / 2;
-
-      // Vertical guides (x positions)
       for (const dx of [dLeft, dRight, dCenterX]) {
         for (const ox of [oLeft, oRight, oCenterX]) {
-          if (Math.abs(dx - ox) < GUIDE_THRESHOLD) {
+          if (Math.abs(dx - ox) < GUIDE_THRESHOLD)
             result.push({ axis: "v", pos: ox });
-          }
         }
       }
-      // Horizontal guides (y positions)
       for (const dy of [dTop, dBottom, dMiddleY]) {
         for (const oy of [oTop, oBottom, oMiddleY]) {
-          if (Math.abs(dy - oy) < GUIDE_THRESHOLD) {
+          if (Math.abs(dy - oy) < GUIDE_THRESHOLD)
             result.push({ axis: "h", pos: oy });
-          }
         }
       }
     }
-
-    // Deduplicate
     const seen = new Set<string>();
     return result.filter((g) => {
       const key = `${g.axis}:${g.pos}`;
@@ -319,7 +378,7 @@ export function VNEditor(): React.ReactElement {
         nx = snapValue(nx, editorGridSize);
         ny = snapValue(ny, editorGridSize);
       }
-      setNodes((prev) => {
+      setLocalNodes((prev) => {
         const next = prev.map((n) =>
           n.id === dragging.id ? { ...n, x: nx, y: ny } : n,
         );
@@ -339,7 +398,12 @@ export function VNEditor(): React.ReactElement {
   };
 
   const handlePointerUpSVG = (): void => {
+    if (dragging) {
+      // Commit the drag to history
+      setGraph({ nodes: localNodes, edges: localEdges });
+    }
     setDragging(null);
+    dragStartNodesRef.current = null;
     setPanning(null);
     setGuides([]);
   };
@@ -365,15 +429,16 @@ export function VNEditor(): React.ReactElement {
             text: "Choose...",
             options: ["Option A", "Option B"],
           };
-    setNodes((prev) => [...prev, newNode]);
+    commitNodes([...localNodes, newNode]);
   };
 
   const deleteSelected = (): void => {
     if (!selected) return;
-    setNodes((prev) => prev.filter((n) => n.id !== selected));
-    setEdges((prev) =>
-      prev.filter((e) => e.from !== selected && e.to !== selected),
+    const nextNodes = localNodes.filter((n) => n.id !== selected);
+    const nextEdges = localEdges.filter(
+      (e) => e.from !== selected && e.to !== selected,
     );
+    commitBoth(nextNodes, nextEdges);
     setSelected(null);
   };
 
@@ -391,8 +456,9 @@ export function VNEditor(): React.ReactElement {
             nodes?: VNNode[];
             edges?: VNEdge[];
           };
-          if (Array.isArray(data.nodes)) setNodes(data.nodes);
-          if (Array.isArray(data.edges)) setEdges(data.edges);
+          const nextNodes = Array.isArray(data.nodes) ? data.nodes : localNodes;
+          const nextEdges = Array.isArray(data.edges) ? data.edges : localEdges;
+          commitBoth(nextNodes, nextEdges);
         } catch {
           /* invalid */
         }
@@ -403,9 +469,10 @@ export function VNEditor(): React.ReactElement {
   };
 
   const exportJSON = (): void => {
-    const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob(
+      [JSON.stringify({ nodes: localNodes, edges: localEdges }, null, 2)],
+      { type: "application/json" },
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -428,12 +495,15 @@ export function VNEditor(): React.ReactElement {
             nodes?: unknown;
             startNode?: string;
           };
-          if (typeof tree.startNode !== "string" || typeof tree.nodes !== "object") return;
-          const graph = dialogueTreeToStoryGraph(
+          if (
+            typeof tree.startNode !== "string" ||
+            typeof tree.nodes !== "object"
+          )
+            return;
+          const g = dialogueTreeToStoryGraph(
             tree as Parameters<typeof dialogueTreeToStoryGraph>[0],
           );
-          setNodes(graph.nodes as VNNode[]);
-          setEdges(graph.edges as VNEdge[]);
+          commitBoth(g.nodes as VNNode[], g.edges as VNEdge[]);
         } catch {
           /* invalid file */
         }
@@ -444,9 +514,17 @@ export function VNEditor(): React.ReactElement {
   };
 
   const exportVNScript = (): void => {
-    const startNodeId = nodes[0]?.id ?? "";
-    const tree = storyGraphToDialogueTree({ nodes: nodes as Parameters<typeof storyGraphToDialogueTree>[0]["nodes"], edges, startNodeId });
-    const blob = new Blob([JSON.stringify(tree, null, 2)], { type: "application/json" });
+    const startNodeId = localNodes[0]?.id ?? "";
+    const tree = storyGraphToDialogueTree({
+      nodes: localNodes as Parameters<
+        typeof storyGraphToDialogueTree
+      >[0]["nodes"],
+      edges: localEdges,
+      startNodeId,
+    });
+    const blob = new Blob([JSON.stringify(tree, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -457,7 +535,57 @@ export function VNEditor(): React.ReactElement {
 
   const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
 
-  // SVG size for guide lines — large enough to span the viewport
+  // ── Minimap ─────────────────────────────────────────────────────────────────
+  const minimapTransform = React.useMemo(() => {
+    if (displayNodes.length === 0) return null;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const n of displayNodes) {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + NODE_W);
+      maxY = Math.max(maxY, n.y + NODE_H);
+    }
+    const pad = 10;
+    const W = maxX - minX + pad * 2;
+    const H = maxY - minY + pad * 2;
+    const scale = Math.min(MINI_W / W, MINI_H / H) * 0.9;
+    const offsetX = (MINI_W - W * scale) / 2 - (minX - pad) * scale;
+    const offsetY = (MINI_H - H * scale) / 2 - (minY - pad) * scale;
+    return { scale, offsetX, offsetY, minX, minY };
+  }, [displayNodes]);
+
+  const minimapViewport = React.useMemo(() => {
+    if (!minimapTransform) return null;
+    const cw = containerRef.current?.clientWidth ?? 600;
+    const ch = containerRef.current?.clientHeight ?? 400;
+    const { scale, offsetX, offsetY } = minimapTransform;
+    const vx = (-view.x / view.scale) * scale + offsetX;
+    const vy = (-view.y / view.scale) * scale + offsetY;
+    const vw = (cw / view.scale) * scale;
+    const vh = (ch / view.scale) * scale;
+    return { x: vx, y: vy, w: vw, h: vh };
+  }, [minimapTransform, view]);
+
+  const handleMinimapClick = (e: React.MouseEvent<SVGSVGElement>): void => {
+    if (!minimapTransform) return;
+    const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const { scale, offsetX, offsetY } = minimapTransform;
+    const nodeX = (mx - offsetX) / scale;
+    const nodeY = (my - offsetY) / scale;
+    const cw = containerRef.current?.clientWidth ?? 600;
+    const ch = containerRef.current?.clientHeight ?? 400;
+    setView((v) => ({
+      ...v,
+      x: cw / 2 - nodeX * v.scale,
+      y: ch / 2 - nodeY * v.scale,
+    }));
+  };
+
   const GUIDE_EXTENT = 9999;
 
   const btnStyle: React.CSSProperties = {
@@ -469,7 +597,6 @@ export function VNEditor(): React.ReactElement {
     cursor: "pointer",
     fontSize: 11,
   };
-
   const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
     ...btnStyle,
     background: active ? "var(--es-accent)" : "var(--es-surface)",
@@ -500,6 +627,39 @@ export function VNEditor(): React.ReactElement {
           alignItems: "center",
         }}
       >
+        {/* Undo/redo */}
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            ...btnStyle,
+            opacity: canUndo ? 1 : 0.4,
+            cursor: canUndo ? "pointer" : "default",
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            ...btnStyle,
+            opacity: canRedo ? 1 : 0.4,
+            cursor: canRedo ? "pointer" : "default",
+          }}
+        >
+          ↪
+        </button>
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: "var(--es-border)",
+            margin: "0 2px",
+          }}
+        />
         <button
           onClick={() => addNode("dialogue")}
           style={{
@@ -542,10 +702,7 @@ export function VNEditor(): React.ReactElement {
           Delete
         </button>
         <div style={{ flex: 1 }} />
-        <button
-          onClick={resetView}
-          style={btnStyle}
-        >
+        <button onClick={resetView} style={btnStyle}>
           Reset view
         </button>
         <span
@@ -557,16 +714,10 @@ export function VNEditor(): React.ReactElement {
         >
           {Math.round(view.scale * 100)}%
         </span>
-        <button
-          onClick={importJSON}
-          style={btnStyle}
-        >
+        <button onClick={importJSON} style={btnStyle}>
           Import
         </button>
-        <button
-          onClick={exportJSON}
-          style={btnStyle}
-        >
+        <button onClick={exportJSON} style={btnStyle}>
           Export
         </button>
         <button
@@ -702,14 +853,12 @@ export function VNEditor(): React.ReactElement {
             </pattern>
           </defs>
 
-          {/* Background grid — shown only when editorShowGrid is true */}
           {editorShowGrid && (
             <rect width="100%" height="100%" fill="url(#grid)" />
           )}
 
           <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
-            {/* Edges */}
-            {edges.map((edge) => (
+            {displayEdges.map((edge) => (
               <path
                 key={edge.id}
                 d={edgePath(edge)}
@@ -720,8 +869,7 @@ export function VNEditor(): React.ReactElement {
               />
             ))}
 
-            {/* Nodes */}
-            {nodes.map((node) => {
+            {displayNodes.map((node) => {
               const isSelected = selected === node.id;
               return (
                 <g
@@ -734,6 +882,7 @@ export function VNEditor(): React.ReactElement {
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
                     setSelected(node.id);
+                    dragStartNodesRef.current = localNodes;
                     const coords = svgCoordsFromClient(e.clientX, e.clientY);
                     setDragging({
                       id: node.id,
@@ -787,7 +936,6 @@ export function VNEditor(): React.ReactElement {
                       {node.text}
                     </div>
                   </foreignObject>
-                  {/* Input port */}
                   <circle
                     cx={0}
                     cy={NODE_H / 2}
@@ -796,7 +944,6 @@ export function VNEditor(): React.ReactElement {
                     stroke="var(--es-accent)"
                     strokeWidth={1.5 / view.scale}
                   />
-                  {/* Output ports */}
                   {(node.options ?? [null]).map((opt, i) => {
                     const portCount = node.options?.length ?? 1;
                     const spacing = NODE_H / (portCount + 1);
@@ -829,8 +976,6 @@ export function VNEditor(): React.ReactElement {
               );
             })}
 
-            {/* Alignment guide lines — rendered inside the transform group so they
-                use canvas coordinates and scale with the view */}
             {editorShowGuides &&
               guides.map((g, i) =>
                 g.axis === "v" ? (
@@ -862,8 +1007,7 @@ export function VNEditor(): React.ReactElement {
           </g>
         </svg>
 
-        {/* Hint overlay */}
-        {nodes.length === 0 && (
+        {displayNodes.length === 0 && (
           <div
             style={{
               position: "absolute",
@@ -884,6 +1028,83 @@ export function VNEditor(): React.ReactElement {
             </div>
           </div>
         )}
+
+        {/* Minimap */}
+        <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
+          <button
+            onClick={() => setShowMinimap((v) => !v)}
+            title={showMinimap ? "Hide minimap" : "Show minimap"}
+            style={{
+              display: "block",
+              marginBottom: 4,
+              marginLeft: "auto",
+              padding: "2px 6px",
+              background: "rgba(0,0,0,0.6)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 4,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 11,
+            }}
+          >
+            ⊞
+          </button>
+          {showMinimap && (
+            <svg
+              width={MINI_W}
+              height={MINI_H}
+              onClick={handleMinimapClick}
+              style={{
+                display: "block",
+                background: "rgba(0,0,0,0.75)",
+                borderRadius: 8,
+                padding: 4,
+                border: "1px solid rgba(255,255,255,0.15)",
+                cursor: "crosshair",
+              }}
+            >
+              {minimapTransform &&
+                displayNodes.map((node) => {
+                  const { scale, offsetX, offsetY } = minimapTransform;
+                  const mx = node.x * scale + offsetX;
+                  const my = node.y * scale + offsetY;
+                  const mw = NODE_W * scale;
+                  const mh = NODE_H * scale;
+                  const isSelected = selected === node.id;
+                  return (
+                    <rect
+                      key={node.id}
+                      x={mx}
+                      y={my}
+                      width={mw}
+                      height={mh}
+                      rx={2}
+                      fill={
+                        isSelected
+                          ? "var(--es-accent)"
+                          : node.type === "dialogue"
+                            ? "#3730a3"
+                            : "#1a1a2e"
+                      }
+                      stroke={isSelected ? "#fff" : "rgba(255,255,255,0.3)"}
+                      strokeWidth={isSelected ? 1.5 : 0.5}
+                    />
+                  );
+                })}
+              {minimapTransform && minimapViewport && (
+                <rect
+                  x={minimapViewport.x}
+                  y={minimapViewport.y}
+                  width={minimapViewport.w}
+                  height={minimapViewport.h}
+                  fill="rgba(255,255,255,0.08)"
+                  stroke="rgba(255,255,255,0.5)"
+                  strokeWidth={1}
+                />
+              )}
+            </svg>
+          )}
+        </div>
       </div>
 
       {/* Edit modal */}
@@ -972,8 +1193,10 @@ export function VNEditor(): React.ReactElement {
                     onClick={() =>
                       setEditNode((n) => {
                         if (!n?.options) return n;
-                        const opts = n.options.filter((_, j) => j !== i);
-                        return { ...n, options: opts };
+                        return {
+                          ...n,
+                          options: n.options.filter((_, j) => j !== i),
+                        };
                       })
                     }
                     style={{
@@ -1020,8 +1243,10 @@ export function VNEditor(): React.ReactElement {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => {
-                  setNodes((prev) =>
-                    prev.map((n) => (n.id === editNode.id ? editNode : n)),
+                  commitNodes(
+                    localNodes.map((n) =>
+                      n.id === editNode.id ? editNode : n,
+                    ),
                   );
                   setEditNode(null);
                 }}
