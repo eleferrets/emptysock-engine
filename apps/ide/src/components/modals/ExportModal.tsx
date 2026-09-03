@@ -379,6 +379,20 @@ ${scriptTags}
     </label>
   );
 
+  const SectionLabel = ({ text }: { text: string }): React.ReactElement => (
+    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 7 }}>{text}</div>
+  );
+
+  const Checkbox = ({ label, checked, onChange, note }: { label: string; checked: boolean; onChange: (v: boolean) => void; note?: string }): React.ReactElement => (
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text)' }}>
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 13, height: 13, marginTop: 1, flexShrink: 0 }} />
+      <div>
+        <div>{label}</div>
+        {note !== undefined && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1, lineHeight: 1.5 }}>{note}</div>}
+      </div>
+    </label>
+  );
+
   return (
     <div
       style={{

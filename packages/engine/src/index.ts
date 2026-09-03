@@ -187,6 +187,10 @@ export type {
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 
+// Layer System
+export { LayerSystem, LAYER } from './systems/LayerSystem.js';
+export type { LayerConfig, LayerSortKey } from './systems/LayerSystem.js';
+
 // Compat
 /** @internal */
 export { detectMali, getMaliFixes, applyMaliFixes } from "./compat/mali.js";
