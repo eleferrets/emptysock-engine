@@ -8,15 +8,18 @@ import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type LaneType = 'keyframe' | 'dialogue' | 'expression' | 'audio' | 'wait';
+
 type TrackType = SequenceTrackType;
 
 interface Keyframe {
   id: string;
   time: number; // seconds
   value: number; // numeric value for interpolation
+  textValue?: string; // string value used when laneType === 'dialogue'
 }
 
-type Track = SequenceTrack;
+type Track = SequenceTrack & { laneType?: LaneType; keyframes: Keyframe[] };
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,6 +35,14 @@ const TRACK_OPTIONS: TrackType[] = [
   "Scale",
   "Opacity",
   "Custom",
+];
+
+const LANE_TYPE_OPTIONS: LaneType[] = [
+  'keyframe',
+  'dialogue',
+  'expression',
+  'audio',
+  'wait',
 ];
 
 const TYPE_COLORS: Record<TrackType, string> = {
@@ -58,6 +69,7 @@ function makeTrack(
     id: uid(),
     name: type,
     type,
+    laneType: 'keyframe',
     keyframes: kfs.map(({ t, v }) => ({ id: uid(), time: t, value: v })),
   };
 }
@@ -108,16 +120,19 @@ const TrackLabel: React.FC<{
   track: Track;
   playing: boolean;
   currentTime: number;
-}> = ({ track, playing, currentTime }) => {
+  onChangeLaneType: (lt: LaneType) => void;
+}> = ({ track, playing, currentTime, onChangeLaneType }) => {
+  const laneType = track.laneType ?? 'keyframe';
   const interp = playing ? interpolate(track.keyframes, currentTime) : null;
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
+        gap: 4,
         height: ROW_HEIGHT,
         paddingLeft: 8,
+        paddingRight: 4,
         borderBottom: "1px solid var(--es-border, #333)",
         flexShrink: 0,
       }}
@@ -140,11 +155,28 @@ const TrackLabel: React.FC<{
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
+          minWidth: 0,
         }}
       >
         {track.name}
       </span>
-      {interp !== null && (
+      {laneType !== 'keyframe' && (
+        <span
+          style={{
+            fontSize: 9,
+            fontFamily: "monospace",
+            color: "var(--es-text-muted, #888)",
+            border: "1px solid var(--es-border, #444)",
+            borderRadius: 3,
+            padding: "0px 3px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          [{laneType}]
+        </span>
+      )}
+      {interp !== null && laneType !== 'dialogue' && (
         <span
           style={{
             fontSize: 10,
@@ -153,7 +185,6 @@ const TrackLabel: React.FC<{
             color: TYPE_COLORS[track.type],
             borderRadius: 3,
             padding: "1px 5px",
-            marginRight: 4,
             whiteSpace: "nowrap",
             flexShrink: 0,
           }}
@@ -161,6 +192,27 @@ const TrackLabel: React.FC<{
           {interp.toFixed(1)}
         </span>
       )}
+      <select
+        value={laneType}
+        onChange={(e) => onChangeLaneType(e.target.value as LaneType)}
+        onClick={(e) => e.stopPropagation()}
+        title="Lane type"
+        style={{
+          fontSize: 9,
+          padding: "1px 2px",
+          borderRadius: 3,
+          border: "1px solid var(--es-border, #444)",
+          background: "var(--es-surface, #16213e)",
+          color: "var(--es-text-muted, #888)",
+          cursor: "pointer",
+          flexShrink: 0,
+          maxWidth: 56,
+        }}
+      >
+        {LANE_TYPE_OPTIONS.map((lt) => (
+          <option key={lt} value={lt}>{lt}</option>
+        ))}
+      </select>
     </div>
   );
 };
@@ -168,7 +220,7 @@ const TrackLabel: React.FC<{
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function SequenceEditor(): React.ReactElement {
-  const storeTracks = useIDEStore((s) => s.sequenceTracks);
+  const storeTracks = useIDEStore((s) => s.sequenceTracks) as Track[];
   const setStoreTracks = useIDEStore((s) => s.setSequenceTracks);
   const duration = useIDEStore((s) => s.sequenceDuration);
   const setDuration = useIDEStore((s) => s.setSequenceDuration);
@@ -382,24 +434,53 @@ export function SequenceEditor(): React.ReactElement {
     [duration, pxPerSec, tracks, setTracks],
   );
 
+  // ── Lane type change ─────────────────────────────────────────────────────
+
+  const changeTrackLaneType = useCallback(
+    (trackId: string, lt: LaneType): void => {
+      setTracks(tracks.map((t) => (t.id === trackId ? { ...t, laneType: lt } : t)));
+    },
+    [tracks, setTracks],
+  );
+
   // ── Keyframe selection + value edit ──────────────────────────────────────
 
   const commitKfValue = useCallback(() => {
     if (!selectedKf) return;
-    const v = parseFloat(kfEditValue);
-    if (!isNaN(v)) {
+    const track = tracks.find((t) => t.id === selectedKf.trackId);
+    if (!track) return;
+    const laneType = track.laneType ?? 'keyframe';
+    if (laneType === 'dialogue') {
       setTracks(
-        tracks.map((track) =>
-          track.id === selectedKf.trackId
+        tracks.map((tr) =>
+          tr.id === selectedKf.trackId
             ? {
-                ...track,
-                keyframes: track.keyframes.map((kf) =>
-                  kf.id === selectedKf.kfId ? { ...kf, value: v } : kf,
+                ...tr,
+                keyframes: tr.keyframes.map((kf) =>
+                  kf.id === selectedKf.kfId
+                    ? { ...kf, textValue: kfEditValue }
+                    : kf,
                 ),
               }
-            : track,
+            : tr,
         ),
       );
+    } else {
+      const v = parseFloat(kfEditValue);
+      if (!isNaN(v)) {
+        setTracks(
+          tracks.map((tr) =>
+            tr.id === selectedKf.trackId
+              ? {
+                  ...tr,
+                  keyframes: tr.keyframes.map((kf) =>
+                    kf.id === selectedKf.kfId ? { ...kf, value: v } : kf,
+                  ),
+                }
+              : tr,
+          ),
+        );
+      }
     }
   }, [selectedKf, kfEditValue, tracks, setTracks]);
 
@@ -444,7 +525,14 @@ export function SequenceEditor(): React.ReactElement {
       });
       // pre-select so value editor is ready if user doesn't drag
       setSelectedKf({ trackId, kfId });
-      setKfEditValue(String(kfValue));
+      const track = tracks.find((t) => t.id === trackId);
+      const laneType = track?.laneType ?? 'keyframe';
+      if (laneType === 'dialogue') {
+        const kf = track?.keyframes.find((k) => k.id === kfId);
+        setKfEditValue(kf?.textValue ?? '');
+      } else {
+        setKfEditValue(String(kfValue));
+      }
     },
     [tracks],
   );
@@ -494,7 +582,14 @@ export function SequenceEditor(): React.ReactElement {
         setHistoryTracks(finalTracks);
       } else {
         // treat as click — selection already set in pointerdown
-        setKfEditValue(String(kfValue));
+        const track = tracks.find((t) => t.id === trackId);
+        const laneType = track?.laneType ?? 'keyframe';
+        if (laneType === 'dialogue') {
+          const kf = track?.keyframes.find((k) => k.id === kfId);
+          setKfEditValue(kf?.textValue ?? '');
+        } else {
+          setKfEditValue(String(kfValue));
+        }
       }
       setDraggingKf(null);
     },
@@ -529,6 +624,13 @@ export function SequenceEditor(): React.ReactElement {
   // ── Playhead x position ───────────────────────────────────────────────────
 
   const playheadX = currentTime * pxPerSec;
+
+  // ── Selected track laneType (for value editor) ────────────────────────────
+
+  const selectedTrack = selectedKf
+    ? tracks.find((t) => t.id === selectedKf.trackId)
+    : undefined;
+  const selectedLaneType: LaneType = selectedTrack?.laneType ?? 'keyframe';
 
   return (
     <div
@@ -699,7 +801,7 @@ export function SequenceEditor(): React.ReactElement {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: selectedLaneType === 'dialogue' ? "flex-start" : "center",
             gap: 6,
             padding: "4px 12px",
             borderBottom: "1px solid var(--es-border, #333)",
@@ -708,33 +810,69 @@ export function SequenceEditor(): React.ReactElement {
             fontSize: 12,
           }}
         >
-          <span style={{ color: "var(--es-text-muted, #888)" }}>
+          <span
+            style={{
+              color: "var(--es-text-muted, #888)",
+              paddingTop: selectedLaneType === 'dialogue' ? 4 : 0,
+            }}
+          >
             Keyframe value:
           </span>
-          <input
-            type="number"
-            step="any"
-            value={kfEditValue}
-            onChange={(e) => setKfEditValue(e.target.value)}
-            onBlur={commitKfValue}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                commitKfValue();
-                setSelectedKf(null);
-              }
-              if (e.key === "Escape") setSelectedKf(null);
-            }}
-            autoFocus
-            style={{
-              width: 80,
-              padding: "2px 4px",
-              borderRadius: 3,
-              border: "1px solid var(--es-border, #444)",
-              background: "var(--es-surface, #16213e)",
-              color: "var(--es-text, #e2e8f0)",
-              fontSize: 12,
-            }}
-          />
+          {selectedLaneType === 'dialogue' ? (
+            <textarea
+              value={kfEditValue}
+              onChange={(e) => setKfEditValue(e.target.value)}
+              onBlur={commitKfValue}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setSelectedKf(null);
+                // Ctrl+Enter commits
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  commitKfValue();
+                  setSelectedKf(null);
+                }
+              }}
+              autoFocus
+              rows={3}
+              placeholder="Dialogue text…"
+              style={{
+                flex: 1,
+                maxWidth: 400,
+                padding: "3px 6px",
+                borderRadius: 3,
+                border: "1px solid var(--es-border, #444)",
+                background: "var(--es-surface, #16213e)",
+                color: "var(--es-text, #e2e8f0)",
+                fontSize: 12,
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          ) : (
+            <input
+              type="number"
+              step="any"
+              value={kfEditValue}
+              onChange={(e) => setKfEditValue(e.target.value)}
+              onBlur={commitKfValue}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitKfValue();
+                  setSelectedKf(null);
+                }
+                if (e.key === "Escape") setSelectedKf(null);
+              }}
+              autoFocus
+              style={{
+                width: 80,
+                padding: "2px 4px",
+                borderRadius: 3,
+                border: "1px solid var(--es-border, #444)",
+                background: "var(--es-surface, #16213e)",
+                color: "var(--es-text, #e2e8f0)",
+                fontSize: 12,
+              }}
+            />
+          )}
           <button
             onClick={() => {
               commitKfValue();
@@ -748,6 +886,7 @@ export function SequenceEditor(): React.ReactElement {
               color: "#fff",
               cursor: "pointer",
               fontSize: 11,
+              alignSelf: selectedLaneType === 'dialogue' ? "flex-end" : "auto",
             }}
           >
             OK
@@ -762,6 +901,7 @@ export function SequenceEditor(): React.ReactElement {
               color: "var(--es-text, #e2e8f0)",
               cursor: "pointer",
               fontSize: 11,
+              alignSelf: selectedLaneType === 'dialogue' ? "flex-end" : "auto",
             }}
           >
             ✕
@@ -793,6 +933,7 @@ export function SequenceEditor(): React.ReactElement {
               track={t}
               playing={playing}
               currentTime={currentTime}
+              onChangeLaneType={(lt) => changeTrackLaneType(t.id, lt)}
             />
           ))}
         </div>
@@ -901,11 +1042,15 @@ export function SequenceEditor(): React.ReactElement {
                   const isSelected =
                     selectedKf?.trackId === track.id &&
                     selectedKf.kfId === kf.id;
+                  const laneType = track.laneType ?? 'keyframe';
+                  const titleText = laneType === 'dialogue'
+                    ? `t=${kf.time}s  "${kf.textValue ?? ''}"`
+                    : `t=${kf.time}s  v=${kf.value}`;
                   return (
                     <div
                       key={kf.id}
                       data-kf="1"
-                      title={`t=${kf.time}s  v=${kf.value}`}
+                      title={titleText}
                       onPointerDown={(e) =>
                         handleKfPointerDown(
                           e,
@@ -964,7 +1109,7 @@ export function SequenceEditor(): React.ReactElement {
                             lineHeight: 1,
                           }}
                         >
-                          ×
+                          \xD7
                         </div>
                       )}
                     </div>
