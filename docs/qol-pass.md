@@ -1,298 +1,119 @@
 # EmptySock QoL Pass
 
-branch: `claude/emptysock-qol-pass-pcnrn9`
-
 Status markers: ✅ done · ⬜ todo · 🔴 blocked
 
 ---
 
-## Panels & UX
+## Remaining backlog
 
-- ✅ Story Graph (VNEditor) — pan, zoom, pinch, persistence
-  Wheel zoom, two-finger pinch, one-finger pan, localStorage, import/export JSON, keyboard delete, SVG grid.
+### UI & Scene
 
-- ✅ ParticleEditor — sprite/image texture support
-  drawImage in RAF loop, rotation, rotationSpeed, alphaEnd, particle count overlay, color pickers hidden when sprite loaded.
-
-- ✅ VisualScriptEditor — Ctrl+scroll zoom, correct coordinate mapping
-  0.25×–2.5× zoom, toCanvas() divides by vsScale, reset view button + zoom % display.
-
-- ✅ Module auto-open — panel appears when module is enabled
-  prevModulesRef diff in App.tsx calls openPanelInLayout for newly added modules.
-
-- ✅ DownloadEngineModal hidden in Tauri
-  isTauri() early return; web-only download for linux/win-arm/win-x64/mac-universal.
-
-- ✅ ConsolePanel — remove fabricated startup log messages
-  ideStore.ts lines 424–458: replaced fake GPU/WebGPU messages with real build/runtime events from GameBuildService.
-
-- ✅ AssetBrowser — fix file import (was a complete no-op)
-  AssetBrowser.tsx lines 63 + 71 wired to ideStore.addAsset().
-
-- ✅ SceneInspector — entities from store, not hardcoded INITIAL_ENTITIES
-  loadProjectFiles restores scene entity list.
-
-- ✅ EntityProperties — wire transform inputs and action buttons
-  Inputs use controlled state; Delete and Add Component buttons wired.
-
-- ✅ TilemapEditor — functional grid paint, tile palette, layer ops
-  Tileset image support; paint/erase/fill tools; layer management; JSON export.
-
-- ✅ SequenceEditor — functional cutscene timeline
-  Track lanes (dialogue, movement, audio, wait); drag keyframes; playback preview; Sequence asset export.
-
-- ✅ AudioMixer — wire volume/mute/solo to AudioSystem
-  AudioSystem.setBusVolume(id, v) wired; real bus list from store.
-
-- ✅ Profiler — replace Math.random() draw-call counter with real stat
-  Real drawCall counter via postMessage from preview iframe.
-
-- ✅ GitPanel — replace hardcoded stub data with real Tauri shell output
-
-- ✅ LocalisationEditor — functional i18n string table
-  Add/edit/delete keys across locales; import/export CSV; wired to engine i18nSystem.load().
-
-- ✅ TilemapEditor, SequenceEditor, LocalisationEditor — persist state to store
-  All three wired to ideStore so data survives tab switching and refresh.
-
-- ✅ Project save/load — restore scene, assets, and entity state
-  saveProjectJson serialises entities, assets, modules, tilemaps, sequences, localisation, variable store, window config, and vnNodes. loadProjectFiles restores all fields from the .project.json entry inside the project zip.
-
-- ✅ TilemapEditor — auto-tiling rule system
-  AutoTileSystem (engine): 8-bit neighbour bitmask rules → tile variant; applyToLayer() re-resolves a whole layer. AutoTileRulesModal (IDE): add/remove rules per base tile index, saved in project JSON.
-
-- ✅ Layer/window post-process filters
-  PostProcessSystem now supports per-layer filters: setLayerFilter(), clearLayerFilter(), toggleLayerFilter(), cssFilterForLayer(). Types: blur, colour-grade, outline, brightness, contrast, saturate, hue-rotate, invert. Each filter has an enabled toggle.
-
----
-
-## UI & Scene
-
-- ✅ UISystem render layer — wire to Canvas 2D draw pass
-  UISystemImpl tracks components and dispatches click events but nothing draws. Need a render pass walking \_roots per frame.
-
-- ✅ Built-in component animations (hover, fade-in, slide-in)
-  Declarative animation options on Button/Label/Panel without requiring coroutines.
-
-- ✅ Scene editor drag-and-drop UI placement
-  UIPlacementPanel: 9-point anchor picker + X/Y offset, component palette (panel, button, text, progress-bar, slider, toggle). Insert button appends UISystem.create() snippet to the active code file; copy button copies to clipboard.
-
-- ⬜ **[P2]** Alignment guides in scene editor
-  Toggleable snap lines (centre, edge, margin) with distance labels while dragging.
-
----
-
-## Mobile & Touch
-
-- ✅ MobileLayout — implement real panel layout for phones
-  Tab-based navigation: Code | Preview | Files | Inspector. Bottom tab bar.
-
-- ✅ Tablet layout — two-panel split with collapsible sidebar
-  "tablet" breakpoint (768–1024px) with two-column layout instead of full rc-dock.
-
-- ✅ Story Graph — one-finger pan, two-finger pinch zoom
-
-- ✅ VisualScriptEditor — touch pan + pinch zoom
-
-- ✅ TilemapEditor — touch-friendly tile paint
-
-- ✅ Virtual keyboard avoidance on mobile code editor
-  visualViewport API / CSS env(keyboard-inset-bottom).
-
----
-
-## Naming & Theme Consistency
-
-- ✅ "VN Graph" → "Story Graph" everywhere
-  ModuleRegistry, App.tsx makeTab calls, tab labels all updated.
-
-- ✅ Audit all CSS variables — enforce --es- prefix
-
-- ✅ Lock down engine glossary — document canonical terms
-
-- ✅ MenuBar module labels match ModuleRegistry labels exactly
-
----
-
-## Core & Runtime
-
-- ✅ Audit engine/src for stub exports or unimplemented methods
-
-- ✅ PhysicsSystem3D.destroy() — verify WASM memory is freed
-
-- ✅ engine/index.ts — ensure all systems are re-exported
-
-- ✅ PluginSystem — confirm singleton is not constructed per scene
-
-- ✅ Fix all TypeScript/ESLint warnings in packages/toolchain
-
-- ✅ Installation warnings — clean pnpm install output
-
-- ✅ WindowSystem — Tauri + browser window management API
-  windowSystem.apply(), setMode(), setTitle(), setSize(), setResizable(), center(). Runtime Tauri detection via **TAURI_INTERNALS**. Shipped as packages/engine/src/systems/WindowSystem.ts.
-
-- ✅ Behaviors system — reusable per-entity logic components
-  BehaviorComponent base class; attach to entity; receives onUpdate(dt).
-
-- ✅ Hot-reload — update running game without full restart
-  esbuild incremental build + postMessage to preview iframe to swap module. Entity state preserved.
-
----
-
-## Build & Compile
-
-- ✅ GameBuildService — wire buildWorkers setting to esbuild worker count
-
-- ✅ Compile targets — verify web / desktop / Android / iOS export flows
-
-- ✅ File write on save — Tauri fs write, web download fallback
-
-- ✅ virtualFiles completeness check before build
-
-- ✅ ESM format + top-level await support in game code
-  format:"esm", <script type="module"> blob URL with allow-same-origin sandbox.
-
-- ✅ Compile-time builtins: PROJECT_TITLE, PROJECT_NAME, GAME_WIDTH, GAME_HEIGHT, DEBUG
-  esbuild define option. Ambient declare const in packages/engine/src/builtins.d.ts.
-
----
-
-## Performance
-
-- ✅ Settings: powerMode selector (performance / balanced / saver)
-- ✅ Settings: idleCpuCap slider (10–100%)
-- ✅ Settings: buildWorkers slider (1 to hardwareConcurrency)
-
-- ✅ Wire powerMode — throttle RAF / reduce canvas resolution in saver mode
-
-- ✅ Wire idleCpuCap — throttle background workers when IDE is unfocused
-
-- ✅ GPU flags in Tauri lib.rs — verify NvOptimus / AmdPowerExpress symbols present
-
----
-
-## GMS2 Import
-
-- ✅ Migration guide docs (GMS2 → EmptySock)
-  docs/manual/11-gms2-migration.md: GML mapping, asset status table, import walkthrough.
-
-- ✅ GMS2 importer — expose in IDE (Tauri command wrapper)
-
-- ✅ MCP gms2_inspect_project — validate actual .yyp parsing
-
-- ✅ GMS2 sprite import — convert PNG sheets to engine Sprite assets
-  Parse .yy sprite metadata, strip frame data, output engine-compatible asset JSON.
-
-- ✅ GMS2 room import — convert room JSON to TilemapEditor format
-  Parse room layers (tiles, instances, assets), output tilemap + entity list.
-
-- ✅ GMS2 GML → TypeScript stub converter
-  gmlStubConverter.ts: gmlObjectToTypeScript() parses GML object .yy, maps 15 event types to EmptySock method names, outputs importable TypeScript class. gmlObjectDirToTypeScript() walks a directory.
-
----
-
-## Documentation
-
-- ✅ Tutorial: mini platformer (docs/manual/12-tutorial-platformer.md)
-- ✅ Tutorial: visual novel (docs/manual/13-tutorial-visual-novel.md)
-- ✅ Tutorial: bullet hell (docs/manual/15-tutorial-bullet-hell.md)
-- ✅ docs/manual/07-ide-reference.md — Story Graph, Power Saver, web-only download
-- ✅ docs/manual/05-systems-reference.md — ParticleSystem texture, updated Story Graph
-- ✅ api-reference.json — ParticleSystem texture, Story Graph, WindowSystem, builtins
-
-- ✅ docs/manual/08-tutorial-pong.md — verified complete, uses current API
-  All imports from @emptysock/engine; no async onUpdate; Actor pattern, UISystem HUD, AudioSystem on bounce.
-
-- ✅ Add beginner "concepts" page — ECS, Scenes, Entities in plain language
-  docs/manual/00-concepts.md: ECS overview, Scene lifecycle, Entity/Component model.
-
----
-
-## MCP Server
-
-- ✅ particle_emitter_config — get/set emitter config via MCP
-- ✅ story_graph_export — export Story Graph JSON via MCP
-- ✅ scene_create_entity — add entity to scene via MCP
-
-- ✅ Ensure all tools documented in README.md under "Available tools"
-
-- ✅ Add tests for new MCP tools in src/tests/tools.test.ts
-
----
-
-## AI Skills
-
-- ✅ skills/08-story-graph.md — Story Graph skill file
-- ✅ skills/00-quickstart.md — updated with Story Graph, particles, window system
-- ✅ skills/10-window-system.md — WindowSystem skill + compile-time constants
-- ✅ skills/09-particles.md — ParticleSystem with texture examples
-- ✅ README.md skills table — Story Graph + WindowSystem rows
-- ✅ ai/api-reference.json — WindowSystem system + builtins section
-
----
-
-## GMRT Feature Backlog
-
-- ✅ Hot-reload — GMLive-style module swap in running preview
+- ✅ Alignment guides in scene editor
+  Shared editorGrid.ts: drawGrid, drawRulers (adaptive ticks, scroll+zoom-aware), drawGuides, snapToGrid, computeAlignmentGuides. Applied to UIPlacementPanel, TilemapEditor, VNEditor, CanvasPreview.
 
 - ⬜ **[P2]** Debugger integration — breakpoints + variable inspector in preview
   iframe DevTools protocol bridge or log-based step debugger in ConsolePanel.
 
-- ✅ Multiplayer boilerplate — NetworkActor Transport interface example (WebSocket)
-  docs/manual/19-multiplayer-boilerplate.md: WebSocket Transport implementation, NetworkActor connect/disconnect, lobby pattern.
-
-- ✅ Spine / Spriter animation import — skeletal animation support (plan documented)
-
-- ✅ Shader editor — GLSL snippet editor with live preview in CanvasPreview
-  ShaderEditor.tsx: vertex/fragment tab editor, WebGL live preview canvas, compile/error display.
-
-- ✅ ds_map / ds_list compatibility shim for GML migrants
-
-- ✅ draw_* compatibility layer — canvas API wrappers matching GML names
-
----
-
-## Ren'Py-style VN
-
-> Uses the existing VNSystem + Story Graph as the backbone. The JSON-based .vnscript format is the authoring target; the Story Graph editor is the visual interface into it.
-
-- ✅ UISystem render layer (prerequisite — see UI & Scene above)
-
-- ✅ VN scene preview panel
-  VNPreviewPanel.tsx: node picker, Canvas 2D renders background + characters + textbox at the selected Story Graph node without running the full game.
-
-- ✅ Character sprite stage
-  CharacterStage: left/centre/right slots, opacity fade in/out, render(ctx) draws sprites. VNBackgroundLayer: background + CG overlay with fit modes and cross-fade.
-
-- ✅ VN textbox component
-  Built-in dialogue box rendered by UISystem. Auto-advance on timer or wait for click/key. Speaker name plate. Wired to VNSystem.onNode() so no boilerplate needed in game code.
-
-- ✅ Background and CG overlay layers
-  VNBackgroundLayer: setBackground(), showCG(), clearBackground(), hideCG() with fade and fit modes. Renders beneath CharacterStage.
-
-- ✅ .vnscript ↔ Story Graph round-trip
-  Export the Story Graph to .vnscript JSON; import a .vnscript JSON back into the graph. Both directions lossless for dialogue, choice, jump, and variable-set nodes.
-
-- ✅ CG gallery
-  Unlock-based image gallery backed by SaveSystem boolean flags. Unlocked on first view of a tagged CG node.
-
----
-
-## RPG Maker MV-style
-
-> Tilemap layers are already shipped. Auto-tiling is tracked above (Panels P1). Items here cover the database, event, and battle systems. Each is a sizeable module; treat as a phased backlog.
-
-- ✅ Named game variable/switch store — panel UI
-  Persistent numbered variables (integers) and boolean switches, editable in a dedicated panel. Backed by SaveSystem.
-
-- ✅ Map event system
-  MapEventSystem: tile-bound events with autorun/player-touch/action-button/parallel triggers. Sequential command runner with async handler support. Commands: show-dialogue, set-variable, set-switch, play-audio, transition-scene, move-character.
-
-- ✅ Grid-based character movement
-  4-directional tile-aligned movement with collision against a solid layer flag. Step events, move routes, face-direction commands.
-
-- ✅ Database editor panel
-  Actors, classes, skills, items, enemies, states with formula fields (ATK, DEF, damage expressions). Stored as project JSON.
-
 - ⬜ **[P2]** Turn-based battle system module
   Party vs enemy encounter triggered from map events. Action menu (attack, skill, item, flee). Formula-based damage from database entries. State effects (poison, stun). Opt-in module flag.
+
+---
+
+## Undo / Redo
+
+Every editor that mutates data needs a history stack. The pattern is a shared `useHistory<T>` hook (or Zustand middleware) that records snapshots on each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Keyboard: `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`. Panels:
+
+- ⬜ TilemapEditor — paint, erase, fill, flood-fill, layer add/remove/reorder
+- ⬜ VNEditor (Story Graph) — node add/move/delete, edge add/delete, node content edits
+- ⬜ UIPlacementPanel — component place, move, delete
+- ⬜ SequenceEditor — keyframe add/move/delete, track add/delete, value edits
+- ⬜ LocalisationEditor — key add/edit/delete, locale add/remove
+- ⬜ DatabaseEditor — row add/edit/delete across all four tables
+- ⬜ VariablesPanel — variable/switch add/edit/delete
+- ⬜ EntityProperties — transform edits, component add/delete, entity rename
+- ⬜ SceneInspector — entity add/delete/reorder
+- ⬜ ParticleEditor — emitter config changes (every slider/picker interaction)
+- ⬜ ShaderEditor — vertex/fragment source edits (distinct from Monaco's built-in undo which is file-scoped)
+- ⬜ AutoTileRulesModal — rule add/edit/delete
+
+Implementation note: Monaco already has its own undo stack per file — don't replace it. For canvas editors a snapshot of the tile data array is sufficient; for graph editors snapshot the node+edge list. Cap history at ~50 steps per panel to bound memory. Persist nothing — undo history is session-only.
+
+---
+
+## TypeScript config hardening
+
+Changes apply to the tsconfig.json at each package root. All flags are already valid in TypeScript 5.7.
+
+### packages/engine/tsconfig.json
+
+- ⬜ `"noUncheckedIndexedAccess": true` — every array index access (`arr[i]`) becomes `T | undefined`; eliminates the entire class of `!` assertion bugs the audit found in LightingSystem, NavMeshSystem, etc. **Highest priority.** Expect ~20 fixups on first enable.
+- ⬜ `"exactOptionalPropertyTypes": true` — prevents assigning `undefined` to an optional field that doesn't declare `| undefined`; catches a class of subtle state-mutation bugs.
+- ⬜ `"noPropertyAccessFromIndexSignature": true` — forces `obj['key']` over `obj.key` when the type is an index signature; makes dynamic property access explicit and auditable.
+- ⬜ `"verbatimModuleSyntax": true` — requires `import type` for type-only imports; produces cleaner output for bundlers and esbuild's type-strip path.
+
+### apps/ide/tsconfig.json
+
+- ⬜ `"noUncheckedIndexedAccess": true` — same as above; the panel audit found multiple unguarded index accesses.
+- ⬜ `"verbatimModuleSyntax": true` — Vite already supports this; keeps the IDE bundle lean.
+- ⬜ `"moduleDetection": "force"` — treats every `.ts`/`.tsx` file as a module even without imports/exports; prevents accidental global scope pollution in isolated panel files.
+- ⬜ `"isolatedModules": true` — already implied by Vite but making it explicit catches any file that relies on const enum or namespace merging which Vite's single-file transpile can't handle.
+
+### packages/toolchain/tsconfig.json
+
+- ⬜ `"noUncheckedIndexedAccess": true`
+- ⬜ `"verbatimModuleSyntax": true`
+
+### All packages
+
+- ⬜ Add `"lib": ["ES2025"]` — enables `Array.prototype.toSorted`, `toReversed`, `with`, `Object.groupBy`, `Promise.withResolvers`, `Set` methods (union/intersection/difference). Currently available in Node 22 and all modern browsers. Removes need for polyfills in engine util code.
+
+---
+
+## Vite config improvements
+
+Applies to `apps/ide/vite.config.ts`.
+
+### Build output quality
+
+- ⬜ `build.target: 'esnext'` and `esbuild.target: 'esnext'` — stops Vite from downcompiling modern syntax (top-level await, `using`, logical assignment) that is natively supported in the Tauri WebView and modern browsers. Produces smaller output.
+- ⬜ `build.sourcemap: true` for production builds (at minimum `'hidden'`) — enables crash-report symbolication for shipped Tauri builds without exposing sources publicly.
+- ⬜ `build.cssCodeSplit: false` — consolidate CSS into one file; avoids a class of flash-of-unstyled-content issues with rc-dock's dynamic panel insertion.
+- ⬜ `build.modulePreload: { polyfill: false }` — the Tauri WebView and target browsers all support native module preload; the polyfill adds ~1.5 kB for nothing.
+
+### Development experience
+
+- ⬜ `css.lightningcss: true` (Vite 5.4+) — drop-in replacement for PostCSS for standard transforms; 50–100× faster CSS processing. Requires removing postcss.config.js if present.
+- ⬜ `server.warmup: { clientFiles: ['./src/App.tsx', './src/store/ideStore.ts', './src/lib/editorGrid.ts'] }` — pre-transforms the heaviest entry files on dev-server start so first load isn't slow.
+- ⬜ `optimizeDeps.include: ['react', 'react-dom', 'zustand', 'rc-dock']` — force pre-bundling of packages that would otherwise be discovered lazily and stall the first HMR.
+
+### Worker config
+
+- ⬜ `worker.format: 'es'` — emit game build workers as ES modules instead of IIFE; consistent with the `format: 'esm'` setting in GameBuildService and required for `import.meta` inside workers.
+
+---
+
+## Architectural debt (found during audit, not yet tracked)
+
+- ⬜ AudioSystem ↔ AudioMixerService bridge — the IDE mixer panel sets volumes on `AudioMixerService` (a Web Audio GainNode graph) which has no connection to the engine's `AudioSystem`. Volume changes in the IDE have zero effect on in-game sounds. Fix: route IDE mixer through `AudioSystem.setBusVolume` via the preview iframe `postMessage` channel, same as the draw-call counter.
+- ⬜ CGGallery uses SaveSystem with dummy `scene: ''` and `playtime: 0` fields — makes gallery entries look like corrupted save files in any listing UI. Migrate to VariableStore which already serialises boolean flags.
+- ⬜ SequenceEditor track types are generic numeric keyframes (Position X/Y, Rotation, Scale, Opacity) — not the dialogue/movement/audio/wait lanes described in the original spec. Either rename the panel to "Keyframe Animator" to reflect what it is, or add the VN/RPG lane types.
+- ⬜ `GameBuildService.transformOnly()` uses `format: 'iife'` — inconsistent with the ESM main build pipeline; any top-level await in transformed code silently breaks. Change to `format: 'esm'`.
+- ⬜ No validation that compile-time defines (`PROJECT_TITLE`, `GAME_WIDTH`, `GAME_HEIGHT`, `DEBUG`) are passed before `GameBuildService.buildNow()` — a caller that omits them produces a bundle with undefined references and no warning.
+- ⬜ `CLAUDE.md` says `getComponent` uses constructor function as key — actually uses a string `component.type`. Any agent reading docs before code generates wrong call patterns. Update the doc.
+- ⬜ UISystem `image` component renders a grey placeholder box — no actual image loading. Needs an `ImageLoader` callback interface (defined in `@emptysock/types`) injected at construction time so the DOM implementation can be provided by game code without the engine importing DOM APIs.
+
+---
+
+## Nice-to-have QoL
+
+Low-cost additions that would noticeably improve daily use:
+
+- ⬜ Asset preview on hover in AssetBrowser — tooltip showing the image at a fixed size; zero backend work, pure UI
+- ⬜ Minimap in VNEditor — a small SVG overview of the full graph in the corner; essential once a script has 30+ nodes
+- ⬜ Error overlay in preview iframe — when game code throws an uncaught error, show a red banner with the stack trace instead of a silent blank canvas
+- ⬜ Multi-select in SceneInspector — Shift/Ctrl+click to select multiple entities for bulk move/delete
+- ⬜ SceneInspector filter/search — text input that filters entity list by name; important at 50+ entities
+- ⬜ VNPreviewPanel — show visual indicator for `event` and `jump` node types instead of blank canvas (currently silent)
+- ⬜ Git diff view in GitPanel — currently shows status only; inline diff of changed files
+- ⬜ FPS target setting — let the game preview run at 30/60/120 fps cap; useful for mobile perf testing on desktop
+- ⬜ Code snippet palette — right-click in CodeEditor to insert common patterns (create entity, add component, start coroutine, etc.)
