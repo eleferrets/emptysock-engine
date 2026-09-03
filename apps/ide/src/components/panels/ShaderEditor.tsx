@@ -1,5 +1,6 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 const VERTEX_PLACEHOLDER = `attribute vec2 aVertexPosition;
 attribute vec2 aTextureCoord;
@@ -28,13 +29,46 @@ void main(void) {
 
 type ShaderType = "vertex" | "fragment";
 
+interface ShaderState {
+  vertSrc: string;
+  fragSrc: string;
+}
+
 export function ShaderEditor(): React.ReactElement {
   const [activeShader, setActiveShader] =
     React.useState<ShaderType>("fragment");
-  const [vertSrc, setVertSrc] = React.useState(VERTEX_PLACEHOLDER);
-  const [fragSrc, setFragSrc] = React.useState(FRAGMENT_PLACEHOLDER);
+  const {
+    state: shaderState,
+    set: setShaderState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<ShaderState>({
+    vertSrc: VERTEX_PLACEHOLDER,
+    fragSrc: FRAGMENT_PLACEHOLDER,
+  });
+  const vertSrc = shaderState.vertSrc;
+  const fragSrc = shaderState.fragSrc;
   const [compileError, setCompileError] = React.useState<string | null>(null);
   const [compiled, setCompiled] = React.useState(false);
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const glRef = React.useRef<WebGLRenderingContext | null>(null);
   const rafRef = React.useRef<number | null>(null);
@@ -43,7 +77,29 @@ export function ShaderEditor(): React.ReactElement {
   const addLog = useIDEStore((s) => s.addLog);
 
   const src = activeShader === "vertex" ? vertSrc : fragSrc;
-  const setSrc = activeShader === "vertex" ? setVertSrc : setFragSrc;
+  const [liveSrc, setLiveSrc] = React.useState(src);
+  // Keep liveSrc in sync when switching tabs or undoing
+  const prevActiveRef = React.useRef(activeShader);
+  const prevShaderStateRef = React.useRef(shaderState);
+  React.useEffect(() => {
+    if (
+      shaderState !== prevShaderStateRef.current ||
+      activeShader !== prevActiveRef.current
+    ) {
+      prevShaderStateRef.current = shaderState;
+      prevActiveRef.current = activeShader;
+      setLiveSrc(
+        activeShader === "vertex" ? shaderState.vertSrc : shaderState.fragSrc,
+      );
+    }
+  }, [shaderState, activeShader]);
+  const commitSrc = (value: string): void => {
+    if (activeShader === "vertex") {
+      setShaderState({ vertSrc: value, fragSrc });
+    } else {
+      setShaderState({ vertSrc, fragSrc: value });
+    }
+  };
 
   const compileShader = (
     gl: WebGLRenderingContext,
@@ -80,7 +136,6 @@ export function ShaderEditor(): React.ReactElement {
     if (!vert || !frag) return;
 
     const prog = gl.createProgram();
-    if (!prog) return;
     gl.attachShader(prog, vert);
     gl.attachShader(prog, frag);
     gl.linkProgram(prog);
@@ -108,7 +163,7 @@ export function ShaderEditor(): React.ReactElement {
     const timeLoc = gl.getUniformLocation(prog, "uTime");
 
     gl.useProgram(prog);
-    if (projLoc) {
+    if (projLoc !== null) {
       gl.uniformMatrix3fv(projLoc, false, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
     }
 
@@ -122,7 +177,7 @@ export function ShaderEditor(): React.ReactElement {
     const tick = (): void => {
       if (!glRef.current) return;
       const t = (Date.now() - startRef.current) / 1000;
-      if (timeLoc) gl.uniform1f(timeLoc, t);
+      if (timeLoc !== null) gl.uniform1f(timeLoc, t);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -194,9 +249,46 @@ export function ShaderEditor(): React.ReactElement {
               {t}
             </button>
           ))}
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{
+              margin: "4px 2px",
+              padding: "0 8px",
+              background: "transparent",
+              color: "var(--es-text)",
+              border: "none",
+              cursor: canUndo ? "pointer" : "default",
+              opacity: canUndo ? 1 : 0.4,
+              fontSize: 14,
+            }}
+          >
+            ↩
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            style={{
+              margin: "4px 2px",
+              padding: "0 8px",
+              background: "transparent",
+              color: "var(--es-text)",
+              border: "none",
+              cursor: canRedo ? "pointer" : "default",
+              opacity: canRedo ? 1 : 0.4,
+              fontSize: 14,
+            }}
+          >
+            ↪
+          </button>
           <div style={{ flex: 1 }} />
           <button
-            onClick={runPreview}
+            onClick={() => {
+              commitSrc(liveSrc);
+              runPreview();
+            }}
             style={{
               margin: "4px 8px",
               padding: "0 12px",
@@ -215,8 +307,9 @@ export function ShaderEditor(): React.ReactElement {
 
         {/* Source textarea */}
         <textarea
-          value={src}
-          onChange={(e) => setSrc(e.target.value)}
+          value={liveSrc}
+          onChange={(e) => setLiveSrc(e.target.value)}
+          onBlur={(e) => commitSrc(e.target.value)}
           spellCheck={false}
           style={{
             flex: 1,

@@ -144,7 +144,10 @@ export function ParticleEditor(): React.ReactElement {
     img.onload = (): void => {
       setSpriteImg(img);
       const next = { ...liveConfigRef.current, textureName: file.name };
-      setLiveConfig(next); liveConfigRef.current = next; prevConfigRef.current = next; setConfig(next);
+      setLiveConfig(next);
+      liveConfigRef.current = next;
+      prevConfigRef.current = next;
+      setConfig(next);
     };
     img.src = url;
     e.target.value = "";
@@ -153,7 +156,10 @@ export function ParticleEditor(): React.ReactElement {
   const clearSprite = (): void => {
     setSpriteImg(null);
     const next = { ...liveConfigRef.current, textureName: "" };
-    setLiveConfig(next); liveConfigRef.current = next; prevConfigRef.current = next; setConfig(next);
+    setLiveConfig(next);
+    liveConfigRef.current = next;
+    prevConfigRef.current = next;
+    setConfig(next);
   };
 
   const spawn = (cfg: EmitterConfig): Particle => {
@@ -317,7 +323,50 @@ export function ParticleEditor(): React.ReactElement {
           flexShrink: 0,
         }}
       >
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>Emitter</div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 8,
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>Emitter</span>
+          <div style={{ display: "flex", gap: 2 }}>
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              style={{
+                padding: "2px 6px",
+                background: "none",
+                border: "none",
+                color: "var(--es-text)",
+                cursor: canUndo ? "pointer" : "default",
+                opacity: canUndo ? 1 : 0.4,
+                fontSize: 14,
+              }}
+            >
+              ↩
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Shift+Z)"
+              style={{
+                padding: "2px 6px",
+                background: "none",
+                border: "none",
+                color: "var(--es-text)",
+                cursor: canRedo ? "pointer" : "default",
+                opacity: canRedo ? 1 : 0.4,
+                fontSize: 14,
+              }}
+            >
+              ↪
+            </button>
+          </div>
+        </div>
 
         {/* Sprite texture */}
         <div style={{ marginBottom: 10 }}>
