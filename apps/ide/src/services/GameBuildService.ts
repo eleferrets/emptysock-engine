@@ -146,6 +146,25 @@ function checkVirtualFilesCompleteness(
   }
 }
 
+function validateDefines(define: Record<string, string>): void {
+  const required = [
+    "PROJECT_TITLE",
+    "GAME_WIDTH",
+    "GAME_HEIGHT",
+    "DEBUG",
+  ] as const;
+  const addLog = useIDEStore.getState().addLog;
+  for (const key of required) {
+    if (define[key] === undefined) {
+      addLog(
+        "warn",
+        `Build: missing define "${key}" — bundle will contain undefined references`,
+        "BuildService",
+      );
+    }
+  }
+}
+
 async function runBuild(
   code: string,
   mode: "debug" | "release",
@@ -155,6 +174,7 @@ async function runBuild(
   target: string[] = ["es2026"],
   define: Record<string, string> = {},
 ): Promise<BuildJobResult> {
+  validateDefines(define);
   checkVirtualFilesCompleteness(virtualFiles);
   const start = Date.now();
   try {
@@ -278,7 +298,7 @@ export class GameBuildService {
     const loader = loaderForFilename(filename);
     const result = await esbuild.transform(code, {
       loader,
-      format: "iife",
+      format: "esm",
       target: ["es2026"],
     });
     return result.code;

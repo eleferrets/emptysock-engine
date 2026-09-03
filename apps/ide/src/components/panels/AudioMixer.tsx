@@ -19,6 +19,31 @@ export function AudioMixer(): React.ReactElement {
     if (patch.solo !== undefined) {
       audioMixerService.setSolo(id, patch.solo);
     }
+    if (patch.volume !== undefined || patch.muted !== undefined) {
+      const updatedBus = useIDEStore
+        .getState()
+        .audioBuses.find((b) => b.id === id);
+      if (updatedBus !== undefined) {
+        const iframe =
+          document.querySelector<HTMLIFrameElement>(
+            'iframe[title="Game Preview"]',
+          ) ?? document.querySelector<HTMLIFrameElement>("iframe");
+        if (
+          iframe?.contentWindow !== null &&
+          iframe?.contentWindow !== undefined
+        ) {
+          iframe.contentWindow.postMessage(
+            {
+              type: "audio-bus",
+              busId: updatedBus.id,
+              volume: updatedBus.volume,
+              mute: updatedBus.muted,
+            },
+            "*",
+          );
+        }
+      }
+    }
   };
 
   const hasSolo = buses.some((b) => b.solo);
@@ -129,18 +154,20 @@ export function AudioMixer(): React.ReactElement {
                   onChange={(e) =>
                     update(bus.id, { volume: Number(e.target.value) })
                   }
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    appearance: "none",
-                    WebkitAppearance: "none",
-                    writingMode: "vertical-lr",
-                    direction: "rtl",
-                    width: 32,
-                    height: "100%",
-                    opacity: 0.01,
-                    cursor: "ns-resize",
-                  } as React.CSSProperties}
+                  style={
+                    {
+                      position: "absolute",
+                      inset: 0,
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      writingMode: "vertical-lr",
+                      direction: "rtl",
+                      width: 32,
+                      height: "100%",
+                      opacity: 0.01,
+                      cursor: "ns-resize",
+                    } as React.CSSProperties
+                  }
                 />
               </div>
 
