@@ -9,7 +9,7 @@ import {
   AlignCenter,
 } from "lucide-react";
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
-import { useIDEStore } from "../../store/ideStore";
+import { useIDEStore, debugCommandBus } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
 import { drawGrid, drawRulers, drawGuides } from "../../lib/editorGrid";
 
@@ -48,6 +48,9 @@ export function CanvasPreview(): React.ReactElement {
     setEditorShowRuler,
     setEditorSnapToGrid,
     setEditorShowGuides,
+    debugBreakpoints,
+    setDebuggerPaused,
+    setDebuggerVars,
   } = useIDEStore();
 
   const initDemo = useCallback(async (): Promise<void> => {
@@ -202,6 +205,56 @@ export function CanvasPreview(): React.ReactElement {
     editorSnapToGrid,
     editorShowGuides,
   ]);
+
+  // ── Debugger: relay debug commands from the IDE to the game iframe ───────────
+  useEffect(() => {
+    function onDebugCmd(event: Event): void {
+      const detail = (event as CustomEvent<{ type: string }>).detail;
+      const iframe =
+        runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
+      iframe?.contentWindow?.postMessage({ type: detail.type }, '*');
+    }
+    debugCommandBus.addEventListener('debug-cmd', onDebugCmd);
+    return () => debugCommandBus.removeEventListener('debug-cmd', onDebugCmd);
+  }, []);
+
+  // ── Debugger: listen for debug messages posted by the game iframe ────────────
+  useEffect(() => {
+    function onMessage(event: MessageEvent): void {
+      const data = event.data;
+      if (typeof data !== 'object' || data === null) return;
+      const d = data as Record<string, unknown>;
+      const msgType = d['type'];
+      if (msgType === 'debug:break') {
+        setDebuggerPaused(true);
+        const vars = d['vars'];
+        if (typeof vars === 'object' && vars !== null) {
+          setDebuggerVars(vars as Record<string, unknown>);
+        }
+        addLog('debug', `Breakpoint: ${String(d['label'] ?? 'unknown')}`, 'Debugger');
+      } else if (msgType === 'debug:vars') {
+        const vars = d['vars'];
+        if (typeof vars === 'object' && vars !== null) {
+          setDebuggerVars(vars as Record<string, unknown>);
+        }
+      } else if (msgType === 'debug:resume') {
+        setDebuggerPaused(false);
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [setDebuggerPaused, setDebuggerVars, addLog]);
+
+  // ── Debugger: sync active breakpoints into the game iframe ───────────────────
+  useEffect(() => {
+    if (playState !== 'playing') return;
+    const iframe =
+      runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
+    iframe?.contentWindow?.postMessage(
+      { type: 'debug:setBreakpoints', labels: debugBreakpoints },
+      '*',
+    );
+  }, [debugBreakpoints, playState]);
 
   const rendererType = "WebGL2";
 
@@ -461,7 +514,13 @@ export function CanvasPreview(): React.ReactElement {
                     : fps >= 30
                       ? "var(--es-yellow)"
                       : "var(--es-red)",
-                boxShadow: `0 0 4px ${fps >= 55 ? "var(--es-green)" : fps >= 30 ? "var(--es-yellow)" : "var(--es-red)"}`,
+                boxShadow: `0 0 4px ${
+                  fps >= 55
+                    ? "var(--es-green)"
+                    : fps >= 30
+                      ? "var(--es-yellow)"
+                      : "var(--es-red)"
+                }`,
               }}
             />
             <span style={{ color: "var(--es-text-muted)" }}>FPS</span>
