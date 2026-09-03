@@ -1,10 +1,10 @@
-import type { DialogueNode, DialogueTree } from './VNSystem.js';
+import type { DialogueNode, DialogueTree } from "./VNSystem.js";
 
 // Story Graph node/edge types — the visual-editor representation persisted
 // in the IDE and exported as .storyGraph.json.
 export interface StoryGraphNode {
   id: string;
-  type: 'dialogue' | 'choice';
+  type: "dialogue" | "choice";
   x: number;
   y: number;
   speaker?: string;
@@ -38,14 +38,16 @@ export function storyGraphToDialogueTree(graph: StoryGraph): DialogueTree {
   const nodeMap: Record<string, DialogueNode> = {};
 
   for (const gn of graph.nodes) {
-    if (gn.type === 'dialogue') {
+    if (gn.type === "dialogue") {
       // Find the single outgoing edge from port 0
-      const nextEdge = graph.edges.find((e) => e.from === gn.id && e.fromPort === 0);
+      const nextEdge = graph.edges.find(
+        (e) => e.from === gn.id && e.fromPort === 0,
+      );
       const node: DialogueNode = {
-        type: 'dialogue',
-        speaker: gn.speaker ?? '',
+        type: "dialogue",
+        speaker: gn.speaker ?? "",
         text: gn.text,
-        next: nextEdge?.to,
+        ...(nextEdge !== undefined ? { next: nextEdge.to } : {}),
       };
       nodeMap[gn.id] = node;
     } else {
@@ -58,7 +60,7 @@ export function storyGraphToDialogueTree(graph: StoryGraph): DialogueTree {
         label: labels[i] ?? `Option ${i + 1}`,
         next: e.to,
       }));
-      const node: DialogueNode = { type: 'choice', text: gn.text, options };
+      const node: DialogueNode = { type: "choice", text: gn.text, options };
       nodeMap[gn.id] = node;
     }
   }
@@ -106,43 +108,65 @@ export function dialogueTreeToStoryGraph(tree: DialogueTree): StoryGraph {
     const y = row * LAYOUT_ROW_HEIGHT + 40;
     colRowCount[col] = (colRowCount[col] ?? 0) + 1;
 
-    if (dn.type === 'dialogue') {
-      nodes.push({ id, type: 'dialogue', x, y, speaker: dn.speaker, text: dn.text });
+    if (dn.type === "dialogue") {
+      nodes.push({
+        id,
+        type: "dialogue",
+        x,
+        y,
+        speaker: dn.speaker,
+        text: dn.text,
+      });
       if (dn.next !== undefined) {
-        edges.push({ id: `e${edgeCounter++}`, from: id, fromPort: 0, to: dn.next });
+        edges.push({
+          id: `e${edgeCounter++}`,
+          from: id,
+          fromPort: 0,
+          to: dn.next,
+        });
         const nextRow = colRowCount[col + 1] ?? 0;
         queue.push({ id: dn.next, col: col + 1, row: nextRow });
       }
-    } else if (dn.type === 'event') {
+    } else if (dn.type === "event") {
       nodes.push({
         id,
-        type: 'dialogue',
+        type: "dialogue",
         x,
         y,
-        speaker: '[event]',
+        speaker: "[event]",
         text: `${dn.eventName}`,
       });
       if (dn.next !== undefined) {
-        edges.push({ id: `e${edgeCounter++}`, from: id, fromPort: 0, to: dn.next });
+        edges.push({
+          id: `e${edgeCounter++}`,
+          from: id,
+          fromPort: 0,
+          to: dn.next,
+        });
         const nextRow = colRowCount[col + 1] ?? 0;
         queue.push({ id: dn.next, col: col + 1, row: nextRow });
       }
-    } else if (dn.type === 'choice') {
+    } else if (dn.type === "choice") {
       nodes.push({
         id,
-        type: 'choice',
+        type: "choice",
         x,
         y,
         text: dn.text,
         options: dn.options.map((o) => o.label),
       });
       dn.options.forEach((opt, i) => {
-        edges.push({ id: `e${edgeCounter++}`, from: id, fromPort: i, to: opt.next });
+        edges.push({
+          id: `e${edgeCounter++}`,
+          from: id,
+          fromPort: i,
+          to: opt.next,
+        });
         const nextRow = colRowCount[col + 1] ?? 0;
         queue.push({ id: opt.next, col: col + 1, row: nextRow });
         colRowCount[col + 1] = (colRowCount[col + 1] ?? 0) + 1;
       });
-    } else if (dn.type === 'jump') {
+    } else if (dn.type === "jump") {
       // Flatten jump nodes — don't add a graph node, just follow the target
       if (!visited.has(dn.target)) {
         const nextRow = colRowCount[col] ?? 0;

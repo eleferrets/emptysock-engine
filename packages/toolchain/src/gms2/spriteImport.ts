@@ -58,15 +58,24 @@ function resolveOrigin(
   seq: GMS2Sequence,
 ): { originX: number; originY: number } {
   switch (code) {
-    case 0: return { originX: 0, originY: 0 };
-    case 1: return { originX: width / 2, originY: 0 };
-    case 2: return { originX: width, originY: 0 };
-    case 3: return { originX: 0, originY: height / 2 };
-    case 4: return { originX: width / 2, originY: height / 2 };
-    case 5: return { originX: width, originY: height / 2 };
-    case 6: return { originX: 0, originY: height };
-    case 7: return { originX: width / 2, originY: height };
-    case 8: return { originX: width, originY: height };
+    case 0:
+      return { originX: 0, originY: 0 };
+    case 1:
+      return { originX: width / 2, originY: 0 };
+    case 2:
+      return { originX: width, originY: 0 };
+    case 3:
+      return { originX: 0, originY: height / 2 };
+    case 4:
+      return { originX: width / 2, originY: height / 2 };
+    case 5:
+      return { originX: width, originY: height / 2 };
+    case 6:
+      return { originX: 0, originY: height };
+    case 7:
+      return { originX: width / 2, originY: height };
+    case 8:
+      return { originX: width, originY: height };
     case 9:
       return {
         originX: seq.xorigin ?? width / 2,
@@ -81,14 +90,18 @@ function resolveOrigin(
 
 function assertString(val: unknown, field: string, src: string): string {
   if (typeof val !== "string") {
-    throw new Error(`importGMS2Sprite: missing or invalid "${field}" in "${src}"`);
+    throw new Error(
+      `importGMS2Sprite: missing or invalid "${field}" in "${src}"`,
+    );
   }
   return val;
 }
 
 function assertNumber(val: unknown, field: string, src: string): number {
   if (typeof val !== "number") {
-    throw new Error(`importGMS2Sprite: missing or invalid "${field}" in "${src}"`);
+    throw new Error(
+      `importGMS2Sprite: missing or invalid "${field}" in "${src}"`,
+    );
   }
   return val;
 }
@@ -98,7 +111,9 @@ function parseYY(raw: string, yyPath: string): GMS2SpriteYY {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new Error(`importGMS2Sprite: invalid JSON in "${yyPath}": ${String(err)}`);
+    throw new Error(
+      `importGMS2Sprite: invalid JSON in "${yyPath}": ${String(err)}`,
+    );
   }
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error(`importGMS2Sprite: root must be an object in "${yyPath}"`);
@@ -110,28 +125,46 @@ function parseYY(raw: string, yyPath: string): GMS2SpriteYY {
   const height = assertNumber(obj["height"], "height", yyPath);
 
   if (!Array.isArray(obj["frames"])) {
-    throw new Error(`importGMS2Sprite: "frames" must be an array in "${yyPath}"`);
+    throw new Error(
+      `importGMS2Sprite: "frames" must be an array in "${yyPath}"`,
+    );
   }
   const frames = (obj["frames"] as unknown[]).map((f, i) => {
     if (typeof f !== "object" || f === null) {
-      throw new Error(`importGMS2Sprite: frames[${i}] is not an object in "${yyPath}"`);
+      throw new Error(
+        `importGMS2Sprite: frames[${i}] is not an object in "${yyPath}"`,
+      );
     }
     const fo = f as Record<string, unknown>;
     if (typeof fo["id"] !== "object" || fo["id"] === null) {
-      throw new Error(`importGMS2Sprite: frames[${i}].id missing in "${yyPath}"`);
+      throw new Error(
+        `importGMS2Sprite: frames[${i}].id missing in "${yyPath}"`,
+      );
     }
     const id = fo["id"] as Record<string, unknown>;
     assertString(id["name"], `frames[${i}].id.name`, yyPath);
-    if (typeof fo["compositeImage"] !== "object" || fo["compositeImage"] === null) {
-      throw new Error(`importGMS2Sprite: frames[${i}].compositeImage missing in "${yyPath}"`);
+    if (
+      typeof fo["compositeImage"] !== "object" ||
+      fo["compositeImage"] === null
+    ) {
+      throw new Error(
+        `importGMS2Sprite: frames[${i}].compositeImage missing in "${yyPath}"`,
+      );
     }
     const ci = fo["compositeImage"] as Record<string, unknown>;
     if (typeof ci["FrameId"] !== "object" || ci["FrameId"] === null) {
-      throw new Error(`importGMS2Sprite: frames[${i}].compositeImage.FrameId missing in "${yyPath}"`);
+      throw new Error(
+        `importGMS2Sprite: frames[${i}].compositeImage.FrameId missing in "${yyPath}"`,
+      );
     }
     return {
       id: { name: id["name"] as string },
-      compositeImage: { FrameId: { name: ((ci["FrameId"] as Record<string, unknown>)["name"] ?? "") as string } },
+      compositeImage: {
+        FrameId: {
+          name: ((ci["FrameId"] as Record<string, unknown>)["name"] ??
+            "") as string,
+        },
+      },
     };
   });
 
@@ -139,11 +172,21 @@ function parseYY(raw: string, yyPath: string): GMS2SpriteYY {
     throw new Error(`importGMS2Sprite: "sequence" missing in "${yyPath}"`);
   }
   const seqObj = obj["sequence"] as Record<string, unknown>;
-  const animationSpeedType = assertNumber(seqObj["animationSpeedType"], "sequence.animationSpeedType", yyPath);
-  const animationSpeed = assertNumber(seqObj["animationSpeed"], "sequence.animationSpeed", yyPath);
+  const animationSpeedType = assertNumber(
+    seqObj["animationSpeedType"],
+    "sequence.animationSpeedType",
+    yyPath,
+  );
+  const animationSpeed = assertNumber(
+    seqObj["animationSpeed"],
+    "sequence.animationSpeed",
+    yyPath,
+  );
   const length = assertNumber(seqObj["length"], "sequence.length", yyPath);
-  const xorigin = typeof seqObj["xorigin"] === "number" ? seqObj["xorigin"] : undefined;
-  const yorigin = typeof seqObj["yorigin"] === "number" ? seqObj["yorigin"] : undefined;
+  const xorigin =
+    typeof seqObj["xorigin"] === "number" ? seqObj["xorigin"] : undefined;
+  const yorigin =
+    typeof seqObj["yorigin"] === "number" ? seqObj["yorigin"] : undefined;
 
   const bbox_left = assertNumber(obj["bbox_left"], "bbox_left", yyPath);
   const bbox_right = assertNumber(obj["bbox_right"], "bbox_right", yyPath);
@@ -156,7 +199,13 @@ function parseYY(raw: string, yyPath: string): GMS2SpriteYY {
     width,
     height,
     frames,
-    sequence: { animationSpeedType, animationSpeed, length, xorigin, yorigin },
+    sequence: {
+      animationSpeedType,
+      animationSpeed,
+      length,
+      ...(xorigin !== undefined ? { xorigin } : {}),
+      ...(yorigin !== undefined ? { yorigin } : {}),
+    },
     bbox_left,
     bbox_right,
     bbox_top,
@@ -176,11 +225,18 @@ export function importGMS2Sprite(yyPath: string): SpriteAsset {
   try {
     raw = fs.readFileSync(yyPath, "utf-8");
   } catch (err) {
-    throw new Error(`importGMS2Sprite: cannot read "${yyPath}": ${String(err)}`);
+    throw new Error(
+      `importGMS2Sprite: cannot read "${yyPath}": ${String(err)}`,
+    );
   }
 
   const yy = parseYY(raw, yyPath);
-  const { originX, originY } = resolveOrigin(yy.origin, yy.width, yy.height, yy.sequence);
+  const { originX, originY } = resolveOrigin(
+    yy.origin,
+    yy.width,
+    yy.height,
+    yy.sequence,
+  );
 
   // fps: animationSpeedType 1 = frames-per-game-frame → multiply by 60
   const fps =
@@ -224,7 +280,9 @@ export function importGMS2SpriteDir(spriteDir: string): SpriteAsset[] {
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch (err) {
-      process.stderr.write(`importGMS2SpriteDir: cannot read directory "${dir}": ${String(err)}\n`);
+      process.stderr.write(
+        `importGMS2SpriteDir: cannot read directory "${dir}": ${String(err)}\n`,
+      );
       return;
     }
     for (const entry of entries) {
@@ -242,7 +300,9 @@ export function importGMS2SpriteDir(spriteDir: string): SpriteAsset[] {
     try {
       results.push(importGMS2Sprite(yyPath));
     } catch (err) {
-      process.stderr.write(`importGMS2SpriteDir: skipping "${yyPath}": ${String(err)}\n`);
+      process.stderr.write(
+        `importGMS2SpriteDir: skipping "${yyPath}": ${String(err)}\n`,
+      );
     }
   }
   return results;

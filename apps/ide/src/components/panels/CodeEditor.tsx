@@ -1,5 +1,6 @@
 import React from "react";
-import MonacoEditor from "@monaco-editor/react";
+import MonacoEditor, { type OnMount } from "@monaco-editor/react";
+import type * as Monaco from "monaco-editor";
 import { X } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import { gameBuildService } from "../../services/GameBuildService";
@@ -24,7 +25,6 @@ function useVirtualKeyboardPadding(): number {
     const vv = window.visualViewport;
     if (vv === null) return;
     const handler = (): void => {
-      if (vv === null) return;
       const keyboardHeight = window.innerHeight - vv.height;
       setPadding(keyboardHeight > 0 ? keyboardHeight : 0);
     };
@@ -50,6 +50,41 @@ export function CodeEditor(): React.ReactElement {
   const isNarrow = useIsNarrow();
   const keyboardPadding = useVirtualKeyboardPadding();
   const [settings] = React.useState<IDESettings>(() => loadSettings());
+  const [showSnippets, setShowSnippets] = React.useState(false);
+  const editorRef = React.useRef<Monaco.editor.IStandaloneCodeEditor | null>(
+    null,
+  );
+  const monacoRef = React.useRef<typeof Monaco | null>(null);
+  const snippetPanelRef = React.useRef<HTMLDivElement>(null);
+
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+  };
+
+  const insertSnippet = (text: string): void => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (editor === null || monaco === null) return;
+    editor.focus();
+    const selection = editor.getSelection();
+    const range = selection ?? new monaco.Range(1, 1, 1, 1);
+    editor.executeEdits("snippet", [{ range, text }]);
+  };
+
+  React.useEffect(() => {
+    if (!showSnippets) return;
+    const handleMouseDown = (e: MouseEvent): void => {
+      if (
+        snippetPanelRef.current !== null &&
+        !snippetPanelRef.current.contains(e.target as Node)
+      ) {
+        setShowSnippets(false);
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showSnippets]);
 
   const [systemDark, setSystemDark] = React.useState<boolean>(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -206,68 +241,143 @@ export function CodeEditor(): React.ReactElement {
     >
       {/* Multi-tab bar */}
       <div
-        className="flex items-center overflow-x-auto flex-shrink-0"
+        className="flex items-center flex-shrink-0"
         style={{
           height: 33,
           borderBottom: "1px solid var(--es-border)",
           background: "var(--es-surface)",
-          scrollbarWidth: "none",
+          position: "relative",
         }}
       >
-        {tabPaths.length === 0 ? (
-          <span
-            style={{
-              padding: "0 12px",
-              fontSize: 11,
-              color: "var(--es-text-muted)",
-            }}
-          >
-            No files open
-          </span>
-        ) : (
-          tabPaths.map((path) => {
-            const label = path.split("/").pop() ?? path;
-            const active = path === activeFilePath;
-            return (
-              <div
-                key={path}
-                onClick={() => handleTabClick(path)}
-                className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer select-none"
-                style={{
-                  height: "100%",
-                  padding: "0 10px",
-                  fontSize: 11,
-                  fontFamily: '"JetBrains Mono", monospace',
-                  borderRight: "1px solid var(--es-border)",
-                  borderBottom: active
-                    ? "2px solid var(--es-accent)"
-                    : "2px solid transparent",
-                  color: active ? "var(--es-text)" : "var(--es-text-muted)",
-                  background: active ? "rgba(124,106,247,0.06)" : undefined,
-                  maxWidth: 180,
-                }}
-              >
-                <span className="truncate" style={{ maxWidth: 120 }}>
-                  {label}
-                </span>
-                <button
-                  onClick={(e) => handleTabClose(e, path)}
-                  className="flex-shrink-0"
+        <div
+          className="flex items-center overflow-x-auto flex-1"
+          style={{ height: "100%", scrollbarWidth: "none" }}
+        >
+          {tabPaths.length === 0 ? (
+            <span
+              style={{
+                padding: "0 12px",
+                fontSize: 11,
+                color: "var(--es-text-muted)",
+              }}
+            >
+              No files open
+            </span>
+          ) : (
+            tabPaths.map((path) => {
+              const label = path.split("/").pop() ?? path;
+              const active = path === activeFilePath;
+              return (
+                <div
+                  key={path}
+                  onClick={() => handleTabClick(path)}
+                  className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer select-none"
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--es-text-muted)",
-                    display: "flex",
-                    padding: 1,
-                    borderRadius: 2,
+                    height: "100%",
+                    padding: "0 10px",
+                    fontSize: 11,
+                    fontFamily: '"JetBrains Mono", monospace',
+                    borderRight: "1px solid var(--es-border)",
+                    borderBottom: active
+                      ? "2px solid var(--es-accent)"
+                      : "2px solid transparent",
+                    color: active ? "var(--es-text)" : "var(--es-text-muted)",
+                    background: active ? "rgba(124,106,247,0.06)" : undefined,
+                    maxWidth: 180,
                   }}
                 >
-                  <X size={10} />
-                </button>
-              </div>
-            );
-          })
+                  <span className="truncate" style={{ maxWidth: 120 }}>
+                    {label}
+                  </span>
+                  <button
+                    onClick={(e) => handleTabClose(e, path)}
+                    className="flex-shrink-0"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--es-text-muted)",
+                      display: "flex",
+                      padding: 1,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <button
+          onClick={() => setShowSnippets((v) => !v)}
+          title="Insert snippet"
+          style={{
+            flexShrink: 0,
+            height: "100%",
+            padding: "0 10px",
+            background: showSnippets ? "rgba(124,106,247,0.1)" : "none",
+            border: "none",
+            borderLeft: "1px solid var(--es-border)",
+            color: showSnippets ? "var(--es-accent)" : "var(--es-text-muted)",
+            cursor: "pointer",
+            fontSize: 13,
+            fontFamily: "monospace",
+          }}
+        >
+          {"{ }"}
+        </button>
+        {showSnippets && (
+          <div
+            ref={snippetPanelRef}
+            style={{
+              position: "absolute",
+              top: 33,
+              right: 0,
+              zIndex: 50,
+              background: "var(--es-surface, #1e1e1e)",
+              border: "1px solid var(--es-border, #333)",
+              borderRadius: 6,
+              width: 260,
+              maxHeight: 400,
+              overflowY: "auto",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            }}
+          >
+            {SNIPPETS.map((snippet) => (
+              <button
+                key={snippet.label}
+                onClick={() => {
+                  insertSnippet(snippet.text);
+                  setShowSnippets(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 12px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "inherit",
+                  borderBottom: "1px solid var(--es-border, #333)",
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 13 }}>
+                  {snippet.label}
+                </div>
+                <div
+                  style={{
+                    opacity: 0.6,
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {snippet.preview}
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -280,6 +390,7 @@ export function CodeEditor(): React.ReactElement {
             theme={monacoTheme}
             value={editorCode}
             onChange={handleChange}
+            onMount={handleEditorMount}
             options={{
               fontSize: settings.editorFontSize,
               tabSize: settings.editorTabSize,

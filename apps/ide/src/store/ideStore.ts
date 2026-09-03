@@ -80,11 +80,46 @@ export interface AudioBus {
 }
 
 const INITIAL_AUDIO_BUSES: AudioBus[] = [
-  { id: "master", label: "Master", volume: 80, muted: false, solo: false, color: "#a78bfa" },
-  { id: "music",  label: "Music",  volume: 70, muted: false, solo: false, color: "#60a5fa" },
-  { id: "sfx",    label: "SFX",    volume: 90, muted: false, solo: false, color: "#4ade80" },
-  { id: "voice",  label: "Voice",  volume: 100, muted: false, solo: false, color: "#fbbf24" },
-  { id: "ambient",label: "Ambient",volume: 50, muted: false, solo: false, color: "#f87171" },
+  {
+    id: "master",
+    label: "Master",
+    volume: 80,
+    muted: false,
+    solo: false,
+    color: "#a78bfa",
+  },
+  {
+    id: "music",
+    label: "Music",
+    volume: 70,
+    muted: false,
+    solo: false,
+    color: "#60a5fa",
+  },
+  {
+    id: "sfx",
+    label: "SFX",
+    volume: 90,
+    muted: false,
+    solo: false,
+    color: "#4ade80",
+  },
+  {
+    id: "voice",
+    label: "Voice",
+    volume: 100,
+    muted: false,
+    solo: false,
+    color: "#fbbf24",
+  },
+  {
+    id: "ambient",
+    label: "Ambient",
+    volume: 50,
+    muted: false,
+    solo: false,
+    color: "#f87171",
+  },
 ];
 
 // ── Tilemap editor ───────────────────────────────────────────────────────────
@@ -331,6 +366,10 @@ interface IDEState {
   setEditorShowRuler: (show: boolean) => void;
   setEditorSnapToGrid: (snap: boolean) => void;
   setEditorShowGuides: (show: boolean) => void;
+
+  // Preview FPS cap
+  fpsTarget: number;
+  setFpsTarget: (fps: number) => void;
 
   // Project lifecycle
   resetProject: () => void;
@@ -718,6 +757,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   editorSnapToGrid: true,
   editorShowGuides: true,
 
+  // Preview FPS cap
+  fpsTarget: 60,
+
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
@@ -909,13 +951,22 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setAudioBus: (id, patch) =>
     set((s) => ({
-      audioBuses: s.audioBuses.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+      audioBuses: s.audioBuses.map((b) =>
+        b.id === id ? { ...b, ...patch } : b,
+      ),
     })),
   addAudioBus: () =>
     set((s) => ({
       audioBuses: [
         ...s.audioBuses,
-        { id: `bus-${Date.now()}`, label: "Bus", volume: 80, muted: false, solo: false, color: "#94a3b8" },
+        {
+          id: `bus-${Date.now()}`,
+          label: "Bus",
+          volume: 80,
+          muted: false,
+          solo: false,
+          color: "#94a3b8",
+        },
       ],
     })),
 
@@ -960,6 +1011,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setEditorShowRuler: (show) => set({ editorShowRuler: show }),
   setEditorSnapToGrid: (snap) => set({ editorSnapToGrid: snap }),
   setEditorShowGuides: (show) => set({ editorShowGuides: show }),
+  setFpsTarget: (fps) => set({ fpsTarget: fps }),
 
   resetProject: () => {
     set({
@@ -1299,9 +1351,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             proj["variableStoreVars"] !== null &&
             typeof proj["variableStoreVars"] === "object"
           ) {
-            updates.variableStoreVars = proj[
-              "variableStoreVars"
-            ] as Record<number, number>;
+            updates.variableStoreVars = proj["variableStoreVars"] as Record<
+              number,
+              number
+            >;
           }
           if (
             proj["variableStoreSwitches"] !== null &&
@@ -1339,15 +1392,27 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           if (Array.isArray(proj["vnNodes"])) {
             updates.vnNodes = proj["vnNodes"];
           }
-          if (proj["autoTileRuleSets"] !== null && typeof proj["autoTileRuleSets"] === "object") {
-            updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<string, unknown[]>;
+          if (
+            proj["autoTileRuleSets"] !== null &&
+            typeof proj["autoTileRuleSets"] === "object"
+          ) {
+            updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<
+              string,
+              unknown[]
+            >;
           }
-          if (Array.isArray(proj["dbActors"])) updates.dbActors = proj["dbActors"];
-          if (Array.isArray(proj["dbClasses"])) updates.dbClasses = proj["dbClasses"];
+          if (Array.isArray(proj["dbActors"]))
+            updates.dbActors = proj["dbActors"];
+          if (Array.isArray(proj["dbClasses"]))
+            updates.dbClasses = proj["dbClasses"];
           if (Array.isArray(proj["dbItems"])) updates.dbItems = proj["dbItems"];
-          if (Array.isArray(proj["dbEnemies"])) updates.dbEnemies = proj["dbEnemies"];
+          if (Array.isArray(proj["dbEnemies"]))
+            updates.dbEnemies = proj["dbEnemies"];
           if (typeof proj["editorGridSize"] === "number") {
-            updates.editorGridSize = Math.max(4, proj["editorGridSize"] as number);
+            updates.editorGridSize = Math.max(
+              4,
+              proj["editorGridSize"] as number,
+            );
           }
           if (typeof proj["editorShowGrid"] === "boolean") {
             updates.editorShowGrid = proj["editorShowGrid"];

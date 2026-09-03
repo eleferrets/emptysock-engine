@@ -3,7 +3,9 @@ export { Component } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
+/** @internal */
 export { detectGPUTier } from "./core/GPUTier.js";
+/** @internal */
 export type { GPUTier } from "./core/GPUTier.js";
 
 // Engine API
@@ -61,8 +63,15 @@ export type { AnimationClip } from "./components/Animator.js";
 export { VNSystem } from "./systems/VNSystem.js";
 export type { DialogueNode, DialogueTree } from "./systems/VNSystem.js";
 
-export { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from "./systems/VNScriptConvert.js";
-export type { StoryGraphNode, StoryGraphEdge, StoryGraph } from "./systems/VNScriptConvert.js";
+export {
+  storyGraphToDialogueTree,
+  dialogueTreeToStoryGraph,
+} from "./systems/VNScriptConvert.js";
+export type {
+  StoryGraphNode,
+  StoryGraphEdge,
+  StoryGraph,
+} from "./systems/VNScriptConvert.js";
 
 export { VNTextbox } from "./systems/VNTextbox.js";
 export type { VNTextboxOptions } from "./systems/VNTextbox.js";
@@ -179,11 +188,15 @@ export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 
 // Compat
+/** @internal */
 export { detectMali, getMaliFixes, applyMaliFixes } from "./compat/mali.js";
+/** @internal */
 export type { MaliInfo, MaliFixes } from "./compat/mali.js";
+/** @internal */
 export * as GMLCompat from "./compat/index.js";
 
 // Hot reload
+/** @internal */
 export { HotReloadSystem } from "./systems/HotReloadSystem.js";
 
 // Window management
@@ -199,11 +212,18 @@ export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
 
 // Auto-tile rule system
 export { AutoTileSystem } from "./systems/AutoTileSystem.js";
-export type { AutoTileRule, AutoTileRuleSet } from "./systems/AutoTileSystem.js";
+export type {
+  AutoTileRule,
+  AutoTileRuleSet,
+} from "./systems/AutoTileSystem.js";
 
 // VN stage & background layers
 export { CharacterStage } from "./systems/CharacterStage.js";
-export type { StageSlot, CharacterStageOptions, CharacterShowOptions } from "./systems/CharacterStage.js";
+export type {
+  StageSlot,
+  CharacterStageOptions,
+  CharacterShowOptions,
+} from "./systems/CharacterStage.js";
 export { VNBackgroundLayer } from "./systems/VNBackgroundLayer.js";
 export type { VNBackgroundLayerOptions } from "./systems/VNBackgroundLayer.js";
 

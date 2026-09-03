@@ -3,13 +3,19 @@ import { useIDEStore } from "../../store/ideStore";
 
 interface VNNode {
   id: string;
-  type: "dialogue" | "choice";
+  type: "dialogue" | "choice" | "event" | "jump";
   speaker?: string;
   text: string;
   options?: string[];
   backgroundPath?: string;
   cgPath?: string;
   characters?: Array<{ slot: "left" | "center" | "right"; imagePath: string }>;
+  // event node fields
+  eventName?: string;
+  name?: string;
+  // jump node fields
+  target?: string;
+  scene?: string;
 }
 
 const PANEL_W = 480;
@@ -27,7 +33,10 @@ function renderPreview(
 
   // Background
   if (bgImage) {
-    const r = Math.min(PANEL_W / bgImage.naturalWidth, PANEL_H / bgImage.naturalHeight);
+    const r = Math.min(
+      PANEL_W / bgImage.naturalWidth,
+      PANEL_H / bgImage.naturalHeight,
+    );
     const bw = bgImage.naturalWidth * r;
     const bh = bgImage.naturalHeight * r;
     ctx.drawImage(bgImage, (PANEL_W - bw) / 2, (PANEL_H - bh) / 2, bw, bh);
@@ -43,7 +52,10 @@ function renderPreview(
       const img = charImages[ch.imagePath];
       if (!img) continue;
       const maxH = PANEL_H * 0.65;
-      const scale = Math.min(maxH / img.naturalHeight, PANEL_W * 0.35 / img.naturalWidth);
+      const scale = Math.min(
+        maxH / img.naturalHeight,
+        (PANEL_W * 0.35) / img.naturalWidth,
+      );
       const dw = img.naturalWidth * scale;
       const dh = img.naturalHeight * scale;
       const cx = PANEL_W * SLOT_X[ch.slot];
@@ -83,7 +95,11 @@ function renderPreview(
   }
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
   let cur = "";
@@ -108,7 +124,8 @@ export function VNPreviewPanel(): React.ReactElement {
   const charImgRef = React.useRef<Record<string, HTMLImageElement>>({});
 
   const nodes: VNNode[] = vnNodes ?? [];
-  const selectedNode = nodes.find((n) => n.id === selectedId) ?? nodes[0] ?? null;
+  const selectedNode =
+    nodes.find((n) => n.id === selectedId) ?? nodes[0] ?? null;
 
   React.useEffect(() => {
     if (!selectedNode) return;
@@ -129,7 +146,10 @@ export function VNPreviewPanel(): React.ReactElement {
     if (selectedNode.backgroundPath) {
       pending++;
       const img = new Image();
-      img.onload = () => { bgRef.current = img; done(); };
+      img.onload = () => {
+        bgRef.current = img;
+        done();
+      };
       img.onerror = done;
       img.src = selectedNode.backgroundPath;
     }
@@ -139,7 +159,10 @@ export function VNPreviewPanel(): React.ReactElement {
       if (charImgRef.current[ch.imagePath]) continue;
       pending++;
       const img = new Image();
-      img.onload = () => { charImgRef.current[ch.imagePath] = img; done(); };
+      img.onload = () => {
+        charImgRef.current[ch.imagePath] = img;
+        done();
+      };
       img.onerror = done;
       img.src = ch.imagePath;
     }
@@ -148,30 +171,70 @@ export function VNPreviewPanel(): React.ReactElement {
   }, [selectedNode]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0d0d1a", color: "#fff", fontFamily: "sans-serif" }}>
-      <div style={{ padding: "6px 10px", borderBottom: "1px solid #333", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "#0d0d1a",
+        color: "#fff",
+        fontFamily: "sans-serif",
+      }}
+    >
+      <div
+        style={{
+          padding: "6px 10px",
+          borderBottom: "1px solid #333",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 12,
+        }}
+      >
         <span style={{ opacity: 0.6 }}>Node:</span>
         <select
           value={selectedId || (nodes[0]?.id ?? "")}
           onChange={(e) => setSelectedId(e.target.value)}
-          style={{ background: "#1a1a2e", color: "#fff", border: "1px solid #444", borderRadius: 3, padding: "2px 6px", fontSize: 12 }}
+          style={{
+            background: "#1a1a2e",
+            color: "#fff",
+            border: "1px solid #444",
+            borderRadius: 3,
+            padding: "2px 6px",
+            fontSize: 12,
+          }}
         >
           {nodes.map((n) => (
             <option key={n.id} value={n.id}>
-              {n.id}{n.speaker ? ` — ${n.speaker}` : ""}: {n.text.slice(0, 40)}
+              {n.id}
+              {n.speaker ? ` — ${n.speaker}` : ""}: {n.text.slice(0, 40)}
             </option>
           ))}
         </select>
       </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 12,
+        }}
+      >
         {nodes.length === 0 ? (
-          <span style={{ opacity: 0.4 }}>No Story Graph nodes. Open the Story Graph panel to add dialogue.</span>
+          <span style={{ opacity: 0.4 }}>
+            No Story Graph nodes. Open the Story Graph panel to add dialogue.
+          </span>
         ) : (
           <canvas
             ref={canvasRef}
             width={PANEL_W}
             height={PANEL_H}
-            style={{ border: "1px solid #333", maxWidth: "100%", imageRendering: "auto" }}
+            style={{
+              border: "1px solid #333",
+              maxWidth: "100%",
+              imageRendering: "auto",
+            }}
           />
         )}
       </div>

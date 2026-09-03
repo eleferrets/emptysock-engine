@@ -27,7 +27,9 @@ function isTauri(): boolean {
 async function getTauriWindow(): Promise<TauriWindow | null> {
   if (!isTauri()) return null;
   try {
-    const mod = await import("@tauri-apps/api/window");
+     
+    // @ts-expect-error — @tauri-apps/api is not a hard dependency; injected at runtime in Tauri builds only
+    const mod = await import("@tauri-apps/api/window") as { getCurrentWindow(): TauriWindow };
     return mod.getCurrentWindow();
   } catch {
     return null;
@@ -215,7 +217,7 @@ export class WindowSystem {
     if (typeof document === "undefined") return;
     switch (mode) {
       case "fullscreen":
-        void document.documentElement.requestFullscreen?.();
+        void document.documentElement.requestFullscreen();
         break;
       case "borderless":
         applyBrowserFill();
@@ -240,9 +242,9 @@ export class WindowSystem {
   private _toggleBrowserFullscreen(): void {
     if (typeof document === "undefined") return;
     if (document.fullscreenElement !== null) {
-      void document.exitFullscreen?.();
+      void document.exitFullscreen();
     } else {
-      void document.documentElement.requestFullscreen?.();
+      void document.documentElement.requestFullscreen();
     }
   }
 }

@@ -1,5 +1,13 @@
-import React, { useEffect, useRef, useCallback } from "react";
-import { Monitor, Wifi, RefreshCw, Grid3X3, Ruler, Magnet, AlignCenter } from "lucide-react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
+import {
+  Monitor,
+  Wifi,
+  RefreshCw,
+  Grid3X3,
+  Ruler,
+  Magnet,
+  AlignCenter,
+} from "lucide-react";
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
 import { useIDEStore } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
@@ -12,9 +20,16 @@ export function CanvasPreview(): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const runnerContainerRef = useRef<HTMLDivElement>(null);
   const hotReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [gameError, setGameError] = useState<{
+    message: string;
+    stack?: string;
+  } | null>(null);
+
   const {
     fps,
     setFps,
+    fpsTarget,
+    setFpsTarget,
     playState,
     debugOverlay,
     entities,
@@ -49,8 +64,21 @@ export function CanvasPreview(): React.ReactElement {
         if (msg.type === "fps" && msg.fps !== undefined) setFps(msg.fps);
         else if (msg.type === "log" && msg.message !== undefined)
           addLog(msg.level ?? "info", msg.message, msg.source);
-        else if (msg.type === "error" && msg.message !== undefined)
+        else if (msg.type === "error" && msg.message !== undefined) {
           addLog("error", msg.message, msg.source);
+          setGameError({
+            message: msg.message,
+            stack: msg.stack as string | undefined,
+          });
+        } else if (msg.type === "game-error" && msg.message !== undefined) {
+          addLog("error", msg.message, msg.source);
+          setGameError({
+            message: msg.message,
+            stack: msg.stack as string | undefined,
+          });
+        } else if (msg.type === "ready") {
+          setGameError(null);
+        }
       });
       if (runnerContainerRef.current !== null) {
         const define: Record<string, string> = {
@@ -291,6 +319,42 @@ export function CanvasPreview(): React.ReactElement {
             }}
           />
         </label>
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: "rgba(42,42,46,0.8)",
+            margin: "0 2px",
+            flexShrink: 0,
+          }}
+        />
+        <select
+          value={fpsTarget}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            setFpsTarget(val);
+            const iframe = runnerContainerRef.current?.querySelector("iframe");
+            iframe?.contentWindow?.postMessage(
+              { type: "set-fps", fps: val },
+              "*",
+            );
+          }}
+          title="Preview FPS cap"
+          style={{
+            background: "rgba(14,14,16,0.6)",
+            border: "1px solid rgba(42,42,46,0.8)",
+            borderRadius: 4,
+            color: "var(--es-text-muted)",
+            fontSize: 11,
+            fontFamily: "inherit",
+            padding: "2px 4px",
+          }}
+        >
+          <option value={30}>30 fps</option>
+          <option value={60}>60 fps</option>
+          <option value={120}>120 fps</option>
+          <option value={0}>Unlimited</option>
+        </select>
       </div>
 
       <div
@@ -307,6 +371,54 @@ export function CanvasPreview(): React.ReactElement {
             zIndex: 10,
           }}
         />
+
+        {/* Game error overlay */}
+        {gameError !== null && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 100,
+              background: "rgba(180,0,0,0.85)",
+              color: "white",
+              fontFamily: "monospace",
+              fontSize: 13,
+              padding: 16,
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+              }}
+            >
+              <strong>⚠ Game Error</strong>
+              <button
+                onClick={() => setGameError(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: 18,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div>{gameError.message}</div>
+            {gameError.stack !== undefined && (
+              <div style={{ opacity: 0.75, fontSize: 11 }}>
+                {gameError.stack.split("\n").slice(0, 4).join("\n")}
+              </div>
+            )}
+          </div>
+        )}
 
         <canvas
           ref={canvasRef}

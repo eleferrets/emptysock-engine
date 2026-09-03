@@ -63,14 +63,18 @@ export interface RoomAsset {
 
 function assertString(val: unknown, field: string, src: string): string {
   if (typeof val !== "string") {
-    throw new Error(`importGMS2Room: missing or invalid "${field}" in "${src}"`);
+    throw new Error(
+      `importGMS2Room: missing or invalid "${field}" in "${src}"`,
+    );
   }
   return val;
 }
 
 function assertNumber(val: unknown, field: string, src: string): number {
   if (typeof val !== "number") {
-    throw new Error(`importGMS2Room: missing or invalid "${field}" in "${src}"`);
+    throw new Error(
+      `importGMS2Room: missing or invalid "${field}" in "${src}"`,
+    );
   }
   return val;
 }
@@ -80,7 +84,9 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new Error(`importGMS2Room: invalid JSON in "${yyPath}": ${String(err)}`);
+    throw new Error(
+      `importGMS2Room: invalid JSON in "${yyPath}": ${String(err)}`,
+    );
   }
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error(`importGMS2Room: root must be an object in "${yyPath}"`);
@@ -102,10 +108,16 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
 
   const layers = (obj["layers"] as unknown[]).map((l, i): GMS2Layer => {
     if (typeof l !== "object" || l === null) {
-      throw new Error(`importGMS2Room: layers[${i}] is not an object in "${yyPath}"`);
+      throw new Error(
+        `importGMS2Room: layers[${i}] is not an object in "${yyPath}"`,
+      );
     }
     const lo = l as Record<string, unknown>;
-    const resourceType = assertString(lo["resourceType"], `layers[${i}].resourceType`, yyPath);
+    const resourceType = assertString(
+      lo["resourceType"],
+      `layers[${i}].resourceType`,
+      yyPath,
+    );
     const layerName = assertString(lo["name"], `layers[${i}].name`, yyPath);
 
     const gridX = typeof lo["gridX"] === "number" ? lo["gridX"] : 32;
@@ -114,17 +126,29 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
     let tiles: GMS2TileData | undefined;
     if (typeof lo["tiles"] === "object" && lo["tiles"] !== null) {
       const t = lo["tiles"] as Record<string, unknown>;
-      const sw = assertNumber(t["SerialiseWidth"], `layers[${i}].tiles.SerialiseWidth`, yyPath);
-      const sh = assertNumber(t["SerialiseHeight"], `layers[${i}].tiles.SerialiseHeight`, yyPath);
+      const sw = assertNumber(
+        t["SerialiseWidth"],
+        `layers[${i}].tiles.SerialiseWidth`,
+        yyPath,
+      );
+      const sh = assertNumber(
+        t["SerialiseHeight"],
+        `layers[${i}].tiles.SerialiseHeight`,
+        yyPath,
+      );
       if (!Array.isArray(t["TileSerialiseData"])) {
-        throw new Error(`importGMS2Room: layers[${i}].tiles.TileSerialiseData must be an array in "${yyPath}"`);
+        throw new Error(
+          `importGMS2Room: layers[${i}].tiles.TileSerialiseData must be an array in "${yyPath}"`,
+        );
       }
       tiles = {
         SerialiseWidth: sw,
         SerialiseHeight: sh,
         TileSerialiseData: (t["TileSerialiseData"] as unknown[]).map((v, j) => {
           if (typeof v !== "number") {
-            throw new Error(`importGMS2Room: layers[${i}].tiles.TileSerialiseData[${j}] is not a number in "${yyPath}"`);
+            throw new Error(
+              `importGMS2Room: layers[${i}].tiles.TileSerialiseData[${j}] is not a number in "${yyPath}"`,
+            );
           }
           return v;
         }),
@@ -135,14 +159,22 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
     if (Array.isArray(lo["instances"])) {
       instances = (lo["instances"] as unknown[]).map((inst, j) => {
         if (typeof inst !== "object" || inst === null) {
-          throw new Error(`importGMS2Room: layers[${i}].instances[${j}] is not an object in "${yyPath}"`);
+          throw new Error(
+            `importGMS2Room: layers[${i}].instances[${j}] is not an object in "${yyPath}"`,
+          );
         }
         const io = inst as Record<string, unknown>;
         if (typeof io["objectId"] !== "object" || io["objectId"] === null) {
-          throw new Error(`importGMS2Room: layers[${i}].instances[${j}].objectId missing in "${yyPath}"`);
+          throw new Error(
+            `importGMS2Room: layers[${i}].instances[${j}].objectId missing in "${yyPath}"`,
+          );
         }
         const oid = io["objectId"] as Record<string, unknown>;
-        const objName = assertString(oid["name"], `layers[${i}].instances[${j}].objectId.name`, yyPath);
+        const objName = assertString(
+          oid["name"],
+          `layers[${i}].instances[${j}].objectId.name`,
+          yyPath,
+        );
         return {
           objectId: { name: objName },
           x: typeof io["x"] === "number" ? io["x"] : 0,
@@ -153,7 +185,14 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
       });
     }
 
-    return { resourceType, name: layerName, gridX, gridY, tiles, instances };
+    return {
+      resourceType,
+      name: layerName,
+      gridX,
+      gridY,
+      ...(tiles !== undefined ? { tiles } : {}),
+      ...(instances !== undefined ? { instances } : {}),
+    };
   });
 
   return { name, roomSettings: { Width: width, Height: height }, layers };
@@ -164,7 +203,11 @@ function parseYY(raw: string, yyPath: string): GMS2RoomYY {
 const TILE_INDEX_MASK = 0x7fffffff;
 
 function reshapeTiles(tileData: GMS2TileData): number[][] {
-  const { SerialiseWidth: cols, SerialiseHeight: rows, TileSerialiseData: flat } = tileData;
+  const {
+    SerialiseWidth: cols,
+    SerialiseHeight: rows,
+    TileSerialiseData: flat,
+  } = tileData;
   const grid: number[][] = [];
   for (let row = 0; row < rows; row++) {
     const rowArr: number[] = [];
@@ -213,7 +256,10 @@ export function importGMS2Room(yyPath: string): RoomAsset {
         visible: true,
         tiles: reshapeTiles(layer.tiles),
       });
-    } else if (layer.resourceType === "GMInstanceLayer" && layer.instances !== undefined) {
+    } else if (
+      layer.resourceType === "GMInstanceLayer" &&
+      layer.instances !== undefined
+    ) {
       for (const inst of layer.instances) {
         entities.push({
           name: inst.objectId.name,
@@ -250,7 +296,9 @@ export function importGMS2RoomDir(roomDir: string): RoomAsset[] {
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch (err) {
-      process.stderr.write(`importGMS2RoomDir: cannot read directory "${dir}": ${String(err)}\n`);
+      process.stderr.write(
+        `importGMS2RoomDir: cannot read directory "${dir}": ${String(err)}\n`,
+      );
       return;
     }
     for (const entry of entries) {
@@ -268,7 +316,9 @@ export function importGMS2RoomDir(roomDir: string): RoomAsset[] {
     try {
       results.push(importGMS2Room(yyPath));
     } catch (err) {
-      process.stderr.write(`importGMS2RoomDir: skipping "${yyPath}": ${String(err)}\n`);
+      process.stderr.write(
+        `importGMS2RoomDir: skipping "${yyPath}": ${String(err)}\n`,
+      );
     }
   }
   return results;

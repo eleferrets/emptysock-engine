@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import ReactDOM from "react-dom";
 import {
   Image,
   Music,
@@ -82,8 +83,8 @@ async function importGMS2FromHandle(
   let objectCount = 0;
 
   for (const res of project.resources) {
-    const name = res.id?.name;
-    const resPath = res.id?.path ?? "";
+    const name = res.id.name;
+    const resPath = res.id.path;
     if (typeof name !== "string" || name.length === 0) continue;
 
     if (resPath.startsWith("scripts/")) {
@@ -136,6 +137,7 @@ function formatSize(bytes?: number): string {
 }
 
 const STRIP_RE = /_strip(\d+)/i;
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"];
 
 interface StripDialog {
   fileName: string;
@@ -158,6 +160,11 @@ export function AssetBrowser(): React.ReactElement {
   const addAsset = useIDEStore((s) => s.addAsset);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hover, setHover] = useState<{
+    path: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [stripDialog, setStripDialog] = useState<StripDialog | null>(null);
   const stripFileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -307,6 +314,14 @@ export function AssetBrowser(): React.ReactElement {
             onClick={() =>
               setSelectedId((id) => (id === asset.id ? null : asset.id))
             }
+            onMouseEnter={(e) => {
+              if (
+                IMAGE_EXTS.some((ext) => asset.path.toLowerCase().endsWith(ext))
+              ) {
+                setHover({ path: asset.path, x: e.clientX, y: e.clientY });
+              }
+            }}
+            onMouseLeave={() => setHover(null)}
             className="flex flex-col items-center gap-1 p-2 rounded text-center transition-colors"
             style={{
               background:
@@ -339,6 +354,36 @@ export function AssetBrowser(): React.ReactElement {
           </button>
         ))}
       </div>
+
+      {/* Image hover preview tooltip */}
+      {hover !== null &&
+        ReactDOM.createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: hover.x + 16,
+              top: Math.min(hover.y, window.innerHeight - 220),
+              zIndex: 9999,
+              background: "rgba(20,20,20,0.92)",
+              borderRadius: 8,
+              padding: 8,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+              pointerEvents: "none",
+            }}
+          >
+            <img
+              src={hover.path}
+              alt=""
+              style={{
+                maxWidth: 200,
+                maxHeight: 200,
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </div>,
+          document.body,
+        )}
 
       {/* Sprite sheet strip import dialog */}
       {stripDialog !== null && (

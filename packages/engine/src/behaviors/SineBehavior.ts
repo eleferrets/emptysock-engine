@@ -1,5 +1,6 @@
 import { Behavior, type BehaviorContext } from "./Behavior.js";
 import type { Transform } from "../components/Transform.js";
+import type { Component } from "../core/Component.js";
 
 export type SineType = "position" | "scale" | "opacity";
 export type SineAxis = "x" | "y";
@@ -71,8 +72,10 @@ export class SineBehavior extends Behavior {
       } else {
         transform.scaleY = this._originScaleY * scaleOffset;
       }
-    } else if (this.type === "opacity") {
-      const sprite = ctx.entity.getComponent<{ alpha: number }>("Sprite");
+    } else {
+      const sprite = ctx.entity.getComponent<Component & { alpha: number }>(
+        "Sprite",
+      );
       if (sprite !== undefined) {
         sprite.alpha = Math.max(
           0,

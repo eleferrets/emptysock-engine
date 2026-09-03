@@ -4,7 +4,17 @@
     "outDir": "dist",
     "rootDir": "src",
     "moduleResolution": "NodeNext",
-    "module": "NodeNext"
+    "module": "NodeNext",
+    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "forceConsistentCasingInFileNames": true,
+    "target": "ES2024",
+    "lib": ["ES2024"]
   },
   "include": ["src"]
 }

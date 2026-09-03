@@ -25,13 +25,13 @@ export interface AutoTileRuleSet {
 
 const DIRS: Array<{ dx: number; dy: number; bit: number }> = [
   { dx: -1, dy: -1, bit: 0 },
-  { dx: 0,  dy: -1, bit: 1 },
-  { dx: 1,  dy: -1, bit: 2 },
-  { dx: -1, dy: 0,  bit: 3 },
-  { dx: 1,  dy: 0,  bit: 4 },
-  { dx: -1, dy: 1,  bit: 5 },
-  { dx: 0,  dy: 1,  bit: 6 },
-  { dx: 1,  dy: 1,  bit: 7 },
+  { dx: 0, dy: -1, bit: 1 },
+  { dx: 1, dy: -1, bit: 2 },
+  { dx: -1, dy: 0, bit: 3 },
+  { dx: 1, dy: 0, bit: 4 },
+  { dx: -1, dy: 1, bit: 5 },
+  { dx: 0, dy: 1, bit: 6 },
+  { dx: 1, dy: 1, bit: 7 },
 ];
 
 export class AutoTileSystem {
@@ -65,7 +65,7 @@ export class AutoTileSystem {
     let mask = 0;
     for (const d of DIRS) {
       const t = tileAt(col + d.dx, row + d.dy);
-      if (t === baseTileIndex || (rs && this._sameGroup(t, rs))) {
+      if (t === baseTileIndex || this._sameGroup(t, rs)) {
         mask |= 1 << d.bit;
       }
     }
@@ -86,19 +86,23 @@ export class AutoTileSystem {
    * Re-resolve all cells in a layer that use this base tile type.
    * data: "col,row" -> tileIndex map (mutated in-place).
    */
-  applyToLayer(
-    data: Record<string, number>,
-    baseTileIndex: number,
-  ): void {
-    const tileAt = (c: number, r: number): number =>
-      data[`${c},${r}`] ?? -1;
+  applyToLayer(data: Record<string, number>, baseTileIndex: number): void {
+    const tileAt = (c: number, r: number): number => data[`${c},${r}`] ?? -1;
 
     const affected = Object.entries(data).filter(
       ([, v]) => v === baseTileIndex || this._inGroup(v, baseTileIndex),
     );
     for (const [key] of affected) {
-      const [c, r] = key.split(",").map(Number);
-      if (!Number.isFinite(c) || !Number.isFinite(r)) continue;
+      const parts = key.split(",").map(Number);
+      const c = parts[0];
+      const r = parts[1];
+      if (
+        c === undefined ||
+        r === undefined ||
+        !Number.isFinite(c) ||
+        !Number.isFinite(r)
+      )
+        continue;
       const base = baseTileIndex;
       data[key] = this.resolve(c, r, base, tileAt);
     }
