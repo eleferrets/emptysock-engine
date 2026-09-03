@@ -4,9 +4,21 @@
     "jsx": "react-jsx",
     "outDir": "./dist",
     "noEmit": true,
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "forceConsistentCasingInFileNames": true,
     "paths": {
       "@emptysock/types": ["../../packages/types/src/index.ts"],
-      "@emptysock/engine": ["../../packages/engine/src/index.ts"]
+      "@emptysock/engine": ["../../packages/engine/src/index.ts"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"]
