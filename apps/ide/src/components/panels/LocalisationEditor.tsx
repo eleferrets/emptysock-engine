@@ -3,16 +3,80 @@ import {
   useIDEStore,
   type LocalisationTranslations,
 } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 type Locale = string;
 type Key = string;
 type Translations = LocalisationTranslations;
 
+interface LocState {
+  locales: Locale[];
+  translations: Translations;
+}
+
 export function LocalisationEditor(): React.ReactElement {
-  const locales = useIDEStore((s) => s.localisationLocales);
-  const translations = useIDEStore((s) => s.localisationTranslations);
-  const setLocales = useIDEStore((s) => s.setLocalisationLocales);
-  const setTranslations = useIDEStore((s) => s.setLocalisationTranslations);
+  const storeLocales = useIDEStore((s) => s.localisationLocales);
+  const storeTranslations = useIDEStore((s) => s.localisationTranslations);
+  const setStoreLocales = useIDEStore((s) => s.setLocalisationLocales);
+  const setStoreTranslations = useIDEStore(
+    (s) => s.setLocalisationTranslations,
+  );
+
+  const {
+    state: locState,
+    set: setLocState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<LocState>({
+    locales: storeLocales,
+    translations: storeTranslations,
+  });
+
+  const locales = locState.locales;
+  const translations = locState.translations;
+
+  const prevLocStateRef = React.useRef<LocState>(locState);
+
+  // Sync history → store on undo/redo
+  React.useEffect(() => {
+    if (locState !== prevLocStateRef.current) {
+      prevLocStateRef.current = locState;
+      setStoreLocales(locState.locales);
+      setStoreTranslations(locState.translations);
+    }
+  }, [locState, setStoreLocales, setStoreTranslations]);
+
+  const setLocales = (next: Locale[]): void => {
+    const s = { locales: next, translations };
+    prevLocStateRef.current = s;
+    setLocState(s);
+    setStoreLocales(next);
+  };
+  const setTranslations = (next: Translations): void => {
+    const s = { locales, translations: next };
+    prevLocStateRef.current = s;
+    setLocState(s);
+    setStoreTranslations(next);
+  };
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
   const [editing, setEditing] = React.useState<{
     key: Key;
     locale: Locale;
@@ -99,7 +163,6 @@ export function LocalisationEditor(): React.ReactElement {
         const entry: Record<string, string> = {};
         imported[key] = entry;
         importedLocales.forEach((loc, i) => {
-          if (loc === undefined) return;
           entry[loc] = (cols[i + 1] ?? "")
             .replace(/^"|"$/g, "")
             .replace(/""/g, '"');
@@ -137,6 +200,40 @@ export function LocalisationEditor(): React.ReactElement {
           flexWrap: "wrap",
         }}
       >
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            padding: "3px 8px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: canUndo ? "pointer" : "default",
+            opacity: canUndo ? 1 : 0.4,
+            fontSize: 14,
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            padding: "3px 8px",
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 4,
+            color: "var(--es-text)",
+            cursor: canRedo ? "pointer" : "default",
+            opacity: canRedo ? 1 : 0.4,
+            fontSize: 14,
+          }}
+        >
+          ↪
+        </button>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

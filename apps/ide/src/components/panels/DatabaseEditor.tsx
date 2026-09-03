@@ -1,5 +1,6 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,10 @@ const CELL: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-function NumCell(props: { value: number; onChange: (v: number) => void }): React.ReactElement {
+function NumCell(props: {
+  value: number;
+  onChange: (v: number) => void;
+}): React.ReactElement {
   return (
     <input
       type="number"
@@ -78,7 +82,11 @@ function NumCell(props: { value: number; onChange: (v: number) => void }): React
   );
 }
 
-function StrCell(props: { value: string; onChange: (v: string) => void; wide?: boolean }): React.ReactElement {
+function StrCell(props: {
+  value: string;
+  onChange: (v: string) => void;
+  wide?: boolean;
+}): React.ReactElement {
   return (
     <input
       type="text"
@@ -91,79 +99,344 @@ function StrCell(props: { value: string; onChange: (v: string) => void; wide?: b
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
+interface DBState {
+  actors: DBActor[];
+  classes: DBClass[];
+  items: DBItem[];
+  enemies: DBEnemy[];
+}
+
 export function DatabaseEditor(): React.ReactElement {
-  const dbActors = useIDEStore((s) => s.dbActors);
-  const dbClasses = useIDEStore((s) => s.dbClasses);
-  const dbItems = useIDEStore((s) => s.dbItems);
-  const dbEnemies = useIDEStore((s) => s.dbEnemies);
-  const setDBActors = useIDEStore((s) => s.setDBActors);
-  const setDBClasses = useIDEStore((s) => s.setDBClasses);
-  const setDBItems = useIDEStore((s) => s.setDBItems);
-  const setDBEnemies = useIDEStore((s) => s.setDBEnemies);
+  const storeActors = useIDEStore((s) => s.dbActors);
+  const storeClasses = useIDEStore((s) => s.dbClasses);
+  const storeItems = useIDEStore((s) => s.dbItems);
+  const storeEnemies = useIDEStore((s) => s.dbEnemies);
+  const setStoreActors = useIDEStore((s) => s.setDBActors);
+  const setStoreClasses = useIDEStore((s) => s.setDBClasses);
+  const setStoreItems = useIDEStore((s) => s.setDBItems);
+  const setStoreEnemies = useIDEStore((s) => s.setDBEnemies);
+
+  const {
+    state: dbState,
+    set: setDbState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<DBState>({
+    actors: storeActors,
+    classes: storeClasses,
+    items: storeItems,
+    enemies: storeEnemies,
+  });
+
+  const dbActors = dbState.actors;
+  const dbClasses = dbState.classes;
+  const dbItems = dbState.items;
+  const dbEnemies = dbState.enemies;
+
+  const prevDbRef = React.useRef<DBState>(dbState);
+
+  // Sync history → store on undo/redo
+  React.useEffect(() => {
+    if (dbState !== prevDbRef.current) {
+      prevDbRef.current = dbState;
+      setStoreActors(dbState.actors);
+      setStoreClasses(dbState.classes);
+      setStoreItems(dbState.items);
+      setStoreEnemies(dbState.enemies);
+    }
+  }, [
+    dbState,
+    setStoreActors,
+    setStoreClasses,
+    setStoreItems,
+    setStoreEnemies,
+  ]);
+
+  const commit = (patch: Partial<DBState>): void => {
+    const next = { ...dbState, ...patch };
+    prevDbRef.current = next;
+    setDbState(next);
+    if (patch.actors !== undefined) setStoreActors(patch.actors);
+    if (patch.classes !== undefined) setStoreClasses(patch.classes);
+    if (patch.items !== undefined) setStoreItems(patch.items);
+    if (patch.enemies !== undefined) setStoreEnemies(patch.enemies);
+  };
+
+  const setDBActors = (v: DBActor[]): void => commit({ actors: v });
+  const setDBClasses = (v: DBClass[]): void => commit({ classes: v });
+  const setDBItems = (v: DBItem[]): void => commit({ items: v });
+  const setDBEnemies = (v: DBEnemy[]): void => commit({ enemies: v });
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const [tab, setTab] = React.useState<DBTab>("actors");
 
   const updateActor = (id: number, patch: Partial<DBActor>): void => {
     setDBActors(dbActors.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   };
-  const removeActor = (id: number): void => setDBActors(dbActors.filter((a) => a.id !== id));
-  const addActor = (): void => setDBActors([...dbActors, { id: nextId(dbActors), name: "New Actor", className: "Fighter", maxHp: 500, maxMp: 100, atk: 10, def: 5, note: "" }]);
+  const removeActor = (id: number): void =>
+    setDBActors(dbActors.filter((a) => a.id !== id));
+  const addActor = (): void =>
+    setDBActors([
+      ...dbActors,
+      {
+        id: nextId(dbActors),
+        name: "New Actor",
+        className: "Fighter",
+        maxHp: 500,
+        maxMp: 100,
+        atk: 10,
+        def: 5,
+        note: "",
+      },
+    ]);
 
   const updateClass = (id: number, patch: Partial<DBClass>): void => {
     setDBClasses(dbClasses.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
-  const removeClass = (id: number): void => setDBClasses(dbClasses.filter((c) => c.id !== id));
-  const addClass = (): void => setDBClasses([...dbClasses, { id: nextId(dbClasses), name: "New Class", expBase: 30, expExtra: 20, note: "" }]);
+  const removeClass = (id: number): void =>
+    setDBClasses(dbClasses.filter((c) => c.id !== id));
+  const addClass = (): void =>
+    setDBClasses([
+      ...dbClasses,
+      {
+        id: nextId(dbClasses),
+        name: "New Class",
+        expBase: 30,
+        expExtra: 20,
+        note: "",
+      },
+    ]);
 
   const updateItem = (id: number, patch: Partial<DBItem>): void => {
     setDBItems(dbItems.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   };
-  const removeItem = (id: number): void => setDBItems(dbItems.filter((i) => i.id !== id));
-  const addItem = (): void => setDBItems([...dbItems, { id: nextId(dbItems), name: "New Item", description: "", effect: "hp + 100", value: 50, note: "" }]);
+  const removeItem = (id: number): void =>
+    setDBItems(dbItems.filter((i) => i.id !== id));
+  const addItem = (): void =>
+    setDBItems([
+      ...dbItems,
+      {
+        id: nextId(dbItems),
+        name: "New Item",
+        description: "",
+        effect: "hp + 100",
+        value: 50,
+        note: "",
+      },
+    ]);
 
   const updateEnemy = (id: number, patch: Partial<DBEnemy>): void => {
     setDBEnemies(dbEnemies.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   };
-  const removeEnemy = (id: number): void => setDBEnemies(dbEnemies.filter((e) => e.id !== id));
-  const addEnemy = (): void => setDBEnemies([...dbEnemies, { id: nextId(dbEnemies), name: "Slime", maxHp: 200, atk: 8, def: 4, exp: 10, gold: 5, note: "" }]);
+  const removeEnemy = (id: number): void =>
+    setDBEnemies(dbEnemies.filter((e) => e.id !== id));
+  const addEnemy = (): void =>
+    setDBEnemies([
+      ...dbEnemies,
+      {
+        id: nextId(dbEnemies),
+        name: "Slime",
+        maxHp: 200,
+        atk: 8,
+        def: 4,
+        exp: 10,
+        gold: 5,
+        note: "",
+      },
+    ]);
 
-  const btnStyle: React.CSSProperties = { padding: "3px 10px", background: "var(--es-accent)", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12 };
+  const btnStyle: React.CSSProperties = {
+    padding: "3px 10px",
+    background: "var(--es-accent)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 12,
+  };
   const delStyle: React.CSSProperties = { ...btnStyle, background: "#7f1d1d" };
-  const thStyle: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid var(--es-border)", textAlign: "left", whiteSpace: "nowrap", color: "var(--es-text-muted)" };
+  const thStyle: React.CSSProperties = {
+    padding: "4px 6px",
+    borderBottom: "1px solid var(--es-border)",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+    color: "var(--es-text-muted)",
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--es-bg)", color: "var(--es-text)", fontSize: 12 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
+        fontSize: 12,
+      }}
+    >
       {/* Tab bar */}
-      <div style={{ display: "flex", borderBottom: "1px solid var(--es-border)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          borderBottom: "1px solid var(--es-border)",
+        }}
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            style={{ padding: "6px 16px", background: tab === t.id ? "var(--es-surface)" : "transparent", color: "var(--es-text)", border: "none", borderBottom: tab === t.id ? "2px solid var(--es-accent)" : "2px solid transparent", cursor: "pointer", fontSize: 12 }}
+            style={{
+              padding: "6px 16px",
+              background: tab === t.id ? "var(--es-surface)" : "transparent",
+              color: "var(--es-text)",
+              border: "none",
+              borderBottom:
+                tab === t.id
+                  ? "2px solid var(--es-accent)"
+                  : "2px solid transparent",
+              cursor: "pointer",
+              fontSize: 12,
+            }}
           >
             {t.label}
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            padding: "4px 8px",
+            background: "transparent",
+            border: "none",
+            color: "var(--es-text)",
+            cursor: canUndo ? "pointer" : "default",
+            opacity: canUndo ? 1 : 0.4,
+            fontSize: 14,
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            padding: "4px 8px",
+            background: "transparent",
+            border: "none",
+            color: "var(--es-text)",
+            cursor: canRedo ? "pointer" : "default",
+            opacity: canRedo ? 1 : 0.4,
+            fontSize: 14,
+            marginRight: 4,
+          }}
+        >
+          ↪
+        </button>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: 10 }}>
         {tab === "actors" && (
           <>
-            <button style={btnStyle} onClick={addActor}>+ Actor</button>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-              <thead><tr><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Class</th><th style={thStyle}>HP</th><th style={thStyle}>MP</th><th style={thStyle}>ATK</th><th style={thStyle}>DEF</th><th style={thStyle}>Note</th><th style={thStyle}></th></tr></thead>
+            <button style={btnStyle} onClick={addActor}>
+              + Actor
+            </button>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginTop: 8,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={thStyle}>ID</th>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>Class</th>
+                  <th style={thStyle}>HP</th>
+                  <th style={thStyle}>MP</th>
+                  <th style={thStyle}>ATK</th>
+                  <th style={thStyle}>DEF</th>
+                  <th style={thStyle}>Note</th>
+                  <th style={thStyle}></th>
+                </tr>
+              </thead>
               <tbody>
                 {dbActors.map((a) => (
                   <tr key={a.id}>
                     <td style={{ padding: "2px 6px" }}>{a.id}</td>
-                    <td><StrCell value={a.name} onChange={(v) => updateActor(a.id, { name: v })} /></td>
-                    <td><StrCell value={a.className} onChange={(v) => updateActor(a.id, { className: v })} /></td>
-                    <td><NumCell value={a.maxHp} onChange={(v) => updateActor(a.id, { maxHp: v })} /></td>
-                    <td><NumCell value={a.maxMp} onChange={(v) => updateActor(a.id, { maxMp: v })} /></td>
-                    <td><NumCell value={a.atk} onChange={(v) => updateActor(a.id, { atk: v })} /></td>
-                    <td><NumCell value={a.def} onChange={(v) => updateActor(a.id, { def: v })} /></td>
-                    <td><StrCell value={a.note} onChange={(v) => updateActor(a.id, { note: v })} wide /></td>
-                    <td><button style={delStyle} onClick={() => removeActor(a.id)}>✕</button></td>
+                    <td>
+                      <StrCell
+                        value={a.name}
+                        onChange={(v) => updateActor(a.id, { name: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={a.className}
+                        onChange={(v) => updateActor(a.id, { className: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={a.maxHp}
+                        onChange={(v) => updateActor(a.id, { maxHp: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={a.maxMp}
+                        onChange={(v) => updateActor(a.id, { maxMp: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={a.atk}
+                        onChange={(v) => updateActor(a.id, { atk: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={a.def}
+                        onChange={(v) => updateActor(a.id, { def: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={a.note}
+                        onChange={(v) => updateActor(a.id, { note: v })}
+                        wide
+                      />
+                    </td>
+                    <td>
+                      <button
+                        style={delStyle}
+                        onClick={() => removeActor(a.id)}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -173,18 +446,63 @@ export function DatabaseEditor(): React.ReactElement {
 
         {tab === "classes" && (
           <>
-            <button style={btnStyle} onClick={addClass}>+ Class</button>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-              <thead><tr><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>EXP Base</th><th style={thStyle}>EXP Extra</th><th style={thStyle}>Note</th><th style={thStyle}></th></tr></thead>
+            <button style={btnStyle} onClick={addClass}>
+              + Class
+            </button>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginTop: 8,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={thStyle}>ID</th>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>EXP Base</th>
+                  <th style={thStyle}>EXP Extra</th>
+                  <th style={thStyle}>Note</th>
+                  <th style={thStyle}></th>
+                </tr>
+              </thead>
               <tbody>
                 {dbClasses.map((c) => (
                   <tr key={c.id}>
                     <td style={{ padding: "2px 6px" }}>{c.id}</td>
-                    <td><StrCell value={c.name} onChange={(v) => updateClass(c.id, { name: v })} /></td>
-                    <td><NumCell value={c.expBase} onChange={(v) => updateClass(c.id, { expBase: v })} /></td>
-                    <td><NumCell value={c.expExtra} onChange={(v) => updateClass(c.id, { expExtra: v })} /></td>
-                    <td><StrCell value={c.note} onChange={(v) => updateClass(c.id, { note: v })} wide /></td>
-                    <td><button style={delStyle} onClick={() => removeClass(c.id)}>✕</button></td>
+                    <td>
+                      <StrCell
+                        value={c.name}
+                        onChange={(v) => updateClass(c.id, { name: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={c.expBase}
+                        onChange={(v) => updateClass(c.id, { expBase: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={c.expExtra}
+                        onChange={(v) => updateClass(c.id, { expExtra: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={c.note}
+                        onChange={(v) => updateClass(c.id, { note: v })}
+                        wide
+                      />
+                    </td>
+                    <td>
+                      <button
+                        style={delStyle}
+                        onClick={() => removeClass(c.id)}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -194,19 +512,68 @@ export function DatabaseEditor(): React.ReactElement {
 
         {tab === "items" && (
           <>
-            <button style={btnStyle} onClick={addItem}>+ Item</button>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-              <thead><tr><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Description</th><th style={thStyle}>Effect</th><th style={thStyle}>Value</th><th style={thStyle}>Note</th><th style={thStyle}></th></tr></thead>
+            <button style={btnStyle} onClick={addItem}>
+              + Item
+            </button>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginTop: 8,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={thStyle}>ID</th>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>Description</th>
+                  <th style={thStyle}>Effect</th>
+                  <th style={thStyle}>Value</th>
+                  <th style={thStyle}>Note</th>
+                  <th style={thStyle}></th>
+                </tr>
+              </thead>
               <tbody>
                 {dbItems.map((i) => (
                   <tr key={i.id}>
                     <td style={{ padding: "2px 6px" }}>{i.id}</td>
-                    <td><StrCell value={i.name} onChange={(v) => updateItem(i.id, { name: v })} /></td>
-                    <td><StrCell value={i.description} onChange={(v) => updateItem(i.id, { description: v })} wide /></td>
-                    <td><StrCell value={i.effect} onChange={(v) => updateItem(i.id, { effect: v })} /></td>
-                    <td><NumCell value={i.value} onChange={(v) => updateItem(i.id, { value: v })} /></td>
-                    <td><StrCell value={i.note} onChange={(v) => updateItem(i.id, { note: v })} wide /></td>
-                    <td><button style={delStyle} onClick={() => removeItem(i.id)}>✕</button></td>
+                    <td>
+                      <StrCell
+                        value={i.name}
+                        onChange={(v) => updateItem(i.id, { name: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={i.description}
+                        onChange={(v) => updateItem(i.id, { description: v })}
+                        wide
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={i.effect}
+                        onChange={(v) => updateItem(i.id, { effect: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={i.value}
+                        onChange={(v) => updateItem(i.id, { value: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={i.note}
+                        onChange={(v) => updateItem(i.id, { note: v })}
+                        wide
+                      />
+                    </td>
+                    <td>
+                      <button style={delStyle} onClick={() => removeItem(i.id)}>
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -216,21 +583,84 @@ export function DatabaseEditor(): React.ReactElement {
 
         {tab === "enemies" && (
           <>
-            <button style={btnStyle} onClick={addEnemy}>+ Enemy</button>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-              <thead><tr><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>HP</th><th style={thStyle}>ATK</th><th style={thStyle}>DEF</th><th style={thStyle}>EXP</th><th style={thStyle}>Gold</th><th style={thStyle}>Note</th><th style={thStyle}></th></tr></thead>
+            <button style={btnStyle} onClick={addEnemy}>
+              + Enemy
+            </button>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginTop: 8,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={thStyle}>ID</th>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>HP</th>
+                  <th style={thStyle}>ATK</th>
+                  <th style={thStyle}>DEF</th>
+                  <th style={thStyle}>EXP</th>
+                  <th style={thStyle}>Gold</th>
+                  <th style={thStyle}>Note</th>
+                  <th style={thStyle}></th>
+                </tr>
+              </thead>
               <tbody>
                 {dbEnemies.map((e) => (
                   <tr key={e.id}>
                     <td style={{ padding: "2px 6px" }}>{e.id}</td>
-                    <td><StrCell value={e.name} onChange={(v) => updateEnemy(e.id, { name: v })} /></td>
-                    <td><NumCell value={e.maxHp} onChange={(v) => updateEnemy(e.id, { maxHp: v })} /></td>
-                    <td><NumCell value={e.atk} onChange={(v) => updateEnemy(e.id, { atk: v })} /></td>
-                    <td><NumCell value={e.def} onChange={(v) => updateEnemy(e.id, { def: v })} /></td>
-                    <td><NumCell value={e.exp} onChange={(v) => updateEnemy(e.id, { exp: v })} /></td>
-                    <td><NumCell value={e.gold} onChange={(v) => updateEnemy(e.id, { gold: v })} /></td>
-                    <td><StrCell value={e.note} onChange={(v) => updateEnemy(e.id, { note: v })} wide /></td>
-                    <td><button style={delStyle} onClick={() => removeEnemy(e.id)}>✕</button></td>
+                    <td>
+                      <StrCell
+                        value={e.name}
+                        onChange={(v) => updateEnemy(e.id, { name: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={e.maxHp}
+                        onChange={(v) => updateEnemy(e.id, { maxHp: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={e.atk}
+                        onChange={(v) => updateEnemy(e.id, { atk: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={e.def}
+                        onChange={(v) => updateEnemy(e.id, { def: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={e.exp}
+                        onChange={(v) => updateEnemy(e.id, { exp: v })}
+                      />
+                    </td>
+                    <td>
+                      <NumCell
+                        value={e.gold}
+                        onChange={(v) => updateEnemy(e.id, { gold: v })}
+                      />
+                    </td>
+                    <td>
+                      <StrCell
+                        value={e.note}
+                        onChange={(v) => updateEnemy(e.id, { note: v })}
+                        wide
+                      />
+                    </td>
+                    <td>
+                      <button
+                        style={delStyle}
+                        onClick={() => removeEnemy(e.id)}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

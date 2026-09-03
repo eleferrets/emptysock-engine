@@ -1,19 +1,124 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 
 type PanelTab = "variables" | "switches";
+
+interface VarsState {
+  vars: Record<number, number>;
+  switches: Record<number, boolean>;
+  varNames: Record<number, string>;
+  switchNames: Record<number, string>;
+}
 
 export function VariablesPanel(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState<PanelTab>("variables");
 
-  const vars = useIDEStore((s) => s.variableStoreVars);
-  const switches = useIDEStore((s) => s.variableStoreSwitches);
-  const varNames = useIDEStore((s) => s.variableStoreVarNames);
-  const switchNames = useIDEStore((s) => s.variableStoreSwitchNames);
-  const setVar = useIDEStore((s) => s.setVar);
-  const setSwitch = useIDEStore((s) => s.setSwitch);
-  const setVarName = useIDEStore((s) => s.setVarName);
-  const setSwitchName = useIDEStore((s) => s.setSwitchName);
+  const storeVars = useIDEStore((s) => s.variableStoreVars);
+  const storeSwitches = useIDEStore((s) => s.variableStoreSwitches);
+  const storeVarNames = useIDEStore((s) => s.variableStoreVarNames);
+  const storeSwitchNames = useIDEStore((s) => s.variableStoreSwitchNames);
+  const storeSetVar = useIDEStore((s) => s.setVar);
+  const storeSetSwitch = useIDEStore((s) => s.setSwitch);
+  const storeSetVarName = useIDEStore((s) => s.setVarName);
+  const storeSetSwitchName = useIDEStore((s) => s.setSwitchName);
+
+  const {
+    state: vsState,
+    set: setVsState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<VarsState>({
+    vars: storeVars,
+    switches: storeSwitches,
+    varNames: storeVarNames,
+    switchNames: storeSwitchNames,
+  });
+
+  const vars = vsState.vars;
+  const switches = vsState.switches;
+  const varNames = vsState.varNames;
+  const switchNames = vsState.switchNames;
+
+  const prevVsRef = React.useRef<VarsState>(vsState);
+
+  // Sync history → store on undo/redo
+  React.useEffect(() => {
+    if (vsState !== prevVsRef.current) {
+      prevVsRef.current = vsState;
+      Object.entries(vsState.vars).forEach(([k, v]) =>
+        storeSetVar(Number(k), v),
+      );
+      Object.entries(vsState.switches).forEach(([k, v]) =>
+        storeSetSwitch(Number(k), v),
+      );
+      Object.entries(vsState.varNames).forEach(([k, v]) =>
+        storeSetVarName(Number(k), v),
+      );
+      Object.entries(vsState.switchNames).forEach(([k, v]) =>
+        storeSetSwitchName(Number(k), v),
+      );
+    }
+  }, [
+    vsState,
+    storeSetVar,
+    storeSetSwitch,
+    storeSetVarName,
+    storeSetSwitchName,
+  ]);
+
+  const setVar = (index: number, value: number): void => {
+    const next = { ...vsState, vars: { ...vsState.vars, [index]: value } };
+    prevVsRef.current = next;
+    setVsState(next);
+    storeSetVar(index, value);
+  };
+  const setSwitch = (index: number, value: boolean): void => {
+    const next = {
+      ...vsState,
+      switches: { ...vsState.switches, [index]: value },
+    };
+    prevVsRef.current = next;
+    setVsState(next);
+    storeSetSwitch(index, value);
+  };
+  const setVarName = (index: number, name: string): void => {
+    const next = {
+      ...vsState,
+      varNames: { ...vsState.varNames, [index]: name },
+    };
+    prevVsRef.current = next;
+    setVsState(next);
+    storeSetVarName(index, name);
+  };
+  const setSwitchName = (index: number, name: string): void => {
+    const next = {
+      ...vsState,
+      switchNames: { ...vsState.switchNames, [index]: name },
+    };
+    prevVsRef.current = next;
+    setVsState(next);
+    storeSetSwitchName(index, name);
+  };
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   // Determine which indices to show (at least 1..20, or up to the highest set index)
   function visibleIndices(
@@ -42,10 +147,7 @@ export function VariablesPanel(): React.ReactElement {
     setSwitch(nextIndex, false);
   };
 
-  const handleVarValue = (
-    index: number,
-    raw: string,
-  ): void => {
+  const handleVarValue = (index: number, raw: string): void => {
     const parsed = parseInt(raw, 10);
     setVar(index, isNaN(parsed) ? 0 : parsed);
   };
@@ -104,10 +206,16 @@ export function VariablesPanel(): React.ReactElement {
           flexShrink: 0,
         }}
       >
-        <button style={tabStyle("variables")} onClick={() => setActiveTab("variables")}>
+        <button
+          style={tabStyle("variables")}
+          onClick={() => setActiveTab("variables")}
+        >
           Variables
         </button>
-        <button style={tabStyle("switches")} onClick={() => setActiveTab("switches")}>
+        <button
+          style={tabStyle("switches")}
+          onClick={() => setActiveTab("switches")}
+        >
           Switches
         </button>
       </div>
@@ -314,6 +422,32 @@ export function VariablesPanel(): React.ReactElement {
           flexShrink: 0,
         }}
       >
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            ...btnStyle,
+            opacity: canUndo ? 1 : 0.4,
+            fontSize: 14,
+            cursor: canUndo ? "pointer" : "default",
+          }}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            ...btnStyle,
+            opacity: canRedo ? 1 : 0.4,
+            fontSize: 14,
+            cursor: canRedo ? "pointer" : "default",
+          }}
+        >
+          ↪
+        </button>
         {activeTab === "variables" && (
           <button style={btnStyle} onClick={addVar}>
             + Add Variable
