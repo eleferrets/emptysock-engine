@@ -81,7 +81,7 @@ NavMeshSystem.load() accepts a pre-built polygon graph. There is no API to gener
 
 ### Component types as identity keys
 
-addComponent and getComponent use the component constructor function as the key. Do not create abstract base classes and then use the base class in getComponent calls expecting a subclass instance. The lookup is strict: `getComponent(BaseHealth)` will not find a component added with `addComponent(SpecializedHealth)`. One component type per entity slot is intentional — it prevents ambiguous multi-component queries.
+addComponent and getComponent use the `component.type` string field as the key, not the constructor function. The internal map is `Map<string, Component>`. Do not assume two components with different classes but the same `type` string are distinct — they will collide. The lookup is strict: `getComponent("BaseHealth")` will not find a component whose `type` is `"SpecializedHealth"`, even if one extends the other. One component type string per entity slot is intentional — it prevents ambiguous multi-component queries.
 
 ### One ActorSystem per scene
 

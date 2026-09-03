@@ -20,6 +20,11 @@ import { GitPanel } from "./panels/GitPanel";
 import { useIDEStore } from "../store/ideStore";
 import { ErrorBoundary } from "./ErrorBoundary";
 
+// Module-scope lazy imports (stable across renders)
+const LazyCanvasPreview = React.lazy(() =>
+  import("./panels/CanvasPreview").then((m) => ({ default: m.CanvasPreview })),
+);
+
 function useWindowWidth(): number {
   const [width, setWidth] = React.useState(() => window.innerWidth);
   React.useEffect(() => {
@@ -85,21 +90,26 @@ const TABLET_RIGHT_TABS: Array<{ id: TabletRightTab; label: string }> = [
   { id: "console", label: "Console" },
 ];
 
-function TabletRightPanel({ tab }: { tab: TabletRightTab }): React.ReactElement {
+function TabletRightPanel({
+  tab,
+}: {
+  tab: TabletRightTab;
+}): React.ReactElement {
   switch (tab) {
     case "code":
       return <CodeEditor />;
-    case "canvas": {
-      // Lazy import to avoid pulling CanvasPreview into the mobile bundle unconditionally
-      const CanvasPreview = React.lazy(() =>
-        import("./panels/CanvasPreview").then((m) => ({ default: m.CanvasPreview })),
-      );
+    case "canvas":
       return (
-        <React.Suspense fallback={<div style={{ color: "var(--es-text-muted)", padding: 16 }}>Loading…</div>}>
-          <CanvasPreview />
+        <React.Suspense
+          fallback={
+            <div style={{ color: "var(--es-text-muted)", padding: 16 }}>
+              Loading…
+            </div>
+          }
+        >
+          <LazyCanvasPreview />
         </React.Suspense>
       );
-    }
     case "console":
       return <ConsolePanel />;
   }
@@ -107,7 +117,8 @@ function TabletRightPanel({ tab }: { tab: TabletRightTab }): React.ReactElement 
 
 export function MobileLayout(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState<MainTab>("code");
-  const [tabletRightTab, setTabletRightTab] = React.useState<TabletRightTab>("code");
+  const [tabletRightTab, setTabletRightTab] =
+    React.useState<TabletRightTab>("code");
   const [fabOpen, setFabOpen] = React.useState(false);
   const [sheetTab, setSheetTab] = React.useState<SheetTab | null>(null);
 
