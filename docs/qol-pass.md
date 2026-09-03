@@ -100,6 +100,17 @@ Applies to `apps/ide/vite.config.ts`.
 
 ---
 
+## Dynamic imports — desktop and web compatibility
+
+The IDE uses dynamic `import('@tauri-apps/api/core')` at several call sites. The pattern is correct (all are gated behind `isTauri()` checks), but several surrounding issues remain:
+
+- ⬜ `vite.config.ts` `optimizeDeps.exclude` is missing `@tauri-apps/api` — Vite discovers the dynamic import in source and tries to pre-bundle the Tauri API package during dev-server startup. Since the package is injected by the Tauri runtime (not shipped as a normal npm chunk), this fails silently or produces a stale cached chunk. Fix: add `'@tauri-apps/api'` to the existing `optimizeDeps.exclude` array alongside `monaco-editor`.
+- ⬜ `vite.config.ts` `build.target: 'esnext'` — should be `'es2026'` (literal year, not moving target). Same for `esbuild.target`. Both the IDE bundle and game builds compiled by `GameBuildService` should target `es2026` explicitly.
+- ⬜ `MobileLayout.tsx` `TabletRightPanel` creates `React.lazy(() => import('./panels/CanvasPreview')…)` **inside the render function body** — every render discards the old lazy component and creates a new one, resetting its Suspense promise and causing a remount flash. Move the `React.lazy(…)` call to module scope (top of file, outside any function) so the lazy component is stable across renders.
+- ⬜ `GameBuildService.transformOnly()` uses `format: 'iife'` — any top-level `await` or `import.meta` in transformed code silently breaks. Change to `format: 'esm'` to match the main build pipeline.
+
+---
+
 ## Architectural debt (found during audit, not yet tracked)
 
 - ⬜ AudioSystem ↔ AudioMixerService bridge — the IDE mixer panel sets volumes on `AudioMixerService` (a Web Audio GainNode graph) which has no connection to the engine's `AudioSystem`. Volume changes in the IDE have zero effect on in-game sounds. Fix: route IDE mixer through `AudioSystem.setBusVolume` via the preview iframe `postMessage` channel, same as the draw-call counter.
@@ -125,3 +136,20 @@ Low-cost additions that would noticeably improve daily use:
 - ⬜ Git diff view in GitPanel — currently shows status only; inline diff of changed files
 - ⬜ FPS target setting — let the game preview run at 30/60/120 fps cap; useful for mobile perf testing on desktop
 - ⬜ Code snippet palette — right-click in CodeEditor to insert common patterns (create entity, add component, start coroutine, etc.)
+
+---
+
+## Tooling and code quality
+
+Improvements to the lint, test, and build pipeline that would catch bugs earlier:
+
+- ⬜ ESLint rule `@typescript-eslint/no-floating-promises` — catches `async` calls whose returned Promise is never awaited or `.catch()`'d; common source of silent failures in panel event handlers and store actions.
+- ⬜ ESLint rule `@typescript-eslint/consistent-type-imports` — enforces `import type` for type-only imports; consistent with the `verbatimModuleSyntax` tsconfig flag being added and keeps esbuild's type-strip path clean.
+- ⬜ ESLint rule `@typescript-eslint/no-unnecessary-condition` — flags `if (x !== undefined)` where `x` is statically known to be `string`; pairs with `noUncheckedIndexedAccess` to surface stale guard code.
+- ⬜ `typecheck: true` in the Vitest config — surfaces type errors in the same CI run as unit tests; currently a file can have type errors that only appear on a separate `tsc --noEmit` pass.
+- ⬜ `rollup-plugin-visualizer` in `vite.config.ts` with `open: false, filename: 'stats.html'` — generates a treemap of the IDE bundle after each build; run before each release to catch accidental bloat from a new dependency.
+- ⬜ `@/` path alias for `src/` — add `"@/*": ["src/*"]` to `apps/ide/tsconfig.json` paths and the matching `resolve.alias` in `vite.config.ts`; panel imports like `../../store/ideStore` become `@/store/ideStore` and survive file moves without broken relative paths.
+- ⬜ Add `@internal` JSDoc to implementation-detail exports in `packages/engine/src/index.ts` — currently everything is re-exported with no stable/unstable distinction; marking internals enables `stripInternal: true` (already in the tsconfig backlog) to shrink the `.d.ts` surface and prevent agents from calling private scheduler methods.
+- ⬜ Unit test coverage for `ideStore.ts`, `GameBuildService.ts`, and `editorGrid.ts` — these are the most load-bearing files and the hardest to verify manually after changes; currently they have effectively no tests.
+- ⬜ React error boundary per panel — one uncaught render error in any panel currently crashes the entire IDE; wrap each panel's tab content in an `<ErrorBoundary>` to contain failures to that panel and show a "panel crashed — reload" message instead of a blank IDE. (`ErrorBoundary` component already exists in `src/components/`.)
+- ⬜ `pnpm catalog` for dependency version consistency — ensures `react`, `typescript`, `zustand`, and other shared deps are pinned to identical versions across `packages/engine`, `packages/types`, `packages/toolchain`, and `apps/ide`; prevents subtle mismatches where two packages bundle different React instances.
