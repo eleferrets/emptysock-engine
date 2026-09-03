@@ -1,6 +1,14 @@
-import { Scene } from './Scene.js';
+import type { Scene } from "./Scene.js";
 
-export type TransitionEffect = 'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'none';
+export type TransitionEffect =
+  | "fade"
+  | "wipe"
+  | "iris"
+  | "slide"
+  | "zoom"
+  | "dissolve"
+  | "flash"
+  | "none";
 
 export interface TransitionOptions {
   effect?: TransitionEffect;

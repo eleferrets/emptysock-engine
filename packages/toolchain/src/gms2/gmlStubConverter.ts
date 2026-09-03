@@ -55,7 +55,7 @@ function methodName(key: string): string {
 export function gmlObjectToTypeScript(yyPath: string): string {
   const raw = fs.readFileSync(yyPath, "utf8");
   const obj = JSON.parse(raw) as GmsObjectYY;
-  const className = obj.name ?? path.basename(yyPath, ".yy");
+  const className = obj.name;
   const parent = obj.parentObjectId?.name ?? null;
   const sprite = obj.spriteId?.name ?? null;
 
@@ -100,7 +100,10 @@ export function gmlObjectDirToTypeScript(
         try {
           const raw = fs.readFileSync(path.join(d, entry.name), "utf8");
           const parsed = JSON.parse(raw) as Record<string, unknown>;
-          if (parsed["modelName"] === "GMObject" || parsed["resourceType"] === "GMObject") {
+          if (
+            parsed["modelName"] === "GMObject" ||
+            parsed["resourceType"] === "GMObject"
+          ) {
             const code = gmlObjectToTypeScript(path.join(d, entry.name));
             results.push({ name: entry.name.replace(/\.yy$/, ".ts"), code });
           }

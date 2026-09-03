@@ -1,6 +1,6 @@
-import { Scene } from '../core/Scene.js';
-import { Entity } from '../core/Entity.js';
-import { Transform } from '../components/Transform.js';
+import type { Scene } from "../core/Scene.js";
+import { Entity } from "../core/Entity.js";
+import { Transform } from "../components/Transform.js";
 
 // ─── Tilemap data model ───────────────────────────────────────────────────────
 
@@ -50,17 +50,22 @@ export class Tilemap {
     this.entity = entity;
   }
 
-  get width(): number { return this.data.cols * this.data.tileWidth; }
-  get height(): number { return this.data.rows * this.data.tileHeight; }
+  get width(): number {
+    return this.data.cols * this.data.tileWidth;
+  }
+  get height(): number {
+    return this.data.rows * this.data.tileHeight;
+  }
 
   getLayer(name: string): TilemapLayer | undefined {
-    return this.data.layers.find(l => l.name === name);
+    return this.data.layers.find((l) => l.name === name);
   }
 
   /** Return all solid cells across all layers as a flat walkability grid (true = walkable). */
   asGrid(): boolean[][] {
-    const grid: boolean[][] = Array.from({ length: this.data.rows }, () =>
-      Array(this.data.cols).fill(true) as boolean[]
+    const grid: boolean[][] = Array.from(
+      { length: this.data.rows },
+      () => Array(this.data.cols).fill(true) as boolean[],
     );
 
     for (const layer of this.data.layers) {
@@ -68,7 +73,8 @@ export class Tilemap {
         for (let col = 0; col < this.data.cols; col++) {
           const cell = layer.cells[row]?.[col];
           if (cell !== undefined && cell.solid === true) {
-            grid[row]![col] = false;
+            const rowArr = grid[row];
+            if (rowArr !== undefined) rowArr[col] = false;
           }
         }
       }

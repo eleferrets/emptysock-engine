@@ -1,18 +1,18 @@
-import { Filter, GlProgram, type Container } from 'pixi.js';
+import { Filter, GlProgram, type Container } from "pixi.js";
 
 // ---------------------------------------------------------------------------
 // Light types
 // ---------------------------------------------------------------------------
 
-export type LightType = 'point' | 'directional' | 'spot' | 'ambient';
+export type LightType = "point" | "directional" | "spot" | "ambient";
 
 export interface Light {
   readonly id: string;
   readonly type: LightType;
-  colour: number;      // 0xRRGGBB
-  intensity: number;   // 0..1+
-  radius?: number;     // point/spot: falloff radius in world pixels
-  angle?: number;      // spot: cone half-angle in radians
+  colour: number; // 0xRRGGBB
+  intensity: number; // 0..1+
+  radius?: number; // point/spot: falloff radius in world pixels
+  angle?: number; // spot: cone half-angle in radians
   direction?: { x: number; y: number }; // directional: world-space direction
   castShadows: boolean;
   /** World-space position for point/spot lights (updated each frame) */
@@ -27,7 +27,7 @@ export interface Light {
 // Max lights in a single draw call — matches uniform arrays below
 const MAX_POINT_LIGHTS = 16;
 
-const VERT_SRC = /* glsl */`
+const VERT_SRC = /* glsl */ `
   in vec2 aPosition;
   in vec2 aUV;
   out vec2 vUV;
@@ -42,7 +42,7 @@ const VERT_SRC = /* glsl */`
   }
 `;
 
-const FRAG_SRC = /* glsl */`
+const FRAG_SRC = /* glsl */ `
   precision mediump float;
   in vec2 vUV;
   out vec4 finalColor;
@@ -120,24 +120,44 @@ const FRAG_SRC = /* glsl */`
 
 export class LightingFilter extends Filter {
   constructor() {
-    const program = GlProgram.from({ vertex: VERT_SRC, fragment: FRAG_SRC, name: 'emptysock-lighting' });
+    const program = GlProgram.from({
+      vertex: VERT_SRC,
+      fragment: FRAG_SRC,
+      name: "emptysock-lighting",
+    });
     super({ glProgram: program, resources: {} });
 
     // Set safe defaults
-    this.resources['uniforms'] = {
-      uAmbientColour: { value: [1, 1, 1], type: 'vec3<f32>' },
-      uAmbientIntensity: { value: 0.2, type: 'f32' },
-      uDirCount: { value: 0, type: 'i32' },
-      uDirColour: { value: new Float32Array(12), type: 'vec3<f32>', size: 4 },
-      uDirIntensity: { value: new Float32Array(4), type: 'f32', size: 4 },
-      uDirDirection: { value: new Float32Array(8), type: 'vec2<f32>', size: 4 },
-      uPointCount: { value: 0, type: 'i32' },
-      uPointColour: { value: new Float32Array(MAX_POINT_LIGHTS * 3), type: 'vec3<f32>', size: MAX_POINT_LIGHTS },
-      uPointIntensity: { value: new Float32Array(MAX_POINT_LIGHTS), type: 'f32', size: MAX_POINT_LIGHTS },
-      uPointPos: { value: new Float32Array(MAX_POINT_LIGHTS * 2), type: 'vec2<f32>', size: MAX_POINT_LIGHTS },
-      uPointRadius: { value: new Float32Array(MAX_POINT_LIGHTS), type: 'f32', size: MAX_POINT_LIGHTS },
-      uUseNormalMap: { value: 0, type: 'i32' },
-      uTextureSize: { value: new Float32Array([1280, 720]), type: 'vec2<f32>' },
+    this.resources["uniforms"] = {
+      uAmbientColour: { value: [1, 1, 1], type: "vec3<f32>" },
+      uAmbientIntensity: { value: 0.2, type: "f32" },
+      uDirCount: { value: 0, type: "i32" },
+      uDirColour: { value: new Float32Array(12), type: "vec3<f32>", size: 4 },
+      uDirIntensity: { value: new Float32Array(4), type: "f32", size: 4 },
+      uDirDirection: { value: new Float32Array(8), type: "vec2<f32>", size: 4 },
+      uPointCount: { value: 0, type: "i32" },
+      uPointColour: {
+        value: new Float32Array(MAX_POINT_LIGHTS * 3),
+        type: "vec3<f32>",
+        size: MAX_POINT_LIGHTS,
+      },
+      uPointIntensity: {
+        value: new Float32Array(MAX_POINT_LIGHTS),
+        type: "f32",
+        size: MAX_POINT_LIGHTS,
+      },
+      uPointPos: {
+        value: new Float32Array(MAX_POINT_LIGHTS * 2),
+        type: "vec2<f32>",
+        size: MAX_POINT_LIGHTS,
+      },
+      uPointRadius: {
+        value: new Float32Array(MAX_POINT_LIGHTS),
+        type: "f32",
+        size: MAX_POINT_LIGHTS,
+      },
+      uUseNormalMap: { value: 0, type: "i32" },
+      uTextureSize: { value: new Float32Array([1280, 720]), type: "vec2<f32>" },
     };
   }
 }
@@ -146,9 +166,16 @@ export class LightingFilter extends Filter {
 // Uniform helper
 // ---------------------------------------------------------------------------
 
-function setUniform(res: Record<string, { value: unknown }>, key: string, val: unknown): void {
+function setUniform(
+  res: Record<string, { value: unknown }>,
+  key: string,
+  val: unknown,
+): void {
   const u = res[key];
-  if (u === undefined) { console.warn('[LightingSystem] missing uniform:', key); return; }
+  if (u === undefined) {
+    console.warn("[LightingSystem] missing uniform:", key);
+    return;
+  }
   u.value = val;
 }
 
@@ -183,8 +210,12 @@ export class LightingSystem {
     this._ambientIntensity = intensity;
   }
 
-  get ambientColour(): number { return this._ambientColour; }
-  get ambientIntensity(): number { return this._ambientIntensity; }
+  get ambientColour(): number {
+    return this._ambientColour;
+  }
+  get ambientIntensity(): number {
+    return this._ambientIntensity;
+  }
 
   // ---------------------------------------------------------------------------
   // GPU filter attachment
@@ -194,13 +225,18 @@ export class LightingSystem {
    * Attach the GPU lighting filter to a PixiJS container (typically the scene stage).
    * This replaces the previous registry-only placeholder with real GPU rendering.
    */
-  attachFilter(stage: Container, useNormalMap = false, canvasWidth = 1280, canvasHeight = 720): void {
+  attachFilter(
+    stage: Container,
+    useNormalMap = false,
+    canvasWidth = 1280,
+    canvasHeight = 720,
+  ): void {
     this._filter = new LightingFilter();
     this._useNormalMap = useNormalMap;
     this._stage = stage;
     this._canvasWidth = canvasWidth;
     this._canvasHeight = canvasHeight;
-    stage.filters = [...(stage.filters ?? []), this._filter];
+    stage.filters = [...stage.filters, this._filter];
   }
 
   setResolution(width: number, height: number): void {
@@ -210,7 +246,9 @@ export class LightingSystem {
 
   detachFilter(): void {
     if (this._stage !== null && this._filter !== null) {
-      this._stage.filters = (this._stage.filters ?? []).filter(f => f !== this._filter);
+      this._stage.filters = this._stage.filters.filter(
+        (f) => f !== this._filter,
+      );
     }
     this._filter = null;
     this._stage = null;
@@ -224,22 +262,32 @@ export class LightingSystem {
     const f = this._filter;
     if (f === null) return;
 
-    const res = f.resources['uniforms'] as Record<string, { value: unknown }>;
+    const res = f.resources["uniforms"] as
+      | Record<string, { value: unknown }>
+      | undefined;
     if (res === undefined) return;
 
     // Ambient
-    setUniform(res, 'uAmbientColour', hexToVec3(this._ambientColour));
-    setUniform(res, 'uAmbientIntensity', this._ambientIntensity);
-    setUniform(res, 'uTextureSize', new Float32Array([this._canvasWidth, this._canvasHeight]));
-    setUniform(res, 'uUseNormalMap', this._useNormalMap ? 1 : 0);
+    setUniform(res, "uAmbientColour", hexToVec3(this._ambientColour));
+    setUniform(res, "uAmbientIntensity", this._ambientIntensity);
+    setUniform(
+      res,
+      "uTextureSize",
+      new Float32Array([this._canvasWidth, this._canvasHeight]),
+    );
+    setUniform(res, "uUseNormalMap", this._useNormalMap ? 1 : 0);
 
     // Partition lights
-    const pointLights = [...this.lights.values()].filter(l => l.type === 'point');
-    const dirLights = [...this.lights.values()].filter(l => l.type === 'directional');
+    const pointLights = [...this.lights.values()].filter(
+      (l) => l.type === "point",
+    );
+    const dirLights = [...this.lights.values()].filter(
+      (l) => l.type === "directional",
+    );
 
     // Point lights
     const pc = Math.min(pointLights.length, MAX_POINT_LIGHTS);
-    setUniform(res, 'uPointCount', pc);
+    setUniform(res, "uPointCount", pc);
     const pColour = new Float32Array(MAX_POINT_LIGHTS * 3);
     const pIntensity = new Float32Array(MAX_POINT_LIGHTS);
     const pPos = new Float32Array(MAX_POINT_LIGHTS * 2);
@@ -257,14 +305,14 @@ export class LightingSystem {
       pPos[i * 2 + 1] = (l.y ?? 0) / this._canvasHeight;
       pRadius[i] = (l.radius ?? 200) / this._canvasWidth;
     }
-    setUniform(res, 'uPointColour', pColour);
-    setUniform(res, 'uPointIntensity', pIntensity);
-    setUniform(res, 'uPointPos', pPos);
-    setUniform(res, 'uPointRadius', pRadius);
+    setUniform(res, "uPointColour", pColour);
+    setUniform(res, "uPointIntensity", pIntensity);
+    setUniform(res, "uPointPos", pPos);
+    setUniform(res, "uPointRadius", pRadius);
 
     // Directional lights
     const dc = Math.min(dirLights.length, 4);
-    setUniform(res, 'uDirCount', dc);
+    setUniform(res, "uDirCount", dc);
     const dColour = new Float32Array(12);
     const dIntensity = new Float32Array(4);
     const dDir = new Float32Array(8);
@@ -280,9 +328,9 @@ export class LightingSystem {
       dDir[i * 2] = dir.x;
       dDir[i * 2 + 1] = dir.y;
     }
-    setUniform(res, 'uDirColour', dColour);
-    setUniform(res, 'uDirIntensity', dIntensity);
-    setUniform(res, 'uDirDirection', dDir);
+    setUniform(res, "uDirColour", dColour);
+    setUniform(res, "uDirIntensity", dIntensity);
+    setUniform(res, "uDirDirection", dDir);
   }
 }
 

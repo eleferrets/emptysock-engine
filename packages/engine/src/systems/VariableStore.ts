@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'emptysock_varstore';
+const STORAGE_KEY = "emptysock_varstore";
 const MAX_VARS = 1000;
 const MAX_SWITCHES = 1000;
 
@@ -11,7 +11,7 @@ export interface VariableStoreData {
 
 function readStorage(): string | null {
   try {
-    if (typeof localStorage === 'undefined') return null;
+    if (typeof localStorage === "undefined") return null;
     return localStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
@@ -20,7 +20,7 @@ function readStorage(): string | null {
 
 function writeStorage(value: string): void {
   try {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof localStorage === "undefined") return;
     localStorage.setItem(STORAGE_KEY, value);
   } catch {
     // Storage unavailable — silently fail
@@ -46,7 +46,7 @@ export class VariableStore {
   }
 
   getVarName(index: number): string {
-    return this._varNames.get(clampIndex(index, MAX_VARS)) ?? '';
+    return this._varNames.get(clampIndex(index, MAX_VARS)) ?? "";
   }
 
   setVarName(index: number, name: string): void {
@@ -62,7 +62,7 @@ export class VariableStore {
   }
 
   getSwitchName(index: number): string {
-    return this._switchNames.get(clampIndex(index, MAX_SWITCHES)) ?? '';
+    return this._switchNames.get(clampIndex(index, MAX_SWITCHES)) ?? "";
   }
 
   setSwitchName(index: number, name: string): void {
@@ -78,7 +78,7 @@ export class VariableStore {
     if (raw === null) return;
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (parsed !== null && typeof parsed === 'object') {
+      if (parsed !== null && typeof parsed === "object") {
         this.restore(parsed as VariableStoreData);
       }
     } catch {
@@ -99,10 +99,18 @@ export class VariableStore {
     const variableNames: Record<number, string> = {};
     const switchNames: Record<number, string> = {};
 
-    this._vars.forEach((v, k) => { variables[k] = v; });
-    this._switches.forEach((v, k) => { switches[k] = v; });
-    this._varNames.forEach((v, k) => { variableNames[k] = v; });
-    this._switchNames.forEach((v, k) => { switchNames[k] = v; });
+    this._vars.forEach((v, k) => {
+      variables[k] = v;
+    });
+    this._switches.forEach((v, k) => {
+      switches[k] = v;
+    });
+    this._varNames.forEach((v, k) => {
+      variableNames[k] = v;
+    });
+    this._switchNames.forEach((v, k) => {
+      switchNames[k] = v;
+    });
 
     return { variables, switches, variableNames, switchNames };
   }
@@ -113,25 +121,17 @@ export class VariableStore {
     this._varNames.clear();
     this._switchNames.clear();
 
-    if (data.variables !== null && typeof data.variables === 'object') {
-      for (const [k, v] of Object.entries(data.variables)) {
-        if (typeof v === 'number') this._vars.set(Number(k), Math.floor(v));
-      }
+    for (const [k, v] of Object.entries(data.variables)) {
+      if (typeof v === "number") this._vars.set(Number(k), Math.floor(v));
     }
-    if (data.switches !== null && typeof data.switches === 'object') {
-      for (const [k, v] of Object.entries(data.switches)) {
-        if (typeof v === 'boolean') this._switches.set(Number(k), v);
-      }
+    for (const [k, v] of Object.entries(data.switches)) {
+      if (typeof v === "boolean") this._switches.set(Number(k), v);
     }
-    if (data.variableNames !== null && typeof data.variableNames === 'object') {
-      for (const [k, v] of Object.entries(data.variableNames)) {
-        if (typeof v === 'string') this._varNames.set(Number(k), v);
-      }
+    for (const [k, v] of Object.entries(data.variableNames)) {
+      if (typeof v === "string") this._varNames.set(Number(k), v);
     }
-    if (data.switchNames !== null && typeof data.switchNames === 'object') {
-      for (const [k, v] of Object.entries(data.switchNames)) {
-        if (typeof v === 'string') this._switchNames.set(Number(k), v);
-      }
+    for (const [k, v] of Object.entries(data.switchNames)) {
+      if (typeof v === "string") this._switchNames.set(Number(k), v);
     }
   }
 }

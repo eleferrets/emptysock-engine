@@ -3,7 +3,16 @@
 
 // ─── Per-layer filter types ───────────────────────────────────────────────────
 
-export type LayerFilterType = 'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none';
+export type LayerFilterType =
+  | "blur"
+  | "colour-grade"
+  | "outline"
+  | "brightness"
+  | "contrast"
+  | "saturate"
+  | "hue-rotate"
+  | "invert"
+  | "none";
 
 export interface LayerFilterOptions {
   type: LayerFilterType;
@@ -30,27 +39,55 @@ export interface LayerFilter {
 }
 
 export type PostEffectType =
-  | 'bloom'
-  | 'chromatic-aberration'
-  | 'vignette'
-  | 'scanlines'
-  | 'pixelate'
-  | 'colour-grade'
-  | 'blur'
-  | 'outline'
-  | 'shockwave'
-  | 'noise';
+  | "bloom"
+  | "chromatic-aberration"
+  | "vignette"
+  | "scanlines"
+  | "pixelate"
+  | "colour-grade"
+  | "blur"
+  | "outline"
+  | "shockwave"
+  | "noise";
 
-export interface BloomOptions { threshold?: number; strength?: number; }
-export interface VignetteOptions { intensity?: number; }
-export interface BlurOptions { strength?: number; }
-export interface PixelateOptions { size?: number; }
-export interface ColourGradeOptions { lut?: string; saturation?: number; brightness?: number; contrast?: number; }
-export interface ChromaticAberrationOptions { offset?: number; }
-export interface ShockwaveOptions { x?: number; y?: number; radius?: number; amplitude?: number; }
-export interface OutlineOptions { thickness?: number; colour?: number; }
-export interface ScanlinesOptions { spacing?: number; }
-export interface NoiseOptions { intensity?: number; }
+export interface BloomOptions {
+  threshold?: number;
+  strength?: number;
+}
+export interface VignetteOptions {
+  intensity?: number;
+}
+export interface BlurOptions {
+  strength?: number;
+}
+export interface PixelateOptions {
+  size?: number;
+}
+export interface ColourGradeOptions {
+  lut?: string;
+  saturation?: number;
+  brightness?: number;
+  contrast?: number;
+}
+export interface ChromaticAberrationOptions {
+  offset?: number;
+}
+export interface ShockwaveOptions {
+  x?: number;
+  y?: number;
+  radius?: number;
+  amplitude?: number;
+}
+export interface OutlineOptions {
+  thickness?: number;
+  colour?: number;
+}
+export interface ScanlinesOptions {
+  spacing?: number;
+}
+export interface NoiseOptions {
+  intensity?: number;
+}
 
 export type PostEffectOptions =
   | BloomOptions
@@ -71,7 +108,15 @@ export interface ActiveEffect {
   lifetime?: number;
 }
 
-export type TransitionEffect = 'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'none';
+export type TransitionEffect =
+  | "fade"
+  | "wipe"
+  | "iris"
+  | "slide"
+  | "zoom"
+  | "dissolve"
+  | "flash"
+  | "none";
 
 export interface FlashOptions {
   colour?: number;
@@ -109,36 +154,48 @@ class PostProcessSystemImpl {
   /** Returns a CSS filter string for a layer, or '' if disabled/not set */
   cssFilterForLayer(layerId: string): string {
     const f = this._layerFilters.get(layerId);
-    if (!f || f.enabled === false) return '';
+    if (!f || f.enabled === false) return "";
     switch (f.type) {
-      case 'blur': return `blur(${f.radius ?? 4}px)`;
-      case 'brightness': return `brightness(${f.value ?? 1})`;
-      case 'contrast': return `contrast(${f.value ?? 1})`;
-      case 'saturate': return `saturate(${f.value ?? 1})`;
-      case 'hue-rotate': return `hue-rotate(${f.degrees ?? 0}deg)`;
-      case 'invert': return 'invert(1)';
-      case 'colour-grade': {
+      case "blur":
+        return `blur(${f.radius ?? 4}px)`;
+      case "brightness":
+        return `brightness(${f.value ?? 1})`;
+      case "contrast":
+        return `contrast(${f.value ?? 1})`;
+      case "saturate":
+        return `saturate(${f.value ?? 1})`;
+      case "hue-rotate":
+        return `hue-rotate(${f.degrees ?? 0}deg)`;
+      case "invert":
+        return "invert(1)";
+      case "colour-grade": {
         const sat = f.saturation ?? f.value ?? 1;
         const bri = f.value ?? 1;
         const con = f.contrast ?? 1;
         return `saturate(${sat}) brightness(${bri}) contrast(${con})`;
       }
-      case 'outline': {
+      case "outline": {
         // CSS approximation using drop-shadow; a proper outline requires a canvas pass
-        const col = f.colour !== undefined ? '#' + (f.colour >>> 0).toString(16).padStart(6, '0') : '#000';
+        const col =
+          f.colour !== undefined
+            ? "#" + (f.colour >>> 0).toString(16).padStart(6, "0")
+            : "#000";
         return `drop-shadow(0 0 1px ${col}) drop-shadow(0 0 1px ${col})`;
       }
-      default: return '';
+      default:
+        return "";
     }
   }
 
-  get layerFilters(): ReadonlyMap<string, LayerFilterOptions> { return this._layerFilters; }
-  public transitionEffect: TransitionEffect = 'none';
+  get layerFilters(): ReadonlyMap<string, LayerFilterOptions> {
+    return this._layerFilters;
+  }
+  public transitionEffect: TransitionEffect = "none";
   public transitionProgress: number = 0; // 0..1
   public transitionColour: number = 0x000000;
 
   add(type: PostEffectType, options: PostEffectOptions = {}): this {
-    const existing = this._effects.findIndex(e => e.type === type);
+    const existing = this._effects.findIndex((e) => e.type === type);
     if (existing !== -1) {
       this._effects[existing] = { type, options };
     } else {
@@ -148,26 +205,28 @@ class PostProcessSystemImpl {
   }
 
   remove(type: PostEffectType): void {
-    const idx = this._effects.findIndex(e => e.type === type);
+    const idx = this._effects.findIndex((e) => e.type === type);
     if (idx !== -1) this._effects.splice(idx, 1);
   }
 
   has(type: PostEffectType): boolean {
-    return this._effects.some(e => e.type === type);
+    return this._effects.some((e) => e.type === type);
   }
 
   get(type: PostEffectType): ActiveEffect | undefined {
-    return this._effects.find(e => e.type === type);
+    return this._effects.find((e) => e.type === type);
   }
 
-  get effects(): ReadonlyArray<ActiveEffect> { return this._effects; }
+  get effects(): ReadonlyArray<ActiveEffect> {
+    return this._effects;
+  }
 
   // ─── Transient effects ────────────────────────────────────────────────────
 
   flash(options: FlashOptions = {}): void {
     const duration = options.duration ?? 0.15;
     const effect: ActiveEffect = {
-      type: 'bloom',
+      type: "bloom",
       options: { strength: 3 },
       lifetime: duration,
     };
@@ -182,12 +241,16 @@ class PostProcessSystemImpl {
   private _flashDuration: number = 0;
   private _flashElapsed: number = -1;
 
-  get flashActive(): boolean { return this._flashElapsed >= 0 && this._flashElapsed < this._flashDuration; }
+  get flashActive(): boolean {
+    return this._flashElapsed >= 0 && this._flashElapsed < this._flashDuration;
+  }
   get flashIntensity(): number {
     if (!this.flashActive) return 0;
     return 1 - this._flashElapsed / this._flashDuration;
   }
-  get flashColour(): number { return this._flashColour; }
+  get flashColour(): number {
+    return this._flashColour;
+  }
 
   // ─── Scene transition ────────────────────────────────────────────────────
 
@@ -198,7 +261,7 @@ class PostProcessSystemImpl {
   }
 
   endTransition(): void {
-    this.transitionEffect = 'none';
+    this.transitionEffect = "none";
     this.transitionProgress = 0;
   }
 
@@ -207,7 +270,8 @@ class PostProcessSystemImpl {
   update(deltaTime: number): void {
     // Decay transient effects
     for (let i = this._effects.length - 1; i >= 0; i--) {
-      const e = this._effects[i]!;
+      const e = this._effects[i];
+      if (e === undefined) continue;
       if (e.lifetime !== undefined) {
         e.lifetime -= deltaTime;
         if (e.lifetime <= 0) this._effects.splice(i, 1);
@@ -221,7 +285,7 @@ class PostProcessSystemImpl {
 
   clear(): void {
     this._effects.length = 0;
-    this.transitionEffect = 'none';
+    this.transitionEffect = "none";
     this.transitionProgress = 0;
   }
 }

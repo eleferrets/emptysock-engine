@@ -1,4 +1,4 @@
-import { Component } from './Component.js';
+import type { Component } from "./Component.js";
 
 let _nextId = 0;
 
@@ -11,7 +11,7 @@ export class Entity {
   private readonly _children: Entity[] = [];
   private _parent: Entity | null = null;
 
-  constructor(name: string = 'Entity') {
+  constructor(name: string = "Entity") {
     this.id = _nextId++;
     this.name = name;
   }
@@ -20,7 +20,9 @@ export class Entity {
 
   addComponent<T extends Component>(component: T): T {
     if (this._components.has(component.type)) {
-      throw new Error(`Entity "${this.name}" already has component "${component.type}"`);
+      throw new Error(
+        `Entity "${this.name}" already has component "${component.type}"`,
+      );
     }
     this._components.set(component.type, component);
     component.onAttach?.();
@@ -34,7 +36,9 @@ export class Entity {
   requireComponent<T extends Component>(type: string): T {
     const c = this._components.get(type) as T | undefined;
     if (c === undefined) {
-      throw new Error(`Entity "${this.name}" is missing required component "${type}"`);
+      throw new Error(
+        `Entity "${this.name}" is missing required component "${type}"`,
+      );
     }
     return c;
   }

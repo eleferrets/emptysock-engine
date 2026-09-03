@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from "fs/promises";
+import path from "path";
 
 interface YYPResource {
   id: { name: string; path: string };
@@ -21,8 +21,8 @@ export interface ImportResult {
 function toPascalCase(name: string): string {
   return name
     .split(/[_\s-]+/)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -47,30 +47,37 @@ function transpileGML(gml: string): string {
       `export let ${varName} = ${expr.trimEnd()}; // was global.${varName}`,
   );
   // var x = expr  →  let x = expr;
-  out = out.replace(/\bvar\b(\s+\w+\s*=)/g, 'let$1');
+  out = out.replace(/\bvar\b(\s+\w+\s*=)/g, "let$1");
 
   // -- Control flow ----------------------------------------------------------
   // repeat(n) { ... }  →  for (let _i = 0; _i < n; _i++) { ... }
-  out = out.replace(/\brepeat\s*\(([^)]+)\)/g, (_m, n: string) => `for (let _i = 0; _i < ${n.trim()}; _i++)`);
+  out = out.replace(
+    /\brepeat\s*\(([^)]+)\)/g,
+    (_m, n: string) => `for (let _i = 0; _i < ${n.trim()}; _i++)`,
+  );
   // for loops: var → let inside for initialiser
-  out = out.replace(/\bfor\s*\(\s*var\b/g, 'for (let');
+  out = out.replace(/\bfor\s*\(\s*var\b/g, "for (let");
   // exit  →  return;
-  out = out.replace(/\bexit\b/g, 'return;');
+  out = out.replace(/\bexit\b/g, "return;");
 
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
 
   // instance_create_layer
   out = out.replace(
     /\binstance_create_layer\s*\([^)]*\)\s*;?/g,
-    '// TODO: scene.createEntity() and add ObjX component',
+    "// TODO: scene.createEntity() and add ObjX component",
   );
   // instance_destroy
-  out = out.replace(/\binstance_destroy\s*\(\s*\)\s*;?/g, '// entity.destroy();');
+  out = out.replace(
+    /\binstance_destroy\s*\(\s*\)\s*;?/g,
+    "// entity.destroy();",
+  );
 
   // audio_play_sound(snd, priority, loop)
   out = out.replace(
     /\baudio_play_sound\s*\(\s*([^,)]+)\s*,\s*[^,)]+\s*,\s*([^)]+)\s*\)\s*;?/g,
-    (_m, _snd: string, loop: string) => `// audioSystem.play('sound_name', { loop: ${loop.trim()} });`,
+    (_m, _snd: string, loop: string) =>
+      `// audioSystem.play('sound_name', { loop: ${loop.trim()} });`,
   );
 
   // room_goto(rm_next)
@@ -80,12 +87,16 @@ function transpileGML(gml: string): string {
   );
 
   // draw_sprite
-  out = out.replace(/\bdraw_sprite\s*\([^)]*\)\s*;?/g, '// Sprite component handles drawing declaratively');
+  out = out.replace(
+    /\bdraw_sprite\s*\([^)]*\)\s*;?/g,
+    "// Sprite component handles drawing declaratively",
+  );
 
   // alarm[n] = expr
   out = out.replace(
     /\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
-    (_m, expr: string) => `// entity.startCoroutine(waitFrames(${expr.trimEnd()}));`,
+    (_m, expr: string) =>
+      `// entity.startCoroutine(waitFrames(${expr.trimEnd()}));`,
   );
 
   // show_message(msg)
@@ -97,10 +108,17 @@ function transpileGML(gml: string): string {
   // Math helpers — order matters: more specific first
   out = out.replace(
     /\birandom_range\s*\(\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
-    (_m, a: string, b: string) => `Math.floor(Math.random() * (${b.trim()} - ${a.trim()} + 1)) + ${a.trim()}`,
+    (_m, a: string, b: string) =>
+      `Math.floor(Math.random() * (${b.trim()} - ${a.trim()} + 1)) + ${a.trim()}`,
   );
-  out = out.replace(/\birandom\s*\(\s*([^)]+)\s*\)/g, (_m, n: string) => `Math.floor(Math.random() * (${n.trim()} + 1))`);
-  out = out.replace(/\brandom\s*\(\s*([^)]+)\s*\)/g, (_m, n: string) => `Math.random() * ${n.trim()}`);
+  out = out.replace(
+    /\birandom\s*\(\s*([^)]+)\s*\)/g,
+    (_m, n: string) => `Math.floor(Math.random() * (${n.trim()} + 1))`,
+  );
+  out = out.replace(
+    /\brandom\s*\(\s*([^)]+)\s*\)/g,
+    (_m, n: string) => `Math.random() * ${n.trim()}`,
+  );
 
   out = out.replace(
     /\blerp\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
@@ -112,22 +130,39 @@ function transpileGML(gml: string): string {
     (_m, v: string, lo: string, hi: string) =>
       `Math.min(Math.max(${v.trim()}, ${lo.trim()}), ${hi.trim()})`,
   );
-  out = out.replace(/\babs\s*\(\s*([^)]+)\s*\)/g, (_m, x: string) => `Math.abs(${x.trim()})`);
-  out = out.replace(/\bfloor\s*\(\s*([^)]+)\s*\)/g, (_m, x: string) => `Math.floor(${x.trim()})`);
-  out = out.replace(/\bceil\s*\(\s*([^)]+)\s*\)/g, (_m, x: string) => `Math.ceil(${x.trim()})`);
-  out = out.replace(/\bround\s*\(\s*([^)]+)\s*\)/g, (_m, x: string) => `Math.round(${x.trim()})`);
-  out = out.replace(/\bsqrt\s*\(\s*([^)]+)\s*\)/g, (_m, x: string) => `Math.sqrt(${x.trim()})`);
+  out = out.replace(
+    /\babs\s*\(\s*([^)]+)\s*\)/g,
+    (_m, x: string) => `Math.abs(${x.trim()})`,
+  );
+  out = out.replace(
+    /\bfloor\s*\(\s*([^)]+)\s*\)/g,
+    (_m, x: string) => `Math.floor(${x.trim()})`,
+  );
+  out = out.replace(
+    /\bceil\s*\(\s*([^)]+)\s*\)/g,
+    (_m, x: string) => `Math.ceil(${x.trim()})`,
+  );
+  out = out.replace(
+    /\bround\s*\(\s*([^)]+)\s*\)/g,
+    (_m, x: string) => `Math.round(${x.trim()})`,
+  );
+  out = out.replace(
+    /\bsqrt\s*\(\s*([^)]+)\s*\)/g,
+    (_m, x: string) => `Math.sqrt(${x.trim()})`,
+  );
   out = out.replace(
     /\bpower\s*\(\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
     (_m, x: string, y: string) => `Math.pow(${x.trim()}, ${y.trim()})`,
   );
   out = out.replace(
     /\blengthdir_x\s*\(\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
-    (_m, len: string, dir: string) => `${len.trim()} * Math.cos(${dir.trim()} * Math.PI / 180)`,
+    (_m, len: string, dir: string) =>
+      `${len.trim()} * Math.cos(${dir.trim()} * Math.PI / 180)`,
   );
   out = out.replace(
     /\blengthdir_y\s*\(\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
-    (_m, len: string, dir: string) => `${len.trim()} * Math.sin(${dir.trim()} * Math.PI / 180)`,
+    (_m, len: string, dir: string) =>
+      `${len.trim()} * Math.sin(${dir.trim()} * Math.PI / 180)`,
   );
   out = out.replace(
     /\bpoint_distance\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*,\s*([^,)]+)\s*,\s*([^)]+)\s*\)/g,
@@ -138,18 +173,13 @@ function transpileGML(gml: string): string {
     /\bstring_length\s*\(\s*([^)]+)\s*\)/g,
     (_m, s: string) => `${s.trim()}.length`,
   );
-  out = out.replace(/\bstring\s*\(\s*([^)]+)\s*\)/g, (_m, v: string) => `String(${v.trim()})`);
+  out = out.replace(
+    /\bstring\s*\(\s*([^)]+)\s*\)/g,
+    (_m, v: string) => `String(${v.trim()})`,
+  );
 
   return out;
 }
-
-// Map from GMS2 event file basename prefix to the class method name
-const GML_EVENT_MAP: Array<{ prefix: RegExp; method: string; eventLabel: string }> = [
-  { prefix: /^Create_/i, method: 'onCreate', eventLabel: 'Create event' },
-  { prefix: /^Step_/i, method: 'onUpdate', eventLabel: 'Step event' },
-  { prefix: /^Draw_/i, method: 'onDraw', eventLabel: 'Draw event' },
-  { prefix: /^Destroy_/i, method: 'onDestroy', eventLabel: 'Destroy event' },
-];
 
 /**
  * Attempt to read and transpile a GML event file. Returns the transpiled
@@ -157,7 +187,7 @@ const GML_EVENT_MAP: Array<{ prefix: RegExp; method: string; eventLabel: string 
  */
 async function readAndTranspileGML(gmlPath: string): Promise<string | null> {
   try {
-    const source = await fs.readFile(gmlPath, 'utf-8');
+    const source = await fs.readFile(gmlPath, "utf-8");
     return transpileGML(source);
   } catch {
     return null;
@@ -168,11 +198,11 @@ async function readAndTranspileGML(gmlPath: string): Promise<string | null> {
  * Indent each non-empty line of a multi-line string by `spaces` spaces.
  */
 function indent(code: string, spaces: number): string {
-  const pad = ' '.repeat(spaces);
+  const pad = " ".repeat(spaces);
   return code
-    .split('\n')
-    .map(line => (line.trim() === '' ? '' : pad + line))
-    .join('\n');
+    .split("\n")
+    .map((line) => (line.trim() === "" ? "" : pad + line))
+    .join("\n");
 }
 
 async function buildObjectStub(
@@ -182,13 +212,13 @@ async function buildObjectStub(
   const className = toPascalCase(name);
 
   // Look for GML event files alongside the .yy file.
-  const objectDir = path.join(projectRoot, 'objects', name);
+  const objectDir = path.join(projectRoot, "objects", name);
 
   // Scan for available .gml files in the object dir, matching known event prefixes.
   let gmlFiles: string[] = [];
   try {
     const entries = await fs.readdir(objectDir);
-    gmlFiles = entries.filter(e => e.endsWith('.gml'));
+    gmlFiles = entries.filter((e) => e.endsWith(".gml"));
   } catch {
     // directory doesn't exist — no GML available, emit pure stubs
   }
@@ -199,7 +229,7 @@ async function buildObjectStub(
     paramStr: string,
     prefixRe: RegExp,
   ): Promise<string> {
-    const gmlFile = gmlFiles.find(f => prefixRe.test(f));
+    const gmlFile = gmlFiles.find((f) => prefixRe.test(f));
     if (gmlFile) {
       const gmlPath = path.join(objectDir, gmlFile);
       const transpiled = await readAndTranspileGML(gmlPath);
@@ -211,10 +241,25 @@ async function buildObjectStub(
     return `  ${methodName}(${paramStr}): void {\n    // TODO: migrate ${eventLabel}\n  }`;
   }
 
-  const onCreate = await buildMethod('onCreate', 'Create event', '', /^Create_/i);
-  const onUpdate = await buildMethod('onUpdate', 'Step event', '_dt: number', /^Step_/i);
-  const onDraw = await buildMethod('onDraw', 'Draw event', '', /^Draw_/i);
-  const onDestroy = await buildMethod('onDestroy', 'Destroy event', '', /^Destroy_/i);
+  const onCreate = await buildMethod(
+    "onCreate",
+    "Create event",
+    "",
+    /^Create_/i,
+  );
+  const onUpdate = await buildMethod(
+    "onUpdate",
+    "Step event",
+    "_dt: number",
+    /^Step_/i,
+  );
+  const onDraw = await buildMethod("onDraw", "Draw event", "", /^Draw_/i);
+  const onDestroy = await buildMethod(
+    "onDestroy",
+    "Destroy event",
+    "",
+    /^Destroy_/i,
+  );
 
   return `// Auto-generated from GMS2 object: ${name}
 // Review and replace GML logic with EmptySock equivalents.
@@ -248,18 +293,18 @@ function projectEntrypoint(objects: string[]): string {
   }
 
   const imports = objects
-    .map(name => {
+    .map((name) => {
       const className = toPascalCase(name);
       return `import { ${className} } from './${name}.js';`;
     })
-    .join('\n');
+    .join("\n");
 
   const registrations = objects
-    .map(name => {
+    .map((name) => {
       const className = toPascalCase(name);
       return `  // scene.registerComponent(${className});`;
     })
-    .join('\n');
+    .join("\n");
 
   return `// Auto-generated EmptySock project entrypoint
 // Import your Scene and register components as needed.
@@ -282,22 +327,37 @@ function migrationReport(opts: {
   tilesets: string[];
   warnings: string[];
 }): string {
-  const { projectName, objects, scripts, rooms, sprites, sounds, tilesets, warnings } = opts;
+  const {
+    projectName,
+    objects,
+    scripts,
+    rooms,
+    sprites,
+    sounds,
+    tilesets,
+    warnings,
+  } = opts;
 
   const manualAssets: string[] = [
-    ...rooms.map(r => `- Room: \`${r}\``),
-    ...sprites.map(s => `- Sprite: \`${s}\``),
-    ...sounds.map(s => `- Sound: \`${s}\``),
-    ...tilesets.map(t => `- Tileset: \`${t}\``),
+    ...rooms.map((r) => `- Room: \`${r}\``),
+    ...sprites.map((s) => `- Sprite: \`${s}\``),
+    ...sounds.map((s) => `- Sound: \`${s}\``),
+    ...tilesets.map((t) => `- Tileset: \`${t}\``),
   ];
 
-  const totalFound = objects.length + scripts.length + rooms.length + sprites.length + sounds.length + tilesets.length;
+  const totalFound =
+    objects.length +
+    scripts.length +
+    rooms.length +
+    sprites.length +
+    sounds.length +
+    tilesets.length;
   const totalConverted = objects.length + scripts.length;
 
   const warningSection =
     warnings.length > 0
-      ? `\n## Warnings\n\n${warnings.map(w => `- ${w}`).join('\n')}\n`
-      : '';
+      ? `\n## Warnings\n\n${warnings.map((w) => `- ${w}`).join("\n")}\n`
+      : "";
 
   return `# GMS2 Migration Report — ${projectName}
 
@@ -323,7 +383,7 @@ ${warningSection}
 
 The following asset types have no automatic migration path and must be recreated manually:
 
-${manualAssets.length > 0 ? manualAssets.join('\n') : '_None_'}
+${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 
 ## Next Steps
 
@@ -341,7 +401,7 @@ ${manualAssets.length > 0 ? manualAssets.join('\n') : '_None_'}
 export async function importGMS2Project(
   yypPath: string,
   outDir: string,
-  opts?: { dryRun?: boolean; verbose?: boolean }
+  opts?: { dryRun?: boolean; verbose?: boolean },
 ): Promise<ImportResult> {
   const dryRun = opts?.dryRun ?? false;
   const verbose = opts?.verbose ?? false;
@@ -353,7 +413,7 @@ export async function importGMS2Project(
   // Read and parse the .yyp file
   let raw: string;
   try {
-    raw = await fs.readFile(yypPath, 'utf-8');
+    raw = await fs.readFile(yypPath, "utf-8");
   } catch {
     throw new Error(`Cannot read .yyp file at "${yypPath}"`);
   }
@@ -374,7 +434,9 @@ export async function importGMS2Project(
   const projectRoot = path.dirname(yypPath);
 
   if (project.defaultScriptType === 1) {
-    warnings.push('Project uses GML Visual (drag-and-drop). Visual events have no text migration path — only object and script stubs are generated.');
+    warnings.push(
+      "Project uses GML Visual (drag-and-drop). Visual events have no text migration path — only object and script stubs are generated.",
+    );
   }
 
   // Classify assets by the path prefix in each resource's id.path
@@ -386,30 +448,32 @@ export async function importGMS2Project(
   const tilesets: string[] = [];
 
   for (const res of project.resources) {
-    const name = res.id?.name;
-    const resPath = res.id?.path ?? '';
+    const name = res.id.name;
+    const resPath = res.id.path;
     if (!name) {
       warnings.push(`Resource with missing name skipped (path: ${resPath})`);
       continue;
     }
 
-    if (resPath.startsWith('objects/')) {
+    if (resPath.startsWith("objects/")) {
       objects.push(name);
-    } else if (resPath.startsWith('scripts/')) {
+    } else if (resPath.startsWith("scripts/")) {
       scripts.push(name);
-    } else if (resPath.startsWith('rooms/')) {
+    } else if (resPath.startsWith("rooms/")) {
       rooms.push(name);
-    } else if (resPath.startsWith('sprites/')) {
+    } else if (resPath.startsWith("sprites/")) {
       sprites.push(name);
-    } else if (resPath.startsWith('sounds/')) {
+    } else if (resPath.startsWith("sounds/")) {
       sounds.push(name);
-    } else if (resPath.startsWith('tilesets/')) {
+    } else if (resPath.startsWith("tilesets/")) {
       tilesets.push(name);
     } else {
       // Unknown type — skip
       skipped.push(name);
       if (verbose) {
-        console.log(`  [skip] ${name} (unrecognised resource path: ${resPath})`);
+        console.log(
+          `  [skip] ${name} (unrecognised resource path: ${resPath})`,
+        );
       }
     }
   }
@@ -445,14 +509,25 @@ export async function importGMS2Project(
     skipped.push(name);
   }
 
-  filesToWrite.push({ rel: 'project.ts', content: projectEntrypoint(objects) });
+  filesToWrite.push({ rel: "project.ts", content: projectEntrypoint(objects) });
   filesToWrite.push({
-    rel: 'migration-report.md',
-    content: migrationReport({ projectName, objects, scripts, rooms, sprites, sounds, tilesets, warnings }),
+    rel: "migration-report.md",
+    content: migrationReport({
+      projectName,
+      objects,
+      scripts,
+      rooms,
+      sprites,
+      sounds,
+      tilesets,
+      warnings,
+    }),
   });
 
   if (dryRun) {
-    console.log(`[dry-run] Would write ${filesToWrite.length} files to: ${outDir}`);
+    console.log(
+      `[dry-run] Would write ${filesToWrite.length} files to: ${outDir}`,
+    );
     for (const f of filesToWrite) {
       console.log(`  ${f.rel}`);
     }
@@ -460,7 +535,7 @@ export async function importGMS2Project(
     await fs.mkdir(outDir, { recursive: true });
     for (const f of filesToWrite) {
       const dest = path.join(outDir, f.rel);
-      await fs.writeFile(dest, f.content, 'utf-8');
+      await fs.writeFile(dest, f.content, "utf-8");
       if (verbose) console.log(`  wrote: ${dest}`);
     }
   }

@@ -1,5 +1,6 @@
-import { UISystem, UIComponent } from './UISystem.js';
-import { VNSystem } from './VNSystem.js';
+import { UISystem } from "./UISystem.js";
+import type { UIComponent } from "./UISystem.js";
+import type { VNSystem } from "./VNSystem.js";
 
 export interface VNTextboxOptions {
   /** Canvas width — used to size and position the textbox. */
@@ -46,7 +47,6 @@ export class VNTextbox {
 
   constructor(opts: VNTextboxOptions) {
     const cw = opts.canvasWidth;
-    const ch = opts.canvasHeight;
     const h = opts.height ?? 160;
     const npH = opts.namePlateHeight ?? 36;
     const px = opts.paddingX ?? 24;
@@ -55,17 +55,17 @@ export class VNTextbox {
     const textColor = opts.textColor ?? 0xffffff;
     const fs = opts.fontSize ?? 16;
 
-    this._panel = UISystem.create('panel', {
+    this._panel = UISystem.create("panel", {
       x: 0,
       y: -(h + npH),
       width: cw,
       height: h + npH,
-      anchor: 'bottom-left',
+      anchor: "bottom-left",
       style: { backgroundColor: panelColor, opacity: 0.88 },
       interactive: true,
     });
 
-    this._namePlate = this._panel.createChild('panel', {
+    this._namePlate = this._panel.createChild("panel", {
       x: px,
       y: 0,
       width: 200,
@@ -74,7 +74,7 @@ export class VNTextbox {
       interactive: false,
     });
 
-    this._text = this._panel.createChild('text', {
+    this._text = this._panel.createChild("text", {
       x: px,
       y: npH + 12,
       width: cw - px * 2,
@@ -110,12 +110,14 @@ export class VNTextbox {
       return;
     }
     this._panel.visible = true;
-    if (node.type === 'dialogue') {
-      this._namePlate.text = node.speaker ?? '';
+    if (node.type === "dialogue") {
+      this._namePlate.text = node.speaker;
       this._text.text = node.text;
-    } else if (node.type === 'choice') {
-      this._namePlate.text = '';
-      this._text.text = node.options.map((o, i) => `${i + 1}. ${o.label}`).join('\n');
+    } else if (node.type === "choice") {
+      this._namePlate.text = "";
+      this._text.text = node.options
+        .map((o, i) => `${i + 1}. ${o.label}`)
+        .join("\n");
     } else {
       this._panel.visible = false;
     }
@@ -125,7 +127,7 @@ export class VNTextbox {
     if (this._vnSystem === null) return;
     const node = this._vnSystem.currentNode;
     if (node === null) return;
-    if (node.type === 'dialogue') {
+    if (node.type === "dialogue") {
       this._vnSystem.advance();
       this._sync();
     }

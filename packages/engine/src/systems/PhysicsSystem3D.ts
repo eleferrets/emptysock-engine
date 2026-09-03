@@ -106,7 +106,8 @@ export interface Physics3DHandle {
   isGrounded(distance?: number): boolean;
 }
 
-type Rapier3D = typeof import("@dimforge/rapier3d-compat");
+import type * as _Rapier3DModule from "@dimforge/rapier3d-compat";
+type Rapier3D = typeof _Rapier3DModule;
 type RapierEventQueue = InstanceType<Rapier3D["EventQueue"]>;
 
 export class PhysicsSystem3D {
@@ -263,7 +264,6 @@ export class PhysicsSystem3D {
       },
 
       isGrounded: (distance = 0.15) => {
-        if (world === null || R === null) return false;
         const t = body.translation();
         const origin = { x: t.x, y: t.y, z: t.z };
         const dir = { x: 0, y: -1, z: 0 };
@@ -373,7 +373,9 @@ export class PhysicsSystem3D {
     this._colliderHandleToIndex.clear();
   }
 
-  [Symbol.dispose](): void { this.destroy(); }
+  [Symbol.dispose](): void {
+    this.destroy();
+  }
 
   get isInitialized(): boolean {
     return this._world !== null;

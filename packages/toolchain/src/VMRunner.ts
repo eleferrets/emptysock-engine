@@ -1,6 +1,6 @@
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 export interface VMRunOptions {
   /** Absolute host path to mount as /workspace inside the container */
@@ -26,11 +26,15 @@ export interface VMRunResult {
 
 function findDocker(dockerPath?: string): string | null {
   if (dockerPath !== undefined && existsSync(dockerPath)) return dockerPath;
-  for (const candidate of ['/usr/bin/docker', '/usr/local/bin/docker', '/opt/homebrew/bin/docker']) {
+  for (const candidate of [
+    "/usr/bin/docker",
+    "/usr/local/bin/docker",
+    "/opt/homebrew/bin/docker",
+  ]) {
     if (existsSync(candidate)) return candidate;
   }
   // Try PATH
-  const r = spawnSync('which', ['docker'], { encoding: 'utf-8' });
+  const r = spawnSync("which", ["docker"], { encoding: "utf-8" });
   if (r.status === 0) return r.stdout.trim();
   return null;
 }
@@ -40,13 +44,17 @@ function findDocker(dockerPath?: string): string | null {
  * Used to test Linux/Android builds without requiring the host to have
  * platform-specific toolchains installed.
  */
-export function runInVM(options: VMRunOptions, dockerPath?: string): VMRunResult {
+export function runInVM(
+  options: VMRunOptions,
+  dockerPath?: string,
+): VMRunResult {
   const docker = findDocker(dockerPath);
   if (docker === null) {
     return {
       success: false,
-      stdout: '',
-      stderr: 'Docker not found. Install Docker Desktop or Docker Engine, then set dockerPath in emptysock.toolchain.json.',
+      stdout: "",
+      stderr:
+        "Docker not found. Install Docker Desktop or Docker Engine, then set dockerPath in emptysock.toolchain.json.",
       exitCode: 1,
     };
   }
@@ -55,14 +63,17 @@ export function runInVM(options: VMRunOptions, dockerPath?: string): VMRunResult
   const envFlags: string[] = [];
   if (options.env !== undefined) {
     for (const [k, v] of Object.entries(options.env)) {
-      envFlags.push('-e', `${k}=${v}`);
+      envFlags.push("-e", `${k}=${v}`);
     }
   }
 
   const dockerArgs = [
-    'run', '--rm',
-    '-v', `${absWorkspace}:/workspace`,
-    '-w', '/workspace',
+    "run",
+    "--rm",
+    "-v",
+    `${absWorkspace}:/workspace`,
+    "-w",
+    "/workspace",
     ...(options.dockerFlags ?? []),
     ...envFlags,
     options.image,
@@ -70,15 +81,15 @@ export function runInVM(options: VMRunOptions, dockerPath?: string): VMRunResult
   ];
 
   const result: SpawnSyncReturns<string> = spawnSync(docker, dockerArgs, {
-    encoding: 'utf-8',
+    encoding: "utf-8",
     timeout: options.timeoutMs ?? 300_000,
     maxBuffer: 32 * 1024 * 1024,
   });
 
   return {
     success: result.status === 0,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
+    stdout: result.stdout,
+    stderr: result.stderr,
     exitCode: result.status ?? 1,
   };
 }
@@ -89,18 +100,23 @@ export function runInVM(options: VMRunOptions, dockerPath?: string): VMRunResult
 export function pullImage(image: string, dockerPath?: string): VMRunResult {
   const docker = findDocker(dockerPath);
   if (docker === null) {
-    return { success: false, stdout: '', stderr: 'Docker not found', exitCode: 1 };
+    return {
+      success: false,
+      stdout: "",
+      stderr: "Docker not found",
+      exitCode: 1,
+    };
   }
-  const result = spawnSync(docker, ['pull', image], {
-    encoding: 'utf-8',
+  const result = spawnSync(docker, ["pull", image], {
+    encoding: "utf-8",
     timeout: 600_000,
     maxBuffer: 16 * 1024 * 1024,
-    stdio: 'pipe',
+    stdio: "pipe",
   });
   return {
     success: result.status === 0,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
+    stdout: result.stdout,
+    stderr: result.stderr,
     exitCode: result.status ?? 1,
   };
 }
@@ -111,9 +127,9 @@ export function pullImage(image: string, dockerPath?: string): VMRunResult {
 export function imageExists(image: string, dockerPath?: string): boolean {
   const docker = findDocker(dockerPath);
   if (docker === null) return false;
-  const r = spawnSync(docker, ['image', 'inspect', image], {
-    encoding: 'utf-8',
-    stdio: 'pipe',
+  const r = spawnSync(docker, ["image", "inspect", image], {
+    encoding: "utf-8",
+    stdio: "pipe",
   });
   return r.status === 0;
 }
@@ -131,14 +147,19 @@ export interface LinuxTestOptions {
 }
 
 export function runLinuxTests(opts: LinuxTestOptions): VMRunResult {
-  const image = opts.image ?? 'node:22-bookworm-slim';
-  const cmd = ['sh', '-c',
-    `npm install -g pnpm && pnpm install --frozen-lockfile && pnpm ${opts.filter !== undefined ? `--filter ${opts.filter} ` : ''}test`,
+  const image = opts.image ?? "node:22-bookworm-slim";
+  const cmd = [
+    "sh",
+    "-c",
+    `npm install -g pnpm && pnpm install --frozen-lockfile && pnpm ${opts.filter !== undefined ? `--filter ${opts.filter} ` : ""}test`,
   ];
-  return runInVM({
-    workspaceDir: opts.workspaceDir,
-    image,
-    command: cmd,
-    dockerFlags: ['--platform', 'linux/amd64'],
-  }, opts.dockerPath);
+  return runInVM(
+    {
+      workspaceDir: opts.workspaceDir,
+      image,
+      command: cmd,
+      dockerFlags: ["--platform", "linux/amd64"],
+    },
+    opts.dockerPath,
+  );
 }

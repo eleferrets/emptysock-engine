@@ -1,10 +1,10 @@
-import type RAPIER_TYPE from '@dimforge/rapier2d-compat';
-import type { Entity } from '../core/Entity.js';
-import type { Transform } from '../components/Transform.js';
-import { PhysicsBody } from '../components/PhysicsBody.js';
+import type RAPIER_TYPE from "@dimforge/rapier2d-compat";
+import type { Entity } from "../core/Entity.js";
+import type { Transform } from "../components/Transform.js";
+import type { PhysicsBody } from "../components/PhysicsBody.js";
 
 type RapierModule = typeof RAPIER_TYPE;
-type World = InstanceType<RapierModule['World']>;
+type World = InstanceType<RapierModule["World"]>;
 
 export interface PhysicsWorldOptions {
   gravity?: { x: number; y: number };
@@ -18,7 +18,7 @@ export class PhysicsSystem {
   private _accumulator: number = 0;
 
   async init(options: PhysicsWorldOptions = {}): Promise<void> {
-    const RAPIER = await import('@dimforge/rapier2d-compat');
+    const RAPIER = await import("@dimforge/rapier2d-compat");
     await RAPIER.init();
     this._RAPIER = RAPIER;
     this._timestep = options.timestep ?? 1 / 60;
@@ -27,12 +27,12 @@ export class PhysicsSystem {
   }
 
   get world(): World {
-    if (this._world === null) throw new Error('PhysicsSystem not initialized');
+    if (this._world === null) throw new Error("PhysicsSystem not initialized");
     return this._world;
   }
 
   get RAPIER(): RapierModule {
-    if (this._RAPIER === null) throw new Error('PhysicsSystem not initialized');
+    if (this._RAPIER === null) throw new Error("PhysicsSystem not initialized");
     return this._RAPIER;
   }
 
@@ -44,26 +44,27 @@ export class PhysicsSystem {
   registerEntity(entity: Entity): void {
     const RAPIER = this._RAPIER;
     const world = this._world;
-    if (RAPIER === null || world === null) throw new Error('PhysicsSystem not initialized');
+    if (RAPIER === null || world === null)
+      throw new Error("PhysicsSystem not initialized");
 
-    const pb = entity.getComponent<PhysicsBody>('PhysicsBody');
+    const pb = entity.getComponent<PhysicsBody>("PhysicsBody");
     if (pb === undefined) return;
     if (pb.bodyHandle !== null) return; // already registered
 
-    const transform = entity.getComponent<Transform>('Transform');
+    const transform = entity.getComponent<Transform>("Transform");
     const x = transform?.x ?? 0;
     const y = transform?.y ?? 0;
 
     // Rigid body descriptor
     let bodyDesc: ReturnType<typeof RAPIER.RigidBodyDesc.dynamic>;
     switch (pb.bodyType) {
-      case 'fixed':
+      case "fixed":
         bodyDesc = RAPIER.RigidBodyDesc.fixed();
         break;
-      case 'kinematicPositionBased':
+      case "kinematicPositionBased":
         bodyDesc = RAPIER.RigidBodyDesc.kinematicPositionBased();
         break;
-      case 'kinematicVelocityBased':
+      case "kinematicVelocityBased":
         bodyDesc = RAPIER.RigidBodyDesc.kinematicVelocityBased();
         break;
       default:
@@ -76,9 +77,9 @@ export class PhysicsSystem {
 
     // Collider descriptor
     let colliderDesc: ReturnType<typeof RAPIER.ColliderDesc.ball>;
-    if (pb.shape === 'circle') {
+    if (pb.shape === "circle") {
       colliderDesc = RAPIER.ColliderDesc.ball(pb.radius);
-    } else if (pb.shape === 'capsule') {
+    } else if (pb.shape === "capsule") {
       colliderDesc = RAPIER.ColliderDesc.capsule(pb.height / 2, pb.radius);
     } else {
       colliderDesc = RAPIER.ColliderDesc.cuboid(pb.width / 2, pb.height / 2);
@@ -101,12 +102,11 @@ export class PhysicsSystem {
   syncToTransforms(entities: Iterable<Entity>): void {
     if (this._world === null) return;
     for (const entity of entities) {
-      const pb = entity.getComponent<PhysicsBody>('PhysicsBody');
+      const pb = entity.getComponent<PhysicsBody>("PhysicsBody");
       if (pb === undefined || pb.bodyHandle === null) continue;
       const body = this._world.getRigidBody(pb.bodyHandle);
-      if (body === null || body === undefined) continue;
       const translation = body.translation();
-      const transform = entity.getComponent<Transform>('Transform');
+      const transform = entity.getComponent<Transform>("Transform");
       if (transform !== undefined) {
         transform.x = translation.x;
         transform.y = translation.y;

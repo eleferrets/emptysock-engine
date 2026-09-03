@@ -61,12 +61,10 @@ function isYyRoom(val: unknown): val is YyRoom {
 
 function parseTiles(layer: YyLayer): TileEntry[] {
   const tiles = layer.tiles;
-  if (tiles === undefined || tiles === null || typeof tiles !== "object")
-    return [];
+  if (tiles === undefined || typeof tiles !== "object") return [];
 
   const tilesetId =
     typeof tiles.tilesetId === "object" &&
-    tiles.tilesetId !== null &&
     typeof (tiles.tilesetId as Record<string, unknown>)["name"] === "string"
       ? ((tiles.tilesetId as Record<string, unknown>)["name"] as string)
       : "";
@@ -93,7 +91,6 @@ function parseInstances(layer: YyLayer): InstanceEntry[] {
   return instances.map((inst) => ({
     objectName:
       typeof inst.objectId === "object" &&
-      inst.objectId !== null &&
       typeof (inst.objectId as Record<string, unknown>)["name"] === "string"
         ? ((inst.objectId as Record<string, unknown>)["name"] as string)
         : "Unknown",

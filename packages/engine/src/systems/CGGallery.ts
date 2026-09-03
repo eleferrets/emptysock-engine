@@ -1,4 +1,4 @@
-import { SaveSystem } from "./SaveSystem.js";
+import type { SaveSystem } from "./SaveSystem.js";
 
 export interface CGEntry {
   id: string;
@@ -24,7 +24,7 @@ export class CGGallery {
   constructor(opts: CGGalleryOptions) {
     this._entries = opts.entries;
     this._saveSystem = opts.saveSystem ?? null;
-    this._saveSlot = opts.saveSlot ?? 'cg_gallery';
+    this._saveSlot = opts.saveSlot ?? "cg_gallery";
   }
 
   /** Load unlocked flags from the save system */
@@ -75,6 +75,11 @@ export class CGGallery {
     if (!this._saveSystem) return;
     const data: Record<string, boolean> = {};
     for (const id of this._unlocked) data[id] = true;
-    this._saveSystem.save(this._saveSlot, { scene: '', data, timestamp: Date.now(), playtime: 0 });
+    this._saveSystem.save(this._saveSlot, {
+      scene: "",
+      data,
+      timestamp: Date.now(),
+      playtime: 0,
+    });
   }
 }
