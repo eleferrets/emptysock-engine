@@ -58,6 +58,77 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked · 🔍 verify
 
 ---
 
+## Autosave / project persistence
+
+Two-tier plan: localStorage crash buffer (always) + file system save (explicit Ctrl+S and silent autosave on desktop).
+
+### What needs to be saved (gaps vs current `saveProjectJson`)
+
+`saveProjectJson()` already captures most domain state. Missing fields that must be added:
+
+- `recentAssetIds` — project-scoped, lives in store
+- `roomOrder` — project-scoped, lives in store
+- `openFiles` — the full `Record<string, string>` of editor tab contents (needed to restore open tabs)
+- `activeFilePath` — which tab was active
+
+### Load path gap
+
+`loadProjectFiles()` currently expects a flat `Record<string, string>` of file contents. There is no `loadProjectJson()` inverse that accepts the envelope `saveProjectJson()` produces. This needs to be written before autosave is useful — otherwise you can save but not restore.
+
+### Save targets
+
+**localStorage (both browser and desktop)** — autosave crash buffer.
+
+```ts
+// Debounced Zustand subscription — fires ~2–3 s after last change
+useIDEStore.subscribe(
+  (s) => s, // or a shallow selector of the fields that matter
+  debounce(() => {
+    localStorage.setItem(
+      "es-autosave",
+      useIDEStore.getState().saveProjectJson(),
+    );
+    localStorage.setItem("es-autosave-at", String(Date.now()));
+  }, 2500),
+);
+```
+
+On startup: if `es-autosave` exists and is newer than the last explicit save timestamp, offer to restore.
+
+**Browser (File System Access API)** — explicit save only, re-used within session.
+
+```ts
+// First Ctrl+S: prompt for location
+const handle = await window.showSaveFilePicker({
+  suggestedName: "emptysock.project.json",
+});
+// Store handle in a module-level ref (not the store — not serialisable)
+// Subsequent saves: write without prompting
+const writable = await handle.createWritable();
+await writable.write(saveProjectJson());
+await writable.close();
+```
+
+Handle is lost on page reload — user must re-pick next session.
+
+**Desktop (Tauri)** — silent autosave to disk after first save dialog.
+
+- Add a Tauri command: `write_project_file(path: String, content: String) -> Result<(), String>`
+- Gate with `'__TAURI_INTERNALS__' in window` at call site (existing pattern)
+- Store the chosen path in `ideStore.projectFolder` (already exists)
+- After first dialog sets `projectFolder`, autosave writes `{projectFolder}/emptysock.project.json` silently
+
+### Implementation order
+
+1. Add `recentAssetIds`, `roomOrder`, `openFiles`, `activeFilePath` to `saveProjectJson()`
+2. Write `loadProjectJson(raw: string): void` — inverse of save, calls `set()` with validated fields
+3. Wire localStorage autosave subscriber (debounced ~2.5 s)
+4. Add startup restore check (offer if autosave is newer than last explicit save)
+5. Add browser `showSaveFilePicker` on Ctrl+S
+6. Add Tauri `write_project_file` command + silent autosave on desktop
+
+---
+
 ## Next priorities (suggested order)
 
 1. **React ErrorBoundary per panel** — highest leverage safety net; one file, low risk
