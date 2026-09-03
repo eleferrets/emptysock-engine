@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
+import { visualizer } from "rollup-plugin-visualizer";
 
 // Teach Vite how to handle Monaco editor web workers so they resolve from
 // the locally installed monaco-editor package rather than a CDN request.
@@ -29,6 +30,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
     }),
+    visualizer({ open: false, filename: "stats.html", gzipSize: true }),
   ],
   resolve: {
     alias: {
@@ -40,13 +42,25 @@ export default defineConfig({
         __dirname,
         "../../packages/engine/src/index.ts",
       ),
+      "@": resolve(__dirname, "src"),
     },
   },
+  css: {
+    lightningcss: true,
+  },
+  worker: {
+    format: "es" as const,
+  },
+  esbuild: {
+    target: "es2024",
+  },
   optimizeDeps: {
+    include: ["react", "react-dom", "zustand", "rc-dock"],
     exclude: [
       "@dimforge/rapier2d-compat",
       "@dimforge/rapier3d-compat",
       "monaco-editor",
+      "@tauri-apps/api",
     ],
   },
   server: {
@@ -56,6 +70,9 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    warmup: {
+      clientFiles: ["./src/App.tsx", "./src/store/ideStore.ts"],
+    },
   },
   preview: {
     headers: {
@@ -64,6 +81,10 @@ export default defineConfig({
     },
   },
   build: {
-    target: "esnext",
+    target: "es2024",
+    sourcemap: false,
+    cssCodeSplit: false,
+    modulePreload: { polyfill: false },
+    reportCompressedSize: false,
   },
 });
