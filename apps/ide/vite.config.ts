@@ -52,7 +52,7 @@ export default defineConfig({
     format: "es" as const,
   },
   esbuild: {
-    target: "es2024",
+    target: "es2025",
   },
   optimizeDeps: {
     include: ["react", "react-dom", "zustand", "rc-dock"],
@@ -81,7 +81,7 @@ export default defineConfig({
     },
   },
   build: {
-    target: "es2024",
+    target: "es2025",
     sourcemap: false,
     cssCodeSplit: false,
     modulePreload: { polyfill: false },

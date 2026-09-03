@@ -76,8 +76,13 @@ export function ParticleEditor(): React.ReactElement {
     set: setConfig,
     undo,
     redo,
+    canUndo,
+    canRedo,
   } = useHistory<EmitterConfig>(DEFAULT_CONFIG);
-  // Live ref for RAF loop (bypasses history during drag)
+  // Live state for controls (updates on every slider drag without committing to history)
+  const [liveConfig, setLiveConfig] =
+    React.useState<EmitterConfig>(DEFAULT_CONFIG);
+  // Live ref for RAF loop (bypasses React re-renders during drag)
   const liveConfigRef = React.useRef<EmitterConfig>(DEFAULT_CONFIG);
   const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
     null,
