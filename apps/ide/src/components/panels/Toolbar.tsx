@@ -114,8 +114,6 @@ function BuildStatusPill(): React.ReactElement | null {
       Build error
     </button>
   );
-
-  return null;
 }
 
 function LogoMark(): React.ReactElement {
