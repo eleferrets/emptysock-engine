@@ -308,6 +308,22 @@ export function AssetBrowser(): React.ReactElement {
           alignContent: "start",
         }}
       >
+        {filtered.length === 0 && (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              padding: "24px 12px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+              fontSize: 11,
+              fontStyle: "italic",
+            }}
+          >
+            {assets.length === 0
+              ? "No assets yet — drag files here or click Upload."
+              : "No assets match your search."}
+          </div>
+        )}
         {filtered.map((asset) => (
           <button
             key={asset.id}

@@ -59,7 +59,7 @@ export function ConsolePanel(): React.ReactElement {
           className="text-[10px] uppercase tracking-wider flex-1"
           style={{ color: "var(--es-text-muted)" }}
         >
-          {logs.length} entries
+          {logs.length === 0 ? "Console" : `${logs.length} entries`}
         </span>
         <Button
           variant="ghost"
@@ -73,6 +73,19 @@ export function ConsolePanel(): React.ReactElement {
 
       {/* Log entries */}
       <div className="flex-1 overflow-y-auto">
+        {logs.length === 0 && (
+          <div
+            style={{
+              padding: "24px 16px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+              fontSize: 11,
+              fontStyle: "italic",
+            }}
+          >
+            No logs yet. Press Play or build to see output here.
+          </div>
+        )}
         {logs.map((log) => (
           <div
             key={log.id}
