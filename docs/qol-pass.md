@@ -1,155 +1,236 @@
 # EmptySock QoL Pass
 
-Status markers: ✅ done · ⬜ todo · 🔴 blocked
+Status markers: ✅ done · ⬜ todo · 🔴 blocked · 🔍 verify
+
+> **Handoff note — read before continuing.** This file is the living backlog for the QoL pass that ran across sessions. All branches have been merged into `main` on all three repos (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`). The section at the bottom of this file lists what the next agent should verify before picking up new work.
 
 ---
 
-## Remaining backlog
+## UI & Scene
 
-### UI & Scene
+- ✅ Alignment guides in scene editor  
+  `apps/ide/src/lib/editorGrid.ts`: `drawGrid`, `drawRulers` (adaptive ticks, scroll+zoom-aware), `drawGuides`, `snapToGrid`, `computeAlignmentGuides`. Wired into UIPlacementPanel, TilemapEditor, VNEditor, CanvasPreview.
 
-- ✅ Alignment guides in scene editor
-  Shared editorGrid.ts: drawGrid, drawRulers (adaptive ticks, scroll+zoom-aware), drawGuides, snapToGrid, computeAlignmentGuides. Applied to UIPlacementPanel, TilemapEditor, VNEditor, CanvasPreview.
+- ✅ Error overlay in preview iframe  
+  `CanvasPreview.tsx` shows a red banner with message + stack when game code throws. `RunnerMessage` extended with `"game-error"` type and `stack?: string`. Overlay dismissible.
 
-- ⬜ **[P2]** Debugger integration — breakpoints + variable inspector in preview
+- ✅ FPS target setting  
+  `CanvasPreview.tsx` FPS selector (Unlimited / 30 / 60 / 120). `PlayRunner` sends `set-fps-cap` message to iframe; iframe patches `requestAnimationFrame` to throttle accordingly.
+
+- ✅ VNPreviewPanel  
+  `apps/ide/src/components/panels/VNPreviewPanel.tsx` added — renders the selected node's dialogue with speaker name, avatar placeholder, and choice buttons.
+
+- ⬜ **[P2]** Debugger integration — breakpoints + variable inspector in preview  
   iframe DevTools protocol bridge or log-based step debugger in ConsolePanel.
 
-- ⬜ **[P2]** Turn-based battle system module
-  Party vs enemy encounter triggered from map events. Action menu (attack, skill, item, flee). Formula-based damage from database entries. State effects (poison, stun). Opt-in module flag.
+- ⬜ **[P2]** Turn-based battle system module  
+  Party vs enemy encounter, action menu, formula damage from database, status effects. Opt-in module flag.
 
 ---
 
 ## Undo / Redo
 
-Every editor that mutates data needs a history stack. The pattern is a shared `useHistory<T>` hook (or Zustand middleware) that records snapshots on each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Keyboard: `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`. Panels:
+Shared `useHistory<T>` hook: `apps/ide/src/hooks/useHistory.ts`. 50-step cap, session-only, functional updater supported (`set(prev => next)`). `Ctrl+Z` / `Ctrl+Shift+Z` wired per-panel.
 
-- ⬜ TilemapEditor — paint, erase, fill, flood-fill, layer add/remove/reorder
-- ⬜ VNEditor (Story Graph) — node add/move/delete, edge add/delete, node content edits
-- ⬜ UIPlacementPanel — component place, move, delete
-- ⬜ SequenceEditor — keyframe add/move/delete, track add/delete, value edits
-- ⬜ LocalisationEditor — key add/edit/delete, locale add/remove
-- ⬜ DatabaseEditor — row add/edit/delete across all four tables
-- ⬜ VariablesPanel — variable/switch add/edit/delete
-- ⬜ EntityProperties — transform edits, component add/delete, entity rename
-- ⬜ SceneInspector — entity add/delete/reorder
-- ⬜ ParticleEditor — emitter config changes (every slider/picker interaction)
-- ⬜ ShaderEditor — vertex/fragment source edits (distinct from Monaco's built-in undo which is file-scoped)
-- ⬜ AutoTileRulesModal — rule add/edit/delete
-
-Implementation note: Monaco already has its own undo stack per file — don't replace it. For canvas editors a snapshot of the tile data array is sufficient; for graph editors snapshot the node+edge list. Cap history at ~50 steps per panel to bound memory. Persist nothing — undo history is session-only.
+- ✅ TilemapEditor — paint, erase, fill, flood-fill, layer add/remove/reorder
+- ✅ VNEditor (Story Graph) — node add/move/delete, edge add/delete, node content edits
+- ✅ UIPlacementPanel — component place, move, delete
+- ✅ SequenceEditor — keyframe add/move/delete, track add/delete, value edits
+- ✅ LocalisationEditor — key add/edit/delete, locale add/remove
+- ✅ DatabaseEditor — row add/edit/delete across all four tables
+- ✅ VariablesPanel — variable/switch add/edit/delete
+- ✅ EntityProperties — transform edits, component add/delete
+- ✅ SceneInspector — entity add/delete/reorder
+- ✅ ParticleEditor — emitter config changes (pointer-up batched; RAF-decoupled live preview)
+- ✅ ShaderEditor — vertex/fragment source edits (distinct from Monaco's built-in per-file stack)
+- ⬜ AutoTileRulesModal — rule add/edit/delete (modal not yet implemented)
 
 ---
 
 ## TypeScript config hardening
 
-Changes apply to the tsconfig.json at each package root. All flags are already valid in TypeScript 5.7.
+### Target / lib
 
-### packages/engine/tsconfig.json
+- ✅ `"target": "ES2025"` and `"lib": ["ES2025"]` across all packages and `apps/ide`  
+  ES2026 was attempted but rejected by the installed `tsc` binary (TypeScript 6.0.3 CLI enumerates targets only up to ES2025). ES2025 is the current maximum. Revisit when tsc supports ES2026.
+- ✅ `"noImplicitOverride": true` — all packages
+- ✅ `"noImplicitReturns": true` — all packages
+- ✅ `"allowUnreachableCode": false` — all packages
+- ✅ `"allowUnusedLabels": false` — all packages
+- ✅ `"forceConsistentCasingInFileNames": true` — all packages
+- ✅ `"exactOptionalPropertyTypes": true` — apps/ide, packages/engine
+- ✅ `"verbatimModuleSyntax": true` — all packages
+- ✅ `"moduleDetection": "force"` — apps/ide
+- ✅ `"isolatedModules": true` — apps/ide
 
-- ⬜ `"noUncheckedIndexedAccess": true` — every array index access (`arr[i]`) becomes `T | undefined`; eliminates the entire class of `!` assertion bugs the audit found in LightingSystem, NavMeshSystem, etc. **Highest priority.** Expect ~20 fixups on first enable.
-- ⬜ `"exactOptionalPropertyTypes": true` — prevents assigning `undefined` to an optional field that doesn't declare `| undefined`; catches a class of subtle state-mutation bugs.
-- ⬜ `"noPropertyAccessFromIndexSignature": true` — forces `obj['key']` over `obj.key` when the type is an index signature; makes dynamic property access explicit and auditable.
-- ⬜ `"verbatimModuleSyntax": true` — requires `import type` for type-only imports; produces cleaner output for bundlers and esbuild's type-strip path.
-
-### apps/ide/tsconfig.json
-
-- ⬜ `"noUncheckedIndexedAccess": true` — same as above; the panel audit found multiple unguarded index accesses.
-- ⬜ `"verbatimModuleSyntax": true` — Vite already supports this; keeps the IDE bundle lean.
-- ⬜ `"moduleDetection": "force"` — treats every `.ts`/`.tsx` file as a module even without imports/exports; prevents accidental global scope pollution in isolated panel files.
-- ⬜ `"isolatedModules": true` — already implied by Vite but making it explicit catches any file that relies on const enum or namespace merging which Vite's single-file transpile can't handle.
-
-### packages/toolchain/tsconfig.json
-
-- ⬜ `"noUncheckedIndexedAccess": true`
-- ⬜ `"verbatimModuleSyntax": true`
-
-### All packages
-
-- ⬜ `"target": "ES2026"` and `"lib": ["ES2026"]` — Node 22 and all current Tauri WebViews / evergreen browsers support the full ES2026 set. Enables `Array.prototype.toSorted`, `toReversed`, `with`, `Object.groupBy`, `Promise.withResolvers`, `Set` union/intersection/difference, `Float16Array`, and explicit resource management (`using` / `Symbol.dispose`). Use `ES2026` literally — never `ESNext`, which is a moving target that changes meaning with each TypeScript release.
-- ⬜ `"noImplicitOverride": true` — requires the `override` keyword on any method that overrides a base-class method. Without it, renaming a base-class method silently turns the subclass method into a new method rather than an override; the compiler gives no warning. Particularly relevant for Scene, Behavior, and Component subclasses.
-- ⬜ `"noImplicitReturns": true` — all code paths in a non-void function must return a value. Catches the common pattern of an if/else chain where one branch forgets to return.
-- ⬜ `"allowUnreachableCode": false` — error on code after a `return`/`throw`/`continue`; catches dead branches that accumulate silently.
-- ⬜ `"allowUnusedLabels": false` — error on unused labels; mostly cosmetic but keeps code clean.
-- ⬜ `"forceConsistentCasingInFileNames": true` — prevents import path case mismatches that work on macOS (case-insensitive) but break on Linux CI. Should already be set; verify it is.
-- ⬜ `"declaration": true` and `"declarationMap": true` on `packages/engine` and `packages/types` — the type declaration output and source maps for `.d.ts` files; required for IDE go-to-definition to land in source rather than compiled output when consuming `@emptysock/engine` from game code.
-- ⬜ `"stripInternal": true` on `packages/engine` — removes `@internal` JSDoc declarations from the emitted `.d.ts`; keeps the public API surface clean and prevents agents from calling implementation details.
+- 🔍 `"noUncheckedIndexedAccess": true` — applied to tsconfigs but verify zero remaining errors; the engine had ~20 expected fixups. Run `pnpm --filter @emptysock/engine tsc --noEmit` and confirm clean.
+- ⬜ `"noPropertyAccessFromIndexSignature": true` — not yet enabled; low priority
+- ⬜ `"declaration": true` + `"declarationMap": true` on engine + types packages — needed for IDE go-to-definition to land in source
+- ⬜ `"stripInternal": true` on packages/engine — removes `@internal` JSDoc from emitted `.d.ts`
 
 ---
 
 ## Vite config improvements
 
-Applies to `apps/ide/vite.config.ts`.
-
-### Build output quality
-
-- ⬜ `build.target: 'es2026'` and `esbuild.target: 'es2026'` — stops Vite from downcompiling modern syntax (top-level await, `using`, logical assignment) that is natively supported in the Tauri WebView and current browsers. Use the literal year string, never `'esnext'`. Note: game builds compiled by `GameBuildService` should also target `es2026`, not `esnext`.
-- ⬜ `build.sourcemap: false` (explicit) — no source maps in shipped IDE or compiled game builds. Source maps expose your full source to anyone with devtools and bloat the output. Keep `sourcemap: 'inline'` only in the Vite dev server config block, never in `build`.
-- ⬜ `build.cssCodeSplit: false` — consolidate CSS into one file; avoids a class of flash-of-unstyled-content issues with rc-dock's dynamic panel insertion.
-- ⬜ `build.modulePreload: { polyfill: false }` — the Tauri WebView and target browsers all support native module preload; the polyfill adds ~1.5 kB for nothing.
-- ⬜ `build.reportCompressedSize: false` — skips the gzip-size calculation Vite prints after each build; saves ~2 s per build for no practical benefit in a Tauri app that is never served over HTTP.
-
-### Development experience
-
-- ⬜ `css.lightningcss: true` (Vite 5.4+) — drop-in replacement for PostCSS for standard transforms; 50–100× faster CSS processing. Requires removing postcss.config.js if present.
-- ⬜ `server.warmup: { clientFiles: ['./src/App.tsx', './src/store/ideStore.ts', './src/lib/editorGrid.ts'] }` — pre-transforms the heaviest entry files on dev-server start so first load isn't slow.
-- ⬜ `optimizeDeps.include: ['react', 'react-dom', 'zustand', 'rc-dock']` — force pre-bundling of packages that would otherwise be discovered lazily and stall the first HMR.
-
-### Worker config
-
-- ⬜ `worker.format: 'es'` — emit game build workers as ES modules instead of IIFE; consistent with the `format: 'esm'` setting in GameBuildService and required for `import.meta` inside workers.
+- ✅ `build.target: 'es2025'` and `esbuild.target: 'es2025'`
+- ✅ `css.lightningcss: true` — PostCSS dropped, `postcss.config.js` deleted
+- ✅ `optimizeDeps.exclude: ['@tauri-apps/api', 'monaco-editor']`
+- ✅ `build.modulePreload: { polyfill: false }`
+- ✅ `build.reportCompressedSize: false`
+- ✅ `server.warmup` for App.tsx, ideStore.ts, editorGrid.ts
+- ✅ `worker.format: 'es'`
+- ✅ `rollup-plugin-visualizer` wired (`stats.html`, `open: false`)
+- ✅ `@/` path alias for `src/`
+- ⬜ `build.cssCodeSplit: false` — not yet set; low priority
+- ⬜ `build.sourcemap: false` explicit in production — not yet verified
 
 ---
 
-## Dynamic imports — desktop and web compatibility
+## Dynamic imports
 
-The IDE uses dynamic `import('@tauri-apps/api/core')` at several call sites. The pattern is correct (all are gated behind `isTauri()` checks), but several surrounding issues remain:
-
-- ⬜ `vite.config.ts` `optimizeDeps.exclude` is missing `@tauri-apps/api` — Vite discovers the dynamic import in source and tries to pre-bundle the Tauri API package during dev-server startup. Since the package is injected by the Tauri runtime (not shipped as a normal npm chunk), this fails silently or produces a stale cached chunk. Fix: add `'@tauri-apps/api'` to the existing `optimizeDeps.exclude` array alongside `monaco-editor`.
-- ⬜ `vite.config.ts` `build.target: 'esnext'` — should be `'es2026'` (literal year, not moving target). Same for `esbuild.target`. Both the IDE bundle and game builds compiled by `GameBuildService` should target `es2026` explicitly.
-- ⬜ `MobileLayout.tsx` `TabletRightPanel` creates `React.lazy(() => import('./panels/CanvasPreview')…)` **inside the render function body** — every render discards the old lazy component and creates a new one, resetting its Suspense promise and causing a remount flash. Move the `React.lazy(…)` call to module scope (top of file, outside any function) so the lazy component is stable across renders.
-- ⬜ `GameBuildService.transformOnly()` uses `format: 'iife'` — any top-level `await` or `import.meta` in transformed code silently breaks. Change to `format: 'esm'` to match the main build pipeline.
+- ✅ `@tauri-apps/api` excluded from `optimizeDeps`
+- ✅ `MobileLayout.tsx` — `React.lazy()` calls moved to module scope
+- ✅ `GameBuildService.transformOnly()` — changed from `format: 'iife'` to `format: 'esm'`
+- ✅ `GameBuildService.buildNow()` — `validateDefines()` guard added; warns on missing compile-time defines
 
 ---
 
-## Architectural debt (found during audit, not yet tracked)
+## AudioMixer bridge
 
-- ⬜ AudioSystem ↔ AudioMixerService bridge — the IDE mixer panel sets volumes on `AudioMixerService` (a Web Audio GainNode graph) which has no connection to the engine's `AudioSystem`. Volume changes in the IDE have zero effect on in-game sounds. Fix: route IDE mixer through `AudioSystem.setBusVolume` via the preview iframe `postMessage` channel, same as the draw-call counter.
-- ⬜ CGGallery uses SaveSystem with dummy `scene: ''` and `playtime: 0` fields — makes gallery entries look like corrupted save files in any listing UI. Migrate to VariableStore which already serialises boolean flags.
-- ⬜ SequenceEditor track types are generic numeric keyframes (Position X/Y, Rotation, Scale, Opacity) — not the dialogue/movement/audio/wait lanes described in the original spec. Either rename the panel to "Keyframe Animator" to reflect what it is, or add the VN/RPG lane types.
-- ⬜ `GameBuildService.transformOnly()` uses `format: 'iife'` — inconsistent with the ESM main build pipeline; any top-level await in transformed code silently breaks. Change to `format: 'esm'`.
-- ⬜ No validation that compile-time defines (`PROJECT_TITLE`, `GAME_WIDTH`, `GAME_HEIGHT`, `DEBUG`) are passed before `GameBuildService.buildNow()` — a caller that omits them produces a bundle with undefined references and no warning.
-- ⬜ `CLAUDE.md` says `getComponent` uses constructor function as key — actually uses a string `component.type`. Any agent reading docs before code generates wrong call patterns. Update the doc.
-- ⬜ UISystem `image` component renders a grey placeholder box — no actual image loading. Needs an `ImageLoader` callback interface (defined in `@emptysock/types`) injected at construction time so the DOM implementation can be provided by game code without the engine importing DOM APIs.
+- ✅ IDE mixer sends `es-audio-bus` postMessage to preview iframe; iframe routes to `AudioSystem.setBusVolume`  
+  Previously volume changes had zero effect on in-game sounds.
 
 ---
 
-## Nice-to-have QoL
+## New panels / systems added this pass
 
-Low-cost additions that would noticeably improve daily use:
-
-- ⬜ Asset preview on hover in AssetBrowser — tooltip showing the image at a fixed size; zero backend work, pure UI
-- ⬜ Minimap in VNEditor — a small SVG overview of the full graph in the corner; essential once a script has 30+ nodes
-- ⬜ Error overlay in preview iframe — when game code throws an uncaught error, show a red banner with the stack trace instead of a silent blank canvas
-- ⬜ Multi-select in SceneInspector — Shift/Ctrl+click to select multiple entities for bulk move/delete
-- ⬜ SceneInspector filter/search — text input that filters entity list by name; important at 50+ entities
-- ⬜ VNPreviewPanel — show visual indicator for `event` and `jump` node types instead of blank canvas (currently silent)
-- ⬜ Git diff view in GitPanel — currently shows status only; inline diff of changed files
-- ⬜ FPS target setting — let the game preview run at 30/60/120 fps cap; useful for mobile perf testing on desktop
-- ⬜ Code snippet palette — right-click in CodeEditor to insert common patterns (create entity, add component, start coroutine, etc.)
+- ✅ `DatabaseEditor.tsx` — four-table RPG database (Items, Skills, Enemies, Classes)
+- ✅ `UIPlacementPanel.tsx` — drag-and-drop UI component layout with snap grid
+- ✅ `VNPreviewPanel.tsx` — live dialogue preview for selected VN node
+- ✅ `VariablesPanel.tsx` — global variables and switches editor
+- ✅ `MobileLayout.tsx` — full mobile/tablet layout with bottom sheet panels
+- ✅ `AutoTileSystem.ts` — 47-tile Wang-set autotile rule engine
+- ✅ `CGGallery.ts` — CG/illustration gallery system
+- ✅ `CharacterStage.ts` — character sprite positioning and expression system
+- ✅ `MapEventSystem.ts` — tile-triggered event system (touch, interact, autorun)
+- ✅ `VNBackgroundLayer.ts` — parallax background management for VN scenes
+- ✅ `VNScriptConvert.ts` — plain-text screenplay → VNSystem node graph converter
+- ✅ `VNTextbox.ts` — dialogue rendering with typewriter effect and rich text
+- ✅ `VariableStore.ts` — global boolean switches + numeric variables with persistence
+- ✅ `GridMovementBehavior.ts` — tile-aligned movement behavior
+- ✅ Skills 11–15 in `emptysock-ai-skills` (UISystem, VNTextbox, VariableStore, CharacterStage, MapEvents)
+- ✅ MCP tools: `particle_*`, `vn_*` in `emptysock-mcp`
 
 ---
 
-## Tooling and code quality
+## ESLint / code quality
 
-Improvements to the lint, test, and build pipeline that would catch bugs earlier:
+- ✅ `@typescript-eslint/no-floating-promises` — enabled, `MapEventSystem.ts` fixed
+- ✅ `@typescript-eslint/consistent-type-imports` — enabled, type-only imports converted across 6 engine files
+- ✅ `@typescript-eslint/no-unnecessary-condition` — enabled; redundant guards removed across engine, toolchain, IDE
+- ✅ `vite-env.d.ts` added (`/// <reference types="vite/client" />`) — fixes CSS import TS error in App.tsx
+- 🔍 `typecheck: true` in Vitest config — added to `apps/ide/vitest.config.ts`; verify it runs cleanly (`pnpm --filter ide test --run`)
+- ⬜ Unit tests for `ideStore.ts`, `GameBuildService.ts`, `editorGrid.ts` — not yet written
+- ⬜ React `<ErrorBoundary>` per panel tab — not yet added; one panel crash currently kills the whole IDE
+- ⬜ `pnpm catalog` for dependency version consistency
 
-- ⬜ ESLint rule `@typescript-eslint/no-floating-promises` — catches `async` calls whose returned Promise is never awaited or `.catch()`'d; common source of silent failures in panel event handlers and store actions.
-- ⬜ ESLint rule `@typescript-eslint/consistent-type-imports` — enforces `import type` for type-only imports; consistent with the `verbatimModuleSyntax` tsconfig flag being added and keeps esbuild's type-strip path clean.
-- ⬜ ESLint rule `@typescript-eslint/no-unnecessary-condition` — flags `if (x !== undefined)` where `x` is statically known to be `string`; pairs with `noUncheckedIndexedAccess` to surface stale guard code.
-- ⬜ `typecheck: true` in the Vitest config — surfaces type errors in the same CI run as unit tests; currently a file can have type errors that only appear on a separate `tsc --noEmit` pass.
-- ⬜ `rollup-plugin-visualizer` in `vite.config.ts` with `open: false, filename: 'stats.html'` — generates a treemap of the IDE bundle after each build; run before each release to catch accidental bloat from a new dependency.
-- ⬜ `@/` path alias for `src/` — add `"@/*": ["src/*"]` to `apps/ide/tsconfig.json` paths and the matching `resolve.alias` in `vite.config.ts`; panel imports like `../../store/ideStore` become `@/store/ideStore` and survive file moves without broken relative paths.
-- ⬜ Add `@internal` JSDoc to implementation-detail exports in `packages/engine/src/index.ts` — currently everything is re-exported with no stable/unstable distinction; marking internals enables `stripInternal: true` (already in the tsconfig backlog) to shrink the `.d.ts` surface and prevent agents from calling private scheduler methods.
-- ⬜ Unit test coverage for `ideStore.ts`, `GameBuildService.ts`, and `editorGrid.ts` — these are the most load-bearing files and the hardest to verify manually after changes; currently they have effectively no tests.
-- ⬜ React error boundary per panel — one uncaught render error in any panel currently crashes the entire IDE; wrap each panel's tab content in an `<ErrorBoundary>` to contain failures to that panel and show a "panel crashed — reload" message instead of a blank IDE. (`ErrorBoundary` component already exists in `src/components/`.)
-- ⬜ `pnpm catalog` for dependency version consistency — ensures `react`, `typescript`, `zustand`, and other shared deps are pinned to identical versions across `packages/engine`, `packages/types`, `packages/toolchain`, and `apps/ide`; prevents subtle mismatches where two packages bundle different React instances.
+---
+
+## Architectural debt still open
+
+- ⬜ CGGallery uses `SaveSystem` with dummy fields — migrate to `VariableStore`
+- ⬜ SequenceEditor track types are generic numeric keyframes, not VN/RPG dialogue lanes — rename panel or add lane types
+- ⬜ `UISystem` `image` component renders grey placeholder — needs `ImageLoader` callback interface injected at construction
+- ⬜ `CLAUDE.md` says `getComponent` uses constructor as key — actually uses `component.type` string. Update the doc.
+- ⬜ Asset preview on hover in AssetBrowser
+- ⬜ Minimap in VNEditor
+- ⬜ Multi-select in SceneInspector (Shift/Ctrl+click)
+- ⬜ SceneInspector filter/search by entity name
+- ⬜ Git diff view in GitPanel (currently status-only)
+- ⬜ Code snippet palette in CodeEditor (right-click insert)
+
+---
+
+## Handoff — verify before continuing
+
+The next agent should run through this checklist before picking up new work. Each item is a quick check that the session's changes are actually wired up correctly.
+
+### 1. Type-check all packages
+
+```bash
+cd /home/user/emptysock-engine
+pnpm --filter @emptysock/engine tsc --noEmit
+pnpm --filter @emptysock/toolchain tsc --noEmit
+pnpm --filter @emptysock/types tsc --noEmit
+pnpm --filter ide tsc --noEmit
+```
+
+All four must exit 0. If `noUncheckedIndexedAccess` introduced new errors in engine or toolchain they will show here.
+
+### 2. Engine tests
+
+```bash
+pnpm --filter @emptysock/engine test --run
+```
+
+Expect 143 tests across 28 files, all passing. Any failures indicate a regression from the ES2025 target upgrade or the strict-TS fixes.
+
+### 3. IDE type check specifically
+
+```bash
+pnpm --filter ide exec tsc --noEmit
+```
+
+Known pre-existing issue: `CodeEditor.tsx` references `SNIPPETS` which was mentioned by the ES2026 agent as missing — verify whether this is now fixed or still outstanding.
+
+### 4. Toolbar.tsx build-status pill
+
+`apps/ide/src/components/panels/Toolbar.tsx` — the `BuildStatusPill` function. Verify it has the correct structure: three early `return` branches (`idle → null`, `building → yellow pill`, `success → green pill`) followed by a final `return` for the error button. The `if (buildStatus === "error")` guard was removed, leaving `return null` unreachable; a subsequent commit removed that `return null`. Check the file ends cleanly with no dead code.
+
+### 5. RunnerMessage type
+
+`apps/ide/src/services/PlayRunner.ts` — confirm `RunnerMessage.type` includes `"game-error"` and that `stack?: string` is present. The iframe HTML in the same file only posts `type: "error"` (not `"game-error"`), so both branches in `CanvasPreview.tsx` are semantically equivalent — this is intentional, keeping the door open for structured game-level error events.
+
+### 6. ParticleEditor liveConfig
+
+`apps/ide/src/components/panels/ParticleEditor.tsx` — the UX agent found that `liveConfig` and `setLiveConfig` were used in JSX but undeclared. Verify the file now has `const [liveConfig, setLiveConfig] = React.useState<EmitterConfig>(DEFAULT_CONFIG)` and that `canUndo` / `canRedo` are destructured from `useHistory`.
+
+### 7. useHistory functional updater
+
+`apps/ide/src/hooks/useHistory.ts` — `set` signature must be `(next: T | ((prev: T) => T)) => void`. Confirm the implementation uses `typeof next === "function"` to branch.
+
+### 8. MobileLayout lazy import
+
+`apps/ide/src/components/MobileLayout.tsx` — `LazyCanvasPreview` must be declared at module scope (outside any component function). Grep for `React.lazy` inside the file and confirm it appears before the first function/component definition.
+
+### 9. All branches merged to main
+
+All three repos should have `main` as the only active branch:
+
+```bash
+# emptysock-engine
+git -C /home/user/emptysock-engine branch -r | grep -v 'main\|HEAD'
+
+# emptysock-ai-skills
+git -C /home/user/emptysock-ai-skills branch -r | grep -v 'main\|HEAD'
+
+# emptysock-mcp
+git -C /home/user/emptysock-mcp branch -r | grep -v 'main\|HEAD'
+```
+
+The remote branches `claude/*` will still exist on the remote until explicitly deleted — that is fine. What matters is that `main` on all three repos contains the commits from all merged branches.
+
+### 10. qol-pass.md is up to date
+
+This file. Verify that the status markers reflect reality before marking any `⬜` item as done or starting a new one.
+
+---
+
+## Next priorities (suggested order)
+
+1. **React ErrorBoundary per panel** — highest leverage safety net; one file, low risk
+2. **`declaration: true` + `declarationMap: true`** on engine + types — unblocks external consumers and IDE go-to-definition
+3. **AutoTileRulesModal undo/redo** — last panel missing history; implement modal first if not yet done
+4. **CGGallery → VariableStore migration** — removes the corrupted-save-file appearance in gallery listings
+5. **SceneInspector search/filter** — becomes painful at 30+ entities; pure UI, no store changes
+6. **Unit tests for ideStore, GameBuildService, editorGrid** — these are the highest-risk untested files
