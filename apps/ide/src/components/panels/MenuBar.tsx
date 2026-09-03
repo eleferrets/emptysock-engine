@@ -36,6 +36,10 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+// Module-level handle so it persists across re-renders without being a ref.
+// Holds the FileSystemFileHandle chosen by the user the first time they save.
+let _fsHandle: FileSystemFileHandle | null = null;
+
 function Kbd({ shortcut }: { shortcut: string }): React.ReactElement {
   return (
     <kbd
@@ -310,9 +314,46 @@ export function MenuBar({
   const saveFile = useCallback((): void => {
     if (isTauri()) {
       void TauriFileService.saveFile(null, editorCode);
-    } else {
-      void BrowserFileService.saveFile(`${projectName}.ts`, editorCode);
+      return;
     }
+    void (async () => {
+      // First save: prompt the user to pick a destination via the File System
+      // Access API. Subsequent saves reuse the same handle without a prompt.
+      if ("showSaveFilePicker" in window && _fsHandle === null) {
+        try {
+          _fsHandle = await (
+            window as unknown as {
+              showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle>;
+            }
+          ).showSaveFilePicker({
+            suggestedName: "emptysock.project.json",
+            types: [
+              {
+                description: "EmptySock project",
+                accept: { "application/json": [".json"] },
+              },
+            ],
+          });
+        } catch {
+          // User cancelled the picker — abort silently.
+          return;
+        }
+      }
+      if (_fsHandle !== null) {
+        try {
+          const writable = await _fsHandle.createWritable();
+          await writable.write(useIDEStore.getState().saveProjectJson());
+          await writable.close();
+        } catch {
+          // Handle became invalid (e.g. file moved) — fall back to download.
+          _fsHandle = null;
+          void BrowserFileService.saveFile(`${projectName}.ts`, editorCode);
+        }
+      } else {
+        // showSaveFilePicker not available (Firefox) — use legacy download.
+        void BrowserFileService.saveFile(`${projectName}.ts`, editorCode);
+      }
+    })();
   }, [editorCode, projectName]);
 
   const downloadProjectZip = useCallback((): void => {
@@ -529,74 +570,6 @@ export function MenuBar({
         })(),
         { type: "separator" },
         { type: "item", label: "Modules…", action: onOpenModules },
-      ],
-    },
-    {
-      label: "Help",
-      items: [
-        { type: "item", label: "View Manual", action: openManual },
-        {
-          type: "item",
-          label: "Language Reference (TS & JS)",
-          action: openLanguageRef,
-        },
-        { type: "item", label: "API Reference (JSON)", action: openApiRef },
-        { type: "separator" },
-        {
-          type: "item",
-          label: "Keyboard Shortcuts",
-          shortcut: "?",
-          action: onOpenShortcuts,
-        },
-        ...(!isTauri()
-          ? [
-              { type: "separator" as const },
-              {
-                type: "item" as const,
-                label: "Download EmptySock Engine…",
-                action: onOpenDownload,
-              },
-            ]
-          : []),
-        { type: "separator" },
-        {
-          type: "item",
-          label: "About EmptySock Engine v0.1.0",
-          action: () => {
-            window.alert(
-              "EmptySock Engine v0.1.0\n\nA portable, cross-platform game engine.\nBuild games with TypeScript or JavaScript.",
-            );
-          },
-        },
-      ],
-    },
-    {
-      label: "Window",
-      items: [
-        {
-          type: "item",
-          label: "Reset Layout",
-          action: () => window.location.reload(),
-        },
-        { type: "separator" },
-        {
-          type: "item",
-          label: "Code Editor",
-          shortcut: `${mod}+1`,
-          action: () => setActiveTab("code"),
-        },
-        {
-          type: "item",
-          label: "Preview Canvas",
-          shortcut: `${mod}+2`,
-          action: () => setActiveTab("canvas"),
-        },
-        {
-          type: "item",
-          label: "Scene Inspector",
-          shortcut: `${mod}+3`,
-          action: () => setActiveTab("scene"),
-        },
       ],
     },
     {
