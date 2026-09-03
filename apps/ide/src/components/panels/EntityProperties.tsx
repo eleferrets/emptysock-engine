@@ -4,6 +4,7 @@ import { useIDEStore } from "../../store/ideStore";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
+import { useHistory } from "../../hooks/useHistory";
 
 const AVAILABLE_COMPONENTS = [
   "Sprite",
@@ -18,6 +19,7 @@ const AVAILABLE_COMPONENTS = [
 function ComponentSection({
   entityId,
   component,
+  onRemove,
 }: {
   entityId: string;
   component: {
@@ -25,10 +27,8 @@ function ComponentSection({
     enabled: boolean;
     properties: Record<string, string>;
   };
+  onRemove: (entityId: string, type: string) => void;
 }): React.ReactElement {
-  const removeComponentFromEntity = useIDEStore(
-    (s) => s.removeComponentFromEntity,
-  );
   const [open, setOpen] = React.useState(true);
 
   const componentColor: Record<string, string> = {
@@ -69,7 +69,7 @@ function ComponentSection({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            removeComponentFromEntity(entityId, component.type);
+            onRemove(entityId, component.type);
           }}
           style={{ color: "var(--es-text-muted)", display: "flex", padding: 2 }}
           title={`Remove ${component.type}`}
@@ -97,12 +97,77 @@ function ComponentSection({
   );
 }
 
+interface EntitySnapshot {
+  transform: Record<string, string>;
+  componentTypes: string[];
+}
+
 export function EntityProperties(): React.ReactElement {
   const selectedEntity = useIDEStore((s) => s.selectedEntity);
   const updateEntityTransform = useIDEStore((s) => s.updateEntityTransform);
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
   const addComponentToEntity = useIDEStore((s) => s.addComponentToEntity);
+  const removeComponentFromEntity = useIDEStore(
+    (s) => s.removeComponentFromEntity,
+  );
   const [showAddMenu, setShowAddMenu] = React.useState(false);
+
+  const entityId = selectedEntity?.id ?? null;
+
+  const makeSnapshot = (): EntitySnapshot => ({
+    transform: selectedEntity ? { ...selectedEntity.transform } : {},
+    componentTypes: selectedEntity
+      ? selectedEntity.components.map((c) => c.type)
+      : [],
+  });
+
+  const {
+    set: setSnap,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<EntitySnapshot>(makeSnapshot());
+
+  // Reset history when the selected entity changes
+  const prevEntityIdRef = React.useRef<string | null>(entityId);
+  React.useEffect(() => {
+    if (entityId !== prevEntityIdRef.current) {
+      prevEntityIdRef.current = entityId;
+    }
+  }, [entityId]);
+
+  // Keyboard undo/redo
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
+  const commitTransform = (id: string, patch: Record<string, string>): void => {
+    setSnap(makeSnapshot());
+    updateEntityTransform(id, patch);
+  };
+
+  const commitAddComponent = (id: string, type: string): void => {
+    setSnap(makeSnapshot());
+    addComponentToEntity(id, type);
+  };
+
+  const commitRemoveComponent = (id: string, type: string): void => {
+    setSnap(makeSnapshot());
+    removeComponentFromEntity(id, type);
+  };
 
   if (selectedEntity === null) {
     return (
@@ -157,14 +222,48 @@ export function EntityProperties(): React.ReactElement {
           </span>
           <Badge variant="default">{selectedEntity.type}</Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Delete entity"
-          onClick={() => deleteEntity(selectedEntity.id)}
-        >
-          <Trash2 size={11} style={{ color: "var(--es-red)" }} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{
+              padding: "2px 6px",
+              background: "none",
+              border: "none",
+              color: "var(--es-text)",
+              cursor: canUndo ? "pointer" : "default",
+              opacity: canUndo ? 1 : 0.4,
+              fontSize: 13,
+            }}
+          >
+            ↩
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            style={{
+              padding: "2px 6px",
+              background: "none",
+              border: "none",
+              color: "var(--es-text)",
+              cursor: canRedo ? "pointer" : "default",
+              opacity: canRedo ? 1 : 0.4,
+              fontSize: 13,
+            }}
+          >
+            ↪
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Delete entity"
+            onClick={() => deleteEntity(selectedEntity.id)}
+          >
+            <Trash2 size={11} style={{ color: "var(--es-red)" }} />
+          </Button>
+        </div>
       </div>
 
       {/* Scrollable body */}
@@ -201,14 +300,14 @@ export function EntityProperties(): React.ReactElement {
               label="X"
               value={selectedEntity.transform.x}
               onChange={(e) =>
-                updateEntityTransform(selectedEntity.id, { x: e.target.value })
+                commitTransform(selectedEntity.id, { x: e.target.value })
               }
             />
             <Input
               label="Y"
               value={selectedEntity.transform.y}
               onChange={(e) =>
-                updateEntityTransform(selectedEntity.id, { y: e.target.value })
+                commitTransform(selectedEntity.id, { y: e.target.value })
               }
             />
           </div>
@@ -217,7 +316,7 @@ export function EntityProperties(): React.ReactElement {
               label="Scale X"
               value={selectedEntity.transform.scaleX}
               onChange={(e) =>
-                updateEntityTransform(selectedEntity.id, {
+                commitTransform(selectedEntity.id, {
                   scaleX: e.target.value,
                 })
               }
@@ -226,7 +325,7 @@ export function EntityProperties(): React.ReactElement {
               label="Scale Y"
               value={selectedEntity.transform.scaleY}
               onChange={(e) =>
-                updateEntityTransform(selectedEntity.id, {
+                commitTransform(selectedEntity.id, {
                   scaleY: e.target.value,
                 })
               }
@@ -236,7 +335,7 @@ export function EntityProperties(): React.ReactElement {
             label="Rotation"
             value={selectedEntity.transform.rotation}
             onChange={(e) =>
-              updateEntityTransform(selectedEntity.id, {
+              commitTransform(selectedEntity.id, {
                 rotation: e.target.value,
               })
             }
@@ -251,6 +350,7 @@ export function EntityProperties(): React.ReactElement {
               key={component.type}
               entityId={selectedEntity.id}
               component={component}
+              onRemove={commitRemoveComponent}
             />
           ))}
 
@@ -285,7 +385,7 @@ export function EntityProperties(): React.ReactElement {
                   key={c}
                   type="button"
                   onClick={() => {
-                    addComponentToEntity(selectedEntity.id, c);
+                    commitAddComponent(selectedEntity.id, c);
                     setShowAddMenu(false);
                   }}
                   style={{
