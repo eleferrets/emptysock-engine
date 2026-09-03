@@ -127,3 +127,20 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 - **Conditional UI.** A control tied to absent data must not render as a broken/empty element. For example, a `<select>` with no `<option>` elements must be hidden, not shown as an empty picker.
 - **Action hint copy.** Instructional text in a panel should be an action ("Click the canvas to place a component") not a state description when the user has nothing yet ("placed: 0 components").
 - **commitlint subject-case.** The commitlint `subject-case` rule rejects any uppercase letter in the commit subject, including camelCase or PascalCase identifiers. Rewrite them lowercase (e.g., `outDir` → `outdir`, `ES2025` → `es2025`) or rephrase around them. Test with `echo "type(scope): subject" | npx commitlint` before committing.
+
+---
+
+## Personality
+
+The IDE has a voice: dry, a little self-aware, never annoying. Think a senior dev who's seen things but still enjoys the work. Use it in:
+
+- **Empty-state quips** — idle panels with nothing to show can rotate through a short array of sardonic one-liners picked at `useRef` initialisation (so the quip is stable for the session but varies across opens). Keep the array to 8–12 entries. Tone: deadpan, observational, never cute-overload. Good: `"All quiet. Your game is probably fine."` / `"Zero logs. Zero regrets. Probably."`. Bad: `"Wow, so empty! Let's fill it up! 🎉"`.
+- **Status / feedback copy** — build success doesn't need to shout. `"Built in 340 ms."` beats `"✅ Build successful!"`. Error states can acknowledge the pain briefly: `"Something broke. Check above."`.
+- **Tooltips and placeholder text** — a tooltip on the Clear button can just say `"Clear"`. A placeholder in a search field can say `"Filter assets…"` rather than `"Search for an asset by name"`.
+
+Rules:
+
+- One quip array per panel maximum. Don't force it into every surface.
+- Never use the personality to bury useful information. The quip sits _beneath_ the functional hint, or replaces a purely generic message. If there's a real action to communicate, say it plainly first.
+- No exclamation marks in quips. No emoji unless it's a single, well-chosen one in a serious context (e.g., a skull ☠ on a crash panel).
+- Keep every quip under 60 characters so it fits on one line at panel width.
