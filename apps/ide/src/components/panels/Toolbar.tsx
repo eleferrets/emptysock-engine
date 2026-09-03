@@ -83,39 +83,37 @@ function BuildStatusPill(): React.ReactElement | null {
     );
   }
 
-  if (buildStatus === "error") {
-    return (
-      <button
-        type="button"
-        title="Click to view errors in console"
-        onClick={() => setBottomTab("console")}
+  return (
+    <button
+      type="button"
+      title="Click to view errors in console"
+      onClick={() => setBottomTab("console")}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "2px 8px",
+        borderRadius: 10,
+        background: "rgba(248,113,113,0.10)",
+        border: "1px solid rgba(248,113,113,0.25)",
+        fontSize: 11,
+        color: "var(--es-red)",
+        cursor: "pointer",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          padding: "2px 8px",
-          borderRadius: 10,
-          background: "rgba(248,113,113,0.10)",
-          border: "1px solid rgba(248,113,113,0.25)",
-          fontSize: 11,
-          color: "var(--es-red)",
-          cursor: "pointer",
-          fontVariantNumeric: "tabular-nums",
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: "var(--es-red)",
+          display: "inline-block",
         }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: "var(--es-red)",
-            display: "inline-block",
-          }}
-        />
-        Build error
-      </button>
-    );
-  }
+      />
+      Build error
+    </button>
+  );
 
   return null;
 }
@@ -415,7 +413,11 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
         >
           <button
             type="button"
-            title={editorShowGrid ? "Grid visible (click to hide)" : "Grid hidden (click to show)"}
+            title={
+              editorShowGrid
+                ? "Grid visible (click to hide)"
+                : "Grid hidden (click to show)"
+            }
             onClick={() => setEditorShowGrid(!editorShowGrid)}
             style={{
               height: "100%",
@@ -426,17 +428,28 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               border: "none",
               borderRadius: 0,
               cursor: "pointer",
-              background: editorShowGrid ? "rgba(124,106,247,0.12)" : "transparent",
-              color: editorShowGrid ? "var(--es-accent)" : "var(--es-text-muted)",
+              background: editorShowGrid
+                ? "rgba(124,106,247,0.12)"
+                : "transparent",
+              color: editorShowGrid
+                ? "var(--es-accent)"
+                : "var(--es-text-muted)",
               transition: "background 0.15s, color 0.15s",
             }}
           >
             Grid
           </button>
-          <div className="w-px h-5" style={{ background: "var(--es-border)" }} />
+          <div
+            className="w-px h-5"
+            style={{ background: "var(--es-border)" }}
+          />
           <button
             type="button"
-            title={editorSnapToGrid ? "Snap to grid on (click to disable)" : "Snap to grid off (click to enable)"}
+            title={
+              editorSnapToGrid
+                ? "Snap to grid on (click to disable)"
+                : "Snap to grid off (click to enable)"
+            }
             onClick={() => setEditorSnapToGrid(!editorSnapToGrid)}
             style={{
               height: "100%",
@@ -447,17 +460,28 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               border: "none",
               borderRadius: 0,
               cursor: "pointer",
-              background: editorSnapToGrid ? "rgba(124,106,247,0.12)" : "transparent",
-              color: editorSnapToGrid ? "var(--es-accent)" : "var(--es-text-muted)",
+              background: editorSnapToGrid
+                ? "rgba(124,106,247,0.12)"
+                : "transparent",
+              color: editorSnapToGrid
+                ? "var(--es-accent)"
+                : "var(--es-text-muted)",
               transition: "background 0.15s, color 0.15s",
             }}
           >
             Snap
           </button>
-          <div className="w-px h-5" style={{ background: "var(--es-border)" }} />
+          <div
+            className="w-px h-5"
+            style={{ background: "var(--es-border)" }}
+          />
           <button
             type="button"
-            title={editorShowRuler ? "Rulers visible (click to hide)" : "Rulers hidden (click to show)"}
+            title={
+              editorShowRuler
+                ? "Rulers visible (click to hide)"
+                : "Rulers hidden (click to show)"
+            }
             onClick={() => setEditorShowRuler(!editorShowRuler)}
             style={{
               height: "100%",
@@ -468,8 +492,12 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               border: "none",
               borderRadius: 0,
               cursor: "pointer",
-              background: editorShowRuler ? "rgba(124,106,247,0.12)" : "transparent",
-              color: editorShowRuler ? "var(--es-accent)" : "var(--es-text-muted)",
+              background: editorShowRuler
+                ? "rgba(124,106,247,0.12)"
+                : "transparent",
+              color: editorShowRuler
+                ? "var(--es-accent)"
+                : "var(--es-text-muted)",
               transition: "background 0.15s, color 0.15s",
             }}
           >

@@ -2,11 +2,12 @@ import { gameBuildService, GameBuildService } from "./GameBuildService.js";
 import { ENGINE_BUNDLE } from "../runtime/engineBundle.generated.js";
 
 export interface RunnerMessage {
-  type: "log" | "fps" | "error" | "ready";
+  type: "log" | "fps" | "error" | "game-error" | "ready";
   level?: "info" | "warn" | "error" | "debug";
   message?: string;
   fps?: number;
   source?: string;
+  stack?: string;
 }
 
 export type MessageHandler = (msg: RunnerMessage) => void;

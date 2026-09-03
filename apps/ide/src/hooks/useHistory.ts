@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 export interface HistoryControls<T> {
   state: T;
-  set: (next: T) => void;
+  set: (next: T | ((prev: T) => T)) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -18,12 +18,16 @@ export function useHistory<T>(initial: T): HistoryControls<T> {
     future: T[];
   }>({ current: initial, past: [], future: [] });
 
-  const set = useCallback((next: T) => {
-    setSnapshot((s) => ({
-      current: next,
-      past: [...s.past.slice(-(MAX_HISTORY - 1)), s.current],
-      future: [],
-    }));
+  const set = useCallback((next: T | ((prev: T) => T)) => {
+    setSnapshot((s) => {
+      const value =
+        typeof next === "function" ? (next as (prev: T) => T)(s.current) : next;
+      return {
+        current: value,
+        past: [...s.past.slice(-(MAX_HISTORY - 1)), s.current],
+        future: [],
+      };
+    });
   }, []);
 
   const undo = useCallback(() => {

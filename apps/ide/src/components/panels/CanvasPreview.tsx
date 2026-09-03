@@ -64,17 +64,14 @@ export function CanvasPreview(): React.ReactElement {
         if (msg.type === "fps" && msg.fps !== undefined) setFps(msg.fps);
         else if (msg.type === "log" && msg.message !== undefined)
           addLog(msg.level ?? "info", msg.message, msg.source);
-        else if (msg.type === "error" && msg.message !== undefined) {
+        else if (
+          (msg.type === "error" || msg.type === "game-error") &&
+          msg.message !== undefined
+        ) {
           addLog("error", msg.message, msg.source);
           setGameError({
             message: msg.message,
-            stack: msg.stack as string | undefined,
-          });
-        } else if (msg.type === "game-error" && msg.message !== undefined) {
-          addLog("error", msg.message, msg.source);
-          setGameError({
-            message: msg.message,
-            stack: msg.stack as string | undefined,
+            ...(msg.stack !== undefined ? { stack: msg.stack } : {}),
           });
         } else if (msg.type === "ready") {
           setGameError(null);
