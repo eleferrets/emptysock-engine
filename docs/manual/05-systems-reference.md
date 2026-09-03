@@ -7,12 +7,12 @@
 The 2D physics system runs synchronously — no async init required.
 
 ```typescript
-import { PhysicsBody, CharacterController } from '@emptysock/engine';
+import { PhysicsBody, CharacterController } from "@emptysock/engine";
 
 // Dynamic rigid body:
 player.addComponent(PhysicsBody, {
-  shape: 'capsule',
-  bodyType: 'dynamic',  // 'dynamic' | 'static' | 'kinematic'
+  shape: "capsule",
+  bodyType: "dynamic", // 'dynamic' | 'static' | 'kinematic'
   gravityScale: 1,
   friction: 0.2,
   restitution: 0.0,
@@ -23,8 +23,8 @@ player.addComponent(CharacterController, { slopeAngle: 45 });
 
 // In onUpdate:
 const ctrl = player.requireComponent(CharacterController);
-if (ctrl.isGrounded() && Input.isPressed('Space')) ctrl.jump(600);
-ctrl.moveAndSlide({ x: Input.axis('Horizontal') * 200 * dt, y: 0 });
+if (ctrl.isGrounded() && Input.isPressed("Space")) ctrl.jump(600);
+ctrl.moveAndSlide({ x: Input.axis("Horizontal") * 200 * dt, y: 0 });
 ```
 
 **Collision events:**
@@ -32,9 +32,11 @@ ctrl.moveAndSlide({ x: Input.axis('Horizontal') * 200 * dt, y: 0 });
 ```typescript
 const body = player.requireComponent(PhysicsBody);
 body.onCollisionEnter((other) => {
-  if (other.entity.name === 'Spike') playerDie();
+  if (other.entity.name === "Spike") playerDie();
 });
-body.onCollisionExit((other) => { /* ... */ });
+body.onCollisionExit((other) => {
+  /* ... */
+});
 ```
 
 ---
@@ -44,15 +46,15 @@ body.onCollisionExit((other) => { /* ... */ });
 Full Rapier3D integration. **Must `await physics.init()` before adding bodies. Must call `physics.destroy()` in `onDestroy` — omitting it leaks WASM memory permanently.**
 
 ```typescript
-import { PhysicsSystem3D } from '@emptysock/engine';
+import { PhysicsSystem3D } from "@emptysock/engine";
 
 const physics = new PhysicsSystem3D();
 await physics.init({ x: 0, y: -9.81, z: 0 });
 
 // Dynamic box:
 const box = physics.addBody({
-  bodyType: 'dynamic',
-  shape: 'box',
+  bodyType: "dynamic",
+  shape: "box",
   halfExtents: { x: 0.5, y: 0.5, z: 0.5 },
   position: { x: 0, y: 5, z: 0 },
   density: 1.0,
@@ -61,8 +63,8 @@ const box = physics.addBody({
 
 // Static floor:
 physics.addBody({
-  bodyType: 'static',
-  shape: 'box',
+  bodyType: "static",
+  shape: "box",
   halfExtents: { x: 50, y: 0.1, z: 50 },
   position: { x: 0, y: 0, z: 0 },
 });
@@ -91,7 +93,7 @@ physics.destroy(); // REQUIRED
 The high-level `Input` static class covers most cases (see Section 4.8). For direct system access inside a custom system or actor:
 
 ```typescript
-import { InputSystem } from '@emptysock/engine';
+import { InputSystem } from "@emptysock/engine";
 
 const input = new InputSystem();
 input.attach(canvasElement);
@@ -99,9 +101,9 @@ input.attach(canvasElement);
 // Call once per frame, before reading state:
 input.flush();
 
-input.isKeyDown('Space');
-input.isKeyPressed('ArrowRight');
-input.isKeyReleased('Escape');
+input.isKeyDown("Space");
+input.isKeyPressed("ArrowRight");
+input.isKeyReleased("Escape");
 ```
 
 ---
@@ -124,9 +126,15 @@ for (const touch of input.touches) {
   drawTouchIndicator(touch.x, touch.y);
 }
 
-if (input.isTouchStarted())   { /* any new touch this frame */ }
-if (input.isTouchStarted(id)) { /* specific touch started */ }
-if (input.isTouchEnded(id))   { /* specific touch lifted */ }
+if (input.isTouchStarted()) {
+  /* any new touch this frame */
+}
+if (input.isTouchStarted(id)) {
+  /* specific touch started */
+}
+if (input.isTouchEnded(id)) {
+  /* specific touch lifted */
+}
 ```
 
 All listeners are `{ passive: true }`. Never call `e.preventDefault()` on events you did not add.
@@ -135,10 +143,10 @@ All listeners are `{ passive: true }`. Never call `e.preventDefault()` on events
 
 ## 5.5 NavMeshSystem
 
-Polygon-based 2D pathfinding using A* on a convex polygon graph.
+Polygon-based 2D pathfinding using A\* on a convex polygon graph.
 
 ```typescript
-import { NavMeshSystem, type NavMeshData } from '@emptysock/engine';
+import { NavMeshSystem, type NavMeshData } from "@emptysock/engine";
 
 const navMesh = new NavMeshSystem();
 
@@ -147,8 +155,10 @@ const data: NavMeshData = {
     {
       id: 0,
       vertices: [
-        { x: 0, y: 0 }, { x: 100, y: 0 },
-        { x: 100, y: 100 }, { x: 0, y: 100 },
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
       ],
       centroid: { x: 50, y: 50 },
       neighbours: [1],
@@ -156,8 +166,10 @@ const data: NavMeshData = {
     {
       id: 1,
       vertices: [
-        { x: 100, y: 0 }, { x: 200, y: 0 },
-        { x: 200, y: 100 }, { x: 100, y: 100 },
+        { x: 100, y: 0 },
+        { x: 200, y: 0 },
+        { x: 200, y: 100 },
+        { x: 100, y: 100 },
       ],
       centroid: { x: 150, y: 50 },
       neighbours: [0],
@@ -181,23 +193,23 @@ navMesh.update(dt); // call each frame (reserved for dynamic obstacles)
 ## 5.6 Save System
 
 ```typescript
-import { SaveSystem } from '@emptysock/engine';
-import { z } from 'zod';
+import { SaveSystem } from "@emptysock/engine";
+import { z } from "zod";
 
 const Schema = z.object({
-  scene:  z.string(),
-  score:  z.number(),
-  flags:  z.record(z.boolean()),
+  scene: z.string(),
+  score: z.number(),
+  flags: z.record(z.boolean()),
 });
 type SaveData = z.infer<typeof Schema>;
 
-await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} });
+await SaveSystem.save("slot-1", { scene: "Level2", score: 4200, flags: {} });
 
-const raw  = await SaveSystem.load('slot-1');  // throws SlotNotFoundError if missing
-const data = Schema.parse(raw.data);           // always validate
+const raw = await SaveSystem.load("slot-1"); // throws SlotNotFoundError if missing
+const data = Schema.parse(raw.data); // always validate
 
-await SaveSystem.delete('slot-1');
-const slots = await SaveSystem.listSlots();    // string[]
+await SaveSystem.delete("slot-1");
+const slots = await SaveSystem.listSlots(); // string[]
 ```
 
 > **Warning:** Never cast `raw.data as MyType`. Save files can be corrupt, edited, or from a different game version. Schema validation is the contract.
@@ -207,16 +219,16 @@ const slots = await SaveSystem.listSlots();    // string[]
 ## 5.7 Localisation
 
 ```typescript
-import { i18n } from '@emptysock/engine';
+import { i18n } from "@emptysock/engine";
 
-await i18n.load('en', () => import('./locales/en.json'));
-await i18n.load('fr', () => import('./locales/fr.json'));
+await i18n.load("en", () => import("./locales/en.json"));
+await i18n.load("fr", () => import("./locales/fr.json"));
 
-i18n.setLocale('fr');
+i18n.setLocale("fr");
 
-i18n.t('greeting')             // → "Bonjour"
-i18n.t('score', { n: 42 })    // → "Score : 42"
-i18n.t('missing.key')         // → 'missing.key' (never throws)
+i18n.t("greeting"); // → "Bonjour"
+i18n.t("score", { n: 42 }); // → "Score : 42"
+i18n.t("missing.key"); // → 'missing.key' (never throws)
 ```
 
 Locale JSON format: `{ "key": "value", "score": "Score : {{n}}" }`. Template tokens use `{{name}}` syntax.
@@ -228,23 +240,29 @@ The LocalisationEditor panel can export CSV that maps directly to these JSON fil
 ## 5.8 Plugin System
 
 ```typescript
-import { pluginSystem, type Plugin, type PluginContext } from '@emptysock/engine';
+import {
+  pluginSystem,
+  type Plugin,
+  type PluginContext,
+} from "@emptysock/engine";
 
 const myPlugin: Plugin = {
-  name: 'my-plugin',
-  version: '1.0.0',
+  name: "my-plugin",
+  version: "1.0.0",
   install(ctx: PluginContext): void {
-    ctx.provide('myService', new MyService());
+    ctx.provide("myService", new MyService());
   },
-  uninstall(): void { /* cleanup */ },
+  uninstall(): void {
+    /* cleanup */
+  },
 };
 
 await pluginSystem.register(myPlugin);
 
-const svc = pluginSystem.inject<MyService>('myService');
+const svc = pluginSystem.inject<MyService>("myService");
 svc?.doSomething();
 
-await pluginSystem.unregister('my-plugin');
+await pluginSystem.unregister("my-plugin");
 ```
 
 `install()` may be async. Registering a duplicate name throws. `pluginSystem` is a process-global singleton — do not construct a new one.
@@ -256,19 +274,19 @@ await pluginSystem.unregister('my-plugin');
 Spritesheet animation component. Requires a `Sprite` on the same entity.
 
 ```typescript
-import { Animator } from '@emptysock/engine';
+import { Animator } from "@emptysock/engine";
 
 player.addComponent(Animator, {
-  spritesheet: 'assets/hero.esanim',
-  defaultClip: 'idle',
+  spritesheet: "assets/hero.esanim",
+  defaultClip: "idle",
 });
 
 const anim = player.requireComponent(Animator);
 
 // Play a clip:
-anim.play('run');                    // loops by default
-anim.play('attack', { loop: false }); // one-shot
-anim.onComplete(() => anim.play('idle')); // callback when one-shot ends
+anim.play("run"); // loops by default
+anim.play("attack", { loop: false }); // one-shot
+anim.onComplete(() => anim.play("idle")); // callback when one-shot ends
 
 // Control:
 anim.pause();
@@ -288,16 +306,16 @@ console.log(anim.currentClip, anim.isPlaying, anim.frame);
 Loads tilemap files exported from the TilemapEditor panel.
 
 ```typescript
-import { TilemapSystem } from '@emptysock/engine';
+import { TilemapSystem } from "@emptysock/engine";
 
 // Load (synchronous after assets are preloaded):
-const map = TilemapSystem.load('assets/levels/level1.esmap');
+const map = TilemapSystem.load("assets/levels/level1.esmap");
 
 // Enable physics colliders on a layer (static bodies):
-map.getLayer('Collision').enablePhysics();
+map.getLayer("Collision").enablePhysics();
 
 // Access spawn-point entities placed in the editor:
-const spawns = map.getLayer('Spawns').entities;
+const spawns = map.getLayer("Spawns").entities;
 for (const spawn of spawns) {
   spawnEnemy(spawn.position);
 }
@@ -306,7 +324,7 @@ for (const spawn of spawns) {
 const layers = map.getLayers(); // TilemapLayer[]
 
 // Unload when the scene ends:
-TilemapSystem.unload('assets/levels/level1.esmap');
+TilemapSystem.unload("assets/levels/level1.esmap");
 ```
 
 **Exporting from the editor:** In the TilemapEditor panel, use the Export button to save the map as `.esmap` JSON. Place it under `apps/ide/public/assets/` so Vite serves it. The path in `TilemapSystem.load()` is relative to the public root.
@@ -318,20 +336,24 @@ TilemapSystem.unload('assets/levels/level1.esmap');
 Interpolates numeric properties on any object over a duration, integrated with the game loop.
 
 ```typescript
-import { Tween } from '@emptysock/engine';
+import { Tween } from "@emptysock/engine";
 
 // Move an entity:
-Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: 'bounceOut' });
+Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: "bounceOut" });
 
 // Fade out a sprite and destroy on complete:
-Tween.to(sprite, { alpha: 0 }, {
-  duration: 0.3,
-  ease: 'sineIn',
-  onComplete: () => entity.destroy(),
-});
+Tween.to(
+  sprite,
+  { alpha: 0 },
+  {
+    duration: 0.3,
+    ease: "sineIn",
+    onComplete: () => entity.destroy(),
+  },
+);
 
 // Tween from a starting value:
-Tween.from(entity, { y: -100 }, { duration: 0.4, ease: 'cubicOut' });
+Tween.from(entity, { y: -100 }, { duration: 0.4, ease: "cubicOut" });
 
 // Cancel a running tween:
 const handle = Tween.to(enemy, { alpha: 0.5 }, { duration: 1.0 });
@@ -349,18 +371,18 @@ Tween.kill(handle);
 A retained-mode 2D UI layer rendered on top of the scene canvas. Widgets live in a tree separate from the entity graph; they do not participate in the physics simulation.
 
 ```typescript
-import { UISystem } from '@emptysock/engine';
+import { UISystem } from "@emptysock/engine";
 
 const ui = new UISystem();
 
 // Build a simple health bar:
-const root  = ui.createPanel({ x: 16, y: 16, width: 200, height: 20 });
-const label = ui.createLabel({ text: 'HP', parent: root, color: '#fff' });
-const bar   = ui.createProgressBar({
+const root = ui.createPanel({ x: 16, y: 16, width: 200, height: 20 });
+const label = ui.createLabel({ text: "HP", parent: root, color: "#fff" });
+const bar = ui.createProgressBar({
   parent: root,
-  value: 1.0,           // 0.0–1.0
-  fill: '#e74c3c',
-  background: '#333',
+  value: 1.0, // 0.0–1.0
+  fill: "#e74c3c",
+  background: "#333",
 });
 
 // Update each frame:
@@ -368,10 +390,12 @@ bar.setValue(player.hp / player.maxHp);
 
 // Button with click handler:
 const btn = ui.createButton({
-  text: 'Retry',
-  x: 320, y: 240,
-  width: 120, height: 40,
-  onClick: () => SceneManager.load('GameScene'),
+  text: "Retry",
+  x: 320,
+  y: 240,
+  width: 120,
+  height: 40,
+  onClick: () => SceneManager.load("GameScene"),
 });
 
 // Render (called automatically if ui is passed to scene.setUI):
@@ -383,15 +407,15 @@ ui.destroy();
 
 **Key methods:**
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `createPanel(opts)` | `UIPanel` | Container with optional background and border |
-| `createLabel(opts)` | `UILabel` | Static or dynamic text element |
-| `createButton(opts)` | `UIButton` | Clickable region with text label |
-| `createProgressBar(opts)` | `UIProgressBar` | Horizontal fill bar |
-| `createImage(opts)` | `UIImage` | Texture rect |
-| `setVisible(node, visible)` | `void` | Show/hide any node |
-| `destroy()` | `void` | Frees all widget state |
+| Method                      | Returns         | Description                                   |
+| --------------------------- | --------------- | --------------------------------------------- |
+| `createPanel(opts)`         | `UIPanel`       | Container with optional background and border |
+| `createLabel(opts)`         | `UILabel`       | Static or dynamic text element                |
+| `createButton(opts)`        | `UIButton`      | Clickable region with text label              |
+| `createProgressBar(opts)`   | `UIProgressBar` | Horizontal fill bar                           |
+| `createImage(opts)`         | `UIImage`       | Texture rect                                  |
+| `setVisible(node, visible)` | `void`          | Show/hide any node                            |
+| `destroy()`                 | `void`          | Frees all widget state                        |
 
 > **Note:** UI coordinates are in canvas pixels. (0, 0) is the top-left of the canvas. No layout engine runs automatically — position nodes manually or compute positions in `onUpdate`.
 
@@ -402,20 +426,24 @@ ui.destroy();
 Screen-space post-processing pipeline. Effects are applied as WebGL fragment shader passes after the scene is rendered to an offscreen framebuffer.
 
 ```typescript
-import { PostProcessSystem } from '@emptysock/engine';
+import { PostProcessSystem } from "@emptysock/engine";
 
 const post = new PostProcessSystem();
 
 // Add effects (order is draw order, not importance):
-const bloom  = post.add('bloom',  { threshold: 0.7, intensity: 0.4, radius: 1.0 });
-const vignette = post.add('vignette', { strength: 0.45, color: '#000' });
-const chromo = post.add('chromaticAberration', { offset: 0.003 });
+const bloom = post.add("bloom", {
+  threshold: 0.7,
+  intensity: 0.4,
+  radius: 1.0,
+});
+const vignette = post.add("vignette", { strength: 0.45, color: "#000" });
+const chromo = post.add("chromaticAberration", { offset: 0.003 });
 
 // Toggle at runtime:
 bloom.enabled = false;
 
 // Change parameters mid-game:
-vignette.setParam('strength', 0.7);
+vignette.setParam("strength", 0.7);
 
 // Remove one effect:
 post.remove(chromo);
@@ -426,15 +454,15 @@ post.destroy();
 
 **Built-in effects:**
 
-| Effect name | Key params | Description |
-|-------------|-----------|-------------|
-| `bloom` | `threshold`, `intensity`, `radius` | Bright-pass blur and additive composite |
-| `vignette` | `strength`, `color` | Screen-edge darkening |
-| `chromaticAberration` | `offset` | RGB channel split |
-| `blur` | `radius` | Gaussian blur |
-| `pixelate` | `pixelSize` | Nearest-neighbour downscale |
-| `scanlines` | `density`, `opacity` | CRT scanline overlay |
-| `colorGrade` | `saturation`, `contrast`, `brightness` | Global tone controls |
+| Effect name           | Key params                             | Description                             |
+| --------------------- | -------------------------------------- | --------------------------------------- |
+| `bloom`               | `threshold`, `intensity`, `radius`     | Bright-pass blur and additive composite |
+| `vignette`            | `strength`, `color`                    | Screen-edge darkening                   |
+| `chromaticAberration` | `offset`                               | RGB channel split                       |
+| `blur`                | `radius`                               | Gaussian blur                           |
+| `pixelate`            | `pixelSize`                            | Nearest-neighbour downscale             |
+| `scanlines`           | `density`, `opacity`                   | CRT scanline overlay                    |
+| `colorGrade`          | `saturation`, `contrast`, `brightness` | Global tone controls                    |
 
 > **Tip:** Effects are composited in add order. Put bloom before colorGrade to grade the bloomed result.
 
@@ -447,19 +475,19 @@ post.destroy();
 Provides access to the Gamepad API with normalised stick dead-zones and button mapping. Works alongside the `Input` static class — gamepad axes and buttons are also readable through `Input.axis()` and `Input.isPressed()` when a standard mapping is set.
 
 ```typescript
-import { GamepadSystem } from '@emptysock/engine';
+import { GamepadSystem } from "@emptysock/engine";
 
 const pads = new GamepadSystem({ deadZone: 0.15 });
 
 // In onUpdate:
-pads.poll();   // must call once per frame before reading state
+pads.poll(); // must call once per frame before reading state
 
 const p0 = pads.get(0); // GamepadState | undefined
 if (p0) {
-  const { lx, ly, rx, ry } = p0.axes;   // -1..1, dead-zone applied
-  const jump   = p0.isPressed('A');      // button pressed this frame
-  const attack = p0.isDown('X');         // button held
-  const lt     = p0.trigger('LT');       // 0..1 analog trigger
+  const { lx, ly, rx, ry } = p0.axes; // -1..1, dead-zone applied
+  const jump = p0.isPressed("A"); // button pressed this frame
+  const attack = p0.isDown("X"); // button held
+  const lt = p0.trigger("LT"); // 0..1 analog trigger
 }
 
 // Enumerate connected pads:
@@ -468,7 +496,9 @@ for (const pad of pads.connected()) {
 }
 
 // Rumble (where supported):
-pads.get(0)?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 });
+pads
+  .get(0)
+  ?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 });
 ```
 
 **Standard button names:** `A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `Start`, `Select`, `L3`, `R3`, `DUp`, `DDown`, `DLeft`, `DRight`.
@@ -484,23 +514,23 @@ Component-based particle emitter. Attach to any entity and the system drives par
 **Sprite-based particles:** Pass a `texture` path to render each particle as a sprite instead of a solid-colour circle. The texture is tinted by `colorStart`/`colorEnd` at runtime, so a white-on-transparent PNG gives you maximum colour flexibility. Omit `texture` entirely for the default solid-colour circle renderer.
 
 ```typescript
-import { ParticleSystem } from '@emptysock/engine';
+import { ParticleSystem } from "@emptysock/engine";
 
 // Attach emitter to an entity:
 const emitter = explosion.addComponent(ParticleSystem, {
-  texture: 'assets/spark.png',   // sprite-based; omit for a solid-colour circle
-  emissionRate: 80,              // particles per second
+  texture: "assets/spark.png", // sprite-based; omit for a solid-colour circle
+  emissionRate: 80, // particles per second
   maxParticles: 400,
-  lifetime:  { min: 0.4, max: 0.9 },
-  speed:     { min: 120, max: 280 },
-  angle:     { min: 0,   max: 360 },
-  gravity:   200,                // px/s² downward
+  lifetime: { min: 0.4, max: 0.9 },
+  speed: { min: 120, max: 280 },
+  angle: { min: 0, max: 360 },
+  gravity: 200, // px/s² downward
   scaleStart: 1.0,
-  scaleEnd:   0.0,
-  colorStart: '#ffdd44',
-  colorEnd:   '#ff4400',
-  blendMode: 'additive',         // 'normal' | 'additive'
-  shape: { type: 'point' },      // or { type: 'circle', radius: 24 }
+  scaleEnd: 0.0,
+  colorStart: "#ffdd44",
+  colorEnd: "#ff4400",
+  blendMode: "additive", // 'normal' | 'additive'
+  shape: { type: "point" }, // or { type: 'circle', radius: 24 }
 });
 
 // One-shot burst (stops emission after the burst):
@@ -524,31 +554,39 @@ emitter.clear();
 Manages named render layers and controls draw order, visibility, and per-layer camera parallax. Entities are assigned to a layer; the `RenderSystem` draws layers in ascending `zOrder`.
 
 ```typescript
-import { LayerSystem } from '@emptysock/engine';
+import { LayerSystem } from "@emptysock/engine";
 
 // Set up layers once in onLoad:
 const layers = new LayerSystem();
 
-layers.defineLayer({ name: 'Background', zOrder: 0,  parallax: { x: 0.2, y: 0.2 } });
-layers.defineLayer({ name: 'Midground',  zOrder: 10, parallax: { x: 0.6, y: 0.6 } });
-layers.defineLayer({ name: 'Gameplay',   zOrder: 20 });                 // scrolls 1:1
-layers.defineLayer({ name: 'FX',         zOrder: 30, blendMode: 'additive' });
-layers.defineLayer({ name: 'UI',         zOrder: 40, fixed: true });    // camera-fixed
+layers.defineLayer({
+  name: "Background",
+  zOrder: 0,
+  parallax: { x: 0.2, y: 0.2 },
+});
+layers.defineLayer({
+  name: "Midground",
+  zOrder: 10,
+  parallax: { x: 0.6, y: 0.6 },
+});
+layers.defineLayer({ name: "Gameplay", zOrder: 20 }); // scrolls 1:1
+layers.defineLayer({ name: "FX", zOrder: 30, blendMode: "additive" });
+layers.defineLayer({ name: "UI", zOrder: 40, fixed: true }); // camera-fixed
 
 // Assign entities to layers:
-layers.addToLayer('Background', backgroundSprite);
-layers.addToLayer('Gameplay',   player);
-layers.addToLayer('FX',         explosionEmitter);
+layers.addToLayer("Background", backgroundSprite);
+layers.addToLayer("Gameplay", player);
+layers.addToLayer("FX", explosionEmitter);
 
 // Toggle visibility (culls the whole layer from the render pass):
-layers.setVisible('FX', false);
-layers.setVisible('FX', true);
+layers.setVisible("FX", false);
+layers.setVisible("FX", true);
 
 // Change parallax at runtime:
-layers.setParallax('Background', { x: 0.3, y: 0.1 });
+layers.setParallax("Background", { x: 0.3, y: 0.1 });
 
 // Remove an entity from its layer (entity retains its data, just excluded from render):
-layers.removeFromLayer('Gameplay', player);
+layers.removeFromLayer("Gameplay", player);
 
 // Enumerate layers in draw order:
 for (const layer of layers.sorted()) {
@@ -561,13 +599,13 @@ layers.destroy();
 
 **Key options on `defineLayer`:**
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `name` | `string` | Unique layer identifier |
-| `zOrder` | `number` | Ascending draw order (lower = further back) |
-| `parallax` | `{ x, y }` | Camera offset multiplier; defaults to `{ x: 1, y: 1 }` |
-| `blendMode` | `'normal' \| 'additive'` | Composite mode for the layer |
-| `fixed` | `boolean` | If true, layer ignores camera translation (UI use case) |
+| Option      | Type                     | Description                                             |
+| ----------- | ------------------------ | ------------------------------------------------------- |
+| `name`      | `string`                 | Unique layer identifier                                 |
+| `zOrder`    | `number`                 | Ascending draw order (lower = further back)             |
+| `parallax`  | `{ x, y }`               | Camera offset multiplier; defaults to `{ x: 1, y: 1 }`  |
+| `blendMode` | `'normal' \| 'additive'` | Composite mode for the layer                            |
+| `fixed`     | `boolean`                | If true, layer ignores camera translation (UI use case) |
 
 > **Integration with RenderSystem:** Pass the `LayerSystem` instance to `scene.setLayerSystem(layers)` and the render pipeline reads layer assignments automatically. Without this call, all entities render in insertion order with no parallax.
 
@@ -578,19 +616,24 @@ layers.destroy();
 Plays back a branching dialogue script exported from the **Story Graph** panel (Module → Story Graph). The script is a JSON file produced by the Story Graph's Export button; it contains Dialogue nodes, Choice nodes, and Condition nodes.
 
 ```typescript
-import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine';
+import {
+  VNSystem,
+  type VNNode,
+  type VNDialogueNode,
+  type VNChoiceNode,
+} from "@emptysock/engine";
 
 const vn = new VNSystem();
 
 // Load a script exported from the Story Graph panel:
-await vn.loadScript('assets/story/chapter1.vnscript');
+await vn.loadScript("assets/story/chapter1.vnscript");
 
 // Register a node callback — called each time the active node changes:
 vn.onNode((node: VNNode) => {
-  if (node.type === 'dialogue') {
+  if (node.type === "dialogue") {
     const d = node as VNDialogueNode;
-    renderDialogue(d.speaker, d.text);  // render however you like
-  } else if (node.type === 'choice') {
+    renderDialogue(d.speaker, d.text); // render however you like
+  } else if (node.type === "choice") {
     const c = node as VNChoiceNode;
     renderChoices(c.options.map((o) => o.label));
   }
@@ -609,14 +652,14 @@ vn.choose(1);
 vn.skip();
 
 // Jump to a specific node by its id (use for save/resume):
-vn.jumpToNode('node-uuid-here');
+vn.jumpToNode("node-uuid-here");
 
 // Variables — read and write arbitrary flags for Condition nodes:
-vn.setVariable('metStranger', true);
-const met = vn.getVariable('metStranger');  // boolean | string | number | undefined
+vn.setVariable("metStranger", true);
+const met = vn.getVariable("metStranger"); // boolean | string | number | undefined
 
 // Read the full variable map (for serialisation):
-const vars = vn.getVariables();  // Record<string, string | number | boolean>
+const vars = vn.getVariables(); // Record<string, string | number | boolean>
 
 // Destroy when the scene ends:
 vn.destroy();
@@ -624,10 +667,10 @@ vn.destroy();
 
 **Node types returned by `onNode`:**
 
-| `node.type` | Interface | Key fields |
-|-------------|-----------|-----------|
-| `'dialogue'` | `VNDialogueNode` | `id`, `speaker`, `text` |
-| `'choice'` | `VNChoiceNode` | `id`, `options: { label, targetId }[]` |
+| `node.type`   | Interface         | Key fields                                                 |
+| ------------- | ----------------- | ---------------------------------------------------------- |
+| `'dialogue'`  | `VNDialogueNode`  | `id`, `speaker`, `text`                                    |
+| `'choice'`    | `VNChoiceNode`    | `id`, `options: { label, targetId }[]`                     |
 | `'condition'` | `VNConditionNode` | `id`, `variable`, `value`, `trueTargetId`, `falseTargetId` |
 
 **Condition nodes** are evaluated automatically when the system reaches them — `onNode` is not called for Condition nodes. The system reads the stored variable with `getVariable()`, compares it to `node.value`, and follows the appropriate branch.
@@ -637,3 +680,269 @@ vn.destroy();
 > **Story Graph panel:** Open it via **Module → Story Graph** in the IDE menu bar. The panel is an SVG-based node graph. See Section 7 (IDE Reference) for panel controls and the Story Graph panel description. Export the finished graph as `.vnscript` JSON and load it with `vn.loadScript()`.
 
 > **Save/resume pattern:** Call `vn.jumpToNode(savedNodeId)` and restore variables with `vn.setVariable()` before calling `vn.play()`. See the visual novel tutorial (Section 13) for a full example.
+
+---
+
+## 5.14 AutoTileSystem
+
+Selects the correct tile variant for a cell based on its eight neighbours. Each rule set is keyed to a base tile index; rules match a bitmask where bit 0 = NW, 1 = N, 2 = NE, 3 = W, 4 = E, 5 = SW, 6 = S, 7 = SE.
+
+```typescript
+import { AutoTileSystem } from "@emptysock/engine";
+
+const auto = new AutoTileSystem();
+
+auto.addRuleSet({
+  id: "grass",
+  baseTileIndex: 3,
+  defaultTileIndex: 3,
+  rules: [
+    { mask: 0b00010000, tileIndex: 4 }, // right neighbour only
+    { mask: 0b00000100, tileIndex: 5 }, // left neighbour only
+    // …more rules…
+  ],
+});
+
+// Call resolve() whenever a cell is painted:
+const tileIndex = auto.resolve(col, row, 3, (c, r) => tilemap.getTile(c, r));
+tilemap.setTile(col, row, tileIndex);
+```
+
+The Tilemap Editor's **Auto-tile Rules** modal writes and reads rule sets in this format. Export the rule set as JSON and load it at runtime via `auto.addRuleSet(parsedJson)`.
+
+---
+
+## 5.15 VariableStore
+
+Indexed integer variables (1–1000) and boolean switches (1–1000), persisted automatically to `localStorage`. The IDE's **Variables** panel reads and writes this store.
+
+```typescript
+import { VariableStore } from "@emptysock/engine";
+
+const vars = new VariableStore();
+vars.load(); // restore from localStorage
+
+vars.setVarName(1, "gold");
+vars.setVar(1, 500);
+console.log(vars.getVar(1)); // 500
+
+vars.setSwitchName(1, "doorOpen");
+vars.setSwitch(1, true);
+console.log(vars.getSwitch(1)); // true
+
+vars.save(); // persist to localStorage
+
+// Snapshot / restore (for save-game integration):
+const snap = vars.snapshot(); // VariableStoreData
+vars.restore(snap);
+```
+
+**MapEventSystem integration:** `set-variable` and `set-switch` commands in map events read from and write to a VariableStore by index.
+
+---
+
+## 5.16 MapEventSystem
+
+Tile-aligned event system similar to RPG Maker / GMS2. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
+
+```typescript
+import { MapEventSystem } from "@emptysock/engine";
+
+const events = new MapEventSystem();
+
+events.addEvent({
+  id: "chest-event",
+  tileX: 5,
+  tileY: 8,
+  trigger: "action-button", // 'autorun' | 'player-touch' | 'action-button' | 'parallel'
+  commands: [
+    { type: "show-dialogue", speaker: "Narrator", text: "You found a sword!" },
+    { type: "set-variable", index: 2, value: 1 },
+  ],
+});
+
+events.setHandler(async (cmd) => {
+  if (cmd.type === "show-dialogue") {
+    await showDialogue(cmd.speaker, cmd.text);
+  } else if (cmd.type === "set-variable") {
+    varStore.setVar(cmd.index, cmd.value);
+  }
+  // handle other commands…
+});
+
+// In onUpdate:
+events.update(playerTileX, playerTileY, Input.isJustPressed("Space"));
+```
+
+Trigger types: `autorun` runs once on entry; `player-touch` fires when the player steps on the tile; `action-button` fires when the action key is pressed on the tile; `parallel` runs every frame concurrently.
+
+---
+
+## 5.17 GridMovementBehavior
+
+Smooth 4-directional tile-aligned movement. The entity slides between tile centres; new input is accepted only when the entity is at rest.
+
+```typescript
+import { GridMovementBehavior } from "@emptysock/engine";
+
+const mover = new GridMovementBehavior({
+  tileSize: 32,
+  speed: 4, // tiles per second
+  input, // InputSystem instance
+  isSolid: (tx, ty) => tilemap.isSolid(tx, ty),
+});
+
+player.addBehavior(mover);
+
+// In onUpdate (entity.update calls all behaviors automatically):
+player.update(dt);
+```
+
+Set `mover.speed` at runtime to change movement speed. The entity requires a `Transform` component.
+
+---
+
+## 5.18 CharacterStage
+
+Renders character sprites at predefined stage positions (left, center, right) with image fade transitions. Designed for visual-novel-style scenes.
+
+```typescript
+import { CharacterStage } from "@emptysock/engine";
+
+const stage = new CharacterStage({
+  canvasWidth: 800,
+  canvasHeight: 600,
+  baselineY: 0.85, // character feet rest at 85% canvas height
+  maxHeightFraction: 0.7,
+});
+
+stage.show("left", "assets/chars/alice_neutral.png", { fadeDuration: 0.3 });
+stage.show("center", "assets/chars/bob_happy.png");
+stage.hide("left", 0.2);
+
+// In onUpdate:
+stage.update(dt);
+
+// In your render callback:
+stage.render(ctx);
+```
+
+---
+
+## 5.19 VNBackgroundLayer
+
+Manages a background image and an optional full-screen CG overlay with cross-fade transitions. Draw it before characters and UI.
+
+```typescript
+import { VNBackgroundLayer } from "@emptysock/engine";
+
+const bg = new VNBackgroundLayer({
+  canvasWidth: 800,
+  canvasHeight: 600,
+  fadeDuration: 0.5,
+});
+
+bg.setBackground("assets/bg/forest_day.png", { fit: "cover" });
+
+// Show a full-screen CG:
+bg.showCG("assets/cg/ending_01.png", { fit: "contain" });
+bg.clearCG();
+
+// In onUpdate:
+bg.update(dt);
+
+// In your render callback (draw before characters):
+bg.render(ctx);
+```
+
+Fit modes: `'cover'` (fill, crop sides), `'contain'` (letterbox), `'stretch'`.
+
+---
+
+## 5.20 VNTextbox
+
+Pre-built dialogue box rendered by UISystem. Attach it to a VNSystem instance to have it update automatically on each node change.
+
+```typescript
+import { VNTextbox, VNSystem } from "@emptysock/engine";
+
+const vn = new VNSystem();
+vn.loadScript(scriptJson);
+
+const textbox = new VNTextbox({
+  canvasWidth: 800,
+  canvasHeight: 600,
+  height: 160,
+  fontSize: 16,
+});
+textbox.bind(vn);
+
+// In your render callback (after game world, before overlay):
+UISystem.render(ctx, 800, 600);
+
+// Clicking the advance button:
+vn.advance();
+```
+
+All colors and dimensions are optional constructor parameters — see `VNTextboxOptions` for the full list.
+
+---
+
+## 5.21 VNScriptConvert
+
+Converts between the Story Graph (visual-editor JSON) and the VNSystem `DialogueTree` format (`.vnscript` JSON).
+
+```typescript
+import {
+  storyGraphToDialogueTree,
+  dialogueTreeToStoryGraph,
+} from "@emptysock/engine";
+
+// After exporting a .storyGraph.json from the IDE:
+const tree = storyGraphToDialogueTree(storyGraphJson);
+vn.load(tree);
+
+// To round-trip back into the editor:
+const graph = dialogueTreeToStoryGraph(tree);
+```
+
+The IDE calls `storyGraphToDialogueTree` automatically when you click **Build** in the Story Graph panel. Use `dialogueTreeToStoryGraph` if you build scripts programmatically and want to view them in the editor.
+
+---
+
+## 5.22 CGGallery
+
+Tracks which CG images the player has unlocked. Persists unlock state through SaveSystem.
+
+```typescript
+import { CGGallery } from "@emptysock/engine";
+
+const gallery = new CGGallery({
+  entries: [
+    {
+      id: "cg01",
+      imagePath: "assets/cg/ending_normal.png",
+      title: "Normal Ending",
+    },
+    {
+      id: "cg02",
+      imagePath: "assets/cg/ending_true.png",
+      title: "True Ending",
+    },
+  ],
+  saveSystem, // SaveSystem instance (optional — skip to keep flags in memory)
+  saveSlot: "cg_gallery",
+});
+
+gallery.load(); // restore from save
+gallery.unlock("cg01");
+
+console.log(gallery.unlockedCount); // 1
+console.log(gallery.totalCount); // 2
+
+for (const entry of gallery.unlockedEntries) {
+  renderThumbnail(entry.imagePath, entry.title ?? "");
+}
+```
+
+Integrate with VNSystem: call `gallery.unlockFromNode(cgId)` inside a `vn.onNode` handler to unlock a CG when the script reaches a tagged node.

@@ -6,17 +6,17 @@ The IDE is a dockable, rearrangeable panel environment. All panels are tabs insi
 
 ## 7.1 Keyboard shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Enter` | Play / Stop |
-| `Ctrl+S` | Save current file |
-| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo in Monaco |
-| `Ctrl+Shift+F` | Format document (Prettier via Monaco) |
-| `F2` | Rename symbol under cursor |
-| `Ctrl+Click` | Go to definition |
-| `Ctrl+Enter` (in Git commit box) | Commit |
-| `Esc` (in Localisation cell) | Discard cell edit |
-| `Enter` (in Localisation cell) | Commit cell edit |
+| Shortcut                         | Action                                |
+| -------------------------------- | ------------------------------------- |
+| `Ctrl+Enter`                     | Play / Stop                           |
+| `Ctrl+S`                         | Save current file                     |
+| `Ctrl+Z` / `Ctrl+Y`              | Undo / Redo in Monaco                 |
+| `Ctrl+Shift+F`                   | Format document (Prettier via Monaco) |
+| `F2`                             | Rename symbol under cursor            |
+| `Ctrl+Click`                     | Go to definition                      |
+| `Ctrl+Enter` (in Git commit box) | Commit                                |
+| `Esc` (in Localisation cell)     | Discard cell edit                     |
+| `Enter` (in Localisation cell)   | Commit cell edit                      |
 
 ---
 
@@ -61,6 +61,7 @@ Shows the properties of the selected entity or scene. In the current version, en
 A canvas-based tile painter for building 2D tilemaps.
 
 **Controls:**
+
 - **Palette** (left): click a color to select the active tile.
 - **Tools** (toolbar): paintbrush, eraser, flood fill.
 - **Layers** (toolbar): add layers, click to select the active layer. Layers are drawn bottom-to-top.
@@ -78,15 +79,15 @@ Live particle system preview with editable emitter parameters.
 
 **Emitter properties:**
 
-| Property | Description |
-|----------|-------------|
-| Emission Rate | Particles spawned per second |
-| Speed Min / Max | Random speed range per particle |
-| Lifetime Min / Max | Random lifetime range (seconds) |
-| Gravity | Downward acceleration |
-| Scale Start / End | Size interpolation over lifetime |
-| Color Start / End | Color interpolation over lifetime |
-| Shape | `point`, `circle` (with radius), `rect` |
+| Property           | Description                             |
+| ------------------ | --------------------------------------- |
+| Emission Rate      | Particles spawned per second            |
+| Speed Min / Max    | Random speed range per particle         |
+| Lifetime Min / Max | Random lifetime range (seconds)         |
+| Gravity            | Downward acceleration                   |
+| Scale Start / End  | Size interpolation over lifetime        |
+| Color Start / End  | Color interpolation over lifetime       |
+| Shape              | `point`, `circle` (with radius), `rect` |
 
 The preview canvas runs a requestAnimationFrame loop. Particles are updated and drawn every frame in real time.
 
@@ -99,21 +100,22 @@ Export settings as JSON to pass directly to the engine's ParticleSystem componen
 An SVG-based node graph editor for branching dialogue trees. Open it via **Module → Story Graph** in the menu bar, or drag its tab from the panel bar.
 
 **Node types:**
+
 - **Dialogue** — speaker name + text body. One output port (continues to next node).
 - **Choice** — array of option strings. One output port per option (fan-out).
 - **Condition** — reads a variable set by `VNSystem.setVariable()` and routes to a "true" or "false" successor.
 
 **Canvas controls:**
 
-| Action | Input |
-|--------|-------|
-| Pan | Middle-click drag, Space + drag, or two-finger trackpad swipe |
-| Zoom | Scroll wheel or trackpad pinch |
-| Move node | Drag the node's header bar |
-| Connect nodes | Drag from an output port to an input port |
-| Disconnect | Click a connected port and drag off it |
-| Edit node | Double-click the node body |
-| Delete node | Select then press `Delete` or `Backspace` |
+| Action        | Input                                                         |
+| ------------- | ------------------------------------------------------------- |
+| Pan           | Middle-click drag, Space + drag, or two-finger trackpad swipe |
+| Zoom          | Scroll wheel or trackpad pinch                                |
+| Move node     | Drag the node's header bar                                    |
+| Connect nodes | Drag from an output port to an input port                     |
+| Disconnect    | Click a connected port and drag off it                        |
+| Edit node     | Double-click the node body                                    |
+| Delete node   | Select then press `Delete` or `Backspace`                     |
 
 > **Touchpad and touch pan:** On a trackpad, two-finger swipe pans the canvas. On a touch device (tablet, touch monitor), use two fingers to pan and pinch to zoom. Single-touch always drags the selected node; no modifier needed.
 
@@ -128,6 +130,7 @@ Volume, mute, and solo controls for audio bus groups. Changes are applied in rea
 **Default buses:** Master, Music, SFX, Voice, Ambient.
 
 **Controls per bus:**
+
 - Vertical fader (0–100%)
 - **M** button: mute (red when active)
 - **S** button: solo (yellow when active; non-soloed buses are muted)
@@ -143,6 +146,7 @@ Frame-time bar chart updated every frame while the game is playing.
 **Metrics:** frame time (ms), FPS, draw call count.
 
 **Display:** 120-frame rolling history. Bars are colored:
+
 - Green: < 16.7 ms (above 60 fps)
 - Yellow: 16.7–33.3 ms (30–60 fps)
 - Red: > 33.3 ms (below 30 fps)
@@ -178,11 +182,13 @@ Lightweight git commit helper. **Tauri desktop only** — shows placeholder UI i
 Requires `git` on `PATH` and the project saved to disk.
 
 **Shows:**
+
 - Current branch name
 - Staged files (green M / A / D indicators)
 - Unstaged / untracked files (yellow M, gray ?)
 
 **Actions:**
+
 - Click **+** next to a file to stage it.
 - Click **-** next to a staged file to unstage.
 - Type a commit message in the textarea.
@@ -206,16 +212,16 @@ A node graph panel for wiring component logic without writing TypeScript. Nodes 
 
 **Canvas controls:**
 
-| Action | Input |
-|--------|-------|
-| Pan | Middle-click drag, or Space + drag |
-| Zoom | Scroll wheel |
-| Select node | Click |
-| Multi-select | Shift-click or drag a selection box |
-| Move nodes | Drag selected nodes |
-| Delete selected | `Delete` or `Backspace` |
-| Connect ports | Drag from an output port to an input port |
-| Disconnect | Click a connected port and drag off |
+| Action          | Input                                     |
+| --------------- | ----------------------------------------- |
+| Pan             | Middle-click drag, or Space + drag        |
+| Zoom            | Scroll wheel                              |
+| Select node     | Click                                     |
+| Multi-select    | Shift-click or drag a selection box       |
+| Move nodes      | Drag selected nodes                       |
+| Delete selected | `Delete` or `Backspace`                   |
+| Connect ports   | Drag from an output port to an input port |
+| Disconnect      | Click a connected port and drag off       |
 
 **Adding nodes:**
 
@@ -264,15 +270,15 @@ A keyframe timeline panel for authoring animation sequences, cutscenes, and time
 **Exporting:** Click **Export** to save the sequence as a `.esseq` JSON file. Load it at runtime:
 
 ```typescript
-import { SequencePlayer } from '@emptysock/engine';
+import { SequencePlayer } from "@emptysock/engine";
 
-const seq = await SequencePlayer.load('assets/cutscene-intro.esseq');
-seq.bind('Player', playerEntity);
-seq.bind('Camera', cameraEntity);
-seq.play();                          // plays once
-seq.play({ loop: true });            // loops
-seq.onComplete(() => SceneManager.load('GameScene'));
-seq.stop();                          // stops and rewinds
+const seq = await SequencePlayer.load("assets/cutscene-intro.esseq");
+seq.bind("Player", playerEntity);
+seq.bind("Camera", cameraEntity);
+seq.play(); // plays once
+seq.play({ loop: true }); // loops
+seq.onComplete(() => SceneManager.load("GameScene"));
+seq.stop(); // stops and rewinds
 ```
 
 **GMS2 note:** Sequences in GameMaker Studio 2 map directly to this panel — see section 11 for the migration guide.
@@ -296,3 +302,91 @@ Toggle: **Settings → Performance → Power Saver**. The setting is persisted i
 The **Download Engine** button appears in Settings only when the IDE is running in the browser (not in the Tauri desktop app). It downloads the current engine bundle as a `.js` file for offline use or for embedding in a project outside the IDE.
 
 This button is hidden in the desktop app because the engine bundle is already bundled inside the Tauri binary. If you do not see the button, you are running the desktop version — use the export pipeline (`pnpm emptysock-toolchain export`) instead.
+
+---
+
+## 7.17 Database Editor
+
+Open via **Module → Database** in the menu bar.
+
+A spreadsheet-style editor for game data: actors, classes, items, and enemies. Each category is a tab. Click a row to select it; edit fields in the property panel on the right. Add rows with the **+** button; delete with the **×** column.
+
+**Actors** — playable characters and NPCs. Fields: name, class ID, level, base HP/MP/ATK/DEF, equipment list.
+
+**Classes** — job classes linked to actors. Fields: name, stat growth curves.
+
+**Items** — consumable and equipment definitions. Fields: name, type, effect, price, icon path.
+
+**Enemies** — encounter definitions. Fields: name, HP, ATK, DEF, EXP, gold, drops.
+
+All data lives in the IDE store and is exported as `database.json` with the project. Load it at runtime with `JSON.parse` — there is no dedicated runtime system; interpret the schema in your own scene code.
+
+---
+
+## 7.18 Variables Panel
+
+Open via **Module → Variables** in the menu bar.
+
+Displays and edits the VariableStore indices (1–1000 variables, 1–1000 switches) used by the MapEventSystem and game scripts. Name each variable or switch for readability; names are stored alongside the data.
+
+- **Variables tab**: index, name, current integer value. Click a value cell to edit inline.
+- **Switches tab**: index, name, on/off toggle.
+
+Changes take effect immediately in the running game (the VariableStore is shared). Click **Save** to persist to `localStorage`; click **Reset** to clear all values and names.
+
+---
+
+## 7.19 UI Placement Panel
+
+Open via **Module → UI Placement** in the menu bar.
+
+A WYSIWYG canvas editor for `UISystem` layouts. Drag components from the palette on the left onto the canvas. Select a component to edit its position, size, anchor, and style in the right-hand property panel.
+
+**Palette types:** `panel`, `text`, `button`, `image`, `progressbar`, `slider`, `checkbox`.
+
+**Canvas controls:**
+
+- Drag a component to reposition it.
+- Drag a handle on the selection border to resize.
+- Hold `Shift` to snap to the grid (default 8 px).
+
+**Export:** Click **Export JSON** to save the layout as a `.eslayout` file. Load it at runtime:
+
+```typescript
+import { UISystem } from "@emptysock/engine";
+await UISystem.loadLayout("assets/ui/hud.eslayout");
+```
+
+Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`).
+
+---
+
+## 7.20 VN Preview Panel
+
+Shown in the Canvas Preview while the Story Graph panel is open. Renders an in-editor preview of the VN scene: background, character sprites, and textbox, using placeholder assets from the script.
+
+The preview updates automatically as you edit nodes in the Story Graph panel — no build step required. Click **Advance** in the preview to step through the script from the selected node.
+
+The panel is view-only; edit the script in the Story Graph panel and edit assets in the Asset Browser.
+
+---
+
+## 7.21 Mobile / Tablet Layout
+
+When the IDE loads in a browser on a device narrower than 1024 px, it automatically switches to the mobile layout. The desktop dock layout (rc-dock) is not used on small screens.
+
+**Phone (< 768 px):**
+
+- Bottom navigation bar: Code, Scene, Files, Console.
+- Swipe left/right to cycle tabs.
+- **Panels** floating action button (bottom-right) opens a drawer with Assets, Inspector, Profiler, and Git.
+- Run/Stop button in the top header bar.
+
+**Tablet (768–1023 px):**
+
+- Left column (40%): file browser.
+- Right column (60%): Code / Preview / Console tab strip.
+
+**Virtual keyboard:** The layout tracks `window.visualViewport` and adjusts bottom padding so the keyboard never covers the editor.
+
+**Touch input in preview:** The game canvas inside the preview iframe receives touch events directly — `InputSystem` handles `touchstart`, `touchmove`, `touchend`, and `touchcancel` natively. No configuration is required.
