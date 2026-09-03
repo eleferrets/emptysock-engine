@@ -10,37 +10,48 @@ import { TauriFileService } from "../../services/TauriFileService";
 
 interface Snippet {
   label: string;
-  text: string;
-  preview: string;
+  body: string;
 }
 
 const SNIPPETS: Snippet[] = [
   {
-    label: "Scene class",
-    text: 'import { Scene } from "@emptysock/engine";\n\nexport class MyScene extends Scene {\n  async onLoad(): Promise<void> {}\n  onUpdate(_dt: number): void {}\n  onDestroy(): void {}\n}\n',
-    preview: "class MyScene extends Scene",
+    label: "Entity setup",
+    body: 'const entity = scene.createEntity();\nentity.addComponent({ type: "Transform", x: 0, y: 0 });',
   },
   {
-    label: "Entity + component",
-    text: 'const e = this.createEntity("name");\ne.addComponent({ type: "Transform", x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 });\n',
-    preview: "createEntity / addComponent",
+    label: "onLoad async",
+    body: "async onLoad(): Promise<void> {\n  // load assets here\n}",
   },
   {
     label: "Coroutine",
-    text: "entity.startCoroutine(function* () {\n  yield 1; // wait one frame\n  // your code here\n});\n",
-    preview: "entity.startCoroutine",
+    body: "this.entity.startCoroutine(function* () {\n  yield;\n});",
   },
   {
-    label: "ActorSystem",
-    text: 'import { ActorSystem } from "@emptysock/engine";\n\nconst actors = new ActorSystem();\n// actors.register(myActor);\n// actors.update(dt);\n',
-    preview: "new ActorSystem()",
+    label: "Actor receive",
+    body: "receive(msg: unknown): void {\n  // handle message\n}",
   },
   {
-    label: "Timer",
-    text: 'import { Timer } from "@emptysock/engine";\n\nconst t = new Timer(2.0); // seconds\nif (t.update(dt)) { /* fired */ }\n',
-    preview: "new Timer(seconds)",
+    label: "Timer once",
+    body: "this.timer.after(1000, () => {\n  // one-shot\n});",
+  },
+  {
+    label: "Camera follow",
+    body: "scene.camera.follow(entity);",
+  },
+  {
+    label: "Physics body",
+    body: 'const body = physics.createBody({ type: "dynamic", x: 0, y: 0, width: 32, height: 32 });',
+  },
+  {
+    label: "Save data",
+    body: 'saveSystem.set("key", value);\nconst v = saveSystem.get("key");',
   },
 ];
+
+interface SnippetPanelPos {
+  top: number;
+  left: number;
+}
 
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
@@ -85,27 +96,83 @@ export function CodeEditor(): React.ReactElement {
   const keyboardPadding = useVirtualKeyboardPadding();
   const [settings] = React.useState<IDESettings>(() => loadSettings());
   const [showSnippets, setShowSnippets] = React.useState(false);
+  const [snippetPos, setSnippetPos] = React.useState<SnippetPanelPos | null>(
+    null,
+  );
+  const [snippetSearch, setSnippetSearch] = React.useState("");
   const editorRef = React.useRef<Monaco.editor.IStandaloneCodeEditor | null>(
     null,
   );
   const monacoRef = React.useRef<typeof Monaco | null>(null);
   const snippetPanelRef = React.useRef<HTMLDivElement>(null);
+  const snippetSearchRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const openSnippetPalette = React.useCallback(
+    (anchorToToolbar: boolean): void => {
+      const editor = editorRef.current;
+      const monaco = monacoRef.current;
+      const container = containerRef.current;
+      if (container === null) {
+        setSnippetPos(null);
+        setShowSnippets(true);
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      if (!anchorToToolbar && editor !== null && monaco !== null) {
+        const pos = editor.getPosition();
+        if (pos !== null) {
+          const pixelPos = editor.getScrolledVisiblePosition(pos);
+          if (pixelPos !== null) {
+            // editor DOM sits below the 33px tab bar
+            const editorTop = 33;
+            setSnippetPos({
+              top: editorTop + pixelPos.top + 20,
+              left: Math.min(
+                pixelPos.left,
+                containerRect.width - 268,
+              ),
+            });
+            setSnippetSearch("");
+            setShowSnippets(true);
+            return;
+          }
+        }
+      }
+      // fallback: anchor to top-right toolbar button
+      setSnippetPos(null);
+      setSnippetSearch("");
+      setShowSnippets(true);
+    },
+    [],
+  );
 
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    editor.addAction({
+      id: "emptysock.insertSnippet",
+      label: "Insert Snippet",
+      contextMenuGroupId: "9_cutcopypaste",
+      contextMenuOrder: 1.5,
+      run: () => {
+        openSnippetPalette(false);
+      },
+    });
   };
 
-  const insertSnippet = (text: string): void => {
+  const insertSnippet = (body: string): void => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (editor === null || monaco === null) return;
     editor.focus();
     const selection = editor.getSelection();
     const range = selection ?? new monaco.Range(1, 1, 1, 1);
-    editor.executeEdits("snippet", [{ range, text }]);
+    editor.executeEdits("snippet", [{ range, text: body }]);
   };
 
+  // close on click-outside
   React.useEffect(() => {
     if (!showSnippets) return;
     const handleMouseDown = (e: MouseEvent): void => {
@@ -118,6 +185,13 @@ export function CodeEditor(): React.ReactElement {
     };
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showSnippets]);
+
+  // focus search input when panel opens
+  React.useEffect(() => {
+    if (showSnippets) {
+      setTimeout(() => snippetSearchRef.current?.focus(), 0);
+    }
   }, [showSnippets]);
 
   const [systemDark, setSystemDark] = React.useState<boolean>(
@@ -196,6 +270,10 @@ export function CodeEditor(): React.ReactElement {
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key === "Escape") {
+        setShowSnippets(false);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         triggerBuild(editorCode, true);
@@ -265,8 +343,34 @@ export function CodeEditor(): React.ReactElement {
     }
   }, [activeFilePath]);
 
+  const filteredSnippets = React.useMemo(() => {
+    const q = snippetSearch.trim().toLowerCase();
+    if (q === "") return SNIPPETS;
+    return SNIPPETS.filter(
+      (s) =>
+        s.label.toLowerCase().includes(q) || s.body.toLowerCase().includes(q),
+    );
+  }, [snippetSearch]);
+
+  // panel position: anchored to toolbar button (null) or to cursor coords
+  const panelStyle: React.CSSProperties =
+    snippetPos !== null
+      ? {
+          position: "absolute",
+          top: snippetPos.top,
+          left: snippetPos.left,
+          zIndex: 50,
+        }
+      : {
+          position: "absolute",
+          top: 33,
+          right: 0,
+          zIndex: 50,
+        };
+
   return (
     <div
+      ref={containerRef}
       className="flex-1 flex flex-col overflow-hidden"
       onKeyDown={handleKeyDown}
       style={
@@ -344,7 +448,13 @@ export function CodeEditor(): React.ReactElement {
           )}
         </div>
         <button
-          onClick={() => setShowSnippets((v) => !v)}
+          onClick={() => {
+            if (showSnippets) {
+              setShowSnippets(false);
+            } else {
+              openSnippetPalette(true);
+            }
+          }}
           title="Insert snippet"
           style={{
             flexShrink: 0,
@@ -361,56 +471,112 @@ export function CodeEditor(): React.ReactElement {
         >
           {"{ }"}
         </button>
+
+        {/* Snippet palette */}
         {showSnippets && (
           <div
             ref={snippetPanelRef}
             style={{
-              position: "absolute",
-              top: 33,
-              right: 0,
-              zIndex: 50,
-              background: "var(--es-surface, #1e1e1e)",
-              border: "1px solid var(--es-border, #333)",
+              ...panelStyle,
+              background: "var(--es-surface)",
+              border: "1px solid var(--es-border)",
               borderRadius: 6,
-              width: 260,
-              maxHeight: 400,
-              overflowY: "auto",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              width: 268,
+              maxHeight: 380,
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
             }}
           >
-            {SNIPPETS.map((snippet) => (
-              <button
-                key={snippet.label}
-                onClick={() => {
-                  insertSnippet(snippet.text);
-                  setShowSnippets(false);
+            <div
+              style={{
+                padding: "6px 8px",
+                borderBottom: "1px solid var(--es-border)",
+                flexShrink: 0,
+              }}
+            >
+              <input
+                ref={snippetSearchRef}
+                value={snippetSearch}
+                onChange={(e) => setSnippetSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setShowSnippets(false);
+                  }
                 }}
+                placeholder="Filter snippets…"
                 style={{
-                  display: "block",
                   width: "100%",
-                  textAlign: "left",
-                  padding: "8px 12px",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "inherit",
-                  borderBottom: "1px solid var(--es-border, #333)",
+                  background: "var(--es-bg)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  padding: "4px 8px",
+                  fontSize: 12,
+                  color: "var(--es-text)",
+                  outline: "none",
+                  boxSizing: "border-box",
                 }}
-              >
-                <div style={{ fontWeight: 600, fontSize: 13 }}>
-                  {snippet.label}
-                </div>
+              />
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {filteredSnippets.length === 0 ? (
                 <div
                   style={{
-                    opacity: 0.6,
-                    fontSize: 11,
-                    fontFamily: "monospace",
+                    padding: "16px 12px",
+                    fontSize: 12,
+                    color: "var(--es-text-muted)",
+                    textAlign: "center",
                   }}
                 >
-                  {snippet.preview}
+                  No snippets match.
                 </div>
-              </button>
-            ))}
+              ) : (
+                filteredSnippets.map((snippet) => (
+                  <button
+                    key={snippet.label}
+                    onClick={() => {
+                      insertSnippet(snippet.body);
+                      setShowSnippets(false);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "7px 12px",
+                      background: "none",
+                      border: "none",
+                      borderBottom: "1px solid var(--es-border)",
+                      cursor: "pointer",
+                      color: "var(--es-text)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: "var(--es-text)",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {snippet.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontFamily: '"JetBrains Mono", monospace',
+                        color: "var(--es-text-muted)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {snippet.body.split("\n")[0]}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
