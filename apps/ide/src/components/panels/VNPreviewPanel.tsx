@@ -176,42 +176,45 @@ export function VNPreviewPanel(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "#0d0d1a",
-        color: "#fff",
+        background: "var(--es-bg)",
+        color: "var(--es-text)",
         fontFamily: "sans-serif",
       }}
     >
-      <div
-        style={{
-          padding: "6px 10px",
-          borderBottom: "1px solid #333",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 12,
-        }}
-      >
-        <span style={{ opacity: 0.6 }}>Node:</span>
-        <select
-          value={selectedId || (nodes[0]?.id ?? "")}
-          onChange={(e) => setSelectedId(e.target.value)}
+      {nodes.length > 0 && (
+        <div
           style={{
-            background: "#1a1a2e",
-            color: "#fff",
-            border: "1px solid #444",
-            borderRadius: 3,
-            padding: "2px 6px",
+            padding: "6px 10px",
+            borderBottom: "1px solid var(--es-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
             fontSize: 12,
+            flexShrink: 0,
           }}
         >
-          {nodes.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.id}
-              {n.speaker ? ` — ${n.speaker}` : ""}: {n.text.slice(0, 40)}
-            </option>
-          ))}
-        </select>
-      </div>
+          <span style={{ color: "var(--es-text-muted)" }}>Node:</span>
+          <select
+            value={selectedId || (nodes[0]?.id ?? "")}
+            onChange={(e) => setSelectedId(e.target.value)}
+            style={{
+              background: "var(--es-surface)",
+              color: "var(--es-text)",
+              border: "1px solid var(--es-border)",
+              borderRadius: 3,
+              padding: "2px 6px",
+              fontSize: 12,
+            }}
+          >
+            {nodes.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.id}
+                {n.speaker ? ` — ${n.speaker}` : ""}: {n.text.slice(0, 40)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div
         style={{
           flex: 1,
