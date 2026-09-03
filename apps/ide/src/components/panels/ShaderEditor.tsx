@@ -146,7 +146,7 @@ export function ShaderEditor(): React.ReactElement {
 
     setCompileError(null);
     setCompiled(true);
-    addLog({ level: "info", message: "[ShaderEditor] Shader compiled OK" });
+    addLog("info", "[ShaderEditor] Shader compiled OK");
 
     // Full-screen quad
     const buf = gl.createBuffer();

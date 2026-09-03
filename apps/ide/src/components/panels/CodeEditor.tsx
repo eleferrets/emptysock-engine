@@ -8,6 +8,40 @@ import { loadSettings } from "../../services/SettingsService";
 import type { IDESettings } from "../../services/SettingsService";
 import { TauriFileService } from "../../services/TauriFileService";
 
+interface Snippet {
+  label: string;
+  text: string;
+  preview: string;
+}
+
+const SNIPPETS: Snippet[] = [
+  {
+    label: "Scene class",
+    text: 'import { Scene } from "@emptysock/engine";\n\nexport class MyScene extends Scene {\n  async onLoad(): Promise<void> {}\n  onUpdate(_dt: number): void {}\n  onDestroy(): void {}\n}\n',
+    preview: "class MyScene extends Scene",
+  },
+  {
+    label: "Entity + component",
+    text: 'const e = this.createEntity("name");\ne.addComponent({ type: "Transform", x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 });\n',
+    preview: "createEntity / addComponent",
+  },
+  {
+    label: "Coroutine",
+    text: "entity.startCoroutine(function* () {\n  yield 1; // wait one frame\n  // your code here\n});\n",
+    preview: "entity.startCoroutine",
+  },
+  {
+    label: "ActorSystem",
+    text: 'import { ActorSystem } from "@emptysock/engine";\n\nconst actors = new ActorSystem();\n// actors.register(myActor);\n// actors.update(dt);\n',
+    preview: "new ActorSystem()",
+  },
+  {
+    label: "Timer",
+    text: 'import { Timer } from "@emptysock/engine";\n\nconst t = new Timer(2.0); // seconds\nif (t.update(dt)) { /* fired */ }\n',
+    preview: "new Timer(seconds)",
+  },
+];
+
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = React.useState(() => window.innerWidth < 600);
   React.useEffect(() => {

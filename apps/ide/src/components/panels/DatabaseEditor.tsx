@@ -124,10 +124,10 @@ export function DatabaseEditor(): React.ReactElement {
     canUndo,
     canRedo,
   } = useHistory<DBState>({
-    actors: storeActors,
-    classes: storeClasses,
-    items: storeItems,
-    enemies: storeEnemies,
+    actors: storeActors as DBActor[],
+    classes: storeClasses as DBClass[],
+    items: storeItems as DBItem[],
+    enemies: storeEnemies as DBEnemy[],
   });
 
   const dbActors = dbState.actors;

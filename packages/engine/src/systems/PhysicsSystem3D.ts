@@ -143,16 +143,6 @@ export class PhysicsSystem3D {
     this._onExitCallbacks.push(cb);
   }
 
-  /** Register a callback fired when two bodies begin overlapping this frame. */
-  onCollisionEnter(cb: CollisionCallback): void {
-    this._onEnterCallbacks.push(cb);
-  }
-
-  /** Register a callback fired when two bodies stop overlapping. */
-  onCollisionExit(cb: CollisionCallback): void {
-    this._onExitCallbacks.push(cb);
-  }
-
   addBody(options: PhysicsBody3DOptions = {}): Physics3DHandle {
     const R = this._rapier;
     const world = this._world;
