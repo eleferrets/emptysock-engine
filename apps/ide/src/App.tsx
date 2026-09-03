@@ -33,6 +33,7 @@ import { MenuBar } from "./components/panels/MenuBar";
 import { useIDEStore } from "./store/ideStore";
 import { ProjectSettingsModal } from "./components/modals/ProjectSettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { PanelErrorBoundary } from "./components/PanelErrorBoundary";
 import { useBreakpoint } from "./hooks/useBreakpoint";
 import { useIdleCpuCap } from "./hooks/useIdleCpuCap";
 import { MobileLayout } from "./components/MobileLayout";
@@ -55,7 +56,11 @@ function makeTab(
   return {
     id,
     title,
-    content: <ErrorBoundary>{content}</ErrorBoundary>,
+    content: (
+      <PanelErrorBoundary key={id}>
+        <ErrorBoundary>{content}</ErrorBoundary>
+      </PanelErrorBoundary>
+    ),
     closable,
   };
 }
