@@ -65,7 +65,14 @@ Changes apply to the tsconfig.json at each package root. All flags are already v
 
 ### All packages
 
-- ⬜ Add `"lib": ["ES2025"]` — enables `Array.prototype.toSorted`, `toReversed`, `with`, `Object.groupBy`, `Promise.withResolvers`, `Set` methods (union/intersection/difference). Currently available in Node 22 and all modern browsers. Removes need for polyfills in engine util code.
+- ⬜ `"target": "ES2026"` and `"lib": ["ES2026"]` — Node 22 and all current Tauri WebViews / evergreen browsers support the full ES2026 set. Enables `Array.prototype.toSorted`, `toReversed`, `with`, `Object.groupBy`, `Promise.withResolvers`, `Set` union/intersection/difference, `Float16Array`, and explicit resource management (`using` / `Symbol.dispose`). Use `ES2026` literally — never `ESNext`, which is a moving target that changes meaning with each TypeScript release.
+- ⬜ `"noImplicitOverride": true` — requires the `override` keyword on any method that overrides a base-class method. Without it, renaming a base-class method silently turns the subclass method into a new method rather than an override; the compiler gives no warning. Particularly relevant for Scene, Behavior, and Component subclasses.
+- ⬜ `"noImplicitReturns": true` — all code paths in a non-void function must return a value. Catches the common pattern of an if/else chain where one branch forgets to return.
+- ⬜ `"allowUnreachableCode": false` — error on code after a `return`/`throw`/`continue`; catches dead branches that accumulate silently.
+- ⬜ `"allowUnusedLabels": false` — error on unused labels; mostly cosmetic but keeps code clean.
+- ⬜ `"forceConsistentCasingInFileNames": true` — prevents import path case mismatches that work on macOS (case-insensitive) but break on Linux CI. Should already be set; verify it is.
+- ⬜ `"declaration": true` and `"declarationMap": true` on `packages/engine` and `packages/types` — the type declaration output and source maps for `.d.ts` files; required for IDE go-to-definition to land in source rather than compiled output when consuming `@emptysock/engine` from game code.
+- ⬜ `"stripInternal": true` on `packages/engine` — removes `@internal` JSDoc declarations from the emitted `.d.ts`; keeps the public API surface clean and prevents agents from calling implementation details.
 
 ---
 
@@ -75,10 +82,11 @@ Applies to `apps/ide/vite.config.ts`.
 
 ### Build output quality
 
-- ⬜ `build.target: 'esnext'` and `esbuild.target: 'esnext'` — stops Vite from downcompiling modern syntax (top-level await, `using`, logical assignment) that is natively supported in the Tauri WebView and modern browsers. Produces smaller output.
-- ⬜ `build.sourcemap: true` for production builds (at minimum `'hidden'`) — enables crash-report symbolication for shipped Tauri builds without exposing sources publicly.
+- ⬜ `build.target: 'es2026'` and `esbuild.target: 'es2026'` — stops Vite from downcompiling modern syntax (top-level await, `using`, logical assignment) that is natively supported in the Tauri WebView and current browsers. Use the literal year string, never `'esnext'`. Note: game builds compiled by `GameBuildService` should also target `es2026`, not `esnext`.
+- ⬜ `build.sourcemap: false` (explicit) — no source maps in shipped IDE or compiled game builds. Source maps expose your full source to anyone with devtools and bloat the output. Keep `sourcemap: 'inline'` only in the Vite dev server config block, never in `build`.
 - ⬜ `build.cssCodeSplit: false` — consolidate CSS into one file; avoids a class of flash-of-unstyled-content issues with rc-dock's dynamic panel insertion.
 - ⬜ `build.modulePreload: { polyfill: false }` — the Tauri WebView and target browsers all support native module preload; the polyfill adds ~1.5 kB for nothing.
+- ⬜ `build.reportCompressedSize: false` — skips the gzip-size calculation Vite prints after each build; saves ~2 s per build for no practical benefit in a Tauri app that is never served over HTTP.
 
 ### Development experience
 

@@ -114,4 +114,6 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 **Adding a new IDE panel:** create the component file, add a makeTab entry to DEFAULT_LAYOUT in App.tsx, document it in docs/manual/07-ide-reference.md. If the panel needs store state, use useIDEStore — never local useState that other panels cannot read.
 
+**Undo / redo is mandatory in every panel that mutates editor data.** Use a shared `useHistory<T>` hook that snapshots state before each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Wire `Ctrl+Z` / `Ctrl+Shift+Z` globally. Cap history at 50 steps per panel (session-only, never persisted). Monaco has its own per-file undo stack — do not replace it. Every panel added going forward must ship with undo/redo on day one, not as a follow-up.
+
 **Naming:** TypeScript files use PascalCase for classes and camelCase for modules. Tauri commands in lib.rs use snake_case. CSS variables use the `--es-` prefix to avoid collisions with third-party stylesheets.
