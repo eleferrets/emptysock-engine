@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import {
   Image,
@@ -160,7 +160,6 @@ function formatSize(bytes?: number): string {
 }
 
 const STRIP_RE = /_strip(\d+)/i;
-const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"];
 const MAX_RECENT = 8;
 
 interface StripDialog {
@@ -177,6 +176,258 @@ function guessAssetType(file: File): AssetItem["type"] {
   if (file.name.endsWith(".json")) return "json";
   if (file.name.endsWith(".ts") || file.name.endsWith(".js")) return "script";
   return "json";
+}
+
+// ---------------------------------------------------------------------------
+// Asset preview popover
+// ---------------------------------------------------------------------------
+
+const POPOVER_WIDTH = 224;
+
+interface AssetPreviewPopoverProps {
+  asset: AssetItem;
+  anchorRect: DOMRect;
+  openFiles: Record<string, string>;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
+
+function AssetPreviewPopover({
+  asset,
+  anchorRect,
+  openFiles,
+  onMouseEnter,
+  onMouseLeave,
+}: AssetPreviewPopoverProps): React.ReactElement {
+  const flipLeft = anchorRect.right + POPOVER_WIDTH + 16 > window.innerWidth;
+  const left = flipLeft
+    ? anchorRect.left - POPOVER_WIDTH - 8
+    : anchorRect.right + 8;
+  const top = Math.min(
+    anchorRect.top,
+    window.innerHeight - 300,
+  );
+
+  let previewContent: React.ReactElement;
+
+  if (asset.type === "image") {
+    previewContent = (
+      <div
+        style={{
+          background: "var(--es-bg)",
+          borderRadius: 4,
+          border: "1px solid var(--es-border)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 80,
+        }}
+      >
+        <img
+          src={asset.path}
+          alt=""
+          style={{
+            maxWidth: "100%",
+            maxHeight: 180,
+            objectFit: "contain",
+            display: "block",
+            imageRendering: "pixelated",
+          }}
+          onError={(e) => {
+            const el = e.currentTarget;
+            el.style.display = "none";
+            const parent = el.parentElement;
+            if (parent !== null) {
+              parent.style.minHeight = "36px";
+              const msg = document.createElement("span");
+              msg.textContent = "Preview unavailable";
+              msg.style.cssText =
+                "font-size:10px;color:var(--es-text-muted);padding:8px;";
+              parent.appendChild(msg);
+            }
+          }}
+        />
+      </div>
+    );
+  } else if (asset.type === "audio") {
+    // Static waveform placeholder built from a deterministic sine pattern
+    const bars = Array.from({ length: 28 }, (_, i) => {
+      const h = Math.round(10 + Math.abs(Math.sin(i * 0.65)) * 22);
+      return h;
+    });
+    previewContent = (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div
+          style={{
+            height: 48,
+            borderRadius: 4,
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            padding: "0 8px",
+            overflow: "hidden",
+          }}
+        >
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              style={{
+                width: 3,
+                height: h,
+                background: "var(--es-accent)",
+                borderRadius: 2,
+                opacity: 0.65,
+                flexShrink: 0,
+              }}
+            />
+          ))}
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            fontFamily: "JetBrains Mono, monospace",
+          }}
+        >
+          Audio file — no duration data
+        </div>
+      </div>
+    );
+  } else if (asset.type === "script") {
+    const fileContent = openFiles[asset.path];
+    const lines =
+      fileContent !== undefined
+        ? fileContent.split("\n").slice(0, 5).join("\n")
+        : "// Source not open in editor";
+    previewContent = (
+      <pre
+        style={{
+          margin: 0,
+          fontSize: 9.5,
+          lineHeight: 1.55,
+          color: "var(--es-text-muted)",
+          fontFamily: "JetBrains Mono, monospace",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+          maxHeight: 110,
+          overflow: "hidden",
+          background: "var(--es-bg)",
+          border: "1px solid var(--es-border)",
+          borderRadius: 4,
+          padding: "6px 8px",
+        }}
+      >
+        {lines}
+      </pre>
+    );
+  } else {
+    // json, scene, font, or unknown
+    previewContent = (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 0",
+        }}
+      >
+        <AssetIcon type={asset.type} />
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--es-text-muted)",
+            wordBreak: "break-all",
+          }}
+        >
+          {asset.path}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        position: "fixed",
+        left,
+        top,
+        zIndex: 9999,
+        width: POPOVER_WIDTH,
+        background: "var(--es-surface)",
+        border: "1px solid var(--es-border)",
+        borderRadius: 8,
+        padding: 10,
+        boxShadow:
+          "0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.18)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          borderBottom: "1px solid var(--es-border)",
+          paddingBottom: 7,
+        }}
+      >
+        <AssetIconSmall type={asset.type} />
+        <span
+          style={{
+            flex: 1,
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--es-text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontFamily: "JetBrains Mono, monospace",
+          }}
+        >
+          {asset.name}
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            background: "var(--es-surface-2)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            padding: "1px 4px",
+            flexShrink: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {asset.type}
+        </span>
+      </div>
+
+      {previewContent}
+
+      {asset.size !== undefined && (
+        <div
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            opacity: 0.7,
+          }}
+        >
+          {formatSize(asset.size)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -413,22 +664,23 @@ function RoomOrderDialog({
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const addAsset = useIDEStore((s) => s.addAsset);
+  const openFiles = useIDEStore((s) => s.openFiles);
   const recentIds = useIDEStore((s) => s.recentAssetIds);
   const setRecentIds = useIDEStore((s) => s.setRecentAssetIds);
   const roomOrder = useIDEStore((s) => s.roomOrder);
   const setRoomOrder = useIDEStore((s) => s.setRoomOrder);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hover, setHover] = useState<{
-    path: string;
-    x: number;
-    y: number;
+  const [hoveredAsset, setHoveredAsset] = useState<{
+    asset: AssetItem;
+    anchorRect: DOMRect;
   } | null>(null);
   const [stripDialog, setStripDialog] = useState<StripDialog | null>(null);
   const [recentOpen, setRecentOpen] = useState(true);
   const [roomOrderOpen, setRoomOrderOpen] = useState(false);
   const stripFileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtered = assets.filter((a) =>
     a.name.toLowerCase().includes(query.toLowerCase()),
@@ -447,6 +699,30 @@ export function AssetBrowser(): React.ReactElement {
     );
     setRecentIds(next);
   };
+
+  const clearLeaveTimer = useCallback((): void => {
+    if (leaveTimer.current !== null) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+  }, []);
+
+  const scheduleHide = useCallback((): void => {
+    clearLeaveTimer();
+    leaveTimer.current = setTimeout(() => {
+      setHoveredAsset(null);
+      leaveTimer.current = null;
+    }, 150);
+  }, [clearLeaveTimer]);
+
+  const handleAssetMouseEnter = useCallback(
+    (asset: AssetItem, e: React.MouseEvent<HTMLButtonElement>): void => {
+      clearLeaveTimer();
+      const rect = e.currentTarget.getBoundingClientRect();
+      setHoveredAsset({ asset, anchorRect: rect });
+    },
+    [clearLeaveTimer],
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const files = Array.from(e.target.files ?? []);
@@ -643,7 +919,11 @@ export function AssetBrowser(): React.ReactElement {
                       selectedId === asset.id
                         ? "rgba(124,106,247,0.15)"
                         : "var(--es-surface-2)",
-                    border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
+                    border: `1px solid ${
+                      selectedId === asset.id
+                        ? "var(--es-accent)"
+                        : "var(--es-border)"
+                    }`,
                     cursor: "pointer",
                     flexShrink: 0,
                     minWidth: 48,
@@ -707,21 +987,19 @@ export function AssetBrowser(): React.ReactElement {
               setSelectedId((id) => (id === asset.id ? null : asset.id));
               trackRecent(asset.id);
             }}
-            onMouseEnter={(e) => {
-              if (
-                IMAGE_EXTS.some((ext) => asset.path.toLowerCase().endsWith(ext))
-              ) {
-                setHover({ path: asset.path, x: e.clientX, y: e.clientY });
-              }
-            }}
-            onMouseLeave={() => setHover(null)}
+            onMouseEnter={(e) => handleAssetMouseEnter(asset, e)}
+            onMouseLeave={scheduleHide}
             className="flex flex-col items-center gap-1 p-2 rounded text-center transition-colors"
             style={{
               background:
                 selectedId === asset.id
                   ? "rgba(124,106,247,0.15)"
                   : "var(--es-surface-2)",
-              border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
+              border: `1px solid ${
+                selectedId === asset.id
+                  ? "var(--es-accent)"
+                  : "var(--es-border)"
+              }`,
             }}
           >
             <AssetIcon type={asset.type} />
@@ -748,35 +1026,16 @@ export function AssetBrowser(): React.ReactElement {
         ))}
       </div>
 
-      {/* Image hover preview tooltip */}
-      {hover !== null &&
-        ReactDOM.createPortal(
-          <div
-            style={{
-              position: "fixed",
-              left: hover.x + 16,
-              top: Math.min(hover.y, window.innerHeight - 220),
-              zIndex: 9999,
-              background: "rgba(20,20,20,0.92)",
-              borderRadius: 8,
-              padding: 8,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-              pointerEvents: "none",
-            }}
-          >
-            <img
-              src={hover.path}
-              alt=""
-              style={{
-                maxWidth: 200,
-                maxHeight: 200,
-                objectFit: "contain",
-                display: "block",
-              }}
-            />
-          </div>,
-          document.body,
-        )}
+      {/* Asset preview popover */}
+      {hoveredAsset !== null && (
+        <AssetPreviewPopover
+          asset={hoveredAsset.asset}
+          anchorRect={hoveredAsset.anchorRect}
+          openFiles={openFiles}
+          onMouseEnter={clearLeaveTimer}
+          onMouseLeave={scheduleHide}
+        />
+      )}
 
       {/* Sprite sheet strip import dialog */}
       {stripDialog !== null && (
