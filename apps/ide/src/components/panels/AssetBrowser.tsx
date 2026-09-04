@@ -18,6 +18,8 @@ import {
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
 import { Button } from "../ui/Button";
+import { ContextMenu } from "../ui/ContextMenu";
+import type { ContextMenuEntry } from "../ui/ContextMenu";
 
 // ---------------------------------------------------------------------------
 // GMS2 YYP types (minimal — only what we parse from the project file)
@@ -662,11 +664,15 @@ function RoomOrderDialog({
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const addAsset = useIDEStore((s) => s.addAsset);
+  const deleteAsset = useIDEStore((s) => s.deleteAsset);
+  const openImageEditor = useIDEStore((s) => s.openImageEditor);
   const openFiles = useIDEStore((s) => s.openFiles);
   const recentIds = useIDEStore((s) => s.recentAssetIds);
   const setRecentIds = useIDEStore((s) => s.setRecentAssetIds);
   const roomOrder = useIDEStore((s) => s.roomOrder);
   const setRoomOrder = useIDEStore((s) => s.setRoomOrder);
+  const dropImportFolder = useIDEStore((s) => s.dropImportFolder);
+  const setDropImportFolder = useIDEStore((s) => s.setDropImportFolder);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredAsset, setHoveredAsset] = useState<{
@@ -676,9 +682,15 @@ export function AssetBrowser(): React.ReactElement {
   const [stripDialog, setStripDialog] = useState<StripDialog | null>(null);
   const [recentOpen, setRecentOpen] = useState(true);
   const [roomOrderOpen, setRoomOrderOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    asset: AssetItem;
+    position: { x: number; y: number };
+  } | null>(null);
   const stripFileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFolder = useRef("assets");
 
   const filtered = assets.filter((a) =>
     a.name.toLowerCase().includes(query.toLowerCase()),
@@ -720,6 +732,40 @@ export function AssetBrowser(): React.ReactElement {
       setHoveredAsset({ asset, anchorRect: rect });
     },
     [clearLeaveTimer],
+  );
+
+  const handleDrop = useCallback(
+    (files: FileList): void => {
+      const folder =
+        dropImportFolder === "root" ? "assets/" : lastFolder.current + "/";
+      const toImport: File[] = [];
+      for (const file of Array.from(files)) {
+        const match = STRIP_RE.exec(file.name);
+        if (match !== null && file.type.startsWith("image/")) {
+          const n = parseInt(match[1] ?? "0", 10);
+          stripFileRef.current = file;
+          setStripDialog({
+            fileName: file.name,
+            detectedN: n,
+            frameCount: String(n),
+            objectUrl: URL.createObjectURL(file),
+            size: file.size,
+          });
+          return;
+        }
+        toImport.push(file);
+      }
+      for (const file of toImport) {
+        addAsset({
+          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: guessAssetType(file),
+          path: `${folder}${file.name}`,
+          size: file.size,
+        });
+      }
+    },
+    [addAsset, dropImportFolder],
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -774,6 +820,51 @@ export function AssetBrowser(): React.ReactElement {
   const cancelStripImport = (): void => {
     if (stripDialog !== null) URL.revokeObjectURL(stripDialog.objectUrl);
     setStripDialog(null);
+  };
+
+  const buildContextMenuItems = (asset: AssetItem): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [];
+    if (asset.type === "image") {
+      items.push({
+        label: "Open in Image Editor",
+        onClick: () => {
+          openImageEditor(asset.id);
+          setContextMenu(null);
+        },
+      });
+    }
+    items.push({ separator: true });
+    if ("__TAURI_INTERNALS__" in window) {
+      items.push({
+        label: "Reveal in Files",
+        onClick: () => {
+          void import("@tauri-apps/api/core").then(({ invoke }) => {
+            void invoke("reveal_in_files", { path: asset.path }).catch(
+              () => {},
+            );
+          });
+          setContextMenu(null);
+        },
+      });
+    } else {
+      items.push({
+        label: "Export",
+        onClick: () => {
+          window.open(asset.path, "_blank");
+          setContextMenu(null);
+        },
+      });
+    }
+    items.push({ separator: true });
+    items.push({
+      label: "Delete",
+      danger: true,
+      onClick: () => {
+        deleteAsset(asset.id);
+        setContextMenu(null);
+      },
+    });
+    return items;
   };
 
   return (
@@ -959,6 +1050,20 @@ export function AssetBrowser(): React.ReactElement {
           gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))",
           gap: 6,
           alignContent: "start",
+          border: isDragOver
+            ? "2px dashed var(--es-accent)"
+            : "2px solid transparent",
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          handleDrop(e.dataTransfer.files);
         }}
       >
         {filtered.length === 0 && (
@@ -983,6 +1088,13 @@ export function AssetBrowser(): React.ReactElement {
             onClick={() => {
               setSelectedId((id) => (id === asset.id ? null : asset.id));
               trackRecent(asset.id);
+            }}
+            onDoubleClick={() => {
+              if (asset.type === "image") openImageEditor(asset.id);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ asset, position: { x: e.clientX, y: e.clientY } });
             }}
             onPointerEnter={(e) => handleAssetPointerEnter(asset, e)}
             onPointerLeave={scheduleHide}
@@ -1023,6 +1135,41 @@ export function AssetBrowser(): React.ReactElement {
         ))}
       </div>
 
+      {/* Drop destination setting */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "5px 10px",
+          borderTop: "1px solid var(--es-border)",
+          fontSize: 11,
+          color: "var(--es-text-muted)",
+          background: "var(--es-surface-2)",
+        }}
+      >
+        <span>Drop destination:</span>
+        <select
+          value={dropImportFolder}
+          onChange={(e) =>
+            setDropImportFolder(e.target.value as "root" | "last")
+          }
+          style={{
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            color: "var(--es-text)",
+            fontSize: 11,
+            padding: "1px 4px",
+            cursor: "pointer",
+          }}
+        >
+          <option value="root">Project root</option>
+          <option value="last">Last folder</option>
+        </select>
+      </div>
+
       {/* Asset preview popover */}
       {hoveredAsset !== null && (
         <AssetPreviewPopover
@@ -1031,6 +1178,15 @@ export function AssetBrowser(): React.ReactElement {
           openFiles={openFiles}
           onPointerEnter={clearLeaveTimer}
           onPointerLeave={scheduleHide}
+        />
+      )}
+
+      {/* Context menu */}
+      {contextMenu !== null && (
+        <ContextMenu
+          items={buildContextMenuItems(contextMenu.asset)}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
         />
       )}
 

@@ -24,6 +24,7 @@ import { UIPlacementPanel } from "./components/panels/UIPlacementPanel";
 import { DatabaseEditor } from "./components/panels/DatabaseEditor";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
+import { ImageEditor } from "./components/panels/ImageEditor";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
@@ -69,6 +70,14 @@ function makeTab(
     ),
     closable,
   };
+}
+
+function makeImageEditorTab(assetId: string): TabData {
+  return makeTab(
+    `image-editor-${assetId}`,
+    "Image Editor",
+    <ImageEditor assetId={assetId} />,
+  );
 }
 
 const GATED_TABS: Record<string, TabData> = {
@@ -210,6 +219,7 @@ export function App(): React.ReactElement {
   const setSettingsOpen = useIDEStore((s) => s.setSettingsOpen);
   const projectSettingsOpen = useIDEStore((s) => s.projectSettingsOpen);
   const setProjectSettingsOpen = useIDEStore((s) => s.setProjectSettingsOpen);
+  const openImageEditorRequest = useIDEStore((s) => s.openImageEditorRequest);
   const { isMobile } = useBreakpoint();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -218,6 +228,7 @@ export function App(): React.ReactElement {
   const layoutRef = React.useRef<DockLayout>(null);
   const [dockLayout, setDockLayout] =
     React.useState<LayoutData>(loadPersistedLayout);
+  const prevImageEditorReqRef = React.useRef<{ assetId: string; ts: number } | null>(null);
 
   // Restore banner — shown once on mount if an autosave snapshot exists
   const [showRestoreBanner, setShowRestoreBanner] = React.useState(
@@ -248,7 +259,12 @@ export function App(): React.ReactElement {
   );
 
   const loadTab = React.useCallback((tab: TabData): TabData => {
-    const factory = ALL_PANEL_TABS[tab.id ?? ""];
+    const id = tab.id ?? "";
+    if (id.startsWith("image-editor-")) {
+      const assetId = id.slice("image-editor-".length);
+      return makeImageEditorTab(assetId);
+    }
+    const factory = ALL_PANEL_TABS[id];
     return factory ? factory() : tab;
   }, []);
 
@@ -268,6 +284,27 @@ export function App(): React.ReactElement {
   useApplyTheme();
   useIdleCpuCap();
   useAutosave();
+
+  // Open image editor when requested from the store
+  React.useEffect(() => {
+    const req = openImageEditorRequest;
+    if (req === null) return;
+    if (
+      prevImageEditorReqRef.current !== null &&
+      prevImageEditorReqRef.current.ts === req.ts
+    )
+      return;
+    prevImageEditorReqRef.current = req;
+    const layout = layoutRef.current;
+    if (layout === null) return;
+    const tabId = `image-editor-${req.assetId}`;
+    const existing = layout.find(tabId);
+    if (existing) {
+      layout.updateTab(tabId, null, true);
+      return;
+    }
+    layout.dockMove(makeImageEditorTab(req.assetId), null, "float");
+  }, [openImageEditorRequest]);
 
   // Auto-open a module's panel when the module is enabled
   const enabledModules = useIDEStore((s) => s.enabledModules);
