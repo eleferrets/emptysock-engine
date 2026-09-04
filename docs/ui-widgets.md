@@ -6,6 +6,68 @@ Reference: GameMaker's Flex Panel / UI layer. The goal is the same object model 
 
 ---
 
+## Where UI lives: overlay vs in-world
+
+UISystem renders as a Canvas 2D overlay on top of the PixiJS scene. This makes it the right layer for **screen-space UI** — menus, HUD elements, dialogue boxes, anything that sits in front of the game world at a fixed screen position.
+
+It is not the right layer for **in-world UI** — a health bar floating above an enemy, a sign the player walks up to, a damage number rising from a character. Those stay in PixiJS as regular scene objects (sprites, containers, text), positioned in world space and affected by the camera.
+
+---
+
+## Reusable UI: UI scenes
+
+UISystem widgets are added to a flat tree per scene. Without a reuse mechanism, a pause menu would have to be rebuilt in every scene that needs it.
+
+**Chosen approach: UI scenes.**
+
+A UI scene is a standard `Scene` subclass that renders only UISystem widgets — no PixiJS world, no physics. It has a full scene lifecycle (`onLoad`, `onDestroy`, `onUpdate`) and is pushed onto a scene stack on top of the current game scene rather than replacing it.
+
+```ts
+class PauseMenuScene extends Scene {
+  async onLoad() {
+    const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });
+    const resumeBtn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });
+    resumeBtn.on('click', () => this.engine.popScene());
+    panel.children.push(resumeBtn);
+    this.uiSystem.add(panel);
+    panel.animate('fadeIn');
+  }
+}
+
+// In the game scene, when the player hits Escape:
+this.engine.pushScene(new PauseMenuScene());
+```
+
+This means:
+
+- **Reusable** — define once, push from anywhere.
+- **Lifecycle-correct** — the pause menu's `onDestroy` cleans up its own widgets. No manual teardown in the caller.
+- **Composable** — multiple UI scenes can stack (pause → inventory → item detail), each managing its own widget tree.
+- **Consistent with the existing system** — no new concepts. UI scenes are just scenes with a transparent PixiJS stage and an active UISystem.
+
+The scene stack needs two new engine methods: `engine.pushScene(scene)` and `engine.popScene()`. The game scene underneath stays alive (paused or running depending on a flag) while the UI scene is on top.
+
+### Reusable widget components
+
+For widgets that appear across many UI scenes (a styled button, a consistent header bar), the pattern is a plain class or factory function — no new system needed:
+
+```ts
+// shared/widgets/PrimaryButton.ts
+export function PrimaryButton(label: string, onClick: () => void): ButtonWidget {
+  const btn = new ButtonWidget({ label, color: '#818cf8', width: 160, height: 40 });
+  btn.on('click', onClick);
+  return btn;
+}
+
+// Used in any UI scene:
+const btn = PrimaryButton('Start Game', () => engine.loadScene('GameScene'));
+uiSystem.add(btn);
+```
+
+No widget registry, no component system on top of widgets. A function returning a configured widget is enough.
+
+---
+
 ## ImageLoader gap (prerequisite)
 
 UISystem currently requires an `ImageLoader` to be injected at construction to render images. This is unnecessary boilerplate — `createImageBitmap` + `fetch` are Web API globals that work in browser, Tauri WebView, and Node 18+ (Vitest), so there is no reason to push this onto every developer.
@@ -95,27 +157,19 @@ Button hover and press states automatically trigger `pop` unless overridden with
 ```ts
 import { ButtonWidget, LabelWidget, PanelWidget } from '@emptysock/engine';
 
-// In a Scene's onLoad:
+// In a UI scene's onLoad:
 const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });
 
 const title = new LabelWidget({ text: 'Paused', fontSize: 24, anchor: 'top', y: 16 });
 
-const resumeBtn = new ButtonWidget({
-  label: 'Resume',
-  anchor: 'center',
-  y: 20,
-});
-resumeBtn.on('click', () => this.setPaused(false));
+const resumeBtn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });
+resumeBtn.on('click', () => this.engine.popScene());
 
-const quitBtn = new ButtonWidget({
-  label: 'Quit',
-  anchor: 'center',
-  y: 70,
-});
-quitBtn.on('click', () => scene.loadScene('MainMenu'));
+const quitBtn = new ButtonWidget({ label: 'Quit', anchor: 'center', y: 70 });
+quitBtn.on('click', () => this.engine.loadScene('MainMenu'));
 
 panel.children.push(title, resumeBtn, quitBtn);
-uiSystem.add(panel);
+this.uiSystem.add(panel);
 panel.animate('fadeIn');
 ```
 
@@ -132,7 +186,7 @@ A new **UI Editor** panel (or a mode inside the existing CanvasPreview panel) sh
 - **Widget tree** — hierarchy view for panels with children, drag to reorder
 - **Animation preview** — play button next to each animation name, previews in the canvas
 
-The editor generates no separate file — it writes directly to the scene's `onLoad` method in the open script, or maintains a widget tree JSON sidecar if the scene has no user script yet.
+The editor generates no separate file — it writes directly to the UI scene's `onLoad` method in the open script, or maintains a widget tree JSON sidecar if the scene has no user script yet.
 
 Undo/redo is mandatory (useHistory, 50-step cap). CSS variables only. Empty state: "No widgets yet — drag one from the palette."
 
@@ -141,12 +195,13 @@ Undo/redo is mandatory (useHistory, 50-step cap). CSS variables only. Empty stat
 ## Implementation order
 
 1. Fix UISystem default ImageLoader (no boilerplate for developers)
-2. Base `Widget` class + layout pass in UISystem
-3. `LabelWidget` + `ImageWidget` (rendering only, no interaction)
-4. `ButtonWidget` with state machine + click/hover events + `pop` animation
-5. `PanelWidget` with children + `fadeIn`/`fadeOut`
-6. Remaining primitives (ProgressBar, Slider, Checkbox)
-7. Remaining animations
-8. IDE visual editor
-9. Docs — new section in `docs/manual/05-systems-reference.md` under UISystem
-10. API entries in `ai/api-reference.json` in emptysock-ai-skills
+2. `engine.pushScene()` / `engine.popScene()` — scene stack
+3. Base `Widget` class + layout pass in UISystem
+4. `LabelWidget` + `ImageWidget` (rendering only, no interaction)
+5. `ButtonWidget` with state machine + click/hover events + `pop` animation
+6. `PanelWidget` with children + `fadeIn`/`fadeOut`
+7. Remaining primitives (ProgressBar, Slider, Checkbox)
+8. Remaining animations
+9. IDE visual editor
+10. Docs — new section in `docs/manual/05-systems-reference.md` under UISystem
+11. API entries in `ai/api-reference.json` in emptysock-ai-skills
