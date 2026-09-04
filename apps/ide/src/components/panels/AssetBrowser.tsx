@@ -188,16 +188,16 @@ interface AssetPreviewPopoverProps {
   asset: AssetItem;
   anchorRect: DOMRect;
   openFiles: Record<string, string>;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
 }
 
 function AssetPreviewPopover({
   asset,
   anchorRect,
   openFiles,
-  onMouseEnter,
-  onMouseLeave,
+  onPointerEnter,
+  onPointerLeave,
 }: AssetPreviewPopoverProps): React.ReactElement {
   const flipLeft = anchorRect.right + POPOVER_WIDTH + 16 > window.innerWidth;
   const left = flipLeft
@@ -251,7 +251,6 @@ function AssetPreviewPopover({
       </div>
     );
   } else if (asset.type === "audio") {
-    // Static waveform placeholder built from a deterministic sine pattern
     const bars = Array.from({ length: 28 }, (_, i) => {
       const h = Math.round(10 + Math.abs(Math.sin(i * 0.65)) * 22);
       return h;
@@ -325,7 +324,6 @@ function AssetPreviewPopover({
       </pre>
     );
   } else {
-    // json, scene, font, or unknown
     previewContent = (
       <div
         style={{
@@ -351,8 +349,8 @@ function AssetPreviewPopover({
 
   return (
     <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       style={{
         position: "fixed",
         left,
@@ -715,8 +713,8 @@ export function AssetBrowser(): React.ReactElement {
     }, 150);
   }, [clearLeaveTimer]);
 
-  const handleAssetMouseEnter = useCallback(
-    (asset: AssetItem, e: React.MouseEvent<HTMLButtonElement>): void => {
+  const handleAssetPointerEnter = useCallback(
+    (asset: AssetItem, e: React.PointerEvent<HTMLButtonElement>): void => {
       clearLeaveTimer();
       const rect = e.currentTarget.getBoundingClientRect();
       setHoveredAsset({ asset, anchorRect: rect });
@@ -863,7 +861,6 @@ export function AssetBrowser(): React.ReactElement {
         <div
           style={{ flexShrink: 0, borderBottom: "1px solid var(--es-border)" }}
         >
-          {/* Section header */}
           <button
             onClick={() => setRecentOpen((v) => !v)}
             style={{
@@ -987,8 +984,8 @@ export function AssetBrowser(): React.ReactElement {
               setSelectedId((id) => (id === asset.id ? null : asset.id));
               trackRecent(asset.id);
             }}
-            onMouseEnter={(e) => handleAssetMouseEnter(asset, e)}
-            onMouseLeave={scheduleHide}
+            onPointerEnter={(e) => handleAssetPointerEnter(asset, e)}
+            onPointerLeave={scheduleHide}
             className="flex flex-col items-center gap-1 p-2 rounded text-center transition-colors"
             style={{
               background:
@@ -1032,8 +1029,8 @@ export function AssetBrowser(): React.ReactElement {
           asset={hoveredAsset.asset}
           anchorRect={hoveredAsset.anchorRect}
           openFiles={openFiles}
-          onMouseEnter={clearLeaveTimer}
-          onMouseLeave={scheduleHide}
+          onPointerEnter={clearLeaveTimer}
+          onPointerLeave={scheduleHide}
         />
       )}
 
