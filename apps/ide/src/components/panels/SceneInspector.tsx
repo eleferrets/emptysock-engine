@@ -13,6 +13,19 @@ import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
 
+const EMPTY_SCENE_QUIPS: readonly string[] = [
+  "Nothing here. A blank canvas, apparently.",
+  "Zero entities. Zero problems. Maybe.",
+  "The scene is empty. Bold choice.",
+  "No entities yet. Add one when ready.",
+  "Quiet in here. Almost peaceful.",
+  "Scene's empty. The engine is ready when you are.",
+  "No entities. Start with the '+' above.",
+  "Empty scene. Story checks out.",
+  "Nothing to see. Literally.",
+  "All entities are fictional. Including absent ones.",
+] as const;
+
 function useIsMobile(): boolean {
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 768);
   React.useEffect(() => {
@@ -28,11 +41,13 @@ function EntityRow({
   depth = 0,
   selectedIds,
   onEntityClick,
+  isFiltering = false,
 }: {
   entity: EntityItem;
   depth?: number;
   selectedIds: Set<string>;
   onEntityClick: (e: React.MouseEvent, entity: EntityItem) => void;
+  isFiltering?: boolean;
 }): React.ReactElement {
   const [expanded, setExpanded] = React.useState(true);
   const selectEntity = useIDEStore((s) => s.selectEntity);
@@ -41,7 +56,7 @@ function EntityRow({
   const isMobile = useIsMobile();
 
   const isSelected = selectedIds.has(entity.id);
-  const hasChildren = entity.children.length > 0;
+  const hasChildren = !isFiltering && entity.children.length > 0;
 
   return (
     <div>
@@ -51,10 +66,11 @@ function EntityRow({
           if (isMobile) setRightPanelOpen(true);
           onEntityClick(e, entity);
         }}
+        title="Click to select, Shift+click to range-select, Ctrl+click to toggle"
         className="flex items-center w-full gap-1 py-1 pr-2 group"
         style={{
           paddingLeft: `${8 + depth * 14}px`,
-          background: isSelected ? "rgba(124,106,247,0.15)" : undefined,
+          background: isSelected ? "var(--es-selection-bg, rgba(124,106,247,0.15))" : undefined,
           borderLeft: isSelected
             ? "2px solid var(--es-accent)"
             : "2px solid transparent",
@@ -64,8 +80,8 @@ function EntityRow({
         {/* Expand toggle */}
         <span
           className="flex-shrink-0 opacity-60"
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={(ev) => {
+            ev.stopPropagation();
             if (hasChildren) setExpanded((ex) => !ex);
           }}
           style={{
@@ -100,8 +116,8 @@ function EntityRow({
 
         {/* Active toggle */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={(ev) => {
+            ev.stopPropagation();
             toggleEntityActive(entity.id);
           }}
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded transition-opacity"
@@ -112,7 +128,7 @@ function EntityRow({
         </button>
       </button>
 
-      {/* Children */}
+      {/* Children — suppressed while filtering */}
       {hasChildren && expanded && (
         <div>
           {entity.children.map((child) => (
@@ -122,6 +138,7 @@ function EntityRow({
               depth={depth + 1}
               selectedIds={selectedIds}
               onEntityClick={onEntityClick}
+              isFiltering={false}
             />
           ))}
         </div>
@@ -132,7 +149,7 @@ function EntityRow({
 
 // Simple history entry type for the scene
 interface SceneHistEntry {
-  addedIds: string[];
+  deletedIds: string[];
 }
 
 function flattenEntities(entities: EntityItem[]): EntityItem[] {
@@ -151,27 +168,46 @@ export function SceneInspector(): React.ReactElement {
   const entities = useIDEStore((s) => s.entities);
   const addEntity = useIDEStore((s) => s.addEntity);
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
+  const selectEntity = useIDEStore((s) => s.selectEntity);
 
   const [filter, setFilter] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [lastClickedId, setLastClickedId] = React.useState<string | null>(null);
 
-  // History tracks added entity IDs so we can delete them on undo
+  // Stable quip picked once per session
+  const quipRef = React.useRef(
+    EMPTY_SCENE_QUIPS[
+      Math.floor(Math.random() * EMPTY_SCENE_QUIPS.length)
+    ] as string
+  );
+
+  // History tracks deleted entity IDs so undo/redo can be described
   const {
     set: pushHist,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useHistory<SceneHistEntry>({ addedIds: [] });
+  } = useHistory<SceneHistEntry>({ deletedIds: [] });
 
   const handleAddEntity = (): void => {
     const name = `Entity${entities.length + 1}`;
     addEntity(name);
-    // Track for undo — find the entity that was just added by name
-    // Note: addEntity is synchronous, so entities won't update until next render
-    pushHist({ addedIds: [name] });
   };
+
+  // When selection changes: signal store so EntityProperties can react
+  React.useEffect(() => {
+    if (selectedIds.size === 0) {
+      selectEntity(null);
+    } else if (selectedIds.size === 1) {
+      const [id] = selectedIds;
+      if (id !== undefined) selectEntity(id);
+    } else {
+      // Multiple selected — clear the store selection so EntityProperties
+      // shows its empty/multi state
+      selectEntity(null);
+    }
+  }, [selectedIds, selectEntity]);
 
   // Keyboard undo/redo + Delete
   React.useEffect(() => {
@@ -194,18 +230,21 @@ export function SceneInspector(): React.ReactElement {
         selectedIds.size > 0
       ) {
         e.preventDefault();
-        selectedIds.forEach((id) => deleteEntity(id));
+        const ids = Array.from(selectedIds);
+        pushHist({ deletedIds: ids });
+        ids.forEach((id) => deleteEntity(id));
         setSelectedIds(new Set());
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo, selectedIds, deleteEntity]);
+  }, [undo, redo, selectedIds, deleteEntity, pushHist]);
 
+  const isFiltering = filter.length > 0;
   const flat = flattenEntities(entities);
-  const filtered = filter
+  const filteredFlat = isFiltering
     ? flat.filter((e) => e.name.toLowerCase().includes(filter.toLowerCase()))
-    : entities;
+    : [];
 
   const handleEntityClick = (e: React.MouseEvent, entity: EntityItem): void => {
     if (e.ctrlKey || e.metaKey) {
@@ -230,6 +269,10 @@ export function SceneInspector(): React.ReactElement {
     }
     setLastClickedId(entity.id);
   };
+
+  // Selection count badge label
+  const selectionLabel =
+    selectedIds.size > 1 ? `${selectedIds.size} selected` : null;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -277,6 +320,11 @@ export function SceneInspector(): React.ReactElement {
           >
             ↪
           </button>
+          {selectionLabel !== null && (
+            <Badge variant="default" style={{ fontSize: 10 }}>
+              {selectionLabel}
+            </Badge>
+          )}
           <Badge variant="default">{entities.length} entities</Badge>
           <Button
             variant="ghost"
@@ -292,7 +340,7 @@ export function SceneInspector(): React.ReactElement {
       {/* Filter */}
       <div
         style={{
-          padding: "4px 8px",
+          padding: "4px 8px 2px",
           borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
         }}
@@ -312,18 +360,70 @@ export function SceneInspector(): React.ReactElement {
             boxSizing: "border-box",
           }}
         />
+        <p
+          style={{
+            margin: "3px 0 2px",
+            fontSize: 10,
+            color: "var(--es-text-muted)",
+            lineHeight: 1.3,
+          }}
+        >
+          Click to select · Shift+click to range-select · Ctrl+click to toggle
+        </p>
       </div>
 
       {/* Entity list */}
       <div className="flex-1 overflow-y-auto py-1">
-        {(filter ? (filtered as EntityItem[]) : entities).map((entity) => (
-          <EntityRow
-            key={entity.id}
-            entity={entity}
-            selectedIds={selectedIds}
-            onEntityClick={handleEntityClick}
-          />
-        ))}
+        {/* Empty scene */}
+        {entities.length === 0 && (
+          <div
+            style={{
+              padding: "24px 16px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+            }}
+          >
+            <p style={{ fontSize: 11, marginBottom: 6 }}>
+              Add an entity with the + button above.
+            </p>
+            <p style={{ fontSize: 10, opacity: 0.6 }}>{quipRef.current}</p>
+          </div>
+        )}
+
+        {/* No search results */}
+        {entities.length > 0 && isFiltering && filteredFlat.length === 0 && (
+          <div
+            style={{
+              padding: "24px 16px",
+              textAlign: "center",
+              color: "var(--es-text-muted)",
+              fontSize: 11,
+            }}
+          >
+            No entities match &ldquo;{filter}&rdquo;.
+          </div>
+        )}
+
+        {/* Filtered flat list */}
+        {isFiltering
+          ? filteredFlat.map((entity) => (
+              <EntityRow
+                key={entity.id}
+                entity={entity}
+                selectedIds={selectedIds}
+                onEntityClick={handleEntityClick}
+                isFiltering={true}
+              />
+            ))
+          : entities.map((entity) => (
+              <EntityRow
+                key={entity.id}
+                entity={entity}
+                selectedIds={selectedIds}
+                onEntityClick={handleEntityClick}
+                isFiltering={false}
+              />
+            ))}
       </div>
     </div>
   );

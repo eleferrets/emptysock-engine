@@ -1,6 +1,8 @@
 // Minimal runtime UI system — framework-agnostic, works without a DOM.
 // The render layer is responsible for actually drawing; this system tracks layout.
 
+import type { ImageLoader } from '@emptysock/types';
+
 export type UIAnchor =
   | 'top-left' | 'top-center' | 'top-right'
   | 'middle-left' | 'middle-center' | 'middle-right'
@@ -271,6 +273,13 @@ function buildFont(comp: UIComponent): string {
 
 class UISystemImpl {
   private readonly _roots: UIComponent[] = [];
+  private readonly _imageLoader: ImageLoader | undefined;
+  private readonly _imageCache: Map<string, ImageBitmap> = new Map();
+  private readonly _imagePending: Set<string> = new Set();
+
+  constructor(imageLoader?: ImageLoader) {
+    this._imageLoader = imageLoader;
+  }
 
   create(type: UIComponentType, options: Omit<UIComponentOptions, 'type'> = {}): UIComponent {
     const comp = new UIComponent({ ...options, type });
@@ -426,9 +435,26 @@ class UISystemImpl {
         break;
       }
       case 'image': {
-        // Placeholder — no image loading in engine; the caller supplies a canvas.
-        ctx.fillStyle = '#888888';
-        ctx.fillRect(x, y, w, h);
+        const src = comp.text;
+        const cached = src.length > 0 ? this._imageCache.get(src) : undefined;
+        if (cached !== undefined) {
+          ctx.drawImage(cached, x, y, w, h);
+        } else {
+          // Grey placeholder until the loader resolves (or if no loader is injected).
+          ctx.fillStyle = '#888888';
+          ctx.fillRect(x, y, w, h);
+          if (this._imageLoader !== undefined && src.length > 0 && !this._imagePending.has(src)) {
+            this._imagePending.add(src);
+            this._imageLoader.load(src).then((result) => {
+              if (result instanceof ImageBitmap) {
+                this._imageCache.set(src, result);
+              }
+              this._imagePending.delete(src);
+            }).catch(() => {
+              this._imagePending.delete(src);
+            });
+          }
+        }
         break;
       }
       case 'progress-bar': {

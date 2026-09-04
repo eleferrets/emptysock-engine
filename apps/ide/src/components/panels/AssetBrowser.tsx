@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import {
   Image,
@@ -18,6 +18,8 @@ import {
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
 import { Button } from "../ui/Button";
+import { ContextMenu } from "../ui/ContextMenu";
+import type { ContextMenuEntry } from "../ui/ContextMenu";
 
 // ---------------------------------------------------------------------------
 // GMS2 YYP types (minimal — only what we parse from the project file)
@@ -160,7 +162,6 @@ function formatSize(bytes?: number): string {
 }
 
 const STRIP_RE = /_strip(\d+)/i;
-const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"];
 const MAX_RECENT = 8;
 
 interface StripDialog {
@@ -177,6 +178,256 @@ function guessAssetType(file: File): AssetItem["type"] {
   if (file.name.endsWith(".json")) return "json";
   if (file.name.endsWith(".ts") || file.name.endsWith(".js")) return "script";
   return "json";
+}
+
+// ---------------------------------------------------------------------------
+// Asset preview popover
+// ---------------------------------------------------------------------------
+
+const POPOVER_WIDTH = 224;
+
+interface AssetPreviewPopoverProps {
+  asset: AssetItem;
+  anchorRect: DOMRect;
+  openFiles: Record<string, string>;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+}
+
+function AssetPreviewPopover({
+  asset,
+  anchorRect,
+  openFiles,
+  onPointerEnter,
+  onPointerLeave,
+}: AssetPreviewPopoverProps): React.ReactElement {
+  const flipLeft = anchorRect.right + POPOVER_WIDTH + 16 > window.innerWidth;
+  const left = flipLeft
+    ? anchorRect.left - POPOVER_WIDTH - 8
+    : anchorRect.right + 8;
+  const top = Math.min(
+    anchorRect.top,
+    window.innerHeight - 300,
+  );
+
+  let previewContent: React.ReactElement;
+
+  if (asset.type === "image") {
+    previewContent = (
+      <div
+        style={{
+          background: "var(--es-bg)",
+          borderRadius: 4,
+          border: "1px solid var(--es-border)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 80,
+        }}
+      >
+        <img
+          src={asset.path}
+          alt=""
+          style={{
+            maxWidth: "100%",
+            maxHeight: 180,
+            objectFit: "contain",
+            display: "block",
+            imageRendering: "pixelated",
+          }}
+          onError={(e) => {
+            const el = e.currentTarget;
+            el.style.display = "none";
+            const parent = el.parentElement;
+            if (parent !== null) {
+              parent.style.minHeight = "36px";
+              const msg = document.createElement("span");
+              msg.textContent = "Preview unavailable";
+              msg.style.cssText =
+                "font-size:10px;color:var(--es-text-muted);padding:8px;";
+              parent.appendChild(msg);
+            }
+          }}
+        />
+      </div>
+    );
+  } else if (asset.type === "audio") {
+    const bars = Array.from({ length: 28 }, (_, i) => {
+      const h = Math.round(10 + Math.abs(Math.sin(i * 0.65)) * 22);
+      return h;
+    });
+    previewContent = (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div
+          style={{
+            height: 48,
+            borderRadius: 4,
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            padding: "0 8px",
+            overflow: "hidden",
+          }}
+        >
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              style={{
+                width: 3,
+                height: h,
+                background: "var(--es-accent)",
+                borderRadius: 2,
+                opacity: 0.65,
+                flexShrink: 0,
+              }}
+            />
+          ))}
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            fontFamily: "JetBrains Mono, monospace",
+          }}
+        >
+          Audio file — no duration data
+        </div>
+      </div>
+    );
+  } else if (asset.type === "script") {
+    const fileContent = openFiles[asset.path];
+    const lines =
+      fileContent !== undefined
+        ? fileContent.split("\n").slice(0, 5).join("\n")
+        : "// Source not open in editor";
+    previewContent = (
+      <pre
+        style={{
+          margin: 0,
+          fontSize: 9.5,
+          lineHeight: 1.55,
+          color: "var(--es-text-muted)",
+          fontFamily: "JetBrains Mono, monospace",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+          maxHeight: 110,
+          overflow: "hidden",
+          background: "var(--es-bg)",
+          border: "1px solid var(--es-border)",
+          borderRadius: 4,
+          padding: "6px 8px",
+        }}
+      >
+        {lines}
+      </pre>
+    );
+  } else {
+    previewContent = (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 0",
+        }}
+      >
+        <AssetIcon type={asset.type} />
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--es-text-muted)",
+            wordBreak: "break-all",
+          }}
+        >
+          {asset.path}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      style={{
+        position: "fixed",
+        left,
+        top,
+        zIndex: 9999,
+        width: POPOVER_WIDTH,
+        background: "var(--es-surface)",
+        border: "1px solid var(--es-border)",
+        borderRadius: 8,
+        padding: 10,
+        boxShadow:
+          "0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.18)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          borderBottom: "1px solid var(--es-border)",
+          paddingBottom: 7,
+        }}
+      >
+        <AssetIconSmall type={asset.type} />
+        <span
+          style={{
+            flex: 1,
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--es-text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontFamily: "JetBrains Mono, monospace",
+          }}
+        >
+          {asset.name}
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            background: "var(--es-surface-2)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            padding: "1px 4px",
+            flexShrink: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {asset.type}
+        </span>
+      </div>
+
+      {previewContent}
+
+      {asset.size !== undefined && (
+        <div
+          style={{
+            fontSize: 9,
+            color: "var(--es-text-muted)",
+            opacity: 0.7,
+          }}
+        >
+          {formatSize(asset.size)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -413,22 +664,33 @@ function RoomOrderDialog({
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const addAsset = useIDEStore((s) => s.addAsset);
+  const deleteAsset = useIDEStore((s) => s.deleteAsset);
+  const openImageEditor = useIDEStore((s) => s.openImageEditor);
+  const openFiles = useIDEStore((s) => s.openFiles);
   const recentIds = useIDEStore((s) => s.recentAssetIds);
   const setRecentIds = useIDEStore((s) => s.setRecentAssetIds);
   const roomOrder = useIDEStore((s) => s.roomOrder);
   const setRoomOrder = useIDEStore((s) => s.setRoomOrder);
+  const dropImportFolder = useIDEStore((s) => s.dropImportFolder);
+  const setDropImportFolder = useIDEStore((s) => s.setDropImportFolder);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hover, setHover] = useState<{
-    path: string;
-    x: number;
-    y: number;
+  const [hoveredAsset, setHoveredAsset] = useState<{
+    asset: AssetItem;
+    anchorRect: DOMRect;
   } | null>(null);
   const [stripDialog, setStripDialog] = useState<StripDialog | null>(null);
   const [recentOpen, setRecentOpen] = useState(true);
   const [roomOrderOpen, setRoomOrderOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    asset: AssetItem;
+    position: { x: number; y: number };
+  } | null>(null);
   const stripFileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFolder = useRef("assets");
 
   const filtered = assets.filter((a) =>
     a.name.toLowerCase().includes(query.toLowerCase()),
@@ -447,6 +709,64 @@ export function AssetBrowser(): React.ReactElement {
     );
     setRecentIds(next);
   };
+
+  const clearLeaveTimer = useCallback((): void => {
+    if (leaveTimer.current !== null) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+  }, []);
+
+  const scheduleHide = useCallback((): void => {
+    clearLeaveTimer();
+    leaveTimer.current = setTimeout(() => {
+      setHoveredAsset(null);
+      leaveTimer.current = null;
+    }, 150);
+  }, [clearLeaveTimer]);
+
+  const handleAssetPointerEnter = useCallback(
+    (asset: AssetItem, e: React.PointerEvent<HTMLButtonElement>): void => {
+      clearLeaveTimer();
+      const rect = e.currentTarget.getBoundingClientRect();
+      setHoveredAsset({ asset, anchorRect: rect });
+    },
+    [clearLeaveTimer],
+  );
+
+  const handleDrop = useCallback(
+    (files: FileList): void => {
+      const folder =
+        dropImportFolder === "root" ? "assets/" : lastFolder.current + "/";
+      const toImport: File[] = [];
+      for (const file of Array.from(files)) {
+        const match = STRIP_RE.exec(file.name);
+        if (match !== null && file.type.startsWith("image/")) {
+          const n = parseInt(match[1] ?? "0", 10);
+          stripFileRef.current = file;
+          setStripDialog({
+            fileName: file.name,
+            detectedN: n,
+            frameCount: String(n),
+            objectUrl: URL.createObjectURL(file),
+            size: file.size,
+          });
+          return;
+        }
+        toImport.push(file);
+      }
+      for (const file of toImport) {
+        addAsset({
+          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: guessAssetType(file),
+          path: `${folder}${file.name}`,
+          size: file.size,
+        });
+      }
+    },
+    [addAsset, dropImportFolder],
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const files = Array.from(e.target.files ?? []);
@@ -500,6 +820,51 @@ export function AssetBrowser(): React.ReactElement {
   const cancelStripImport = (): void => {
     if (stripDialog !== null) URL.revokeObjectURL(stripDialog.objectUrl);
     setStripDialog(null);
+  };
+
+  const buildContextMenuItems = (asset: AssetItem): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [];
+    if (asset.type === "image") {
+      items.push({
+        label: "Open in Image Editor",
+        onClick: () => {
+          openImageEditor(asset.id);
+          setContextMenu(null);
+        },
+      });
+    }
+    items.push({ separator: true });
+    if ("__TAURI_INTERNALS__" in window) {
+      items.push({
+        label: "Reveal in Files",
+        onClick: () => {
+          void import("@tauri-apps/api/core").then(({ invoke }) => {
+            void invoke("reveal_in_files", { path: asset.path }).catch(
+              () => {},
+            );
+          });
+          setContextMenu(null);
+        },
+      });
+    } else {
+      items.push({
+        label: "Export",
+        onClick: () => {
+          window.open(asset.path, "_blank");
+          setContextMenu(null);
+        },
+      });
+    }
+    items.push({ separator: true });
+    items.push({
+      label: "Delete",
+      danger: true,
+      onClick: () => {
+        deleteAsset(asset.id);
+        setContextMenu(null);
+      },
+    });
+    return items;
   };
 
   return (
@@ -587,7 +952,6 @@ export function AssetBrowser(): React.ReactElement {
         <div
           style={{ flexShrink: 0, borderBottom: "1px solid var(--es-border)" }}
         >
-          {/* Section header */}
           <button
             onClick={() => setRecentOpen((v) => !v)}
             style={{
@@ -643,7 +1007,11 @@ export function AssetBrowser(): React.ReactElement {
                       selectedId === asset.id
                         ? "rgba(124,106,247,0.15)"
                         : "var(--es-surface-2)",
-                    border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
+                    border: `1px solid ${
+                      selectedId === asset.id
+                        ? "var(--es-accent)"
+                        : "var(--es-border)"
+                    }`,
                     cursor: "pointer",
                     flexShrink: 0,
                     minWidth: 48,
@@ -682,6 +1050,20 @@ export function AssetBrowser(): React.ReactElement {
           gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))",
           gap: 6,
           alignContent: "start",
+          border: isDragOver
+            ? "2px dashed var(--es-accent)"
+            : "2px solid transparent",
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          handleDrop(e.dataTransfer.files);
         }}
       >
         {filtered.length === 0 && (
@@ -707,21 +1089,26 @@ export function AssetBrowser(): React.ReactElement {
               setSelectedId((id) => (id === asset.id ? null : asset.id));
               trackRecent(asset.id);
             }}
-            onMouseEnter={(e) => {
-              if (
-                IMAGE_EXTS.some((ext) => asset.path.toLowerCase().endsWith(ext))
-              ) {
-                setHover({ path: asset.path, x: e.clientX, y: e.clientY });
-              }
+            onDoubleClick={() => {
+              if (asset.type === "image") openImageEditor(asset.id);
             }}
-            onMouseLeave={() => setHover(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ asset, position: { x: e.clientX, y: e.clientY } });
+            }}
+            onPointerEnter={(e) => handleAssetPointerEnter(asset, e)}
+            onPointerLeave={scheduleHide}
             className="flex flex-col items-center gap-1 p-2 rounded text-center transition-colors"
             style={{
               background:
                 selectedId === asset.id
                   ? "rgba(124,106,247,0.15)"
                   : "var(--es-surface-2)",
-              border: `1px solid ${selectedId === asset.id ? "var(--es-accent)" : "var(--es-border)"}`,
+              border: `1px solid ${
+                selectedId === asset.id
+                  ? "var(--es-accent)"
+                  : "var(--es-border)"
+              }`,
             }}
           >
             <AssetIcon type={asset.type} />
@@ -748,35 +1135,60 @@ export function AssetBrowser(): React.ReactElement {
         ))}
       </div>
 
-      {/* Image hover preview tooltip */}
-      {hover !== null &&
-        ReactDOM.createPortal(
-          <div
-            style={{
-              position: "fixed",
-              left: hover.x + 16,
-              top: Math.min(hover.y, window.innerHeight - 220),
-              zIndex: 9999,
-              background: "rgba(20,20,20,0.92)",
-              borderRadius: 8,
-              padding: 8,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-              pointerEvents: "none",
-            }}
-          >
-            <img
-              src={hover.path}
-              alt=""
-              style={{
-                maxWidth: 200,
-                maxHeight: 200,
-                objectFit: "contain",
-                display: "block",
-              }}
-            />
-          </div>,
-          document.body,
-        )}
+      {/* Drop destination setting */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "5px 10px",
+          borderTop: "1px solid var(--es-border)",
+          fontSize: 11,
+          color: "var(--es-text-muted)",
+          background: "var(--es-surface-2)",
+        }}
+      >
+        <span>Drop destination:</span>
+        <select
+          value={dropImportFolder}
+          onChange={(e) =>
+            setDropImportFolder(e.target.value as "root" | "last")
+          }
+          style={{
+            background: "var(--es-surface)",
+            border: "1px solid var(--es-border)",
+            borderRadius: 3,
+            color: "var(--es-text)",
+            fontSize: 11,
+            padding: "1px 4px",
+            cursor: "pointer",
+          }}
+        >
+          <option value="root">Project root</option>
+          <option value="last">Last folder</option>
+        </select>
+      </div>
+
+      {/* Asset preview popover */}
+      {hoveredAsset !== null && (
+        <AssetPreviewPopover
+          asset={hoveredAsset.asset}
+          anchorRect={hoveredAsset.anchorRect}
+          openFiles={openFiles}
+          onPointerEnter={clearLeaveTimer}
+          onPointerLeave={scheduleHide}
+        />
+      )}
+
+      {/* Context menu */}
+      {contextMenu !== null && (
+        <ContextMenu
+          items={buildContextMenuItems(contextMenu.asset)}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {/* Sprite sheet strip import dialog */}
       {stripDialog !== null && (

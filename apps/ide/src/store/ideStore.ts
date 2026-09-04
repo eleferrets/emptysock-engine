@@ -217,6 +217,11 @@ interface IDEState {
   // Console
   logs: LogEntry[];
 
+  // Debugger
+  debuggerPaused: boolean;
+  debuggerVars: Record<string, unknown>;
+  debugBreakpoints: string[];
+
   // Build
   buildMode: BuildMode;
   buildStatus: BuildStatus;
@@ -239,6 +244,10 @@ interface IDEState {
 
   // Theme
   theme: Theme;
+
+  // Image editor
+  dropImportFolder: 'root' | 'last';
+  openImageEditorRequest: { assetId: string; ts: number } | null;
 
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
@@ -376,6 +385,17 @@ interface IDEState {
   // Preview FPS cap
   fpsTarget: number;
   setFpsTarget: (fps: number) => void;
+
+  // Debugger actions
+  setDebuggerPaused: (paused: boolean) => void;
+  setDebuggerVars: (vars: Record<string, unknown>) => void;
+  addBreakpoint: (label: string) => void;
+  removeBreakpoint: (label: string) => void;
+  _dispatchDebugCommand: (type: string) => void;
+
+  // Image editor actions
+  setDropImportFolder: (folder: 'root' | 'last') => void;
+  openImageEditor: (assetId: string) => void;
 
   // Project lifecycle
   resetProject: () => void;
@@ -633,6 +653,11 @@ const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
 
 let logCounter = 0;
 
+// ── Debug command bus ────────────────────────────────────────────────────────
+// A lightweight EventTarget that CanvasPreview subscribes to so it can forward
+// debugger commands to the game iframe without adding unnecessary store state.
+export const debugCommandBus = new EventTarget();
+
 export const useIDEStore = create<IDEState>((set, get) => ({
   // Layout
   activeTab: "code",
@@ -704,6 +729,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     },
   ],
 
+  // Debugger
+  debuggerPaused: false,
+  debuggerVars: {},
+  debugBreakpoints: [],
+
   // Build
   buildMode: "debug",
   buildStatus: "idle",
@@ -724,6 +754,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Theme
   theme: "dark",
+
+  // Image editor
+  dropImportFolder: 'root' as const,
+  openImageEditorRequest: null,
 
   // AudioMixer persistent state
   audioBuses: INITIAL_AUDIO_BUSES,
@@ -1021,6 +1055,30 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setEditorShowGuides: (show) => set({ editorShowGuides: show }),
   setFpsTarget: (fps) => set({ fpsTarget: fps }),
 
+  // Debugger actions
+  setDebuggerPaused: (paused) => set({ debuggerPaused: paused }),
+  setDebuggerVars: (vars) => set({ debuggerVars: vars }),
+  addBreakpoint: (label) =>
+    set((s) => ({
+      debugBreakpoints: s.debugBreakpoints.includes(label)
+        ? s.debugBreakpoints
+        : [...s.debugBreakpoints, label],
+    })),
+  removeBreakpoint: (label) =>
+    set((s) => ({
+      debugBreakpoints: s.debugBreakpoints.filter((l) => l !== label),
+    })),
+  _dispatchDebugCommand: (type) => {
+    debugCommandBus.dispatchEvent(
+      new CustomEvent('debug-cmd', { detail: { type } }),
+    );
+  },
+
+  // Image editor actions
+  setDropImportFolder: (folder) => set({ dropImportFolder: folder }),
+  openImageEditor: (assetId) =>
+    set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
+
   resetProject: () => {
     set({
       projectName: "MyPlatformer",
@@ -1067,6 +1125,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       editorSnapToGrid: true,
       editorShowGuides: true,
       windowConfig: { ...DEFAULT_WINDOW_CONFIG },
+      // Reset debugger
+      debuggerPaused: false,
+      debuggerVars: {},
+      debugBreakpoints: [],
+      // Reset image editor
+      dropImportFolder: 'root' as const,
+      openImageEditorRequest: null,
     });
     get().addLog("info", "New project created", "IDE");
   },
@@ -1316,6 +1381,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       editorSnapToGrid: true,
       editorShowGuides: true,
       windowConfig: { ...DEFAULT_WINDOW_CONFIG },
+      // Reset debugger
+      debuggerPaused: false,
+      debuggerVars: {},
+      debugBreakpoints: [],
     });
 
     // Restore project state from .project.json if present

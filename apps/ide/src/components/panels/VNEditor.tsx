@@ -88,6 +88,8 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.5;
 const STORAGE_KEY = "es-story-graph";
 const GUIDE_THRESHOLD = 6;
+const MINI_W = 160;
+const MINI_H = 100;
 
 function clampScale(s: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
@@ -198,8 +200,8 @@ export function VNEditor(): React.ReactElement {
 
   // Minimap
   const [showMinimap, setShowMinimap] = React.useState(true);
-  const MINI_W = 200;
-  const MINI_H = 120;
+  const minimapCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const minimapIsDragging = React.useRef(false);
 
   const displayNodes = localNodes;
   const displayEdges = localEdges;
@@ -536,6 +538,8 @@ export function VNEditor(): React.ReactElement {
   const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
 
   // ── Minimap ─────────────────────────────────────────────────────────────────
+
+  // Compute the scale/offset that fits all nodes into the minimap canvas
   const minimapTransform = React.useMemo(() => {
     if (displayNodes.length === 0) return null;
     let minX = Infinity,
@@ -554,36 +558,116 @@ export function VNEditor(): React.ReactElement {
     const scale = Math.min(MINI_W / W, MINI_H / H) * 0.9;
     const offsetX = (MINI_W - W * scale) / 2 - (minX - pad) * scale;
     const offsetY = (MINI_H - H * scale) / 2 - (minY - pad) * scale;
-    return { scale, offsetX, offsetY, minX, minY };
+    return { scale, offsetX, offsetY };
   }, [displayNodes]);
 
-  const minimapViewport = React.useMemo(() => {
-    if (!minimapTransform) return null;
+  // Redraw minimap canvas whenever graph, view, or selection changes
+  React.useEffect(() => {
+    const canvas = minimapCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, MINI_W, MINI_H);
+
+    if (!minimapTransform || displayNodes.length === 0) return;
+    const { scale, offsetX, offsetY } = minimapTransform;
+
+    // Edges
+    ctx.strokeStyle = "rgba(139,92,246,0.7)";
+    ctx.lineWidth = 0.8;
+    for (const edge of displayEdges) {
+      const fromNode = displayNodes.find((n) => n.id === edge.from);
+      const toNode = displayNodes.find((n) => n.id === edge.to);
+      if (!fromNode || !toNode) continue;
+      const portCount = Math.max(1, fromNode.options?.length ?? 1);
+      const fromSpacing = NODE_H / (portCount + 1);
+      const x1 = (fromNode.x + NODE_W) * scale + offsetX;
+      const y1 =
+        (fromNode.y + fromSpacing * (edge.fromPort + 1)) * scale + offsetY;
+      const x2 = toNode.x * scale + offsetX;
+      const y2 = (toNode.y + NODE_H / 2) * scale + offsetY;
+      const cpx = (x1 + x2) / 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(cpx, y1, cpx, y2, x2, y2);
+      ctx.stroke();
+    }
+
+    // Nodes
+    for (const node of displayNodes) {
+      const mx = node.x * scale + offsetX;
+      const my = node.y * scale + offsetY;
+      const mw = NODE_W * scale;
+      const mh = NODE_H * scale;
+      const isSelectedNode = selected === node.id;
+      ctx.fillStyle = isSelectedNode
+        ? "#6d28d9"
+        : node.type === "dialogue"
+          ? "#3730a3"
+          : "#1a1a2e";
+      ctx.strokeStyle = isSelectedNode ? "#fff" : "rgba(255,255,255,0.3)";
+      ctx.lineWidth = isSelectedNode ? 1.5 : 0.5;
+      ctx.beginPath();
+      ctx.rect(mx, my, mw, mh);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Viewport rectangle
     const cw = containerRef.current?.clientWidth ?? 600;
     const ch = containerRef.current?.clientHeight ?? 400;
-    const { scale, offsetX, offsetY } = minimapTransform;
     const vx = (-view.x / view.scale) * scale + offsetX;
     const vy = (-view.y / view.scale) * scale + offsetY;
     const vw = (cw / view.scale) * scale;
     const vh = (ch / view.scale) * scale;
-    return { x: vx, y: vy, w: vw, h: vh };
-  }, [minimapTransform, view]);
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(vx, vy, vw, vh);
+    ctx.fill();
+    ctx.stroke();
+  }, [displayNodes, displayEdges, minimapTransform, view, selected]);
 
-  const handleMinimapClick = (e: React.MouseEvent<SVGSVGElement>): void => {
-    if (!minimapTransform) return;
-    const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const { scale, offsetX, offsetY } = minimapTransform;
-    const nodeX = (mx - offsetX) / scale;
-    const nodeY = (my - offsetY) / scale;
-    const cw = containerRef.current?.clientWidth ?? 600;
-    const ch = containerRef.current?.clientHeight ?? 400;
-    setView((v) => ({
-      ...v,
-      x: cw / 2 - nodeX * v.scale,
-      y: ch / 2 - nodeY * v.scale,
-    }));
+  // Pan main canvas to a minimap canvas coordinate
+  const panToMinimapPoint = React.useCallback(
+    (clientX: number, clientY: number, canvas: HTMLCanvasElement): void => {
+      if (!minimapTransform) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+      const { scale, offsetX, offsetY } = minimapTransform;
+      const nodeX = (mx - offsetX) / scale;
+      const nodeY = (my - offsetY) / scale;
+      const cw = containerRef.current?.clientWidth ?? 600;
+      const ch = containerRef.current?.clientHeight ?? 400;
+      setView((v) => ({
+        ...v,
+        x: cw / 2 - nodeX * v.scale,
+        y: ch / 2 - nodeY * v.scale,
+      }));
+    },
+    [minimapTransform],
+  );
+
+  const handleMinimapPointerDown = (
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ): void => {
+    minimapIsDragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    panToMinimapPoint(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleMinimapPointerMove = (
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ): void => {
+    if (!minimapIsDragging.current) return;
+    panToMinimapPoint(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleMinimapPointerUp = (): void => {
+    minimapIsDragging.current = false;
   };
 
   const GUIDE_EXTENT = 9999;
@@ -1030,79 +1114,54 @@ export function VNEditor(): React.ReactElement {
         )}
 
         {/* Minimap */}
-        <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 10,
+            right: 10,
+            zIndex: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 4,
+          }}
+        >
           <button
             onClick={() => setShowMinimap((v) => !v)}
             title={showMinimap ? "Hide minimap" : "Show minimap"}
             style={{
-              display: "block",
-              marginBottom: 4,
-              marginLeft: "auto",
-              padding: "2px 6px",
-              background: "rgba(0,0,0,0.6)",
+              padding: "2px 7px",
+              background: showMinimap
+                ? "rgba(109,40,217,0.85)"
+                : "rgba(0,0,0,0.6)",
               border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: 4,
               color: "#fff",
               cursor: "pointer",
               fontSize: 11,
+              lineHeight: "16px",
             }}
           >
-            ⊞
+            Map
           </button>
           {showMinimap && (
-            <svg
+            <canvas
+              ref={minimapCanvasRef}
               width={MINI_W}
               height={MINI_H}
-              onClick={handleMinimapClick}
+              onPointerDown={handleMinimapPointerDown}
+              onPointerMove={handleMinimapPointerMove}
+              onPointerUp={handleMinimapPointerUp}
+              onPointerCancel={handleMinimapPointerUp}
               style={{
                 display: "block",
-                background: "rgba(0,0,0,0.75)",
-                borderRadius: 8,
-                padding: 4,
+                background: "rgba(10,10,20,0.82)",
+                borderRadius: 6,
                 border: "1px solid rgba(255,255,255,0.15)",
                 cursor: "crosshair",
+                touchAction: "none",
               }}
-            >
-              {minimapTransform &&
-                displayNodes.map((node) => {
-                  const { scale, offsetX, offsetY } = minimapTransform;
-                  const mx = node.x * scale + offsetX;
-                  const my = node.y * scale + offsetY;
-                  const mw = NODE_W * scale;
-                  const mh = NODE_H * scale;
-                  const isSelected = selected === node.id;
-                  return (
-                    <rect
-                      key={node.id}
-                      x={mx}
-                      y={my}
-                      width={mw}
-                      height={mh}
-                      rx={2}
-                      fill={
-                        isSelected
-                          ? "var(--es-accent)"
-                          : node.type === "dialogue"
-                            ? "#3730a3"
-                            : "#1a1a2e"
-                      }
-                      stroke={isSelected ? "#fff" : "rgba(255,255,255,0.3)"}
-                      strokeWidth={isSelected ? 1.5 : 0.5}
-                    />
-                  );
-                })}
-              {minimapTransform && minimapViewport && (
-                <rect
-                  x={minimapViewport.x}
-                  y={minimapViewport.y}
-                  width={minimapViewport.w}
-                  height={minimapViewport.h}
-                  fill="rgba(255,255,255,0.08)"
-                  stroke="rgba(255,255,255,0.5)"
-                  strokeWidth={1}
-                />
-              )}
-            </svg>
+            />
           )}
         </div>
       </div>

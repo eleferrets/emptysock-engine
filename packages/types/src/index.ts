@@ -127,3 +127,9 @@ export const EngineConfigSchema = z.object({
 });
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
+
+// ─── ImageLoader ──────────────────────────────────────────────────────────────
+
+export interface ImageLoader {
+  load(src: string): Promise<string | ImageBitmap>;
+}

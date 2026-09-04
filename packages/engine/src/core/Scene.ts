@@ -1,4 +1,5 @@
 import { Entity } from './Entity.js';
+import { Engine } from './EngineAPI.js';
 
 export type SystemFn = (scene: Scene, deltaTime: number) => void;
 
@@ -71,6 +72,8 @@ export class Scene {
 
   update(deltaTime: number): void {
     if (!this._running) return;
+    // Honour the IDE step debugger: freeze the loop while paused.
+    if (Engine.isDebugPaused()) return;
 
     // Update entity components
     for (const entity of this._entities.values()) {

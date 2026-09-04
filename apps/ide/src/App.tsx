@@ -24,6 +24,7 @@ import { UIPlacementPanel } from "./components/panels/UIPlacementPanel";
 import { DatabaseEditor } from "./components/panels/DatabaseEditor";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
+import { ImageEditor } from "./components/panels/ImageEditor";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
@@ -33,9 +34,16 @@ import { MenuBar } from "./components/panels/MenuBar";
 import { useIDEStore } from "./store/ideStore";
 import { ProjectSettingsModal } from "./components/modals/ProjectSettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { PanelErrorBoundary } from "./components/PanelErrorBoundary";
 import { useBreakpoint } from "./hooks/useBreakpoint";
 import { useIdleCpuCap } from "./hooks/useIdleCpuCap";
 import { MobileLayout } from "./components/MobileLayout";
+import {
+  useAutosave,
+  offerRestore,
+  applyRestore,
+  clearRestore,
+} from "./hooks/useAutosave";
 
 function useApplyTheme(): void {
   const theme = useIDEStore((s) => s.theme);
@@ -55,9 +63,21 @@ function makeTab(
   return {
     id,
     title,
-    content: <ErrorBoundary>{content}</ErrorBoundary>,
+    content: (
+      <PanelErrorBoundary key={id}>
+        <ErrorBoundary>{content}</ErrorBoundary>
+      </PanelErrorBoundary>
+    ),
     closable,
   };
+}
+
+function makeImageEditorTab(assetId: string): TabData {
+  return makeTab(
+    `image-editor-${assetId}`,
+    "Image Editor",
+    <ImageEditor assetId={assetId} />,
+  );
 }
 
 const GATED_TABS: Record<string, TabData> = {
@@ -199,6 +219,7 @@ export function App(): React.ReactElement {
   const setSettingsOpen = useIDEStore((s) => s.setSettingsOpen);
   const projectSettingsOpen = useIDEStore((s) => s.projectSettingsOpen);
   const setProjectSettingsOpen = useIDEStore((s) => s.setProjectSettingsOpen);
+  const openImageEditorRequest = useIDEStore((s) => s.openImageEditorRequest);
   const { isMobile } = useBreakpoint();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -207,6 +228,23 @@ export function App(): React.ReactElement {
   const layoutRef = React.useRef<DockLayout>(null);
   const [dockLayout, setDockLayout] =
     React.useState<LayoutData>(loadPersistedLayout);
+  const prevImageEditorReqRef = React.useRef<{ assetId: string; ts: number } | null>(null);
+
+  // Restore banner — shown once on mount if an autosave snapshot exists
+  const [showRestoreBanner, setShowRestoreBanner] = React.useState(
+    () => offerRestore(),
+  );
+
+  const handleRestore = React.useCallback((): void => {
+    applyRestore();
+    clearRestore();
+    setShowRestoreBanner(false);
+  }, []);
+
+  const handleDismissRestore = React.useCallback((): void => {
+    clearRestore();
+    setShowRestoreBanner(false);
+  }, []);
 
   const handleLayoutChange = React.useCallback(
     (newLayout: LayoutData): void => {
@@ -221,7 +259,12 @@ export function App(): React.ReactElement {
   );
 
   const loadTab = React.useCallback((tab: TabData): TabData => {
-    const factory = ALL_PANEL_TABS[tab.id ?? ""];
+    const id = tab.id ?? "";
+    if (id.startsWith("image-editor-")) {
+      const assetId = id.slice("image-editor-".length);
+      return makeImageEditorTab(assetId);
+    }
+    const factory = ALL_PANEL_TABS[id];
     return factory ? factory() : tab;
   }, []);
 
@@ -240,6 +283,28 @@ export function App(): React.ReactElement {
 
   useApplyTheme();
   useIdleCpuCap();
+  useAutosave();
+
+  // Open image editor when requested from the store
+  React.useEffect(() => {
+    const req = openImageEditorRequest;
+    if (req === null) return;
+    if (
+      prevImageEditorReqRef.current !== null &&
+      prevImageEditorReqRef.current.ts === req.ts
+    )
+      return;
+    prevImageEditorReqRef.current = req;
+    const layout = layoutRef.current;
+    if (layout === null) return;
+    const tabId = `image-editor-${req.assetId}`;
+    const existing = layout.find(tabId);
+    if (existing) {
+      layout.updateTab(tabId, null, true);
+      return;
+    }
+    layout.dockMove(makeImageEditorTab(req.assetId), null, "float");
+  }, [openImageEditorRequest]);
 
   // Auto-open a module's panel when the module is enabled
   const enabledModules = useIDEStore((s) => s.enabledModules);
@@ -274,6 +339,60 @@ export function App(): React.ReactElement {
         overflow: "hidden",
       }}
     >
+      {showRestoreBanner && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "0 16px",
+            height: 36,
+            background: "var(--es-surface)",
+            borderBottom: "1px solid var(--es-border)",
+            fontSize: 12,
+            color: "var(--es-text)",
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            Unsaved session found. Restore it?
+          </span>
+          <button
+            type="button"
+            onClick={handleRestore}
+            style={{
+              background: "rgba(124,106,247,0.18)",
+              border: "1px solid rgba(124,106,247,0.4)",
+              borderRadius: 4,
+              color: "var(--es-text)",
+              cursor: "pointer",
+              fontSize: 12,
+              padding: "2px 10px",
+            }}
+          >
+            Restore unsaved session
+          </button>
+          <button
+            type="button"
+            onClick={handleDismissRestore}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--es-text-muted)",
+              cursor: "pointer",
+              fontSize: 12,
+              padding: "2px 6px",
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {!isMobile && (
         <>
           <MenuBar
@@ -318,7 +437,12 @@ export function App(): React.ReactElement {
         <MobileLayout />
       ) : (
         <div
-          style={{ flex: 1, overflow: "hidden", position: "relative" }}
+          style={{
+            flex: 1,
+            overflow: "hidden",
+            position: "relative",
+            marginTop: showRestoreBanner ? 36 : 0,
+          }}
           className="es-dock-container"
         >
           <DockLayout

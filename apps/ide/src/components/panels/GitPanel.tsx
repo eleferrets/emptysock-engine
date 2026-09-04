@@ -5,6 +5,7 @@ interface FileStatus {
   path: string;
   status: "modified" | "added" | "deleted" | "untracked";
   staged: boolean;
+  diff?: string;
 }
 
 const isTauri = (): boolean =>
@@ -23,6 +24,203 @@ async function runGit(args: string[]): Promise<string> {
   }
 }
 
+// ── Mock data for browser mode ────────────────────────────────────────────────
+const MOCK_FILES: FileStatus[] = [
+  {
+    path: "src/scenes/GameScene.ts",
+    status: "modified",
+    staged: true,
+    diff: `--- a/src/scenes/GameScene.ts
++++ b/src/scenes/GameScene.ts
+@@ -4,7 +4,7 @@ import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
+ export class GameScene extends Scene {
+   constructor() {
+-    super('GameScene');
++    super('GameScene', { clearColor: 0x1a1a2e });
+   }
+ 
+   override start(): void {
+@@ -12,6 +12,9 @@ export class GameScene extends Scene {
+     player.addComponent(new Transform({ x: 640, y: 360 }));
+     player.addComponent(new Sprite({ tint: 0x7c6af7 }));
+     player.addTag('player');
++
++    const hud = this.createEntity('HUD');
++    hud.addTag('ui');
+   }
+ }`,
+  },
+  {
+    path: "src/entities/Player.ts",
+    status: "modified",
+    staged: false,
+    diff: `--- a/src/entities/Player.ts
++++ b/src/entities/Player.ts
+@@ -1,5 +1,5 @@
+ import { Entity, Transform } from '@emptysock/engine';
+ 
+-export const PLAYER_SPEED = 200;
++export const PLAYER_SPEED = 260;
+ 
+ export class Player extends Entity {}`,
+  },
+  {
+    path: "src/scenes/MenuScene.ts",
+    status: "added",
+    staged: false,
+    diff: `--- /dev/null
++++ b/src/scenes/MenuScene.ts
+@@ -0,0 +1,9 @@
++import { Scene } from '@emptysock/engine';
++
++export class MenuScene extends Scene {
++  constructor() {
++    super('MenuScene');
++  }
++
++  override start(): void {}
++}`,
+  },
+];
+
+// ── Diff renderer ─────────────────────────────────────────────────────────────
+function DiffView({ diff }: { diff: string }): React.ReactElement {
+  const lines = diff.split("\n");
+  return (
+    <div
+      style={{
+        overflowX: "auto",
+        borderTop: "1px solid var(--es-border)",
+        background: "var(--es-bg)",
+      }}
+    >
+      <pre
+        style={{
+          margin: 0,
+          padding: "6px 0",
+          fontSize: 11,
+          lineHeight: 1.5,
+          fontFamily: "monospace",
+          whiteSpace: "pre",
+        }}
+      >
+        {lines.map((line, i) => {
+          let bg = "transparent";
+          let color = "var(--es-text)";
+          if (line.startsWith("+") && !line.startsWith("+++")) {
+            bg = "var(--es-diff-add-bg)";
+            color = "#4ade80";
+          } else if (line.startsWith("-") && !line.startsWith("---")) {
+            bg = "var(--es-diff-rm-bg)";
+            color = "#f87171";
+          } else if (line.startsWith("@@")) {
+            color = "var(--es-accent)";
+          } else if (line.startsWith("---") || line.startsWith("+++")) {
+            color = "var(--es-text-muted)";
+          }
+          return (
+            <span
+              key={i}
+              style={{
+                display: "block",
+                paddingLeft: 12,
+                paddingRight: 12,
+                background: bg,
+                color,
+              }}
+            >
+              {line || " "}
+            </span>
+          );
+        })}
+      </pre>
+    </div>
+  );
+}
+
+// ── File row ──────────────────────────────────────────────────────────────────
+function FileRow({
+  f,
+  expanded,
+  onToggle,
+  action,
+}: {
+  f: FileStatus;
+  expanded: boolean;
+  onToggle: () => void;
+  action: React.ReactElement;
+}): React.ReactElement {
+  const statusColor = (s: FileStatus["status"]): string =>
+    ({
+      modified: "#fbbf24",
+      added: "#4ade80",
+      deleted: "#ef4444",
+      untracked: "#94a3b8",
+    })[s];
+
+  const hasDiff = f.diff !== undefined && f.diff.length > 0;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "3px 12px",
+          gap: 8,
+          cursor: hasDiff ? "pointer" : "default",
+          background: expanded ? "var(--es-surface)" : "transparent",
+        }}
+        onClick={hasDiff ? onToggle : undefined}
+      >
+        <span
+          style={{
+            color: statusColor(f.status),
+            width: 8,
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {(f.status[0] ?? "?").toUpperCase()}
+        </span>
+        <span
+          style={{
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {f.path}
+        </span>
+        {hasDiff && (
+          <span
+            style={{
+              fontSize: 9,
+              padding: "1px 4px",
+              borderRadius: 3,
+              border: "1px solid var(--es-border)",
+              color: "var(--es-text-muted)",
+              flexShrink: 0,
+              userSelect: "none",
+            }}
+          >
+            DIFF
+          </span>
+        )}
+        <span
+          style={{ flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {action}
+        </span>
+      </div>
+      {expanded && hasDiff && <DiffView diff={f.diff as string} />}
+    </div>
+  );
+}
+
+// ── Panel ─────────────────────────────────────────────────────────────────────
 export function GitPanel(): React.ReactElement {
   const { projectFolder, addLog } = useIDEStore();
   const [files, setFiles] = React.useState<FileStatus[]>([]);
@@ -30,19 +228,21 @@ export function GitPanel(): React.ReactElement {
   const [loading, setLoading] = React.useState(false);
   const [branch, setBranch] = React.useState("main");
   const [browserMode] = React.useState(() => !isTauri());
+  const [expandedDiffPath, setExpandedDiffPath] = React.useState<string | null>(
+    null,
+  );
+
+  const toggleDiff = (path: string): void => {
+    setExpandedDiffPath((prev) => (prev === path ? null : path));
+  };
 
   const refresh = React.useCallback(async (): Promise<void> => {
     if (!isTauri()) {
-      setFiles([]);
-      setBranch("");
+      setFiles(MOCK_FILES);
+      setBranch("main");
       return;
     }
-    const statusOut = await runGit([
-      "-C",
-      projectFolder,
-      "status",
-      "--porcelain",
-    ]);
+    const statusOut = await runGit(["-C", projectFolder, "status", "--porcelain"]);
     const branchOut = await runGit([
       "-C",
       projectFolder,
@@ -67,7 +267,20 @@ export function GitPanel(): React.ReactElement {
               : "modified";
         return { path, status, staged };
       });
-    setFiles(parsed);
+
+    // Fetch per-file diffs
+    const withDiffs = await Promise.all(
+      parsed.map(async (f): Promise<FileStatus> => {
+        if (f.status === "untracked") return f;
+        const diffArgs = f.staged
+          ? ["-C", projectFolder, "diff", "--staged", "--", f.path]
+          : ["-C", projectFolder, "diff", "--", f.path];
+        const diff = await runGit(diffArgs);
+        return { ...f, diff: diff.trim() || undefined };
+      }),
+    );
+
+    setFiles(withDiffs);
   }, [projectFolder]);
 
   React.useEffect(() => {
@@ -94,16 +307,18 @@ export function GitPanel(): React.ReactElement {
     void refresh();
   };
 
-  const statusColor = (s: FileStatus["status"]): string =>
-    ({
-      modified: "#fbbf24",
-      added: "#4ade80",
-      deleted: "#ef4444",
-      untracked: "#94a3b8",
-    })[s];
-
   const staged = files.filter((f) => f.staged);
   const unstaged = files.filter((f) => !f.staged);
+
+  const btnBase: React.CSSProperties = {
+    padding: "1px 6px",
+    background: "var(--es-surface)",
+    border: "1px solid var(--es-border)",
+    borderRadius: 3,
+    color: "var(--es-text)",
+    cursor: "pointer",
+    fontSize: 10,
+  };
 
   return (
     <div
@@ -114,8 +329,12 @@ export function GitPanel(): React.ReactElement {
         background: "var(--es-bg)",
         color: "var(--es-text)",
         fontSize: 12,
+        // Define diff palette tokens scoped to the panel
+        ["--es-diff-add-bg" as string]: "rgba(74, 222, 128, 0.12)",
+        ["--es-diff-rm-bg" as string]: "rgba(248, 113, 113, 0.12)",
       }}
     >
+      {/* Header */}
       <div
         style={{
           padding: "6px 12px",
@@ -135,19 +354,13 @@ export function GitPanel(): React.ReactElement {
         </span>
         <button
           onClick={() => void refresh()}
-          style={{
-            padding: "2px 8px",
-            background: "var(--es-surface)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            cursor: "pointer",
-          }}
+          style={btnBase}
         >
           Refresh
         </button>
       </div>
 
+      {/* File list */}
       <div
         style={{
           flex: 1,
@@ -168,49 +381,20 @@ export function GitPanel(): React.ReactElement {
           STAGED ({staged.length})
         </div>
         {staged.map((f) => (
-          <div
+          <FileRow
             key={f.path}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "3px 12px",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                color: statusColor(f.status),
-                width: 8,
-                fontWeight: 700,
-              }}
-            >
-              {(f.status[0] ?? "?").toUpperCase()}
-            </span>
-            <span
-              style={{
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {f.path}
-            </span>
-            <button
-              onClick={() => void unstageFile(f.path)}
-              style={{
-                padding: "1px 6px",
-                background: "var(--es-surface)",
-                border: "1px solid var(--es-border)",
-                borderRadius: 3,
-                color: "var(--es-text)",
-                cursor: "pointer",
-                fontSize: 10,
-              }}
-            >
-              -
-            </button>
-          </div>
+            f={f}
+            expanded={expandedDiffPath === f.path}
+            onToggle={() => toggleDiff(f.path)}
+            action={
+              <button
+                onClick={() => void unstageFile(f.path)}
+                style={btnBase}
+              >
+                -
+              </button>
+            }
+          />
         ))}
 
         {/* Unstaged */}
@@ -226,59 +410,38 @@ export function GitPanel(): React.ReactElement {
           UNSTAGED ({unstaged.length})
         </div>
         {unstaged.map((f) => (
-          <div
+          <FileRow
             key={f.path}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "3px 12px",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                color: statusColor(f.status),
-                width: 8,
-                fontWeight: 700,
-              }}
-            >
-              {(f.status[0] ?? "?").toUpperCase()}
-            </span>
-            <span
-              style={{
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {f.path}
-            </span>
-            <button
-              onClick={() => void stageFile(f.path)}
-              style={{
-                padding: "1px 6px",
-                background: "var(--es-accent)",
-                border: "none",
-                borderRadius: 3,
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 10,
-              }}
-            >
-              +
-            </button>
-          </div>
+            f={f}
+            expanded={expandedDiffPath === f.path}
+            onToggle={() => toggleDiff(f.path)}
+            action={
+              <button
+                onClick={() => void stageFile(f.path)}
+                style={{
+                  padding: "1px 6px",
+                  background: "var(--es-accent)",
+                  border: "none",
+                  borderRadius: 3,
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 10,
+                }}
+              >
+                +
+              </button>
+            }
+          />
         ))}
 
-        {browserMode && (
+        {browserMode && files.length === 0 && (
           <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
             Git is available in the desktop app
           </div>
         )}
         {!browserMode && files.length === 0 && (
           <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
-            Working tree clean
+            Nothing changed. Enjoy it while it lasts.
           </div>
         )}
       </div>

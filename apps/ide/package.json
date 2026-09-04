@@ -22,7 +22,7 @@
   "dependencies": {
     "@emptysock/engine": "workspace:*",
     "@emptysock/types": "workspace:*",
-"@monaco-editor/react": "^4.6.0",
+    "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
     "@radix-ui/react-label": "^2.1.1",
@@ -35,14 +35,16 @@
     "clsx": "^2.1.1",
     "esbuild-wasm": "^0.28.2",
     "jszip": "^3.10.1",
+    "konva": "catalog:",
     "lucide-react": "^0.469.0",
     "monaco-editor": "0.55.1",
-    "pixi.js": "^8.6.1",
+    "pixi.js": "catalog:",
     "rc-dock": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-konva": "catalog:",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.23.8",
+    "zod": "catalog:",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
@@ -55,9 +57,9 @@
     "postcss": "^8.4.49",
     "rollup-plugin-visualizer": "^7.1.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2",
+    "typescript": "catalog:",
     "vite": "^5.4.11",
     "vite-plugin-pwa": "^0.21.1",
-    "vitest": "^2.1.8"
+    "vitest": "catalog:"
   }
 }
