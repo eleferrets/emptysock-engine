@@ -245,6 +245,10 @@ interface IDEState {
   // Theme
   theme: Theme;
 
+  // Image editor
+  dropImportFolder: 'root' | 'last';
+  openImageEditorRequest: { assetId: string; ts: number } | null;
+
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
@@ -388,6 +392,10 @@ interface IDEState {
   addBreakpoint: (label: string) => void;
   removeBreakpoint: (label: string) => void;
   _dispatchDebugCommand: (type: string) => void;
+
+  // Image editor actions
+  setDropImportFolder: (folder: 'root' | 'last') => void;
+  openImageEditor: (assetId: string) => void;
 
   // Project lifecycle
   resetProject: () => void;
@@ -747,6 +755,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Theme
   theme: "dark",
 
+  // Image editor
+  dropImportFolder: 'root' as const,
+  openImageEditorRequest: null,
+
   // AudioMixer persistent state
   audioBuses: INITIAL_AUDIO_BUSES,
 
@@ -1062,6 +1074,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     );
   },
 
+  // Image editor actions
+  setDropImportFolder: (folder) => set({ dropImportFolder: folder }),
+  openImageEditor: (assetId) =>
+    set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
+
   resetProject: () => {
     set({
       projectName: "MyPlatformer",
@@ -1112,6 +1129,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       debuggerPaused: false,
       debuggerVars: {},
       debugBreakpoints: [],
+      // Reset image editor
+      dropImportFolder: 'root' as const,
+      openImageEditorRequest: null,
     });
     get().addLog("info", "New project created", "IDE");
   },
