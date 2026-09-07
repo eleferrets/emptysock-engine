@@ -353,22 +353,22 @@ interface IDEState {
   setSwitchName: (index: number, name: string) => void;
 
   // Story Graph node cache (shared with VN Preview)
-  vnNodes: unknown[];
-  setVNNodes: (nodes: unknown[]) => void;
+  vnNodes: VnNode[];
+  setVNNodes: (nodes: VnNode[]) => void;
 
   // Auto-tile rule sets per tileset (baseTileIndex → serialised rules)
-  autoTileRuleSets: Record<string, unknown[]>;
-  setAutoTileRuleSets: (ruleSets: Record<string, unknown[]>) => void;
+  autoTileRuleSets: Record<string, AutoTileRule[]>;
+  setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => void;
 
   // RPG database
-  dbActors: unknown[];
-  dbClasses: unknown[];
-  dbItems: unknown[];
-  dbEnemies: unknown[];
-  setDBActors: (v: unknown[]) => void;
-  setDBClasses: (v: unknown[]) => void;
-  setDBItems: (v: unknown[]) => void;
-  setDBEnemies: (v: unknown[]) => void;
+  dbActors: DbEntry[];
+  dbClasses: DbEntry[];
+  dbItems: DbEntry[];
+  dbEnemies: DbEntry[];
+  setDBActors: (v: DbEntry[]) => void;
+  setDBClasses: (v: DbEntry[]) => void;
+  setDBItems: (v: DbEntry[]) => void;
+  setDBEnemies: (v: DbEntry[]) => void;
 
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
@@ -650,6 +650,22 @@ const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
   },
   "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
 };
+
+// ── RPG database / VN / auto-tile types ─────────────────────────────────────
+export interface DbEntry {
+  id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface VnNode {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface AutoTileRule {
+  [key: string]: unknown;
+}
 
 // ── Entity tree helpers ──────────────────────────────────────────────────────
 function findInTree(
@@ -1056,12 +1072,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       },
     })),
 
-  setVNNodes: (nodes) => set({ vnNodes: nodes }),
-  setAutoTileRuleSets: (ruleSets) => set({ autoTileRuleSets: ruleSets }),
-  setDBActors: (v) => set({ dbActors: v }),
-  setDBClasses: (v) => set({ dbClasses: v }),
-  setDBItems: (v) => set({ dbItems: v }),
-  setDBEnemies: (v) => set({ dbEnemies: v }),
+  setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
+  setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => set({ autoTileRuleSets: ruleSets }),
+  setDBActors: (v: DbEntry[]) => set({ dbActors: v }),
+  setDBClasses: (v: DbEntry[]) => set({ dbClasses: v }),
+  setDBItems: (v: DbEntry[]) => set({ dbItems: v }),
+  setDBEnemies: (v: DbEntry[]) => set({ dbEnemies: v }),
 
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
@@ -1464,7 +1480,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             };
           }
           if (Array.isArray(proj["vnNodes"])) {
-            updates.vnNodes = proj["vnNodes"];
+            updates.vnNodes = proj["vnNodes"] as VnNode[];
           }
           if (
             proj["autoTileRuleSets"] !== null &&
@@ -1472,16 +1488,17 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           ) {
             updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<
               string,
-              unknown[]
+              AutoTileRule[]
             >;
           }
           if (Array.isArray(proj["dbActors"]))
-            updates.dbActors = proj["dbActors"];
+            updates.dbActors = proj["dbActors"] as DbEntry[];
           if (Array.isArray(proj["dbClasses"]))
-            updates.dbClasses = proj["dbClasses"];
-          if (Array.isArray(proj["dbItems"])) updates.dbItems = proj["dbItems"];
+            updates.dbClasses = proj["dbClasses"] as DbEntry[];
+          if (Array.isArray(proj["dbItems"]))
+            updates.dbItems = proj["dbItems"] as DbEntry[];
           if (Array.isArray(proj["dbEnemies"]))
-            updates.dbEnemies = proj["dbEnemies"];
+            updates.dbEnemies = proj["dbEnemies"] as DbEntry[];
           if (typeof proj["editorGridSize"] === "number") {
             updates.editorGridSize = Math.max(
               4,
