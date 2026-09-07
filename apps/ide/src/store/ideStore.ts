@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { DEFAULT_ENABLED_MODULES } from "../services/ModuleRegistry";
 import { useDBStore, type DbEntry } from "./dbStore";
 import { useSequenceStore, type SequenceTrack } from "./sequenceStore";
+import {
+  useLocalisationStore,
+  type LocalisationTranslations,
+} from "./localisationStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -130,9 +134,6 @@ export interface TileLayer {
   name: string;
   data: Record<string, number>; // "col,row" -> tileIndex
 }
-
-// ── Localisation editor ──────────────────────────────────────────────────────
-export type LocalisationTranslations = Record<string, Record<string, string>>;
 
 interface TransformValues {
   x: string;
@@ -309,12 +310,6 @@ interface IDEState {
   tilemapActiveLayer: string;
   setTilemapLayers: (layers: TileLayer[]) => void;
   setTilemapActiveLayer: (id: string) => void;
-
-  // LocalisationEditor persistent state
-  localisationTranslations: LocalisationTranslations;
-  localisationLocales: string[];
-  setLocalisationTranslations: (t: LocalisationTranslations) => void;
-  setLocalisationLocales: (locales: string[]) => void;
 
   // VariableStore persistent state
   variableStoreVars: Record<number, number>;
@@ -547,31 +542,6 @@ const INITIAL_TILEMAP_LAYERS: TileLayer[] = [
   { id: "layer-1", name: "Objects", data: {} },
 ];
 
-// ── Localisation initial data ────────────────────────────────────────────────
-const INITIAL_LOCALISATION_LOCALES: string[] = ["en", "fr", "de", "ja"];
-const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
-  "ui.start_game": {
-    en: "Start Game",
-    fr: "Démarrer",
-    de: "Spiel Starten",
-    ja: "ゲーム開始",
-  },
-  "ui.settings": {
-    en: "Settings",
-    fr: "Paramètres",
-    de: "Einstellungen",
-    ja: "設定",
-  },
-  "ui.quit": { en: "Quit", fr: "Quitter", de: "Beenden", ja: "終了" },
-  "dialog.hero.greeting": {
-    en: "Hello, traveller!",
-    fr: "Bonjour, voyageur!",
-    de: "Hallo, Reisender!",
-    ja: "こんにちは、旅人！",
-  },
-  "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
-};
-
 // ── VN / auto-tile types ─────────────────────────────────────────────────────
 export interface VnNode {
   id: string;
@@ -635,8 +605,6 @@ function initialProjectState() {
     audioBuses: INITIAL_AUDIO_BUSES,
     tilemapLayers: [] as TileLayer[],
     tilemapActiveLayer: "layer-0",
-    localisationTranslations: {} as LocalisationTranslations,
-    localisationLocales: ["en"],
     variableStoreVars: {} as Record<number, number>,
     variableStoreSwitches: {} as Record<number, boolean>,
     variableStoreVarNames: {} as Record<number, string>,
@@ -769,10 +737,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // TilemapEditor persistent state
   tilemapLayers: INITIAL_TILEMAP_LAYERS,
   tilemapActiveLayer: "layer-0",
-
-  // LocalisationEditor persistent state
-  localisationTranslations: INITIAL_LOCALISATION_TRANSLATIONS,
-  localisationLocales: INITIAL_LOCALISATION_LOCALES,
 
   // VariableStore persistent state
   variableStoreVars: {},
@@ -1001,9 +965,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
   setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
 
-  setLocalisationTranslations: (t) => set({ localisationTranslations: t }),
-  setLocalisationLocales: (locales) => set({ localisationLocales: locales }),
-
   setVar: (index, value) =>
     set((s) => ({
       variableStoreVars: { ...s.variableStoreVars, [index]: Math.floor(value) },
@@ -1062,6 +1023,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set({ ...initialProjectState() });
     useDBStore.getState().resetDBStore();
     useSequenceStore.getState().resetSequenceStore();
+    useLocalisationStore.getState().resetLocalisationStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1194,6 +1156,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const s = get();
     const db = useDBStore.getState();
     const seq = useSequenceStore.getState();
+    const loc = useLocalisationStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1205,8 +1168,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         tilemapActiveLayer: s.tilemapActiveLayer,
         sequenceTracks: seq.sequenceTracks,
         sequenceDuration: seq.sequenceDuration,
-        localisationTranslations: s.localisationTranslations,
-        localisationLocales: s.localisationLocales,
+        localisationTranslations: loc.localisationTranslations,
+        localisationLocales: loc.localisationLocales,
         variableStoreVars: s.variableStoreVars,
         variableStoreSwitches: s.variableStoreSwitches,
         variableStoreVarNames: s.variableStoreVarNames,
@@ -1267,8 +1230,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
-      localisationTranslations: {},
-      localisationLocales: ["en"],
       variableStoreVars: {},
       variableStoreSwitches: {},
       variableStoreVarNames: {},
@@ -1288,6 +1249,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     });
     useDBStore.getState().resetDBStore();
     useSequenceStore.getState().resetSequenceStore();
+    useLocalisationStore.getState().resetLocalisationStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1326,14 +1288,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             proj["localisationTranslations"] !== null &&
             typeof proj["localisationTranslations"] === "object"
           ) {
-            updates.localisationTranslations = proj[
-              "localisationTranslations"
-            ] as LocalisationTranslations;
+            useLocalisationStore.getState().setLocalisationTranslations(
+              proj["localisationTranslations"] as LocalisationTranslations,
+            );
           }
           if (Array.isArray(proj["localisationLocales"])) {
-            updates.localisationLocales = proj[
-              "localisationLocales"
-            ] as string[];
+            useLocalisationStore.getState().setLocalisationLocales(
+              proj["localisationLocales"] as string[],
+            );
           }
           if (
             proj["variableStoreVars"] !== null &&

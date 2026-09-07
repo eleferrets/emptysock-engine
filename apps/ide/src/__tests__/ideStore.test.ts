@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useIDEStore } from '../store/ideStore';
+import { useLocalisationStore } from '../store/localisationStore';
 
 // Reset to a known clean state before each test so tests do not bleed into each other.
 beforeEach(() => {
@@ -31,11 +32,11 @@ describe('ideStore — saveProjectJson / loadProjectFiles round-trip', () => {
   });
 
   it('serialises and restores localisationLocales', () => {
-    useIDEStore.getState().setLocalisationLocales(['en', 'es', 'pt']);
+    useLocalisationStore.getState().setLocalisationLocales(['en', 'es', 'pt']);
     const json = useIDEStore.getState().saveProjectJson();
 
     useIDEStore.getState().loadProjectFiles({ 'emptysock.project.json': json });
-    expect(useIDEStore.getState().localisationLocales).toEqual(['en', 'es', 'pt']);
+    expect(useLocalisationStore.getState().localisationLocales).toEqual(['en', 'es', 'pt']);
   });
 
   it('saveProjectJson produces valid JSON', () => {

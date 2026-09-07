@@ -1,8 +1,8 @@
 import React from "react";
 import {
-  useIDEStore,
+  useLocalisationStore,
   type LocalisationTranslations,
-} from "../../store/ideStore";
+} from "../../store/localisationStore";
 import { useHistory } from "../../hooks/useHistory";
 
 type Locale = string;
@@ -15,10 +15,10 @@ interface LocState {
 }
 
 export function LocalisationEditor(): React.ReactElement {
-  const storeLocales = useIDEStore((s) => s.localisationLocales);
-  const storeTranslations = useIDEStore((s) => s.localisationTranslations);
-  const setStoreLocales = useIDEStore((s) => s.setLocalisationLocales);
-  const setStoreTranslations = useIDEStore(
+  const storeLocales = useLocalisationStore((s) => s.localisationLocales);
+  const storeTranslations = useLocalisationStore((s) => s.localisationTranslations);
+  const setStoreLocales = useLocalisationStore((s) => s.setLocalisationLocales);
+  const setStoreTranslations = useLocalisationStore(
     (s) => s.setLocalisationTranslations,
   );
 
