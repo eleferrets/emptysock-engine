@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { DEFAULT_ENABLED_MODULES } from "../services/ModuleRegistry";
 import { useDBStore, type DbEntry } from "./dbStore";
+import { useSequenceStore, type SequenceTrack } from "./sequenceStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -128,28 +129,6 @@ export interface TileLayer {
   id: string;
   name: string;
   data: Record<string, number>; // "col,row" -> tileIndex
-}
-
-// ── Sequence editor ──────────────────────────────────────────────────────────
-export type SequenceTrackType =
-  | "Position X"
-  | "Position Y"
-  | "Rotation"
-  | "Scale"
-  | "Opacity"
-  | "Custom";
-
-export interface SequenceKeyframe {
-  id: string;
-  time: number;
-  value: number;
-}
-
-export interface SequenceTrack {
-  id: string;
-  name: string;
-  type: SequenceTrackType;
-  keyframes: SequenceKeyframe[];
 }
 
 // ── Localisation editor ──────────────────────────────────────────────────────
@@ -330,12 +309,6 @@ interface IDEState {
   tilemapActiveLayer: string;
   setTilemapLayers: (layers: TileLayer[]) => void;
   setTilemapActiveLayer: (id: string) => void;
-
-  // SequenceEditor persistent state
-  sequenceTracks: SequenceTrack[];
-  sequenceDuration: number;
-  setSequenceTracks: (tracks: SequenceTrack[]) => void;
-  setSequenceDuration: (duration: number) => void;
 
   // LocalisationEditor persistent state
   localisationTranslations: LocalisationTranslations;
@@ -574,49 +547,6 @@ const INITIAL_TILEMAP_LAYERS: TileLayer[] = [
   { id: "layer-1", name: "Objects", data: {} },
 ];
 
-// ── Sequence initial data ────────────────────────────────────────────────────
-let _seqIdCounter = 0;
-function _seqUid(): string {
-  return `id-${_seqIdCounter++}`;
-}
-function _makeTrack(
-  type: SequenceTrackType,
-  kfs: Array<{ t: number; v: number }> = [],
-): SequenceTrack {
-  return {
-    id: _seqUid(),
-    name: type,
-    type,
-    keyframes: kfs.map(({ t, v }) => ({ id: _seqUid(), time: t, value: v })),
-  };
-}
-
-const INITIAL_SEQUENCE_TRACKS: SequenceTrack[] = [
-  _makeTrack("Position X", [
-    { t: 0, v: 0 },
-    { t: 1.5, v: 120 },
-    { t: 3, v: 0 },
-  ]),
-  _makeTrack("Position Y", [
-    { t: 0, v: 0 },
-    { t: 1, v: -60 },
-    { t: 2, v: 0 },
-  ]),
-  _makeTrack("Rotation", [
-    { t: 0.5, v: 0 },
-    { t: 2, v: 360 },
-  ]),
-  _makeTrack("Scale", [
-    { t: 0, v: 1 },
-    { t: 1, v: 1.5 },
-  ]),
-  _makeTrack("Opacity", [
-    { t: 0, v: 0 },
-    { t: 0.5, v: 1 },
-    { t: 4, v: 1 },
-  ]),
-];
-
 // ── Localisation initial data ────────────────────────────────────────────────
 const INITIAL_LOCALISATION_LOCALES: string[] = ["en", "fr", "de", "ja"];
 const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
@@ -705,8 +635,6 @@ function initialProjectState() {
     audioBuses: INITIAL_AUDIO_BUSES,
     tilemapLayers: [] as TileLayer[],
     tilemapActiveLayer: "layer-0",
-    sequenceTracks: [] as SequenceTrack[],
-    sequenceDuration: 10,
     localisationTranslations: {} as LocalisationTranslations,
     localisationLocales: ["en"],
     variableStoreVars: {} as Record<number, number>,
@@ -841,10 +769,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // TilemapEditor persistent state
   tilemapLayers: INITIAL_TILEMAP_LAYERS,
   tilemapActiveLayer: "layer-0",
-
-  // SequenceEditor persistent state
-  sequenceTracks: INITIAL_SEQUENCE_TRACKS,
-  sequenceDuration: 4,
 
   // LocalisationEditor persistent state
   localisationTranslations: INITIAL_LOCALISATION_TRANSLATIONS,
@@ -1077,9 +1001,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
   setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
 
-  setSequenceTracks: (tracks) => set({ sequenceTracks: tracks }),
-  setSequenceDuration: (duration) => set({ sequenceDuration: duration }),
-
   setLocalisationTranslations: (t) => set({ localisationTranslations: t }),
   setLocalisationLocales: (locales) => set({ localisationLocales: locales }),
 
@@ -1140,6 +1061,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   resetProject: () => {
     set({ ...initialProjectState() });
     useDBStore.getState().resetDBStore();
+    useSequenceStore.getState().resetSequenceStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1271,6 +1193,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   saveProjectJson: () => {
     const s = get();
     const db = useDBStore.getState();
+    const seq = useSequenceStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1280,8 +1203,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         audioBuses: s.audioBuses,
         tilemapLayers: s.tilemapLayers,
         tilemapActiveLayer: s.tilemapActiveLayer,
-        sequenceTracks: s.sequenceTracks,
-        sequenceDuration: s.sequenceDuration,
+        sequenceTracks: seq.sequenceTracks,
+        sequenceDuration: seq.sequenceDuration,
         localisationTranslations: s.localisationTranslations,
         localisationLocales: s.localisationLocales,
         variableStoreVars: s.variableStoreVars,
@@ -1344,8 +1267,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
-      sequenceTracks: [],
-      sequenceDuration: 10,
       localisationTranslations: {},
       localisationLocales: ["en"],
       variableStoreVars: {},
@@ -1366,6 +1287,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       debugBreakpoints: [],
     });
     useDBStore.getState().resetDBStore();
+    useSequenceStore.getState().resetSequenceStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1393,10 +1315,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             updates.tilemapActiveLayer = proj["tilemapActiveLayer"];
           }
           if (Array.isArray(proj["sequenceTracks"])) {
-            updates.sequenceTracks = proj["sequenceTracks"] as SequenceTrack[];
+            useSequenceStore.getState().setSequenceTracks(
+              proj["sequenceTracks"] as SequenceTrack[],
+            );
           }
           if (typeof proj["sequenceDuration"] === "number") {
-            updates.sequenceDuration = proj["sequenceDuration"];
+            useSequenceStore.getState().setSequenceDuration(proj["sequenceDuration"]);
           }
           if (
             proj["localisationTranslations"] !== null &&

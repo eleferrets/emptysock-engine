@@ -1,9 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
-  useIDEStore,
+  useSequenceStore,
   type SequenceTrack,
   type SequenceTrackType,
-} from "../../store/ideStore";
+} from "../../store/sequenceStore";
 import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -220,10 +220,10 @@ const TrackLabel: React.FC<{
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function SequenceEditor(): React.ReactElement {
-  const storeTracks = useIDEStore((s) => s.sequenceTracks) as Track[];
-  const setStoreTracks = useIDEStore((s) => s.setSequenceTracks);
-  const duration = useIDEStore((s) => s.sequenceDuration);
-  const setDuration = useIDEStore((s) => s.setSequenceDuration);
+  const storeTracks = useSequenceStore((s) => s.sequenceTracks) as Track[];
+  const setStoreTracks = useSequenceStore((s) => s.setSequenceTracks);
+  const duration = useSequenceStore((s) => s.sequenceDuration);
+  const setDuration = useSequenceStore((s) => s.setSequenceDuration);
 
   // Shadow history state
   const {
