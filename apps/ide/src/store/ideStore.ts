@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { DEFAULT_ENABLED_MODULES } from "../services/ModuleRegistry";
+import { useDBStore, type DbEntry } from "./dbStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -360,16 +361,6 @@ interface IDEState {
   autoTileRuleSets: Record<string, AutoTileRule[]>;
   setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => void;
 
-  // RPG database
-  dbActors: DbEntry[];
-  dbClasses: DbEntry[];
-  dbItems: DbEntry[];
-  dbEnemies: DbEntry[];
-  setDBActors: (v: DbEntry[]) => void;
-  setDBClasses: (v: DbEntry[]) => void;
-  setDBItems: (v: DbEntry[]) => void;
-  setDBEnemies: (v: DbEntry[]) => void;
-
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
   editorShowGrid: boolean;
@@ -651,13 +642,7 @@ const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
   "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
 };
 
-// ── RPG database / VN / auto-tile types ─────────────────────────────────────
-export interface DbEntry {
-  id: string;
-  name?: string;
-  [key: string]: unknown;
-}
-
+// ── VN / auto-tile types ─────────────────────────────────────────────────────
 export interface VnNode {
   id: string;
   [key: string]: unknown;
@@ -730,10 +715,6 @@ function initialProjectState() {
     variableStoreSwitchNames: {} as Record<number, string>,
     vnNodes: [] as VnNode[],
     autoTileRuleSets: {} as Record<string, AutoTileRule[]>,
-    dbActors: [] as DbEntry[],
-    dbClasses: [] as DbEntry[],
-    dbItems: [] as DbEntry[],
-    dbEnemies: [] as DbEntry[],
     editorGridSize: 32,
     editorShowGrid: true,
     editorShowRuler: true,
@@ -880,12 +861,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // Auto-tile rule sets
   autoTileRuleSets: {},
-
-  // RPG database
-  dbActors: [],
-  dbClasses: [],
-  dbItems: [],
-  dbEnemies: [],
 
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
@@ -1130,10 +1105,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
   setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => set({ autoTileRuleSets: ruleSets }),
-  setDBActors: (v: DbEntry[]) => set({ dbActors: v }),
-  setDBClasses: (v: DbEntry[]) => set({ dbClasses: v }),
-  setDBItems: (v: DbEntry[]) => set({ dbItems: v }),
-  setDBEnemies: (v: DbEntry[]) => set({ dbEnemies: v }),
 
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
@@ -1168,6 +1139,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   resetProject: () => {
     set({ ...initialProjectState() });
+    useDBStore.getState().resetDBStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1298,6 +1270,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   saveProjectJson: () => {
     const s = get();
+    const db = useDBStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1318,10 +1291,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         windowConfig: s.windowConfig,
         vnNodes: s.vnNodes,
         autoTileRuleSets: s.autoTileRuleSets,
-        dbActors: s.dbActors,
-        dbClasses: s.dbClasses,
-        dbItems: s.dbItems,
-        dbEnemies: s.dbEnemies,
+        dbActors: db.dbActors,
+        dbClasses: db.dbClasses,
+        dbItems: db.dbItems,
+        dbEnemies: db.dbEnemies,
         editorGridSize: s.editorGridSize,
         editorShowGrid: s.editorShowGrid,
         editorShowRuler: s.editorShowRuler,
@@ -1381,10 +1354,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       variableStoreSwitchNames: {},
       vnNodes: [],
       autoTileRuleSets: {},
-      dbActors: [],
-      dbClasses: [],
-      dbItems: [],
-      dbEnemies: [],
       editorGridSize: 32,
       editorShowGrid: true,
       editorShowRuler: true,
@@ -1396,6 +1365,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       debuggerVars: {},
       debugBreakpoints: [],
     });
+    useDBStore.getState().resetDBStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1496,13 +1466,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             >;
           }
           if (Array.isArray(proj["dbActors"]))
-            updates.dbActors = proj["dbActors"] as DbEntry[];
+            useDBStore.getState().setDBActors(proj["dbActors"] as DbEntry[]);
           if (Array.isArray(proj["dbClasses"]))
-            updates.dbClasses = proj["dbClasses"] as DbEntry[];
+            useDBStore.getState().setDBClasses(proj["dbClasses"] as DbEntry[]);
           if (Array.isArray(proj["dbItems"]))
-            updates.dbItems = proj["dbItems"] as DbEntry[];
+            useDBStore.getState().setDBItems(proj["dbItems"] as DbEntry[]);
           if (Array.isArray(proj["dbEnemies"]))
-            updates.dbEnemies = proj["dbEnemies"] as DbEntry[];
+            useDBStore.getState().setDBEnemies(proj["dbEnemies"] as DbEntry[]);
           if (typeof proj["editorGridSize"] === "number") {
             updates.editorGridSize = Math.max(
               4,
