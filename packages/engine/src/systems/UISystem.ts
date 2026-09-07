@@ -1,7 +1,7 @@
 // Minimal runtime UI system — framework-agnostic, works without a DOM.
 // The render layer is responsible for actually drawing; this system tracks layout.
 
-import type { ImageLoader } from '@emptysock/types';
+import type { ImageLoader, IUIRenderer } from '@emptysock/types';
 
 export type UIAnchor =
   | 'top-left' | 'top-center' | 'top-right'
@@ -249,7 +249,7 @@ export class UIComponent {
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+function roundRect(ctx: IUIRenderer, x: number, y: number, w: number, h: number, r: number): void {
   if (r <= 0) {
     ctx.rect(x, y, w, h);
     return;
@@ -370,14 +370,14 @@ class UISystemImpl {
   }
 
   /** Draw all root UI components and their children to the given canvas context. */
-  render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
+  render(ctx: IUIRenderer, canvasWidth: number, canvasHeight: number): void {
     for (const root of this._roots) {
       this._renderComponent(ctx, root, canvasWidth, canvasHeight);
     }
   }
 
   private _renderComponent(
-    ctx: CanvasRenderingContext2D,
+    ctx: IUIRenderer,
     comp: UIComponent,
     cw: number,
     ch: number

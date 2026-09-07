@@ -133,3 +133,43 @@ export type EngineConfig = z.infer<typeof EngineConfigSchema>;
 export interface ImageLoader {
   load(src: string): Promise<string | ImageBitmap>;
 }
+
+// ─── IUIRenderer ─────────────────────────────────────────────────────────────
+
+/**
+ * Minimal drawing-context interface accepted by UISystem.render().
+ *
+ * Uses only primitives — no DOM types. CanvasRenderingContext2D structurally
+ * satisfies this interface, so existing callers that pass a canvas context
+ * require no changes.
+ */
+export interface IUIRenderer {
+  /** Colour or style used by fill operations. Accepts any string colour value. */
+  fillStyle: string | object;
+  /** Colour or style used by stroke operations. Accepts any string colour value. */
+  strokeStyle: string | object;
+  lineWidth: number;
+  font: string;
+  textAlign: string;
+  textBaseline: string;
+  globalAlpha: number;
+
+  save(): void;
+  restore(): void;
+  beginPath(): void;
+  closePath(): void;
+  fill(): void;
+  stroke(): void;
+  rect(x: number, y: number, w: number, h: number): void;
+  /** Optional — present in modern canvas implementations. */
+  roundRect?(x: number, y: number, w: number, h: number, r: number | number[]): void;
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  arcTo(x1: number, y1: number, x2: number, y2: number, r: number): void;
+  arc(x: number, y: number, r: number, startAngle: number, endAngle: number): void;
+  fillText(text: string, x: number, y: number): void;
+  /** Draw a pre-loaded image into the context at the given position and size. */
+  drawImage(image: object, dx: number, dy: number, dw: number, dh: number): void;
+  fillRect(x: number, y: number, w: number, h: number): void;
+  strokeRect(x: number, y: number, w: number, h: number): void;
+}

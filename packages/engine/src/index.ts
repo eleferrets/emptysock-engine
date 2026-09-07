@@ -153,6 +153,7 @@ export type {
   UIAnchor,
   UIAnimationType,
 } from "./systems/UISystem.js";
+export type { IUIRenderer } from "@emptysock/types";
 
 // Post-processing
 export { PostProcessSystem } from "./systems/PostProcessSystem.js";
