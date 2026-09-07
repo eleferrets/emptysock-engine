@@ -1,5 +1,5 @@
 import React from "react";
-import { useIDEStore } from "../store/ideStore";
+import { useTilemapStore } from "../store/tilemapStore";
 import { useHistory } from "../hooks/useHistory";
 
 type AutoTileRule = { mask: number; tileIndex: number };
@@ -21,8 +21,8 @@ interface AddState {
 export function AutoTileRulesModal(props: {
   onClose: () => void;
 }): React.ReactElement {
-  const storeRuleSets = useIDEStore((s) => s.autoTileRuleSets);
-  const setStoreRuleSets = useIDEStore((s) => s.setAutoTileRuleSets);
+  const storeRuleSets = useTilemapStore((s) => s.autoTileRuleSets);
+  const setStoreRuleSets = useTilemapStore((s) => s.setAutoTileRuleSets);
 
   const {
     state: ruleSets,

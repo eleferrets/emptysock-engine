@@ -14,6 +14,11 @@ import {
   useAudioStore,
   type AudioBus,
 } from "./audioStore";
+import {
+  useTilemapStore,
+  type TileLayer,
+  type AutoTileRule,
+} from "./tilemapStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -82,13 +87,6 @@ export interface RecentFile {
 export type PlayState = "stopped" | "playing" | "paused";
 export type ActiveTab = "code" | "canvas" | "scene";
 export type BottomTab = "console" | "assets";
-
-// ── Tilemap editor ───────────────────────────────────────────────────────────
-export interface TileLayer {
-  id: string;
-  name: string;
-  data: Record<string, number>; // "col,row" -> tileIndex
-}
 
 interface TransformValues {
   x: string;
@@ -255,19 +253,9 @@ interface IDEState {
   setRecentAssetIds: (ids: string[]) => void;
   setRoomOrder: (ids: string[]) => void;
 
-  // TilemapEditor persistent state
-  tilemapLayers: TileLayer[];
-  tilemapActiveLayer: string;
-  setTilemapLayers: (layers: TileLayer[]) => void;
-  setTilemapActiveLayer: (id: string) => void;
-
   // Story Graph node cache (shared with VN Preview)
   vnNodes: VnNode[];
   setVNNodes: (nodes: VnNode[]) => void;
-
-  // Auto-tile rule sets per tileset (baseTileIndex → serialised rules)
-  autoTileRuleSets: Record<string, AutoTileRule[]>;
-  setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => void;
 
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
@@ -476,19 +464,9 @@ const INITIAL_ASSETS: AssetItem[] = [
   },
 ];
 
-// ── Tilemap initial data ─────────────────────────────────────────────────────
-const INITIAL_TILEMAP_LAYERS: TileLayer[] = [
-  { id: "layer-0", name: "Ground", data: {} },
-  { id: "layer-1", name: "Objects", data: {} },
-];
-
-// ── VN / auto-tile types ─────────────────────────────────────────────────────
+// ── VN types ─────────────────────────────────────────────────────────────────
 export interface VnNode {
   id: string;
-  [key: string]: unknown;
-}
-
-export interface AutoTileRule {
   [key: string]: unknown;
 }
 
@@ -542,10 +520,7 @@ function initialProjectState() {
     recentAssetIds: [] as string[],
     roomOrder: [] as string[],
     enabledModules: DEFAULT_ENABLED_MODULES,
-    tilemapLayers: [] as TileLayer[],
-    tilemapActiveLayer: "layer-0",
     vnNodes: [] as VnNode[],
-    autoTileRuleSets: {} as Record<string, AutoTileRule[]>,
     editorGridSize: 32,
     editorShowGrid: true,
     editorShowRuler: true,
@@ -667,14 +642,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   openImageEditorRequest: null,
 
   // TilemapEditor persistent state
-  tilemapLayers: INITIAL_TILEMAP_LAYERS,
-  tilemapActiveLayer: "layer-0",
-
   // Story Graph node cache
   vnNodes: [],
-
-  // Auto-tile rule sets
-  autoTileRuleSets: {},
 
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
@@ -867,11 +836,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
-  setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
-  setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
-
   setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
-  setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => set({ autoTileRuleSets: ruleSets }),
 
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
@@ -1046,6 +1011,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const loc = useLocalisationStore.getState();
     const vars = useVariableStore.getState();
     const audio = useAudioStore.getState();
+    const tilemap = useTilemapStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1053,8 +1019,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         assets: s.assets,
         enabledModules: s.enabledModules,
         audioBuses: audio.audioBuses,
-        tilemapLayers: s.tilemapLayers,
-        tilemapActiveLayer: s.tilemapActiveLayer,
+        tilemapLayers: tilemap.tilemapLayers,
+        tilemapActiveLayer: tilemap.tilemapActiveLayer,
         sequenceTracks: seq.sequenceTracks,
         sequenceDuration: seq.sequenceDuration,
         localisationTranslations: loc.localisationTranslations,
@@ -1065,7 +1031,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         variableStoreSwitchNames: vars.variableStoreSwitchNames,
         windowConfig: s.windowConfig,
         vnNodes: s.vnNodes,
-        autoTileRuleSets: s.autoTileRuleSets,
+        autoTileRuleSets: tilemap.autoTileRuleSets,
         dbActors: db.dbActors,
         dbClasses: db.dbClasses,
         dbItems: db.dbItems,
@@ -1116,10 +1082,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       recentAssetIds: [],
       roomOrder: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
-      tilemapLayers: [],
-      tilemapActiveLayer: "layer-0",
       vnNodes: [],
-      autoTileRuleSets: {},
       editorGridSize: 32,
       editorShowGrid: true,
       editorShowRuler: true,
@@ -1136,6 +1099,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useLocalisationStore.getState().resetLocalisationStore();
     useVariableStore.getState().resetVariableStore();
     useAudioStore.getState().resetAudioStore();
+    useTilemapStore.getState().resetTilemapStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1159,10 +1123,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               .setAudioBuses(proj["audioBuses"] as AudioBus[]);
           }
           if (Array.isArray(proj["tilemapLayers"])) {
-            updates.tilemapLayers = proj["tilemapLayers"] as TileLayer[];
+            useTilemapStore
+              .getState()
+              .setTilemapLayers(proj["tilemapLayers"] as TileLayer[]);
           }
           if (typeof proj["tilemapActiveLayer"] === "string") {
-            updates.tilemapActiveLayer = proj["tilemapActiveLayer"];
+            useTilemapStore
+              .getState()
+              .setTilemapActiveLayer(proj["tilemapActiveLayer"]);
           }
           if (Array.isArray(proj["sequenceTracks"])) {
             useSequenceStore.getState().setSequenceTracks(
@@ -1245,10 +1213,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             proj["autoTileRuleSets"] !== null &&
             typeof proj["autoTileRuleSets"] === "object"
           ) {
-            updates.autoTileRuleSets = proj["autoTileRuleSets"] as Record<
-              string,
-              AutoTileRule[]
-            >;
+            useTilemapStore.getState().setAutoTileRuleSets(
+              proj["autoTileRuleSets"] as Record<string, AutoTileRule[]>,
+            );
           }
           if (Array.isArray(proj["dbActors"]))
             useDBStore.getState().setDBActors(proj["dbActors"] as DbEntry[]);
