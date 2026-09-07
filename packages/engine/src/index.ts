@@ -115,6 +115,7 @@ export type { UpdatableSystem } from "./core/SystemManager.js";
 // SceneManager
 export { SceneManagerInstance as SceneManager } from "./core/SceneManager.js";
 export type {
+  TransitionEffect,
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
@@ -161,7 +162,6 @@ export type {
   ActiveEffect,
   FlashOptions,
   FadeOptions,
-  TransitionEffect as PostTransitionEffect,
   LayerFilterType,
   LayerFilterOptions,
   LayerFilter,
