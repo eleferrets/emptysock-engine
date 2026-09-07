@@ -651,6 +651,29 @@ const INITIAL_LOCALISATION_TRANSLATIONS: LocalisationTranslations = {
   "hud.health": { en: "Health", fr: "Santé", de: "Gesundheit", ja: "体力" },
 };
 
+// ── Entity tree helpers ──────────────────────────────────────────────────────
+function findInTree(
+  items: EntityItem[],
+  predicate: (e: EntityItem) => boolean,
+): EntityItem | null {
+  for (const e of items) {
+    if (predicate(e)) return e;
+    const found = findInTree(e.children, predicate);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+function mapTree(
+  items: EntityItem[],
+  transform: (e: EntityItem) => EntityItem,
+): EntityItem[] {
+  return items.map((e) => {
+    const t = transform(e);
+    return { ...t, children: mapTree(t.children, transform) };
+  });
+}
+
 let logCounter = 0;
 
 // ── Debug command bus ────────────────────────────────────────────────────────
@@ -838,16 +861,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       return;
     }
     const { entities } = get();
-    function findEntity(list: EntityItem[]): EntityItem | undefined {
-      for (const e of list) {
-        if (e.id === id) return e;
-        const found = findEntity(e.children);
-        if (found !== undefined) return found;
-      }
-      return undefined;
-    }
-    const entity = findEntity(entities);
-    if (entity === undefined) return;
+    const entity = findInTree(entities, (e) => e.id === id);
+    if (entity === null) return;
     // Preserve existing transform if this entity is already selected (avoid clobbering edits)
     const existing = get().selectedEntity;
     const existingTransform =
@@ -1149,27 +1164,23 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       if (parentId === undefined) {
         return { entities: [...s.entities, newEntity] };
       }
-      function insertChild(list: EntityItem[]): EntityItem[] {
-        return list.map((e) => {
-          if (e.id === parentId) {
-            return { ...e, children: [...e.children, newEntity] };
-          }
-          return { ...e, children: insertChild(e.children) };
-        });
-      }
-      return { entities: insertChild(s.entities) };
+      return {
+        entities: mapTree(s.entities, (e) =>
+          e.id === parentId
+            ? { ...e, children: [...e.children, newEntity] }
+            : e,
+        ),
+      };
     });
     get().addLog("info", `Entity "${name}" created`, "IDE");
   },
 
   deleteEntity: (id) => {
     set((s) => {
-      function removeEntity(list: EntityItem[]): EntityItem[] {
-        return list
-          .filter((e) => e.id !== id)
-          .map((e) => ({ ...e, children: removeEntity(e.children) }));
-      }
-      const next = removeEntity(s.entities);
+      const next = mapTree(
+        s.entities.filter((e) => e.id !== id),
+        (e) => ({ ...e, children: e.children.filter((c) => c.id !== id) }),
+      );
       return {
         entities: next,
         selectedEntityId: s.selectedEntityId === id ? null : s.selectedEntityId,
@@ -1181,14 +1192,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   renameEntity: (id, name) => {
     set((s) => {
-      function rename(list: EntityItem[]): EntityItem[] {
-        return list.map((e) => {
-          if (e.id === id) return { ...e, name };
-          return { ...e, children: rename(e.children) };
-        });
-      }
       return {
-        entities: rename(s.entities),
+        entities: mapTree(s.entities, (e) => (e.id === id ? { ...e, name } : e)),
         selectedEntity:
           s.selectedEntity?.id === id
             ? { ...s.selectedEntity, name }
@@ -1198,28 +1203,20 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   },
 
   toggleEntityActive: (id) => {
-    set((s) => {
-      function toggle(list: EntityItem[]): EntityItem[] {
-        return list.map((e) => {
-          if (e.id === id) return { ...e, active: !e.active };
-          return { ...e, children: toggle(e.children) };
-        });
-      }
-      return { entities: toggle(s.entities) };
-    });
+    set((s) => ({
+      entities: mapTree(s.entities, (e) =>
+        e.id === id ? { ...e, active: !e.active } : e,
+      ),
+    }));
   },
 
   addComponentToEntity: (entityId, componentType) => {
     set((s) => {
-      function addComp(list: EntityItem[]): EntityItem[] {
-        return list.map((e) => {
-          if (e.id === entityId && !e.components.includes(componentType)) {
-            return { ...e, components: [...e.components, componentType] };
-          }
-          return { ...e, children: addComp(e.children) };
-        });
-      }
-      const newEntities = addComp(s.entities);
+      const newEntities = mapTree(s.entities, (e) =>
+        e.id === entityId && !e.components.includes(componentType)
+          ? { ...e, components: [...e.components, componentType] }
+          : e,
+      );
       const newComponent = {
         type: componentType,
         enabled: true,
@@ -1245,19 +1242,12 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   removeComponentFromEntity: (entityId, componentType) => {
     set((s) => {
-      function removeComp(list: EntityItem[]): EntityItem[] {
-        return list.map((e) => {
-          if (e.id === entityId) {
-            return {
-              ...e,
-              components: e.components.filter((c) => c !== componentType),
-            };
-          }
-          return { ...e, children: removeComp(e.children) };
-        });
-      }
       return {
-        entities: removeComp(s.entities),
+        entities: mapTree(s.entities, (e) =>
+          e.id === entityId
+            ? { ...e, components: e.components.filter((c) => c !== componentType) }
+            : e,
+        ),
         selectedEntity:
           s.selectedEntity?.id === entityId
             ? {
