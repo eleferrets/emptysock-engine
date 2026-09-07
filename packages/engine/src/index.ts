@@ -141,7 +141,7 @@ export type {
 } from "./systems/ParticleSystem.js";
 
 // Tweens & Timers
-export { Tween, Timer } from "./systems/TweenSystem.js";
+export { TweenManager } from "./systems/TweenSystem.js";
 export type { TweenOptions, EasingName } from "./systems/TweenSystem.js";
 
 // UI

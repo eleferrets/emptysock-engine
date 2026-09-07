@@ -122,7 +122,7 @@ export interface FadeOptions {
   duration?: number;
 }
 
-class PostProcessSystemImpl {
+export class PostProcessSystem {
   private readonly _effects: ActiveEffect[] = [];
   private readonly _layerFilters: Map<string, LayerFilterOptions> = new Map();
 
@@ -282,6 +282,10 @@ class PostProcessSystemImpl {
     this.transitionEffect = "none";
     this.transitionProgress = 0;
   }
-}
 
-export const PostProcessSystem = new PostProcessSystemImpl();
+  destroy(): void {
+    this.clear();
+    this._layerFilters.clear();
+    this._flashElapsed = -1;
+  }
+}

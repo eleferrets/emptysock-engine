@@ -216,9 +216,9 @@ export class ParticleEmitter {
   }
 }
 
-// ─── System singleton ─────────────────────────────────────────────────────────
+// ─── System ───────────────────────────────────────────────────────────────────
 
-class ParticleSystemImpl {
+export class ParticleSystem {
   private readonly _emitters: ParticleEmitter[] = [];
 
   create(options: ParticleEmitterOptions = {}): ParticleEmitter {
@@ -227,7 +227,7 @@ class ParticleSystemImpl {
     return emitter;
   }
 
-  destroy(emitter: ParticleEmitter): void {
+  remove(emitter: ParticleEmitter): void {
     const idx = this._emitters.indexOf(emitter);
     if (idx !== -1) {
       emitter.clear();
@@ -248,6 +248,8 @@ class ParticleSystemImpl {
   clear(): void {
     this._emitters.length = 0;
   }
-}
 
-export const ParticleSystem = new ParticleSystemImpl();
+  destroy(): void {
+    this.clear();
+  }
+}
