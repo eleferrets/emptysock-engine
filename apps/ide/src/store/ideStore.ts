@@ -6,6 +6,10 @@ import {
   useLocalisationStore,
   type LocalisationTranslations,
 } from "./localisationStore";
+import {
+  useVariableStore,
+  type VariableStoreSnapshot,
+} from "./variableStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -311,16 +315,6 @@ interface IDEState {
   setTilemapLayers: (layers: TileLayer[]) => void;
   setTilemapActiveLayer: (id: string) => void;
 
-  // VariableStore persistent state
-  variableStoreVars: Record<number, number>;
-  variableStoreSwitches: Record<number, boolean>;
-  variableStoreVarNames: Record<number, string>;
-  variableStoreSwitchNames: Record<number, string>;
-  setVar: (index: number, value: number) => void;
-  setSwitch: (index: number, value: boolean) => void;
-  setVarName: (index: number, name: string) => void;
-  setSwitchName: (index: number, name: string) => void;
-
   // Story Graph node cache (shared with VN Preview)
   vnNodes: VnNode[];
   setVNNodes: (nodes: VnNode[]) => void;
@@ -605,10 +599,6 @@ function initialProjectState() {
     audioBuses: INITIAL_AUDIO_BUSES,
     tilemapLayers: [] as TileLayer[],
     tilemapActiveLayer: "layer-0",
-    variableStoreVars: {} as Record<number, number>,
-    variableStoreSwitches: {} as Record<number, boolean>,
-    variableStoreVarNames: {} as Record<number, string>,
-    variableStoreSwitchNames: {} as Record<number, string>,
     vnNodes: [] as VnNode[],
     autoTileRuleSets: {} as Record<string, AutoTileRule[]>,
     editorGridSize: 32,
@@ -737,12 +727,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // TilemapEditor persistent state
   tilemapLayers: INITIAL_TILEMAP_LAYERS,
   tilemapActiveLayer: "layer-0",
-
-  // VariableStore persistent state
-  variableStoreVars: {},
-  variableStoreSwitches: {},
-  variableStoreVarNames: {},
-  variableStoreSwitchNames: {},
 
   // Story Graph node cache
   vnNodes: [],
@@ -965,26 +949,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
   setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
 
-  setVar: (index, value) =>
-    set((s) => ({
-      variableStoreVars: { ...s.variableStoreVars, [index]: Math.floor(value) },
-    })),
-  setSwitch: (index, value) =>
-    set((s) => ({
-      variableStoreSwitches: { ...s.variableStoreSwitches, [index]: value },
-    })),
-  setVarName: (index, name) =>
-    set((s) => ({
-      variableStoreVarNames: { ...s.variableStoreVarNames, [index]: name },
-    })),
-  setSwitchName: (index, name) =>
-    set((s) => ({
-      variableStoreSwitchNames: {
-        ...s.variableStoreSwitchNames,
-        [index]: name,
-      },
-    })),
-
   setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
   setAutoTileRuleSets: (ruleSets: Record<string, AutoTileRule[]>) => set({ autoTileRuleSets: ruleSets }),
 
@@ -1024,6 +988,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useDBStore.getState().resetDBStore();
     useSequenceStore.getState().resetSequenceStore();
     useLocalisationStore.getState().resetLocalisationStore();
+    useVariableStore.getState().resetVariableStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1157,6 +1122,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const db = useDBStore.getState();
     const seq = useSequenceStore.getState();
     const loc = useLocalisationStore.getState();
+    const vars = useVariableStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1170,10 +1136,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         sequenceDuration: seq.sequenceDuration,
         localisationTranslations: loc.localisationTranslations,
         localisationLocales: loc.localisationLocales,
-        variableStoreVars: s.variableStoreVars,
-        variableStoreSwitches: s.variableStoreSwitches,
-        variableStoreVarNames: s.variableStoreVarNames,
-        variableStoreSwitchNames: s.variableStoreSwitchNames,
+        variableStoreVars: vars.variableStoreVars,
+        variableStoreSwitches: vars.variableStoreSwitches,
+        variableStoreVarNames: vars.variableStoreVarNames,
+        variableStoreSwitchNames: vars.variableStoreSwitchNames,
         windowConfig: s.windowConfig,
         vnNodes: s.vnNodes,
         autoTileRuleSets: s.autoTileRuleSets,
@@ -1230,10 +1196,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
-      variableStoreVars: {},
-      variableStoreSwitches: {},
-      variableStoreVarNames: {},
-      variableStoreSwitchNames: {},
       vnNodes: [],
       autoTileRuleSets: {},
       editorGridSize: 32,
@@ -1250,6 +1212,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useDBStore.getState().resetDBStore();
     useSequenceStore.getState().resetSequenceStore();
     useLocalisationStore.getState().resetLocalisationStore();
+    useVariableStore.getState().resetVariableStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1297,38 +1260,49 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               proj["localisationLocales"] as string[],
             );
           }
-          if (
-            proj["variableStoreVars"] !== null &&
-            typeof proj["variableStoreVars"] === "object"
-          ) {
-            updates.variableStoreVars = proj["variableStoreVars"] as Record<
-              number,
-              number
-            >;
-          }
-          if (
-            proj["variableStoreSwitches"] !== null &&
-            typeof proj["variableStoreSwitches"] === "object"
-          ) {
-            updates.variableStoreSwitches = proj[
-              "variableStoreSwitches"
-            ] as Record<number, boolean>;
-          }
-          if (
-            proj["variableStoreVarNames"] !== null &&
-            typeof proj["variableStoreVarNames"] === "object"
-          ) {
-            updates.variableStoreVarNames = proj[
-              "variableStoreVarNames"
-            ] as Record<number, string>;
-          }
-          if (
-            proj["variableStoreSwitchNames"] !== null &&
-            typeof proj["variableStoreSwitchNames"] === "object"
-          ) {
-            updates.variableStoreSwitchNames = proj[
-              "variableStoreSwitchNames"
-            ] as Record<number, string>;
+          {
+            const snapshot: Partial<VariableStoreSnapshot> = {};
+            if (
+              proj["variableStoreVars"] !== null &&
+              typeof proj["variableStoreVars"] === "object"
+            ) {
+              snapshot.variableStoreVars = proj[
+                "variableStoreVars"
+              ] as Record<number, number>;
+            }
+            if (
+              proj["variableStoreSwitches"] !== null &&
+              typeof proj["variableStoreSwitches"] === "object"
+            ) {
+              snapshot.variableStoreSwitches = proj[
+                "variableStoreSwitches"
+              ] as Record<number, boolean>;
+            }
+            if (
+              proj["variableStoreVarNames"] !== null &&
+              typeof proj["variableStoreVarNames"] === "object"
+            ) {
+              snapshot.variableStoreVarNames = proj[
+                "variableStoreVarNames"
+              ] as Record<number, string>;
+            }
+            if (
+              proj["variableStoreSwitchNames"] !== null &&
+              typeof proj["variableStoreSwitchNames"] === "object"
+            ) {
+              snapshot.variableStoreSwitchNames = proj[
+                "variableStoreSwitchNames"
+              ] as Record<number, string>;
+            }
+            if (Object.keys(snapshot).length > 0) {
+              useVariableStore.getState().hydrateVariableStore({
+                variableStoreVars: {},
+                variableStoreSwitches: {},
+                variableStoreVarNames: {},
+                variableStoreSwitchNames: {},
+                ...snapshot,
+              });
+            }
           }
           if (
             proj["windowConfig"] !== null &&

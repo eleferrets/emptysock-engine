@@ -1,5 +1,5 @@
 import React from "react";
-import { useIDEStore } from "../../store/ideStore";
+import { useVariableStore } from "../../store/variableStore";
 import { useHistory } from "../../hooks/useHistory";
 
 type PanelTab = "variables" | "switches";
@@ -14,14 +14,14 @@ interface VarsState {
 export function VariablesPanel(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState<PanelTab>("variables");
 
-  const storeVars = useIDEStore((s) => s.variableStoreVars);
-  const storeSwitches = useIDEStore((s) => s.variableStoreSwitches);
-  const storeVarNames = useIDEStore((s) => s.variableStoreVarNames);
-  const storeSwitchNames = useIDEStore((s) => s.variableStoreSwitchNames);
-  const storeSetVar = useIDEStore((s) => s.setVar);
-  const storeSetSwitch = useIDEStore((s) => s.setSwitch);
-  const storeSetVarName = useIDEStore((s) => s.setVarName);
-  const storeSetSwitchName = useIDEStore((s) => s.setSwitchName);
+  const storeVars = useVariableStore((s) => s.variableStoreVars);
+  const storeSwitches = useVariableStore((s) => s.variableStoreSwitches);
+  const storeVarNames = useVariableStore((s) => s.variableStoreVarNames);
+  const storeSwitchNames = useVariableStore((s) => s.variableStoreSwitchNames);
+  const storeSetVar = useVariableStore((s) => s.setVar);
+  const storeSetSwitch = useVariableStore((s) => s.setSwitch);
+  const storeSetVarName = useVariableStore((s) => s.setVarName);
+  const storeSetSwitchName = useVariableStore((s) => s.setSwitchName);
 
   const {
     state: vsState,
