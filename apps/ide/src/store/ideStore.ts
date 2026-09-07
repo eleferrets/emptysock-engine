@@ -10,6 +10,10 @@ import {
   useVariableStore,
   type VariableStoreSnapshot,
 } from "./variableStore";
+import {
+  useAudioStore,
+  type AudioBus,
+} from "./audioStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -78,59 +82,6 @@ export interface RecentFile {
 export type PlayState = "stopped" | "playing" | "paused";
 export type ActiveTab = "code" | "canvas" | "scene";
 export type BottomTab = "console" | "assets";
-
-// ── Audio Mixer ──────────────────────────────────────────────────────────────
-export interface AudioBus {
-  id: string;
-  label: string;
-  volume: number;
-  muted: boolean;
-  solo: boolean;
-  color: string;
-}
-
-const INITIAL_AUDIO_BUSES: AudioBus[] = [
-  {
-    id: "master",
-    label: "Master",
-    volume: 80,
-    muted: false,
-    solo: false,
-    color: "#a78bfa",
-  },
-  {
-    id: "music",
-    label: "Music",
-    volume: 70,
-    muted: false,
-    solo: false,
-    color: "#60a5fa",
-  },
-  {
-    id: "sfx",
-    label: "SFX",
-    volume: 90,
-    muted: false,
-    solo: false,
-    color: "#4ade80",
-  },
-  {
-    id: "voice",
-    label: "Voice",
-    volume: 100,
-    muted: false,
-    solo: false,
-    color: "#fbbf24",
-  },
-  {
-    id: "ambient",
-    label: "Ambient",
-    volume: 50,
-    muted: false,
-    solo: false,
-    color: "#f87171",
-  },
-];
 
 // ── Tilemap editor ───────────────────────────────────────────────────────────
 export interface TileLayer {
@@ -303,11 +254,6 @@ interface IDEState {
   deleteAsset: (id: string) => void;
   setRecentAssetIds: (ids: string[]) => void;
   setRoomOrder: (ids: string[]) => void;
-
-  // AudioMixer persistent state
-  audioBuses: AudioBus[];
-  setAudioBus: (id: string, patch: Partial<Omit<AudioBus, "id">>) => void;
-  addAudioBus: () => void;
 
   // TilemapEditor persistent state
   tilemapLayers: TileLayer[];
@@ -596,7 +542,6 @@ function initialProjectState() {
     recentAssetIds: [] as string[],
     roomOrder: [] as string[],
     enabledModules: DEFAULT_ENABLED_MODULES,
-    audioBuses: INITIAL_AUDIO_BUSES,
     tilemapLayers: [] as TileLayer[],
     tilemapActiveLayer: "layer-0",
     vnNodes: [] as VnNode[],
@@ -720,9 +665,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Image editor
   dropImportFolder: 'root' as const,
   openImageEditorRequest: null,
-
-  // AudioMixer persistent state
-  audioBuses: INITIAL_AUDIO_BUSES,
 
   // TilemapEditor persistent state
   tilemapLayers: INITIAL_TILEMAP_LAYERS,
@@ -925,27 +867,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
-  setAudioBus: (id, patch) =>
-    set((s) => ({
-      audioBuses: s.audioBuses.map((b) =>
-        b.id === id ? { ...b, ...patch } : b,
-      ),
-    })),
-  addAudioBus: () =>
-    set((s) => ({
-      audioBuses: [
-        ...s.audioBuses,
-        {
-          id: `bus-${Date.now()}`,
-          label: "Bus",
-          volume: 80,
-          muted: false,
-          solo: false,
-          color: "#94a3b8",
-        },
-      ],
-    })),
-
   setTilemapLayers: (layers) => set({ tilemapLayers: layers }),
   setTilemapActiveLayer: (id) => set({ tilemapActiveLayer: id }),
 
@@ -989,6 +910,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useSequenceStore.getState().resetSequenceStore();
     useLocalisationStore.getState().resetLocalisationStore();
     useVariableStore.getState().resetVariableStore();
+    useAudioStore.getState().resetAudioStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1123,13 +1045,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const seq = useSequenceStore.getState();
     const loc = useLocalisationStore.getState();
     const vars = useVariableStore.getState();
+    const audio = useAudioStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
         entities: s.entities,
         assets: s.assets,
         enabledModules: s.enabledModules,
-        audioBuses: s.audioBuses,
+        audioBuses: audio.audioBuses,
         tilemapLayers: s.tilemapLayers,
         tilemapActiveLayer: s.tilemapActiveLayer,
         sequenceTracks: seq.sequenceTracks,
@@ -1193,7 +1116,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       recentAssetIds: [],
       roomOrder: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
-      audioBuses: INITIAL_AUDIO_BUSES,
       tilemapLayers: [],
       tilemapActiveLayer: "layer-0",
       vnNodes: [],
@@ -1213,6 +1135,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useSequenceStore.getState().resetSequenceStore();
     useLocalisationStore.getState().resetLocalisationStore();
     useVariableStore.getState().resetVariableStore();
+    useAudioStore.getState().resetAudioStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1231,7 +1154,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             updates.enabledModules = proj["enabledModules"] as string[];
           }
           if (Array.isArray(proj["audioBuses"])) {
-            updates.audioBuses = proj["audioBuses"] as AudioBus[];
+            useAudioStore
+              .getState()
+              .setAudioBuses(proj["audioBuses"] as AudioBus[]);
           }
           if (Array.isArray(proj["tilemapLayers"])) {
             updates.tilemapLayers = proj["tilemapLayers"] as TileLayer[];

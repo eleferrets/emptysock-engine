@@ -1,12 +1,12 @@
 import React from "react";
 import { audioMixerService } from "../../services/AudioMixerService";
-import { useIDEStore } from "../../store/ideStore";
-import type { AudioBus } from "../../store/ideStore";
+import { useAudioStore } from "../../store/audioStore";
+import type { AudioBus } from "../../store/audioStore";
 
 export function AudioMixer(): React.ReactElement {
-  const buses = useIDEStore((s) => s.audioBuses);
-  const setAudioBus = useIDEStore((s) => s.setAudioBus);
-  const addAudioBus = useIDEStore((s) => s.addAudioBus);
+  const buses = useAudioStore((s) => s.audioBuses);
+  const setAudioBus = useAudioStore((s) => s.setAudioBus);
+  const addAudioBus = useAudioStore((s) => s.addAudioBus);
 
   const update = (id: string, patch: Partial<Omit<AudioBus, "id">>): void => {
     setAudioBus(id, patch);
@@ -20,7 +20,7 @@ export function AudioMixer(): React.ReactElement {
       audioMixerService.setSolo(id, patch.solo);
     }
     if (patch.volume !== undefined || patch.muted !== undefined) {
-      const updatedBus = useIDEStore
+      const updatedBus = useAudioStore
         .getState()
         .audioBuses.find((b) => b.id === id);
       if (updatedBus !== undefined) {
