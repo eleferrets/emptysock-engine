@@ -218,15 +218,24 @@ export class UIComponent {
 
   /** Resolved screen-space top-left based on canvas size and anchor. */
   resolvedPosition(canvasWidth: number, canvasHeight: number): { x: number; y: number } {
-    let ox = this.x;
-    let oy = this.y;
-    if (this.anchor.includes('center') || this.anchor.includes('middle')) {
-      if (this.anchor.includes('center')) ox = canvasWidth / 2 + this.x - this.width / 2;
-      if (this.anchor.includes('right')) ox = canvasWidth - this.width - this.x;
-      if (this.anchor.includes('middle')) oy = canvasHeight / 2 + this.y - this.height / 2;
+    let ox: number;
+    if (this.anchor.includes('right')) {
+      ox = canvasWidth - this.width - this.x;
+    } else if (this.anchor.includes('center')) {
+      ox = canvasWidth / 2 + this.x - this.width / 2;
+    } else {
+      ox = this.x;
     }
-    if (this.anchor.includes('right') && !this.anchor.includes('center')) ox = canvasWidth - this.width - this.x;
-    if (this.anchor.includes('bottom')) oy = canvasHeight - this.height - this.y;
+
+    let oy: number;
+    if (this.anchor.includes('bottom')) {
+      oy = canvasHeight - this.height - this.y;
+    } else if (this.anchor.includes('middle')) {
+      oy = canvasHeight / 2 + this.y - this.height / 2;
+    } else {
+      oy = this.y;
+    }
+
     return { x: ox, y: oy };
   }
 
