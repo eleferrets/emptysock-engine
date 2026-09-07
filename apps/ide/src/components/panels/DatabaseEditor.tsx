@@ -1,5 +1,5 @@
 import React from "react";
-import { useIDEStore } from "../../store/ideStore";
+import { useDBStore } from "../../store/dbStore";
 import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -107,14 +107,14 @@ interface DBState {
 }
 
 export function DatabaseEditor(): React.ReactElement {
-  const storeActors = useIDEStore((s) => s.dbActors);
-  const storeClasses = useIDEStore((s) => s.dbClasses);
-  const storeItems = useIDEStore((s) => s.dbItems);
-  const storeEnemies = useIDEStore((s) => s.dbEnemies);
-  const setStoreActors = useIDEStore((s) => s.setDBActors);
-  const setStoreClasses = useIDEStore((s) => s.setDBClasses);
-  const setStoreItems = useIDEStore((s) => s.setDBItems);
-  const setStoreEnemies = useIDEStore((s) => s.setDBEnemies);
+  const storeActors = useDBStore((s) => s.dbActors);
+  const storeClasses = useDBStore((s) => s.dbClasses);
+  const storeItems = useDBStore((s) => s.dbItems);
+  const storeEnemies = useDBStore((s) => s.dbEnemies);
+  const setStoreActors = useDBStore((s) => s.setDBActors);
+  const setStoreClasses = useDBStore((s) => s.setDBClasses);
+  const setStoreItems = useDBStore((s) => s.setDBItems);
+  const setStoreEnemies = useDBStore((s) => s.setDBEnemies);
 
   const {
     state: dbState,

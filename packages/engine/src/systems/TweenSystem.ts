@@ -75,7 +75,7 @@ interface TweenState {
   done: boolean;
 }
 
-class TweenManager {
+export class TweenManager {
   private readonly _tweens: TweenState[] = [];
   private readonly _timers: Array<{
     elapsed: number;
@@ -177,10 +177,8 @@ class TweenManager {
     this._tweens.length = 0;
     this._timers.length = 0;
   }
-}
 
-export const Tween = new TweenManager();
-export const Timer = {
-  after: (seconds: number, fn: () => void) => Tween.after(seconds, fn),
-  every: (seconds: number, fn: () => void) => Tween.every(seconds, fn),
-};
+  destroy(): void {
+    this.killAll();
+  }
+}

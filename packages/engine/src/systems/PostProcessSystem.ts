@@ -1,6 +1,8 @@
 // Post-processing effect registry — framework-agnostic.
 // The RenderSystem/PixiJS layer reads this to apply PixiJS filters.
 
+import type { TransitionEffect } from "../core/SceneManager.js";
+
 // ─── Per-layer filter types ───────────────────────────────────────────────────
 
 export type LayerFilterType =
@@ -108,15 +110,7 @@ export interface ActiveEffect {
   lifetime?: number;
 }
 
-export type TransitionEffect =
-  | "fade"
-  | "wipe"
-  | "iris"
-  | "slide"
-  | "zoom"
-  | "dissolve"
-  | "flash"
-  | "none";
+export type { TransitionEffect };
 
 export interface FlashOptions {
   colour?: number;
@@ -128,7 +122,7 @@ export interface FadeOptions {
   duration?: number;
 }
 
-class PostProcessSystemImpl {
+export class PostProcessSystem {
   private readonly _effects: ActiveEffect[] = [];
   private readonly _layerFilters: Map<string, LayerFilterOptions> = new Map();
 
@@ -288,6 +282,10 @@ class PostProcessSystemImpl {
     this.transitionEffect = "none";
     this.transitionProgress = 0;
   }
-}
 
-export const PostProcessSystem = new PostProcessSystemImpl();
+  destroy(): void {
+    this.clear();
+    this._layerFilters.clear();
+    this._flashElapsed = -1;
+  }
+}

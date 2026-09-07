@@ -77,6 +77,9 @@ export class ParticleEmitter {
   public readonly options: Required<ParticleEmitterOptions>;
   private readonly _particles: Particle[] = [];
   private _accumulator: number = 0;
+  private _activeCount: number = 0;
+  /** Cycles through the pool so each spawn starts near the last freed slot. */
+  private _nextSlot: number = 0;
   public active: boolean = true;
 
   constructor(options: ParticleEmitterOptions = {}) {
@@ -108,7 +111,7 @@ export class ParticleEmitter {
   }
 
   private _spawnOne(): void {
-    if (this._particles.filter(p => p.active).length >= this.options.maxParticles) return;
+    if (this._activeCount >= this.options.maxParticles) return;
 
     const opts = this.options;
     const life = rng(opts.lifetime.min, opts.lifetime.max);
@@ -144,12 +147,25 @@ export class ParticleEmitter {
       active: true,
     };
 
-    const slot = this._particles.findIndex(p => !p.active);
+    // Cycling scan from _nextSlot for amortised O(1) slot lookup.
+    const len = this._particles.length;
+    let slot = -1;
+    for (let i = 0; i < len; i++) {
+      const idx = (this._nextSlot + i) % len;
+      const candidate = this._particles[idx];
+      if (candidate !== undefined && !candidate.active) {
+        slot = idx;
+        break;
+      }
+    }
     if (slot !== -1) {
       this._particles[slot] = p;
     } else {
+      slot = this._particles.length;
       this._particles.push(p);
     }
+    this._nextSlot = (slot + 1) % this._particles.length;
+    this._activeCount++;
   }
 
   update(deltaTime: number): void {
@@ -165,7 +181,7 @@ export class ParticleEmitter {
     for (const p of this._particles) {
       if (!p.active) continue;
       p.life -= deltaTime;
-      if (p.life <= 0) { p.active = false; continue; }
+      if (p.life <= 0) { p.active = false; this._activeCount--; continue; }
 
       const t = 1 - p.life / p.maxLife;
       p.vx += p.ax * deltaTime;
@@ -185,7 +201,7 @@ export class ParticleEmitter {
   }
 
   get activeCount(): number {
-    return this._particles.filter(p => p.active).length;
+    return this._activeCount;
   }
 
   stop(): void {
@@ -195,12 +211,14 @@ export class ParticleEmitter {
   clear(): void {
     this._particles.length = 0;
     this._accumulator = 0;
+    this._activeCount = 0;
+    this._nextSlot = 0;
   }
 }
 
-// ─── System singleton ─────────────────────────────────────────────────────────
+// ─── System ───────────────────────────────────────────────────────────────────
 
-class ParticleSystemImpl {
+export class ParticleSystem {
   private readonly _emitters: ParticleEmitter[] = [];
 
   create(options: ParticleEmitterOptions = {}): ParticleEmitter {
@@ -209,7 +227,7 @@ class ParticleSystemImpl {
     return emitter;
   }
 
-  destroy(emitter: ParticleEmitter): void {
+  remove(emitter: ParticleEmitter): void {
     const idx = this._emitters.indexOf(emitter);
     if (idx !== -1) {
       emitter.clear();
@@ -230,6 +248,8 @@ class ParticleSystemImpl {
   clear(): void {
     this._emitters.length = 0;
   }
-}
 
-export const ParticleSystem = new ParticleSystemImpl();
+  destroy(): void {
+    this.clear();
+  }
+}

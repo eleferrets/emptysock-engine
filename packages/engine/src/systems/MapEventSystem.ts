@@ -95,65 +95,45 @@ export class MapEventSystem {
     const state: RunningEvent = { event, commandIndex: 0, running: true };
     this._running = state;
     this._triggered.add(event.id);
-    this._executeNext(state);
+    this._executeCommandChain(state, () => {
+      if (event.trigger !== "parallel" && event.trigger !== "autorun") {
+        // allow re-triggering action-button / player-touch events
+        this._triggered.delete(event.id);
+      }
+    });
   }
 
   private _runParallelEvent(event: MapEvent): void {
     if (!this._handler || event.commands.length === 0) return;
     this._parallelRunning.add(event.id);
     const state: RunningEvent = { event, commandIndex: 0, running: true };
-    this._executeParallelNext(state);
+    this._executeCommandChain(state, () => {
+      this._parallelRunning.delete(event.id);
+    });
   }
 
-  private _executeParallelNext(state: RunningEvent): void {
+  private _executeCommandChain(state: RunningEvent, onDone: () => void): void {
     if (!this._handler) return;
     const { event } = state;
     if (state.commandIndex >= event.commands.length) {
       state.running = false;
-      this._parallelRunning.delete(event.id);
+      onDone();
       return;
     }
     const cmd = event.commands[state.commandIndex];
     if (cmd === undefined) {
       state.running = false;
-      this._parallelRunning.delete(event.id);
+      onDone();
       return;
     }
     state.commandIndex++;
     const result = this._handler(cmd);
     if (result instanceof Promise) {
       void result.then(() => {
-        this._executeParallelNext(state);
+        this._executeCommandChain(state, onDone);
       });
     } else {
-      this._executeParallelNext(state);
-    }
-  }
-
-  private _executeNext(state: RunningEvent): void {
-    if (!this._handler) return;
-    const { event } = state;
-    if (state.commandIndex >= event.commands.length) {
-      state.running = false;
-      if (event.trigger !== "parallel" && event.trigger !== "autorun") {
-        // allow re-triggering action-button / player-touch events
-        this._triggered.delete(event.id);
-      }
-      return;
-    }
-    const cmd = event.commands[state.commandIndex];
-    if (cmd === undefined) {
-      state.running = false;
-      return;
-    }
-    state.commandIndex++;
-    const result = this._handler(cmd);
-    if (result instanceof Promise) {
-      void result.then(() => {
-        this._executeNext(state);
-      });
-    } else {
-      this._executeNext(state);
+      this._executeCommandChain(state, onDone);
     }
   }
 

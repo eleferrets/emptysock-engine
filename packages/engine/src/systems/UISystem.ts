@@ -1,7 +1,7 @@
 // Minimal runtime UI system — framework-agnostic, works without a DOM.
 // The render layer is responsible for actually drawing; this system tracks layout.
 
-import type { ImageLoader } from '@emptysock/types';
+import type { ImageLoader, IUIRenderer } from '@emptysock/types';
 
 export type UIAnchor =
   | 'top-left' | 'top-center' | 'top-right'
@@ -218,15 +218,24 @@ export class UIComponent {
 
   /** Resolved screen-space top-left based on canvas size and anchor. */
   resolvedPosition(canvasWidth: number, canvasHeight: number): { x: number; y: number } {
-    let ox = this.x;
-    let oy = this.y;
-    if (this.anchor.includes('center') || this.anchor.includes('middle')) {
-      if (this.anchor.includes('center')) ox = canvasWidth / 2 + this.x - this.width / 2;
-      if (this.anchor.includes('right')) ox = canvasWidth - this.width - this.x;
-      if (this.anchor.includes('middle')) oy = canvasHeight / 2 + this.y - this.height / 2;
+    let ox: number;
+    if (this.anchor.includes('right')) {
+      ox = canvasWidth - this.width - this.x;
+    } else if (this.anchor.includes('center')) {
+      ox = canvasWidth / 2 + this.x - this.width / 2;
+    } else {
+      ox = this.x;
     }
-    if (this.anchor.includes('right') && !this.anchor.includes('center')) ox = canvasWidth - this.width - this.x;
-    if (this.anchor.includes('bottom')) oy = canvasHeight - this.height - this.y;
+
+    let oy: number;
+    if (this.anchor.includes('bottom')) {
+      oy = canvasHeight - this.height - this.y;
+    } else if (this.anchor.includes('middle')) {
+      oy = canvasHeight / 2 + this.y - this.height / 2;
+    } else {
+      oy = this.y;
+    }
+
     return { x: ox, y: oy };
   }
 
@@ -240,7 +249,7 @@ export class UIComponent {
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+function roundRect(ctx: IUIRenderer, x: number, y: number, w: number, h: number, r: number): void {
   if (r <= 0) {
     ctx.rect(x, y, w, h);
     return;
@@ -361,14 +370,14 @@ class UISystemImpl {
   }
 
   /** Draw all root UI components and their children to the given canvas context. */
-  render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
+  render(ctx: IUIRenderer, canvasWidth: number, canvasHeight: number): void {
     for (const root of this._roots) {
       this._renderComponent(ctx, root, canvasWidth, canvasHeight);
     }
   }
 
   private _renderComponent(
-    ctx: CanvasRenderingContext2D,
+    ctx: IUIRenderer,
     comp: UIComponent,
     cw: number,
     ch: number

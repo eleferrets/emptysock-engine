@@ -1,39 +1,47 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ParticleSystem } from '../systems/ParticleSystem.js';
 
-beforeEach(() => { ParticleSystem.clear(); });
+let ps: ParticleSystem;
+beforeEach(() => { ps = new ParticleSystem(); });
 
 describe('ParticleSystem', () => {
   it('creates an emitter and tracks it', () => {
-    const e = ParticleSystem.create({ emissionRate: 10, lifetime: { min: 1, max: 1 } });
-    expect(ParticleSystem.emitters).toContain(e);
+    const e = ps.create({ emissionRate: 10, lifetime: { min: 1, max: 1 } });
+    expect(ps.emitters).toContain(e);
   });
 
   it('burst emit spawns correct count', () => {
-    const e = ParticleSystem.create({ emissionRate: 0 });
+    const e = ps.create({ emissionRate: 0 });
     e.active = false;
     e.emit(5);
     expect(e.activeCount).toBe(5);
   });
 
   it('particles die after their lifetime', () => {
-    const e = ParticleSystem.create({ emissionRate: 0, lifetime: { min: 0.1, max: 0.1 } });
+    const e = ps.create({ emissionRate: 0, lifetime: { min: 0.1, max: 0.1 } });
     e.emit(3);
-    ParticleSystem.update(0.05);
+    ps.update(0.05);
     expect(e.activeCount).toBe(3);
-    ParticleSystem.update(0.1);
+    ps.update(0.1);
     expect(e.activeCount).toBe(0);
   });
 
   it('continuous emission accumulates particles over time', () => {
-    const e = ParticleSystem.create({ emissionRate: 10, lifetime: { min: 5, max: 5 }, maxParticles: 100 });
-    ParticleSystem.update(0.5); // should emit ~5 particles
+    const e = ps.create({ emissionRate: 10, lifetime: { min: 5, max: 5 }, maxParticles: 100 });
+    ps.update(0.5); // should emit ~5 particles
     expect(e.activeCount).toBeGreaterThanOrEqual(4);
   });
 
-  it('destroy removes emitter', () => {
-    const e = ParticleSystem.create();
-    ParticleSystem.destroy(e);
-    expect(ParticleSystem.emitters).not.toContain(e);
+  it('remove removes emitter', () => {
+    const e = ps.create();
+    ps.remove(e);
+    expect(ps.emitters).not.toContain(e);
+  });
+
+  it('destroy clears all emitters', () => {
+    ps.create();
+    ps.create();
+    ps.destroy();
+    expect(ps.emitters).toHaveLength(0);
   });
 });

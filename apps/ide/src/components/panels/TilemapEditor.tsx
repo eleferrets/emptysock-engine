@@ -1,5 +1,6 @@
 import React from "react";
 import { useIDEStore } from "../../store/ideStore";
+import { useTilemapStore } from "../../store/tilemapStore";
 import { drawRulers, getRulerMetrics } from "../../lib/editorGrid";
 import { useHistory } from "../../hooks/useHistory";
 import { AutoTileRulesModal } from "../AutoTileRulesModal";
@@ -42,10 +43,10 @@ export function TilemapEditor(): React.ReactElement {
   const [canvasSize, setCanvasSize] = React.useState({ w: 800, h: 600 });
 
   // Store refs for layers
-  const storeLayers = useIDEStore((s) => s.tilemapLayers);
-  const storeSetLayers = useIDEStore((s) => s.setTilemapLayers);
-  const activeLayer = useIDEStore((s) => s.tilemapActiveLayer);
-  const setActiveLayer = useIDEStore((s) => s.setTilemapActiveLayer);
+  const storeLayers = useTilemapStore((s) => s.tilemapLayers);
+  const storeSetLayers = useTilemapStore((s) => s.setTilemapLayers);
+  const activeLayer = useTilemapStore((s) => s.tilemapActiveLayer);
+  const setActiveLayer = useTilemapStore((s) => s.setTilemapActiveLayer);
 
   const tileSize = useIDEStore((s) => s.editorGridSize);
   const setTileSize = useIDEStore((s) => s.setEditorGridSize);

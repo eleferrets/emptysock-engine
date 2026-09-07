@@ -115,6 +115,7 @@ export type { UpdatableSystem } from "./core/SystemManager.js";
 // SceneManager
 export { SceneManagerInstance as SceneManager } from "./core/SceneManager.js";
 export type {
+  TransitionEffect,
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
@@ -140,7 +141,7 @@ export type {
 } from "./systems/ParticleSystem.js";
 
 // Tweens & Timers
-export { Tween, Timer } from "./systems/TweenSystem.js";
+export { TweenManager } from "./systems/TweenSystem.js";
 export type { TweenOptions, EasingName } from "./systems/TweenSystem.js";
 
 // UI
@@ -152,6 +153,7 @@ export type {
   UIAnchor,
   UIAnimationType,
 } from "./systems/UISystem.js";
+export type { IUIRenderer } from "@emptysock/types";
 
 // Post-processing
 export { PostProcessSystem } from "./systems/PostProcessSystem.js";
@@ -161,7 +163,6 @@ export type {
   ActiveEffect,
   FlashOptions,
   FadeOptions,
-  TransitionEffect as PostTransitionEffect,
   LayerFilterType,
   LayerFilterOptions,
   LayerFilter,
