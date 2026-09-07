@@ -692,6 +692,62 @@ function mapTree(
 
 let logCounter = 0;
 
+// ── Initial project state factory ───────────────────────────────────────────
+// All fields that should be wiped on resetProject() or loadProjectFiles().
+// Adding a new resettable field here automatically propagates to both callers.
+function initialProjectState() {
+  return {
+    projectName: "MyPlatformer",
+    projectFolder: "",
+    files: INITIAL_FILES,
+    selectedFile: "src/scenes/GameScene.ts",
+    editorCode: INITIAL_CODE,
+    openFiles: { "src/scenes/GameScene.ts": INITIAL_CODE },
+    activeFilePath: "src/scenes/GameScene.ts",
+    playState: "stopped" as const,
+    buildStatus: "idle" as const,
+    buildErrors: [] as string[],
+    buildDuration: null as number | null,
+    lastBuildAt: null as number | null,
+    logs: [] as LogEntry[],
+    entities: [] as EntityItem[],
+    selectedEntityId: null as string | null,
+    selectedEntity: null,
+    assets: [] as AssetItem[],
+    recentAssetIds: [] as string[],
+    roomOrder: [] as string[],
+    enabledModules: DEFAULT_ENABLED_MODULES,
+    audioBuses: INITIAL_AUDIO_BUSES,
+    tilemapLayers: [] as TileLayer[],
+    tilemapActiveLayer: "layer-0",
+    sequenceTracks: [] as SequenceTrack[],
+    sequenceDuration: 10,
+    localisationTranslations: {} as LocalisationTranslations,
+    localisationLocales: ["en"],
+    variableStoreVars: {} as Record<number, number>,
+    variableStoreSwitches: {} as Record<number, boolean>,
+    variableStoreVarNames: {} as Record<number, string>,
+    variableStoreSwitchNames: {} as Record<number, string>,
+    vnNodes: [] as VnNode[],
+    autoTileRuleSets: {} as Record<string, AutoTileRule[]>,
+    dbActors: [] as DbEntry[],
+    dbClasses: [] as DbEntry[],
+    dbItems: [] as DbEntry[],
+    dbEnemies: [] as DbEntry[],
+    editorGridSize: 32,
+    editorShowGrid: true,
+    editorShowRuler: true,
+    editorSnapToGrid: true,
+    editorShowGuides: true,
+    windowConfig: { ...DEFAULT_WINDOW_CONFIG },
+    debuggerPaused: false,
+    debuggerVars: {} as Record<string, unknown>,
+    debugBreakpoints: [] as string[],
+    dropImportFolder: "root" as const,
+    openImageEditorRequest: null as { assetId: string; ts: number } | null,
+  };
+}
+
 // ── Debug command bus ────────────────────────────────────────────────────────
 // A lightweight EventTarget that CanvasPreview subscribes to so it can forward
 // debugger commands to the game iframe without adding unnecessary store state.
@@ -1111,59 +1167,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
 
   resetProject: () => {
-    set({
-      projectName: "MyPlatformer",
-      projectFolder: "",
-      files: INITIAL_FILES,
-      selectedFile: "src/scenes/GameScene.ts",
-      editorCode: INITIAL_CODE,
-      openFiles: { "src/scenes/GameScene.ts": INITIAL_CODE },
-      activeFilePath: "src/scenes/GameScene.ts",
-      playState: "stopped",
-      buildStatus: "idle",
-      buildErrors: [],
-      buildDuration: null,
-      lastBuildAt: null,
-      logs: [],
-      // Reset all domain fields for a clean new project
-      entities: [],
-      selectedEntityId: null,
-      selectedEntity: null,
-      assets: [],
-      recentAssetIds: [],
-      roomOrder: [],
-      enabledModules: DEFAULT_ENABLED_MODULES,
-      audioBuses: INITIAL_AUDIO_BUSES,
-      tilemapLayers: [],
-      tilemapActiveLayer: "layer-0",
-      sequenceTracks: [],
-      sequenceDuration: 10,
-      localisationTranslations: {},
-      localisationLocales: ["en"],
-      variableStoreVars: {},
-      variableStoreSwitches: {},
-      variableStoreVarNames: {},
-      variableStoreSwitchNames: {},
-      vnNodes: [],
-      autoTileRuleSets: {},
-      dbActors: [],
-      dbClasses: [],
-      dbItems: [],
-      dbEnemies: [],
-      editorGridSize: 32,
-      editorShowGrid: true,
-      editorShowRuler: true,
-      editorSnapToGrid: true,
-      editorShowGuides: true,
-      windowConfig: { ...DEFAULT_WINDOW_CONFIG },
-      // Reset debugger
-      debuggerPaused: false,
-      debuggerVars: {},
-      debugBreakpoints: [],
-      // Reset image editor
-      dropImportFolder: 'root' as const,
-      openImageEditorRequest: null,
-    });
+    set({ ...initialProjectState() });
     get().addLog("info", "New project created", "IDE");
   },
 
