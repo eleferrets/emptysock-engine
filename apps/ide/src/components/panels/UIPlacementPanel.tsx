@@ -741,7 +741,9 @@ export function UIPlacementPanel(): React.ReactElement {
                   flex: 1,
                   padding: "6px 10px",
                   background:
-                    copied === tmpl.type ? "#16a34a" : "var(--es-surface)",
+                    copied === tmpl.type
+                      ? "var(--es-green)"
+                      : "var(--es-surface)",
                   color: "var(--es-text)",
                   border: "1px solid var(--es-border)",
                   borderRadius: 4,
@@ -759,7 +761,7 @@ export function UIPlacementPanel(): React.ReactElement {
                   padding: "6px 8px",
                   background:
                     copied === tmpl.type + "-copy"
-                      ? "#16a34a"
+                      ? "var(--es-green)"
                       : "var(--es-surface)",
                   color: "var(--es-text)",
                   border: "1px solid var(--es-border)",

@@ -8,7 +8,7 @@ import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type LaneType = 'keyframe' | 'dialogue' | 'expression' | 'audio' | 'wait';
+type LaneType = "keyframe" | "dialogue" | "expression" | "audio" | "wait";
 
 type TrackType = SequenceTrackType;
 
@@ -38,20 +38,20 @@ const TRACK_OPTIONS: TrackType[] = [
 ];
 
 const LANE_TYPE_OPTIONS: LaneType[] = [
-  'keyframe',
-  'dialogue',
-  'expression',
-  'audio',
-  'wait',
+  "keyframe",
+  "dialogue",
+  "expression",
+  "audio",
+  "wait",
 ];
 
 const TYPE_COLORS: Record<TrackType, string> = {
-  "Position X": "#2563eb",
-  "Position Y": "#7c3aed",
-  Rotation: "#dc2626",
-  Scale: "#16a34a",
-  Opacity: "#ca8a04",
-  Custom: "#64748b",
+  "Position X": "var(--es-track-dialogue)",
+  "Position Y": "var(--es-track-audio)",
+  Rotation: "var(--es-track-animation)",
+  Scale: "var(--es-track-script)",
+  Opacity: "var(--es-track-wait)",
+  Custom: "var(--es-track-default)",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function makeTrack(
     id: uid(),
     name: type,
     type,
-    laneType: 'keyframe',
+    laneType: "keyframe",
     keyframes: kfs.map(({ t, v }) => ({ id: uid(), time: t, value: v })),
   };
 }
@@ -122,7 +122,7 @@ const TrackLabel: React.FC<{
   currentTime: number;
   onChangeLaneType: (lt: LaneType) => void;
 }> = ({ track, playing, currentTime, onChangeLaneType }) => {
-  const laneType = track.laneType ?? 'keyframe';
+  const laneType = track.laneType ?? "keyframe";
   const interp = playing ? interpolate(track.keyframes, currentTime) : null;
   return (
     <div
@@ -160,7 +160,7 @@ const TrackLabel: React.FC<{
       >
         {track.name}
       </span>
-      {laneType !== 'keyframe' && (
+      {laneType !== "keyframe" && (
         <span
           style={{
             fontSize: 9,
@@ -176,12 +176,12 @@ const TrackLabel: React.FC<{
           [{laneType}]
         </span>
       )}
-      {interp !== null && laneType !== 'dialogue' && (
+      {interp !== null && laneType !== "dialogue" && (
         <span
           style={{
             fontSize: 10,
             fontFamily: "monospace",
-            background: TYPE_COLORS[track.type] + "33",
+            background: `color-mix(in srgb, ${TYPE_COLORS[track.type]} 20%, transparent)`,
             color: TYPE_COLORS[track.type],
             borderRadius: 3,
             padding: "1px 5px",
@@ -210,7 +210,9 @@ const TrackLabel: React.FC<{
         }}
       >
         {LANE_TYPE_OPTIONS.map((lt) => (
-          <option key={lt} value={lt}>{lt}</option>
+          <option key={lt} value={lt}>
+            {lt}
+          </option>
         ))}
       </select>
     </div>
@@ -439,7 +441,9 @@ export function SequenceEditor(): React.ReactElement {
 
   const changeTrackLaneType = useCallback(
     (trackId: string, lt: LaneType): void => {
-      setTracks(tracks.map((t) => (t.id === trackId ? { ...t, laneType: lt } : t)));
+      setTracks(
+        tracks.map((t) => (t.id === trackId ? { ...t, laneType: lt } : t)),
+      );
     },
     [tracks, setTracks],
   );
@@ -450,8 +454,8 @@ export function SequenceEditor(): React.ReactElement {
     if (!selectedKf) return;
     const track = tracks.find((t) => t.id === selectedKf.trackId);
     if (!track) return;
-    const laneType = track.laneType ?? 'keyframe';
-    if (laneType === 'dialogue' || laneType === 'expression') {
+    const laneType = track.laneType ?? "keyframe";
+    if (laneType === "dialogue" || laneType === "expression") {
       setTracks(
         tracks.map((tr) =>
           tr.id === selectedKf.trackId
@@ -466,8 +470,10 @@ export function SequenceEditor(): React.ReactElement {
             : tr,
         ),
       );
-    } else if (laneType === 'audio') {
-      const clampedVol = isNaN(audioVol) ? 1 : Math.min(1, Math.max(0, audioVol));
+    } else if (laneType === "audio") {
+      const clampedVol = isNaN(audioVol)
+        ? 1
+        : Math.min(1, Math.max(0, audioVol));
       setTracks(
         tracks.map((tr) =>
           tr.id === selectedKf.trackId
@@ -543,11 +549,15 @@ export function SequenceEditor(): React.ReactElement {
       // pre-select so value editor is ready if user doesn't drag
       setSelectedKf({ trackId, kfId });
       const track = tracks.find((t) => t.id === trackId);
-      const laneType = track?.laneType ?? 'keyframe';
-      if (laneType === 'dialogue' || laneType === 'expression' || laneType === 'audio') {
+      const laneType = track?.laneType ?? "keyframe";
+      if (
+        laneType === "dialogue" ||
+        laneType === "expression" ||
+        laneType === "audio"
+      ) {
         const kf = track?.keyframes.find((k) => k.id === kfId);
-        setKfEditValue(kf?.textValue ?? '');
-        if (laneType === 'audio') {
+        setKfEditValue(kf?.textValue ?? "");
+        if (laneType === "audio") {
           setAudioVol(kf?.value ?? 1);
         }
       } else {
@@ -603,11 +613,15 @@ export function SequenceEditor(): React.ReactElement {
       } else {
         // treat as click — selection already set in pointerdown
         const track = tracks.find((t) => t.id === trackId);
-        const laneType = track?.laneType ?? 'keyframe';
-        if (laneType === 'dialogue' || laneType === 'expression' || laneType === 'audio') {
+        const laneType = track?.laneType ?? "keyframe";
+        if (
+          laneType === "dialogue" ||
+          laneType === "expression" ||
+          laneType === "audio"
+        ) {
           const kf = track?.keyframes.find((k) => k.id === kfId);
-          setKfEditValue(kf?.textValue ?? '');
-          if (laneType === 'audio') {
+          setKfEditValue(kf?.textValue ?? "");
+          if (laneType === "audio") {
             setAudioVol(kf?.value ?? 1);
           }
         } else {
@@ -653,7 +667,7 @@ export function SequenceEditor(): React.ReactElement {
   const selectedTrack = selectedKf
     ? tracks.find((t) => t.id === selectedKf.trackId)
     : undefined;
-  const selectedLaneType: LaneType = selectedTrack?.laneType ?? 'keyframe';
+  const selectedLaneType: LaneType = selectedTrack?.laneType ?? "keyframe";
 
   return (
     <div
@@ -824,7 +838,8 @@ export function SequenceEditor(): React.ReactElement {
         <div
           style={{
             display: "flex",
-            alignItems: selectedLaneType === 'dialogue' ? "flex-start" : "center",
+            alignItems:
+              selectedLaneType === "dialogue" ? "flex-start" : "center",
             gap: 6,
             padding: "4px 12px",
             borderBottom: "1px solid var(--es-border, #333)",
@@ -836,12 +851,12 @@ export function SequenceEditor(): React.ReactElement {
           <span
             style={{
               color: "var(--es-text-muted, #888)",
-              paddingTop: selectedLaneType === 'dialogue' ? 4 : 0,
+              paddingTop: selectedLaneType === "dialogue" ? 4 : 0,
             }}
           >
             Keyframe value:
           </span>
-          {selectedLaneType === 'dialogue' ? (
+          {selectedLaneType === "dialogue" ? (
             <textarea
               value={kfEditValue}
               onChange={(e) => setKfEditValue(e.target.value)}
@@ -871,7 +886,7 @@ export function SequenceEditor(): React.ReactElement {
                 minHeight: 32,
               }}
             />
-          ) : selectedLaneType === 'expression' ? (
+          ) : selectedLaneType === "expression" ? (
             <>
               <input
                 type="text"
@@ -880,20 +895,41 @@ export function SequenceEditor(): React.ReactElement {
                 onChange={(e) => setKfEditValue(e.target.value)}
                 onBlur={commitKfValue}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
-                  if (e.key === 'Escape') setSelectedKf(null);
+                  if (e.key === "Enter") {
+                    commitKfValue();
+                    setSelectedKf(null);
+                  }
+                  if (e.key === "Escape") setSelectedKf(null);
                 }}
                 autoFocus
                 placeholder="e.g. happy, sad, surprised"
-                style={{ width: 160, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+                style={{
+                  width: 160,
+                  padding: "4px 8px",
+                  borderRadius: 3,
+                  border: "1px solid var(--es-border, #444)",
+                  background: "var(--es-surface, #16213e)",
+                  color: "var(--es-text, #e2e8f0)",
+                  fontSize: 12,
+                  minHeight: 32,
+                }}
               />
               <datalist id="es-expression-list">
-                {['neutral', 'happy', 'sad', 'angry', 'surprised', 'embarrassed', 'thoughtful', 'determined'].map((ex) => (
+                {[
+                  "neutral",
+                  "happy",
+                  "sad",
+                  "angry",
+                  "surprised",
+                  "embarrassed",
+                  "thoughtful",
+                  "determined",
+                ].map((ex) => (
                   <option key={ex} value={ex} />
                 ))}
               </datalist>
             </>
-          ) : selectedLaneType === 'audio' ? (
+          ) : selectedLaneType === "audio" ? (
             <>
               <input
                 type="text"
@@ -901,14 +937,34 @@ export function SequenceEditor(): React.ReactElement {
                 onChange={(e) => setKfEditValue(e.target.value)}
                 onBlur={commitKfValue}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
-                  if (e.key === 'Escape') setSelectedKf(null);
+                  if (e.key === "Enter") {
+                    commitKfValue();
+                    setSelectedKf(null);
+                  }
+                  if (e.key === "Escape") setSelectedKf(null);
                 }}
                 autoFocus
                 placeholder="audio key, e.g. battle_bgm"
-                style={{ width: 140, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+                style={{
+                  width: 140,
+                  padding: "4px 8px",
+                  borderRadius: 3,
+                  border: "1px solid var(--es-border, #444)",
+                  background: "var(--es-surface, #16213e)",
+                  color: "var(--es-text, #e2e8f0)",
+                  fontSize: 12,
+                  minHeight: 32,
+                }}
               />
-              <span style={{ fontSize: 11, color: 'var(--es-text-dim, #888)', flexShrink: 0 }}>vol</span>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--es-text-dim, #888)",
+                  flexShrink: 0,
+                }}
+              >
+                vol
+              </span>
               <input
                 type="number"
                 min={0}
@@ -921,15 +977,35 @@ export function SequenceEditor(): React.ReactElement {
                 }}
                 onBlur={commitKfValue}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
-                  if (e.key === 'Escape') setSelectedKf(null);
+                  if (e.key === "Enter") {
+                    commitKfValue();
+                    setSelectedKf(null);
+                  }
+                  if (e.key === "Escape") setSelectedKf(null);
                 }}
-                style={{ width: 56, padding: '4px 4px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+                style={{
+                  width: 56,
+                  padding: "4px 4px",
+                  borderRadius: 3,
+                  border: "1px solid var(--es-border, #444)",
+                  background: "var(--es-surface, #16213e)",
+                  color: "var(--es-text, #e2e8f0)",
+                  fontSize: 12,
+                  minHeight: 32,
+                }}
               />
             </>
-          ) : selectedLaneType === 'wait' ? (
+          ) : selectedLaneType === "wait" ? (
             <>
-              <span style={{ fontSize: 11, color: 'var(--es-text-dim, #888)', flexShrink: 0 }}>Duration (s)</span>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--es-text-dim, #888)",
+                  flexShrink: 0,
+                }}
+              >
+                Duration (s)
+              </span>
               <input
                 type="number"
                 min={0}
@@ -938,11 +1014,23 @@ export function SequenceEditor(): React.ReactElement {
                 onChange={(e) => setKfEditValue(e.target.value)}
                 onBlur={commitKfValue}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
-                  if (e.key === 'Escape') setSelectedKf(null);
+                  if (e.key === "Enter") {
+                    commitKfValue();
+                    setSelectedKf(null);
+                  }
+                  if (e.key === "Escape") setSelectedKf(null);
                 }}
                 autoFocus
-                style={{ width: 80, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+                style={{
+                  width: 80,
+                  padding: "4px 8px",
+                  borderRadius: 3,
+                  border: "1px solid var(--es-border, #444)",
+                  background: "var(--es-surface, #16213e)",
+                  color: "var(--es-text, #e2e8f0)",
+                  fontSize: 12,
+                  minHeight: 32,
+                }}
               />
             </>
           ) : (
@@ -980,12 +1068,12 @@ export function SequenceEditor(): React.ReactElement {
             style={{
               padding: "2px 8px",
               borderRadius: 3,
-              border: "1px solid #2563eb",
-              background: "#2563eb",
-              color: "#fff",
+              border: "1px solid var(--es-accent)",
+              background: "var(--es-accent)",
+              color: "var(--es-text-on-accent)",
               cursor: "pointer",
               fontSize: 11,
-              alignSelf: selectedLaneType === 'dialogue' ? "flex-end" : "auto",
+              alignSelf: selectedLaneType === "dialogue" ? "flex-end" : "auto",
             }}
           >
             OK
@@ -1000,7 +1088,7 @@ export function SequenceEditor(): React.ReactElement {
               color: "var(--es-text, #e2e8f0)",
               cursor: "pointer",
               fontSize: 11,
-              alignSelf: selectedLaneType === 'dialogue' ? "flex-end" : "auto",
+              alignSelf: selectedLaneType === "dialogue" ? "flex-end" : "auto",
             }}
           >
             ✕
@@ -1141,15 +1229,15 @@ export function SequenceEditor(): React.ReactElement {
                   const isSelected =
                     selectedKf?.trackId === track.id &&
                     selectedKf.kfId === kf.id;
-                  const laneType = track.laneType ?? 'keyframe';
+                  const laneType = track.laneType ?? "keyframe";
                   const titleText =
-                    laneType === 'dialogue'
-                      ? `t=${kf.time}s  "${(kf.textValue ?? '').slice(0, 40)}"`
-                      : laneType === 'expression'
-                        ? `t=${kf.time}s  ${kf.textValue ?? 'expression'}`
-                        : laneType === 'audio'
-                          ? `t=${kf.time}s  ♪ ${kf.textValue ?? 'audio'} vol:${kf.value.toFixed(2)}`
-                          : laneType === 'wait'
+                    laneType === "dialogue"
+                      ? `t=${kf.time}s  "${(kf.textValue ?? "").slice(0, 40)}"`
+                      : laneType === "expression"
+                        ? `t=${kf.time}s  ${kf.textValue ?? "expression"}`
+                        : laneType === "audio"
+                          ? `t=${kf.time}s  ♪ ${kf.textValue ?? "audio"} vol:${kf.value.toFixed(2)}`
+                          : laneType === "wait"
                             ? `t=${kf.time}s  ${kf.value.toFixed(2)}s`
                             : `t=${kf.time}s  v=${kf.value}`;
                   return (
@@ -1204,8 +1292,8 @@ export function SequenceEditor(): React.ReactElement {
                             width: 14,
                             height: 14,
                             borderRadius: "50%",
-                            background: "#ef4444",
-                            color: "#fff",
+                            background: "var(--es-red)",
+                            color: "var(--es-text-on-accent)",
                             fontSize: 9,
                             display: "flex",
                             alignItems: "center",
@@ -1232,10 +1320,10 @@ export function SequenceEditor(): React.ReactElement {
                 left: playheadX,
                 width: 2,
                 height: "100%",
-                background: "#ef4444",
+                background: "var(--es-red)",
                 zIndex: 20,
                 pointerEvents: "none",
-                boxShadow: "0 0 6px #ef4444",
+                boxShadow: "0 0 6px var(--es-red)",
               }}
             >
               <div
@@ -1245,7 +1333,7 @@ export function SequenceEditor(): React.ReactElement {
                   left: -5,
                   width: 12,
                   height: 12,
-                  background: "#ef4444",
+                  background: "var(--es-red)",
                   clipPath: "polygon(50% 100%, 0 0, 100% 0)",
                 }}
               />

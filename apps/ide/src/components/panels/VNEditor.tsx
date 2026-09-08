@@ -761,10 +761,10 @@ export function VNEditor(): React.ReactElement {
           onClick={() => addNode("choice")}
           style={{
             padding: "3px 10px",
-            background: "#7c3aed",
+            background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
-            color: "#fff",
+            color: "var(--es-text-on-accent)",
             cursor: "pointer",
           }}
         >
@@ -775,7 +775,7 @@ export function VNEditor(): React.ReactElement {
           disabled={!selected}
           style={{
             padding: "3px 10px",
-            background: selected ? "#dc2626" : "var(--es-surface)",
+            background: selected ? "var(--es-red)" : "var(--es-surface)",
             border: "1px solid var(--es-border)",
             borderRadius: 4,
             color: "var(--es-text)",
@@ -1010,7 +1010,7 @@ export function VNEditor(): React.ReactElement {
                     <div
                       style={{
                         fontSize: 11,
-                        color: "#e2e8f0",
+                        color: "var(--es-text)",
                         overflow: "hidden",
                         display: "-webkit-box",
                         WebkitLineClamp: 3,

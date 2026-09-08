@@ -331,9 +331,10 @@ export function ShaderEditor(): React.ReactElement {
         {compileError !== null && (
           <div
             style={{
-              background: "rgba(225,112,85,0.12)",
-              borderTop: "1px solid rgba(225,112,85,0.3)",
-              color: "#e17055",
+              background: "color-mix(in srgb, var(--es-red) 12%, transparent)",
+              borderTop:
+                "1px solid color-mix(in srgb, var(--es-red) 30%, transparent)",
+              color: "var(--es-red)",
               padding: "6px 12px",
               fontFamily: "monospace",
               fontSize: 11,
@@ -349,9 +350,11 @@ export function ShaderEditor(): React.ReactElement {
         {compiled && compileError === null && (
           <div
             style={{
-              background: "rgba(0,184,148,0.1)",
-              borderTop: "1px solid rgba(0,184,148,0.25)",
-              color: "#00b894",
+              background:
+                "color-mix(in srgb, var(--es-green) 10%, transparent)",
+              borderTop:
+                "1px solid color-mix(in srgb, var(--es-green) 25%, transparent)",
+              color: "var(--es-green)",
               padding: "4px 12px",
               fontSize: 11,
               flexShrink: 0,

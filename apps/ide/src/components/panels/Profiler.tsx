@@ -153,10 +153,10 @@ export function Profiler(): React.ReactElement {
             style={{
               color:
                 live.fps > 55
-                  ? "#4ade80"
+                  ? "var(--es-green)"
                   : live.fps > 28
-                    ? "#fbbf24"
-                    : "#ef4444",
+                    ? "var(--es-yellow)"
+                    : "var(--es-red)",
             }}
           >
             {live.fps}
@@ -175,7 +175,8 @@ export function Profiler(): React.ReactElement {
           </strong>
         </span>
         <span>
-          Draws: <strong style={{ color: "#60a5fa" }}>{live.draws}</strong>
+          Draws:{" "}
+          <strong style={{ color: "var(--es-blue)" }}>{live.draws}</strong>
         </span>
         {playState !== "playing" && (
           <span style={{ color: "var(--es-text-muted)" }}>
