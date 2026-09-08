@@ -13,7 +13,8 @@ loader.config({ monaco });
 // Wire the Tauri file-log handler without touching the engine package itself.
 // The engine exposes Engine.onFileLog() precisely so this boundary can stay clean.
 if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-  void import("@tauri-apps/api/core").then(({ invoke }) => {
+  const tauriCore = "@tauri-apps/api/core";
+  void import(/* @vite-ignore */ tauriCore).then(({ invoke }) => {
     Engine.onFileLog((msg) => {
       void invoke("log_error", { message: msg }).catch(() => undefined);
     });

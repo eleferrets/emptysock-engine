@@ -4,6 +4,8 @@ import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 import { visualizer } from "rollup-plugin-visualizer";
 
+const __dirname = import.meta.dirname;
+
 // Teach Vite how to handle Monaco editor web workers so they resolve from
 // the locally installed monaco-editor package rather than a CDN request.
 function monacoWorkerPlugin() {
@@ -68,9 +70,6 @@ export default defineConfig({
       ),
       "@": resolve(__dirname, "src"),
     },
-  },
-  css: {
-    lightningcss: true,
   },
   worker: {
     format: "es" as const,

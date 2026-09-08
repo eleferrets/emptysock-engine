@@ -228,14 +228,23 @@ export function LeftSidebar(): React.ReactElement {
             key={item.id}
             onClick={() => setSection(item.id as SidebarSection)}
             title={item.label}
-            className="w-7 h-7 flex items-center justify-center rounded transition-colors"
             style={{
+              width: 28,
+              height: 28,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 4,
+              border: "none",
+              background:
+                section === item.id ? "rgba(124,106,247,0.15)" : "transparent",
               color:
                 section === item.id
                   ? "var(--es-accent)"
                   : "var(--es-text-muted)",
-              background:
-                section === item.id ? "rgba(124,106,247,0.15)" : undefined,
+              cursor: "pointer",
+              flexShrink: 0,
+              padding: 0,
             }}
           >
             {item.icon}

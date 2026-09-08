@@ -144,9 +144,34 @@ body,
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/* ── Form element dark-mode defaults ────────────────────────────────────────── */
+
+input,
+textarea {
+  background: var(--es-bg);
+  color: var(--es-text);
+  border: 1px solid var(--es-border);
+  border-radius: 4px;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--es-accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--es-text-muted);
+}
+
 /* Ensure all native selects feel interactive */
 select {
   cursor: pointer;
+  background: var(--es-bg);
+  color: var(--es-text);
+  border: 1px solid var(--es-border);
+  border-radius: 4px;
 }
 
 /* Destructive hover tint for buttons/rows */
@@ -160,6 +185,25 @@ select {
 :root {
   --es-touch-target: 44px;
   --es-nav-height: 56px;
+  --es-btn-hover: #2a2a34;
+  --es-btn-active: #222228;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --es-btn-hover: #ccc8f0;
+    --es-btn-active: #bbb6e0;
+  }
+}
+
+[data-theme='light'] {
+  --es-btn-hover: #ccc8f0;
+  --es-btn-active: #bbb6e0;
+}
+
+[data-theme='dark'] {
+  --es-btn-hover: #2a2a34;
+  --es-btn-active: #222228;
 }
 
 /* ── Touch / coarse-pointer hardening ───────────────────────────────────────── */

@@ -15,11 +15,54 @@
 .dock-tab > div {
   background: transparent !important;
   color: var(--es-text-muted) !important;
+  border-bottom-color: var(--es-border) !important;
 }
 
 .dock-tab.dock-tab-active,
 .dock-tab.dock-tab-active > div {
   background: transparent !important;
+  color: var(--es-text) !important;
+}
+
+/* Fix tab layout: flat single-line with close button inline.
+   rc-dock absolutely positions .dock-tab-close-btn at right:-3px which
+   makes it appear outside the tab's text area. Override to a proper flex
+   row so the × sits on the same line as the title. */
+.dock-tab > div {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  gap: 4px !important;
+  overflow: hidden !important;
+  padding: 0 10px !important;
+  height: 100% !important;
+}
+
+.dock-tab-close-btn {
+  position: static !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 10px !important;
+  font-family: inherit !important;
+  color: var(--es-text-muted) !important;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s !important;
+  border-radius: 2px !important;
+}
+
+.dock-tab:hover .dock-tab-close-btn,
+.dock-tab-close-btn:focus {
+  opacity: 1 !important;
+  color: var(--es-text) !important;
+}
+
+.dock-tab-close-btn:hover {
+  background: var(--es-surface-2) !important;
   color: var(--es-text) !important;
 }
 
@@ -84,4 +127,49 @@
 .dock-tab-btn-skip {
   color: var(--es-text-muted) !important;
   background: transparent !important;
+}
+
+/* ── Panel styles (dock-style-main / dock-style-card) ───────────────────────
+   rc-dock's "main" and "card" styles hardcode white backgrounds. Override
+   them so they respect the IDE theme. */
+.dock-panel.dock-style-main .dock-bar,
+.dock-panel.dock-style-card .dock-bar {
+  background: var(--es-surface) !important;
+  border-bottom: 1px solid var(--es-border) !important;
+}
+
+.dock-panel.dock-style-main .dock-tab,
+.dock-panel.dock-style-card .dock-tab,
+.dock-panel.dock-style-card .dock-tab.dock-tab-active {
+  background: transparent !important;
+  border-bottom-color: var(--es-border) !important;
+}
+
+.dock-panel.dock-style-card .dock-ink-bar {
+  background: var(--es-accent) !important;
+}
+
+/* Placeholder panels */
+.dock-panel.dock-style-place-holder {
+  background: var(--es-bg) !important;
+}
+
+.dock-panel.dock-style-place-holder .dock-bar {
+  background: var(--es-surface) !important;
+}
+
+/* Headless panels */
+.dock-layout > :not(.dock-fbox) .dock-panel.dock-style-headless .dock-bar {
+  background: transparent !important;
+  border-bottom: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Drop layer (shown while dragging tabs between panels) */
+.dock-drop-layer .dock-drop-square {
+  background: var(--es-surface-2) !important;
+  border: 2px dashed var(--es-accent) !important;
+  color: var(--es-text-muted) !important;
 }
