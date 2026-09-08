@@ -48,29 +48,29 @@ Source docs: `improvements.md`, `apps/ide/HANDOFF.md`, `docs/ui-widgets.md`, MCP
 
 ## IDE — undo / redo (`emptysock-engine`)
 
-- ⬜ **[P1]** `VisualScriptEditor.tsx` — no undo/redo  
+- ✅ **[P1]** `VisualScriptEditor.tsx` — no undo/redo  
   All graph state (`nodes`, `edges`, `pendingEdge`, canvas offset/scale) is plain `useState` with no `useHistory` wrapper, no undo/redo buttons, and no `Ctrl+Z`/`Ctrl+Shift+Z` handler. Violates the mandatory undo/redo rule.
 
-- ⬜ **[P2]** `AudioMixer.tsx` — no undo/redo  
+- ✅ **[P2]** `AudioMixer.tsx` — no undo/redo  
   `audioMixerService.setVolume()` mutates channel state directly. Add `useHistory` + undo/redo buttons + keyboard handler.
 
-- ⬜ **[P2]** `AssetBrowser.tsx` — no undo/redo for asset mutations  
+- ✅ **[P2]** `AssetBrowser.tsx` — no undo/redo for asset mutations  
   `addAsset` and `deleteAsset` dispatch to the store with no history snapshot. A deleted asset cannot be recovered within the session.
 
 ---
 
 ## IDE — state and data quality (`emptysock-engine`)
 
-- ⬜ **[P1]** `VisualScriptEditor.tsx` — graph state lost on unmount  
+- ✅ **[P1]** `VisualScriptEditor.tsx` — graph state lost on unmount  
   `nodes` and `edges` are local component state, not stored in `ideStore`. Every unmount (tab close, dock re-layout) silently discards the graph.
 
-- ⬜ **[P2]** `ideStore.ts` — initial state seeded with mock entities and assets  
+- ✅ **[P2]** `ideStore.ts` — initial state seeded with mock entities and assets  
   `entities: INITIAL_ENTITIES` (4 hardcoded entities) and `assets: INITIAL_ASSETS` (6 hardcoded assets) are set at startup instead of using the `initialProjectState()` factory that already returns empty arrays. Every new session opens with phantom project content.
 
-- ⬜ **[P2]** `GitPanel.tsx` — mock file diffs rendered as genuine project state  
+- ✅ **[P2]** `GitPanel.tsx` — mock file diffs rendered as genuine project state  
   `MOCK_FILES` (3 entries with realistic engine file paths and diff content) renders in browser mode without any disclaimer, label, or visual distinction from real git output.
 
-- ⬜ **[P2]** `CGGallery.tsx` — CG unlock state not persisted  
+- ✅ **[P2]** `CGGallery.tsx` — CG unlock state not persisted  
   A comment in the file explicitly acknowledges this: CG entries and unlock state live in local React state and are lost on panel unmount. Needs persisting to project JSON (mapped to a switch index range in `VariableStore`).
 
 - ✅ **[P2]** `EntityProperties.tsx:9–17` — `AVAILABLE_COMPONENTS` is a hardcoded 7-string array  
@@ -84,22 +84,22 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 (not canvas). They break in light mode. Migrate each to an existing `--es-*` CSS variable
 (or create a new one following the `--es-` prefix convention).
 
-- ⬜ **[P2]** `VisualScriptEditor.tsx:32–38` — `NODE_COLORS` map applies background/border hex to node `<div>` elements  
+- ✅ **[P2]** `VisualScriptEditor.tsx:32–38` — `NODE_COLORS` map applies background/border hex to node `<div>` elements  
   Six raw hex values per node type. Use `--es-accent-*` or new semantic tokens.
 
-- ⬜ **[P2]** `VisualScriptEditor.tsx:644,669` — SVG edge strokes hardcoded  
+- ✅ **[P2]** `VisualScriptEditor.tsx:644,669` — SVG edge strokes hardcoded  
   Committed edge: `stroke="#7c6af7"`. Pending edge: `stroke="#ef4444"`. Use `var(--es-accent)` and `var(--es-red)`.
 
 - ✅ **[P2]** `VNEditor.tsx:764,778,1013` — `+ Choice` button, Delete button, and node label text hardcoded  
   Background `"#7c3aed"`, `"#dc2626"`, and text `"#e2e8f0"` on DOM elements. Use `--es-accent`, `--es-red`, `--es-text`.
 
-- ⬜ **[P2]** `GitPanel.tsx:154–159` — `statusColor()` returns raw hex for modified/added/deleted/untracked  
+- ✅ **[P2]** `GitPanel.tsx:154–159` — `statusColor()` returns raw hex for modified/added/deleted/untracked  
   Inline `color` on DOM `<span>`. Replace with `var(--es-yellow)`, `var(--es-green)`, `var(--es-red)`, `var(--es-text-muted)`.
 
-- ⬜ **[P2]** `GitPanel.tsx:110–118` — diff-view add/remove line colors hardcoded  
+- ✅ **[P2]** `GitPanel.tsx:110–118` — diff-view add/remove line colors hardcoded  
   `color: "#4ade80"` and `color: "#f87171"` on DOM `<span>`. Use `var(--es-green)` / `var(--es-red)`.
 
-- ⬜ **[P2]** `GitPanel.tsx:426,492` — stage and commit buttons hardcode `color: "#fff"`  
+- ✅ **[P2]** `GitPanel.tsx:426,492` — stage and commit buttons hardcode `color: "#fff"`  
   Use `var(--es-text-on-accent)` or a token so the text remains readable if the accent color changes.
 
 - ✅ **[P2]** `SequenceEditor.tsx:49–55` — `TYPE_COLORS` map applies background hex to DOM badge elements  
@@ -114,10 +114,10 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 - ✅ **[P2]** `ShaderEditor.tsx:337–358` — error/success status bars hardcoded  
   `rgba(225,112,85,0.12)` / `#e17055` and `rgba(0,184,148,0.1)` / `#00b894` on DOM `<div>`. Use `--es-red` / `--es-green` tokens.
 
-- ⬜ **[P2]** `AssetBrowser.tsx:1008,1103` — selected item tint not using a CSS variable  
+- ✅ **[P2]** `AssetBrowser.tsx:1008,1103` — selected item tint not using a CSS variable  
   `rgba(124,106,247,0.15)` hardcoded. `SceneInspector` uses `var(--es-selection-bg, rgba(124,106,247,0.15))` for the same purpose. Unify.
 
-- ⬜ **[P2]** `AssetBrowser.tsx:1282` — strip preview container background hardcoded  
+- ✅ **[P2]** `AssetBrowser.tsx:1282` — strip preview container background hardcoded  
   `background: "#0e0e10"` on a DOM layout `<div>`. Use `var(--es-surface-deep)` or similar.
 
 - ✅ **[P3]** `UIPlacementPanel.tsx:~744` — Insert button confirmation state hardcoded  
@@ -127,7 +127,7 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 
 ## IDE — polish (`emptysock-engine`)
 
-- ⬜ **[P2]** `VisualScriptEditor.tsx` — canvas fixed at 800×480, does not resize to container  
+- ✅ **[P2]** `VisualScriptEditor.tsx` — canvas fixed at 800×480, does not resize to container  
   `canvasWidth = 800` / `canvasHeight = 480` are hardcoded constants. Content is clipped in narrow dock layouts. Read the container's `clientWidth`/`clientHeight` via `ResizeObserver` and update the canvas dimensions.
 
 - ⬜ **[P2]** `ShaderEditor.tsx:309` — GLSL source editor is a plain `<textarea>`  
