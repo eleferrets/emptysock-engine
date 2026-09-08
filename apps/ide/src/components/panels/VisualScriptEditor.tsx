@@ -1,4 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { RotateCcw, RotateCw } from "lucide-react";
+import { useHistory } from "../../hooks/useHistory";
+import { useIDEStore } from "../../store/ideStore";
+import type { VSNode, VSEdge } from "../../store/ideStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +26,11 @@ interface PendingEdge {
   fromSide: "output"; // only output→input connections
 }
 
+interface GraphState {
+  nodes: NodeData[];
+  edges: EdgeData[];
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const NODE_WIDTH = 144;
@@ -32,9 +41,21 @@ const NODE_COLORS: Record<
   NodeData["type"],
   { bg: string; border: string; icon: string }
 > = {
-  scene: { bg: "#4c3da8", border: "#7c6af7", icon: "🎬" },
-  entity: { bg: "#1e3a8a", border: "#2563eb", icon: "📦" },
-  component: { bg: "#14532d", border: "#16a34a", icon: "⚙️" },
+  scene: {
+    bg: "var(--es-node-scene-bg)",
+    border: "var(--es-node-scene-border)",
+    icon: "🎬",
+  },
+  entity: {
+    bg: "var(--es-node-entity-bg)",
+    border: "var(--es-node-entity-border)",
+    icon: "📦",
+  },
+  component: {
+    bg: "var(--es-node-component-bg)",
+    border: "var(--es-node-component-border)",
+    icon: "⚙️",
+  },
 };
 
 const COMPONENT_TYPES = [
@@ -211,8 +232,39 @@ const MIN_VS_SCALE = 0.25;
 const MAX_VS_SCALE = 2.5;
 
 export function VisualScriptEditor(): React.ReactElement {
-  const [nodes, setNodes] = useState<NodeData[]>(makeDefaultNodes);
-  const [edges, setEdges] = useState<EdgeData[]>(makeDefaultEdges);
+  const storedGraph = useIDEStore((s) => s.visualScriptGraph);
+  const setVisualScriptGraph = useIDEStore((s) => s.setVisualScriptGraph);
+
+  // ── Graph state with undo/redo ────────────────────────────────────────────
+  const initialGraph: GraphState =
+    storedGraph !== null
+      ? {
+          nodes: storedGraph.nodes as NodeData[],
+          edges: storedGraph.edges as EdgeData[],
+        }
+      : { nodes: makeDefaultNodes(), edges: makeDefaultEdges() };
+
+  const {
+    state: graph,
+    set: setGraph,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<GraphState>(initialGraph);
+
+  const nodes = graph.nodes;
+  const edges = graph.edges;
+
+  // Sync graph to store on every change
+  useEffect(() => {
+    setVisualScriptGraph({
+      nodes: nodes as VSNode[],
+      edges: edges as VSEdge[],
+    });
+  }, [nodes, edges, setVisualScriptGraph]);
+
+  // ── Ephemeral canvas state (not in history) ───────────────────────────────
   const [pendingEdge, setPendingEdge] = useState<PendingEdge | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({
     x: 0,
@@ -224,6 +276,7 @@ export function VisualScriptEditor(): React.ReactElement {
   const [vsScale, setVsScale] = useState(1);
   const [vsPanX, setVsPanX] = useState(0);
   const [vsPanY, setVsPanY] = useState(0);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 480 });
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -243,9 +296,47 @@ export function VisualScriptEditor(): React.ReactElement {
   vsPanYRef.current = vsPanY;
 
   // Active pointer tracking for pan (single pointer) and pinch (two pointers)
-  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(
+    new Map(),
+  );
   const pinchStartRef = useRef<{ dist: number; scale: number } | null>(null);
-  const panStartRef = useRef<{ clientX: number; clientY: number; panX: number; panY: number } | null>(null);
+  const panStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
+
+  // ── ResizeObserver: reactive canvas dimensions ────────────────────────────
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setCanvasSize({
+        width: Math.max(800, entry.contentRect.width),
+        height: Math.max(480, entry.contentRect.height),
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Keyboard undo/redo ────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canUndo) undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canRedo) redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canUndo, canRedo, undo, redo]);
 
   // Wheel zoom on the outer scroll container (ctrl/meta = zoom, bare scroll = ignored)
   useEffect(() => {
@@ -264,58 +355,81 @@ export function VisualScriptEditor(): React.ReactElement {
   }, []);
 
   // Pointer-based pan (single finger / mouse) + pinch zoom (two fingers)
-  const onOuterPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
-    // Only handle pan/pinch on the outer container itself, not node drags
-    if ((e.target as HTMLElement).closest("[data-node]")) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const onOuterPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      // Only handle pan/pinch on the outer container itself, not node drags
+      if ((e.target as HTMLElement).closest("[data-node]")) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activePointersRef.current.set(e.pointerId, {
+        x: e.clientX,
+        y: e.clientY,
+      });
 
-    if (activePointersRef.current.size === 1) {
-      panStartRef.current = {
-        clientX: e.clientX,
-        clientY: e.clientY,
-        panX: vsPanXRef.current,
-        panY: vsPanYRef.current,
-      };
-      pinchStartRef.current = null;
-    } else if (activePointersRef.current.size === 2) {
-      const pts = Array.from(activePointersRef.current.values());
-      const p0 = pts[0];
-      const p1 = pts[1];
-      if (p0 && p1) {
-        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-        pinchStartRef.current = { dist, scale: vsScaleRef.current };
+      if (activePointersRef.current.size === 1) {
+        panStartRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          panX: vsPanXRef.current,
+          panY: vsPanYRef.current,
+        };
+        pinchStartRef.current = null;
+      } else if (activePointersRef.current.size === 2) {
+        const pts = Array.from(activePointersRef.current.values());
+        const p0 = pts[0];
+        const p1 = pts[1];
+        if (p0 && p1) {
+          const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+          pinchStartRef.current = { dist, scale: vsScaleRef.current };
+        }
+        panStartRef.current = null;
       }
-      panStartRef.current = null;
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const onOuterPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
-    if (!activePointersRef.current.has(e.pointerId)) return;
-    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const onOuterPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      if (!activePointersRef.current.has(e.pointerId)) return;
+      activePointersRef.current.set(e.pointerId, {
+        x: e.clientX,
+        y: e.clientY,
+      });
 
-    if (activePointersRef.current.size === 1 && panStartRef.current) {
-      const dx = e.clientX - panStartRef.current.clientX;
-      const dy = e.clientY - panStartRef.current.clientY;
-      setVsPanX(panStartRef.current.panX + dx);
-      setVsPanY(panStartRef.current.panY + dy);
-    } else if (activePointersRef.current.size === 2 && pinchStartRef.current) {
-      const pts = Array.from(activePointersRef.current.values());
-      const p0 = pts[0];
-      const p1 = pts[1];
-      if (p0 && p1 && pinchStartRef.current.dist > 0) {
-        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-        const ratio = dist / pinchStartRef.current.dist;
-        setVsScale(Math.min(MAX_VS_SCALE, Math.max(MIN_VS_SCALE, pinchStartRef.current.scale * ratio)));
+      if (activePointersRef.current.size === 1 && panStartRef.current) {
+        const dx = e.clientX - panStartRef.current.clientX;
+        const dy = e.clientY - panStartRef.current.clientY;
+        setVsPanX(panStartRef.current.panX + dx);
+        setVsPanY(panStartRef.current.panY + dy);
+      } else if (
+        activePointersRef.current.size === 2 &&
+        pinchStartRef.current
+      ) {
+        const pts = Array.from(activePointersRef.current.values());
+        const p0 = pts[0];
+        const p1 = pts[1];
+        if (p0 && p1 && pinchStartRef.current.dist > 0) {
+          const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+          const ratio = dist / pinchStartRef.current.dist;
+          setVsScale(
+            Math.min(
+              MAX_VS_SCALE,
+              Math.max(MIN_VS_SCALE, pinchStartRef.current.scale * ratio),
+            ),
+          );
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const onOuterPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>): void => {
-    activePointersRef.current.delete(e.pointerId);
-    if (activePointersRef.current.size < 2) pinchStartRef.current = null;
-    if (activePointersRef.current.size === 0) panStartRef.current = null;
-  }, []);
+  const onOuterPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      activePointersRef.current.delete(e.pointerId);
+      if (activePointersRef.current.size < 2) pinchStartRef.current = null;
+      if (activePointersRef.current.size === 0) panStartRef.current = null;
+    },
+    [],
+  );
 
   // ── Canvas coordinate from mouse event ────────────────────────────────────
 
@@ -340,17 +454,18 @@ export function VisualScriptEditor(): React.ReactElement {
         setMousePos(pos);
         if (dragging.current) {
           const { nodeId, offsetX, offsetY } = dragging.current;
-          setNodes((ns) =>
-            ns.map((n) =>
+          setGraph((g) => ({
+            ...g,
+            nodes: g.nodes.map((n) =>
               n.id === nodeId
                 ? { ...n, x: pos.x - offsetX, y: pos.y - offsetY }
                 : n,
             ),
-          );
+          }));
         }
       }
     },
-    [pendingEdge, toCanvas],
+    [pendingEdge, toCanvas, setGraph],
   );
 
   const onCanvasMouseUp = useCallback(() => {
@@ -389,10 +504,13 @@ export function VisualScriptEditor(): React.ReactElement {
               (ed) => ed.from === pendingEdge.fromNodeId && ed.to === node.id,
             );
             if (!alreadyExists) {
-              setEdges((eds) => [
-                ...eds,
-                { id: edgeId, from: pendingEdge.fromNodeId, to: node.id },
-              ]);
+              setGraph((g) => ({
+                ...g,
+                edges: [
+                  ...g.edges,
+                  { id: edgeId, from: pendingEdge.fromNodeId, to: node.id },
+                ],
+              }));
             }
           }
           setPendingEdge(null);
@@ -419,47 +537,55 @@ export function VisualScriptEditor(): React.ReactElement {
         offsetY: pos.y - node.y,
       };
     },
-    [pendingEdge, edges, toCanvas],
+    [pendingEdge, edges, toCanvas, setGraph],
   );
 
   // ── Add nodes ─────────────────────────────────────────────────────────────
 
   const addEntity = useCallback(() => {
     const id = nextId();
-    setNodes((ns) => [
-      ...ns,
-      {
-        id,
-        type: "entity",
-        label: "Entity",
-        x: 150 + Math.random() * 300,
-        y: 150 + Math.random() * 100,
-      },
-    ]);
-  }, []);
+    setGraph((g) => ({
+      ...g,
+      nodes: [
+        ...g.nodes,
+        {
+          id,
+          type: "entity" as const,
+          label: "Entity",
+          x: 150 + Math.random() * 300,
+          y: 150 + Math.random() * 100,
+        },
+      ],
+    }));
+  }, [setGraph]);
 
-  const addComponent = useCallback((type: string) => {
-    const id = nextId();
-    setNodes((ns) => [
-      ...ns,
-      {
-        id,
-        type: "component",
-        label: type,
-        x: 100 + Math.random() * 400,
-        y: 280 + Math.random() * 100,
-        componentType: type,
-      },
-    ]);
-  }, []);
+  const addComponent = useCallback(
+    (type: string) => {
+      const id = nextId();
+      setGraph((g) => ({
+        ...g,
+        nodes: [
+          ...g.nodes,
+          {
+            id,
+            type: "component" as const,
+            label: type,
+            x: 100 + Math.random() * 400,
+            y: 280 + Math.random() * 100,
+            componentType: type,
+          },
+        ],
+      }));
+    },
+    [setGraph],
+  );
 
   const clear = useCallback(() => {
-    setNodes(makeDefaultNodes());
-    setEdges(makeDefaultEdges());
+    setGraph({ nodes: makeDefaultNodes(), edges: makeDefaultEdges() });
     setGeneratedCode(null);
     setPendingEdge(null);
     setEditingNodeId(null);
-  }, []);
+  }, [setGraph]);
 
   const exportCode = useCallback(() => {
     const code = generateCode(nodes, edges);
@@ -471,27 +597,29 @@ export function VisualScriptEditor(): React.ReactElement {
 
   const commitLabel = useCallback(
     (nodeId: string) => {
-      setNodes((ns) =>
-        ns.map((n) =>
+      setGraph((g) => ({
+        ...g,
+        nodes: g.nodes.map((n) =>
           n.id === nodeId ? { ...n, label: editLabel || n.label } : n,
         ),
-      );
+      }));
       setEditingNodeId(null);
     },
-    [editLabel],
+    [editLabel, setGraph],
   );
 
   // ── Delete edge on click ──────────────────────────────────────────────────
 
-  const deleteEdge = useCallback((edgeId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEdges((eds) => eds.filter((ed) => ed.id !== edgeId));
-  }, []);
-
-  // ── Canvas dimensions ──────────────────────────────────────────────────────
-
-  const canvasWidth = 800;
-  const canvasHeight = 480;
+  const deleteEdge = useCallback(
+    (edgeId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setGraph((g) => ({
+        ...g,
+        edges: g.edges.filter((ed) => ed.id !== edgeId),
+      }));
+    },
+    [setGraph],
+  );
 
   return (
     <div
@@ -515,7 +643,10 @@ export function VisualScriptEditor(): React.ReactElement {
           flexWrap: "wrap",
         }}
       >
-        <button onClick={addEntity} style={btnStyle("#2563eb")}>
+        <button
+          onClick={addEntity}
+          style={btnStyle("var(--es-node-entity-border)")}
+        >
           + Entity
         </button>
 
@@ -537,12 +668,43 @@ export function VisualScriptEditor(): React.ReactElement {
           ))}
         </select>
 
-        <button onClick={exportCode} style={btnStyle("#7c6af7")}>
+        <button onClick={exportCode} style={btnStyle("var(--es-accent)")}>
           Export Code
         </button>
         <button onClick={clear} style={btnStyleGhost}>
           Clear
         </button>
+
+        {/* Undo / Redo */}
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{
+            ...btnStyleGhost,
+            opacity: canUndo ? 1 : 0.35,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <RotateCcw size={13} />
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{
+            ...btnStyleGhost,
+            opacity: canRedo ? 1 : 0.35,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <RotateCw size={13} />
+        </button>
+
         <button
           onClick={() => {
             setVsScale(1);
@@ -574,7 +736,12 @@ export function VisualScriptEditor(): React.ReactElement {
         onPointerMove={onOuterPointerMove}
         onPointerUp={onOuterPointerUp}
         onPointerCancel={onOuterPointerUp}
-        style={{ flex: 1, overflow: "auto", position: "relative", touchAction: "none" }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          position: "relative",
+          touchAction: "none",
+        }}
       >
         <div
           ref={canvasRef}
@@ -583,8 +750,8 @@ export function VisualScriptEditor(): React.ReactElement {
           onClick={onCanvasClick}
           style={{
             position: "relative",
-            width: canvasWidth,
-            height: canvasHeight,
+            width: canvasSize.width,
+            height: canvasSize.height,
             minWidth: "100%",
             minHeight: "100%",
             background:
@@ -617,7 +784,10 @@ export function VisualScriptEditor(): React.ReactElement {
                 refY="3"
                 orient="auto"
               >
-                <polygon points="0 0, 8 3, 0 6" fill="#7c6af7" />
+                <polygon
+                  points="0 0, 8 3, 0 6"
+                  style={{ fill: "var(--es-accent)" }}
+                />
               </marker>
             </defs>
             {edges.map((edge) => {
@@ -642,11 +812,13 @@ export function VisualScriptEditor(): React.ReactElement {
                   <path
                     d={edgePath(p1.x, p1.y, p2.x, p2.y)}
                     fill="none"
-                    stroke="#7c6af7"
                     strokeWidth={2}
                     opacity={0.8}
                     markerEnd="url(#arrowhead)"
-                    style={{ pointerEvents: "none" }}
+                    style={{
+                      stroke: "var(--es-accent)",
+                      pointerEvents: "none",
+                    }}
                   />
                 </g>
               );
@@ -663,10 +835,9 @@ export function VisualScriptEditor(): React.ReactElement {
                   <path
                     d={edgePath(p1.x, p1.y, mousePos.x, mousePos.y)}
                     fill="none"
-                    stroke="#ef4444"
                     strokeWidth={2}
                     strokeDasharray="6 3"
-                    style={{ pointerEvents: "none" }}
+                    style={{ stroke: "var(--es-red)", pointerEvents: "none" }}
                   />
                 );
               })()}
@@ -763,11 +934,13 @@ export function VisualScriptEditor(): React.ReactElement {
                       width: PORT_RADIUS * 2,
                       height: PORT_RADIUS * 2,
                       borderRadius: "50%",
-                      background: pendingEdge ? "#ef4444" : "#cbd5e1",
+                      background: pendingEdge ? "var(--es-red)" : "#cbd5e1",
                       border: "2px solid rgba(255,255,255,0.4)",
                       cursor: "crosshair",
                       zIndex: 20,
-                      boxShadow: pendingEdge ? "0 0 8px #ef4444" : undefined,
+                      boxShadow: pendingEdge
+                        ? "0 0 8px var(--es-red)"
+                        : undefined,
                     }}
                     title="Input port"
                   />
@@ -859,7 +1032,7 @@ function btnStyle(color: string): React.CSSProperties {
     borderRadius: 4,
     border: `1px solid ${color}`,
     background: color,
-    color: "#fff",
+    color: "var(--es-text-on-accent)",
     cursor: "pointer",
     fontSize: 12,
     flexShrink: 0,
