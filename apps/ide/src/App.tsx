@@ -25,6 +25,7 @@ import { DatabaseEditor } from "./components/panels/DatabaseEditor";
 import { ShaderEditor } from "./components/panels/ShaderEditor";
 import { GitPanel } from "./components/panels/GitPanel";
 import { ImageEditor } from "./components/panels/ImageEditor";
+import { CGGallery } from "./components/panels/CGGallery";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
@@ -100,6 +101,7 @@ const GATED_TABS: Record<string, TabData> = {
   "vn-preview": makeTab("vn-preview", "VN Preview", <VNPreviewPanel />, true),
   "ui-placement": makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
   database: makeTab("database", "Database", <DatabaseEditor />, true),
+  "cg-gallery": makeTab("cg-gallery", "CG Gallery", <CGGallery />, true),
 };
 
 function getModuleTabs(ids: string[]): TabData[] {
@@ -111,7 +113,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
-  const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence"];
+  const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence", "cg-gallery"];
   const bottomGated = ["profiler", "git", "i18n", "audio", "variables", "ui-placement", "database"];
   return {
     dockbox: {
@@ -212,6 +214,8 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
     makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
   database: () =>
     GATED_TABS["database"] ?? makeTab("database", "Database", <DatabaseEditor />),
+  "cg-gallery": () =>
+    GATED_TABS["cg-gallery"] ?? makeTab("cg-gallery", "CG Gallery", <CGGallery />, true),
 };
 
 export function App(): React.ReactElement {

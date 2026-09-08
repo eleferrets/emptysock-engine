@@ -280,6 +280,7 @@ export function SequenceEditor(): React.ReactElement {
     kfId: string;
   } | null>(null);
   const [kfEditValue, setKfEditValue] = useState("");
+  const [audioVol, setAudioVol] = useState<number>(1);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -450,7 +451,7 @@ export function SequenceEditor(): React.ReactElement {
     const track = tracks.find((t) => t.id === selectedKf.trackId);
     if (!track) return;
     const laneType = track.laneType ?? 'keyframe';
-    if (laneType === 'dialogue') {
+    if (laneType === 'dialogue' || laneType === 'expression') {
       setTracks(
         tracks.map((tr) =>
           tr.id === selectedKf.trackId
@@ -459,6 +460,22 @@ export function SequenceEditor(): React.ReactElement {
                 keyframes: tr.keyframes.map((kf) =>
                   kf.id === selectedKf.kfId
                     ? { ...kf, textValue: kfEditValue }
+                    : kf,
+                ),
+              }
+            : tr,
+        ),
+      );
+    } else if (laneType === 'audio') {
+      const clampedVol = isNaN(audioVol) ? 1 : Math.min(1, Math.max(0, audioVol));
+      setTracks(
+        tracks.map((tr) =>
+          tr.id === selectedKf.trackId
+            ? {
+                ...tr,
+                keyframes: tr.keyframes.map((kf) =>
+                  kf.id === selectedKf.kfId
+                    ? { ...kf, textValue: kfEditValue, value: clampedVol }
                     : kf,
                 ),
               }
@@ -482,7 +499,7 @@ export function SequenceEditor(): React.ReactElement {
         );
       }
     }
-  }, [selectedKf, kfEditValue, tracks, setTracks]);
+  }, [selectedKf, kfEditValue, audioVol, tracks, setTracks]);
 
   // ── Keyframe delete ──────────────────────────────────────────────────────
 
@@ -527,9 +544,12 @@ export function SequenceEditor(): React.ReactElement {
       setSelectedKf({ trackId, kfId });
       const track = tracks.find((t) => t.id === trackId);
       const laneType = track?.laneType ?? 'keyframe';
-      if (laneType === 'dialogue') {
+      if (laneType === 'dialogue' || laneType === 'expression' || laneType === 'audio') {
         const kf = track?.keyframes.find((k) => k.id === kfId);
         setKfEditValue(kf?.textValue ?? '');
+        if (laneType === 'audio') {
+          setAudioVol(kf?.value ?? 1);
+        }
       } else {
         setKfEditValue(String(kfValue));
       }
@@ -584,9 +604,12 @@ export function SequenceEditor(): React.ReactElement {
         // treat as click — selection already set in pointerdown
         const track = tracks.find((t) => t.id === trackId);
         const laneType = track?.laneType ?? 'keyframe';
-        if (laneType === 'dialogue') {
+        if (laneType === 'dialogue' || laneType === 'expression' || laneType === 'audio') {
           const kf = track?.keyframes.find((k) => k.id === kfId);
           setKfEditValue(kf?.textValue ?? '');
+          if (laneType === 'audio') {
+            setAudioVol(kf?.value ?? 1);
+          }
         } else {
           setKfEditValue(String(kfValue));
         }
