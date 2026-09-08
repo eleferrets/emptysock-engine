@@ -44,24 +44,47 @@ function ComponentSection({
 
   return (
     <div
-      className="rounded overflow-hidden"
       style={{
         border: "1px solid var(--es-border)",
         background: "var(--es-surface)",
+        borderRadius: 4,
+        overflow: "hidden",
       }}
     >
-      <button
+      {/* Use div+role instead of button so the trash button inside is valid HTML */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center w-full gap-2 px-3 py-2 text-left transition-colors"
-        style={{ background: "var(--es-surface-2)" }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setOpen((o) => !o);
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "5px 10px",
+          background: "var(--es-surface-2)",
+          cursor: "pointer",
+          userSelect: "none",
+        }}
       >
         <div
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ background: color }}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: color,
+          }}
         />
         <span
-          className="flex-1 text-xs font-medium"
-          style={{ color: "var(--es-text)" }}
+          style={{
+            flex: 1,
+            fontSize: 11,
+            fontWeight: 500,
+            color: "var(--es-text)",
+          }}
         >
           {component.type}
         </span>
@@ -71,24 +94,51 @@ function ComponentSection({
             e.stopPropagation();
             onRemove(entityId, component.type);
           }}
-          style={{ color: "var(--es-text-muted)", display: "flex", padding: 2 }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--es-text-muted)",
+            padding: 2,
+            borderRadius: 2,
+            minHeight: "unset",
+            minWidth: "unset",
+            width: 16,
+            height: 16,
+          }}
           title={`Remove ${component.type}`}
         >
           <Trash2 size={10} />
         </button>
-        <span style={{ color: "var(--es-text-muted)" }}>
+        <span
+          style={{
+            color: "var(--es-text-muted)",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </span>
-      </button>
+      </div>
 
       {open && (
-        <div className="px-3 py-2 flex flex-col gap-2">
+        <div
+          style={{
+            padding: "8px 10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
           {Object.entries(component.properties).map(([key, value]) => (
             <Input
               key={key}
               label={key}
               defaultValue={value}
-              className="w-full"
+              style={{ width: "100%" }}
             />
           ))}
         </div>

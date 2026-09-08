@@ -185,6 +185,25 @@ select {
 :root {
   --es-touch-target: 44px;
   --es-nav-height: 56px;
+  --es-btn-hover: #2a2a34;
+  --es-btn-active: #222228;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --es-btn-hover: #ccc8f0;
+    --es-btn-active: #bbb6e0;
+  }
+}
+
+[data-theme='light'] {
+  --es-btn-hover: #ccc8f0;
+  --es-btn-active: #bbb6e0;
+}
+
+[data-theme='dark'] {
+  --es-btn-hover: #2a2a34;
+  --es-btn-active: #222228;
 }
 
 /* ── Touch / coarse-pointer hardening ───────────────────────────────────────── */

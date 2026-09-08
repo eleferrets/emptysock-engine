@@ -24,7 +24,7 @@ export function Button({
         "disabled:opacity-40 disabled:cursor-not-allowed",
         {
           // variants
-          "bg-[var(--es-surface-2)] text-[var(--es-text)] hover:bg-[#2a2a34] active:bg-[#222228]":
+          "bg-[var(--es-surface-2)] text-[var(--es-text)] hover:bg-[var(--es-btn-hover)] active:bg-[var(--es-btn-active)]":
             variant === "default",
           "bg-transparent text-[var(--es-text-muted)] hover:text-[var(--es-text)] hover:bg-[var(--es-surface-2)]":
             variant === "ghost",

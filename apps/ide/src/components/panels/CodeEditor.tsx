@@ -407,11 +407,12 @@ export function CodeEditor(): React.ReactElement {
                   key={path}
                   onClick={() => handleTabClick(path)}
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 6,
                     flexShrink: 0,
+                    flexGrow: 0,
                     cursor: "pointer",
                     userSelect: "none",
                     height: "100%",
@@ -424,8 +425,7 @@ export function CodeEditor(): React.ReactElement {
                       : "2px solid transparent",
                     color: active ? "var(--es-text)" : "var(--es-text-muted)",
                     background: active ? "rgba(124,106,247,0.06)" : undefined,
-                    maxWidth: 180,
-                    overflow: "hidden",
+                    maxWidth: 200,
                   }}
                 >
                   <span
