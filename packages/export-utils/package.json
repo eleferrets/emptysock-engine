@@ -22,11 +22,11 @@
     "@emptysock/types": "workspace:*",
     "@types/archiver": "^8.0.0",
     "archiver": "^8.0.0",
-    "esbuild": "^0.24.2"
+    "esbuild": "^0.28.2"
   },
   "devDependencies": {
     "@types/node": "^26.3.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "catalog:"
   }
 }

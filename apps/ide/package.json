@@ -37,7 +37,7 @@
     "jszip": "^3.10.1",
     "konva": "catalog:",
     "lucide-react": "^0.469.0",
-    "monaco-editor": "0.55.1",
+    "monaco-editor": "^0.56.0",
     "pixi.js": "catalog:",
     "rc-dock": "^3.3.2",
     "react": "^19.0.0",
