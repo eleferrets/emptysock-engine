@@ -4,6 +4,27 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    konva:
+      specifier: ^9.3.14
+      version: 9.3.22
+    pixi.js:
+      specifier: ^8.6.1
+      version: 8.20.0
+    react-konva:
+      specifier: ^19.2.0
+      version: 19.2.6
+    typescript:
+      specifier: ^5.7.2
+      version: 5.9.3
+    vitest:
+      specifier: ^2.1.8
+      version: 2.1.9
+    zod:
+      specifier: ^3.23.8
+      version: 3.25.76
+
 importers:
 
   .:
@@ -83,6 +104,9 @@ importers:
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
+      konva:
+        specifier: 'catalog:'
+        version: 9.3.22
       lucide-react:
         specifier: ^0.469.0
         version: 0.469.0(react@19.2.8)
@@ -90,7 +114,7 @@ importers:
         specifier: 0.55.1
         version: 0.55.1
       pixi.js:
-        specifier: ^8.6.1
+        specifier: 'catalog:'
         version: 8.20.0
       rc-dock:
         specifier: ^3.3.2
@@ -101,11 +125,14 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.8(react@19.2.8)
+      react-konva:
+        specifier: 'catalog:'
+        version: 19.2.6(@types/react@19.2.18)(konva@9.3.22)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tailwind-merge:
         specifier: ^2.6.0
         version: 2.6.1
       zod:
-        specifier: ^3.23.8
+        specifier: 'catalog:'
         version: 3.25.76
       zustand:
         specifier: ^5.0.3
@@ -139,7 +166,7 @@ importers:
         specifier: ^3.4.17
         version: 3.4.19(yaml@2.9.0)
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
         specifier: ^5.4.11
@@ -148,7 +175,7 @@ importers:
         specifier: ^0.21.1
         version: 0.21.2(vite@5.4.21(@types/node@26.3.0)(terser@5.51.2))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@26.3.0)(@vitest/browser@4.1.11)(jsdom@30.0.1)(terser@5.51.2)
 
   packages/engine:
@@ -166,10 +193,10 @@ importers:
         specifier: ^2.2.4
         version: 2.2.4
       pixi.js:
-        specifier: ^8.6.1
+        specifier: 'catalog:'
         version: 8.20.0
       zod:
-        specifier: ^3.23.8
+        specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
       '@types/howler':
@@ -182,10 +209,10 @@ importers:
         specifier: ^30.0.1
         version: 30.0.1
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@26.3.0)(@vitest/browser@4.1.11)(jsdom@30.0.1)(terser@5.51.2)
 
   packages/export-utils:
@@ -219,30 +246,30 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0
       zod:
-        specifier: ^3.23.8
+        specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^26.3.0
         version: 26.3.0
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@26.3.0)(@vitest/browser@4.1.11)(jsdom@30.0.1)(terser@5.51.2)
 
   packages/types:
     dependencies:
       zod:
-        specifier: ^3.23.8
+        specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@26.3.0)(@vitest/browser@4.1.11)(jsdom@30.0.1)(terser@5.51.2)
 
 packages:
@@ -2010,6 +2037,16 @@ packages:
     peerDependencies:
       '@types/react': ^19.2.0
 
+  '@types/react-reconciler@0.28.9':
+    resolution: {integrity: sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==}
+    peerDependencies:
+      '@types/react': '*'
+
+  '@types/react-reconciler@0.33.0':
+    resolution: {integrity: sha512-HZOXsKT0tGI9LlUw2LuedXsVeB88wFa536vVL0M6vE8zN63nI+sSr1ByxmPToP5K5bukaVscyeCJcF9guVNJ1g==}
+    peerDependencies:
+      '@types/react': '*'
+
   '@types/react@19.2.18':
     resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
 
@@ -3237,6 +3274,11 @@ packages:
   ismobilejs@1.1.1:
     resolution: {integrity: sha512-VaFW53yt8QO61k2WJui0dHf4SlL8lxBofUuUmwBo0ljPk0Drz2TiuDW4jo3wDcv41qy/SxrJ+VAzJ/qYqsmzRw==}
 
+  its-fine@2.0.0:
+    resolution: {integrity: sha512-KLViCmWx94zOvpLwSlsx6yOCeMhZYaxrJV87Po5k/FoZzcPSahvK5qJ7fYhS61sZi5ikmh2S3Hz55A2l3U69ng==}
+    peerDependencies:
+      react: ^19.0.0
+
   jackspeak@4.2.3:
     resolution: {integrity: sha512-ykkVRwrYvFm1nb2AJfKKYPr0emF6IiXDYUaFx4Zn9ZuIH7MrzEZ3sD5RlqGXNRpHtvUHJyOnCEFxOlNDtGo7wg==}
     engines: {node: 20 || >=22}
@@ -3314,6 +3356,9 @@ packages:
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
+
+  konva@9.3.22:
+    resolution: {integrity: sha512-yQI5d1bmELlD/fowuyfOp9ff+oamg26WOCkyqUyc+nczD/lhRa3EvD2MZOoc4c1293TAubW9n34fSQLgSeEgSw==}
 
   lazystream@1.0.1:
     resolution: {integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==}
@@ -3794,6 +3839,19 @@ packages:
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
+
+  react-konva@19.2.6:
+    resolution: {integrity: sha512-8njLrhzEW+G3J1YoI1cscd7Dlc5ib9rnN1/5LS2AMvXC2DYUWCsxt242q0cYYdPNUDF7jEETChcGa2yzYfwG4w==}
+    peerDependencies:
+      konva: ^8.0.1 || ^7.2.5 || ^9.0.0 || ^10.0.0
+      react: ^19.2.0
+      react-dom: ^19.2.0
+
+  react-reconciler@0.33.0:
+    resolution: {integrity: sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA==}
+    engines: {node: '>=0.10.0'}
+    peerDependencies:
+      react: ^19.2.0
 
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
@@ -6358,6 +6416,14 @@ snapshots:
     dependencies:
       '@types/react': 19.2.18
 
+  '@types/react-reconciler@0.28.9(@types/react@19.2.18)':
+    dependencies:
+      '@types/react': 19.2.18
+
+  '@types/react-reconciler@0.33.0(@types/react@19.2.18)':
+    dependencies:
+      '@types/react': 19.2.18
+
   '@types/react@19.2.18':
     dependencies:
       csstype: 3.2.3
@@ -7712,6 +7778,13 @@ snapshots:
 
   ismobilejs@1.1.1: {}
 
+  its-fine@2.0.0(@types/react@19.2.18)(react@19.2.8):
+    dependencies:
+      '@types/react-reconciler': 0.28.9(@types/react@19.2.18)
+      react: 19.2.8
+    transitivePeerDependencies:
+      - '@types/react'
+
   jackspeak@4.2.3:
     dependencies:
       '@isaacs/cliui': 9.0.0
@@ -7794,6 +7867,8 @@ snapshots:
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
+
+  konva@9.3.22: {}
 
   lazystream@1.0.1:
     dependencies:
@@ -8267,6 +8342,23 @@ snapshots:
       scheduler: 0.27.0
 
   react-is@18.3.1: {}
+
+  react-konva@19.2.6(@types/react@19.2.18)(konva@9.3.22)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      '@types/react-reconciler': 0.33.0(@types/react@19.2.18)
+      its-fine: 2.0.0(@types/react@19.2.18)(react@19.2.8)
+      konva: 9.3.22
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      react-reconciler: 0.33.0(react@19.2.8)
+      scheduler: 0.27.0
+    transitivePeerDependencies:
+      - '@types/react'
+
+  react-reconciler@0.33.0(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+      scheduler: 0.27.0
 
   react-refresh@0.17.0: {}
 

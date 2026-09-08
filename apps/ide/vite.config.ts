@@ -18,10 +18,34 @@ function monacoWorkerPlugin() {
   };
 }
 
+// Stub out @tauri-apps/* for browser-only dev mode — the real Tauri APIs are
+// only available when the app runs inside the Tauri WebView. In the browser
+// the engine uses the `'__TAURI_INTERNALS__' in window` guard before calling
+// any Tauri function, so these stubs are never invoked at runtime.
+function tauriStubPlugin() {
+  const STUB_ID_PREFIX = "\0tauri-stub:";
+  return {
+    name: "tauri-stub",
+    resolveId(id: string) {
+      if (id.startsWith("@tauri-apps/")) {
+        return STUB_ID_PREFIX + id;
+      }
+      return null;
+    },
+    load(id: string) {
+      if (id.startsWith(STUB_ID_PREFIX)) {
+        return "export default {}; export const getCurrent = () => ({});";
+      }
+      return null;
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
     monacoWorkerPlugin(),
+    tauriStubPlugin(),
     VitePWA({
       registerType: "autoUpdate",
       manifest: false, // use public/manifest.webmanifest
@@ -52,7 +76,7 @@ export default defineConfig({
     format: "es" as const,
   },
   esbuild: {
-    target: "es2024",
+    target: "es2022",
   },
   optimizeDeps: {
     include: ["react", "react-dom", "zustand", "rc-dock"],
@@ -61,6 +85,8 @@ export default defineConfig({
       "@dimforge/rapier3d-compat",
       "monaco-editor",
       "@tauri-apps/api",
+      "@tauri-apps/api/window",
+      "@tauri-apps/api/core",
     ],
   },
   server: {
@@ -81,7 +107,7 @@ export default defineConfig({
     },
   },
   build: {
-    target: "es2024",
+    target: "es2022",
     sourcemap: false,
     cssCodeSplit: false,
     modulePreload: { polyfill: false },
