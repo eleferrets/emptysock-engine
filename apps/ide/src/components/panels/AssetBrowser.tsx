@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
   Image,
@@ -14,9 +14,12 @@ import {
   ChevronRight,
   GripVertical,
   List,
+  RotateCcw,
+  RotateCw,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
+import { useHistory } from "../../hooks/useHistory";
 import { Button } from "../ui/Button";
 import { ContextMenu } from "../ui/ContextMenu";
 import type { ContextMenuEntry } from "../ui/ContextMenu";
@@ -46,8 +49,9 @@ type DirHandleIterable = FileSystemDirectoryHandle & {
 
 async function importGMS2FromHandle(
   dirHandle: FileSystemDirectoryHandle,
+  addItems: (items: AssetItem[]) => void,
 ): Promise<void> {
-  const { openFile, addAsset, addLog } = useIDEStore.getState();
+  const { openFile, addLog } = useIDEStore.getState();
 
   let yypHandle: FileSystemFileHandle | null = null;
   const iterable = dirHandle as DirHandleIterable;
@@ -86,6 +90,7 @@ async function importGMS2FromHandle(
   let scriptCount = 0;
   let spriteCount = 0;
   let objectCount = 0;
+  const newAssets: AssetItem[] = [];
 
   for (const res of project.resources) {
     const name = res.id.name;
@@ -101,7 +106,7 @@ async function importGMS2FromHandle(
       openFile(`gms2/${name}.ts`, stub);
       objectCount += 1;
     } else if (resPath.startsWith("sprites/")) {
-      addAsset({
+      newAssets.push({
         id: `gms2-spr-${Date.now()}-${name}`,
         name,
         type: "image",
@@ -110,6 +115,7 @@ async function importGMS2FromHandle(
       spriteCount += 1;
     }
   }
+  if (newAssets.length > 0) addItems(newAssets);
 
   addLog(
     "info",
@@ -205,10 +211,7 @@ function AssetPreviewPopover({
   const left = flipLeft
     ? anchorRect.left - POPOVER_WIDTH - 8
     : anchorRect.right + 8;
-  const top = Math.min(
-    anchorRect.top,
-    window.innerHeight - 300,
-  );
+  const top = Math.min(anchorRect.top, window.innerHeight - 300);
 
   let previewContent: React.ReactElement;
 
@@ -363,8 +366,7 @@ function AssetPreviewPopover({
         border: "1px solid var(--es-border)",
         borderRadius: 8,
         padding: 10,
-        boxShadow:
-          "0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.18)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.18)",
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -663,8 +665,7 @@ function RoomOrderDialog({
 
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
-  const addAsset = useIDEStore((s) => s.addAsset);
-  const deleteAsset = useIDEStore((s) => s.deleteAsset);
+  const setAssets = useIDEStore((s) => s.setAssets);
   const openImageEditor = useIDEStore((s) => s.openImageEditor);
   const openFiles = useIDEStore((s) => s.openFiles);
   const recentIds = useIDEStore((s) => s.recentAssetIds);
@@ -673,6 +674,35 @@ export function AssetBrowser(): React.ReactElement {
   const setRoomOrder = useIDEStore((s) => s.setRoomOrder);
   const dropImportFolder = useIDEStore((s) => s.dropImportFolder);
   const setDropImportFolder = useIDEStore((s) => s.setDropImportFolder);
+
+  const {
+    state: histAssets,
+    set: histSet,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<AssetItem[]>(assets);
+
+  // Sync history state → store (handles undo/redo restores and all UI mutations)
+  useEffect(() => {
+    setAssets(histAssets);
+  }, [histAssets, setAssets]);
+
+  // Keyboard undo/redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canUndo) undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canRedo) redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canUndo, canRedo, undo, redo]);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredAsset, setHoveredAsset] = useState<{
@@ -692,14 +722,14 @@ export function AssetBrowser(): React.ReactElement {
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFolder = useRef("assets");
 
-  const filtered = assets.filter((a) =>
+  const filtered = histAssets.filter((a) =>
     a.name.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const scenes = assets.filter((a) => a.type === "scene");
+  const scenes = histAssets.filter((a) => a.type === "scene");
 
   const recentAssets = recentIds
-    .map((id) => assets.find((a) => a.id === id))
+    .map((id) => histAssets.find((a) => a.id === id))
     .filter((a): a is AssetItem => a !== undefined);
 
   const trackRecent = (id: string): void => {
@@ -755,17 +785,18 @@ export function AssetBrowser(): React.ReactElement {
         }
         toImport.push(file);
       }
-      for (const file of toImport) {
-        addAsset({
+      if (toImport.length > 0) {
+        const newItems: AssetItem[] = toImport.map((file) => ({
           id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           name: file.name,
           type: guessAssetType(file),
           path: `${folder}${file.name}`,
           size: file.size,
-        });
+        }));
+        histSet((prev) => [...prev, ...newItems]);
       }
     },
-    [addAsset, dropImportFolder],
+    [histSet, dropImportFolder],
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -789,14 +820,15 @@ export function AssetBrowser(): React.ReactElement {
       }
       toImport.push(file);
     }
-    for (const file of toImport) {
-      addAsset({
+    if (toImport.length > 0) {
+      const newItems: AssetItem[] = toImport.map((file) => ({
         id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
         type: guessAssetType(file),
         path: `assets/${file.name}`,
         size: file.size,
-      });
+      }));
+      histSet((prev) => [...prev, ...newItems]);
     }
     e.target.value = "";
   };
@@ -805,13 +837,16 @@ export function AssetBrowser(): React.ReactElement {
     if (stripDialog === null) return;
     const n = parseInt(stripDialog.frameCount, 10);
     if (isNaN(n) || n < 1) return;
-    addAsset({
-      id: `ast-${Date.now()}`,
-      name: stripDialog.fileName,
-      type: "image",
-      path: `assets/${stripDialog.fileName}`,
-      size: stripDialog.size,
-    });
+    histSet((prev) => [
+      ...prev,
+      {
+        id: `ast-${Date.now()}`,
+        name: stripDialog.fileName,
+        type: "image",
+        path: `assets/${stripDialog.fileName}`,
+        size: stripDialog.size,
+      },
+    ]);
     URL.revokeObjectURL(stripDialog.objectUrl);
     stripFileRef.current = null;
     setStripDialog(null);
@@ -860,7 +895,7 @@ export function AssetBrowser(): React.ReactElement {
       label: "Delete",
       danger: true,
       onClick: () => {
-        deleteAsset(asset.id);
+        histSet((prev) => prev.filter((a) => a.id !== asset.id));
         setContextMenu(null);
       },
     });
@@ -900,6 +935,24 @@ export function AssetBrowser(): React.ReactElement {
         <Button
           variant="ghost"
           size="sm"
+          title="Undo"
+          onClick={undo}
+          disabled={!canUndo}
+        >
+          <RotateCcw size={11} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Redo"
+          onClick={redo}
+          disabled={!canRedo}
+        >
+          <RotateCw size={11} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           title="Import asset"
           onClick={() => fileInputRef.current?.click()}
         >
@@ -928,7 +981,11 @@ export function AssetBrowser(): React.ReactElement {
               };
               void (window as unknown as WindowWithDirPicker)
                 .showDirectoryPicker({ mode: "read" })
-                .then((handle) => importGMS2FromHandle(handle));
+                .then((handle) =>
+                  importGMS2FromHandle(handle, (items) =>
+                    histSet((prev) => [...prev, ...items]),
+                  ),
+                );
             }}
           >
             <PackageOpen size={11} />
@@ -1005,7 +1062,7 @@ export function AssetBrowser(): React.ReactElement {
                     borderRadius: 4,
                     background:
                       selectedId === asset.id
-                        ? "rgba(124,106,247,0.15)"
+                        ? "var(--es-selection-bg, rgba(124,106,247,0.15))"
                         : "var(--es-surface-2)",
                     border: `1px solid ${
                       selectedId === asset.id
@@ -1077,7 +1134,7 @@ export function AssetBrowser(): React.ReactElement {
               fontStyle: "italic",
             }}
           >
-            {assets.length === 0
+            {histAssets.length === 0
               ? "No assets yet — drag files here or click Upload."
               : "No assets match your search."}
           </div>
@@ -1094,7 +1151,10 @@ export function AssetBrowser(): React.ReactElement {
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              setContextMenu({ asset, position: { x: e.clientX, y: e.clientY } });
+              setContextMenu({
+                asset,
+                position: { x: e.clientX, y: e.clientY },
+              });
             }}
             onPointerEnter={(e) => handleAssetPointerEnter(asset, e)}
             onPointerLeave={scheduleHide}
@@ -1102,7 +1162,7 @@ export function AssetBrowser(): React.ReactElement {
             style={{
               background:
                 selectedId === asset.id
-                  ? "rgba(124,106,247,0.15)"
+                  ? "var(--es-selection-bg, rgba(124,106,247,0.15))"
                   : "var(--es-surface-2)",
               border: `1px solid ${
                 selectedId === asset.id
@@ -1279,7 +1339,7 @@ export function AssetBrowser(): React.ReactElement {
                   borderRadius: 6,
                   overflow: "hidden",
                   border: "1px solid var(--es-border)",
-                  background: "#0e0e10",
+                  background: "var(--es-surface-deep)",
                   maxHeight: 120,
                   display: "flex",
                   alignItems: "center",

@@ -10,22 +10,10 @@ import {
   RotateCw,
 } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
+import { useIDEStore } from "../../store/ideStore";
+import type { CGEntry } from "../../store/ideStore";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface CGEntry {
-  id: string;
-  title: string;
-  imagePath: string;
-}
-
-// Note: cgEntries are held in local state for this session. The variableStore
-// uses Record<number, boolean> with numeric indices, which doesn't accommodate
-// the string-keyed `cg_<id>` pattern described in the spec. Unlock state is
-// therefore also kept in local state. A future iteration can persist both to
-// the project JSON and map unlock state to a designated switch index range.
+export type { CGEntry };
 
 // ---------------------------------------------------------------------------
 // Empty-state quips (dry, deadpan, stable per session)
@@ -54,7 +42,11 @@ interface LightboxProps {
   onClose: () => void;
 }
 
-function Lightbox({ entries, startIndex, onClose }: LightboxProps): React.ReactElement {
+function Lightbox({
+  entries,
+  startIndex,
+  onClose,
+}: LightboxProps): React.ReactElement {
   const [index, setIndex] = React.useState(startIndex);
 
   // Pointer-drag swipe state
@@ -81,7 +73,9 @@ function Lightbox({ entries, startIndex, onClose }: LightboxProps): React.ReactE
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose, goPrev, goNext]);
 
-  function handleOverlayPointerDown(e: React.PointerEvent<HTMLDivElement>): void {
+  function handleOverlayPointerDown(
+    e: React.PointerEvent<HTMLDivElement>,
+  ): void {
     dragStartX.current = e.clientX;
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -145,7 +139,10 @@ function Lightbox({ entries, startIndex, onClose }: LightboxProps): React.ReactE
       {/* Previous arrow */}
       {entries.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); goPrev(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goPrev();
+          }}
           style={{
             position: "absolute",
             left: 16,
@@ -183,7 +180,10 @@ function Lightbox({ entries, startIndex, onClose }: LightboxProps): React.ReactE
       {/* Next arrow */}
       {entries.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); goNext(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goNext();
+          }}
           style={{
             position: "absolute",
             right: 16,
@@ -237,7 +237,10 @@ interface AddEntryFormProps {
   onCancel: () => void;
 }
 
-function AddEntryForm({ onSave, onCancel }: AddEntryFormProps): React.ReactElement {
+function AddEntryForm({
+  onSave,
+  onCancel,
+}: AddEntryFormProps): React.ReactElement {
   const [id, setId] = React.useState("");
   const [title, setTitle] = React.useState("");
   const [imagePath, setImagePath] = React.useState("");
@@ -246,7 +249,8 @@ function AddEntryForm({ onSave, onCancel }: AddEntryFormProps): React.ReactEleme
     const trimId = id.trim();
     const trimTitle = title.trim();
     const trimPath = imagePath.trim();
-    if (trimId.length === 0 || trimTitle.length === 0 || trimPath.length === 0) return;
+    if (trimId.length === 0 || trimTitle.length === 0 || trimPath.length === 0)
+      return;
     onSave({ id: trimId, title: trimTitle, imagePath: trimPath });
   }
 
@@ -275,7 +279,14 @@ function AddEntryForm({ onSave, onCancel }: AddEntryFormProps): React.ReactEleme
         marginBottom: 12,
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 12, color: "var(--es-text)", marginBottom: 2 }}>
+      <div
+        style={{
+          fontWeight: 600,
+          fontSize: 12,
+          color: "var(--es-text)",
+          marginBottom: 2,
+        }}
+      >
         New CG Entry
       </div>
       <input
@@ -315,7 +326,11 @@ function AddEntryForm({ onSave, onCancel }: AddEntryFormProps): React.ReactEleme
         </button>
         <button
           onClick={handleSave}
-          disabled={id.trim().length === 0 || title.trim().length === 0 || imagePath.trim().length === 0}
+          disabled={
+            id.trim().length === 0 ||
+            title.trim().length === 0 ||
+            imagePath.trim().length === 0
+          }
           style={{
             background: "var(--es-accent, #3b82f6)",
             border: "none",
@@ -325,7 +340,12 @@ function AddEntryForm({ onSave, onCancel }: AddEntryFormProps): React.ReactEleme
             fontSize: 12,
             padding: "5px 12px",
             minHeight: 28,
-            opacity: id.trim().length === 0 || title.trim().length === 0 || imagePath.trim().length === 0 ? 0.5 : 1,
+            opacity:
+              id.trim().length === 0 ||
+              title.trim().length === 0 ||
+              imagePath.trim().length === 0
+                ? 0.5
+                : 1,
           }}
         >
           Save
@@ -346,7 +366,12 @@ interface CGCardProps {
   onToggleLock: () => void;
 }
 
-function CGCard({ entry, unlocked, onOpen, onToggleLock }: CGCardProps): React.ReactElement {
+function CGCard({
+  entry,
+  unlocked,
+  onOpen,
+  onToggleLock,
+}: CGCardProps): React.ReactElement {
   const [hovered, setHovered] = React.useState(false);
 
   return (
@@ -362,7 +387,8 @@ function CGCard({ entry, unlocked, onOpen, onToggleLock }: CGCardProps): React.R
         overflow: "hidden",
         cursor: unlocked ? "pointer" : "default",
         opacity: unlocked ? 1 : 0.5,
-        boxShadow: hovered && unlocked ? "0 0 0 2px var(--es-accent, #3b82f6)" : "none",
+        boxShadow:
+          hovered && unlocked ? "0 0 0 2px var(--es-accent, #3b82f6)" : "none",
         transition: "box-shadow 0.15s, transform 0.15s",
         transform: hovered && unlocked ? "scale(1.02)" : "scale(1)",
         display: "flex",
@@ -433,7 +459,10 @@ function CGCard({ entry, unlocked, onOpen, onToggleLock }: CGCardProps): React.R
 
       {/* Unlock/lock toggle button */}
       <button
-        onClick={(e) => { e.stopPropagation(); onToggleLock(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleLock();
+        }}
         title={unlocked ? "Lock" : "Unlock"}
         style={{
           background: "transparent",
@@ -465,20 +494,27 @@ export function CGGallery(): React.ReactElement {
     QUIPS[Math.floor(Math.random() * QUIPS.length)] ?? QUIPS[0],
   ).current;
 
-  // Entry list — local state with undo/redo (session-only; project JSON persistence
-  // is handled externally when project save is wired up)
+  const cgGallery = useIDEStore((s) => s.cgGallery);
+  const setCGGallery = useIDEStore((s) => s.setCGGallery);
+
+  // Entry list — undo/redo via useHistory, initialised from persisted store state
   const {
-    state: entries,
-    set: setEntries,
+    state: histEntries,
+    set: setHistEntries,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useHistory<CGEntry[]>([]);
+  } = useHistory<CGEntry[]>(cgGallery.entries);
 
-  // Unlock state: keyed by entry.id. The variableStore uses Record<number, boolean>
-  // with numeric indices and doesn't support string keys, so unlock state lives here.
-  const [unlocked, setUnlocked] = React.useState<Record<string, boolean>>({});
+  // Sync entries changes → store (unlock state is read from store at sync time)
+  React.useEffect(() => {
+    const currentUnlocked = useIDEStore.getState().cgGallery.unlocked;
+    setCGGallery({ entries: histEntries, unlocked: currentUnlocked });
+  }, [histEntries, setCGGallery]);
+
+  const entries = histEntries;
+  const unlocked = cgGallery.unlocked;
 
   const [search, setSearch] = React.useState("");
   const [showAddForm, setShowAddForm] = React.useState(false);
@@ -514,12 +550,16 @@ export function CGGallery(): React.ReactElement {
   function handleAddEntry(entry: CGEntry): void {
     // Prevent duplicate IDs
     if (entries.some((e) => e.id === entry.id)) return;
-    setEntries((prev) => [...prev, entry]);
+    setHistEntries((prev) => [...prev, entry]);
     setShowAddForm(false);
   }
 
   function handleToggleLock(entryId: string): void {
-    setUnlocked((prev) => ({ ...prev, [entryId]: prev[entryId] !== true }));
+    const newUnlocked = {
+      ...cgGallery.unlocked,
+      [entryId]: cgGallery.unlocked[entryId] !== true,
+    };
+    setCGGallery({ entries: histEntries, unlocked: newUnlocked });
   }
 
   function handleCardOpen(entry: CGEntry): void {

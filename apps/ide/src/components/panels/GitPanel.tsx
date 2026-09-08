@@ -109,10 +109,10 @@ function DiffView({ diff }: { diff: string }): React.ReactElement {
           let color = "var(--es-text)";
           if (line.startsWith("+") && !line.startsWith("+++")) {
             bg = "var(--es-diff-add-bg)";
-            color = "#4ade80";
+            color = "var(--es-green)";
           } else if (line.startsWith("-") && !line.startsWith("---")) {
             bg = "var(--es-diff-rm-bg)";
-            color = "#f87171";
+            color = "var(--es-red)";
           } else if (line.startsWith("@@")) {
             color = "var(--es-accent)";
           } else if (line.startsWith("---") || line.startsWith("+++")) {
@@ -152,10 +152,10 @@ function FileRow({
 }): React.ReactElement {
   const statusColor = (s: FileStatus["status"]): string =>
     ({
-      modified: "#fbbf24",
-      added: "#4ade80",
-      deleted: "#ef4444",
-      untracked: "#94a3b8",
+      modified: "var(--es-yellow)",
+      added: "var(--es-green)",
+      deleted: "var(--es-red)",
+      untracked: "var(--es-text-muted)",
     })[s];
 
   const hasDiff = f.diff !== undefined && f.diff.length > 0;
@@ -208,10 +208,7 @@ function FileRow({
             DIFF
           </span>
         )}
-        <span
-          style={{ flexShrink: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <span style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
           {action}
         </span>
       </div>
@@ -242,7 +239,12 @@ export function GitPanel(): React.ReactElement {
       setBranch("main");
       return;
     }
-    const statusOut = await runGit(["-C", projectFolder, "status", "--porcelain"]);
+    const statusOut = await runGit([
+      "-C",
+      projectFolder,
+      "status",
+      "--porcelain",
+    ]);
     const branchOut = await runGit([
       "-C",
       projectFolder,
@@ -352,10 +354,7 @@ export function GitPanel(): React.ReactElement {
             {branch}
           </span>
         </span>
-        <button
-          onClick={() => void refresh()}
-          style={btnBase}
-        >
+        <button onClick={() => void refresh()} style={btnBase}>
           Refresh
         </button>
       </div>
@@ -369,6 +368,22 @@ export function GitPanel(): React.ReactElement {
           flexDirection: "column",
         }}
       >
+        {/* Browser-mode disclaimer */}
+        {browserMode && (
+          <div
+            style={{
+              padding: "6px 12px",
+              background: "rgba(250, 204, 21, 0.1)",
+              borderBottom: "1px solid var(--es-yellow)",
+              color: "var(--es-yellow)",
+              fontSize: 11,
+              flexShrink: 0,
+            }}
+          >
+            Preview — no git repo connected
+          </div>
+        )}
+
         {/* Staged */}
         <div
           style={{
@@ -387,10 +402,7 @@ export function GitPanel(): React.ReactElement {
             expanded={expandedDiffPath === f.path}
             onToggle={() => toggleDiff(f.path)}
             action={
-              <button
-                onClick={() => void unstageFile(f.path)}
-                style={btnBase}
-              >
+              <button onClick={() => void unstageFile(f.path)} style={btnBase}>
                 -
               </button>
             }
@@ -423,7 +435,7 @@ export function GitPanel(): React.ReactElement {
                   background: "var(--es-accent)",
                   border: "none",
                   borderRadius: 3,
-                  color: "#fff",
+                  color: "var(--es-text-on-accent)",
                   cursor: "pointer",
                   fontSize: 10,
                 }}
@@ -489,7 +501,7 @@ export function GitPanel(): React.ReactElement {
             borderRadius: 4,
             color:
               commitMsg.trim() && staged.length > 0
-                ? "#fff"
+                ? "var(--es-text-on-accent)"
                 : "var(--es-text-muted)",
             cursor:
               commitMsg.trim() && staged.length > 0 ? "pointer" : "default",
