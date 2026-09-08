@@ -83,7 +83,7 @@ Source docs: `improvements.md`, `apps/ide/HANDOFF.md`, `docs/ui-widgets.md`, MCP
 - ⬜ **[P2]** `CGGallery.tsx` — CG unlock state not persisted  
   A comment in the file explicitly acknowledges this: CG entries and unlock state live in local React state and are lost on panel unmount. Needs persisting to project JSON (mapped to a switch index range in `VariableStore`).
 
-- ⬜ **[P2]** `EntityProperties.tsx:9–17` — `AVAILABLE_COMPONENTS` is a hardcoded 7-string array  
+- ✅ **[P2]** `EntityProperties.tsx:9–17` — `AVAILABLE_COMPONENTS` is a hardcoded 7-string array  
   No mechanism exists to derive the list from the engine's actual component registry. Adding a new engine component requires manually updating this array; omitting it silently hides the component from the Add Component menu.
 
 ---
@@ -100,7 +100,7 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 - ⬜ **[P2]** `VisualScriptEditor.tsx:644,669` — SVG edge strokes hardcoded  
   Committed edge: `stroke="#7c6af7"`. Pending edge: `stroke="#ef4444"`. Use `var(--es-accent)` and `var(--es-red)`.
 
-- ⬜ **[P2]** `VNEditor.tsx:764,778,1013` — `+ Choice` button, Delete button, and node label text hardcoded  
+- ✅ **[P2]** `VNEditor.tsx:764,778,1013` — `+ Choice` button, Delete button, and node label text hardcoded  
   Background `"#7c3aed"`, `"#dc2626"`, and text `"#e2e8f0"` on DOM elements. Use `--es-accent`, `--es-red`, `--es-text`.
 
 - ⬜ **[P2]** `GitPanel.tsx:154–159` — `statusColor()` returns raw hex for modified/added/deleted/untracked  
@@ -112,16 +112,16 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 - ⬜ **[P2]** `GitPanel.tsx:426,492` — stage and commit buttons hardcode `color: "#fff"`  
   Use `var(--es-text-on-accent)` or a token so the text remains readable if the accent color changes.
 
-- ⬜ **[P2]** `SequenceEditor.tsx:49–55` — `TYPE_COLORS` map applies background hex to DOM badge elements  
+- ✅ **[P2]** `SequenceEditor.tsx:49–55` — `TYPE_COLORS` map applies background hex to DOM badge elements  
   Six raw hex values used as `background: TYPE_COLORS[track.type] + "33"`. Replace with `--es-track-*` semantic tokens.
 
-- ⬜ **[P2]** `SequenceEditor.tsx:983,1207–1208,1235` — OK button, keyframe delete X, and playhead hardcoded  
+- ✅ **[P2]** `SequenceEditor.tsx:983,1207–1208,1235` — OK button, keyframe delete X, and playhead hardcoded  
   Three separate DOM elements with raw `#2563eb`, `#ef4444`, and `color: "#fff"`. Use `--es-accent`, `--es-red`, `--es-text-on-accent`.
 
-- ⬜ **[P2]** `Profiler.tsx:155–159,178` — FPS tier colors and Draws count hardcoded  
+- ✅ **[P2]** `Profiler.tsx:155–159,178` — FPS tier colors and Draws count hardcoded  
   `color` on DOM elements: `#4ade80`, `#fbbf24`, `#ef4444` for FPS tiers; `#60a5fa` for Draws. Use `--es-green`, `--es-yellow`, `--es-red`, `--es-blue`.
 
-- ⬜ **[P2]** `ShaderEditor.tsx:337–358` — error/success status bars hardcoded  
+- ✅ **[P2]** `ShaderEditor.tsx:337–358` — error/success status bars hardcoded  
   `rgba(225,112,85,0.12)` / `#e17055` and `rgba(0,184,148,0.1)` / `#00b894` on DOM `<div>`. Use `--es-red` / `--es-green` tokens.
 
 - ⬜ **[P2]** `AssetBrowser.tsx:1008,1103` — selected item tint not using a CSS variable  
@@ -130,7 +130,7 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 - ⬜ **[P2]** `AssetBrowser.tsx:1282` — strip preview container background hardcoded  
   `background: "#0e0e10"` on a DOM layout `<div>`. Use `var(--es-surface-deep)` or similar.
 
-- ⬜ **[P3]** `UIPlacementPanel.tsx:~744` — Insert button confirmation state hardcoded  
+- ✅ **[P3]** `UIPlacementPanel.tsx:~744` — Insert button confirmation state hardcoded  
   `background: "#16a34a"` on a DOM `<button>`. Use `var(--es-green)`.
 
 ---
