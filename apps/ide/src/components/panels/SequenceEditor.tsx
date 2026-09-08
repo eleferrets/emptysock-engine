@@ -860,7 +860,7 @@ export function SequenceEditor(): React.ReactElement {
               style={{
                 flex: 1,
                 maxWidth: 400,
-                padding: "3px 6px",
+                padding: "4px 8px",
                 borderRadius: 3,
                 border: "1px solid var(--es-border, #444)",
                 background: "var(--es-surface, #16213e)",
@@ -868,8 +868,83 @@ export function SequenceEditor(): React.ReactElement {
                 fontSize: 12,
                 resize: "vertical",
                 fontFamily: "inherit",
+                minHeight: 32,
               }}
             />
+          ) : selectedLaneType === 'expression' ? (
+            <>
+              <input
+                type="text"
+                list="es-expression-list"
+                value={kfEditValue}
+                onChange={(e) => setKfEditValue(e.target.value)}
+                onBlur={commitKfValue}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
+                  if (e.key === 'Escape') setSelectedKf(null);
+                }}
+                autoFocus
+                placeholder="e.g. happy, sad, surprised"
+                style={{ width: 160, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+              />
+              <datalist id="es-expression-list">
+                {['neutral', 'happy', 'sad', 'angry', 'surprised', 'embarrassed', 'thoughtful', 'determined'].map((ex) => (
+                  <option key={ex} value={ex} />
+                ))}
+              </datalist>
+            </>
+          ) : selectedLaneType === 'audio' ? (
+            <>
+              <input
+                type="text"
+                value={kfEditValue}
+                onChange={(e) => setKfEditValue(e.target.value)}
+                onBlur={commitKfValue}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
+                  if (e.key === 'Escape') setSelectedKf(null);
+                }}
+                autoFocus
+                placeholder="audio key, e.g. battle_bgm"
+                style={{ width: 140, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--es-text-dim, #888)', flexShrink: 0 }}>vol</span>
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                value={audioVol}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setAudioVol(isNaN(v) ? 0 : v);
+                }}
+                onBlur={commitKfValue}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
+                  if (e.key === 'Escape') setSelectedKf(null);
+                }}
+                style={{ width: 56, padding: '4px 4px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+              />
+            </>
+          ) : selectedLaneType === 'wait' ? (
+            <>
+              <span style={{ fontSize: 11, color: 'var(--es-text-dim, #888)', flexShrink: 0 }}>Duration (s)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={kfEditValue}
+                onChange={(e) => setKfEditValue(e.target.value)}
+                onBlur={commitKfValue}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { commitKfValue(); setSelectedKf(null); }
+                  if (e.key === 'Escape') setSelectedKf(null);
+                }}
+                autoFocus
+                style={{ width: 80, padding: '4px 8px', borderRadius: 3, border: '1px solid var(--es-border, #444)', background: 'var(--es-surface, #16213e)', color: 'var(--es-text, #e2e8f0)', fontSize: 12, minHeight: 32 }}
+              />
+            </>
           ) : (
             <input
               type="number"
@@ -887,12 +962,13 @@ export function SequenceEditor(): React.ReactElement {
               autoFocus
               style={{
                 width: 80,
-                padding: "2px 4px",
+                padding: "4px 8px",
                 borderRadius: 3,
                 border: "1px solid var(--es-border, #444)",
                 background: "var(--es-surface, #16213e)",
                 color: "var(--es-text, #e2e8f0)",
                 fontSize: 12,
+                minHeight: 32,
               }}
             />
           )}
@@ -1066,9 +1142,16 @@ export function SequenceEditor(): React.ReactElement {
                     selectedKf?.trackId === track.id &&
                     selectedKf.kfId === kf.id;
                   const laneType = track.laneType ?? 'keyframe';
-                  const titleText = laneType === 'dialogue'
-                    ? `t=${kf.time}s  "${kf.textValue ?? ''}"`
-                    : `t=${kf.time}s  v=${kf.value}`;
+                  const titleText =
+                    laneType === 'dialogue'
+                      ? `t=${kf.time}s  "${(kf.textValue ?? '').slice(0, 40)}"`
+                      : laneType === 'expression'
+                        ? `t=${kf.time}s  ${kf.textValue ?? 'expression'}`
+                        : laneType === 'audio'
+                          ? `t=${kf.time}s  ♪ ${kf.textValue ?? 'audio'} vol:${kf.value.toFixed(2)}`
+                          : laneType === 'wait'
+                            ? `t=${kf.time}s  ${kf.value.toFixed(2)}s`
+                            : `t=${kf.time}s  v=${kf.value}`;
                   return (
                     <div
                       key={kf.id}
