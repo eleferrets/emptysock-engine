@@ -1041,6 +1041,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         editorShowRuler: s.editorShowRuler,
         editorSnapToGrid: s.editorSnapToGrid,
         editorShowGuides: s.editorShowGuides,
+        openFiles: s.openFiles,
+        activeFilePath: s.activeFilePath,
+        recentAssetIds: s.recentAssetIds,
+        roomOrder: s.roomOrder,
       },
       null,
       2,
@@ -1242,6 +1246,39 @@ export const useIDEStore = create<IDEState>((set, get) => ({
           }
           if (typeof proj["editorShowGuides"] === "boolean") {
             updates.editorShowGuides = proj["editorShowGuides"];
+          }
+          // Restore open file tabs from saved JSON (used on autosave restore)
+          if (
+            proj["openFiles"] !== null &&
+            typeof proj["openFiles"] === "object" &&
+            !Array.isArray(proj["openFiles"])
+          ) {
+            const saved = proj["openFiles"] as Record<string, unknown>;
+            const restored: Record<string, string> = {};
+            for (const [k, v] of Object.entries(saved)) {
+              if (typeof v === "string") restored[k] = v;
+            }
+            // Only use saved openFiles if no code files were passed directly
+            if (Object.keys(codeFiles).length === 0 && Object.keys(restored).length > 0) {
+              updates.openFiles = restored;
+            }
+          }
+          if (typeof proj["activeFilePath"] === "string") {
+            // Only set activeFilePath if it's in the openFiles we have
+            const files = updates.openFiles ?? codeFiles;
+            if (proj["activeFilePath"] in files) {
+              updates.activeFilePath = proj["activeFilePath"];
+            }
+          }
+          if (Array.isArray(proj["recentAssetIds"])) {
+            updates.recentAssetIds = (proj["recentAssetIds"] as unknown[]).filter(
+              (v): v is string => typeof v === "string",
+            );
+          }
+          if (Array.isArray(proj["roomOrder"])) {
+            updates.roomOrder = (proj["roomOrder"] as unknown[]).filter(
+              (v): v is string => typeof v === "string",
+            );
           }
           set(updates);
         } catch (err) {
