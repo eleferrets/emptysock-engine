@@ -51,7 +51,7 @@ Launches the Tauri desktop app. Requires Rust installed (see Section 1). The fir
 The IDE opens with a code editor panel on the right. The default file is `src/scenes/GameScene.ts`. Delete everything in it and paste this:
 
 ```typescript
-import { Scene, Entity, Transform } from "@emptysock/engine";
+import { Scene, Entity, Transform } from '@emptysock/engine';
 
 export class GameScene extends Scene {
   private square!: Entity;
@@ -60,15 +60,10 @@ export class GameScene extends Scene {
 
   override async onLoad(): Promise<void> {
     // Create an entity. Think of it as an empty container.
-    this.square = this.createEntity("Square");
+    this.square = this.createEntity('Square');
 
     // Add a Transform to give it a position and size.
-    this.square.addComponent(Transform, {
-      x: this.x,
-      y: 200,
-      width: 48,
-      height: 48,
-    });
+    this.square.addComponent(Transform, { x: this.x, y: 200, width: 48, height: 48 });
   }
 
   override onUpdate(dt: number): void {
@@ -106,14 +101,14 @@ Press the **Play** button (or `Ctrl+Enter`). The square will appear and slide ba
 
 Here is what each piece does:
 
-| Code                           | What it means                                                                     |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| `extends Scene`                | Your game screen is a **Scene** — it runs the game loop                           |
-| `createEntity('Square')`       | An **Entity** is a named container. It holds components (the actual behaviors)    |
+| Code | What it means |
+|------|--------------|
+| `extends Scene` | Your game screen is a **Scene** — it runs the game loop |
+| `createEntity('Square')` | An **Entity** is a named container. It holds components (the actual behaviors) |
 | `addComponent(Transform, ...)` | A **Component** is data attached to an entity. Transform stores position and size |
-| `onLoad()`                     | Runs once before the first frame. Set up entities and systems here                |
-| `onUpdate(dt)`                 | Runs every frame. `dt` = seconds since last frame. Move things here               |
-| `onDestroy()`                  | Runs when the scene ends. Cancel timers and free resources here                   |
+| `onLoad()` | Runs once before the first frame. Set up entities and systems here |
+| `onUpdate(dt)` | Runs every frame. `dt` = seconds since last frame. Move things here |
+| `onDestroy()` | Runs when the scene ends. Cancel timers and free resources here |
 
 ---
 
@@ -150,12 +145,11 @@ The IDE supports multi-file projects via virtual file system. Use the **Files** 
 ```typescript
 // src/entities/Player.ts
 export class Player {
-  x = 0;
-  y = 0;
+  x = 0; y = 0;
 }
 
 // src/scenes/GameScene.ts
-import { Player } from "../entities/Player";
+import { Player } from '../entities/Player';
 // Works — the virtual FS resolves the import from the open-files map.
 ```
 
@@ -166,9 +160,8 @@ Supported file types: `.ts`, `.tsx`, `.js`, `.jsx`, `.json`.
 Both are first-class scripting languages. The same esbuild pipeline handles both — use whichever you prefer.
 
 **TypeScript** (type-checked, autocompletion in Monaco):
-
 ```typescript
-import { Scene, Entity, Transform } from "@emptysock/engine";
+import { Scene, Entity, Transform } from '@emptysock/engine';
 
 export class GameScene extends Scene {
   override onUpdate(dt: number): void {
@@ -178,9 +171,8 @@ export class GameScene extends Scene {
 ```
 
 **JavaScript** (no explicit types, looser but still works):
-
 ```javascript
-import { Scene, Transform } from "@emptysock/engine";
+import { Scene, Transform } from '@emptysock/engine';
 
 export class GameScene extends Scene {
   onUpdate(dt) {
@@ -246,15 +238,15 @@ pnpm emptysock-toolchain export --platform ios
 
 ### Common flags
 
-| Flag                              | Purpose                                                     |
-| --------------------------------- | ----------------------------------------------------------- |
+| Flag | Purpose |
+|------|---------|
 | `--entry src/scenes/GameScene.ts` | Entry point (default: first scene). Accepts `.ts` or `.js`. |
-| `--out dist/`                     | Output directory                                            |
-| `--format zip`                    | Portable zip — no installer needed on any platform          |
-| `--minify`                        | Minify JS bundle                                            |
-| `--drop-console`                  | Strip all console.\* calls                                  |
-| `--sourcemap`                     | Emit source maps alongside bundle                           |
-| `--aggressive`                    | Enable aggressive tree-shaking                              |
+| `--out dist/` | Output directory |
+| `--format zip` | Portable zip — no installer needed on any platform |
+| `--minify` | Minify JS bundle |
+| `--drop-console` | Strip all console.* calls |
+| `--sourcemap` | Emit source maps alongside bundle |
+| `--aggressive` | Enable aggressive tree-shaking |
 
 ---
 

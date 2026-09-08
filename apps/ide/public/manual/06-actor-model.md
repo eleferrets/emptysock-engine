@@ -15,13 +15,13 @@ Actors replace direct calls with messages. `system.send('enemy-1', { type: 'TAKE
 ## 6.2 Defining an Actor
 
 ```typescript
-import { Actor, type Message, type ActorId } from "@emptysock/engine";
+import { Actor, type Message, type ActorId } from '@emptysock/engine';
 
 // Define message types for this actor:
 type EnemyMessage =
-  | { type: "TAKE_DAMAGE"; amount: number }
-  | { type: "HEAL"; amount: number }
-  | { type: "STUN"; duration: number };
+  | { type: 'TAKE_DAMAGE'; amount: number }
+  | { type: 'HEAL'; amount: number }
+  | { type: 'STUN'; duration: number };
 
 class EnemyActor extends Actor {
   private _health = 100;
@@ -31,12 +31,12 @@ class EnemyActor extends Actor {
   // It is called synchronously during ActorSystem.update(dt).
   receive(msg: Message): void {
     const m = msg as unknown as EnemyMessage;
-    if (m.type === "TAKE_DAMAGE") {
+    if (m.type === 'TAKE_DAMAGE') {
       this._health -= m.amount;
       if (this._health <= 0) this.die();
-    } else if (m.type === "HEAL") {
+    } else if (m.type === 'HEAL') {
       this._health = Math.min(100, this._health + m.amount);
-    } else if (m.type === "STUN") {
+    } else if (m.type === 'STUN') {
       this._stunTimer = m.duration;
     }
   }
@@ -50,9 +50,7 @@ class EnemyActor extends Actor {
     this.runAI(dt);
   }
 
-  private runAI(dt: number): void {
-    /* ... */
-  }
+  private runAI(dt: number): void { /* ... */ }
   private die(): void {
     this.stop(); // marks isRunning = false, skips future updates
   }
@@ -64,31 +62,31 @@ class EnemyActor extends Actor {
 ## 6.3 ActorSystem
 
 ```typescript
-import { ActorSystem } from "@emptysock/engine";
+import { ActorSystem } from '@emptysock/engine';
 
 const system = new ActorSystem();
 
 // Register an actor:
-const enemy = new EnemyActor("enemy-1");
+const enemy = new EnemyActor('enemy-1');
 system.register(enemy); // throws if 'enemy-1' is already registered
 
 // Send a message (queued, processed next update):
-system.send("enemy-1", { type: "TAKE_DAMAGE", amount: 25 });
+system.send('enemy-1', { type: 'TAKE_DAMAGE', amount: 25 });
 
 // Broadcast to all registered actors:
-system.broadcast({ type: "FREEZE", duration: 3.0 });
+system.broadcast({ type: 'FREEZE', duration: 3.0 });
 
 // In your game loop:
 system.update(dt); // flushes all mailboxes, then calls update(dt) on running actors
 
 // Remove an actor:
-system.unregister("enemy-1");
+system.unregister('enemy-1');
 
 // Destroy all actors and clear the registry:
 system.destroy();
 ```
 
-**Ordering guarantee:** Messages sent in frame N are processed in frame N's `update()` call — specifically, all inboxes are drained before any `update()` runs. Messages sent _during_ an actor's `receive()` are processed in the same flush pass (the inbox is drained until empty).
+**Ordering guarantee:** Messages sent in frame N are processed in frame N's `update()` call — specifically, all inboxes are drained before any `update()` runs. Messages sent *during* an actor's `receive()` are processed in the same flush pass (the inbox is drained until empty).
 
 **Performance:** `broadcast()` is O(n actors). For frequent per-frame messages (input state, tick), prefer targeted `send()` to specific actor IDs.
 
@@ -101,25 +99,19 @@ system.destroy();
 `NetworkActor` extends `Actor` with a pluggable `Transport`. It does not add networking knowledge to the actor itself — it simply routes incoming transport messages into `receive()` and exposes `sendRemote()` for outbound messages.
 
 ```typescript
-import {
-  NetworkActor,
-  type Transport,
-  type TransportMessage,
-} from "@emptysock/engine";
+import { NetworkActor, type Transport, type TransportMessage } from '@emptysock/engine';
 
 class MultiplayerEnemyActor extends NetworkActor {
   receive(msg: Message): void {
     // Handles BOTH local messages (from system.send)
     // AND remote messages (from the transport).
     // The actor cannot distinguish which source.
-    if ((msg as any).type === "TAKE_DAMAGE") {
-      /* ... */
-    }
+    if ((msg as any).type === 'TAKE_DAMAGE') { /* ... */ }
   }
 
   broadcastToAll(msg: Message): void {
     // Send to all remote peers:
-    this.sendRemote("broadcast", msg as unknown as Record<string, unknown>);
+    this.sendRemote('broadcast', msg as unknown as Record<string, unknown>);
     // Also handle locally:
     this.send(msg);
   }
@@ -133,7 +125,7 @@ class MultiplayerEnemyActor extends NetworkActor {
 `Transport` is an interface. You implement it for whatever network layer you use — WebSocket, WebRTC data channels, a local loopback for testing, etc. The engine never imports a concrete transport.
 
 ```typescript
-import { type Transport, type TransportMessage } from "@emptysock/engine";
+import { type Transport, type TransportMessage } from '@emptysock/engine';
 
 class WebSocketTransport implements Transport {
   private _ws: WebSocket;
@@ -171,10 +163,10 @@ class WebSocketTransport implements Transport {
 **Wiring the transport:**
 
 ```typescript
-const transport = new WebSocketTransport("wss://game.example.com/ws");
+const transport = new WebSocketTransport('wss://game.example.com/ws');
 await transport.connect();
 
-const actor = new MultiplayerEnemyActor("remote-enemy");
+const actor = new MultiplayerEnemyActor('remote-enemy');
 actor.setTransport(transport); // hooks onReceive
 system.register(actor);
 ```
@@ -188,11 +180,11 @@ system.register(actor);
 Because actors communicate only via messages, testing is straightforward:
 
 ```typescript
-test("enemy takes damage", () => {
+test('enemy takes damage', () => {
   const system = new ActorSystem();
-  const enemy = new EnemyActor("e");
+  const enemy = new EnemyActor('e');
   system.register(enemy);
-  system.send("e", { type: "TAKE_DAMAGE", amount: 40 });
+  system.send('e', { type: 'TAKE_DAMAGE', amount: 40 });
   system.update(0.016);
   expect((enemy as any)._health).toBe(60);
 });

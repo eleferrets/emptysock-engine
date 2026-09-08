@@ -121,7 +121,7 @@ If you added a new file in the Files panel but did not open it in the editor, it
 const hp = enemyActor.currentHealth;
 
 // The message system guarantees processing order, not immediate mutation:
-system.send("enemy", { type: "TAKE_DAMAGE", amount: 10 });
+system.send('enemy', { type: 'TAKE_DAMAGE', amount: 10 });
 // hp is still the old value here — message not yet processed
 system.update(dt);
 // hp is now updated
