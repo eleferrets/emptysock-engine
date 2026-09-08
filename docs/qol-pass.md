@@ -9,7 +9,7 @@ Status markers: ✅ done · ⬜ todo · 🔴 blocked · 🔍 verify
 - ⬜ **[P2]** Debugger integration — breakpoints + variable inspector in preview  
   iframe DevTools protocol bridge or log-based step debugger in ConsolePanel.
 
-- ⬜ **[P2]** Turn-based battle system module  
+- ✅ **[P2]** Turn-based battle system module  
   Party vs enemy encounter, action menu, formula damage from database, status effects. Opt-in module flag.
 
 ---
