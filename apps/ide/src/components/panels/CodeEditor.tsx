@@ -128,10 +128,7 @@ export function CodeEditor(): React.ReactElement {
             const editorTop = 33;
             setSnippetPos({
               top: editorTop + pixelPos.top + 20,
-              left: Math.min(
-                pixelPos.left,
-                containerRect.width - 268,
-              ),
+              left: Math.min(pixelPos.left, containerRect.width - 268),
             });
             setSnippetSearch("");
             setShowSnippets(true);
@@ -409,8 +406,14 @@ export function CodeEditor(): React.ReactElement {
                 <div
                   key={path}
                   onClick={() => handleTabClick(path)}
-                  className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer select-none"
                   style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    flexShrink: 0,
+                    cursor: "pointer",
+                    userSelect: "none",
                     height: "100%",
                     padding: "0 10px",
                     fontSize: 11,
@@ -422,22 +425,37 @@ export function CodeEditor(): React.ReactElement {
                     color: active ? "var(--es-text)" : "var(--es-text-muted)",
                     background: active ? "rgba(124,106,247,0.06)" : undefined,
                     maxWidth: 180,
+                    overflow: "hidden",
                   }}
                 >
-                  <span className="truncate" style={{ maxWidth: 120 }}>
+                  <span
+                    style={{
+                      maxWidth: 120,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {label}
                   </span>
                   <button
                     onClick={(e) => handleTabClose(e, path)}
-                    className="flex-shrink-0"
                     style={{
+                      flexShrink: 0,
                       background: "none",
                       border: "none",
                       cursor: "pointer",
                       color: "var(--es-text-muted)",
                       display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       padding: 1,
                       borderRadius: 2,
+                      minHeight: "unset",
+                      minWidth: "unset",
+                      width: 14,
+                      height: 14,
+                      lineHeight: 1,
                     }}
                   >
                     <X size={10} />

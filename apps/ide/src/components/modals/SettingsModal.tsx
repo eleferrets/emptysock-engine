@@ -155,7 +155,7 @@ function ToggleRow({
             width: 16,
             height: 16,
             borderRadius: "50%",
-            background: "white",
+            background: "var(--es-bg)",
             transition: "left 0.15s",
           }}
         />

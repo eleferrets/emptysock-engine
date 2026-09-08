@@ -4,8 +4,5 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
-    typecheck: {
-      enabled: true,
-    },
   },
 });

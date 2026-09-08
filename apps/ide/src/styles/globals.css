@@ -144,9 +144,34 @@ body,
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/* ── Form element dark-mode defaults ────────────────────────────────────────── */
+
+input,
+textarea {
+  background: var(--es-bg);
+  color: var(--es-text);
+  border: 1px solid var(--es-border);
+  border-radius: 4px;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--es-accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--es-text-muted);
+}
+
 /* Ensure all native selects feel interactive */
 select {
   cursor: pointer;
+  background: var(--es-bg);
+  color: var(--es-text);
+  border: 1px solid var(--es-border);
+  border-radius: 4px;
 }
 
 /* Destructive hover tint for buttons/rows */
