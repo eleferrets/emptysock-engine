@@ -282,12 +282,21 @@ function buildFont(comp: UIComponent): string {
 
 class UISystemImpl {
   private readonly _roots: UIComponent[] = [];
-  private readonly _imageLoader: ImageLoader | undefined;
+  private _imageLoader: ImageLoader | undefined;
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
   private readonly _imagePending: Set<string> = new Set();
 
   constructor(imageLoader?: ImageLoader) {
     this._imageLoader = imageLoader;
+  }
+
+  /**
+   * Inject an ImageLoader so that image UI components resolve their source
+   * instead of rendering a grey placeholder. Call this once during game
+   * initialisation before any image components are created.
+   */
+  setImageLoader(loader: ImageLoader): void {
+    this._imageLoader = loader;
   }
 
   create(type: UIComponentType, options: Omit<UIComponentOptions, 'type'> = {}): UIComponent {

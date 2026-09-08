@@ -9,13 +9,13 @@ This section is the reference for the building blocks every game uses: Scene, En
 A **Scene** is the root container for one game screen. It owns entities, manages the game loop, and receives lifecycle callbacks. Think of it as the director of a single level or menu.
 
 ```typescript
-import { Scene, type SceneConfig } from "@emptysock/engine";
+import { Scene, type SceneConfig } from '@emptysock/engine';
 
 export class GameScene extends Scene {
   // Optional: configure render mode and target frame rate
   static readonly config: SceneConfig = {
-    renderMode: "2d", // '2d' | '3d'
-    gameSpeed: 60, // target fps
+    renderMode: '2d',  // '2d' | '3d'
+    gameSpeed: 60,     // target fps
   };
 
   override async onLoad(): Promise<void> {
@@ -40,20 +40,20 @@ export class GameScene extends Scene {
 
 Creates a named entity and registers it with the scene. Returns the new `Entity` instance.
 
-| Parameter | Type     | Description                                                        |
-| --------- | -------- | ------------------------------------------------------------------ |
-| `name`    | `string` | Human-readable label for the entity (shown in the Inspector panel) |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `string` | Human-readable label for the entity (shown in the Inspector panel) |
 
 ```typescript
-const player = this.createEntity("Player");
+const player = this.createEntity('Player');
 ```
 
 ### Scene.query(...ComponentTypes)
 
 Returns all entities that have **all** of the specified component types attached. Useful for iterating over a group of similar objects (all enemies, all collectibles).
 
-| Parameter  | Type              | Description                                  |
-| ---------- | ----------------- | -------------------------------------------- |
+| Parameter | Type | Description |
+|-----------|------|-------------|
 | `...types` | `ComponentType[]` | One or more component constructor references |
 
 ```typescript
@@ -76,17 +76,14 @@ An **Entity** is a named container for components. It carries a unique auto-gene
 
 Attaches a component of the given type to this entity. Throws if a component of the same type is already attached.
 
-| Parameter | Type                  | Description                                          |
-| --------- | --------------------- | ---------------------------------------------------- |
-| `Type`    | Component constructor | The class of the component to add                    |
-| `options` | `object` (optional)   | Initial values passed to the component's constructor |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `Type` | Component constructor | The class of the component to add |
+| `options` | `object` (optional) | Initial values passed to the component's constructor |
 
 ```typescript
-player.addComponent(Sprite, {
-  texture: "hero.png",
-  anchor: { x: 0.5, y: 1.0 },
-});
-player.addComponent(PhysicsBody, { shape: "capsule", width: 32, height: 64 });
+player.addComponent(Sprite, { texture: 'hero.png', anchor: { x: 0.5, y: 1.0 } });
+player.addComponent(PhysicsBody, { shape: 'capsule', width: 32, height: 64 });
 ```
 
 ### entity.getComponent(Type)
@@ -162,7 +159,7 @@ export class Health {
 }
 
 // Attach and use it:
-const player = this.createEntity("Player");
+const player = this.createEntity('Player');
 player.addComponent(Health, 100);
 
 // Later, in onUpdate:
@@ -182,14 +179,14 @@ if (health.isDead) {
 
 **Timer** lets you run code after a delay or on a repeating interval, integrated with the game loop. Use `Timer` instead of `setTimeout`/`setInterval` — browser timers are not paused when the game pauses, and they do not respect frame timing.
 
-| Method                     | Description                                 |
-| -------------------------- | ------------------------------------------- |
-| `Timer.after(seconds, fn)` | Run `fn` once after `seconds` seconds       |
+| Method | Description |
+|--------|-------------|
+| `Timer.after(seconds, fn)` | Run `fn` once after `seconds` seconds |
 | `Timer.every(seconds, fn)` | Run `fn` repeatedly every `seconds` seconds |
-| `handle.cancel()`          | Stop the timer before it fires              |
+| `handle.cancel()` | Stop the timer before it fires |
 
 ```typescript
-import { Timer, type TimerHandle } from "@emptysock/engine";
+import { Timer, type TimerHandle } from '@emptysock/engine';
 
 export class BossScene extends Scene {
   private phaseTimer!: TimerHandle;
@@ -221,44 +218,42 @@ A **Coroutine** is a generator function that can pause mid-execution without blo
 
 Think of a coroutine as a recipe with "wait here" steps — the engine reads one step per frame until it hits a `yield`, then pauses and comes back the next frame.
 
-| Yield helper                 | Description                                 |
-| ---------------------------- | ------------------------------------------- |
-| `waitSeconds(n)`             | Pause for `n` seconds                       |
-| `waitFrames(n)`              | Pause for `n` frames                        |
+| Yield helper | Description |
+|-------------|-------------|
+| `waitSeconds(n)` | Pause for `n` seconds |
+| `waitFrames(n)` | Pause for `n` frames |
 | `waitForAnimation(animator)` | Pause until the current animation clip ends |
-| `waitUntil(() => condition)` | Pause until the callback returns `true`     |
+| `waitUntil(() => condition)` | Pause until the callback returns `true` |
 
 ```typescript
-import { waitSeconds, waitFrames, waitUntil } from "@emptysock/engine";
+import { waitSeconds, waitFrames, waitUntil } from '@emptysock/engine';
 
 // A complete cutscene sequence:
 entity.startCoroutine(function* introCutscene() {
   hud.hide();
   Camera.fade({ from: 0x000000, duration: 1.0 }); // fade in from black
 
-  yield waitSeconds(1.0); // wait for fade to finish
+  yield waitSeconds(1.0);   // wait for fade to finish
 
-  dialogue.show("Welcome to the dungeon...");
-  yield waitSeconds(3.0); // player reads the text
+  dialogue.show('Welcome to the dungeon...');
+  yield waitSeconds(3.0);   // player reads the text
 
   dialogue.hide();
   hud.show();
 
-  yield waitFrames(30); // half a second at 60fps
+  yield waitFrames(30);     // half a second at 60fps
 
   boss.activate();
   yield waitUntil(() => boss.health < 100); // wait until boss takes damage
 
-  music.transition("boss_phase2");
+  music.transition('boss_phase2');
 });
 ```
 
 Coroutines are cleaned up automatically when the entity is destroyed. To stop a coroutine manually:
 
 ```typescript
-const handle = entity.startCoroutine(function* () {
-  /* ... */
-});
+const handle = entity.startCoroutine(function* () { /* ... */ });
 handle.stop();
 ```
 
@@ -270,24 +265,24 @@ handle.stop();
 
 **SceneManager** controls which scene is running. Use it to switch between the main menu, levels, and game over screens.
 
-| Method                                   | Description                                    |
-| ---------------------------------------- | ---------------------------------------------- |
-| `SceneManager.load(name)`                | Replace the active scene                       |
-| `SceneManager.transition(name, options)` | Replace with a visual transition effect        |
-| `SceneManager.push(name)`                | Push an overlay scene (pauses the one beneath) |
-| `SceneManager.pop()`                     | Return to the scene beneath the overlay        |
+| Method | Description |
+|--------|-------------|
+| `SceneManager.load(name)` | Replace the active scene |
+| `SceneManager.transition(name, options)` | Replace with a visual transition effect |
+| `SceneManager.push(name)` | Push an overlay scene (pauses the one beneath) |
+| `SceneManager.pop()` | Return to the scene beneath the overlay |
 
 ```typescript
-import { SceneManager } from "@emptysock/engine";
+import { SceneManager } from '@emptysock/engine';
 
 // In your game over screen:
-SceneManager.load("MenuScene");
+SceneManager.load('MenuScene');
 
 // With a fade transition:
-SceneManager.transition("Level2Scene", { effect: "fade", duration: 0.4 });
+SceneManager.transition('Level2Scene', { effect: 'fade', duration: 0.4 });
 
 // Open a pause menu without destroying the game scene:
-SceneManager.push("PauseScene");
+SceneManager.push('PauseScene');
 
 // Close the pause menu and resume:
 SceneManager.pop();
@@ -299,30 +294,26 @@ SceneManager.pop();
 
 A **Tween** smoothly animates a numeric property from its current value to a target value over time.
 
-| Parameter            | Type         | Description                                     |
-| -------------------- | ------------ | ----------------------------------------------- |
-| `target`             | `object`     | The object whose properties you want to animate |
-| `to`                 | `object`     | The target values (must be numbers)             |
-| `options.duration`   | `number`     | Duration in seconds                             |
-| `options.ease`       | `EasingName` | The easing curve (see list below)               |
-| `options.onComplete` | `() => void` | Called when the tween finishes                  |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `target` | `object` | The object whose properties you want to animate |
+| `to` | `object` | The target values (must be numbers) |
+| `options.duration` | `number` | Duration in seconds |
+| `options.ease` | `EasingName` | The easing curve (see list below) |
+| `options.onComplete` | `() => void` | Called when the tween finishes |
 
 ```typescript
-import { Tween } from "@emptysock/engine";
+import { Tween } from '@emptysock/engine';
 
 // Slide entity to a new position over 0.5 seconds:
-Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: "bounceOut" });
+Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: 'bounceOut' });
 
 // Fade out and then destroy:
-Tween.to(
-  sprite,
-  { alpha: 0 },
-  {
-    duration: 0.3,
-    ease: "sineIn",
-    onComplete: () => entity.destroy(),
-  },
-);
+Tween.to(sprite, { alpha: 0 }, {
+  duration: 0.3,
+  ease: 'sineIn',
+  onComplete: () => entity.destroy(),
+});
 ```
 
 **Available easing functions:** `linear`, `sineIn`, `sineOut`, `sineInOut`, `quadIn`, `quadOut`, `quadInOut`, `cubicIn`, `cubicOut`, `cubicInOut`, `bounceOut`, `elasticOut`, `backIn`, `backOut`.
@@ -332,34 +323,24 @@ Tween.to(
 ## 4.8 Input (keyboard & mouse)
 
 ```typescript
-import { Input } from "@emptysock/engine";
+import { Input } from '@emptysock/engine';
 
 // In your onUpdate():
 
 // Keyboard — held, just pressed, just released
-if (Input.isDown("ArrowRight")) {
-  player.moveRight(dt);
-}
-if (Input.isPressed("Space")) {
-  player.jump();
-} // fires once on keydown
-if (Input.isReleased("Space")) {
-  player.land();
-} // fires once on keyup
+if (Input.isDown('ArrowRight'))  { player.moveRight(dt); }
+if (Input.isPressed('Space'))    { player.jump(); }    // fires once on keydown
+if (Input.isReleased('Space'))   { player.land(); }   // fires once on keyup
 
 // Axis — returns -1..1, works with keyboard WASD/arrows AND gamepad sticks
-const horizontal = Input.axis("Horizontal"); // -1 (left) to 1 (right)
-const vertical = Input.axis("Vertical"); // -1 (up) to 1 (down)
+const horizontal = Input.axis('Horizontal'); // -1 (left) to 1 (right)
+const vertical   = Input.axis('Vertical');   // -1 (up) to 1 (down)
 
 // Mouse / pointer
-const pos = Input.pointer.position; // { x, y } in canvas space
-const delta = Input.pointer.delta; // movement since last frame
-if (Input.pointer.isDown(0)) {
-  /* left button held */
-}
-if (Input.pointer.isPressed(2)) {
-  /* right button just clicked */
-}
+const pos    = Input.pointer.position;   // { x, y } in canvas space
+const delta  = Input.pointer.delta;      // movement since last frame
+if (Input.pointer.isDown(0))    { /* left button held */ }
+if (Input.pointer.isPressed(2)) { /* right button just clicked */ }
 ```
 
 > **Tip:** Use `Input.axis` instead of checking individual arrow keys — axis works with both keyboard and gamepad automatically.
@@ -371,7 +352,7 @@ if (Input.pointer.isPressed(2)) {
 **Camera** controls what is visible in the game view. You can make it follow an entity, zoom, shake, or fade.
 
 ```typescript
-import { Camera } from "@emptysock/engine";
+import { Camera } from '@emptysock/engine';
 
 // Follow the player smoothly (lerp = smoothing factor, 0.08 feels natural):
 Camera.follow(player, { lerp: 0.08, deadzone: { x: 60, y: 30 } });
@@ -383,7 +364,7 @@ Camera.stopFollowing();
 Camera.shake({ intensity: 8, duration: 0.4 });
 
 // Zoom in over 0.5 seconds:
-Camera.zoom(2.0, { duration: 0.5, ease: "sineOut" });
+Camera.zoom(2.0, { duration: 0.5, ease: 'sineOut' });
 
 // Fade to black (before a scene transition):
 Camera.fade({ to: 0x000000, duration: 0.6 });
@@ -397,27 +378,23 @@ Camera.fade({ from: 0x000000, duration: 0.6 });
 ## 4.10 Audio
 
 ```typescript
-import { Audio } from "@emptysock/engine";
+import { Audio } from '@emptysock/engine';
 
 // Play a sound effect:
-Audio.play("jump_sfx");
+Audio.play('jump_sfx');
 
 // Play a sound at a position in the game world (spatial audio):
-Audio.play("footstep", {
-  volume: 0.6,
-  spatial: true,
-  position: entity.position,
-});
+Audio.play('footstep', { volume: 0.6, spatial: true, position: entity.position });
 
 // Start background music (loops automatically):
-Audio.music("level_theme", { loop: true, fade: 0.5 });
+Audio.music('level_theme', { loop: true, fade: 0.5 });
 
 // Stop music with a fade:
 Audio.stopMusic({ fade: 0.5 });
 
 // Set volume for a group (these are wired to the Audio Mixer panel):
-Audio.setGroupVolume("sfx", 0.8);
-Audio.setGroupVolume("music", 0.5);
+Audio.setGroupVolume('sfx', 0.8);
+Audio.setGroupVolume('music', 0.5);
 ```
 
 > **Tip:** Sound names passed to `Audio.play()` must match the filename in your project's Assets folder, without the extension.

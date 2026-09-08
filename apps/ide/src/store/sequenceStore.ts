@@ -14,6 +14,7 @@ export interface SequenceKeyframe {
   id: string;
   time: number;
   value: number;
+  textValue?: string; // string payload for dialogue, expression, and audio lane types
 }
 
 export interface SequenceTrack {

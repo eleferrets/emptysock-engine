@@ -27,6 +27,10 @@ console.log(`[engine-runtime] Bundling engine as IIFE${isProd ? ' (minified)' : 
 const result = await build({
   configFile: false,
   logLevel: 'warn',
+  esbuild: {
+    target: 'es2022',
+    tsconfigRaw: '{}',
+  },
   resolve: {
     alias: {
       '@emptysock/engine': engineEntry,
@@ -36,6 +40,7 @@ const result = await build({
     exclude: ['@dimforge/rapier2d-compat'],
   },
   build: {
+    target: 'es2022',
     write: false,
     minify: isProd,
     lib: {
@@ -45,7 +50,7 @@ const result = await build({
       fileName: () => 'engine.iife.js',
     },
     rollupOptions: {
-      external: ['@dimforge/rapier2d-compat', '@dimforge/rapier3d-compat'],
+      external: ['@dimforge/rapier2d-compat', '@dimforge/rapier3d-compat', /^@tauri-apps\//],
       output: {
         name: 'EmptySockEngine',
         globals: {

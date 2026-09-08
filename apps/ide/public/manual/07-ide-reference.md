@@ -95,22 +95,31 @@ Export settings as JSON to pass directly to the engine's ParticleSystem componen
 
 ---
 
-## 7.8 VNEditor (Visual Novel Node Graph)
+## 7.8 Story Graph (formerly VN Graph)
 
-An SVG-based node graph editor for branching dialogue trees.
+An SVG-based node graph editor for branching dialogue trees. Open it via **Module → Story Graph** in the menu bar, or drag its tab from the panel bar.
 
 **Node types:**
 
-- **Dialogue** — speaker name + text body. One output port.
-- **Choice** — array of option strings. One output port per option.
+- **Dialogue** — speaker name + text body. One output port (continues to next node).
+- **Choice** — array of option strings. One output port per option (fan-out).
+- **Condition** — reads a variable set by `VNSystem.setVariable()` and routes to a "true" or "false" successor.
 
-**Interactions:**
+**Canvas controls:**
 
-- Drag a node's header to move it.
-- Drag from an output port to an input port to connect nodes.
-- Double-click a node to open the edit modal (change text, add/remove options).
+| Action        | Input                                                         |
+| ------------- | ------------------------------------------------------------- |
+| Pan           | Middle-click drag, Space + drag, or two-finger trackpad swipe |
+| Zoom          | Scroll wheel or trackpad pinch                                |
+| Move node     | Drag the node's header bar                                    |
+| Connect nodes | Drag from an output port to an input port                     |
+| Disconnect    | Click a connected port and drag off it                        |
+| Edit node     | Double-click the node body                                    |
+| Delete node   | Select then press `Delete` or `Backspace`                     |
 
-**Export:** Click Export JSON to get a graph compatible with `VNSystem.loadScript()`.
+> **Touchpad and touch pan:** On a trackpad, two-finger swipe pans the canvas. On a touch device (tablet, touch monitor), use two fingers to pan and pinch to zoom. Single-touch always drags the selected node; no modifier needed.
+
+**Export:** Click **Export JSON** in the toolbar to save the graph as a `.vnscript` file. Load it at runtime with `VNSystem.loadScript(path)`.
 
 ---
 
@@ -273,3 +282,111 @@ seq.stop(); // stops and rewinds
 ```
 
 **GMS2 note:** Sequences in GameMaker Studio 2 map directly to this panel — see section 11 for the migration guide.
+
+---
+
+## 7.16 Settings
+
+Open the Settings panel via **IDE → Settings** or the gear icon in the top-right toolbar.
+
+### Power Saver Mode
+
+When **Power Saver** is enabled, the IDE throttles the Canvas Preview's requestAnimationFrame loop to a maximum of 30 fps while the canvas is not the active focus window. This reduces CPU/GPU load and battery drain on laptops during extended editing sessions.
+
+Power Saver does **not** affect the game loop when the game is focused — only the background render rate. Disable Power Saver if you are testing animations that require consistent frame timing even when the canvas is unfocused (for example, cutscene timing tests).
+
+Toggle: **Settings → Performance → Power Saver**. The setting is persisted in the IDE store and survives page refreshes.
+
+### Download Engine (web version only)
+
+The **Download Engine** button appears in Settings only when the IDE is running in the browser (not in the Tauri desktop app). It downloads the current engine bundle as a `.js` file for offline use or for embedding in a project outside the IDE.
+
+This button is hidden in the desktop app because the engine bundle is already bundled inside the Tauri binary. If you do not see the button, you are running the desktop version — use the export pipeline (`pnpm emptysock-toolchain export`) instead.
+
+---
+
+## 7.17 Database Editor
+
+Open via **Module → Database** in the menu bar.
+
+A spreadsheet-style editor for game data: actors, classes, items, and enemies. Each category is a tab. Click a row to select it; edit fields in the property panel on the right. Add rows with the **+** button; delete with the **×** column.
+
+**Actors** — playable characters and NPCs. Fields: name, class ID, level, base HP/MP/ATK/DEF, equipment list.
+
+**Classes** — job classes linked to actors. Fields: name, stat growth curves.
+
+**Items** — consumable and equipment definitions. Fields: name, type, effect, price, icon path.
+
+**Enemies** — encounter definitions. Fields: name, HP, ATK, DEF, EXP, gold, drops.
+
+All data lives in the IDE store and is exported as `database.json` with the project. Load it at runtime with `JSON.parse` — there is no dedicated runtime system; interpret the schema in your own scene code.
+
+---
+
+## 7.18 Variables Panel
+
+Open via **Module → Variables** in the menu bar.
+
+Displays and edits the VariableStore indices (1–1000 variables, 1–1000 switches) used by the MapEventSystem and game scripts. Name each variable or switch for readability; names are stored alongside the data.
+
+- **Variables tab**: index, name, current integer value. Click a value cell to edit inline.
+- **Switches tab**: index, name, on/off toggle.
+
+Changes take effect immediately in the running game (the VariableStore is shared). Click **Save** to persist to `localStorage`; click **Reset** to clear all values and names.
+
+---
+
+## 7.19 UI Placement Panel
+
+Open via **Module → UI Placement** in the menu bar.
+
+A WYSIWYG canvas editor for `UISystem` layouts. Drag components from the palette on the left onto the canvas. Select a component to edit its position, size, anchor, and style in the right-hand property panel.
+
+**Palette types:** `panel`, `text`, `button`, `image`, `progressbar`, `slider`, `checkbox`.
+
+**Canvas controls:**
+
+- Drag a component to reposition it.
+- Drag a handle on the selection border to resize.
+- Hold `Shift` to snap to the grid (default 8 px).
+
+**Export:** Click **Export JSON** to save the layout as a `.eslayout` file. Load it at runtime:
+
+```typescript
+import { UISystem } from "@emptysock/engine";
+await UISystem.loadLayout("assets/ui/hud.eslayout");
+```
+
+Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`).
+
+---
+
+## 7.20 VN Preview Panel
+
+Shown in the Canvas Preview while the Story Graph panel is open. Renders an in-editor preview of the VN scene: background, character sprites, and textbox, using placeholder assets from the script.
+
+The preview updates automatically as you edit nodes in the Story Graph panel — no build step required. Click **Advance** in the preview to step through the script from the selected node.
+
+The panel is view-only; edit the script in the Story Graph panel and edit assets in the Asset Browser.
+
+---
+
+## 7.21 Mobile / Tablet Layout
+
+When the IDE loads in a browser on a device narrower than 1024 px, it automatically switches to the mobile layout. The desktop dock layout (rc-dock) is not used on small screens.
+
+**Phone (< 768 px):**
+
+- Bottom navigation bar: Code, Scene, Files, Console.
+- Swipe left/right to cycle tabs.
+- **Panels** floating action button (bottom-right) opens a drawer with Assets, Inspector, Profiler, and Git.
+- Run/Stop button in the top header bar.
+
+**Tablet (768–1023 px):**
+
+- Left column (40%): file browser.
+- Right column (60%): Code / Preview / Console tab strip.
+
+**Virtual keyboard:** The layout tracks `window.visualViewport` and adjusts bottom padding so the keyboard never covers the editor.
+
+**Touch input in preview:** The game canvas inside the preview iframe receives touch events directly — `InputSystem` handles `touchstart`, `touchmove`, `touchend`, and `touchcancel` natively. No configuration is required.

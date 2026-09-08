@@ -75,6 +75,11 @@ export const ALL_MODULES: ModuleDef[] = [
     label: "Database",
     description: "RPG actor, class, item and enemy database editor",
   },
+  {
+    id: "cg-gallery",
+    label: "CG Gallery",
+    description: "CG art viewer with unlock tracking",
+  },
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [

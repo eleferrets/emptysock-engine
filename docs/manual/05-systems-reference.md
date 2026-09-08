@@ -946,3 +946,186 @@ for (const entry of gallery.unlockedEntries) {
 ```
 
 Integrate with VNSystem: call `gallery.unlockFromNode(cgId)` inside a `vn.onNode` handler to unlock a CG when the script reaches a tagged node.
+
+---
+
+## 5.23 BattleSystem
+
+Self-contained, opt-in turn-based RPG battle module. No game loop integration — the system is event-driven and resolves a full round whenever all party members have submitted actions.
+
+### Constructor
+
+```typescript
+new BattleSystem(options?: BattleSystemOptions)
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `db` | `BattleDatabase` | `{ skills: [], statusEffects: [] }` | Skill and status-effect definitions |
+| `critChance` | `number` | `0.0625` | Base critical-hit probability |
+| `critMultiplier` | `number` | `1.5` | Damage multiplier on a crit |
+| `fleeChance` | `number` | `0.5` | Probability that a `flee` action succeeds |
+
+### Setup methods
+
+```typescript
+battle.addPartyMember(combatant: Combatant): void
+battle.addEnemy(combatant: Combatant): void
+battle.loadDatabase(db: BattleDatabase): void
+```
+
+All setup calls must happen before `start()`. `loadDatabase` replaces the current database.
+
+```typescript
+battle.setDamageFormula(
+  fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number
+): void
+```
+
+Overrides the `physical` formula only. The default is `Math.max(1, Math.floor((atk - def / 2) * power * (isCrit ? critMult : 1)))`.
+
+### Event subscription
+
+```typescript
+const unsub = battle.onEvent((event: BattleEvent) => { /* ... */ });
+unsub(); // stop listening
+```
+
+Subscribe before calling `start()`. Multiple handlers are supported.
+
+### Battle control
+
+```typescript
+battle.start(): void
+```
+
+Fires `battle-start`, then `round-start` (round 1), then the first `action-needed` event for the first party member in speed order.
+
+```typescript
+battle.submitAction(combatantId: string, action: BattleAction): void
+```
+
+Submit an action for one party member while the phase is `'input'`. Valid actions:
+
+- `{ type: 'attack', targetId }` — physical attack
+- `{ type: 'skill', skillId, targetId }` — use a skill from the database
+- `{ type: 'flee' }` — attempt to flee; rolls against `fleeChance`
+
+After all party members have submitted, enemy actions are auto-chosen and the round resolves. Calling `submitAction` in any phase other than `'input'`, or for a combatant that is not awaiting input, is a no-op.
+
+### State accessors
+
+```typescript
+battle.getPhase(): BattlePhase
+battle.getCombatant(id: string): Combatant | undefined
+battle.getParty(): readonly Combatant[]
+battle.getEnemies(): readonly Combatant[]
+battle.getRound(): number
+```
+
+`getCombatant` returns a frozen snapshot; mutating it has no effect.
+
+### Lifecycle
+
+```typescript
+battle.destroy(): void
+```
+
+Clears all event handlers and prevents further processing. Call in `onDestroy`.
+
+---
+
+### Turn order and resolution
+
+Combatants are sorted by `speed` descending each round; ties broken by `luck` (higher wins), then insertion order. Within a round:
+
+1. Status effects are applied at the start of each combatant's turn: HP drain fires a `damage` event, `attackMultiplier` / `defenseMultiplier` modify effective stats for that turn, and `turnsRemaining` is decremented (effects at 0 fire `status-expired` and are removed).
+2. The combatant's action executes.
+3. Victory / defeat is checked after each action. Victory (all enemies dead) is checked before defeat.
+
+---
+
+### Usage example
+
+```typescript
+import {
+  BattleSystem,
+  type Combatant,
+  type BattleDatabase,
+  type BattleEvent,
+} from "@emptysock/engine";
+
+const db: BattleDatabase = {
+  skills: [
+    {
+      id: "fireball",
+      name: "Fireball",
+      mpCost: 10,
+      targetType: "all-enemies",
+      formula: "magical",
+      power: 1.4,
+    },
+    {
+      id: "heal",
+      name: "Heal",
+      mpCost: 8,
+      targetType: "single-ally",
+      formula: "fixed",
+      power: 50,
+      isHeal: true,
+    },
+  ],
+  statusEffects: [
+    {
+      id: "poison",
+      name: "Poison",
+      hpDrainPercentPerTurn: 0.1,
+    },
+  ],
+};
+
+const hero: Combatant = {
+  id: "hero",
+  name: "Hero",
+  stats: { hp: 100, maxHp: 100, mp: 40, maxMp: 40, attack: 20, defense: 10, speed: 15, luck: 5 },
+  statusEffects: [],
+  isParty: true,
+};
+
+const slime: Combatant = {
+  id: "slime",
+  name: "Slime",
+  stats: { hp: 60, maxHp: 60, mp: 0, maxMp: 0, attack: 12, defense: 5, speed: 8, luck: 2 },
+  statusEffects: [],
+  isParty: false,
+};
+
+// In onLoad:
+const battle = new BattleSystem({ db });
+battle.addPartyMember(hero);
+battle.addEnemy(slime);
+
+const unsub = battle.onEvent((event: BattleEvent) => {
+  switch (event.kind) {
+    case "action-needed":
+      // Prompt the player; here we auto-submit for brevity
+      battle.submitAction(event.combatantId, { type: "attack", targetId: "slime" });
+      break;
+    case "damage":
+      // Update HP bars
+      break;
+    case "victory":
+      // Show victory screen
+      break;
+    case "defeat":
+      // Show game-over screen
+      break;
+  }
+});
+
+battle.start();
+
+// In onDestroy:
+unsub();
+battle.destroy();
+```

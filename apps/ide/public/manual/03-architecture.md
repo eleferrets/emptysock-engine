@@ -81,7 +81,6 @@ This separation keeps component data inspectable (the Inspector panel reads `ent
 The **Actor Model** is the concurrency and decoupling primitive. In theaters terms: actors communicate by passing notes, never by grabbing each other's scripts.
 
 An actor is a self-contained unit with:
-
 - A private mailbox (`_inbox: Message[]`)
 - A `receive(msg)` method — the only way its state changes from outside
 - An `update(dt)` method for frame-tick work

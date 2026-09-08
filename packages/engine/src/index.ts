@@ -239,3 +239,20 @@ export type {
 
 // Public type aliases
 export type { GameStage } from "./types/aliases.js";
+
+// Battle System
+export { BattleSystem } from "./systems/BattleSystem.js";
+export type {
+  BattlePhase,
+  BattleStats,
+  StatusEffect,
+  Combatant,
+  SkillTargetType,
+  DamageFormulaId,
+  SkillDef,
+  StatusEffectDef,
+  BattleDatabase,
+  BattleAction,
+  BattleEvent,
+  BattleSystemOptions,
+} from "./systems/BattleSystem.js";
