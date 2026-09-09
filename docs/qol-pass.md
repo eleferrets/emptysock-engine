@@ -185,7 +185,7 @@ Design spec: `docs/ui-widgets.md`. Implementation order is specified there.
 - ✅ **[P3]** Named animations: `fadeIn`, `fadeOut`, `slideIn`, `slideOut`, `pop`, `shake`  
   Implemented in `Widget._tick()`. All accept `{ duration, easing, direction }`.
 
-- 🔴 **[P3]** IDE visual editor for UISystem widgets  
+- ✅ **[P3]** IDE visual editor for UISystem widgets  
   Drag-and-drop widget palette, anchor picker, property panel, widget tree. Undo/redo mandatory. CSS variables only. Empty state: "No widgets yet — drag one from the palette."
 
 ---
