@@ -130,7 +130,7 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 - ✅ **[P2]** `VisualScriptEditor.tsx` — canvas fixed at 800×480, does not resize to container  
   `canvasWidth = 800` / `canvasHeight = 480` are hardcoded constants. Content is clipped in narrow dock layouts. Read the container's `clientWidth`/`clientHeight` via `ResizeObserver` and update the canvas dimensions.
 
-- ⬜ **[P2]** `ShaderEditor.tsx:309` — GLSL source editor is a plain `<textarea>`  
+- ✅ **[P2]** `ShaderEditor.tsx:309` — GLSL source editor is a plain `<textarea>`  
   Every other code-adjacent editor in the IDE uses Monaco. A bare textarea has no syntax highlighting, no line numbers, no GLSL keyword completion. Wire Monaco with a GLSL language config (or the existing shader syntax highlight extension).
 
 ---
@@ -158,10 +158,10 @@ Tracked here so they are visible alongside the QoL items.
 - 🔴 **[P2]** Hot-reload on code change  
   Code edits require a full manual rebuild. Needs a debounced watcher that rebuilds incrementally on changes and patches the iframe or reloads it.
 
-- ⬜ **[P2]** `HANDOFF.md §2` — esbuild.wasm should be self-hosted, not fetched from unpkg  
+- ✅ **[P2]** `HANDOFF.md §2` — esbuild.wasm should be self-hosted, not fetched from unpkg  
   Copy `node_modules/esbuild-wasm/esbuild.wasm` into `public/` via a `postinstall`/`predev` script. Change `wasmURL` in `GameBuildService.ts` to `/esbuild.wasm`. Eliminates the CDN dependency and fixes the dev-server blank canvas bug.
 
-- ⬜ **[P3]** `engine-runtime.build.mjs` — engine bundle not minified  
+- ✅ **[P3]** `engine-runtime.build.mjs` — engine bundle not minified  
   Built unminified (~3 MB). Set `minify: true` in production to reduce iframe startup time.
 
 ---

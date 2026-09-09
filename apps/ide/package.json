@@ -7,7 +7,7 @@
     "engine-runtime": "node engine-runtime.build.mjs",
     "copy-docs": "node scripts/copy-docs.mjs",
     "predev": "node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
-    "prebuild": "node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
+    "prebuild": "NODE_ENV=production node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
