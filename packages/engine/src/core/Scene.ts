@@ -1,5 +1,6 @@
-import { Entity } from './Entity.js';
-import { Engine } from './EngineAPI.js';
+import { Entity } from "./Entity.js";
+import { Engine } from "./EngineAPI.js";
+import { UISystem } from "../systems/UISystem.js";
 
 export type SystemFn = (scene: Scene, deltaTime: number) => void;
 
@@ -12,6 +13,16 @@ export class Scene {
 
   constructor(name: string) {
     this.name = name;
+  }
+
+  /** Access engine-level operations (scene stack, error logging, debug API). */
+  get engine(): typeof Engine {
+    return Engine;
+  }
+
+  /** Access the UISystem singleton to add/remove widgets. */
+  get uiSystem(): typeof UISystem {
+    return UISystem;
   }
 
   // ─── Entities ────────────────────────────────────────────────────────────────
@@ -36,7 +47,7 @@ export class Scene {
   }
 
   getEntitiesByTag(tag: string): Entity[] {
-    return Array.from(this._entities.values()).filter(e => e.hasTag(tag));
+    return Array.from(this._entities.values()).filter((e) => e.hasTag(tag));
   }
 
   getEntities(): ReadonlyMap<number, Entity> {
@@ -50,7 +61,7 @@ export class Scene {
   }
 
   removeSystem(name: string): boolean {
-    const idx = this._systems.findIndex(s => s.name === name);
+    const idx = this._systems.findIndex((s) => s.name === name);
     if (idx === -1) return false;
     this._systems.splice(idx, 1);
     return true;

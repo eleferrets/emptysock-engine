@@ -6,14 +6,15 @@ import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
 
+// Derived from @emptysock/engine public component exports (packages/engine/src/index.ts)
 const AVAILABLE_COMPONENTS = [
+  "Transform",
   "Sprite",
   "PhysicsBody",
   "CharacterController",
   "Animator",
-  "CameraSystem",
-  "AudioSource",
-  "Script",
+  "UIComponent",
+  "RigidJoint",
 ];
 
 function ComponentSection({

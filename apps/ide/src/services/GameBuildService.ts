@@ -8,7 +8,6 @@
  */
 
 import type * as esbuild from "esbuild-wasm";
-import esbuildWasmUrl from "esbuild-wasm/esbuild.wasm?url";
 import { loadSettings } from "./SettingsService";
 import { useIDEStore } from "../store/ideStore";
 
@@ -43,7 +42,7 @@ function ensureEsbuild(buildWorkers?: number): Promise<EsBuildModule> {
     const workers = buildWorkers ?? loadSettings().buildWorkers;
     esbuildReady = (async () => {
       const mod = (await import("esbuild-wasm")) as EsBuildModule;
-      await mod.initialize({ wasmURL: esbuildWasmUrl, worker: workers > 1 });
+      await mod.initialize({ wasmURL: "/esbuild.wasm", worker: workers > 1 });
       return mod;
     })();
   }

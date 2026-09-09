@@ -1,5 +1,5 @@
 import React from "react";
-import { useDBStore } from "../../store/dbStore";
+import { useDBStore, type DbEntry } from "../../store/dbStore";
 import { useHistory } from "../../hooks/useHistory";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -124,10 +124,10 @@ export function DatabaseEditor(): React.ReactElement {
     canUndo,
     canRedo,
   } = useHistory<DBState>({
-    actors: storeActors as DBActor[],
-    classes: storeClasses as DBClass[],
-    items: storeItems as DBItem[],
-    enemies: storeEnemies as DBEnemy[],
+    actors: storeActors as unknown as DBActor[],
+    classes: storeClasses as unknown as DBClass[],
+    items: storeItems as unknown as DBItem[],
+    enemies: storeEnemies as unknown as DBEnemy[],
   });
 
   const dbActors = dbState.actors;
@@ -141,10 +141,10 @@ export function DatabaseEditor(): React.ReactElement {
   React.useEffect(() => {
     if (dbState !== prevDbRef.current) {
       prevDbRef.current = dbState;
-      setStoreActors(dbState.actors);
-      setStoreClasses(dbState.classes);
-      setStoreItems(dbState.items);
-      setStoreEnemies(dbState.enemies);
+      setStoreActors(dbState.actors as unknown as DbEntry[]);
+      setStoreClasses(dbState.classes as unknown as DbEntry[]);
+      setStoreItems(dbState.items as unknown as DbEntry[]);
+      setStoreEnemies(dbState.enemies as unknown as DbEntry[]);
     }
   }, [
     dbState,
@@ -158,10 +158,14 @@ export function DatabaseEditor(): React.ReactElement {
     const next = { ...dbState, ...patch };
     prevDbRef.current = next;
     setDbState(next);
-    if (patch.actors !== undefined) setStoreActors(patch.actors);
-    if (patch.classes !== undefined) setStoreClasses(patch.classes);
-    if (patch.items !== undefined) setStoreItems(patch.items);
-    if (patch.enemies !== undefined) setStoreEnemies(patch.enemies);
+    if (patch.actors !== undefined)
+      setStoreActors(patch.actors as unknown as DbEntry[]);
+    if (patch.classes !== undefined)
+      setStoreClasses(patch.classes as unknown as DbEntry[]);
+    if (patch.items !== undefined)
+      setStoreItems(patch.items as unknown as DbEntry[]);
+    if (patch.enemies !== undefined)
+      setStoreEnemies(patch.enemies as unknown as DbEntry[]);
   };
 
   const setDBActors = (v: DBActor[]): void => commit({ actors: v });

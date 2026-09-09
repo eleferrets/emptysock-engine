@@ -35,10 +35,13 @@ function hexToRgba(hex: string): [number, number, number, number] {
   const h = hex.replace("#", "");
   const len = h.length;
   if (len === 3) {
+    const c0 = h[0] ?? "0";
+    const c1 = h[1] ?? "0";
+    const c2 = h[2] ?? "0";
     return [
-      parseInt(h[0] + h[0], 16),
-      parseInt(h[1] + h[1], 16),
-      parseInt(h[2] + h[2], 16),
+      parseInt(c0 + c0, 16),
+      parseInt(c1 + c1, 16),
+      parseInt(c2 + c2, 16),
       255,
     ];
   }
@@ -109,9 +112,7 @@ function floodFill(
   }
 }
 
-export function ImageEditor({
-  assetId,
-}: ImageEditorProps): React.ReactElement {
+export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const addAsset = useIDEStore((s) => s.addAsset);
   const asset = assets.find((a) => a.id === assetId);
@@ -138,7 +139,12 @@ export function ImageEditor({
 
   const stageRef = React.useRef<KonvaStage | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const panStartRef = React.useRef<{ x: number; y: number; sx: number; sy: number } | null>(null);
+  const panStartRef = React.useRef<{
+    x: number;
+    y: number;
+    sx: number;
+    sy: number;
+  } | null>(null);
   const isUndoRedoRef = React.useRef(false);
   const hasInitHistory = React.useRef(false);
 
@@ -270,10 +276,22 @@ export function ImageEditor({
         const ctx = offscreen.getContext("2d");
         if (ctx === null) return;
         ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, offscreen.width, offscreen.height);
+        const imageData = ctx.getImageData(
+          0,
+          0,
+          offscreen.width,
+          offscreen.height,
+        );
         const fx = Math.floor(clamp(imgX, 0, offscreen.width - 1));
         const fy = Math.floor(clamp(imgY, 0, offscreen.height - 1));
-        floodFill(imageData.data, offscreen.width, offscreen.height, fx, fy, hexToRgba(color));
+        floodFill(
+          imageData.data,
+          offscreen.width,
+          offscreen.height,
+          fx,
+          fy,
+          hexToRgba(color),
+        );
         ctx.putImageData(imageData, 0, 0);
         const resultUrl = offscreen.toDataURL("image/png");
         const filled = new window.Image();
@@ -399,7 +417,7 @@ export function ImageEditor({
   const handleSave = (): void => {
     const stage = stageRef.current;
     if (stage === null || asset === undefined) return;
-    const dataUrl = stage.toDataURL("image/png");
+    const dataUrl = stage.toDataURL({ mimeType: "image/png" });
     addAsset({ ...asset, path: dataUrl });
     setSaveMsg("Saved.");
     setTimeout(() => setSaveMsg(""), 2000);
@@ -415,7 +433,7 @@ export function ImageEditor({
         }
       });
     } else {
-      window.open(stage.toDataURL("image/png"), "_blank");
+      window.open(stage.toDataURL({ mimeType: "image/png" }), "_blank");
     }
   };
 
@@ -504,12 +522,17 @@ export function ImageEditor({
           title="Brush size"
           style={{ width: 72, flexShrink: 0 }}
         />
-        <span style={{ fontSize: 10, color: "var(--es-text-muted)", flexShrink: 0 }}>
+        <span
+          style={{ fontSize: 10, color: "var(--es-text-muted)", flexShrink: 0 }}
+        >
           {brushSize}px
         </span>
         <div style={{ flex: 1 }} />
         <button
-          onClick={() => { isUndoRedoRef.current = true; undo(); }}
+          onClick={() => {
+            isUndoRedoRef.current = true;
+            undo();
+          }}
           disabled={!canUndo}
           style={{
             padding: "2px 8px",
@@ -525,7 +548,10 @@ export function ImageEditor({
           Undo
         </button>
         <button
-          onClick={() => { isUndoRedoRef.current = true; redo(); }}
+          onClick={() => {
+            isUndoRedoRef.current = true;
+            redo();
+          }}
           disabled={!canRedo}
           style={{
             padding: "2px 8px",
@@ -540,7 +566,14 @@ export function ImageEditor({
         >
           Redo
         </button>
-        <div style={{ width: 1, height: 16, background: "var(--es-border)", flexShrink: 0 }} />
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: "var(--es-border)",
+            flexShrink: 0,
+          }}
+        />
         <button
           onClick={handleSave}
           style={{
@@ -572,7 +605,13 @@ export function ImageEditor({
           {"__TAURI_INTERNALS__" in window ? "Reveal" : "Export"}
         </button>
         {saveMsg !== "" && (
-          <span style={{ fontSize: 11, color: "var(--es-text-muted)", flexShrink: 0 }}>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--es-text-muted)",
+              flexShrink: 0,
+            }}
+          >
             {saveMsg}
           </span>
         )}
@@ -594,8 +633,8 @@ export function ImageEditor({
                   ? "grabbing"
                   : "grab"
                 : tool === "eraser"
-                ? "cell"
-                : "crosshair",
+                  ? "cell"
+                  : "crosshair",
           }}
         >
           {imgError ? (
@@ -626,9 +665,7 @@ export function ImageEditor({
               onWheel={handleWheel}
             >
               <Layer>
-                {htmlImg !== null && (
-                  <KonvaImage image={htmlImg} x={0} y={0} />
-                )}
+                {htmlImg !== null && <KonvaImage image={htmlImg} x={0} y={0} />}
                 {lines.map((line, i) => (
                   <Line
                     key={i}
@@ -674,11 +711,11 @@ export function ImageEditor({
           >
             Adjustments
           </div>
-          {([
+          {[
             ["brightness", "Brightness", -100, 100] as const,
             ["contrast", "Contrast", -100, 100] as const,
             ["saturation", "Saturation", -100, 100] as const,
-          ]).map(([key, label, lo, hi]) => (
+          ].map(([key, label, lo, hi]) => (
             <div
               key={key}
               style={{
@@ -699,7 +736,8 @@ export function ImageEditor({
               >
                 <span>{label}</span>
                 <span style={{ color: "var(--es-text-muted)" }}>
-                  {adj[key] > 0 ? "+" : ""}{adj[key]}
+                  {adj[key] > 0 ? "+" : ""}
+                  {adj[key]}
                 </span>
               </div>
               <input

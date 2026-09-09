@@ -34,7 +34,11 @@ export type SkillTargetType =
   | "all-allies"
   | "self";
 
-export type DamageFormulaId = "physical" | "magical" | "fixed" | "percent-max-hp";
+export type DamageFormulaId =
+  | "physical"
+  | "magical"
+  | "fixed"
+  | "percent-max-hp";
 
 export interface SkillDef {
   id: string;
@@ -69,10 +73,21 @@ export type BattleEvent =
   | { kind: "battle-start" }
   | { kind: "round-start"; round: number }
   | { kind: "action-needed"; combatantId: string }
-  | { kind: "damage"; sourceId: string; targetId: string; amount: number; isCrit: boolean }
+  | {
+      kind: "damage";
+      sourceId: string;
+      targetId: string;
+      amount: number;
+      isCrit: boolean;
+    }
   | { kind: "heal"; sourceId: string; targetId: string; amount: number }
   | { kind: "mp-cost"; combatantId: string; amount: number }
-  | { kind: "status-applied"; combatantId: string; effectId: string; name: string }
+  | {
+      kind: "status-applied";
+      combatantId: string;
+      effectId: string;
+      name: string;
+    }
   | { kind: "status-expired"; combatantId: string; effectId: string }
   | { kind: "combatant-defeated"; combatantId: string }
   | { kind: "victory" }
@@ -109,11 +124,16 @@ type _PhysicalFormula = (
   def: number,
   power: number,
   isCrit: boolean,
-  critMultiplier: number
+  critMultiplier: number,
 ) => number;
 
-const DEFAULT_PHYSICAL: _PhysicalFormula = (atk, def, power, isCrit, critMult) =>
-  Math.max(1, Math.floor((atk - def / 2) * power * (isCrit ? critMult : 1)));
+const DEFAULT_PHYSICAL: _PhysicalFormula = (
+  atk,
+  def,
+  power,
+  isCrit,
+  critMult,
+) => Math.max(1, Math.floor((atk - def / 2) * power * (isCrit ? critMult : 1)));
 
 // --- BattleSystem ---
 
@@ -124,6 +144,11 @@ export class BattleSystem {
 
   private _db: BattleDatabase;
   private _phase: BattlePhase = "idle";
+  // Indirection prevents TypeScript from narrowing _phase within callers that
+  // assign it and then call methods that can mutate it (e.g. _checkEndConditions).
+  private _readPhase(): BattlePhase {
+    return this._phase;
+  }
   private _round = 0;
   private _destroyed = false;
 
@@ -168,8 +193,8 @@ export class BattleSystem {
       def: number,
       power: number,
       isCrit: boolean,
-      critMultiplier: number
-    ) => number
+      critMultiplier: number,
+    ) => number,
   ): void {
     this._physicalFormula = fn;
   }
@@ -283,7 +308,7 @@ export class BattleSystem {
         luck: state.luck,
       }),
       statusEffects: Object.freeze(
-        state.statusEffects.map((se) => Object.freeze<StatusEffect>({ ...se }))
+        state.statusEffects.map((se) => Object.freeze<StatusEffect>({ ...se })),
       ),
       isParty: state.isParty,
     }) as Combatant;
@@ -352,7 +377,7 @@ export class BattleSystem {
     this._phase = "resolving";
 
     for (const id of this._turnOrder) {
-      if (this._phase === "victory" || this._phase === "defeat") break;
+      if (this._readPhase() !== "resolving") break;
 
       const state = this._party.get(id) ?? this._enemies.get(id);
       if (state === undefined || state.hp <= 0) continue;
@@ -372,7 +397,7 @@ export class BattleSystem {
 
     this._pendingActions.clear();
 
-    if (this._phase === "resolving") {
+    if (this._readPhase() === "resolving") {
       // Begin the next round
       this._round++;
       this._phase = "input";
@@ -420,12 +445,17 @@ export class BattleSystem {
     }
 
     for (const effectId of toExpire) {
-      state.statusEffects = state.statusEffects.filter((se) => se.id !== effectId);
+      state.statusEffects = state.statusEffects.filter(
+        (se) => se.id !== effectId,
+      );
       this._emit({ kind: "status-expired", combatantId: state.id, effectId });
     }
   }
 
-  private _effectiveStats(state: _CombatantState): { attack: number; defense: number } {
+  private _effectiveStats(state: _CombatantState): {
+    attack: number;
+    defense: number;
+  } {
     let atkMult = 1;
     let defMult = 1;
 
@@ -450,16 +480,26 @@ export class BattleSystem {
     sourceId: string,
     target: _CombatantState,
     amount: number,
-    isCrit: boolean
+    isCrit: boolean,
   ): void {
     target.hp = Math.max(0, target.hp - amount);
-    this._emit({ kind: "damage", sourceId, targetId: target.id, amount, isCrit });
+    this._emit({
+      kind: "damage",
+      sourceId,
+      targetId: target.id,
+      amount,
+      isCrit,
+    });
     if (target.hp <= 0) {
       this._emit({ kind: "combatant-defeated", combatantId: target.id });
     }
   }
 
-  private _applyHeal(sourceId: string, target: _CombatantState, amount: number): void {
+  private _applyHeal(
+    sourceId: string,
+    target: _CombatantState,
+    amount: number,
+  ): void {
     target.hp = Math.min(target.maxHp, target.hp + amount);
     this._emit({ kind: "heal", sourceId, targetId: target.id, amount });
   }
@@ -474,13 +514,20 @@ export class BattleSystem {
     }
 
     if (action.type === "attack") {
-      const target = this._party.get(action.targetId) ?? this._enemies.get(action.targetId);
+      const target =
+        this._party.get(action.targetId) ?? this._enemies.get(action.targetId);
       if (target === undefined || target.hp <= 0) return;
 
       const actEff = this._effectiveStats(actor);
       const tgtEff = this._effectiveStats(target);
       const isCrit = this._rollCrit(actor.luck);
-      const dmg = this._physicalFormula(actEff.attack, tgtEff.defense, 1.0, isCrit, this._critMultiplier);
+      const dmg = this._physicalFormula(
+        actEff.attack,
+        tgtEff.defense,
+        1.0,
+        isCrit,
+        this._critMultiplier,
+      );
       this._applyDamage(actor.id, target, dmg, isCrit);
       return;
     }
@@ -492,7 +539,7 @@ export class BattleSystem {
   private _resolveTargets(
     actor: _CombatantState,
     targetType: SkillTargetType,
-    primaryTargetId: string
+    primaryTargetId: string,
   ): _CombatantState[] {
     switch (targetType) {
       case "single-enemy": {
@@ -522,7 +569,7 @@ export class BattleSystem {
   private _executeSkill(
     actor: _CombatantState,
     skillId: string,
-    primaryTargetId: string
+    primaryTargetId: string,
   ): void {
     const skill = this._db.skills.find((s) => s.id === skillId);
     if (skill === undefined) return;
@@ -531,9 +578,17 @@ export class BattleSystem {
     if (actor.mp < skill.mpCost) return;
 
     actor.mp -= skill.mpCost;
-    this._emit({ kind: "mp-cost", combatantId: actor.id, amount: skill.mpCost });
+    this._emit({
+      kind: "mp-cost",
+      combatantId: actor.id,
+      amount: skill.mpCost,
+    });
 
-    const targets = this._resolveTargets(actor, skill.targetType, primaryTargetId);
+    const targets = this._resolveTargets(
+      actor,
+      skill.targetType,
+      primaryTargetId,
+    );
     const actEff = this._effectiveStats(actor);
 
     for (const target of targets) {
@@ -546,7 +601,13 @@ export class BattleSystem {
         case "physical": {
           isCrit = this._rollCrit(actor.luck);
           const tgtEff = this._effectiveStats(target);
-          amount = this._physicalFormula(actEff.attack, tgtEff.defense, skill.power, isCrit, this._critMultiplier);
+          amount = this._physicalFormula(
+            actEff.attack,
+            tgtEff.defense,
+            skill.power,
+            isCrit,
+            this._critMultiplier,
+          );
           break;
         }
         case "magical": {
@@ -557,8 +618,8 @@ export class BattleSystem {
             Math.floor(
               (actEff.attack * 1.5 - tgtEff.defense * 0.5) *
                 skill.power *
-                (isCrit ? this._critMultiplier : 1)
-            )
+                (isCrit ? this._critMultiplier : 1),
+            ),
           );
           break;
         }
@@ -583,10 +644,18 @@ export class BattleSystem {
 
       // Apply status effect if the target is still standing
       const seSpec = skill.statusEffect;
-      if (seSpec !== undefined && target.hp > 0 && Math.random() < seSpec.chance) {
-        const seDef = this._db.statusEffects.find((d) => d.id === seSpec.effectId);
+      if (
+        seSpec !== undefined &&
+        target.hp > 0 &&
+        Math.random() < seSpec.chance
+      ) {
+        const seDef = this._db.statusEffects.find(
+          (d) => d.id === seSpec.effectId,
+        );
         if (seDef !== undefined) {
-          const alreadyActive = target.statusEffects.some((se) => se.id === seDef.id);
+          const alreadyActive = target.statusEffects.some(
+            (se) => se.id === seDef.id,
+          );
           if (!alreadyActive) {
             target.statusEffects.push({
               id: seDef.id,
@@ -606,14 +675,18 @@ export class BattleSystem {
   }
 
   private _checkEndConditions(): boolean {
-    const allEnemiesDead = Array.from(this._enemies.values()).every((s) => s.hp <= 0);
+    const allEnemiesDead = Array.from(this._enemies.values()).every(
+      (s) => s.hp <= 0,
+    );
     if (allEnemiesDead) {
       this._emit({ kind: "victory" });
       this._phase = "victory";
       return true;
     }
 
-    const allPartyDead = Array.from(this._party.values()).every((s) => s.hp <= 0);
+    const allPartyDead = Array.from(this._party.values()).every(
+      (s) => s.hp <= 0,
+    );
     if (allPartyDead) {
       this._emit({ kind: "defeat" });
       this._phase = "defeat";

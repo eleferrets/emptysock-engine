@@ -108,4 +108,24 @@ if (fs.existsSync(apiSrc)) {
   fs.copyFileSync(apiSrc, apiDst);
 }
 
+// Copy esbuild.wasm to public/ so it is served with the correct MIME type
+// in both dev and production, eliminating the CDN dependency on unpkg.
+const wasmSrc = path.resolve(__dirname, '../../../node_modules/.pnpm/esbuild-wasm@0.28.2/node_modules/esbuild-wasm/esbuild.wasm');
+const wasmFallback = path.resolve(__dirname, '../node_modules/esbuild-wasm/esbuild.wasm');
+const wasmDst = path.resolve(__dirname, '../public/esbuild.wasm');
+const wasmResolved = fs.existsSync(wasmSrc) ? wasmSrc : fs.existsSync(wasmFallback) ? wasmFallback : null;
+if (wasmResolved) {
+  fs.copyFileSync(wasmResolved, wasmDst);
+} else {
+  // Resolve via require.resolve if pnpm layout differs
+  try {
+    const { createRequire } = await import('module');
+    const req = createRequire(import.meta.url);
+    const resolved = req.resolve('esbuild-wasm/esbuild.wasm');
+    fs.copyFileSync(resolved, wasmDst);
+  } catch {
+    console.warn('[copy-docs] could not locate esbuild-wasm/esbuild.wasm — skipping');
+  }
+}
+
 console.log(`[copy-docs] copied ${files.length} manual pages → public/manual/ and api-reference.json → public/`);

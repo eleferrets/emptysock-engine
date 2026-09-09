@@ -31,7 +31,6 @@ async function getTauriWindow(): Promise<TauriWindow | null> {
     // time. In the Tauri WebView the module is injected by the runtime; in
     // any other context isTauri() already returned false above.
     const specifier = "@tauri-apps/api/window";
-    // @ts-expect-error — not a hard dependency; injected at runtime in Tauri builds only
     const mod = (await import(/* @vite-ignore */ specifier)) as {
       getCurrentWindow(): TauriWindow;
     };

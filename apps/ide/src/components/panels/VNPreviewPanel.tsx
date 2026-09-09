@@ -117,7 +117,9 @@ function wrapText(
 }
 
 export function VNPreviewPanel(): React.ReactElement {
-  const vnNodes = useIDEStore((s) => s.vnNodes as VNNode[] | undefined);
+  const vnNodes = useIDEStore(
+    (s) => s.vnNodes as unknown as VNNode[] | undefined,
+  );
   const [selectedId, setSelectedId] = React.useState<string>("");
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const bgRef = React.useRef<HTMLImageElement | null>(null);

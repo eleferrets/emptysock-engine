@@ -1,15 +1,50 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { RotateCcw, RotateCw } from "lucide-react";
 import { audioMixerService } from "../../services/AudioMixerService";
 import { useAudioStore } from "../../store/audioStore";
 import type { AudioBus } from "../../store/audioStore";
+import { useHistory } from "../../hooks/useHistory";
 
 export function AudioMixer(): React.ReactElement {
   const buses = useAudioStore((s) => s.audioBuses);
-  const setAudioBus = useAudioStore((s) => s.setAudioBus);
-  const addAudioBus = useAudioStore((s) => s.addAudioBus);
+  const setAudioBuses = useAudioStore((s) => s.setAudioBuses);
+
+  const {
+    state: histBuses,
+    set: histSet,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useHistory<AudioBus[]>(buses);
+
+  // Sync history state → audioStore (handles both normal mutations and undo/redo restores)
+  useEffect(() => {
+    setAudioBuses(histBuses);
+  }, [histBuses, setAudioBuses]);
+
+  // Keyboard undo/redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canUndo) undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        if (canRedo) redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canUndo, canRedo, undo, redo]);
 
   const update = (id: string, patch: Partial<Omit<AudioBus, "id">>): void => {
-    setAudioBus(id, patch);
+    const newBuses = histBuses.map((b) =>
+      b.id === id ? { ...b, ...patch } : b,
+    );
+    histSet(newBuses);
+    const updatedBus = newBuses.find((b) => b.id === id);
+    if (updatedBus === undefined) return;
     if (patch.volume !== undefined) {
       audioMixerService.setVolume(id, patch.volume / 100);
     }
@@ -20,39 +55,60 @@ export function AudioMixer(): React.ReactElement {
       audioMixerService.setSolo(id, patch.solo);
     }
     if (patch.volume !== undefined || patch.muted !== undefined) {
-      const updatedBus = useAudioStore
-        .getState()
-        .audioBuses.find((b) => b.id === id);
-      if (updatedBus !== undefined) {
-        const iframe =
-          document.querySelector<HTMLIFrameElement>(
-            'iframe[title="Game Preview"]',
-          ) ?? document.querySelector<HTMLIFrameElement>("iframe");
-        if (
-          iframe?.contentWindow !== null &&
-          iframe?.contentWindow !== undefined
-        ) {
-          iframe.contentWindow.postMessage(
-            {
-              type: "audio-bus",
-              busId: updatedBus.id,
-              volume: updatedBus.volume,
-              mute: updatedBus.muted,
-            },
-            "*",
-          );
-        }
+      const iframe =
+        document.querySelector<HTMLIFrameElement>(
+          'iframe[title="Game Preview"]',
+        ) ?? document.querySelector<HTMLIFrameElement>("iframe");
+      if (
+        iframe?.contentWindow !== null &&
+        iframe?.contentWindow !== undefined
+      ) {
+        iframe.contentWindow.postMessage(
+          {
+            type: "audio-bus",
+            busId: updatedBus.id,
+            volume: updatedBus.volume,
+            mute: updatedBus.muted,
+          },
+          "*",
+        );
       }
     }
   };
 
-  const hasSolo = buses.some((b) => b.solo);
+  const addBus = (): void => {
+    histSet((prev) => [
+      ...prev,
+      {
+        id: `bus-${Date.now()}`,
+        label: "Bus",
+        volume: 80,
+        muted: false,
+        solo: false,
+        color: "#94a3b8",
+      },
+    ]);
+  };
+
+  const hasSolo = histBuses.some((b) => b.solo);
 
   const effectiveVolume = (bus: AudioBus): number => {
     if (bus.muted) return 0;
     if (hasSolo && !bus.solo) return 0;
     return bus.volume;
   };
+
+  const iconBtnStyle = (enabled: boolean): React.CSSProperties => ({
+    background: "none",
+    border: "1px solid var(--es-border)",
+    borderRadius: 4,
+    color: "var(--es-text)",
+    cursor: enabled ? "pointer" : "default",
+    opacity: enabled ? 1 : 0.35,
+    display: "flex",
+    alignItems: "center",
+    padding: "3px 6px",
+  });
 
   return (
     <div
@@ -72,9 +128,28 @@ export function AudioMixer(): React.ReactElement {
           background: "var(--es-surface)",
           fontWeight: 600,
           flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
         }}
       >
-        Audio Mixer
+        <span style={{ flex: 1 }}>Audio Mixer</span>
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo"
+          style={iconBtnStyle(canUndo)}
+        >
+          <RotateCcw size={12} />
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo"
+          style={iconBtnStyle(canRedo)}
+        >
+          <RotateCw size={12} />
+        </button>
       </div>
       <div
         style={{
@@ -86,7 +161,7 @@ export function AudioMixer(): React.ReactElement {
           overflowX: "auto",
         }}
       >
-        {buses.map((bus) => {
+        {histBuses.map((bus) => {
           const vol = effectiveVolume(bus);
           const fillPct = vol;
           return (
@@ -223,7 +298,7 @@ export function AudioMixer(): React.ReactElement {
           }}
         >
           <button
-            onClick={addAudioBus}
+            onClick={addBus}
             style={{
               padding: "6px 10px",
               background: "var(--es-surface)",

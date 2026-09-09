@@ -6,14 +6,8 @@ import {
   useLocalisationStore,
   type LocalisationTranslations,
 } from "./localisationStore";
-import {
-  useVariableStore,
-  type VariableStoreSnapshot,
-} from "./variableStore";
-import {
-  useAudioStore,
-  type AudioBus,
-} from "./audioStore";
+import { useVariableStore, type VariableStoreSnapshot } from "./variableStore";
+import { useAudioStore, type AudioBus } from "./audioStore";
 import {
   useTilemapStore,
   type TileLayer,
@@ -180,7 +174,7 @@ interface IDEState {
   theme: Theme;
 
   // Image editor
-  dropImportFolder: 'root' | 'last';
+  dropImportFolder: "root" | "last";
   openImageEditorRequest: { assetId: string; ts: number } | null;
 
   // Actions
@@ -250,12 +244,24 @@ interface IDEState {
   // Asset actions
   addAsset: (asset: AssetItem) => void;
   deleteAsset: (id: string) => void;
+  setAssets: (assets: AssetItem[]) => void;
   setRecentAssetIds: (ids: string[]) => void;
   setRoomOrder: (ids: string[]) => void;
 
   // Story Graph node cache (shared with VN Preview)
   vnNodes: VnNode[];
   setVNNodes: (nodes: VnNode[]) => void;
+
+  // Visual Script graph (persisted across panel unmount)
+  visualScriptGraph: { nodes: VSNode[]; edges: VSEdge[] } | null;
+  setVisualScriptGraph: (graph: { nodes: VSNode[]; edges: VSEdge[] }) => void;
+
+  // CG Gallery entries and unlock state
+  cgGallery: { entries: CGEntry[]; unlocked: Record<string, boolean> };
+  setCGGallery: (gallery: {
+    entries: CGEntry[];
+    unlocked: Record<string, boolean>;
+  }) => void;
 
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
@@ -281,7 +287,7 @@ interface IDEState {
   _dispatchDebugCommand: (type: string) => void;
 
   // Image editor actions
-  setDropImportFolder: (folder: 'root' | 'last') => void;
+  setDropImportFolder: (folder: "root" | "last") => void;
   openImageEditor: (assetId: string) => void;
 
   // Project lifecycle
@@ -367,107 +373,33 @@ const INITIAL_FILES: ProjectFile[] = [
   },
 ];
 
-const INITIAL_ENTITIES: EntityItem[] = [
-  {
-    id: "ent-1",
-    name: "Player",
-    type: "Entity",
-    active: true,
-    components: ["Transform", "Sprite", "CharacterController"],
-    children: [],
-  },
-  {
-    id: "ent-2",
-    name: "Ground",
-    type: "Entity",
-    active: true,
-    components: ["Transform", "Sprite", "PhysicsBody"],
-    children: [],
-  },
-  {
-    id: "ent-3",
-    name: "Camera",
-    type: "Entity",
-    active: true,
-    components: ["Transform", "CameraSystem"],
-    children: [],
-  },
-  {
-    id: "ent-4",
-    name: "Enemies",
-    type: "Entity",
-    active: true,
-    components: ["Transform"],
-    children: [
-      {
-        id: "ent-4-1",
-        name: "Slime_01",
-        type: "Entity",
-        active: true,
-        components: ["Transform", "Sprite", "PhysicsBody"],
-        children: [],
-      },
-      {
-        id: "ent-4-2",
-        name: "Slime_02",
-        type: "Entity",
-        active: false,
-        components: ["Transform", "Sprite", "PhysicsBody"],
-        children: [],
-      },
-    ],
-  },
-];
-
-const INITIAL_ASSETS: AssetItem[] = [
-  {
-    id: "ast-1",
-    name: "player.png",
-    type: "image",
-    path: "assets/player.png",
-    size: 12400,
-  },
-  {
-    id: "ast-2",
-    name: "tileset.png",
-    type: "image",
-    path: "assets/tileset.png",
-    size: 88200,
-  },
-  {
-    id: "ast-3",
-    name: "jump.ogg",
-    type: "audio",
-    path: "assets/jump.ogg",
-    size: 34000,
-  },
-  {
-    id: "ast-4",
-    name: "music.ogg",
-    type: "audio",
-    path: "assets/music.ogg",
-    size: 2800000,
-  },
-  {
-    id: "ast-5",
-    name: "GameScene.ts",
-    type: "script",
-    path: "src/scenes/GameScene.ts",
-    size: 1200,
-  },
-  {
-    id: "ast-6",
-    name: "ui.json",
-    type: "json",
-    path: "src/ui.json",
-    size: 4400,
-  },
-];
-
 // ── VN types ─────────────────────────────────────────────────────────────────
 export interface VnNode {
   id: string;
   [key: string]: unknown;
+}
+
+// ── Visual Script graph types ─────────────────────────────────────────────────
+export interface VSNode {
+  id: string;
+  type: string;
+  label: string;
+  x: number;
+  y: number;
+  componentType?: string;
+}
+
+export interface VSEdge {
+  id: string;
+  from: string;
+  to: string;
+}
+
+// ── CG Gallery types ──────────────────────────────────────────────────────────
+export interface CGEntry {
+  id: string;
+  title: string;
+  imagePath: string;
 }
 
 // ── Entity tree helpers ──────────────────────────────────────────────────────
@@ -532,6 +464,11 @@ function initialProjectState() {
     debugBreakpoints: [] as string[],
     dropImportFolder: "root" as const,
     openImageEditorRequest: null as { assetId: string; ts: number } | null,
+    visualScriptGraph: null as { nodes: VSNode[]; edges: VSEdge[] } | null,
+    cgGallery: {
+      entries: [] as CGEntry[],
+      unlocked: {} as Record<string, boolean>,
+    },
   };
 }
 
@@ -561,35 +498,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   openFiles: { "src/scenes/GameScene.ts": INITIAL_CODE },
   activeFilePath: "src/scenes/GameScene.ts",
 
-  // Scene
-  entities: INITIAL_ENTITIES,
-  selectedEntityId: "ent-1",
-  selectedEntity: {
-    id: "ent-1",
-    name: "Player",
-    type: "Entity",
-    transform: { x: "640", y: "360", rotation: "0", scaleX: "1", scaleY: "1" },
-    components: [
-      {
-        type: "Transform",
-        enabled: true,
-        properties: { x: "640", y: "360", rotation: "0" },
-      },
-      {
-        type: "Sprite",
-        enabled: true,
-        properties: { tint: "#7c6af7", alpha: "1" },
-      },
-      {
-        type: "CharacterController",
-        enabled: true,
-        properties: { speed: "200", jumpForce: "400" },
-      },
-    ],
-  },
+  // Scene — start empty; INITIAL_ENTITIES kept for reference but not used at startup
+  entities: [],
+  selectedEntityId: null,
+  selectedEntity: null,
 
-  // Assets
-  assets: INITIAL_ASSETS,
+  // Assets — start empty; INITIAL_ASSETS kept for reference but not used at startup
+  assets: [],
   recentAssetIds: [],
   roomOrder: [],
 
@@ -638,12 +553,17 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   theme: "dark",
 
   // Image editor
-  dropImportFolder: 'root' as const,
+  dropImportFolder: "root" as const,
   openImageEditorRequest: null,
 
-  // TilemapEditor persistent state
   // Story Graph node cache
   vnNodes: [],
+
+  // Visual Script graph
+  visualScriptGraph: null,
+
+  // CG Gallery
+  cgGallery: { entries: [], unlocked: {} },
 
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
@@ -838,6 +758,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
 
+  setVisualScriptGraph: (graph) => set({ visualScriptGraph: graph }),
+
+  setCGGallery: (gallery) => set({ cgGallery: gallery }),
+
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
   setEditorShowRuler: (show) => set({ editorShowRuler: show }),
@@ -860,7 +784,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     })),
   _dispatchDebugCommand: (type) => {
     debugCommandBus.dispatchEvent(
-      new CustomEvent('debug-cmd', { detail: { type } }),
+      new CustomEvent("debug-cmd", { detail: { type } }),
     );
   },
 
@@ -921,7 +845,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   renameEntity: (id, name) => {
     set((s) => {
       return {
-        entities: mapTree(s.entities, (e) => (e.id === id ? { ...e, name } : e)),
+        entities: mapTree(s.entities, (e) =>
+          e.id === id ? { ...e, name } : e,
+        ),
         selectedEntity:
           s.selectedEntity?.id === id
             ? { ...s.selectedEntity, name }
@@ -973,7 +899,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       return {
         entities: mapTree(s.entities, (e) =>
           e.id === entityId
-            ? { ...e, components: e.components.filter((c) => c !== componentType) }
+            ? {
+                ...e,
+                components: e.components.filter((c) => c !== componentType),
+              }
             : e,
         ),
         selectedEntity:
@@ -1000,6 +929,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set((s) => ({ assets: s.assets.filter((a) => a.id !== id) }));
     get().addLog("info", "Asset deleted", "IDE");
   },
+
+  setAssets: (assets) => set({ assets }),
 
   setRecentAssetIds: (ids) => set({ recentAssetIds: ids }),
   setRoomOrder: (ids) => set({ roomOrder: ids }),
@@ -1137,25 +1068,29 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               .setTilemapActiveLayer(proj["tilemapActiveLayer"]);
           }
           if (Array.isArray(proj["sequenceTracks"])) {
-            useSequenceStore.getState().setSequenceTracks(
-              proj["sequenceTracks"] as SequenceTrack[],
-            );
+            useSequenceStore
+              .getState()
+              .setSequenceTracks(proj["sequenceTracks"] as SequenceTrack[]);
           }
           if (typeof proj["sequenceDuration"] === "number") {
-            useSequenceStore.getState().setSequenceDuration(proj["sequenceDuration"]);
+            useSequenceStore
+              .getState()
+              .setSequenceDuration(proj["sequenceDuration"]);
           }
           if (
             proj["localisationTranslations"] !== null &&
             typeof proj["localisationTranslations"] === "object"
           ) {
-            useLocalisationStore.getState().setLocalisationTranslations(
-              proj["localisationTranslations"] as LocalisationTranslations,
-            );
+            useLocalisationStore
+              .getState()
+              .setLocalisationTranslations(
+                proj["localisationTranslations"] as LocalisationTranslations,
+              );
           }
           if (Array.isArray(proj["localisationLocales"])) {
-            useLocalisationStore.getState().setLocalisationLocales(
-              proj["localisationLocales"] as string[],
-            );
+            useLocalisationStore
+              .getState()
+              .setLocalisationLocales(proj["localisationLocales"] as string[]);
           }
           {
             const snapshot: Partial<VariableStoreSnapshot> = {};
@@ -1163,9 +1098,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               proj["variableStoreVars"] !== null &&
               typeof proj["variableStoreVars"] === "object"
             ) {
-              snapshot.variableStoreVars = proj[
-                "variableStoreVars"
-              ] as Record<number, number>;
+              snapshot.variableStoreVars = proj["variableStoreVars"] as Record<
+                number,
+                number
+              >;
             }
             if (
               proj["variableStoreSwitches"] !== null &&
@@ -1217,9 +1153,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             proj["autoTileRuleSets"] !== null &&
             typeof proj["autoTileRuleSets"] === "object"
           ) {
-            useTilemapStore.getState().setAutoTileRuleSets(
-              proj["autoTileRuleSets"] as Record<string, AutoTileRule[]>,
-            );
+            useTilemapStore
+              .getState()
+              .setAutoTileRuleSets(
+                proj["autoTileRuleSets"] as Record<string, AutoTileRule[]>,
+              );
           }
           if (Array.isArray(proj["dbActors"]))
             useDBStore.getState().setDBActors(proj["dbActors"] as DbEntry[]);
@@ -1259,7 +1197,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
               if (typeof v === "string") restored[k] = v;
             }
             // Only use saved openFiles if no code files were passed directly
-            if (Object.keys(codeFiles).length === 0 && Object.keys(restored).length > 0) {
+            if (
+              Object.keys(codeFiles).length === 0 &&
+              Object.keys(restored).length > 0
+            ) {
               updates.openFiles = restored;
             }
           }
@@ -1271,9 +1212,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             }
           }
           if (Array.isArray(proj["recentAssetIds"])) {
-            updates.recentAssetIds = (proj["recentAssetIds"] as unknown[]).filter(
-              (v): v is string => typeof v === "string",
-            );
+            updates.recentAssetIds = (
+              proj["recentAssetIds"] as unknown[]
+            ).filter((v): v is string => typeof v === "string");
           }
           if (Array.isArray(proj["roomOrder"])) {
             updates.roomOrder = (proj["roomOrder"] as unknown[]).filter(

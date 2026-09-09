@@ -1,4 +1,6 @@
 import React from "react";
+import MonacoEditor, { useMonaco, type OnMount } from "@monaco-editor/react";
+import type * as Monaco from "monaco-editor";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 
@@ -34,6 +36,176 @@ interface ShaderState {
   fragSrc: string;
 }
 
+const GLSL_KEYWORDS = [
+  "void",
+  "float",
+  "int",
+  "uint",
+  "bool",
+  "vec2",
+  "vec3",
+  "vec4",
+  "ivec2",
+  "ivec3",
+  "ivec4",
+  "uvec2",
+  "uvec3",
+  "uvec4",
+  "bvec2",
+  "bvec3",
+  "bvec4",
+  "mat2",
+  "mat3",
+  "mat4",
+  "mat2x2",
+  "mat2x3",
+  "mat2x4",
+  "mat3x2",
+  "mat3x3",
+  "mat3x4",
+  "mat4x2",
+  "mat4x3",
+  "mat4x4",
+  "sampler2D",
+  "samplerCube",
+  "sampler3D",
+  "sampler2DShadow",
+  "uniform",
+  "attribute",
+  "varying",
+  "const",
+  "in",
+  "out",
+  "inout",
+  "return",
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "break",
+  "continue",
+  "discard",
+  "precision",
+  "highp",
+  "mediump",
+  "lowp",
+  "struct",
+  "layout",
+];
+
+const GLSL_BUILTINS = [
+  "gl_Position",
+  "gl_FragColor",
+  "gl_FragCoord",
+  "gl_PointSize",
+  "gl_FrontFacing",
+  "gl_PointCoord",
+  "gl_FragDepth",
+  "texture2D",
+  "texture",
+  "textureCube",
+  "mix",
+  "clamp",
+  "smoothstep",
+  "step",
+  "dot",
+  "cross",
+  "normalize",
+  "length",
+  "distance",
+  "reflect",
+  "refract",
+  "pow",
+  "sqrt",
+  "abs",
+  "sin",
+  "cos",
+  "tan",
+  "asin",
+  "acos",
+  "atan",
+  "floor",
+  "ceil",
+  "fract",
+  "mod",
+  "min",
+  "max",
+  "sign",
+  "radians",
+  "degrees",
+  "inversesqrt",
+  "exp",
+  "exp2",
+  "log",
+  "log2",
+  "dFdx",
+  "dFdy",
+  "fwidth",
+];
+
+function registerGlsl(monaco: typeof Monaco): void {
+  if (monaco.languages.getLanguages().some((l) => l.id === "glsl")) return;
+  monaco.languages.register({ id: "glsl" });
+  monaco.languages.setMonarchTokensProvider("glsl", {
+    keywords: GLSL_KEYWORDS,
+    builtins: GLSL_BUILTINS,
+    tokenizer: {
+      root: [
+        [
+          /#\s*(version|define|ifdef|ifndef|endif|else|elif|pragma|extension|include)\b/,
+          "keyword.control",
+        ],
+        [
+          /[a-zA-Z_]\w*/,
+          {
+            cases: {
+              "@keywords": "keyword",
+              "@builtins": "support.function",
+              "@default": "identifier",
+            },
+          },
+        ],
+        [/\/\/.*$/, "comment"],
+        [/\/\*/, "comment", "@comment"],
+        [/\d+\.\d*([eE][+-]?\d+)?[fF]?/, "number.float"],
+        [/\d+[uU]?/, "number"],
+      ],
+      comment: [
+        [/[^/*]+/, "comment"],
+        [/\*\//, "comment", "@pop"],
+        [/[/*]/, "comment"],
+      ],
+    },
+  } as Monaco.languages.IMonarchLanguage);
+  monaco.languages.registerCompletionItemProvider("glsl", {
+    provideCompletionItems(model, position) {
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+      const suggestions = [
+        ...GLSL_KEYWORDS.map((kw) => ({
+          label: kw,
+          kind: monaco.languages.CompletionItemKind.Keyword,
+          insertText: kw,
+          range,
+        })),
+        ...GLSL_BUILTINS.map((fn) => ({
+          label: fn,
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertText: fn,
+          range,
+        })),
+      ];
+      return { suggestions };
+    },
+  });
+}
+
 export function ShaderEditor(): React.ReactElement {
   const [activeShader, setActiveShader] =
     React.useState<ShaderType>("fragment");
@@ -53,9 +225,24 @@ export function ShaderEditor(): React.ReactElement {
   const [compileError, setCompileError] = React.useState<string | null>(null);
   const [compiled, setCompiled] = React.useState(false);
 
-  // Keyboard undo/redo
+  const monaco = useMonaco();
+  const editorRef = React.useRef<Monaco.editor.IStandaloneCodeEditor | null>(
+    null,
+  );
+  const { theme } = useIDEStore();
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = theme === "dark" || (theme === "system" && systemDark);
+  const monacoTheme = isDark ? "vs-dark" : "vs";
+
+  // Register GLSL language once Monaco is available
+  React.useEffect(() => {
+    if (monaco) registerGlsl(monaco);
+  }, [monaco]);
+
+  // Keyboard undo/redo — skip when Monaco editor has focus
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      if (document.activeElement?.closest(".monaco-editor")) return;
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -69,6 +256,7 @@ export function ShaderEditor(): React.ReactElement {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
+
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const glRef = React.useRef<WebGLRenderingContext | null>(null);
   const rafRef = React.useRef<number | null>(null);
@@ -76,9 +264,7 @@ export function ShaderEditor(): React.ReactElement {
 
   const addLog = useIDEStore((s) => s.addLog);
 
-  const src = activeShader === "vertex" ? vertSrc : fragSrc;
-  const [liveSrc, setLiveSrc] = React.useState(src);
-  // Keep liveSrc in sync when switching tabs or undoing
+  // Sync Monaco content when switching tabs or after undo/redo
   const prevActiveRef = React.useRef(activeShader);
   const prevShaderStateRef = React.useRef(shaderState);
   React.useEffect(() => {
@@ -88,17 +274,25 @@ export function ShaderEditor(): React.ReactElement {
     ) {
       prevShaderStateRef.current = shaderState;
       prevActiveRef.current = activeShader;
-      setLiveSrc(
-        activeShader === "vertex" ? shaderState.vertSrc : shaderState.fragSrc,
-      );
+      const newSrc =
+        activeShader === "vertex" ? shaderState.vertSrc : shaderState.fragSrc;
+      editorRef.current?.setValue(newSrc);
     }
   }, [shaderState, activeShader]);
+
   const commitSrc = (value: string): void => {
     if (activeShader === "vertex") {
       setShaderState({ vertSrc: value, fragSrc });
     } else {
       setShaderState({ vertSrc, fragSrc: value });
     }
+  };
+
+  const handleEditorMount: OnMount = (editor) => {
+    editorRef.current = editor;
+    editor.onDidBlurEditorText(() => {
+      commitSrc(editor.getValue());
+    });
   };
 
   const compileShader = (
@@ -119,74 +313,77 @@ export function ShaderEditor(): React.ReactElement {
     return shader;
   };
 
-  const runPreview = React.useCallback((): void => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const runPreview = React.useCallback(
+    (vSrc: string, fSrc: string): void => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const gl = canvas.getContext("webgl");
-    if (!gl) {
-      setCompileError("WebGL not available in this environment.");
-      return;
-    }
-    glRef.current = gl;
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      const gl = canvas.getContext("webgl");
+      if (!gl) {
+        setCompileError("WebGL not available in this environment.");
+        return;
+      }
+      glRef.current = gl;
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
 
-    const vert = compileShader(gl, gl.VERTEX_SHADER, vertSrc);
-    const frag = compileShader(gl, gl.FRAGMENT_SHADER, fragSrc);
-    if (!vert || !frag) return;
+      const vert = compileShader(gl, gl.VERTEX_SHADER, vSrc);
+      const frag = compileShader(gl, gl.FRAGMENT_SHADER, fSrc);
+      if (!vert || !frag) return;
 
-    const prog = gl.createProgram();
-    gl.attachShader(prog, vert);
-    gl.attachShader(prog, frag);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      setCompileError(gl.getProgramInfoLog(prog) ?? "Link failed");
-      return;
-    }
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vert);
+      gl.attachShader(prog, frag);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        setCompileError(gl.getProgramInfoLog(prog) ?? "Link failed");
+        return;
+      }
 
-    setCompileError(null);
-    setCompiled(true);
-    addLog("info", "[ShaderEditor] Shader compiled OK");
+      setCompileError(null);
+      setCompiled(true);
+      addLog("info", "[ShaderEditor] Shader compiled OK");
 
-    // Full-screen quad
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]),
-      gl.STATIC_DRAW,
-    );
+      // Full-screen quad
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]),
+        gl.STATIC_DRAW,
+      );
 
-    const posLoc = gl.getAttribLocation(prog, "aVertexPosition");
-    const uvLoc = gl.getAttribLocation(prog, "aTextureCoord");
-    const projLoc = gl.getUniformLocation(prog, "projectionMatrix");
-    const timeLoc = gl.getUniformLocation(prog, "uTime");
+      const posLoc = gl.getAttribLocation(prog, "aVertexPosition");
+      const uvLoc = gl.getAttribLocation(prog, "aTextureCoord");
+      const projLoc = gl.getUniformLocation(prog, "projectionMatrix");
+      const timeLoc = gl.getUniformLocation(prog, "uTime");
 
-    gl.useProgram(prog);
-    if (projLoc !== null) {
-      gl.uniformMatrix3fv(projLoc, false, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-    }
+      gl.useProgram(prog);
+      if (projLoc !== null) {
+        gl.uniformMatrix3fv(projLoc, false, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      }
 
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 16, 0);
-    if (uvLoc >= 0) {
-      gl.enableVertexAttribArray(uvLoc);
-      gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, 16, 8);
-    }
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 16, 0);
+      if (uvLoc >= 0) {
+        gl.enableVertexAttribArray(uvLoc);
+        gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, 16, 8);
+      }
 
-    const tick = (): void => {
-      if (!glRef.current) return;
-      const t = (Date.now() - startRef.current) / 1000;
-      if (timeLoc !== null) gl.uniform1f(timeLoc, t);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    startRef.current = Date.now();
-    tick();
-  }, [vertSrc, fragSrc, addLog]);
+      const tick = (): void => {
+        if (!glRef.current) return;
+        const t = (Date.now() - startRef.current) / 1000;
+        if (timeLoc !== null) gl.uniform1f(timeLoc, t);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      startRef.current = Date.now();
+      tick();
+    },
+    [addLog],
+  );
 
   React.useEffect(() => {
     return () => {
@@ -286,14 +483,21 @@ export function ShaderEditor(): React.ReactElement {
           <div style={{ flex: 1 }} />
           <button
             onClick={() => {
-              commitSrc(liveSrc);
-              runPreview();
+              const editorVal = editorRef.current?.getValue();
+              const vs =
+                activeShader === "vertex" ? (editorVal ?? vertSrc) : vertSrc;
+              const fs =
+                activeShader === "fragment" ? (editorVal ?? fragSrc) : fragSrc;
+              commitSrc(
+                editorVal ?? (activeShader === "vertex" ? vertSrc : fragSrc),
+              );
+              runPreview(vs, fs);
             }}
             style={{
               margin: "4px 8px",
               padding: "0 12px",
               background: "var(--es-accent)",
-              color: "#fff",
+              color: "var(--es-text-on-accent)",
               border: "none",
               borderRadius: 4,
               cursor: "pointer",
@@ -305,35 +509,38 @@ export function ShaderEditor(): React.ReactElement {
           </button>
         </div>
 
-        {/* Source textarea */}
-        <textarea
-          value={liveSrc}
-          onChange={(e) => setLiveSrc(e.target.value)}
-          onBlur={(e) => commitSrc(e.target.value)}
-          spellCheck={false}
-          style={{
-            flex: 1,
-            resize: "none",
-            background: "var(--es-surface)",
-            color: "var(--es-text)",
-            border: "none",
-            outline: "none",
-            padding: "12px",
-            fontFamily:
-              '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
-            fontSize: 12,
-            lineHeight: 1.6,
-            tabSize: 2,
-          }}
-        />
+        {/* Monaco GLSL editor */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <MonacoEditor
+            language="glsl"
+            theme={monacoTheme}
+            defaultValue={activeShader === "vertex" ? vertSrc : fragSrc}
+            onMount={handleEditorMount}
+            options={{
+              fontSize: 12,
+              fontFamily:
+                '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
+              lineHeight: 1.6,
+              tabSize: 2,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              padding: { top: 12, bottom: 12 },
+              overviewRulerBorder: false,
+              renderLineHighlight: "gutter",
+              smoothScrolling: true,
+              wordWrap: "on",
+            }}
+          />
+        </div>
 
         {/* Error bar */}
         {compileError !== null && (
           <div
             style={{
-              background: "rgba(225,112,85,0.12)",
-              borderTop: "1px solid rgba(225,112,85,0.3)",
-              color: "#e17055",
+              background: "color-mix(in srgb, var(--es-red) 12%, transparent)",
+              borderTop:
+                "1px solid color-mix(in srgb, var(--es-red) 30%, transparent)",
+              color: "var(--es-red)",
               padding: "6px 12px",
               fontFamily: "monospace",
               fontSize: 11,
@@ -349,9 +556,11 @@ export function ShaderEditor(): React.ReactElement {
         {compiled && compileError === null && (
           <div
             style={{
-              background: "rgba(0,184,148,0.1)",
-              borderTop: "1px solid rgba(0,184,148,0.25)",
-              color: "#00b894",
+              background:
+                "color-mix(in srgb, var(--es-green) 10%, transparent)",
+              borderTop:
+                "1px solid color-mix(in srgb, var(--es-green) 25%, transparent)",
+              color: "var(--es-green)",
               padding: "4px 12px",
               fontSize: 11,
               flexShrink: 0,
