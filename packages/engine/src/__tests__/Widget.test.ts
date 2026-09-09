@@ -10,7 +10,32 @@ import {
 } from "../ui/Widget.js";
 
 // Minimal IUIRenderer stub
-function makeCtx(): Record<string, unknown> {
+interface MockCtx {
+  fillStyle: string;
+  strokeStyle: string;
+  lineWidth: number;
+  font: string;
+  textAlign: string;
+  textBaseline: string;
+  globalAlpha: number;
+  save: ReturnType<typeof vi.fn>;
+  restore: ReturnType<typeof vi.fn>;
+  beginPath: ReturnType<typeof vi.fn>;
+  closePath: ReturnType<typeof vi.fn>;
+  fill: ReturnType<typeof vi.fn>;
+  stroke: ReturnType<typeof vi.fn>;
+  rect: ReturnType<typeof vi.fn>;
+  moveTo: ReturnType<typeof vi.fn>;
+  lineTo: ReturnType<typeof vi.fn>;
+  arcTo: ReturnType<typeof vi.fn>;
+  arc: ReturnType<typeof vi.fn>;
+  fillText: ReturnType<typeof vi.fn>;
+  drawImage: ReturnType<typeof vi.fn>;
+  fillRect: ReturnType<typeof vi.fn>;
+  strokeRect: ReturnType<typeof vi.fn>;
+}
+
+function makeCtx(): MockCtx {
   return {
     fillStyle: "",
     strokeStyle: "",

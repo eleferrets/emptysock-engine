@@ -7,15 +7,18 @@ interface BadgeProps {
   variant?: BadgeVariant;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export function Badge({
   variant = "default",
   children,
   className,
+  style,
 }: BadgeProps): React.ReactElement {
   return (
     <span
+      style={style}
       className={cn(
         "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium",
         {

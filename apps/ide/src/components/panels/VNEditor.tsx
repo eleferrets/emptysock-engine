@@ -3,7 +3,7 @@ import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
 } from "@emptysock/engine";
-import { useIDEStore } from "../../store/ideStore";
+import { useIDEStore, type VnNode } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 
 type NodeType = "dialogue" | "choice";
@@ -209,7 +209,7 @@ export function VNEditor(): React.ReactElement {
   // Persist on change and sync nodes to ideStore for VN Preview
   React.useEffect(() => {
     saveGraph(displayNodes, displayEdges);
-    setVNNodes(displayNodes);
+    setVNNodes(displayNodes as unknown as VnNode[]);
   }, [displayNodes, displayEdges, setVNNodes]);
 
   // Keyboard shortcuts (undo/redo + delete)

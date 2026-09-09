@@ -278,7 +278,8 @@ export function GitPanel(): React.ReactElement {
           ? ["-C", projectFolder, "diff", "--staged", "--", f.path]
           : ["-C", projectFolder, "diff", "--", f.path];
         const diff = await runGit(diffArgs);
-        return { ...f, diff: diff.trim() || undefined };
+        const trimmed = diff.trim();
+        return trimmed !== "" ? { ...f, diff: trimmed } : { ...f };
       }),
     );
 

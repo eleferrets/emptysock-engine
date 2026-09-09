@@ -666,16 +666,14 @@ class UISystemImpl {
           // Grey placeholder until the loader resolves (or if no loader is injected).
           ctx.fillStyle = "#888888";
           ctx.fillRect(x, y, w, h);
-          if (
-            this._imageLoader !== undefined &&
-            src.length > 0 &&
-            !this._imagePending.has(src)
-          ) {
+          if (src.length > 0 && !this._imagePending.has(src)) {
             this._imagePending.add(src);
             this._imageLoader
               .load(src)
-              .then((result: ImageBitmap) => {
-                this._imageCache.set(src, result);
+              .then((result: string | ImageBitmap) => {
+                if (result instanceof ImageBitmap) {
+                  this._imageCache.set(src, result);
+                }
                 this._imagePending.delete(src);
               })
               .catch(() => {
