@@ -137,26 +137,157 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 
 ## HANDOFF — unimplemented PRD items (`emptysock-engine`)
 
-These are larger than a single checklist item; each needs its own scoped agent session.
-Tracked here so they are visible alongside the QoL items.
+Each block below is scoped to one agent session. Start a fresh session, hand it this file and
+`apps/ide/HANDOFF.md` as context, and tell it which session to execute.
 
-- 🔴 **[P1]** Scene Inspector real ECS binding  
-  Shows hardcoded mock entities. Needs a message channel from the iframe runner back to the IDE to stream live entity/component state.
+---
 
-- 🔴 **[P1]** Entity Properties real ECS binding  
-  Shows mock component fields. Needs the same channel as Scene Inspector; transform mutations must reach the running ECS world.
+### Session A — ECS live binding: Scene Inspector + Entity Properties **[P1]**
 
-- 🔴 **[P2]** Asset Browser backend storage  
-  Operates on in-memory mock data. Needs real file I/O (File System Access API in browser; Tauri `fs` plugin on desktop).
+_Prerequisite for B. Do this first._
 
-- 🔴 **[P2]** Project save/load  
-  No concept of a project directory or file. The editor only operates on a single `.ts` file at a time.
+Both panels share the same infrastructure: a `postMessage` channel from the engine iframe back to
+the IDE parent. The iframe already runs the full engine bundle; it just never reports state.
 
-- 🔴 **[P2]** Multi-file project tree (real, not mock)  
-  The file tree reflects the in-memory `openFiles` record, not a real on-disk directory listing.
+**Files to touch:**
 
-- 🔴 **[P2]** Hot-reload on code change  
-  Code edits require a full manual rebuild. Needs a debounced watcher that rebuilds incrementally on changes and patches the iframe or reloads it.
+- `apps/ide/src/services/EngineChannel.ts` — **create** a typed `postMessage` protocol:
+  - Outbound (IDE → iframe): `{ type: "es:select-entity", id: string }` to highlight an entity;
+    `{ type: "es:set-component", id: string, component: string, patch: Record<string, unknown> }` to
+    mutate a field.
+  - Inbound (iframe → IDE): `{ type: "es:entities", payload: EntitySnapshot[] }` sent on every
+    frame (or on change); `{ type: "es:component-fields", entityId: string, component: string,
+fields: Record<string, unknown> }` sent when entity is selected.
+- `packages/engine/src/core/IDEBridge.ts` — **create** in the engine package. Checks
+  `window.parent !== window` (running in iframe). If true, calls `window.parent.postMessage` on
+  each game loop tick with the current entity/component snapshot. Listens for inbound mutation
+  messages and applies them to the ECS world. Export `ideBridge` singleton; call
+  `ideBridge.install(world)` in `Engine.start()`.
+- `apps/ide/src/hooks/useEngineChannel.ts` — **create**. Attaches a `message` listener on
+  `window`, validates the `type` prefix (`"es:"`), dispatches inbound snapshots to `ideStore`.
+  Returns `sendToEngine(msg)` for outbound messages.
+- `apps/ide/src/components/panels/SceneInspector.tsx` — remove the hardcoded `MOCK_ENTITIES`
+  fallback; read from `useIDEStore(s => s.entities)` which `useEngineChannel` now populates.
+- `apps/ide/src/components/panels/EntityProperties.tsx` — remove `AVAILABLE_COMPONENTS` hardcoded
+  array; read from the snapshot's component list. Write field mutations back through
+  `sendToEngine({ type: "es:set-component", ... })`.
+- `apps/ide/src/store/ideStore.ts` — add `liveEntities: EntitySnapshot[]` and
+  `setLiveEntities(v)` action (separate from the project-save `entities` field).
+
+**Done when:** opening the Game Preview tab, running a scene, then switching to Scene Inspector
+shows live entity names and positions that update as the game runs. Clicking an entity in Scene
+Inspector populates Entity Properties with real component fields. Editing a numeric field moves the
+entity in the preview.
+
+---
+
+### Session B — Hot-reload on code change **[P2]**
+
+_No hard dependency on A, but A's iframe communication pattern is useful context._
+
+**Files to touch:**
+
+- `apps/ide/src/components/panels/GamePreview.tsx` — add a `useEffect` that watches
+  `useIDEStore(s => s.openFiles)`. On change, start a 500 ms debounce timer; cancel the previous
+  timer if files change again. When the timer fires, call `GameBuildService.buildNow(openFiles)`.
+  On success, call `iframeRef.current?.contentWindow?.location.reload()` to reload the preview.
+  Show a subtle "Rebuilding…" badge in the panel header while the build is in progress.
+- `apps/ide/src/services/GameBuildService.ts` — expose a `buildNow(files)` method that returns a
+  `Promise<{ ok: true } | { ok: false; error: string }>`. It already exists but may be internal;
+  surface it for the hook.
+
+**Done when:** editing a script in the code editor, waiting ~500 ms, and seeing the game preview
+refresh automatically without pressing the Run button.
+
+---
+
+### Session C — Project save / load **[P2]**
+
+_Session D depends on this. Do before D._
+
+The IDE has no concept of a project file. All state lives in memory and is lost on page reload.
+
+**Files to touch:**
+
+- `apps/ide/src/services/ProjectService.ts` — **create**. Two public methods:
+  - `saveProject()` — serialises `ideStore.getState()` via `ideStore.exportProject()` (already
+    exists) to JSON, then writes it:
+    - Browser: `window.showSaveFilePicker({ suggestedName: 'project.emptysock', types: [{...}] })`
+      → `FileSystemWritableFileStream.write(json)`.
+    - Tauri: `dialog.save({ filters: [{ name: 'EmptySock Project', extensions: ['emptysock'] }] })`
+      → `fs.writeTextFile(path, json)`.
+  - `loadProject()` — opens a file picker, reads JSON, calls `ideStore.loadProject(parsed)` (add
+    this action if it doesn't exist — it should call `resetProject()` then merge the parsed state).
+- `apps/ide/src/App.tsx` (or the IDE toolbar component) — add **Save** (`Ctrl+S`) and **Open**
+  (`Ctrl+O`) keyboard shortcuts and toolbar buttons that call `ProjectService.saveProject()` /
+  `ProjectService.loadProject()`. Use the Tauri runtime check (`'__TAURI_INTERNALS__' in window`)
+  to branch inside `ProjectService`, not in the UI.
+- `apps/ide/src/store/ideStore.ts` — add `loadProject(data: ProjectState): void` action if
+  missing.
+
+**Done when:** clicking Save writes a `.emptysock` JSON file to disk; clicking Open reads it back
+and restores the full editor state (open files, entity list, sequence tracks, VN graph, etc.).
+
+---
+
+### Session D — Multi-file project tree (real on-disk listing) **[P2]**
+
+_Depends on Session C (project directory concept must exist first)._
+
+The file sidebar shows `openFiles` keys, not a real directory.
+
+**Files to touch:**
+
+- `apps/ide/src/services/ProjectService.ts` — extend with `openDirectory()`:
+  - Browser: `window.showDirectoryPicker()` returns a `FileSystemDirectoryHandle`. Walk it
+    recursively (depth ≤ 4, skip `node_modules`/`.git`) to build a file tree.
+  - Tauri: `dialog.open({ directory: true })` → `fs.readDir(path, { recursive: true })`.
+  - Store the root handle/path in `ideStore` as `projectRoot`.
+- `apps/ide/src/store/ideStore.ts` — add `projectRoot: string | null` and
+  `fileTree: FileTreeNode[]` (define `FileTreeNode = { name: string; path: string; children?:
+FileTreeNode[] }`). Add `setFileTree(tree)` action.
+- `apps/ide/src/components/panels/FileExplorer.tsx` (or equivalent sidebar panel) — replace the
+  `openFiles`-keyed list with `useIDEStore(s => s.fileTree)`. Clicking a file node calls
+  `readFile(path)` (via `ProjectService`) and opens it in the editor.
+- File mutations (New File, Rename, Delete) should write through `ProjectService` to the real FS
+  and refresh the tree.
+
+**Done when:** clicking "Open Folder" picks a directory; the file sidebar shows the real directory
+tree; clicking a `.ts` file opens it in Monaco.
+
+---
+
+### Session E — Asset Browser real file I/O **[P2]**
+
+_Independent of C/D — can run in parallel with those sessions._
+
+Asset Browser operates on an in-memory array seeded from `ideStore`. Assets are lost on reload.
+
+**Files to touch:**
+
+- `apps/ide/src/services/AssetStore.ts` — **create** with a `FileStore` interface:
+  ```ts
+  interface FileStore {
+    list(): Promise<AssetEntry[]>;
+    read(path: string): Promise<Blob>;
+    write(path: string, blob: Blob): Promise<void>;
+    delete(path: string): Promise<void>;
+  }
+  ```
+  Provide two implementations: `BrowserFileStore` (File System Access API,
+  `showDirectoryPicker`-rooted) and `TauriFileStore` (Tauri `fs` plugin). Export
+  `getAssetStore(): FileStore` which branches on `'__TAURI_INTERNALS__' in window`.
+- `apps/ide/src/components/panels/AssetBrowser.tsx` — replace `addAsset` / `deleteAsset` dispatch
+  calls with `assetStore.write()` / `assetStore.delete()`. Replace the initial mock asset array
+  with `assetStore.list()` called in a `useEffect` on mount. Keep undo/redo for the in-session
+  view state (selection, filter), not for the FS operations themselves (FS ops are not undoable).
+- `apps/ide/src/store/ideStore.ts` — the `assets` array becomes a cache of `assetStore.list()`
+  output rather than the source of truth.
+
+**Done when:** dragging an image onto Asset Browser writes it to the project folder on disk;
+reloading the IDE and reopening Asset Browser shows the same asset without re-uploading.
+
+---
 
 - ✅ **[P2]** `HANDOFF.md §2` — esbuild.wasm should be self-hosted, not fetched from unpkg  
   Copy `node_modules/esbuild-wasm/esbuild.wasm` into `public/` via a `postinstall`/`predev` script. Change `wasmURL` in `GameBuildService.ts` to `/esbuild.wasm`. Eliminates the CDN dependency and fixes the dev-server blank canvas bug.
