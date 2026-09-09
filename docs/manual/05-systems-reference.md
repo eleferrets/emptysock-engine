@@ -959,12 +959,12 @@ Self-contained, opt-in turn-based RPG battle module. No game loop integration �
 new BattleSystem(options?: BattleSystemOptions)
 ```
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `db` | `BattleDatabase` | `{ skills: [], statusEffects: [] }` | Skill and status-effect definitions |
-| `critChance` | `number` | `0.0625` | Base critical-hit probability |
-| `critMultiplier` | `number` | `1.5` | Damage multiplier on a crit |
-| `fleeChance` | `number` | `0.5` | Probability that a `flee` action succeeds |
+| Option           | Type             | Default                             | Description                               |
+| ---------------- | ---------------- | ----------------------------------- | ----------------------------------------- |
+| `db`             | `BattleDatabase` | `{ skills: [], statusEffects: [] }` | Skill and status-effect definitions       |
+| `critChance`     | `number`         | `0.0625`                            | Base critical-hit probability             |
+| `critMultiplier` | `number`         | `1.5`                               | Damage multiplier on a crit               |
+| `fleeChance`     | `number`         | `0.5`                               | Probability that a `flee` action succeeds |
 
 ### Setup methods
 
@@ -987,7 +987,9 @@ Overrides the `physical` formula only. The default is `Math.max(1, Math.floor((a
 ### Event subscription
 
 ```typescript
-const unsub = battle.onEvent((event: BattleEvent) => { /* ... */ });
+const unsub = battle.onEvent((event: BattleEvent) => {
+  /* ... */
+});
 unsub(); // stop listening
 ```
 
@@ -1087,7 +1089,16 @@ const db: BattleDatabase = {
 const hero: Combatant = {
   id: "hero",
   name: "Hero",
-  stats: { hp: 100, maxHp: 100, mp: 40, maxMp: 40, attack: 20, defense: 10, speed: 15, luck: 5 },
+  stats: {
+    hp: 100,
+    maxHp: 100,
+    mp: 40,
+    maxMp: 40,
+    attack: 20,
+    defense: 10,
+    speed: 15,
+    luck: 5,
+  },
   statusEffects: [],
   isParty: true,
 };
@@ -1095,7 +1106,16 @@ const hero: Combatant = {
 const slime: Combatant = {
   id: "slime",
   name: "Slime",
-  stats: { hp: 60, maxHp: 60, mp: 0, maxMp: 0, attack: 12, defense: 5, speed: 8, luck: 2 },
+  stats: {
+    hp: 60,
+    maxHp: 60,
+    mp: 0,
+    maxMp: 0,
+    attack: 12,
+    defense: 5,
+    speed: 8,
+    luck: 2,
+  },
   statusEffects: [],
   isParty: false,
 };
@@ -1109,7 +1129,10 @@ const unsub = battle.onEvent((event: BattleEvent) => {
   switch (event.kind) {
     case "action-needed":
       // Prompt the player; here we auto-submit for brevity
-      battle.submitAction(event.combatantId, { type: "attack", targetId: "slime" });
+      battle.submitAction(event.combatantId, {
+        type: "attack",
+        targetId: "slime",
+      });
       break;
     case "damage":
       // Update HP bars
@@ -1128,4 +1151,138 @@ battle.start();
 // In onDestroy:
 unsub();
 battle.destroy();
+```
+
+---
+
+## UISystem & Widget API
+
+UISystem renders a Canvas 2D overlay on top of the PixiJS scene — the right layer for screen-space HUD elements, menus, and dialogue boxes. Widgets that need to float in world space (health bars above enemies, damage numbers) stay in PixiJS as regular scene objects.
+
+### Widget classes
+
+All widgets live in `@emptysock/engine`. Import them directly:
+
+```ts
+import {
+  LabelWidget,
+  ImageWidget,
+  ButtonWidget,
+  PanelWidget,
+  ProgressBarWidget,
+  SliderWidget,
+  CheckboxWidget,
+} from "@emptysock/engine";
+```
+
+| Widget              | Key properties                                                         |
+| ------------------- | ---------------------------------------------------------------------- |
+| `LabelWidget`       | `text`, `font`, `fontSize`, `color`, `align`                           |
+| `ButtonWidget`      | `label`, `icon?`, `disabled`, `animateOnHover`, state machine          |
+| `ImageWidget`       | `src`, `scaleMode` (stretch / fit / fill / none), `tint?`              |
+| `PanelWidget`       | `background`, `border?`, `borderWidth`, `cornerRadius`, `children`     |
+| `ProgressBarWidget` | `value`, `min`, `max`, `fillColor`, `trackColor`, `direction` (h/v)    |
+| `SliderWidget`      | `value`, `min`, `max`, `step`, `trackColor`, `thumbColor`, `onChange?` |
+| `CheckboxWidget`    | `checked`, `label`, `color`, `borderColor`, `onChange?`                |
+
+All widgets share the base `Widget` class:
+
+```ts
+widget.x          // pixel offset from anchor
+widget.y
+widget.width
+widget.height
+widget.anchor     // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
+widget.visible
+widget.alpha
+widget.children   // Widget[] — mutable, for panels and compound layouts
+widget.on(event, handler)
+widget.off(event, handler)
+widget.animate(name, opts?)
+```
+
+Events: `'click'`, `'hover'`, `'hoverOut'`, `'change'`, `'animEnd'`.
+
+Animations: `'fadeIn'`, `'fadeOut'`, `'slideIn'`, `'slideOut'`, `'pop'`, `'shake'`. All accept `{ duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }`.
+
+### UISystem.add / remove
+
+`UISystem.add(widget)` adds a widget to the root widget tree. `UISystem.removeWidget(widget)` removes it. `UISystem.clear()` removes all UIComponents and all widgets.
+
+### Scene access
+
+Inside any `Scene` subclass, `this.uiSystem` is the UISystem singleton and `this.engine` exposes `pushScene`, `popScene`, and `loadScene`:
+
+```ts
+class PauseMenuScene extends Scene {
+  private _panel: PanelWidget | null = null;
+
+  onLoad(): void {
+    const panel = new PanelWidget({
+      anchor: "center",
+      width: 300,
+      height: 200,
+    });
+    this._panel = panel;
+
+    const title = new LabelWidget({
+      text: "Paused",
+      fontSize: 24,
+      anchor: "top",
+      y: 16,
+    });
+    const resumeBtn = new ButtonWidget({
+      label: "Resume",
+      anchor: "center",
+      y: 20,
+    });
+    resumeBtn.on("click", () => this.engine.popScene());
+
+    const quitBtn = new ButtonWidget({
+      label: "Quit",
+      anchor: "center",
+      y: 70,
+    });
+    quitBtn.on("click", () => this.engine.loadScene("MainMenu"));
+
+    panel.children.push(title, resumeBtn, quitBtn);
+    this.uiSystem.add(panel);
+    panel.animate("fadeIn");
+  }
+
+  onDestroy(): void {
+    if (this._panel !== null) this.uiSystem.removeWidget(this._panel);
+  }
+}
+
+// In any scene, push the pause menu on top:
+this.engine.pushScene(new PauseMenuScene("pause"));
+```
+
+### Scene stack
+
+`engine.pushScene(scene)` pauses the current scene and starts the new one on top. `engine.popScene()` stops the top scene and resumes the one underneath. `SceneManager.stackDepth` returns the current depth.
+
+### ImageLoader
+
+UISystem constructs a default `fetch` + `createImageBitmap` loader internally — no setup needed for the common case. To override (custom CDN, auth headers, mocked source in tests), call `UISystem.setImageLoader(loader)` once during initialisation.
+
+### Normalised coordinates
+
+Widget `x` and `y` accept pixel values. Anchor-based layout keeps widgets pinned to screen edges regardless of canvas size:
+
+```ts
+// Bottom-center health bar, 20px above the edge:
+const hp = new ProgressBarWidget({
+  anchor: "bottom",
+  x: 0,
+  y: 20,
+  width: 300,
+  height: 12,
+});
+UISystem.add(hp);
+
+// Top-right score label, 16px from the corner:
+const score = new LabelWidget({ text: "0", anchor: "top-right", x: 16, y: 16 });
+UISystem.add(score);
 ```

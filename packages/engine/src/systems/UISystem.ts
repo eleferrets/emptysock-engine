@@ -1,14 +1,28 @@
 // Minimal runtime UI system — framework-agnostic, works without a DOM.
 // The render layer is responsible for actually drawing; this system tracks layout.
 
-import type { ImageLoader, IUIRenderer } from '@emptysock/types';
+import type { ImageLoader, IUIRenderer } from "@emptysock/types";
+import type { Widget } from "../ui/Widget.js";
 
 export type UIAnchor =
-  | 'top-left' | 'top-center' | 'top-right'
-  | 'middle-left' | 'middle-center' | 'middle-right'
-  | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
-export type UIComponentType = 'panel' | 'button' | 'text' | 'image' | 'slider' | 'toggle' | 'progress-bar';
+export type UIComponentType =
+  | "panel"
+  | "button"
+  | "text"
+  | "image"
+  | "slider"
+  | "toggle"
+  | "progress-bar";
 
 export interface UIStyle {
   backgroundColor?: number;
@@ -39,12 +53,18 @@ let _nextUIId = 0;
 
 // ─── Animation types ─────────────────────────────────────────────────────────
 
-export type UIAnimationType = 'fade-in' | 'fade-out' | 'slide-in-left' | 'slide-in-right' | 'slide-in-up' | 'slide-in-down';
+export type UIAnimationType =
+  | "fade-in"
+  | "fade-out"
+  | "slide-in-left"
+  | "slide-in-right"
+  | "slide-in-up"
+  | "slide-in-down";
 
 interface UIAnimState {
   type: UIAnimationType;
-  t: number;         // elapsed seconds
-  duration: number;  // total seconds
+  t: number; // elapsed seconds
+  duration: number; // total seconds
   /** slide distance in pixels (positive = how far it starts from final position) */
   slideDistance: number;
 }
@@ -86,8 +106,8 @@ export class UIComponent {
     this.y = options.y ?? 0;
     this.width = options.width ?? 100;
     this.height = options.height ?? 40;
-    this.anchor = options.anchor ?? 'top-left';
-    this.text = options.text ?? '';
+    this.anchor = options.anchor ?? "top-left";
+    this.text = options.text ?? "";
     this.style = options.style ?? {};
     this.visible = options.visible ?? true;
     this.interactive = options.interactive ?? true;
@@ -95,19 +115,29 @@ export class UIComponent {
 
   // ─── Hierarchy ──────────────────────────────────────────────────────────────
 
-  createChild(type: UIComponentType, options: Omit<UIComponentOptions, 'type'> & { text?: string } = {}): UIComponent {
+  createChild(
+    type: UIComponentType,
+    options: Omit<UIComponentOptions, "type"> & { text?: string } = {},
+  ): UIComponent {
     const child = new UIComponent({ ...options, type });
     child._parent = this;
     this._children.push(child);
     return child;
   }
 
-  get children(): ReadonlyArray<UIComponent> { return this._children; }
-  get parent(): UIComponent | null { return this._parent; }
+  get children(): ReadonlyArray<UIComponent> {
+    return this._children;
+  }
+  get parent(): UIComponent | null {
+    return this._parent;
+  }
 
   removeChild(child: UIComponent): void {
     const idx = this._children.indexOf(child);
-    if (idx !== -1) { this._children.splice(idx, 1); child._parent = null; }
+    if (idx !== -1) {
+      this._children.splice(idx, 1);
+      child._parent = null;
+    }
   }
 
   // ─── Events ─────────────────────────────────────────────────────────────────
@@ -132,7 +162,7 @@ export class UIComponent {
     this._baseOpacity = this.style.opacity ?? 1;
     this.style = { ...this.style, opacity: 0 };
     this.visible = true;
-    this._anim = { type: 'fade-in', t: 0, duration, slideDistance: 0 };
+    this._anim = { type: "fade-in", t: 0, duration, slideDistance: 0 };
     return this;
   }
 
@@ -141,7 +171,7 @@ export class UIComponent {
    */
   fadeOut(duration: number = 0.3): this {
     this._baseOpacity = this.style.opacity ?? 1;
-    this._anim = { type: 'fade-out', t: 0, duration, slideDistance: 0 };
+    this._anim = { type: "fade-out", t: 0, duration, slideDistance: 0 };
     return this;
   }
 
@@ -149,7 +179,11 @@ export class UIComponent {
    * Slide the component in from off-screen (`direction` side) over `duration`
    * seconds, moving `distance` pixels. The component ends at its declared x/y.
    */
-  slideIn(direction: 'left' | 'right' | 'up' | 'down', distance: number = 40, duration: number = 0.3): this {
+  slideIn(
+    direction: "left" | "right" | "up" | "down",
+    distance: number = 40,
+    duration: number = 0.3,
+  ): this {
     this.visible = true;
     const type = `slide-in-${direction}` as UIAnimationType;
     this._anim = { type, t: 0, duration, slideDistance: distance };
@@ -166,18 +200,23 @@ export class UIComponent {
   }
 
   /** Read-only: whether the pointer is currently over this component. */
-  get hovered(): boolean { return this._hovered; }
+  get hovered(): boolean {
+    return this._hovered;
+  }
 
   /** @internal tick called by UISystemImpl.update() */
   _tickAnim(dt: number): void {
     if (this._anim === null) return;
     this._anim.t += dt;
     const progress = Math.min(this._anim.t / this._anim.duration, 1);
-    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2; // ease-in-out quad
+    const eased =
+      progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2; // ease-in-out quad
 
-    if (this._anim.type === 'fade-in') {
+    if (this._anim.type === "fade-in") {
       this.style = { ...this.style, opacity: eased * this._baseOpacity };
-    } else if (this._anim.type === 'fade-out') {
+    } else if (this._anim.type === "fade-out") {
       this.style = { ...this.style, opacity: (1 - eased) * this._baseOpacity };
       if (progress >= 1) this.visible = false;
     }
@@ -189,21 +228,29 @@ export class UIComponent {
   _animOffset(): { dx: number; dy: number } {
     if (this._anim === null) return { dx: 0, dy: 0 };
     const progress = Math.min(this._anim.t / this._anim.duration, 1);
-    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const eased =
+      progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
     const remaining = (1 - eased) * this._anim.slideDistance;
     switch (this._anim.type) {
-      case 'slide-in-left':  return { dx: -remaining, dy: 0 };
-      case 'slide-in-right': return { dx:  remaining, dy: 0 };
-      case 'slide-in-up':    return { dx: 0, dy: -remaining };
-      case 'slide-in-down':  return { dx: 0, dy:  remaining };
-      default: return { dx: 0, dy: 0 };
+      case "slide-in-left":
+        return { dx: -remaining, dy: 0 };
+      case "slide-in-right":
+        return { dx: remaining, dy: 0 };
+      case "slide-in-up":
+        return { dx: 0, dy: -remaining };
+      case "slide-in-down":
+        return { dx: 0, dy: remaining };
+      default:
+        return { dx: 0, dy: 0 };
     }
   }
 
   /** Called by the input/render layer when a click is detected on this component. */
   triggerClick(): void {
     if (!this.interactive || !this.visible) return;
-    if (this.type === 'toggle') {
+    if (this.type === "toggle") {
       this.checked = !this.checked;
       for (const h of this._changeHandlers) h(this.checked);
     }
@@ -211,26 +258,29 @@ export class UIComponent {
   }
 
   triggerChange(value: number | boolean): void {
-    if (typeof value === 'number') this.value = value;
-    if (typeof value === 'boolean') this.checked = value;
+    if (typeof value === "number") this.value = value;
+    if (typeof value === "boolean") this.checked = value;
     for (const h of this._changeHandlers) h(value);
   }
 
   /** Resolved screen-space top-left based on canvas size and anchor. */
-  resolvedPosition(canvasWidth: number, canvasHeight: number): { x: number; y: number } {
+  resolvedPosition(
+    canvasWidth: number,
+    canvasHeight: number,
+  ): { x: number; y: number } {
     let ox: number;
-    if (this.anchor.includes('right')) {
+    if (this.anchor.includes("right")) {
       ox = canvasWidth - this.width - this.x;
-    } else if (this.anchor.includes('center')) {
+    } else if (this.anchor.includes("center")) {
       ox = canvasWidth / 2 + this.x - this.width / 2;
     } else {
       ox = this.x;
     }
 
     let oy: number;
-    if (this.anchor.includes('bottom')) {
+    if (this.anchor.includes("bottom")) {
       oy = canvasHeight - this.height - this.y;
-    } else if (this.anchor.includes('middle')) {
+    } else if (this.anchor.includes("middle")) {
       oy = canvasHeight / 2 + this.y - this.height / 2;
     } else {
       oy = this.y;
@@ -240,7 +290,12 @@ export class UIComponent {
   }
 
   /** Hit-test a canvas-space point. Returns true if inside this component. */
-  contains(px: number, py: number, canvasWidth: number, canvasHeight: number): boolean {
+  contains(
+    px: number,
+    py: number,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): boolean {
     if (!this.visible || !this.interactive) return false;
     const { x, y } = this.resolvedPosition(canvasWidth, canvasHeight);
     return px >= x && px <= x + this.width && py >= y && py <= y + this.height;
@@ -249,12 +304,19 @@ export class UIComponent {
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
 
-function roundRect(ctx: IUIRenderer, x: number, y: number, w: number, h: number, r: number): void {
+function roundRect(
+  ctx: IUIRenderer,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
   if (r <= 0) {
     ctx.rect(x, y, w, h);
     return;
   }
-  if (typeof ctx.roundRect === 'function') {
+  if (typeof ctx.roundRect === "function") {
     ctx.roundRect(x, y, w, h, r);
   } else {
     ctx.moveTo(x + r, y);
@@ -271,23 +333,32 @@ function roundRect(ctx: IUIRenderer, x: number, y: number, w: number, h: number,
 }
 
 function numToHex(n: number): string {
-  return '#' + (n >>> 0).toString(16).padStart(6, '0');
+  return "#" + (n >>> 0).toString(16).padStart(6, "0");
 }
 
 function buildFont(comp: UIComponent): string {
-  return `${comp.style.fontSize ?? 14}px ${comp.style.fontFamily ?? 'sans-serif'}`;
+  return `${comp.style.fontSize ?? 14}px ${comp.style.fontFamily ?? "sans-serif"}`;
 }
 
 // ─── System singleton ─────────────────────────────────────────────────────────
 
+const _defaultImageLoader: ImageLoader = {
+  async load(src: string): Promise<ImageBitmap> {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    return createImageBitmap(blob);
+  },
+};
+
 class UISystemImpl {
   private readonly _roots: UIComponent[] = [];
-  private _imageLoader: ImageLoader | undefined;
+  private readonly _widgetRoots: Widget[] = [];
+  private _imageLoader: ImageLoader;
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
   private readonly _imagePending: Set<string> = new Set();
 
   constructor(imageLoader?: ImageLoader) {
-    this._imageLoader = imageLoader;
+    this._imageLoader = imageLoader ?? _defaultImageLoader;
   }
 
   /**
@@ -299,7 +370,10 @@ class UISystemImpl {
     this._imageLoader = loader;
   }
 
-  create(type: UIComponentType, options: Omit<UIComponentOptions, 'type'> = {}): UIComponent {
+  create(
+    type: UIComponentType,
+    options: Omit<UIComponentOptions, "type"> = {},
+  ): UIComponent {
     const comp = new UIComponent({ ...options, type });
     this._roots.push(comp);
     return comp;
@@ -310,16 +384,74 @@ class UISystemImpl {
     if (idx !== -1) this._roots.splice(idx, 1);
   }
 
-  /** Hit-test and dispatch click to the topmost matching component. */
-  handleClick(x: number, y: number, canvasWidth: number, canvasHeight: number): boolean {
+  // ─── Widget API ──────────────────────────────────────────────────────────────
+
+  add(widget: Widget): void {
+    this._widgetRoots.push(widget);
+  }
+
+  removeWidget(widget: Widget): void {
+    const idx = this._widgetRoots.indexOf(widget);
+    if (idx !== -1) this._widgetRoots.splice(idx, 1);
+  }
+
+  get widgetRoots(): ReadonlyArray<Widget> {
+    return this._widgetRoots;
+  }
+
+  clearWidgets(): void {
+    this._widgetRoots.length = 0;
+  }
+
+  /** Hit-test and dispatch click to the topmost matching component or widget. */
+  handleClick(
+    x: number,
+    y: number,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): boolean {
+    const wHit = this._findWidgetHit(
+      this._widgetRoots,
+      x,
+      y,
+      canvasWidth,
+      canvasHeight,
+    );
+    if (wHit !== null) {
+      wHit.triggerClick();
+      return true;
+    }
     const hit = this._findHit(this._roots, x, y, canvasWidth, canvasHeight);
-    if (hit !== null) { hit.triggerClick(); return true; }
+    if (hit !== null) {
+      hit.triggerClick();
+      return true;
+    }
     return false;
+  }
+
+  private _findWidgetHit(
+    widgets: ReadonlyArray<Widget>,
+    x: number,
+    y: number,
+    cw: number,
+    ch: number,
+  ): Widget | null {
+    for (let i = widgets.length - 1; i >= 0; i--) {
+      const w = widgets[i];
+      if (w === undefined) continue;
+      const child = this._findWidgetHit(w.children, x, y, cw, ch);
+      if (child !== null) return child;
+      if (w.contains(x, y, cw, ch)) return w;
+    }
+    return null;
   }
 
   private _findHit(
     comps: ReadonlyArray<UIComponent>,
-    x: number, y: number, cw: number, ch: number
+    x: number,
+    y: number,
+    cw: number,
+    ch: number,
   ): UIComponent | null {
     for (let i = comps.length - 1; i >= 0; i--) {
       const c = comps[i];
@@ -331,12 +463,22 @@ class UISystemImpl {
     return null;
   }
 
-  get roots(): ReadonlyArray<UIComponent> { return this._roots; }
+  get roots(): ReadonlyArray<UIComponent> {
+    return this._roots;
+  }
 
-  clear(): void { this._roots.length = 0; }
+  clear(): void {
+    this._roots.length = 0;
+    this._widgetRoots.length = 0;
+  }
 
   /** Alias for handleClick — preferred name for pointer-down dispatch. */
-  dispatchPointerDown(x: number, y: number, canvasWidth: number, canvasHeight: number): boolean {
+  dispatchPointerDown(
+    x: number,
+    y: number,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): boolean {
     return this.handleClick(x, y, canvasWidth, canvasHeight);
   }
 
@@ -344,30 +486,83 @@ class UISystemImpl {
    * Advance all active animations and update hover state.
    * Call once per frame before `render()`, passing the frame delta-time in seconds.
    */
-  update(dt: number, pointerX?: number, pointerY?: number, canvasWidth?: number, canvasHeight?: number): void {
+  update(
+    dt: number,
+    pointerX?: number,
+    pointerY?: number,
+    canvasWidth?: number,
+    canvasHeight?: number,
+  ): void {
     this._tickAnimsInList(this._roots, dt);
+    for (const w of this._widgetRoots) w._tick(dt);
 
-    if (pointerX !== undefined && pointerY !== undefined && canvasWidth !== undefined && canvasHeight !== undefined) {
-      this._updateHover(this._roots, pointerX, pointerY, canvasWidth, canvasHeight);
+    if (
+      pointerX !== undefined &&
+      pointerY !== undefined &&
+      canvasWidth !== undefined &&
+      canvasHeight !== undefined
+    ) {
+      this._updateHover(
+        this._roots,
+        pointerX,
+        pointerY,
+        canvasWidth,
+        canvasHeight,
+      );
+      this._updateWidgetHover(
+        this._widgetRoots,
+        pointerX,
+        pointerY,
+        canvasWidth,
+        canvasHeight,
+      );
+    }
+  }
+
+  private _updateWidgetHover(
+    widgets: ReadonlyArray<Widget>,
+    px: number,
+    py: number,
+    cw: number,
+    ch: number,
+  ): void {
+    for (const w of widgets) {
+      w._setHovered(w.contains(px, py, cw, ch));
+      this._updateWidgetHover(w.children, px, py, cw, ch);
     }
   }
 
   /**
-   * Update hover state for all components given the current pointer position.
+   * Update hover state for all components and widgets given the current pointer position.
    * Call from a pointermove / mousemove event handler.
    */
-  handlePointerMove(x: number, y: number, canvasWidth: number, canvasHeight: number): void {
+  handlePointerMove(
+    x: number,
+    y: number,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): void {
     this._updateHover(this._roots, x, y, canvasWidth, canvasHeight);
+    this._updateWidgetHover(this._widgetRoots, x, y, canvasWidth, canvasHeight);
   }
 
-  private _tickAnimsInList(comps: ReadonlyArray<UIComponent>, dt: number): void {
+  private _tickAnimsInList(
+    comps: ReadonlyArray<UIComponent>,
+    dt: number,
+  ): void {
     for (const c of comps) {
       c._tickAnim(dt);
       this._tickAnimsInList(c.children, dt);
     }
   }
 
-  private _updateHover(comps: ReadonlyArray<UIComponent>, px: number, py: number, cw: number, ch: number): void {
+  private _updateHover(
+    comps: ReadonlyArray<UIComponent>,
+    px: number,
+    py: number,
+    cw: number,
+    ch: number,
+  ): void {
     for (const c of comps) {
       const wasHovered = c._hovered;
       c._hovered = c._hoverStyle !== null && c.contains(px, py, cw, ch);
@@ -378,10 +573,13 @@ class UISystemImpl {
     }
   }
 
-  /** Draw all root UI components and their children to the given canvas context. */
+  /** Draw all root UI components, then all Widget roots, to the given canvas context. */
   render(ctx: IUIRenderer, canvasWidth: number, canvasHeight: number): void {
     for (const root of this._roots) {
       this._renderComponent(ctx, root, canvasWidth, canvasHeight);
+    }
+    for (const widget of this._widgetRoots) {
+      widget.render(ctx, canvasWidth, canvasHeight);
     }
   }
 
@@ -389,7 +587,7 @@ class UISystemImpl {
     ctx: IUIRenderer,
     comp: UIComponent,
     cw: number,
-    ch: number
+    ch: number,
   ): void {
     if (!comp.visible) return;
 
@@ -401,21 +599,25 @@ class UISystemImpl {
     const h = comp.height;
 
     // Merge hover style on top of base style when hovered
-    const style: UIStyle = comp._hovered && comp._hoverStyle !== null
-      ? { ...comp.style, ...comp._hoverStyle }
-      : comp.style;
+    const style: UIStyle =
+      comp._hovered && comp._hoverStyle !== null
+        ? { ...comp.style, ...comp._hoverStyle }
+        : comp.style;
 
     ctx.save();
     ctx.globalAlpha = style.opacity ?? 1;
 
     switch (comp.type) {
-      case 'panel': {
+      case "panel": {
         const pr = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.beginPath();
         roundRect(ctx, x, y, w, h, pr);
         ctx.fill();
-        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+        if (
+          style.borderColor !== undefined &&
+          style.borderWidth !== undefined
+        ) {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
           ctx.beginPath();
@@ -424,13 +626,16 @@ class UISystemImpl {
         }
         break;
       }
-      case 'button': {
+      case "button": {
         const br = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.beginPath();
         roundRect(ctx, x, y, w, h, br);
         ctx.fill();
-        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+        if (
+          style.borderColor !== undefined &&
+          style.borderWidth !== undefined
+        ) {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
           ctx.beginPath();
@@ -439,50 +644,55 @@ class UISystemImpl {
         }
         ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.font = buildFont(comp);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         ctx.fillText(comp.text, x + w / 2, y + h / 2);
         break;
       }
-      case 'text': {
+      case "text": {
         ctx.fillStyle = numToHex(style.color ?? 0xffffff);
         ctx.font = buildFont(comp);
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
         ctx.fillText(comp.text, x, y);
         break;
       }
-      case 'image': {
+      case "image": {
         const src = comp.text;
         const cached = src.length > 0 ? this._imageCache.get(src) : undefined;
         if (cached !== undefined) {
           ctx.drawImage(cached, x, y, w, h);
         } else {
           // Grey placeholder until the loader resolves (or if no loader is injected).
-          ctx.fillStyle = '#888888';
+          ctx.fillStyle = "#888888";
           ctx.fillRect(x, y, w, h);
-          if (this._imageLoader !== undefined && src.length > 0 && !this._imagePending.has(src)) {
+          if (
+            this._imageLoader !== undefined &&
+            src.length > 0 &&
+            !this._imagePending.has(src)
+          ) {
             this._imagePending.add(src);
-            this._imageLoader.load(src).then((result) => {
-              if (result instanceof ImageBitmap) {
+            this._imageLoader
+              .load(src)
+              .then((result: ImageBitmap) => {
                 this._imageCache.set(src, result);
-              }
-              this._imagePending.delete(src);
-            }).catch(() => {
-              this._imagePending.delete(src);
-            });
+                this._imagePending.delete(src);
+              })
+              .catch(() => {
+                this._imagePending.delete(src);
+              });
           }
         }
         break;
       }
-      case 'progress-bar': {
+      case "progress-bar": {
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x333333);
         ctx.fillRect(x, y, w, h);
         ctx.fillStyle = numToHex(style.color ?? 0x4caf50);
         ctx.fillRect(x, y, w * Math.min(1, Math.max(0, comp.value)), h);
         break;
       }
-      case 'slider': {
+      case "slider": {
         const trackH = Math.max(4, h * 0.25);
         const trackY = y + (h - trackH) / 2;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x555555);
@@ -495,10 +705,13 @@ class UISystemImpl {
         ctx.fill();
         break;
       }
-      case 'toggle': {
+      case "toggle": {
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x333333);
         ctx.fillRect(x, y, w, h);
-        if (style.borderColor !== undefined && style.borderWidth !== undefined) {
+        if (
+          style.borderColor !== undefined &&
+          style.borderWidth !== undefined
+        ) {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
           ctx.strokeRect(x, y, w, h);

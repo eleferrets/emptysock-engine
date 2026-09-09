@@ -1,3 +1,6 @@
+import type { Scene } from "./Scene.js";
+import { SceneManagerInstance } from "./SceneManager.js";
+
 type ErrorHandler = (msg: string) => void;
 
 const _errorHandlers: ErrorHandler[] = [];
@@ -9,35 +12,35 @@ let _debugPaused = false;
 const _debugBreakpoints = new Set<string>();
 
 function _installDebugMessageListener(): void {
-  window.addEventListener('message', (event: MessageEvent) => {
+  window.addEventListener("message", (event: MessageEvent) => {
     const data = event.data;
-    if (typeof data !== 'object' || data === null) return;
+    if (typeof data !== "object" || data === null) return;
     const d = data as Record<string, unknown>;
-    const msgType = d['type'];
-    if (msgType === 'debug:pause') {
+    const msgType = d["type"];
+    if (msgType === "debug:pause") {
       _debugPaused = true;
-    } else if (msgType === 'debug:resume') {
+    } else if (msgType === "debug:resume") {
       _debugPaused = false;
-    } else if (msgType === 'debug:step') {
+    } else if (msgType === "debug:step") {
       _debugPaused = false;
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => {
           _debugPaused = true;
         });
       }
-    } else if (msgType === 'debug:setBreakpoints') {
-      const labels = d['labels'];
+    } else if (msgType === "debug:setBreakpoints") {
+      const labels = d["labels"];
       _debugBreakpoints.clear();
       if (Array.isArray(labels)) {
         for (const l of labels) {
-          if (typeof l === 'string') _debugBreakpoints.add(l);
+          if (typeof l === "string") _debugBreakpoints.add(l);
         }
       }
     }
   });
 }
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   _installDebugMessageListener();
 }
 
@@ -58,13 +61,13 @@ export const Engine = {
 
   /** Log a runtime error to registered handlers and the console. */
   logError(msg: string): void {
-    console.error('[Engine]', msg);
+    console.error("[Engine]", msg);
     for (const h of _errorHandlers) h(msg);
   },
 
   /** Log a debug-level message without triggering error handlers. */
   logDebugError(msg: string): void {
-    console.debug('[Engine]', msg);
+    console.debug("[Engine]", msg);
   },
 
   /** Delegate to the file-log handler registered by the host layer. No-op if not set. */
@@ -106,8 +109,31 @@ export const Engine = {
   debugBreak(label: string, vars: Record<string, unknown> = {}): void {
     if (!_debugBreakpoints.has(label)) return;
     _debugPaused = true;
-    if (typeof window !== 'undefined' && window.parent !== window) {
-      window.parent.postMessage({ type: 'debug:break', label, vars }, '*');
+    if (typeof window !== "undefined" && window.parent !== window) {
+      window.parent.postMessage({ type: "debug:break", label, vars }, "*");
     }
+  },
+
+  // ── Scene stack ───────────────────────────────────────────────────────────
+
+  /**
+   * Push a new scene on top of the active scene (e.g. a pause menu over the game).
+   * The scene underneath is paused but stays in memory. Call popScene() to return.
+   */
+  pushScene(scene: Scene): void {
+    SceneManagerInstance.pushScene(scene);
+  },
+
+  /** Pop the top scene off the stack and resume the scene underneath. */
+  popScene(): void {
+    SceneManagerInstance.popScene();
+  },
+
+  /**
+   * Load a named scene immediately (replaces the active scene).
+   * The scene must be registered with SceneManager.register() first.
+   */
+  loadScene(name: string): void {
+    SceneManagerInstance.load(name);
   },
 };

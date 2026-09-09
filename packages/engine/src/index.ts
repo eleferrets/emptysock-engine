@@ -155,6 +155,34 @@ export type {
 } from "./systems/UISystem.js";
 export type { IUIRenderer } from "@emptysock/types";
 
+// Widget API
+export {
+  Widget,
+  LabelWidget,
+  ImageWidget,
+  ButtonWidget,
+  PanelWidget,
+  ProgressBarWidget,
+  SliderWidget,
+  CheckboxWidget,
+  widgetRoundRect,
+} from "./ui/Widget.js";
+export type {
+  WidgetAnchor,
+  AnimationName,
+  SlideDirection,
+  WidgetEvent,
+  AnimationOpts,
+  LabelWidgetOpts,
+  ImageWidgetOpts,
+  ButtonWidgetOpts,
+  ButtonState,
+  PanelWidgetOpts,
+  ProgressBarWidgetOpts,
+  SliderWidgetOpts,
+  CheckboxWidgetOpts,
+} from "./ui/Widget.js";
+
 // Post-processing
 export { PostProcessSystem } from "./systems/PostProcessSystem.js";
 export type {

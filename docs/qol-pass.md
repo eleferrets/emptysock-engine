@@ -170,18 +170,20 @@ Tracked here so they are visible alongside the QoL items.
 
 Design spec: `docs/ui-widgets.md`. Implementation order is specified there.
 
-- 🔴 **[P2]** UISystem default `ImageLoader`  
+- ✅ **[P2]** UISystem default `ImageLoader`  
   Remove the mandatory `imageLoader` constructor parameter. Construct a default loader internally using `createImageBitmap` + `fetch`. Keep the parameter optional for override.
 
-- 🔴 **[P2]** `engine.pushScene()` / `engine.popScene()` — scene stack  
-  Required before any UI scene can be used.
+- ✅ **[P2]** `engine.pushScene()` / `engine.popScene()` — scene stack  
+  Added `pushScene`/`popScene` to `SceneManager` and delegated via `Engine`. `Scene.engine` and `Scene.uiSystem` accessors expose both.
 
-- 🔴 **[P2]** Base `Widget` class + layout pass in UISystem  
-  Anchor-based, normalised coordinates (0–1). Resolved to pixels each frame using canvas dimensions.
+- ✅ **[P2]** Base `Widget` class + layout pass in UISystem  
+  Anchor-based layout. `UISystem.add(widget)` / `UISystem.removeWidget(widget)` wire into render/update/hit-test.
 
-- 🔴 **[P3]** Widget primitives: `LabelWidget`, `ImageWidget`, `ButtonWidget`, `PanelWidget`, `ProgressBarWidget`, `SliderWidget`, `CheckboxWidget`
+- ✅ **[P3]** Widget primitives: `LabelWidget`, `ImageWidget`, `ButtonWidget`, `PanelWidget`, `ProgressBarWidget`, `SliderWidget`, `CheckboxWidget`  
+  All in `packages/engine/src/ui/Widget.ts`. 35 tests passing.
 
-- 🔴 **[P3]** Named animations: `fadeIn`, `fadeOut`, `slideIn`, `slideOut`, `pop`, `shake`
+- ✅ **[P3]** Named animations: `fadeIn`, `fadeOut`, `slideIn`, `slideOut`, `pop`, `shake`  
+  Implemented in `Widget._tick()`. All accept `{ duration, easing, direction }`.
 
 - 🔴 **[P3]** IDE visual editor for UISystem widgets  
   Drag-and-drop widget palette, anchor picker, property panel, widget tree. Undo/redo mandatory. CSS variables only. Empty state: "No widgets yet — drag one from the palette."
