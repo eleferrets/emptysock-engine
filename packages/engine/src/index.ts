@@ -268,6 +268,16 @@ export type {
 // Public type aliases
 export type { GameStage } from "./types/aliases.js";
 
+// IDE Bridge
+/** @internal */
+export { ideBridge } from "./core/IDEBridge.js";
+/** @internal */
+export type {
+  EntitySnapshot as IDEEntitySnapshot,
+  ComponentPatchHandler,
+  SelectHandler,
+} from "./core/IDEBridge.js";
+
 // Battle System
 export { BattleSystem } from "./systems/BattleSystem.js";
 export type {

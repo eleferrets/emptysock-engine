@@ -65,6 +65,23 @@ export interface AssetItem {
   size?: number;
 }
 
+export interface EntitySnapshot {
+  id: string;
+  name: string;
+  active: boolean;
+  components: string[];
+  tags: string[];
+  x: number;
+  y: number;
+  rotation: number;
+}
+
+export interface FileTreeNode {
+  name: string;
+  path: string;
+  children?: FileTreeNode[];
+}
+
 export interface ProjectFile {
   name: string;
   path: string;
@@ -127,6 +144,13 @@ interface IDEState {
   entities: EntityItem[];
   selectedEntityId: string | null;
   selectedEntity: SelectedEntity | null;
+
+  // Live entity data from the running engine
+  liveEntities: EntitySnapshot[];
+
+  // Project directory tree
+  projectRoot: string | null;
+  fileTree: FileTreeNode[];
 
   // Assets
   assets: AssetItem[];
@@ -290,10 +314,18 @@ interface IDEState {
   setDropImportFolder: (folder: "root" | "last") => void;
   openImageEditor: (assetId: string) => void;
 
+  // Live entity actions
+  setLiveEntities: (entities: EntitySnapshot[]) => void;
+
+  // Project directory actions
+  setProjectRoot: (root: string | null) => void;
+  setFileTree: (tree: FileTreeNode[]) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
   saveProjectJson: () => string;
+  loadProject: (raw: string) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -502,6 +534,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   entities: [],
   selectedEntityId: null,
   selectedEntity: null,
+  liveEntities: [],
+  projectRoot: null,
+  fileTree: [],
 
   // Assets — start empty; INITIAL_ASSETS kept for reference but not used at startup
   assets: [],
@@ -792,6 +827,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setDropImportFolder: (folder) => set({ dropImportFolder: folder }),
   openImageEditor: (assetId) =>
     set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
+
+  setLiveEntities: (entities) => set({ liveEntities: entities }),
+  setProjectRoot: (root) => set({ projectRoot: root }),
+  setFileTree: (tree) => set({ fileTree: tree }),
+
+  loadProject: (raw) => {
+    get().loadProjectFiles({ "project.emptysock.project.json": raw });
+  },
 
   resetProject: () => {
     set({ ...initialProjectState() });

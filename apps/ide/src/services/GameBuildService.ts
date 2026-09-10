@@ -27,6 +27,7 @@ type BuildJob = {
   target?: string[];
   virtualFiles?: Record<string, string>;
   define?: Record<string, string>;
+  format?: "esm" | "iife";
   onStart: () => void;
   onComplete: (result: BuildJobResult) => void;
 };
@@ -177,6 +178,7 @@ async function runBuild(
   virtualFiles: Record<string, string> = {},
   target: string[] = ["es2026"],
   define: Record<string, string> = {},
+  format: "esm" | "iife" = "esm",
 ): Promise<BuildJobResult> {
   validateDefines(define);
   checkVirtualFilesCompleteness(virtualFiles);
@@ -189,7 +191,7 @@ async function runBuild(
     const result = await eb.build({
       stdin: { contents: code, loader, sourcefile: filename },
       bundle: true,
-      format: "esm",
+      format,
       define,
       minify: isRelease,
       ...(isRelease && aggressiveMode
@@ -272,6 +274,7 @@ export class GameBuildService {
         job.virtualFiles,
         job.target,
         job.define,
+        job.format,
       ).then((r) => job.onComplete(r));
     }, this.debounceMs);
   }
@@ -295,6 +298,7 @@ export class GameBuildService {
       job.virtualFiles,
       job.target,
       job.define,
+      job.format,
     );
   }
 

@@ -148,14 +148,21 @@ function ComponentSection({
   );
 }
 
-interface EntitySnapshot {
+interface EntityHistSnapshot {
   transform: Record<string, string>;
   componentTypes: string[];
 }
 
 export function EntityProperties(): React.ReactElement {
   const selectedEntity = useIDEStore((s) => s.selectedEntity);
+  const liveEntities = useIDEStore((s) => s.liveEntities);
   const updateEntityTransform = useIDEStore((s) => s.updateEntityTransform);
+
+  // Prefer live component list from running engine when available
+  const liveSnap =
+    selectedEntity !== null
+      ? liveEntities.find((e) => e.id === selectedEntity.id)
+      : undefined;
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
   const addComponentToEntity = useIDEStore((s) => s.addComponentToEntity);
   const removeComponentFromEntity = useIDEStore(
@@ -165,7 +172,7 @@ export function EntityProperties(): React.ReactElement {
 
   const entityId = selectedEntity?.id ?? null;
 
-  const makeSnapshot = (): EntitySnapshot => ({
+  const makeSnapshot = (): EntityHistSnapshot => ({
     transform: selectedEntity ? { ...selectedEntity.transform } : {},
     componentTypes: selectedEntity
       ? selectedEntity.components.map((c) => c.type)
@@ -178,7 +185,7 @@ export function EntityProperties(): React.ReactElement {
     redo,
     canUndo,
     canRedo,
-  } = useHistory<EntitySnapshot>(makeSnapshot());
+  } = useHistory<EntityHistSnapshot>(makeSnapshot());
 
   // Reset history when the selected entity changes
   const prevEntityIdRef = React.useRef<string | null>(entityId);
@@ -238,7 +245,11 @@ export function EntityProperties(): React.ReactElement {
     );
   }
 
-  const existingComponentTypes = selectedEntity.components.map((c) => c.type);
+  // Use live component list from engine when available; fall back to editor state
+  const existingComponentTypes =
+    liveSnap !== undefined
+      ? liveSnap.components
+      : selectedEntity.components.map((c) => c.type);
   const addableComponents = AVAILABLE_COMPONENTS.filter(
     (c) => !existingComponentTypes.includes(c),
   );

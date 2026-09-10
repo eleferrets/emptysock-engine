@@ -135,6 +135,12 @@ try { ${engineBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
 }
 </script>
+<script>
+try {
+  var _esb = window.EmptySockEngine;
+  if (_esb && _esb.ideBridge) { _esb.ideBridge.autoInstall(); }
+} catch(e) {}
+</script>
 <script type="module" src="${userModuleUrl}"></script>
 </body>
 </html>`;
@@ -163,11 +169,17 @@ export class PlayRunner {
     mode: "debug" | "release",
     container: HTMLElement,
     define: Record<string, string> = {},
+    virtualFiles: Record<string, string> = {},
   ): Promise<void> {
     this.stop();
     this._container = container;
 
-    const result = await gameBuildService.buildNow({ code, mode, define });
+    const result = await gameBuildService.buildNow({
+      code,
+      mode,
+      define,
+      virtualFiles,
+    });
     if (!result.success) {
       for (const err of result.errors) {
         this._emit({

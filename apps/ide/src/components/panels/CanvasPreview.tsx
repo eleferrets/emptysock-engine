@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+} from "react";
 import {
   Monitor,
   Wifi,
@@ -11,7 +17,9 @@ import {
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
 import { useIDEStore, debugCommandBus } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
+import { gameBuildService } from "../../services/GameBuildService";
 import { drawGrid, drawRulers, drawGuides } from "../../lib/editorGrid";
+import { useEngineChannel } from "../../hooks/useEngineChannel";
 
 export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,6 +42,7 @@ export function CanvasPreview(): React.ReactElement {
     debugOverlay,
     entities,
     editorCode,
+    openFiles,
     buildMode,
     addLog,
     projectName,
@@ -52,6 +61,22 @@ export function CanvasPreview(): React.ReactElement {
     setDebuggerPaused,
     setDebuggerVars,
   } = useIDEStore();
+
+  // Getter-based ref that always resolves to the current runner iframe
+  const engineIframeRef = useMemo(
+    () => ({
+      get current(): HTMLIFrameElement | null {
+        return (
+          runnerContainerRef.current?.querySelector<HTMLIFrameElement>(
+            "iframe",
+          ) ?? null
+        );
+      },
+    }),
+    [],
+  );
+
+  useEngineChannel(engineIframeRef);
 
   const initDemo = useCallback(async (): Promise<void> => {
     if (canvasRef.current === null) return;
@@ -93,6 +118,7 @@ export function CanvasPreview(): React.ReactElement {
           buildMode,
           runnerContainerRef.current,
           define,
+          openFiles,
         );
       }
       return () => {
@@ -113,7 +139,7 @@ export function CanvasPreview(): React.ReactElement {
     };
   }, [initDemo]);
 
-  // Auto hot reload when editorCode changes while playing (debounced 300ms)
+  // Auto hot reload when any open file changes while playing (debounced 500ms)
   useEffect(() => {
     if (playState !== "playing" || buildMode !== "debug") return;
     if (hotReloadTimerRef.current !== null) {
@@ -121,15 +147,34 @@ export function CanvasPreview(): React.ReactElement {
     }
     hotReloadTimerRef.current = setTimeout(() => {
       hotReloadTimerRef.current = null;
-      playRunner.hotReload(editorCode);
-    }, 300);
+      const define: Record<string, string> = {
+        PROJECT_TITLE: JSON.stringify(windowConfig.title),
+        PROJECT_NAME: JSON.stringify(projectName),
+        GAME_WIDTH: String(windowConfig.width),
+        GAME_HEIGHT: String(windowConfig.height),
+        DEBUG: "true",
+      };
+      void gameBuildService
+        .buildNow({
+          code: editorCode,
+          mode: "debug",
+          define,
+          virtualFiles: openFiles,
+          format: "iife",
+        })
+        .then((result) => {
+          if (result.success) {
+            playRunner.hotReload(result.js);
+          }
+        });
+    }, 500);
     return () => {
       if (hotReloadTimerRef.current !== null) {
         clearTimeout(hotReloadTimerRef.current);
         hotReloadTimerRef.current = null;
       }
     };
-  }, [editorCode, playState, buildMode]);
+  }, [editorCode, openFiles, playState, buildMode]);
 
   // Draw the grid/ruler overlay whenever relevant state changes
   useEffect(() => {
@@ -211,48 +256,52 @@ export function CanvasPreview(): React.ReactElement {
     function onDebugCmd(event: Event): void {
       const detail = (event as CustomEvent<{ type: string }>).detail;
       const iframe =
-        runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
-      iframe?.contentWindow?.postMessage({ type: detail.type }, '*');
+        runnerContainerRef.current?.querySelector<HTMLIFrameElement>("iframe");
+      iframe?.contentWindow?.postMessage({ type: detail.type }, "*");
     }
-    debugCommandBus.addEventListener('debug-cmd', onDebugCmd);
-    return () => debugCommandBus.removeEventListener('debug-cmd', onDebugCmd);
+    debugCommandBus.addEventListener("debug-cmd", onDebugCmd);
+    return () => debugCommandBus.removeEventListener("debug-cmd", onDebugCmd);
   }, []);
 
   // ── Debugger: listen for debug messages posted by the game iframe ────────────
   useEffect(() => {
     function onMessage(event: MessageEvent): void {
       const data = event.data;
-      if (typeof data !== 'object' || data === null) return;
+      if (typeof data !== "object" || data === null) return;
       const d = data as Record<string, unknown>;
-      const msgType = d['type'];
-      if (msgType === 'debug:break') {
+      const msgType = d["type"];
+      if (msgType === "debug:break") {
         setDebuggerPaused(true);
-        const vars = d['vars'];
-        if (typeof vars === 'object' && vars !== null) {
+        const vars = d["vars"];
+        if (typeof vars === "object" && vars !== null) {
           setDebuggerVars(vars as Record<string, unknown>);
         }
-        addLog('debug', `Breakpoint: ${String(d['label'] ?? 'unknown')}`, 'Debugger');
-      } else if (msgType === 'debug:vars') {
-        const vars = d['vars'];
-        if (typeof vars === 'object' && vars !== null) {
+        addLog(
+          "debug",
+          `Breakpoint: ${String(d["label"] ?? "unknown")}`,
+          "Debugger",
+        );
+      } else if (msgType === "debug:vars") {
+        const vars = d["vars"];
+        if (typeof vars === "object" && vars !== null) {
           setDebuggerVars(vars as Record<string, unknown>);
         }
-      } else if (msgType === 'debug:resume') {
+      } else if (msgType === "debug:resume") {
         setDebuggerPaused(false);
       }
     }
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, [setDebuggerPaused, setDebuggerVars, addLog]);
 
   // ── Debugger: sync active breakpoints into the game iframe ───────────────────
   useEffect(() => {
-    if (playState !== 'playing') return;
+    if (playState !== "playing") return;
     const iframe =
-      runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
+      runnerContainerRef.current?.querySelector<HTMLIFrameElement>("iframe");
     iframe?.contentWindow?.postMessage(
-      { type: 'debug:setBreakpoints', labels: debugBreakpoints },
-      '*',
+      { type: "debug:setBreakpoints", labels: debugBreakpoints },
+      "*",
     );
   }, [debugBreakpoints, playState]);
 

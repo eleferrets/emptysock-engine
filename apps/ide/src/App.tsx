@@ -33,6 +33,7 @@ import { ShortcutsModal } from "./components/modals/ShortcutsModal";
 import { DownloadEngineModal } from "./components/modals/DownloadEngineModal";
 import { MenuBar } from "./components/panels/MenuBar";
 import { useIDEStore } from "./store/ideStore";
+import { ProjectService } from "./services/ProjectService";
 import { ProjectSettingsModal } from "./components/modals/ProjectSettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PanelErrorBoundary } from "./components/PanelErrorBoundary";
@@ -113,8 +114,24 @@ function getModuleTabs(ids: string[]): TabData[] {
 
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
-  const mainGated = ["tilemap", "particle", "vn", "vn-preview", "visual-script", "sequence", "cg-gallery"];
-  const bottomGated = ["profiler", "git", "i18n", "audio", "variables", "ui-placement", "database"];
+  const mainGated = [
+    "tilemap",
+    "particle",
+    "vn",
+    "vn-preview",
+    "visual-script",
+    "sequence",
+    "cg-gallery",
+  ];
+  const bottomGated = [
+    "profiler",
+    "git",
+    "i18n",
+    "audio",
+    "variables",
+    "ui-placement",
+    "database",
+  ];
   return {
     dockbox: {
       mode: "horizontal",
@@ -213,9 +230,11 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
     GATED_TABS["ui-placement"] ??
     makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
   database: () =>
-    GATED_TABS["database"] ?? makeTab("database", "Database", <DatabaseEditor />),
+    GATED_TABS["database"] ??
+    makeTab("database", "Database", <DatabaseEditor />),
   "cg-gallery": () =>
-    GATED_TABS["cg-gallery"] ?? makeTab("cg-gallery", "CG Gallery", <CGGallery />, true),
+    GATED_TABS["cg-gallery"] ??
+    makeTab("cg-gallery", "CG Gallery", <CGGallery />, true),
 };
 
 export function App(): React.ReactElement {
@@ -232,11 +251,14 @@ export function App(): React.ReactElement {
   const layoutRef = React.useRef<DockLayout>(null);
   const [dockLayout, setDockLayout] =
     React.useState<LayoutData>(loadPersistedLayout);
-  const prevImageEditorReqRef = React.useRef<{ assetId: string; ts: number } | null>(null);
+  const prevImageEditorReqRef = React.useRef<{
+    assetId: string;
+    ts: number;
+  } | null>(null);
 
   // Restore banner — shown once on mount if an autosave snapshot exists
-  const [showRestoreBanner, setShowRestoreBanner] = React.useState(
-    () => offerRestore(),
+  const [showRestoreBanner, setShowRestoreBanner] = React.useState(() =>
+    offerRestore(),
   );
 
   const handleRestore = React.useCallback((): void => {
@@ -324,9 +346,17 @@ export function App(): React.ReactElement {
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "p")) {
-        e.preventDefault();
-        setPaletteOpen((prev) => !prev);
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "k" || e.key === "p") {
+          e.preventDefault();
+          setPaletteOpen((prev) => !prev);
+        } else if (e.key === "s") {
+          e.preventDefault();
+          void ProjectService.saveProject();
+        } else if (e.key === "o") {
+          e.preventDefault();
+          void ProjectService.loadProject();
+        }
       }
     };
     window.addEventListener("keydown", handler);
@@ -362,9 +392,7 @@ export function App(): React.ReactElement {
             color: "var(--es-text)",
           }}
         >
-          <span style={{ flex: 1 }}>
-            Unsaved session found. Restore it?
-          </span>
+          <span style={{ flex: 1 }}>Unsaved session found. Restore it?</span>
           <button
             type="button"
             onClick={handleRestore}
