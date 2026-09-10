@@ -331,38 +331,64 @@ TilemapSystem.unload("assets/levels/level1.esmap");
 
 ---
 
-## 5.11 Tween
+## 5.11 TweenManager
 
-Interpolates numeric properties on any object over a duration, integrated with the game loop.
+`TweenManager` interpolates numeric properties on any plain object over a duration. Create one instance per scene, call `update(dt)` each frame. When the scene unloads the instance is garbage-collected with the scene — no explicit teardown is needed.
 
 ```typescript
-import { Tween } from "@emptysock/engine";
+import { TweenManager, type TweenOptions } from "@emptysock/engine";
 
-// Move an entity:
-Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: "bounceOut" });
+export class GameScene extends Scene {
+  private _tweens!: TweenManager;
 
-// Fade out a sprite and destroy on complete:
-Tween.to(
+  override onLoad(): void {
+    this._tweens = new TweenManager();
+  }
+
+  override onUpdate(dt: number): void {
+    this._tweens.update(dt); // required — drives all active tweens
+  }
+}
+
+// Animate any object's numeric properties to new values:
+this._tweens.to(
+  entity.position,
+  { x: 400, y: 200 },
+  {
+    duration: 0.5,
+    ease: "bounceOut",
+  },
+);
+
+// With delay and completion callback:
+this._tweens.to(
   sprite,
   { alpha: 0 },
   {
     duration: 0.3,
     ease: "sineIn",
+    delay: 0.2,
     onComplete: () => entity.destroy(),
   },
 );
 
-// Tween from a starting value:
-Tween.from(entity, { y: -100 }, { duration: 0.4, ease: "cubicOut" });
-
-// Cancel a running tween:
-const handle = Tween.to(enemy, { alpha: 0.5 }, { duration: 1.0 });
-Tween.kill(handle);
+// Scene-local timers (no handles to cancel — stop when scene unloads):
+this._tweens.after(2.0, () => this.spawnWave());
+this._tweens.every(5.0, () => this.spawnPowerUp());
 ```
+
+**Options:**
+
+| Option       | Type         | Default    | Notes                           |
+| ------------ | ------------ | ---------- | ------------------------------- |
+| `duration`   | `number`     | required   | Seconds                         |
+| `ease`       | `EasingName` | `'linear'` | See easings list below          |
+| `delay`      | `number`     | `0`        | Seconds before tween starts     |
+| `onComplete` | `() => void` | —          | Called once when tween finishes |
 
 **Easing functions:** `linear`, `sineIn/Out/InOut`, `quadIn/Out/InOut`, `cubicIn/Out/InOut`, `bounceOut`, `elasticOut`, `backIn/Out`.
 
-> **Tip:** Tweens do not need to be cancelled in `onDestroy` if the target object is destroyed — the engine detects the destroyed entity and stops the tween automatically. For tweens on plain objects (not entities), cancel them manually.
+> **Note:** `TweenManager` only animates numeric properties. Non-numeric properties are silently ignored. For complex multi-step sequences, use coroutines (`yield waitSeconds(n)`) — they are clearer than chained `onComplete` callbacks.
 
 ---
 
@@ -472,38 +498,36 @@ post.destroy();
 
 ## 5.14 GamepadSystem
 
-Provides access to the Gamepad API with normalised stick dead-zones and button mapping. Works alongside the `Input` static class — gamepad axes and buttons are also readable through `Input.axis()` and `Input.isPressed()` when a standard mapping is set.
+Provides access to the browser Gamepad API with snapshot-based polling. Works alongside the `Input` static class — for most games, `Input.axis()` and `Input.isPressed()` are sufficient.
 
 ```typescript
-import { GamepadSystem } from "@emptysock/engine";
+import {
+  GamepadSystem,
+  type GamepadState,
+  type DualRumbleOptions,
+} from "@emptysock/engine";
 
-const pads = new GamepadSystem({ deadZone: 0.15 });
+const pads = new GamepadSystem();
 
-// In onUpdate:
-pads.poll(); // must call once per frame before reading state
+// In onUpdate — must call update() before reading state:
+pads.update();
 
-const p0 = pads.get(0); // GamepadState | undefined
-if (p0) {
-  const { lx, ly, rx, ry } = p0.axes; // -1..1, dead-zone applied
-  const jump = p0.isPressed("A"); // button pressed this frame
-  const attack = p0.isDown("X"); // button held
-  const lt = p0.trigger("LT"); // 0..1 analog trigger
+const state: GamepadState | null = pads.getState(0);
+if (state !== null && state.connected) {
+  // buttons: ReadonlyArray<boolean> indexed by standard gamepad mapping
+  const jump = state.buttons[0] ?? false; // A / Cross
+  const attack = state.buttons[2] ?? false; // X / Square
+  // axes: ReadonlyArray<number>, -1..1
+  const lx = state.axes[0] ?? 0; // left stick X
+  const ly = state.axes[1] ?? 0; // left stick Y
 }
 
-// Enumerate connected pads:
-for (const pad of pads.connected()) {
-  console.log(pad.index, pad.id);
-}
-
-// Rumble (where supported):
-pads
-  .get(0)
-  ?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 });
+// Rumble (where supported by the browser):
+pads.rumble(0, 0.5, 200); // equal-motor rumble
+pads.rumbleDual(0, { weakMagnitude: 0.3, strongMagnitude: 0.8, duration: 300 });
 ```
 
-**Standard button names:** `A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `Start`, `Select`, `L3`, `R3`, `DUp`, `DDown`, `DLeft`, `DRight`.
-
-> **Note:** `pads.poll()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
+> **Note:** `pads.update()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
 
 ---
 
