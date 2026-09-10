@@ -707,7 +707,7 @@ vn.destroy();
 
 ---
 
-## 5.14 AutoTileSystem
+## 5.18 AutoTileSystem
 
 Selects the correct tile variant for a cell based on its eight neighbours. Each rule set is keyed to a base tile index; rules match a bitmask where bit 0 = NW, 1 = N, 2 = NE, 3 = W, 4 = E, 5 = SW, 6 = S, 7 = SE.
 
@@ -736,7 +736,7 @@ The Tilemap Editor's **Auto-tile Rules** modal writes and reads rule sets in thi
 
 ---
 
-## 5.15 VariableStore
+## 5.19 VariableStore
 
 Indexed integer variables (1–1000) and boolean switches (1–1000), persisted automatically to `localStorage`. The IDE's **Variables** panel reads and writes this store.
 
@@ -765,7 +765,7 @@ vars.restore(snap);
 
 ---
 
-## 5.16 MapEventSystem
+## 5.20 MapEventSystem
 
 Tile-aligned event system similar to RPG Maker / GMS2. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
 
@@ -802,7 +802,7 @@ Trigger types: `autorun` runs once on entry; `player-touch` fires when the playe
 
 ---
 
-## 5.17 GridMovementBehavior
+## 5.21 GridMovementBehavior
 
 Smooth 4-directional tile-aligned movement. The entity slides between tile centres; new input is accepted only when the entity is at rest.
 
@@ -826,7 +826,7 @@ Set `mover.speed` at runtime to change movement speed. The entity requires a `Tr
 
 ---
 
-## 5.18 CharacterStage
+## 5.22 CharacterStage
 
 Renders character sprites at predefined stage positions (left, center, right) with image fade transitions. Designed for visual-novel-style scenes.
 
@@ -853,7 +853,7 @@ stage.render(ctx);
 
 ---
 
-## 5.19 VNBackgroundLayer
+## 5.23 VNBackgroundLayer
 
 Manages a background image and an optional full-screen CG overlay with cross-fade transitions. Draw it before characters and UI.
 
@@ -883,7 +883,7 @@ Fit modes: `'cover'` (fill, crop sides), `'contain'` (letterbox), `'stretch'`.
 
 ---
 
-## 5.20 VNTextbox
+## 5.24 VNTextbox
 
 Pre-built dialogue box rendered by UISystem. Attach it to a VNSystem instance to have it update automatically on each node change.
 
@@ -912,7 +912,7 @@ All colors and dimensions are optional constructor parameters — see `VNTextbox
 
 ---
 
-## 5.21 VNScriptConvert
+## 5.25 VNScriptConvert
 
 Converts between the Story Graph (visual-editor JSON) and the VNSystem `DialogueTree` format (`.vnscript` JSON).
 
@@ -934,7 +934,7 @@ The IDE calls `storyGraphToDialogueTree` automatically when you click **Build** 
 
 ---
 
-## 5.22 CGGallery
+## 5.26 CGGallery
 
 Tracks which CG images the player has unlocked. Persists unlock state through SaveSystem.
 
@@ -973,7 +973,7 @@ Integrate with VNSystem: call `gallery.unlockFromNode(cgId)` inside a `vn.onNode
 
 ---
 
-## 5.23 BattleSystem
+## 5.27 BattleSystem
 
 Self-contained, opt-in turn-based RPG battle module. No game loop integration — the system is event-driven and resolves a full round whenever all party members have submitted actions.
 
