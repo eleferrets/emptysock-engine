@@ -4,6 +4,10 @@
 import { useIDEStore } from "../store/ideStore";
 import type { FileTreeNode } from "../store/ideStore";
 
+// Stored for re-reading individual files after directory is opened.
+let _browserDirHandle: FileSystemDirectoryHandle | null = null;
+let _tauriDirPath: string | null = null;
+
 const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -90,6 +94,7 @@ async function walkDirectoryHandle(
 
 async function openDirectoryBrowser(): Promise<void> {
   const handle = await window.showDirectoryPicker();
+  _browserDirHandle = handle;
   const tree = await walkDirectoryHandle(handle, "", 4);
   const store = useIDEStore.getState();
   store.setProjectRoot(handle.name);
@@ -117,6 +122,7 @@ async function openDirectoryTauri(): Promise<void> {
       }));
   }
 
+  _tauriDirPath = selected;
   const store = useIDEStore.getState();
   store.setProjectRoot(selected);
   store.setFileTree(toNodes(entries));
@@ -170,6 +176,31 @@ export const ProjectService = {
       useIDEStore
         .getState()
         .addLog("error", `Open failed: ${String(err)}`, "ProjectService");
+    }
+  },
+
+  async readFile(path: string): Promise<string | null> {
+    try {
+      if (isTauri()) {
+        if (_tauriDirPath === null) return null;
+        const { readTextFile } = await import("@tauri-apps/plugin-fs");
+        const { join } = await import("@tauri-apps/api/path");
+        const fullPath = await join(_tauriDirPath, path);
+        return readTextFile(fullPath);
+      }
+      if (_browserDirHandle === null) return null;
+      const parts = path.split("/").filter(Boolean);
+      const fileName = parts.pop();
+      if (fileName === undefined) return null;
+      let dir: FileSystemDirectoryHandle = _browserDirHandle;
+      for (const part of parts) {
+        dir = await dir.getDirectoryHandle(part);
+      }
+      const fileHandle = await dir.getFileHandle(fileName);
+      const file = await fileHandle.getFile();
+      return file.text();
+    } catch {
+      return null;
     }
   },
 };

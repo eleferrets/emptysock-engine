@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom";
+import { getAssetStore, browserAssetStore } from "../../services/AssetStore";
 import {
   Image,
   Music,
@@ -16,6 +17,7 @@ import {
   List,
   RotateCcw,
   RotateCw,
+  FolderOpen,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
@@ -703,6 +705,16 @@ export function AssetBrowser(): React.ReactElement {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canUndo, canRedo, undo, redo]);
+
+  // Load assets from disk on mount (if a directory root is already open).
+  // histSet is stable (useCallback with no deps) so omitting it is safe.
+  useEffect(() => {
+    const store = getAssetStore();
+    if (!store.hasRoot()) return;
+    void store.list().then((items) => {
+      if (items.length > 0) histSet(items);
+    });
+  }, []); // intentional: run once on mount
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredAsset, setHoveredAsset] = useState<{
@@ -786,14 +798,21 @@ export function AssetBrowser(): React.ReactElement {
         toImport.push(file);
       }
       if (toImport.length > 0) {
-        const newItems: AssetItem[] = toImport.map((file) => ({
-          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          name: file.name,
-          type: guessAssetType(file),
-          path: `${folder}${file.name}`,
-          size: file.size,
-        }));
-        histSet((prev) => [...prev, ...newItems]);
+        const store = getAssetStore();
+        const writeAll = toImport.map((file) =>
+          store.write(file.name, file).catch(
+            (): AssetItem => ({
+              id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              name: file.name,
+              type: guessAssetType(file),
+              path: `${folder}${file.name}`,
+              size: file.size,
+            }),
+          ),
+        );
+        void Promise.all(writeAll).then((newItems) => {
+          histSet((prev) => [...prev, ...newItems]);
+        });
       }
     },
     [histSet, dropImportFolder],
@@ -821,14 +840,21 @@ export function AssetBrowser(): React.ReactElement {
       toImport.push(file);
     }
     if (toImport.length > 0) {
-      const newItems: AssetItem[] = toImport.map((file) => ({
-        id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        name: file.name,
-        type: guessAssetType(file),
-        path: `assets/${file.name}`,
-        size: file.size,
-      }));
-      histSet((prev) => [...prev, ...newItems]);
+      const store = getAssetStore();
+      const writeAll = toImport.map((file) =>
+        store.write(file.name, file).catch(
+          (): AssetItem => ({
+            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: guessAssetType(file),
+            path: `assets/${file.name}`,
+            size: file.size,
+          }),
+        ),
+      );
+      void Promise.all(writeAll).then((newItems) => {
+        histSet((prev) => [...prev, ...newItems]);
+      });
     }
     e.target.value = "";
   };
@@ -895,6 +921,9 @@ export function AssetBrowser(): React.ReactElement {
       label: "Delete",
       danger: true,
       onClick: () => {
+        void getAssetStore()
+          .delete(asset.path)
+          .catch(() => {});
         histSet((prev) => prev.filter((a) => a.id !== asset.id));
         setContextMenu(null);
       },
@@ -959,6 +988,33 @@ export function AssetBrowser(): React.ReactElement {
           <Upload size={11} />
           Import
         </Button>
+        {"showDirectoryPicker" in window &&
+          !("__TAURI_INTERNALS__" in window) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Open asset folder"
+              onClick={() => {
+                type WindowWithDirPicker = Window & {
+                  showDirectoryPicker(opts?: {
+                    mode?: "read" | "readwrite";
+                  }): Promise<FileSystemDirectoryHandle>;
+                };
+                void (window as unknown as WindowWithDirPicker)
+                  .showDirectoryPicker({ mode: "readwrite" })
+                  .then((handle) => {
+                    browserAssetStore.setRoot(handle);
+                    return browserAssetStore.list();
+                  })
+                  .then((items) => {
+                    if (items.length > 0) histSet(items);
+                  });
+              }}
+            >
+              <FolderOpen size={11} />
+              Open folder
+            </Button>
+          )}
         <Button
           variant="ghost"
           size="sm"
