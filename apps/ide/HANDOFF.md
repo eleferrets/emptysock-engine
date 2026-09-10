@@ -29,10 +29,12 @@ esbuild-wasm's `build()` API runs in a browser Web Worker with no Node.js module
 ### 4. COOP/COEP headers (SharedArrayBuffer)
 
 esbuild-wasm uses `SharedArrayBuffer` internally, which requires:
+
 ```
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
+
 These are set in `netlify.toml` for production. For local dev they are set in `vite.config.ts` under `server.headers`. If you remove or soften these headers, esbuild-wasm will throw `SharedArrayBuffer is not defined` and the build pipeline will break.
 
 ### 5. isTauri() detection
@@ -67,20 +69,20 @@ The Rust `export_game` command in `src-tauri/src/lib.rs` shells out to an `empty
 
 ## Unimplemented PRD items
 
-| Item | Status | Notes |
-|------|--------|-------|
-| **Scene Inspector** | Placeholder UI | Shows hardcoded mock entities. Not wired to a running ECS world. Needs a message channel from the iframe runner back to the IDE to stream entity/component state. |
-| **Entity Properties panel** | Placeholder UI | Same as above — shows mock component fields with no real data binding. |
-| **Asset Browser** | Placeholder UI | No real asset loading, importing, or management. No backend storage. |
-| **Left sidebar file tree** | Placeholder | Shows a hardcoded list of fake project files. Needs real filesystem integration (File System Access API directory picker for browser; Tauri `fs` plugin for desktop). |
-| **Project save/load** | Not implemented | No concept of a project directory or project file. The editor only operates on a single `.ts` file at a time. |
-| **Non-web exports** | Stub only | Windows `.exe`, macOS `.app`, Linux binary, Android APK, iOS IPA all require the `emptysock-toolchain` CLI which does not exist. |
-| **Android / iOS targets** | Not started | Tauri v2 has mobile support but it is not scaffolded here. Separate `src-tauri` configuration is needed. |
-| **Multi-file projects** | Not implemented | The code editor is a single file. No module graph, no import resolution between user files. |
-| **Real-time collaboration** | Not started | No design exists. |
-| **Plugin/extension system** | Not started | No design exists. |
-| **Undo/redo in editor** | Depends on Monaco | Monaco (not integrated) has built-in undo. The current CodeMirror-based editor has basic undo but no history panel. |
-| **esbuild.wasm self-hosted** | Partial | `wasmURL` points to unpkg CDN. Should copy `node_modules/esbuild-wasm/esbuild.wasm` into `public/` and serve locally to avoid CDN dependency and fix dev-server blank canvas. |
-| **Engine bundle minification** | Not done | `engine-runtime.build.mjs` builds unminified (~3 MB). Set `minify: true` in production to reduce iframe startup time. |
-| **Hot-reload on code change** | Not implemented | Clicking Play rebuilds from scratch every time. Could debounce and rebuild automatically on code changes, diffing the output to decide whether to reload the iframe or patch state. |
-| **Screenshot / blank canvas bug** | Unresolved | Playwright screenshot of the dev server returns white. Likely caused by esbuild-wasm WASM fetch being blocked in headless Chrome (no unpkg access or COOP header prevents cross-origin WASM). Fix: self-host the WASM file. |
+| Item                              | Status          | Notes                                                                                                                                                        |
+| --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Scene Inspector**               | ✅ Done         | Live ECS binding via `ideBridge`. Streams entity/component state from running game iframe to IDE store.                                                      |
+| **Entity Properties panel**       | ✅ Done         | Real component field editing; changes dispatched as live patches through the iframe bridge.                                                                  |
+| **Asset Browser**                 | ✅ Done         | `AssetStore.ts` — `BrowserFileStore` (File System Access API) with `MemoryFileStore` fallback. Drag-drop import, folder picker, delete.                      |
+| **Left sidebar file tree**        | ✅ Done         | Real filesystem tree via `ProjectService.openDirectory()` — File System Access API in browser, Tauri `fs` plugin on desktop.                                 |
+| **Project save/load**             | ✅ Done         | `.emptysock` project files via File System Access API (browser) and Tauri dialog/fs plugins (desktop). Multi-file `openFiles` map persisted in project JSON. |
+| **Multi-file projects**           | ✅ Done         | Multiple editor tabs backed by `openFiles` map. All open files passed to esbuild `virtualFiles` for cross-file import resolution.                            |
+| **Non-web exports**               | Stub only       | Windows `.exe`, macOS `.app`, Linux binary, Android APK, iOS IPA all require the `emptysock-toolchain` CLI which does not exist.                             |
+| **Android / iOS targets**         | Not started     | Tauri v2 has mobile support but it is not scaffolded. Separate `src-tauri` configuration is needed.                                                          |
+| **Real-time collaboration**       | Not started     | No design exists.                                                                                                                                            |
+| **Plugin/extension system**       | Not started     | No design exists.                                                                                                                                            |
+| **Undo/redo in editor**           | Partial         | `useHistory<T>` hook exists and is wired in panels that mutate data. Monaco has its own per-file undo stack. No history panel.                               |
+| **esbuild.wasm self-hosted**      | ✅ Done         | Vite `?url` import serves WASM from the local package — no CDN dependency.                                                                                   |
+| **Engine bundle minification**    | Not done        | `engine-runtime.build.mjs` builds unminified (~3 MB). Set `minify: true` in production to reduce iframe startup time.                                        |
+| **Hot-reload on code change**     | Not implemented | Clicking Play rebuilds from scratch every time. Could debounce and rebuild automatically on code changes.                                                    |
+| **Screenshot / blank canvas bug** | Unresolved      | Playwright screenshot of the dev server returns white. Likely a COOP/COEP header issue in headless Chrome preventing SharedArrayBuffer.                      |
