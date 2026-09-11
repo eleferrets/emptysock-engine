@@ -8,6 +8,8 @@ Source docs: `improvements.md`, `apps/ide/HANDOFF.md`, `docs/ui-widgets.md`, MCP
 
 ## MCP — correctness and security (`emptysock-mcp`)
 
+- ✅ **[P1]** `vn.ts:story_graph_export` — was a stub returning `{nodes:[], edges:[]}`. Implemented full disk read from `{ASSET_BASE_DIR}/{sceneId}/{graphId}.storyGraph.json` with Zod validation, path traversal protection, and error returns. `ASSET_BASE_DIR` env var added to `env.ts` and `.env.example`. 49 tests pass.
+
 - ✅ **[P1]** `save.ts` — `save_read`, `save_write`, `save_delete` have no try/catch around I/O
 
 - ✅ **[P1]** `save.ts:27` — `slotPath()` throws `new Error()` on traversal instead of `invalidParams()`
@@ -137,12 +139,11 @@ All items below apply inline `color`, `background`, or `stroke` values to DOM or
 
 ## HANDOFF — unimplemented PRD items (`emptysock-engine`)
 
-Each block below is scoped to one agent session. Start a fresh session, hand it this file and
-`apps/ide/HANDOFF.md` as context, and tell it which session to execute.
+Each block below is scoped to one agent session. Sessions A–E are ✅ complete.
 
 ---
 
-### Session A — ECS live binding: Scene Inspector + Entity Properties **[P1]**
+### ✅ Session A — ECS live binding: Scene Inspector + Entity Properties **[P1]**
 
 _Prerequisite for B. Do this first._
 
@@ -181,7 +182,7 @@ entity in the preview.
 
 ---
 
-### Session B — Hot-reload on code change **[P2]**
+### ✅ Session B — Hot-reload on code change **[P2]**
 
 _No hard dependency on A, but A's iframe communication pattern is useful context._
 
@@ -201,7 +202,7 @@ refresh automatically without pressing the Run button.
 
 ---
 
-### Session C — Project save / load **[P2]**
+### ✅ Session C — Project save / load **[P2]**
 
 _Session D depends on this. Do before D._
 
@@ -230,7 +231,7 @@ and restores the full editor state (open files, entity list, sequence tracks, VN
 
 ---
 
-### Session D — Multi-file project tree (real on-disk listing) **[P2]**
+### ✅ Session D — Multi-file project tree (real on-disk listing) **[P2]**
 
 _Depends on Session C (project directory concept must exist first)._
 
@@ -257,7 +258,7 @@ tree; clicking a `.ts` file opens it in Monaco.
 
 ---
 
-### Session E — Asset Browser real file I/O **[P2]**
+### ✅ Session E — Asset Browser real file I/O **[P2]**
 
 _Independent of C/D — can run in parallel with those sessions._
 
