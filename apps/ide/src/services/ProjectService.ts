@@ -3,6 +3,7 @@
 
 import { useIDEStore } from "../store/ideStore";
 import type { FileTreeNode } from "../store/ideStore";
+import { tauriAssetStore } from "./AssetStore";
 
 // Stored for re-reading individual files after directory is opened.
 let _browserDirHandle: FileSystemDirectoryHandle | null = null;
@@ -123,6 +124,7 @@ async function openDirectoryTauri(): Promise<void> {
   }
 
   _tauriDirPath = selected;
+  tauriAssetStore.setRoot(selected);
   const store = useIDEStore.getState();
   store.setProjectRoot(selected);
   store.setFileTree(toNodes(entries));

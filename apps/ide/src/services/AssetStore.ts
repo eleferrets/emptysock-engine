@@ -128,15 +128,97 @@ class MemoryFileStore implements FileStore {
   }
 }
 
+function extToMime(name: string): string {
+  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  const mimeMap: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+    ogg: "audio/ogg",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    flac: "audio/flac",
+    ttf: "font/ttf",
+    otf: "font/otf",
+    woff: "font/woff",
+    woff2: "font/woff2",
+    json: "application/json",
+  };
+  return mimeMap[ext] ?? "application/octet-stream";
+}
+
+class TauriFileStore implements FileStore {
+  private _root: string | null = null;
+
+  setRoot(path: string): void {
+    this._root = path;
+  }
+
+  hasRoot(): boolean {
+    return this._root !== null;
+  }
+
+  async list(): Promise<AssetItem[]> {
+    if (this._root === null)
+      throw new Error("TauriFileStore: no root directory set");
+    const { readDir } = await import("@tauri-apps/plugin-fs");
+    const entries = await readDir(this._root);
+    const items: AssetItem[] = entries
+      .filter((e) => e.isFile)
+      .map((e) => ({
+        id: e.name,
+        name: e.name,
+        path: e.name,
+        type: extToType(e.name),
+      }));
+    return items.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async read(path: string): Promise<Blob> {
+    if (this._root === null)
+      throw new Error("TauriFileStore: no root directory set");
+    const { readFile } = await import("@tauri-apps/plugin-fs");
+    const { join } = await import("@tauri-apps/api/path");
+    const fullPath = await join(this._root, path);
+    const bytes = await readFile(fullPath);
+    return new Blob([bytes], { type: extToMime(path) });
+  }
+
+  async write(name: string, blob: Blob): Promise<AssetItem> {
+    if (this._root === null)
+      throw new Error("TauriFileStore: no root directory set");
+    const { writeFile } = await import("@tauri-apps/plugin-fs");
+    const { join } = await import("@tauri-apps/api/path");
+    const fullPath = await join(this._root, name);
+    const buffer = await blob.arrayBuffer();
+    await writeFile(fullPath, new Uint8Array(buffer));
+    const type =
+      mimeToType(blob.type) === "script"
+        ? extToType(name)
+        : mimeToType(blob.type);
+    return { id: name, name, path: name, type, size: blob.size };
+  }
+
+  async delete(path: string): Promise<void> {
+    if (this._root === null)
+      throw new Error("TauriFileStore: no root directory set");
+    const { remove } = await import("@tauri-apps/plugin-fs");
+    const { join } = await import("@tauri-apps/api/path");
+    const fullPath = await join(this._root, path);
+    await remove(fullPath);
+  }
+}
+
 export const browserAssetStore = new BrowserFileStore();
 export const memoryAssetStore = new MemoryFileStore();
+export const tauriAssetStore = new TauriFileStore();
 
 export function getAssetStore(): FileStore {
-  // In browser mode, prefer browserAssetStore if a directory is open.
-  // Otherwise fall back to in-memory.
-  if (typeof window !== "undefined" && !("__TAURI_INTERNALS__" in window)) {
-    return browserAssetStore.hasRoot() ? browserAssetStore : memoryAssetStore;
+  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+    return tauriAssetStore.hasRoot() ? tauriAssetStore : memoryAssetStore;
   }
-  // Tauri: placeholder — TauriFileStore would use the fs plugin
-  return memoryAssetStore;
+  return browserAssetStore.hasRoot() ? browserAssetStore : memoryAssetStore;
 }
