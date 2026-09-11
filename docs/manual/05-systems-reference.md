@@ -575,135 +575,139 @@ emitter.clear();
 
 ## 5.16 LayerSystem
 
-Manages named render layers and controls draw order, visibility, and per-layer camera parallax. Entities are assigned to a layer; the `RenderSystem` draws layers in ascending `zOrder`.
+Controls draw order: entities are assigned to a named layer at an explicit depth. `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers are pre-registered by the constructor.
 
 ```typescript
-import { LayerSystem } from "@emptysock/engine";
+import { LayerSystem, LAYER, type LayerConfig } from "@emptysock/engine";
 
-// Set up layers once in onLoad:
-const layers = new LayerSystem();
+// LAYER constants for the four built-in layers:
+// LAYER.BACKGROUND = -1000, LAYER.DEFAULT = 0, LAYER.FOREGROUND = 100, LAYER.UI = 1000
 
-layers.defineLayer({
-  name: "Background",
-  zOrder: 0,
-  parallax: { x: 0.2, y: 0.2 },
-});
-layers.defineLayer({
-  name: "Midground",
-  zOrder: 10,
-  parallax: { x: 0.6, y: 0.6 },
-});
-layers.defineLayer({ name: "Gameplay", zOrder: 20 }); // scrolls 1:1
-layers.defineLayer({ name: "FX", zOrder: 30, blendMode: "additive" });
-layers.defineLayer({ name: "UI", zOrder: 40, fixed: true }); // camera-fixed
+private _layers!: LayerSystem
 
-// Assign entities to layers:
-layers.addToLayer("Background", backgroundSprite);
-layers.addToLayer("Gameplay", player);
-layers.addToLayer("FX", explosionEmitter);
+override onLoad(): void {
+  this._layers = new LayerSystem()
+  // Built-in layers already registered: 'background', 'default', 'foreground', 'ui'
 
-// Toggle visibility (culls the whole layer from the render pass):
-layers.setVisible("FX", false);
-layers.setVisible("FX", true);
+  // Add project-specific layers (use index gaps for future insertions):
+  this._layers.defineLayer('midground', 50)
+  this._layers.defineLayer('fx', 80)
 
-// Change parallax at runtime:
-layers.setParallax("Background", { x: 0.3, y: 0.1 });
-
-// Remove an entity from its layer (entity retains its data, just excluded from render):
-layers.removeFromLayer("Gameplay", player);
-
-// Enumerate layers in draw order:
-for (const layer of layers.sorted()) {
-  console.log(layer.name, layer.zOrder, layer.visible);
+  // Assign entities by id, with optional depth within the layer:
+  this._layers.addEntity(background.id, 'background')
+  this._layers.addEntity(treeBack.id,  'midground', -10)
+  this._layers.addEntity(treeFront.id, 'midground',  10)
+  this._layers.addEntity(player.id,    'foreground')
+  this._layers.addEntity(hud.id,       'ui')
 }
 
-// Destroy with scene:
-layers.destroy();
+// Hide / show an entire layer (culls it from the render pass):
+this._layers.setVisible('fx', false)
+this._layers.setVisible('fx', true)
+const visible = this._layers.isVisible('fx')  // boolean
+
+// Move an entity's depth within its current layer:
+this._layers.setDepth(treeBack.id, -20)
+
+// Unregister an entity (entity still exists — excluded from sort):
+this._layers.removeEntity(oldEntity.id)
+
+// Sort key for custom draw calls ([layerIndex, depth]):
+const [layerIdx, depth] = this._layers.getSortKey(entity.id)
+
+// All entities on a layer, sorted by depth ascending:
+const onMidground = this._layers.getEntitiesOnLayer('midground')
+// → Array<{ entityId: number; depth: number }>
+
+// All layer configs sorted by index (render order):
+const sorted: LayerConfig[] = this._layers.getLayersSorted()
+
+override onDestroy(): void {
+  this._layers.destroy()
+}
 ```
 
-**Key options on `defineLayer`:**
+**API reference:**
 
-| Option      | Type                     | Description                                             |
-| ----------- | ------------------------ | ------------------------------------------------------- |
-| `name`      | `string`                 | Unique layer identifier                                 |
-| `zOrder`    | `number`                 | Ascending draw order (lower = further back)             |
-| `parallax`  | `{ x, y }`               | Camera offset multiplier; defaults to `{ x: 1, y: 1 }`  |
-| `blendMode` | `'normal' \| 'additive'` | Composite mode for the layer                            |
-| `fixed`     | `boolean`                | If true, layer ignores camera translation (UI use case) |
-
-> **Integration with RenderSystem:** Pass the `LayerSystem` instance to `scene.setLayerSystem(layers)` and the render pipeline reads layer assignments automatically. Without this call, all entities render in insertion order with no parallax.
+| Method               | Signature                                                     | Notes                                   |
+| -------------------- | ------------------------------------------------------------- | --------------------------------------- |
+| `defineLayer`        | `(name: string, index: number): void`                         | Lower index = drawn behind              |
+| `addEntity`          | `(entityId: number, layerName: string, depth?: number): void` | Unknown layer falls back to `'default'` |
+| `removeEntity`       | `(entityId: number): void`                                    | Unregisters entity from sort            |
+| `setDepth`           | `(entityId: number, depth: number): void`                     | Depth within current layer              |
+| `getSortKey`         | `(entityId: number): [number, number]`                        | `[layerIndex, depth]`                   |
+| `getEntitiesOnLayer` | `(name: string): Array<{entityId, depth}>`                    | Sorted by depth ascending               |
+| `getLayersSorted`    | `(): LayerConfig[]`                                           | All layers sorted by index              |
+| `setVisible`         | `(name: string, visible: boolean): void`                      | Cull whole layer                        |
+| `isVisible`          | `(name: string): boolean`                                     |                                         |
+| `destroy`            | `(): void`                                                    | Call in `onDestroy`                     |
 
 ---
 
 ## 5.17 VNSystem (Story Graph)
 
-Plays back a branching dialogue script exported from the **Story Graph** panel (Module → Story Graph). The script is a JSON file produced by the Story Graph's Export button; it contains Dialogue nodes, Choice nodes, and Condition nodes.
+Plays back a branching dialogue tree exported from the **Story Graph** panel (Module → Story Graph). Export the graph as `.storyGraph.json`, convert to a `DialogueTree` with `storyGraphToDialogueTree`, then call `vn.load(tree)`. `load()` is synchronous and fires `onNode` for the first node immediately.
 
 ```typescript
 import {
   VNSystem,
-  type VNNode,
-  type VNDialogueNode,
-  type VNChoiceNode,
+  storyGraphToDialogueTree,
+  type DialogueNode,
+  type StoryGraph,
 } from "@emptysock/engine";
 
-const vn = new VNSystem();
+// In onLoad — register callbacks BEFORE calling load():
+override async onLoad(): Promise<void> {
+  const response = await fetch("assets/story/chapter1.storyGraph.json");
+  const graph: StoryGraph = await response.json() as StoryGraph;
+  const tree = storyGraphToDialogueTree(graph);
 
-// Load a script exported from the Story Graph panel:
-await vn.loadScript("assets/story/chapter1.vnscript");
+  const vn = new VNSystem();
 
-// Register a node callback — called each time the active node changes:
-vn.onNode((node: VNNode) => {
-  if (node.type === "dialogue") {
-    const d = node as VNDialogueNode;
-    renderDialogue(d.speaker, d.text); // render however you like
-  } else if (node.type === "choice") {
-    const c = node as VNChoiceNode;
-    renderChoices(c.options.map((o) => o.label));
-  }
-});
+  vn.onNode = (node: DialogueNode) => {
+    if (node.type === "dialogue") {
+      renderDialogue(node.speaker, node.text);
+    } else if (node.type === "choice") {
+      renderChoices(node.options);   // options: Array<{ label: string; next: string }>
+    } else if (node.type === "event") {
+      handleGameEvent(node.eventName, node.data);   // auto-advanced by engine
+    }
+    // 'jump' nodes resolved automatically — onNode never fires for them
+    // 'variable-set' nodes: onNode fires, engine auto-advances
+  };
 
-// Begin playback from the first node:
-vn.play();
+  vn.onChoice = (options) => {
+    showChoiceButtons(options);   // options: Array<{ label: string; next: string }>
+  };
 
-// Advance a Dialogue node to its successor:
+  vn.onEnd = () => { hideDialogueBox(); };
+
+  vn.load(tree);   // synchronous; onNode fires immediately for first node
+}
+
+// Advance a dialogue node to its successor:
 vn.advance();
 
-// Select a choice (zero-indexed) on a Choice node:
-vn.choose(1);
+// Select a choice — pass the target node id from the option:
+vn.selectOption(option.next);   // option.next is a node id string
 
-// Skip auto-advance delay (if configured in the script):
-vn.skip();
-
-// Jump to a specific node by its id (use for save/resume):
-vn.jumpToNode("node-uuid-here");
-
-// Variables — read and write arbitrary flags for Condition nodes:
-vn.setVariable("metStranger", true);
-const met = vn.getVariable("metStranger"); // boolean | string | number | undefined
-
-// Read the full variable map (for serialisation):
-const vars = vn.getVariables(); // Record<string, string | number | boolean>
-
-// Destroy when the scene ends:
-vn.destroy();
+// Read the current node at any time:
+const node: DialogueNode | null = vn.currentNode;
 ```
 
-**Node types returned by `onNode`:**
+**`DialogueNode` — discriminated union (narrow by `node.type`):**
 
-| `node.type`   | Interface         | Key fields                                                 |
-| ------------- | ----------------- | ---------------------------------------------------------- |
-| `'dialogue'`  | `VNDialogueNode`  | `id`, `speaker`, `text`                                    |
-| `'choice'`    | `VNChoiceNode`    | `id`, `options: { label, targetId }[]`                     |
-| `'condition'` | `VNConditionNode` | `id`, `variable`, `value`, `trueTargetId`, `falseTargetId` |
+| `node.type`      | Key fields                                            | Notes                               |
+| ---------------- | ----------------------------------------------------- | ----------------------------------- |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                     |
+| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode` |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances after `onNode` |
+| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances after `onNode` |
+| `'jump'`         | (resolved automatically)                              | `onNode` never fires                |
 
-**Condition nodes** are evaluated automatically when the system reaches them — `onNode` is not called for Condition nodes. The system reads the stored variable with `getVariable()`, compares it to `node.value`, and follows the appropriate branch.
+**Save/resume:** VNSystem has no internal save state. Store the current node id (`vn.currentNode?.id`) and re-walk the graph on resume. See Section 8 (Story Graph) for a full example.
 
-**Auto-advance:** If a Dialogue node in the script has a `delay` property set (configured in the Story Graph editor), the system automatically calls `advance()` after the delay in seconds. Call `skip()` to bypass the delay immediately.
-
-> **Story Graph panel:** Open it via **Module → Story Graph** in the IDE menu bar. The panel is an SVG-based node graph. See Section 7 (IDE Reference) for panel controls and the Story Graph panel description. Export the finished graph as `.vnscript` JSON and load it with `vn.loadScript()`.
-
-> **Save/resume pattern:** Call `vn.jumpToNode(savedNodeId)` and restore variables with `vn.setVariable()` before calling `vn.play()`. See the visual novel tutorial (Section 13) for a full example.
+> `VNSystem` has no `destroy()` — release the reference and it is garbage-collected. Register `onNode`, `onChoice`, `onEvent`, and `onEnd` before calling `load()` or the first node fires without a listener.
 
 ---
 
@@ -885,36 +889,63 @@ Fit modes: `'cover'` (fill, crop sides), `'contain'` (letterbox), `'stretch'`.
 
 ## 5.24 VNTextbox
 
-Pre-built dialogue box rendered by UISystem. Attach it to a VNSystem instance to have it update automatically on each node change.
+Pre-built dialogue box rendered by `UISystem`. Creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Bind it to a `VNSystem` instance — it syncs automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
 
 ```typescript
-import { VNTextbox, VNSystem } from "@emptysock/engine";
+import {
+  VNTextbox,
+  VNSystem,
+  UISystem,
+  storyGraphToDialogueTree,
+  type VNTextboxOptions,
+} from "@emptysock/engine";
 
-const vn = new VNSystem();
-vn.loadScript(scriptJson);
+class NarrativeScene extends Scene {
+  private _vn!: VNSystem;
+  private _textbox!: VNTextbox;
 
-const textbox = new VNTextbox({
-  canvasWidth: 800,
-  canvasHeight: 600,
-  height: 160,
-  fontSize: 16,
-});
-textbox.bind(vn);
+  override async onLoad(): Promise<void> {
+    const response = await fetch("assets/story/chapter1.storyGraph.json");
+    const graph = await response.json();
+    const tree = storyGraphToDialogueTree(graph);
 
-// In your render callback (after game world, before overlay):
-UISystem.render(ctx, 800, 600);
+    this._vn = new VNSystem();
 
-// Clicking the advance button:
-vn.advance();
+    this._textbox = new VNTextbox({ canvasWidth: 800, canvasHeight: 600 });
+    this._textbox.bind(this._vn); // sync immediately to current node
+
+    // Choice selection is external — VNTextbox shows options as numbered text
+    // but selection requires your own buttons:
+    this._vn.onChoice = (options) => {
+      options.forEach((opt, i) => {
+        const btn = createChoiceButton(i + 1, opt.label);
+        btn.onClick(() => {
+          this._vn.selectOption(opt.next); // opt.next is the target node id
+          removeChoiceButtons();
+        });
+      });
+    };
+
+    this._vn.load(tree); // fires onNode for first node immediately
+  }
+
+  override onUpdate(dt: number): void {
+    UISystem.update(dt);
+  }
+
+  override onDestroy(): void {
+    this._textbox.destroy(); // removes UISystem components — required
+  }
+}
 ```
 
-All colors and dimensions are optional constructor parameters — see `VNTextboxOptions` for the full list.
+`VNTextbox` sets `visible` automatically: `dialogue` and `choice` nodes show the box; `event`, `jump`, `variable-set`, and `null` hide it. All constructor options are optional except `canvasWidth` and `canvasHeight` — see `VNTextboxOptions` for the full list.
 
 ---
 
 ## 5.25 VNScriptConvert
 
-Converts between the Story Graph (visual-editor JSON) and the VNSystem `DialogueTree` format (`.vnscript` JSON).
+Converts between the Story Graph (`.storyGraph.json` — visual-editor format) and the `DialogueTree` format consumed by `VNSystem.load()`.
 
 ```typescript
 import {
