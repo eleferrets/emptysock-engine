@@ -603,7 +603,7 @@ import { LayerSystem, LAYER, type LayerConfig } from "@emptysock/engine";
 // LAYER constants for the four built-in layers:
 // LAYER.BACKGROUND = -1000, LAYER.DEFAULT = 0, LAYER.FOREGROUND = 100, LAYER.UI = 1000
 
-private _layers!: LayerSystem
+private _layers: LayerSystem | null = null
 
 override onLoad(): void {
   this._layers = new LayerSystem()
