@@ -799,7 +799,7 @@ events.setHandler(async (cmd) => {
 });
 
 // In onUpdate:
-events.update(playerTileX, playerTileY, Input.isJustPressed("Space"));
+events.update(playerTileX, playerTileY, Input.isPressed("Space"));
 ```
 
 Trigger types: `autorun` runs once on entry; `player-touch` fires when the player steps on the tile; `action-button` fires when the action key is pressed on the tile; `parallel` runs every frame concurrently.
