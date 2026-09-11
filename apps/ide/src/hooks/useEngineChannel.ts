@@ -13,6 +13,14 @@ export function useEngineChannel(
   sendToEngine: (msg: OutboundMsg) => void;
 } {
   const setLiveEntities = useIDEStore((s) => s.setLiveEntities);
+  const setLiveComponentFields = useIDEStore((s) => s.setLiveComponentFields);
+
+  // Keep the singleton's iframe ref in sync so postToEngine() works without
+  // passing the iframe explicitly from SceneInspector / EntityProperties.
+  useEffect(() => {
+    engineChannel.setIframe(iframeRef.current);
+    return () => engineChannel.setIframe(null);
+  }, [iframeRef]);
 
   useEffect(() => {
     function onMessage(event: MessageEvent): void {
@@ -27,6 +35,15 @@ export function useEngineChannel(
       setLiveEntities(entities);
     });
   }, [setLiveEntities]);
+
+  useEffect(() => {
+    return engineChannel.onComponentFields((entityId, component, fields) => {
+      const selectedId = useIDEStore.getState().selectedEntity?.id;
+      if (entityId !== selectedId) return;
+      const prev = useIDEStore.getState().liveComponentFields;
+      setLiveComponentFields({ ...(prev ?? {}), [component]: fields });
+    });
+  }, [setLiveComponentFields]);
 
   const sendToEngine = useCallback(
     (msg: OutboundMsg): void => {

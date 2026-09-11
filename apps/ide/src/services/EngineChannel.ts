@@ -31,6 +31,15 @@ type FieldsHandler = (
 class EngineChannelService {
   private readonly _entitiesHandlers = new Set<EntitiesHandler>();
   private readonly _fieldsHandlers = new Set<FieldsHandler>();
+  private _iframe: HTMLIFrameElement | null = null;
+
+  setIframe(iframe: HTMLIFrameElement | null): void {
+    this._iframe = iframe;
+  }
+
+  postToEngine(msg: OutboundMsg): void {
+    this._iframe?.contentWindow?.postMessage(msg, "*");
+  }
 
   onEntities(handler: EntitiesHandler): () => void {
     this._entitiesHandlers.add(handler);

@@ -314,8 +314,14 @@ interface IDEState {
   setDropImportFolder: (folder: "root" | "last") => void;
   openImageEditor: (assetId: string) => void;
 
+  // Live component fields from the running engine (keyed by component type)
+  liveComponentFields: Record<string, Record<string, unknown>> | null;
+
   // Live entity actions
   setLiveEntities: (entities: EntitySnapshot[]) => void;
+  setLiveComponentFields: (
+    fields: Record<string, Record<string, unknown>> | null,
+  ) => void;
 
   // Project directory actions
   setProjectRoot: (root: string | null) => void;
@@ -535,6 +541,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   selectedEntityId: null,
   selectedEntity: null,
   liveEntities: [],
+  liveComponentFields: null,
   projectRoot: null,
   fileTree: [],
 
@@ -642,7 +649,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   selectEntity: (id) => {
     if (id === null) {
-      set({ selectedEntityId: null, selectedEntity: null });
+      set({
+        selectedEntityId: null,
+        selectedEntity: null,
+        liveComponentFields: null,
+      });
       return;
     }
     const { entities } = get();
@@ -652,8 +663,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const existing = get().selectedEntity;
     const existingTransform =
       existing?.id === id ? existing.transform : undefined;
+    const clearFields = existing?.id !== id;
     set({
       selectedEntityId: id,
+      ...(clearFields ? { liveComponentFields: null } : {}),
       selectedEntity: {
         id: entity.id,
         name: entity.name,
@@ -829,6 +842,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
 
   setLiveEntities: (entities) => set({ liveEntities: entities }),
+  setLiveComponentFields: (fields) => set({ liveComponentFields: fields }),
   setProjectRoot: (root) => set({ projectRoot: root }),
   setFileTree: (tree) => set({ fileTree: tree }),
 
