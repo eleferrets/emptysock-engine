@@ -12,7 +12,7 @@ This file is the decision record for the monorepo. It records conventions and no
 | 2       | docs/manual/02-getting-started.md    | Install, run, export pipeline                                            |
 | 3       | docs/manual/03-architecture.md       | Layers, ECS, Actor Model, data flow                                      |
 | 4       | docs/manual/04-core-reference.md     | Scene, Entity, Timer, Coroutine, Camera                                  |
-| 5       | docs/manual/05-systems-reference.md  | Physics 2D/3D, Input, NavMesh, Save, i18n, Plugin                        |
+| 5       | docs/manual/05-systems-reference.md  | Physics 2D/3D, Input, NavMesh, Save, Localisation, Plugin                |
 | 6       | docs/manual/06-actor-model.md        | Actor, ActorSystem, NetworkActor, Transport                              |
 | 7       | docs/manual/07-ide-reference.md      | All panels, shortcuts, build pipeline, PWA                               |
 | 8       | docs/manual/08-tutorial-pong.md      | Step-by-step: full game from scratch                                     |

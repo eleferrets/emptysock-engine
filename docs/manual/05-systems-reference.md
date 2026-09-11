@@ -21,10 +21,14 @@ player.addComponent(PhysicsBody, {
 // Character controller (handles slope, stairs, one-way platforms):
 player.addComponent(CharacterController, { slopeAngle: 45 });
 
-// In onUpdate:
+// In onUpdate — assumes `input` is an InputSystem instance (see §5.3):
 const ctrl = player.requireComponent(CharacterController);
-if (ctrl.isGrounded() && Input.isPressed("Space")) ctrl.jump(600);
-ctrl.moveAndSlide({ x: Input.axis("Horizontal") * 200 * dt, y: 0 });
+const h = input.isKeyDown("ArrowRight")
+  ? 1
+  : input.isKeyDown("ArrowLeft")
+    ? -1
+    : 0;
+ctrl.moveAndSlide({ x: h * 200 * dt, y: 0 });
 ```
 
 **Collision events:**
@@ -88,9 +92,9 @@ physics.destroy(); // REQUIRED
 
 ---
 
-## 5.3 InputSystem (advanced)
+## 5.3 InputSystem
 
-The high-level `Input` static class covers most cases (see Section 4.8). For direct system access inside a custom system or actor:
+`InputSystem` is the engine's keyboard, mouse, and touch input class. Create one instance in `onLoad`, call `attach()`, and call `flush()` at the start of each frame before reading any state:
 
 ```typescript
 import { InputSystem } from "@emptysock/engine";
@@ -218,17 +222,28 @@ const slots = await SaveSystem.listSlots(); // string[]
 
 ## 5.7 Localisation
 
+`LocalisationSystem` is instanced — create one in `onLoad`, register locale data with `addTranslations()`, then call `setLocale()`.
+
 ```typescript
-import { i18n } from "@emptysock/engine";
+import { LocalisationSystem } from "@emptysock/engine";
+import { z } from "zod";
 
-await i18n.load("en", () => import("./locales/en.json"));
-await i18n.load("fr", () => import("./locales/fr.json"));
+// In onLoad:
+const localisation = new LocalisationSystem();
+const TranslationMapSchema = z.record(z.string());
 
-i18n.setLocale("fr");
+const enRaw = await (await fetch("assets/i18n/en.json")).json();
+const frRaw = await (await fetch("assets/i18n/fr.json")).json();
+localisation.addTranslations("en", TranslationMapSchema.parse(enRaw));
+localisation.addTranslations("fr", TranslationMapSchema.parse(frRaw));
 
-i18n.t("greeting"); // → "Bonjour"
-i18n.t("score", { n: 42 }); // → "Score : 42"
-i18n.t("missing.key"); // → 'missing.key' (never throws)
+localisation.setLocale("fr");
+
+localisation.t("greeting"); // → "Bonjour"
+localisation.t("score", { n: 42 }); // → "Score : 42"
+localisation.t("missing.key"); // → 'missing.key' (never throws)
+
+const lang = localisation.currentLocale; // "fr"
 ```
 
 Locale JSON format: `{ "key": "value", "score": "Score : {{n}}" }`. Template tokens use `{{name}}` syntax.
@@ -394,56 +409,61 @@ this._tweens.every(5.0, () => this.spawnPowerUp());
 
 ## 5.12 UISystem
 
-A retained-mode 2D UI layer rendered on top of the scene canvas. Widgets live in a tree separate from the entity graph; they do not participate in the physics simulation.
+A retained-mode 2D UI overlay rendered on top of the scene canvas using Canvas 2D. `UISystem` is a module-level singleton — access it via `UISystem` (static calls) or `this.uiSystem` inside any `Scene` subclass.
 
 ```typescript
-import { UISystem } from "@emptysock/engine";
+import {
+  UISystem,
+  PanelWidget,
+  LabelWidget,
+  ButtonWidget,
+  ProgressBarWidget,
+  SceneManager,
+} from "@emptysock/engine";
 
-const ui = new UISystem();
-
-// Build a simple health bar:
-const root = ui.createPanel({ x: 16, y: 16, width: 200, height: 20 });
-const label = ui.createLabel({ text: "HP", parent: root, color: "#fff" });
-const bar = ui.createProgressBar({
-  parent: root,
-  value: 1.0, // 0.0–1.0
-  fill: "#e74c3c",
-  background: "#333",
+// In onLoad — build the widget tree:
+const hp = new ProgressBarWidget({
+  anchor: "top-left",
+  x: 16,
+  y: 16,
+  width: 200,
+  height: 14,
+  fillColor: 0xe74c3c,
+  trackColor: 0x333333,
+  value: 1.0,
 });
+UISystem.add(hp);
 
-// Update each frame:
-bar.setValue(player.hp / player.maxHp);
-
-// Button with click handler:
-const btn = ui.createButton({
-  text: "Retry",
-  x: 320,
-  y: 240,
+const btn = new ButtonWidget({
+  label: "Retry",
+  anchor: "center",
   width: 120,
   height: 40,
-  onClick: () => SceneManager.load("GameScene"),
 });
+btn.on("click", () => SceneManager.load("GameScene"));
+btn.animate("fadeIn");
+UISystem.add(btn);
 
-// Render (called automatically if ui is passed to scene.setUI):
-ui.render();
+// In onUpdate:
+UISystem.update(dt);
 
-// Destroy when scene ends:
-ui.destroy();
+// In onDestroy:
+UISystem.clear();
 ```
 
-**Key methods:**
+**Key UISystem methods:**
 
-| Method                      | Returns         | Description                                   |
-| --------------------------- | --------------- | --------------------------------------------- |
-| `createPanel(opts)`         | `UIPanel`       | Container with optional background and border |
-| `createLabel(opts)`         | `UILabel`       | Static or dynamic text element                |
-| `createButton(opts)`        | `UIButton`      | Clickable region with text label              |
-| `createProgressBar(opts)`   | `UIProgressBar` | Horizontal fill bar                           |
-| `createImage(opts)`         | `UIImage`       | Texture rect                                  |
-| `setVisible(node, visible)` | `void`          | Show/hide any node                            |
-| `destroy()`                 | `void`          | Frees all widget state                        |
+| Method                                    | Description                                      |
+| ----------------------------------------- | ------------------------------------------------ |
+| `UISystem.add(widget)`                    | Add a root widget to the overlay                 |
+| `UISystem.removeWidget(widget)`           | Remove a specific root widget                    |
+| `UISystem.clear()`                        | Remove all widgets                               |
+| `UISystem.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state                  |
+| `UISystem.render(ctx, cw, ch)`            | Draw (called automatically in scene render pass) |
 
-> **Note:** UI coordinates are in canvas pixels. (0, 0) is the top-left of the canvas. No layout engine runs automatically — position nodes manually or compute positions in `onUpdate`.
+**Widget classes:** `PanelWidget`, `LabelWidget`, `ButtonWidget`, `ImageWidget`, `ProgressBarWidget`, `SliderWidget`, `CheckboxWidget` — see the **UISystem & Widget API** reference section at the end of this document.
+
+> **Note:** UI coordinates are in canvas pixels. Widgets are positioned relative to their `anchor` point on the canvas — use `anchor: 'top-left'` with `x/y` offsets for HUD elements, `anchor: 'center'` for overlay menus.
 
 ---
 
@@ -498,7 +518,7 @@ post.destroy();
 
 ## 5.14 GamepadSystem
 
-Provides access to the browser Gamepad API with snapshot-based polling. Works alongside the `Input` static class — for most games, `Input.axis()` and `Input.isPressed()` are sufficient.
+Provides access to the browser Gamepad API with snapshot-based polling. For keyboard and mouse input, use `InputSystem` directly — see §5.3. `GamepadSystem` handles gamepad-specific axis and button queries.
 
 ```typescript
 import {
