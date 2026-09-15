@@ -1,223 +1,17 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import {
-  useSequenceStore,
-  type SequenceTrack,
-  type SequenceTrackType,
-} from "../../store/sequenceStore";
+import { useSequenceStore } from "../../store/sequenceStore";
 import { useHistory } from "../../hooks/useHistory";
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-type LaneType = "keyframe" | "dialogue" | "expression" | "audio" | "wait";
-
-type TrackType = SequenceTrackType;
-
-interface Keyframe {
-  id: string;
-  time: number; // seconds
-  value: number; // numeric value for interpolation
-  textValue?: string; // string value used when laneType === 'dialogue'
-}
-
-type Track = SequenceTrack & { laneType?: LaneType; keyframes: Keyframe[] };
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const LABEL_WIDTH = 200;
-const ROW_HEIGHT = 34;
-const RULER_H = 28;
-const RAF_UI_INTERVAL = 1000 / 30; // ~30fps UI updates
-
-const TRACK_OPTIONS: TrackType[] = [
-  "Position X",
-  "Position Y",
-  "Rotation",
-  "Scale",
-  "Opacity",
-  "Custom",
-];
-
-const LANE_TYPE_OPTIONS: LaneType[] = [
-  "keyframe",
-  "dialogue",
-  "expression",
-  "audio",
-  "wait",
-];
-
-const TYPE_COLORS: Record<TrackType, string> = {
-  "Position X": "var(--es-track-dialogue)",
-  "Position Y": "var(--es-track-audio)",
-  Rotation: "var(--es-track-animation)",
-  Scale: "var(--es-track-script)",
-  Opacity: "var(--es-track-wait)",
-  Custom: "var(--es-track-default)",
-};
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-let _idCounter = 0;
-function uid(): string {
-  return `id-${_idCounter++}`;
-}
-
-function makeTrack(
-  type: TrackType,
-  kfs: Array<{ t: number; v: number }> = [],
-): Track {
-  return {
-    id: uid(),
-    name: type,
-    type,
-    laneType: "keyframe",
-    keyframes: kfs.map(({ t, v }) => ({ id: uid(), time: t, value: v })),
-  };
-}
-
-// ── Keyframe interpolation ────────────────────────────────────────────────────
-
-function interpolate(keyframes: Keyframe[], time: number): number {
-  if (keyframes.length === 0) return 0;
-  const sorted = [...keyframes].sort((a, b) => a.time - b.time);
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
-  if (first === undefined || last === undefined) return 0;
-  if (time <= first.time) return first.value;
-  if (time >= last.time) return last.value;
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-    if (a === undefined || b === undefined) continue;
-    if (time >= a.time && time <= b.time) {
-      const t = (time - a.time) / (b.time - a.time);
-      return a.value + (b.value - a.value) * t;
-    }
-  }
-  return 0;
-}
-
-// ── Ruler label generator ─────────────────────────────────────────────────────
-
-function rulerTicks(
-  duration: number,
-  pxPerSec: number,
-  _containerWidth: number,
-): number[] {
-  // Pick a tick interval so labels don't overlap (each label ~36px wide)
-  const minPxBetween = 36;
-  const candidates = [0.1, 0.25, 0.5, 1, 2, 5, 10];
-  let interval = candidates.find((c) => c * pxPerSec >= minPxBetween) ?? 10;
-  const ticks: number[] = [];
-  for (let t = 0; t <= duration + interval * 0.1; t += interval) {
-    ticks.push(parseFloat(t.toFixed(4)));
-  }
-  return ticks;
-}
-
-// ── Track label with interpolated value badge ─────────────────────────────────
-
-const TrackLabel: React.FC<{
-  track: Track;
-  playing: boolean;
-  currentTime: number;
-  onChangeLaneType: (lt: LaneType) => void;
-}> = ({ track, playing, currentTime, onChangeLaneType }) => {
-  const laneType = track.laneType ?? "keyframe";
-  const interp = playing ? interpolate(track.keyframes, currentTime) : null;
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        height: ROW_HEIGHT,
-        paddingLeft: 8,
-        paddingRight: 4,
-        borderBottom: "1px solid var(--es-border, #333)",
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          display: "inline-block",
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: TYPE_COLORS[track.type],
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontSize: 12,
-          color: "var(--es-text, #e2e8f0)",
-          flex: 1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          minWidth: 0,
-        }}
-      >
-        {track.name}
-      </span>
-      {laneType !== "keyframe" && (
-        <span
-          style={{
-            fontSize: 9,
-            fontFamily: "monospace",
-            color: "var(--es-text-muted, #888)",
-            border: "1px solid var(--es-border, #444)",
-            borderRadius: 3,
-            padding: "0px 3px",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
-        >
-          [{laneType}]
-        </span>
-      )}
-      {interp !== null && laneType !== "dialogue" && (
-        <span
-          style={{
-            fontSize: 10,
-            fontFamily: "monospace",
-            background: `color-mix(in srgb, ${TYPE_COLORS[track.type]} 20%, transparent)`,
-            color: TYPE_COLORS[track.type],
-            borderRadius: 3,
-            padding: "1px 5px",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
-        >
-          {interp.toFixed(1)}
-        </span>
-      )}
-      <select
-        value={laneType}
-        onChange={(e) => onChangeLaneType(e.target.value as LaneType)}
-        onClick={(e) => e.stopPropagation()}
-        title="Lane type"
-        style={{
-          fontSize: 9,
-          padding: "1px 2px",
-          borderRadius: 3,
-          border: "1px solid var(--es-border, #444)",
-          background: "var(--es-surface, #16213e)",
-          color: "var(--es-text-muted, #888)",
-          cursor: "pointer",
-          flexShrink: 0,
-          maxWidth: 56,
-        }}
-      >
-        {LANE_TYPE_OPTIONS.map((lt) => (
-          <option key={lt} value={lt}>
-            {lt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
+import {
+  LABEL_WIDTH,
+  ROW_HEIGHT,
+  RULER_H,
+  RAF_UI_INTERVAL,
+  TRACK_OPTIONS,
+  TYPE_COLORS,
+} from "./sequence-editor/types";
+import type { Track, LaneType, TrackType } from "./sequence-editor/types";
+import { uid, makeTrack, rulerTicks } from "./sequence-editor/helpers";
+import { TrackLabel } from "./sequence-editor/TrackLabel";
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
@@ -701,9 +495,9 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             padding: "4px 12px",
             borderRadius: 4,
-            border: `1px solid ${playing ? "#ef4444" : "var(--es-border, #444)"}`,
-            background: playing ? "#ef444422" : "transparent",
-            color: playing ? "#ef4444" : "var(--es-text, #e2e8f0)",
+            border: `1px solid ${playing ? "var(--es-red)" : "var(--es-border, #444)"}`,
+            background: playing ? "rgba(239,68,68,0.13)" : "transparent",
+            color: playing ? "var(--es-red)" : "var(--es-text, #e2e8f0)",
             cursor: "pointer",
             fontSize: 12,
             minWidth: 60,
@@ -731,7 +525,7 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             fontFamily: "monospace",
             fontSize: 13,
-            color: playing ? "#ef4444" : "var(--es-text, #e2e8f0)",
+            color: playing ? "var(--es-red)" : "var(--es-text, #e2e8f0)",
             minWidth: 56,
           }}
         >
@@ -1303,7 +1097,7 @@ export function SequenceEditor(): React.ReactElement {
                             lineHeight: 1,
                           }}
                         >
-                          \xD7
+                          ×
                         </div>
                       )}
                     </div>
