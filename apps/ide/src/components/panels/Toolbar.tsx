@@ -31,10 +31,11 @@ function BuildStatusPill(): React.ReactElement | null {
           gap: 5,
           padding: "2px 8px",
           borderRadius: 10,
-          background: "rgba(250,204,21,0.10)",
-          border: "1px solid rgba(250,204,21,0.25)",
+          background: "color-mix(in srgb, var(--es-yellow) 10%, transparent)",
+          border:
+            "1px solid color-mix(in srgb, var(--es-yellow) 25%, transparent)",
           fontSize: 11,
-          color: "#facc15",
+          color: "var(--es-yellow)",
           fontVariantNumeric: "tabular-nums",
         }}
       >
@@ -43,7 +44,7 @@ function BuildStatusPill(): React.ReactElement | null {
             width: 6,
             height: 6,
             borderRadius: "50%",
-            background: "#facc15",
+            background: "var(--es-yellow)",
             display: "inline-block",
             animation: "es-spin 1s linear infinite",
           }}
@@ -62,8 +63,9 @@ function BuildStatusPill(): React.ReactElement | null {
           gap: 5,
           padding: "2px 8px",
           borderRadius: 10,
-          background: "rgba(74,222,128,0.10)",
-          border: "1px solid rgba(74,222,128,0.25)",
+          background: "color-mix(in srgb, var(--es-green) 10%, transparent)",
+          border:
+            "1px solid color-mix(in srgb, var(--es-green) 25%, transparent)",
           fontSize: 11,
           color: "var(--es-green)",
           fontVariantNumeric: "tabular-nums",
@@ -94,8 +96,8 @@ function BuildStatusPill(): React.ReactElement | null {
         gap: 5,
         padding: "2px 8px",
         borderRadius: 10,
-        background: "rgba(248,113,113,0.10)",
-        border: "1px solid rgba(248,113,113,0.25)",
+        background: "color-mix(in srgb, var(--es-red) 10%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--es-red) 25%, transparent)",
         fontSize: 11,
         color: "var(--es-red)",
         cursor: "pointer",
@@ -341,7 +343,9 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
                   ? "var(--es-yellow)"
                   : "var(--es-green)",
               background:
-                playState === "playing" ? "rgba(250,204,21,0.08)" : undefined,
+                playState === "playing"
+                  ? "color-mix(in srgb, var(--es-yellow) 8%, transparent)"
+                  : undefined,
             }}
           >
             {playState === "playing" ? <Pause size={13} /> : <Play size={13} />}
@@ -382,7 +386,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               cursor: "pointer",
               background:
                 buildMode === "debug"
-                  ? "rgba(124,106,247,0.12)"
+                  ? "color-mix(in srgb, var(--es-accent) 12%, transparent)"
                   : "transparent",
               color:
                 buildMode === "debug"
@@ -427,7 +431,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               borderRadius: 0,
               cursor: "pointer",
               background: editorShowGrid
-                ? "rgba(124,106,247,0.12)"
+                ? "color-mix(in srgb, var(--es-accent) 12%, transparent)"
                 : "transparent",
               color: editorShowGrid
                 ? "var(--es-accent)"
@@ -459,7 +463,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               borderRadius: 0,
               cursor: "pointer",
               background: editorSnapToGrid
-                ? "rgba(124,106,247,0.12)"
+                ? "color-mix(in srgb, var(--es-accent) 12%, transparent)"
                 : "transparent",
               color: editorSnapToGrid
                 ? "var(--es-accent)"
@@ -491,7 +495,7 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
               borderRadius: 0,
               cursor: "pointer",
               background: editorShowRuler
-                ? "rgba(124,106,247,0.12)"
+                ? "color-mix(in srgb, var(--es-accent) 12%, transparent)"
                 : "transparent",
               color: editorShowRuler
                 ? "var(--es-accent)"

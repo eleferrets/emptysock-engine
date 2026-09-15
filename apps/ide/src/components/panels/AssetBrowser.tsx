@@ -1,21 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import ReactDOM from "react-dom";
+import { getAssetStore, browserAssetStore } from "../../services/AssetStore";
 import {
-  Image,
-  Music,
-  FileCode,
-  FileJson,
   Search,
   Upload,
-  X,
-  Grid,
   PackageOpen,
   ChevronDown,
   ChevronRight,
-  GripVertical,
   List,
   RotateCcw,
   RotateCw,
+  FolderOpen,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { AssetItem } from "../../store/ideStore";
@@ -23,645 +17,19 @@ import { useHistory } from "../../hooks/useHistory";
 import { Button } from "../ui/Button";
 import { ContextMenu } from "../ui/ContextMenu";
 import type { ContextMenuEntry } from "../ui/ContextMenu";
-
-// ---------------------------------------------------------------------------
-// GMS2 YYP types (minimal — only what we parse from the project file)
-// ---------------------------------------------------------------------------
-
-interface YYPResourceId {
-  name: string;
-  path: string;
-}
-
-interface YYPResource {
-  id: YYPResourceId;
-}
-
-interface YYProject {
-  resources: YYPResource[];
-}
-
-// FileSystemDirectoryHandle.values() is an async iterator defined in
-// DOM.AsyncIterable which is not in the base lib. Declare it inline.
-type DirHandleIterable = FileSystemDirectoryHandle & {
-  values(): AsyncIterableIterator<FileSystemHandle>;
-};
-
-async function importGMS2FromHandle(
-  dirHandle: FileSystemDirectoryHandle,
-  addItems: (items: AssetItem[]) => void,
-): Promise<void> {
-  const { openFile, addLog } = useIDEStore.getState();
-
-  let yypHandle: FileSystemFileHandle | null = null;
-  const iterable = dirHandle as DirHandleIterable;
-  for await (const entry of iterable.values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".yyp")) {
-      yypHandle = entry as FileSystemFileHandle;
-      break;
-    }
-  }
-
-  if (yypHandle === null) {
-    addLog(
-      "warn",
-      "GMS2 import: no .yyp file found in the selected directory",
-      "GMS2",
-    );
-    return;
-  }
-
-  const file = await yypHandle.getFile();
-  const raw = await file.text();
-
-  let project: YYProject;
-  try {
-    project = JSON.parse(raw) as YYProject;
-  } catch {
-    addLog("error", "GMS2 import: failed to parse .yyp file as JSON", "GMS2");
-    return;
-  }
-
-  if (!Array.isArray(project.resources)) {
-    addLog("error", "GMS2 import: .yyp file has no resources array", "GMS2");
-    return;
-  }
-
-  let scriptCount = 0;
-  let spriteCount = 0;
-  let objectCount = 0;
-  const newAssets: AssetItem[] = [];
-
-  for (const res of project.resources) {
-    const name = res.id.name;
-    const resPath = res.id.path;
-    if (typeof name !== "string" || name.length === 0) continue;
-
-    if (resPath.startsWith("scripts/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
-      scriptCount += 1;
-    } else if (resPath.startsWith("objects/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
-      objectCount += 1;
-    } else if (resPath.startsWith("sprites/")) {
-      newAssets.push({
-        id: `gms2-spr-${Date.now()}-${name}`,
-        name,
-        type: "image",
-        path: `gms2/sprites/${name}`,
-      });
-      spriteCount += 1;
-    }
-  }
-  if (newAssets.length > 0) addItems(newAssets);
-
-  addLog(
-    "info",
-    `GMS2 import complete: ${scriptCount} scripts, ${spriteCount} sprites, ${objectCount} objects`,
-    "GMS2",
-  );
-}
-
-function AssetIcon({ type }: { type: AssetItem["type"] }): React.ReactElement {
-  const props = { size: 20, strokeWidth: 1.5 };
-  switch (type) {
-    case "image":
-      return <Image {...props} style={{ color: "var(--es-green)" }} />;
-    case "audio":
-      return <Music {...props} style={{ color: "var(--es-accent)" }} />;
-    case "script":
-      return <FileCode {...props} style={{ color: "var(--es-blue)" }} />;
-    case "json":
-      return <FileJson {...props} style={{ color: "var(--es-yellow)" }} />;
-    default:
-      return <FileCode {...props} style={{ color: "var(--es-text-muted)" }} />;
-  }
-}
-
-function AssetIconSmall({
-  type,
-}: {
-  type: AssetItem["type"];
-}): React.ReactElement {
-  const props = { size: 14, strokeWidth: 1.5 };
-  switch (type) {
-    case "image":
-      return <Image {...props} style={{ color: "var(--es-green)" }} />;
-    case "audio":
-      return <Music {...props} style={{ color: "var(--es-accent)" }} />;
-    case "script":
-      return <FileCode {...props} style={{ color: "var(--es-blue)" }} />;
-    case "json":
-      return <FileJson {...props} style={{ color: "var(--es-yellow)" }} />;
-    default:
-      return <FileCode {...props} style={{ color: "var(--es-text-muted)" }} />;
-  }
-}
-
-function formatSize(bytes?: number): string {
-  if (bytes === undefined) return "";
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-}
-
-const STRIP_RE = /_strip(\d+)/i;
-const MAX_RECENT = 8;
-
-interface StripDialog {
-  fileName: string;
-  detectedN: number;
-  frameCount: string;
-  objectUrl: string;
-  size: number;
-}
-
-function guessAssetType(file: File): AssetItem["type"] {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type.startsWith("audio/")) return "audio";
-  if (file.name.endsWith(".json")) return "json";
-  if (file.name.endsWith(".ts") || file.name.endsWith(".js")) return "script";
-  return "json";
-}
-
-// ---------------------------------------------------------------------------
-// Asset preview popover
-// ---------------------------------------------------------------------------
-
-const POPOVER_WIDTH = 224;
-
-interface AssetPreviewPopoverProps {
-  asset: AssetItem;
-  anchorRect: DOMRect;
-  openFiles: Record<string, string>;
-  onPointerEnter: () => void;
-  onPointerLeave: () => void;
-}
-
-function AssetPreviewPopover({
-  asset,
-  anchorRect,
-  openFiles,
-  onPointerEnter,
-  onPointerLeave,
-}: AssetPreviewPopoverProps): React.ReactElement {
-  const flipLeft = anchorRect.right + POPOVER_WIDTH + 16 > window.innerWidth;
-  const left = flipLeft
-    ? anchorRect.left - POPOVER_WIDTH - 8
-    : anchorRect.right + 8;
-  const top = Math.min(anchorRect.top, window.innerHeight - 300);
-
-  let previewContent: React.ReactElement;
-
-  if (asset.type === "image") {
-    previewContent = (
-      <div
-        style={{
-          background: "var(--es-bg)",
-          borderRadius: 4,
-          border: "1px solid var(--es-border)",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 80,
-        }}
-      >
-        <img
-          src={asset.path}
-          alt=""
-          style={{
-            maxWidth: "100%",
-            maxHeight: 180,
-            objectFit: "contain",
-            display: "block",
-            imageRendering: "pixelated",
-          }}
-          onError={(e) => {
-            const el = e.currentTarget;
-            el.style.display = "none";
-            const parent = el.parentElement;
-            if (parent !== null) {
-              parent.style.minHeight = "36px";
-              const msg = document.createElement("span");
-              msg.textContent = "Preview unavailable";
-              msg.style.cssText =
-                "font-size:10px;color:var(--es-text-muted);padding:8px;";
-              parent.appendChild(msg);
-            }
-          }}
-        />
-      </div>
-    );
-  } else if (asset.type === "audio") {
-    const bars = Array.from({ length: 28 }, (_, i) => {
-      const h = Math.round(10 + Math.abs(Math.sin(i * 0.65)) * 22);
-      return h;
-    });
-    previewContent = (
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div
-          style={{
-            height: 48,
-            borderRadius: 4,
-            background: "var(--es-bg)",
-            border: "1px solid var(--es-border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 2,
-            padding: "0 8px",
-            overflow: "hidden",
-          }}
-        >
-          {bars.map((h, i) => (
-            <div
-              key={i}
-              style={{
-                width: 3,
-                height: h,
-                background: "var(--es-accent)",
-                borderRadius: 2,
-                opacity: 0.65,
-                flexShrink: 0,
-              }}
-            />
-          ))}
-        </div>
-        <div
-          style={{
-            fontSize: 9,
-            color: "var(--es-text-muted)",
-            fontFamily: "JetBrains Mono, monospace",
-          }}
-        >
-          Audio file — no duration data
-        </div>
-      </div>
-    );
-  } else if (asset.type === "script") {
-    const fileContent = openFiles[asset.path];
-    const lines =
-      fileContent !== undefined
-        ? fileContent.split("\n").slice(0, 5).join("\n")
-        : "// Source not open in editor";
-    previewContent = (
-      <pre
-        style={{
-          margin: 0,
-          fontSize: 9.5,
-          lineHeight: 1.55,
-          color: "var(--es-text-muted)",
-          fontFamily: "JetBrains Mono, monospace",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-          maxHeight: 110,
-          overflow: "hidden",
-          background: "var(--es-bg)",
-          border: "1px solid var(--es-border)",
-          borderRadius: 4,
-          padding: "6px 8px",
-        }}
-      >
-        {lines}
-      </pre>
-    );
-  } else {
-    previewContent = (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 0",
-        }}
-      >
-        <AssetIcon type={asset.type} />
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--es-text-muted)",
-            wordBreak: "break-all",
-          }}
-        >
-          {asset.path}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
-      style={{
-        position: "fixed",
-        left,
-        top,
-        zIndex: 9999,
-        width: POPOVER_WIDTH,
-        background: "var(--es-surface)",
-        border: "1px solid var(--es-border)",
-        borderRadius: 8,
-        padding: 10,
-        boxShadow: "0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.18)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        pointerEvents: "auto",
-      }}
-    >
-      {/* Header row */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          borderBottom: "1px solid var(--es-border)",
-          paddingBottom: 7,
-        }}
-      >
-        <AssetIconSmall type={asset.type} />
-        <span
-          style={{
-            flex: 1,
-            fontSize: 10,
-            fontWeight: 600,
-            color: "var(--es-text)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontFamily: "JetBrains Mono, monospace",
-          }}
-        >
-          {asset.name}
-        </span>
-        <span
-          style={{
-            fontSize: 9,
-            color: "var(--es-text-muted)",
-            background: "var(--es-surface-2)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 3,
-            padding: "1px 4px",
-            flexShrink: 0,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {asset.type}
-        </span>
-      </div>
-
-      {previewContent}
-
-      {asset.size !== undefined && (
-        <div
-          style={{
-            fontSize: 9,
-            color: "var(--es-text-muted)",
-            opacity: 0.7,
-          }}
-        >
-          {formatSize(asset.size)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Room Order dialog
-// ---------------------------------------------------------------------------
-
-interface RoomOrderDialogProps {
-  scenes: AssetItem[];
-  savedOrder: string[];
-  onApply: (ids: string[]) => void;
-  onClose: () => void;
-}
-
-function RoomOrderDialog({
-  scenes,
-  savedOrder,
-  onApply,
-  onClose,
-}: RoomOrderDialogProps): React.ReactElement {
-  const [order, setOrder] = useState<AssetItem[]>(() => {
-    if (savedOrder.length === 0) return scenes;
-    const byId = new Map(scenes.map((s) => [s.id, s]));
-    const sorted: AssetItem[] = [];
-    for (const id of savedOrder) {
-      const item = byId.get(id);
-      if (item) sorted.push(item);
-    }
-    for (const s of scenes) {
-      if (!sorted.find((x) => x.id === s.id)) sorted.push(s);
-    }
-    return sorted;
-  });
-
-  const dragIdx = useRef<number | null>(null);
-
-  const handleDragStart = (i: number): void => {
-    dragIdx.current = i;
-  };
-
-  const handleDragOver = (
-    e: React.DragEvent<HTMLDivElement>,
-    i: number,
-  ): void => {
-    e.preventDefault();
-    const from = dragIdx.current;
-    if (from === null || from === i) return;
-    const next = [...order];
-    const [moved] = next.splice(from, 1);
-    if (moved === undefined) return;
-    next.splice(i, 0, moved);
-    dragIdx.current = i;
-    setOrder(next);
-  };
-
-  const handleDragEnd = (): void => {
-    dragIdx.current = null;
-  };
-
-  const apply = (): void => {
-    onApply(order.map((s) => s.id));
-    onClose();
-  };
-
-  return ReactDOM.createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 400,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(4px)",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          background: "var(--es-surface)",
-          border: "1px solid var(--es-border)",
-          borderRadius: 10,
-          width: 360,
-          maxWidth: "calc(100vw - 32px)",
-          maxHeight: "80vh",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 16px",
-            borderBottom: "1px solid var(--es-border)",
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <List size={14} style={{ color: "var(--es-accent)" }} />
-            <span
-              style={{ fontSize: 13, fontWeight: 600, color: "var(--es-text)" }}
-            >
-              Room Order
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--es-text-muted)",
-              display: "flex",
-            }}
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        {/* List */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-          {order.length === 0 ? (
-            <div
-              style={{
-                padding: "24px 16px",
-                textAlign: "center",
-                color: "var(--es-text-muted)",
-                fontSize: 11,
-                fontStyle: "italic",
-              }}
-            >
-              No scene assets yet. Add a .scene file to the asset browser first.
-            </div>
-          ) : (
-            order.map((scene, i) => (
-              <div
-                key={scene.id}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDragEnd={handleDragEnd}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 16px",
-                  cursor: "grab",
-                  userSelect: "none",
-                  borderBottom: "1px solid var(--es-border)",
-                  background: "var(--es-surface)",
-                  transition: "background 0.1s",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background =
-                    "var(--es-surface-raised, var(--es-surface-2))";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background =
-                    "var(--es-surface)";
-                }}
-              >
-                <GripVertical
-                  size={14}
-                  style={{ color: "var(--es-text-muted)", flexShrink: 0 }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "var(--es-text-muted)",
-                    width: 18,
-                    flexShrink: 0,
-                    textAlign: "right",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <FileCode
-                  size={14}
-                  style={{ color: "var(--es-blue)", flexShrink: 0 }}
-                />
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 12,
-                    color: "var(--es-text)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {scene.name}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            padding: "10px 16px",
-            borderTop: "1px solid var(--es-border)",
-            flexShrink: 0,
-          }}
-        >
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="accent" size="sm" onClick={apply}>
-            <List size={11} />
-            Apply Order
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+import {
+  AssetIcon,
+  AssetIconSmall,
+  formatSize,
+  guessAssetType,
+  STRIP_RE,
+  MAX_RECENT,
+} from "./asset-browser/helpers";
+import { AssetPreviewPopover } from "./asset-browser/AssetPreviewPopover";
+import { RoomOrderDialog } from "./asset-browser/RoomOrderDialog";
+import { SpriteSheetStripDialog } from "./asset-browser/SpriteSheetStripDialog";
+import type { StripDialog } from "./asset-browser/SpriteSheetStripDialog";
+import { importGMS2FromHandle } from "./asset-browser/gms2Import";
 
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
@@ -703,6 +71,17 @@ export function AssetBrowser(): React.ReactElement {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canUndo, canRedo, undo, redo]);
+
+  // Load assets from disk on mount (if a directory root is already open).
+  // histSet is stable (useCallback with no deps) so omitting it is safe.
+  useEffect(() => {
+    const store = getAssetStore();
+    if (!store.hasRoot()) return;
+    void store.list().then((items) => {
+      if (items.length > 0) histSet(items);
+    });
+  }, []); // intentional: run once on mount
+
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredAsset, setHoveredAsset] = useState<{
@@ -764,6 +143,19 @@ export function AssetBrowser(): React.ReactElement {
     [clearLeaveTimer],
   );
 
+  const openStripDialog = (file: File): void => {
+    const match = STRIP_RE.exec(file.name);
+    const n = match !== null ? parseInt(match[1] ?? "0", 10) : 0;
+    stripFileRef.current = file;
+    setStripDialog({
+      fileName: file.name,
+      detectedN: n,
+      frameCount: String(n),
+      objectUrl: URL.createObjectURL(file),
+      size: file.size,
+    });
+  };
+
   const handleDrop = useCallback(
     (files: FileList): void => {
       const folder =
@@ -772,28 +164,27 @@ export function AssetBrowser(): React.ReactElement {
       for (const file of Array.from(files)) {
         const match = STRIP_RE.exec(file.name);
         if (match !== null && file.type.startsWith("image/")) {
-          const n = parseInt(match[1] ?? "0", 10);
-          stripFileRef.current = file;
-          setStripDialog({
-            fileName: file.name,
-            detectedN: n,
-            frameCount: String(n),
-            objectUrl: URL.createObjectURL(file),
-            size: file.size,
-          });
+          openStripDialog(file);
           return;
         }
         toImport.push(file);
       }
       if (toImport.length > 0) {
-        const newItems: AssetItem[] = toImport.map((file) => ({
-          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          name: file.name,
-          type: guessAssetType(file),
-          path: `${folder}${file.name}`,
-          size: file.size,
-        }));
-        histSet((prev) => [...prev, ...newItems]);
+        const store = getAssetStore();
+        const writeAll = toImport.map((file) =>
+          store.write(file.name, file).catch(
+            (): AssetItem => ({
+              id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              name: file.name,
+              type: guessAssetType(file),
+              path: `${folder}${file.name}`,
+              size: file.size,
+            }),
+          ),
+        );
+        void Promise.all(writeAll).then((newItems) => {
+          histSet((prev) => [...prev, ...newItems]);
+        });
       }
     },
     [histSet, dropImportFolder],
@@ -806,29 +197,28 @@ export function AssetBrowser(): React.ReactElement {
     for (const file of files) {
       const match = STRIP_RE.exec(file.name);
       if (match !== null && file.type.startsWith("image/")) {
-        const n = parseInt(match[1] ?? "0", 10);
-        stripFileRef.current = file;
-        setStripDialog({
-          fileName: file.name,
-          detectedN: n,
-          frameCount: String(n),
-          objectUrl: URL.createObjectURL(file),
-          size: file.size,
-        });
+        openStripDialog(file);
         e.target.value = "";
         return;
       }
       toImport.push(file);
     }
     if (toImport.length > 0) {
-      const newItems: AssetItem[] = toImport.map((file) => ({
-        id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        name: file.name,
-        type: guessAssetType(file),
-        path: `assets/${file.name}`,
-        size: file.size,
-      }));
-      histSet((prev) => [...prev, ...newItems]);
+      const store = getAssetStore();
+      const writeAll = toImport.map((file) =>
+        store.write(file.name, file).catch(
+          (): AssetItem => ({
+            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: guessAssetType(file),
+            path: `assets/${file.name}`,
+            size: file.size,
+          }),
+        ),
+      );
+      void Promise.all(writeAll).then((newItems) => {
+        histSet((prev) => [...prev, ...newItems]);
+      });
     }
     e.target.value = "";
   };
@@ -895,6 +285,9 @@ export function AssetBrowser(): React.ReactElement {
       label: "Delete",
       danger: true,
       onClick: () => {
+        void getAssetStore()
+          .delete(asset.path)
+          .catch(() => {});
         histSet((prev) => prev.filter((a) => a.id !== asset.id));
         setContextMenu(null);
       },
@@ -959,6 +352,33 @@ export function AssetBrowser(): React.ReactElement {
           <Upload size={11} />
           Import
         </Button>
+        {"showDirectoryPicker" in window &&
+          !("__TAURI_INTERNALS__" in window) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Open asset folder"
+              onClick={() => {
+                type WindowWithDirPicker = Window & {
+                  showDirectoryPicker(opts?: {
+                    mode?: "read" | "readwrite";
+                  }): Promise<FileSystemDirectoryHandle>;
+                };
+                void (window as unknown as WindowWithDirPicker)
+                  .showDirectoryPicker({ mode: "readwrite" })
+                  .then((handle) => {
+                    browserAssetStore.setRoot(handle);
+                    return browserAssetStore.list();
+                  })
+                  .then((items) => {
+                    if (items.length > 0) histSet(items);
+                  });
+              }}
+            >
+              <FolderOpen size={11} />
+              Open folder
+            </Button>
+          )}
         <Button
           variant="ghost"
           size="sm"
@@ -1252,191 +672,16 @@ export function AssetBrowser(): React.ReactElement {
 
       {/* Sprite sheet strip import dialog */}
       {stripDialog !== null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 300,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelStripImport();
-          }}
-        >
-          <div
-            style={{
-              background: "var(--es-surface)",
-              border: "1px solid var(--es-border)",
-              borderRadius: 10,
-              width: 400,
-              maxWidth: "calc(100vw - 32px)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 16px",
-                borderBottom: "1px solid var(--es-border)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Grid size={14} style={{ color: "var(--es-accent)" }} />
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--es-text)",
-                  }}
-                >
-                  Import Sprite Sheet
-                </span>
-              </div>
-              <button
-                onClick={cancelStripImport}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--es-text-muted)",
-                  display: "flex",
-                }}
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div
-              style={{
-                padding: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--es-text-muted)",
-                  fontFamily: "JetBrains Mono, monospace",
-                  wordBreak: "break-all",
-                }}
-              >
-                {stripDialog.fileName}
-                <span style={{ marginLeft: 8, opacity: 0.6 }}>
-                  {formatSize(stripDialog.size)}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  border: "1px solid var(--es-border)",
-                  background: "var(--es-surface-deep)",
-                  maxHeight: 120,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src={stripDialog.objectUrl}
-                  alt="strip preview"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 120,
-                    objectFit: "contain",
-                    imageRendering: "pixelated",
-                  }}
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: "var(--es-text)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Frame count
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={1024}
-                  value={stripDialog.frameCount}
-                  onChange={(e) =>
-                    setStripDialog((d) =>
-                      d === null ? null : { ...d, frameCount: e.target.value },
-                    )
-                  }
-                  style={{
-                    flex: 1,
-                    background: "var(--es-bg)",
-                    border: "1px solid var(--es-border)",
-                    borderRadius: 5,
-                    color: "var(--es-text)",
-                    fontSize: 12,
-                    padding: "4px 8px",
-                    outline: "none",
-                    fontFamily: "JetBrains Mono, monospace",
-                  }}
-                />
-                {stripDialog.detectedN > 0 && (
-                  <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
-                    detected: {stripDialog.detectedN}
-                  </span>
-                )}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--es-text-muted)",
-                  lineHeight: 1.5,
-                }}
-              >
-                Frames are read left-to-right from a single horizontal strip.
-                Set the frame count manually if the filename detection was
-                incorrect.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-                padding: "10px 16px",
-                borderTop: "1px solid var(--es-border)",
-              }}
-            >
-              <Button variant="ghost" size="sm" onClick={cancelStripImport}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={confirmStripImport}
-                disabled={
-                  isNaN(parseInt(stripDialog.frameCount, 10)) ||
-                  parseInt(stripDialog.frameCount, 10) < 1
-                }
-              >
-                <Grid size={11} />
-                Import Strip
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SpriteSheetStripDialog
+          dialog={stripDialog}
+          onFrameCountChange={(value) =>
+            setStripDialog((d) =>
+              d === null ? null : { ...d, frameCount: value },
+            )
+          }
+          onConfirm={confirmStripImport}
+          onCancel={cancelStripImport}
+        />
       )}
 
       {/* Room Order dialog */}

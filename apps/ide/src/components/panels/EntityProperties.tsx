@@ -5,22 +5,15 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
-
-// Derived from @emptysock/engine public component exports (packages/engine/src/index.ts)
-const AVAILABLE_COMPONENTS = [
-  "Transform",
-  "Sprite",
-  "PhysicsBody",
-  "CharacterController",
-  "Animator",
-  "UIComponent",
-  "RigidJoint",
-];
+import { COMPONENT_REGISTRY } from "@emptysock/engine";
+import { engineChannel } from "../../services/EngineChannel";
 
 function ComponentSection({
   entityId,
   component,
+  liveFields,
   onRemove,
+  onPatch,
 }: {
   entityId: string;
   component: {
@@ -28,7 +21,9 @@ function ComponentSection({
     enabled: boolean;
     properties: Record<string, string>;
   };
+  liveFields?: Record<string, unknown>;
   onRemove: (entityId: string, type: string) => void;
+  onPatch?: (fieldKey: string, newValue: unknown) => void;
 }): React.ReactElement {
   const [open, setOpen] = React.useState(true);
 
@@ -134,28 +129,47 @@ function ComponentSection({
             gap: 6,
           }}
         >
-          {Object.entries(component.properties).map(([key, value]) => (
-            <Input
-              key={key}
-              label={key}
-              defaultValue={value}
-              style={{ width: "100%" }}
-            />
-          ))}
+          {Object.entries(component.properties).map(([key, value]) => {
+            const liveVal = liveFields?.[key];
+            const displayValue =
+              liveVal !== undefined ? String(liveVal) : value;
+            return (
+              <Input
+                key={`${key}-${displayValue}`}
+                label={key}
+                defaultValue={displayValue}
+                onChange={
+                  onPatch !== undefined
+                    ? (e: React.ChangeEvent<HTMLInputElement>) =>
+                        onPatch(key, e.target.value)
+                    : undefined
+                }
+                style={{ width: "100%" }}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-interface EntitySnapshot {
+interface EntityHistSnapshot {
   transform: Record<string, string>;
   componentTypes: string[];
 }
 
 export function EntityProperties(): React.ReactElement {
   const selectedEntity = useIDEStore((s) => s.selectedEntity);
+  const liveEntities = useIDEStore((s) => s.liveEntities);
+  const liveComponentFields = useIDEStore((s) => s.liveComponentFields);
   const updateEntityTransform = useIDEStore((s) => s.updateEntityTransform);
+
+  // Prefer live component list from running engine when available
+  const liveSnap =
+    selectedEntity !== null
+      ? liveEntities.find((e) => e.id === selectedEntity.id)
+      : undefined;
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
   const addComponentToEntity = useIDEStore((s) => s.addComponentToEntity);
   const removeComponentFromEntity = useIDEStore(
@@ -165,7 +179,7 @@ export function EntityProperties(): React.ReactElement {
 
   const entityId = selectedEntity?.id ?? null;
 
-  const makeSnapshot = (): EntitySnapshot => ({
+  const makeSnapshot = (): EntityHistSnapshot => ({
     transform: selectedEntity ? { ...selectedEntity.transform } : {},
     componentTypes: selectedEntity
       ? selectedEntity.components.map((c) => c.type)
@@ -178,7 +192,7 @@ export function EntityProperties(): React.ReactElement {
     redo,
     canUndo,
     canRedo,
-  } = useHistory<EntitySnapshot>(makeSnapshot());
+  } = useHistory<EntityHistSnapshot>(makeSnapshot());
 
   // Reset history when the selected entity changes
   const prevEntityIdRef = React.useRef<string | null>(entityId);
@@ -220,6 +234,20 @@ export function EntityProperties(): React.ReactElement {
     removeComponentFromEntity(id, type);
   };
 
+  const handlePatch = (
+    componentType: string,
+    fieldKey: string,
+    newValue: unknown,
+  ): void => {
+    if (entityId === null) return;
+    engineChannel.postToEngine({
+      type: "es:set-component",
+      id: entityId,
+      component: componentType,
+      patch: { [fieldKey]: newValue },
+    });
+  };
+
   if (selectedEntity === null) {
     return (
       <aside
@@ -238,8 +266,12 @@ export function EntityProperties(): React.ReactElement {
     );
   }
 
-  const existingComponentTypes = selectedEntity.components.map((c) => c.type);
-  const addableComponents = AVAILABLE_COMPONENTS.filter(
+  // Use live component list from engine when available; fall back to editor state
+  const existingComponentTypes =
+    liveSnap !== undefined
+      ? liveSnap.components
+      : selectedEntity.components.map((c) => c.type);
+  const addableComponents = COMPONENT_REGISTRY.filter(
     (c) => !existingComponentTypes.includes(c),
   );
 
@@ -401,7 +433,13 @@ export function EntityProperties(): React.ReactElement {
               key={component.type}
               entityId={selectedEntity.id}
               component={component}
+              {...(liveComponentFields?.[component.type] !== undefined
+                ? { liveFields: liveComponentFields[component.type] }
+                : {})}
               onRemove={commitRemoveComponent}
+              onPatch={(fieldKey, newValue) =>
+                handlePatch(component.type, fieldKey, newValue)
+              }
             />
           ))}
 

@@ -424,7 +424,9 @@ export function CodeEditor(): React.ReactElement {
                       ? "2px solid var(--es-accent)"
                       : "2px solid transparent",
                     color: active ? "var(--es-text)" : "var(--es-text-muted)",
-                    background: active ? "rgba(124,106,247,0.06)" : undefined,
+                    background: active
+                      ? "color-mix(in srgb, var(--es-accent) 6%, transparent)"
+                      : undefined,
                     maxWidth: 200,
                   }}
                 >
@@ -478,7 +480,9 @@ export function CodeEditor(): React.ReactElement {
             flexShrink: 0,
             height: "100%",
             padding: "0 10px",
-            background: showSnippets ? "rgba(124,106,247,0.1)" : "none",
+            background: showSnippets
+              ? "color-mix(in srgb, var(--es-accent) 10%, transparent)"
+              : "none",
             border: "none",
             borderLeft: "1px solid var(--es-border)",
             color: showSnippets ? "var(--es-accent)" : "var(--es-text-muted)",

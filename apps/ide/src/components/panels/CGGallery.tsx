@@ -10,8 +10,8 @@ import {
   RotateCw,
 } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
-import { useIDEStore } from "../../store/ideStore";
-import type { CGEntry } from "../../store/ideStore";
+import { useCGStore } from "../../store/cgStore";
+import type { CGEntry } from "../../store/cgStore";
 
 export type { CGEntry };
 
@@ -332,10 +332,10 @@ function AddEntryForm({
             imagePath.trim().length === 0
           }
           style={{
-            background: "var(--es-accent, #3b82f6)",
+            background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
-            color: "#fff",
+            color: "var(--es-text-on-accent)",
             cursor: "pointer",
             fontSize: 12,
             padding: "5px 12px",
@@ -387,8 +387,7 @@ function CGCard({
         overflow: "hidden",
         cursor: unlocked ? "pointer" : "default",
         opacity: unlocked ? 1 : 0.5,
-        boxShadow:
-          hovered && unlocked ? "0 0 0 2px var(--es-accent, #3b82f6)" : "none",
+        boxShadow: hovered && unlocked ? "0 0 0 2px var(--es-accent)" : "none",
         transition: "box-shadow 0.15s, transform 0.15s",
         transform: hovered && unlocked ? "scale(1.02)" : "scale(1)",
         display: "flex",
@@ -494,8 +493,8 @@ export function CGGallery(): React.ReactElement {
     QUIPS[Math.floor(Math.random() * QUIPS.length)] ?? QUIPS[0],
   ).current;
 
-  const cgGallery = useIDEStore((s) => s.cgGallery);
-  const setCGGallery = useIDEStore((s) => s.setCGGallery);
+  const cgGallery = useCGStore((s) => s.cgGallery);
+  const setCGGallery = useCGStore((s) => s.setCGGallery);
 
   // Entry list — undo/redo via useHistory, initialised from persisted store state
   const {
@@ -509,7 +508,7 @@ export function CGGallery(): React.ReactElement {
 
   // Sync entries changes → store (unlock state is read from store at sync time)
   React.useEffect(() => {
-    const currentUnlocked = useIDEStore.getState().cgGallery.unlocked;
+    const currentUnlocked = useCGStore.getState().cgGallery.unlocked;
     setCGGallery({ entries: histEntries, unlocked: currentUnlocked });
   }, [histEntries, setCGGallery]);
 
@@ -584,10 +583,10 @@ export function CGGallery(): React.ReactElement {
   };
 
   const accentBtnStyle: React.CSSProperties = {
-    background: "var(--es-accent, #3b82f6)",
+    background: "var(--es-accent)",
     border: "none",
     borderRadius: 4,
-    color: "#fff",
+    color: "var(--es-text-on-accent)",
     cursor: "pointer",
     fontSize: 11,
     padding: "4px 10px",

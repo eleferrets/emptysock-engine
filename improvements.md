@@ -19,14 +19,14 @@ TypeScript 7.1 is expected in autumn 2026. When it ships:
 
 ## Open architectural items (from HANDOFF.md)
 
-| Item | Priority |
-|---|---|
-| Self-host esbuild WASM in Netlify/Vercel deploy | ✅ Fixed — Vite `?url` import |
-| COOP/COEP headers for SharedArrayBuffer | ✅ Fixed — added to `vite.config.ts` dev/preview |
-| `Engine.logErrorToFile` Tauri boundary violation | ✅ Fixed — replaced with `Engine.onFileLog()` handler |
-| Scene Inspector real ECS binding | High |
-| Entity Properties real ECS binding | High |
-| Asset Browser backend storage | Medium |
-| Project save/load | Medium |
-| Hot-reload on code change | Medium |
-| Multi-file project tree (real, not mock) | Medium |
+| Item                                             | Priority                                                        |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| Self-host esbuild WASM in Netlify/Vercel deploy  | ✅ Fixed — Vite `?url` import                                   |
+| COOP/COEP headers for SharedArrayBuffer          | ✅ Fixed — added to `vite.config.ts` dev/preview                |
+| `Engine.logErrorToFile` Tauri boundary violation | ✅ Fixed — replaced with `Engine.onFileLog()` handler           |
+| Scene Inspector real ECS binding                 | ✅ Done — live `ideBridge` channel                              |
+| Entity Properties real ECS binding               | ✅ Done — live component patch dispatch                         |
+| Asset Browser backend storage                    | ✅ Done — `AssetStore.ts` with `BrowserFileStore`               |
+| Project save/load                                | ✅ Done — `.emptysock` files via File System Access API + Tauri |
+| Multi-file project tree (real, not mock)         | ✅ Done — `ProjectService.openDirectory()` + `DiskTreeRow`      |
+| Hot-reload on code change                        | Medium                                                          |

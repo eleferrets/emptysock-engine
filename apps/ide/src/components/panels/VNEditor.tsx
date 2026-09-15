@@ -3,122 +3,30 @@ import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
 } from "@emptysock/engine";
-import { useIDEStore, type VnNode } from "../../store/ideStore";
+import { useIDEStore } from "../../store/ideStore";
+import { useVNStore, type VnNode } from "../../store/vnStore";
 import { useHistory } from "../../hooks/useHistory";
-
-type NodeType = "dialogue" | "choice";
-
-interface VNNode {
-  id: string;
-  type: NodeType;
-  x: number;
-  y: number;
-  speaker?: string;
-  text: string;
-  options?: string[];
-}
-
-interface VNEdge {
-  id: string;
-  from: string;
-  fromPort: number;
-  to: string;
-}
-
-interface ViewTransform {
-  x: number;
-  y: number;
-  scale: number;
-}
-
-interface GuideLine {
-  axis: "h" | "v";
-  pos: number;
-}
-
-interface GraphState {
-  nodes: VNNode[];
-  edges: VNEdge[];
-}
-
-const INITIAL_NODES: VNNode[] = [
-  {
-    id: "n1",
-    type: "dialogue",
-    x: 60,
-    y: 80,
-    speaker: "Hero",
-    text: "Hello, traveller.",
-  },
-  {
-    id: "n2",
-    type: "choice",
-    x: 320,
-    y: 80,
-    text: "Choose a response",
-    options: ["Who are you?", "Goodbye."],
-  },
-  {
-    id: "n3",
-    type: "dialogue",
-    x: 580,
-    y: 40,
-    speaker: "Hero",
-    text: "I am the last guardian.",
-  },
-  {
-    id: "n4",
-    type: "dialogue",
-    x: 580,
-    y: 160,
-    speaker: "Hero",
-    text: "Safe travels.",
-  },
-];
-
-const INITIAL_EDGES: VNEdge[] = [
-  { id: "e1", from: "n1", fromPort: 0, to: "n2" },
-  { id: "e2", from: "n2", fromPort: 0, to: "n3" },
-  { id: "e3", from: "n2", fromPort: 1, to: "n4" },
-];
-
-const NODE_W = 220;
-const NODE_H = 100;
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 2.5;
-const STORAGE_KEY = "es-story-graph";
-const GUIDE_THRESHOLD = 6;
-const MINI_W = 160;
-const MINI_H = 100;
-
-function clampScale(s: number): number {
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-}
-
-function snapValue(v: number, gridSize: number): number {
-  return Math.round(v / gridSize) * gridSize;
-}
-
-function loadGraph(): GraphState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as GraphState;
-  } catch {
-    /* ignore */
-  }
-  return { nodes: INITIAL_NODES, edges: INITIAL_EDGES };
-}
-
-function saveGraph(nodes: VNNode[], edges: VNEdge[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, edges }));
-  } catch {
-    /* storage full */
-  }
-}
+import { loadGraph, saveGraph } from "./vn-editor/persistence";
+import type {
+  NodeType,
+  VNNode,
+  VNEdge,
+  ViewTransform,
+  GuideLine,
+  GraphState,
+} from "./vn-editor/persistence";
+import {
+  NODE_W,
+  NODE_H,
+  GUIDE_THRESHOLD,
+  clampScale,
+  snapValue,
+} from "./vn-editor/constants";
+import { VNMinimap } from "./vn-editor/VNMinimap";
+import { VNNodeEditModal } from "./vn-editor/VNNodeEditModal";
 
 export function VNEditor(): React.ReactElement {
-  const setVNNodes = useIDEStore((s) => s.setVNNodes);
+  const setVNNodes = useVNStore((s) => s.setVNNodes);
   const editorGridSize = useIDEStore((s) => s.editorGridSize);
   const editorShowGrid = useIDEStore((s) => s.editorShowGrid);
   const editorSnapToGrid = useIDEStore((s) => s.editorSnapToGrid);
@@ -197,11 +105,6 @@ export function VNEditor(): React.ReactElement {
   const [guides, setGuides] = React.useState<GuideLine[]>([]);
   const svgRef = React.useRef<SVGSVGElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
-
-  // Minimap
-  const [showMinimap, setShowMinimap] = React.useState(true);
-  const minimapCanvasRef = React.useRef<HTMLCanvasElement>(null);
-  const minimapIsDragging = React.useRef(false);
 
   const displayNodes = localNodes;
   const displayEdges = localEdges;
@@ -537,139 +440,6 @@ export function VNEditor(): React.ReactElement {
 
   const resetView = (): void => setView({ x: 0, y: 0, scale: 1 });
 
-  // ── Minimap ─────────────────────────────────────────────────────────────────
-
-  // Compute the scale/offset that fits all nodes into the minimap canvas
-  const minimapTransform = React.useMemo(() => {
-    if (displayNodes.length === 0) return null;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const n of displayNodes) {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + NODE_W);
-      maxY = Math.max(maxY, n.y + NODE_H);
-    }
-    const pad = 10;
-    const W = maxX - minX + pad * 2;
-    const H = maxY - minY + pad * 2;
-    const scale = Math.min(MINI_W / W, MINI_H / H) * 0.9;
-    const offsetX = (MINI_W - W * scale) / 2 - (minX - pad) * scale;
-    const offsetY = (MINI_H - H * scale) / 2 - (minY - pad) * scale;
-    return { scale, offsetX, offsetY };
-  }, [displayNodes]);
-
-  // Redraw minimap canvas whenever graph, view, or selection changes
-  React.useEffect(() => {
-    const canvas = minimapCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, MINI_W, MINI_H);
-
-    if (!minimapTransform || displayNodes.length === 0) return;
-    const { scale, offsetX, offsetY } = minimapTransform;
-
-    // Edges
-    ctx.strokeStyle = "rgba(139,92,246,0.7)";
-    ctx.lineWidth = 0.8;
-    for (const edge of displayEdges) {
-      const fromNode = displayNodes.find((n) => n.id === edge.from);
-      const toNode = displayNodes.find((n) => n.id === edge.to);
-      if (!fromNode || !toNode) continue;
-      const portCount = Math.max(1, fromNode.options?.length ?? 1);
-      const fromSpacing = NODE_H / (portCount + 1);
-      const x1 = (fromNode.x + NODE_W) * scale + offsetX;
-      const y1 =
-        (fromNode.y + fromSpacing * (edge.fromPort + 1)) * scale + offsetY;
-      const x2 = toNode.x * scale + offsetX;
-      const y2 = (toNode.y + NODE_H / 2) * scale + offsetY;
-      const cpx = (x1 + x2) / 2;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.bezierCurveTo(cpx, y1, cpx, y2, x2, y2);
-      ctx.stroke();
-    }
-
-    // Nodes
-    for (const node of displayNodes) {
-      const mx = node.x * scale + offsetX;
-      const my = node.y * scale + offsetY;
-      const mw = NODE_W * scale;
-      const mh = NODE_H * scale;
-      const isSelectedNode = selected === node.id;
-      ctx.fillStyle = isSelectedNode
-        ? "#6d28d9"
-        : node.type === "dialogue"
-          ? "#3730a3"
-          : "#1a1a2e";
-      ctx.strokeStyle = isSelectedNode ? "#fff" : "rgba(255,255,255,0.3)";
-      ctx.lineWidth = isSelectedNode ? 1.5 : 0.5;
-      ctx.beginPath();
-      ctx.rect(mx, my, mw, mh);
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    // Viewport rectangle
-    const cw = containerRef.current?.clientWidth ?? 600;
-    const ch = containerRef.current?.clientHeight ?? 400;
-    const vx = (-view.x / view.scale) * scale + offsetX;
-    const vy = (-view.y / view.scale) * scale + offsetY;
-    const vw = (cw / view.scale) * scale;
-    const vh = (ch / view.scale) * scale;
-    ctx.fillStyle = "rgba(255,255,255,0.07)";
-    ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.rect(vx, vy, vw, vh);
-    ctx.fill();
-    ctx.stroke();
-  }, [displayNodes, displayEdges, minimapTransform, view, selected]);
-
-  // Pan main canvas to a minimap canvas coordinate
-  const panToMinimapPoint = React.useCallback(
-    (clientX: number, clientY: number, canvas: HTMLCanvasElement): void => {
-      if (!minimapTransform) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = clientX - rect.left;
-      const my = clientY - rect.top;
-      const { scale, offsetX, offsetY } = minimapTransform;
-      const nodeX = (mx - offsetX) / scale;
-      const nodeY = (my - offsetY) / scale;
-      const cw = containerRef.current?.clientWidth ?? 600;
-      const ch = containerRef.current?.clientHeight ?? 400;
-      setView((v) => ({
-        ...v,
-        x: cw / 2 - nodeX * v.scale,
-        y: ch / 2 - nodeY * v.scale,
-      }));
-    },
-    [minimapTransform],
-  );
-
-  const handleMinimapPointerDown = (
-    e: React.PointerEvent<HTMLCanvasElement>,
-  ): void => {
-    minimapIsDragging.current = true;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    panToMinimapPoint(e.clientX, e.clientY, e.currentTarget);
-  };
-
-  const handleMinimapPointerMove = (
-    e: React.PointerEvent<HTMLCanvasElement>,
-  ): void => {
-    if (!minimapIsDragging.current) return;
-    panToMinimapPoint(e.clientX, e.clientY, e.currentTarget);
-  };
-
-  const handleMinimapPointerUp = (): void => {
-    minimapIsDragging.current = false;
-  };
-
   const GUIDE_EXTENT = 9999;
 
   const btnStyle: React.CSSProperties = {
@@ -684,7 +454,7 @@ export function VNEditor(): React.ReactElement {
   const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
     ...btnStyle,
     background: active ? "var(--es-accent)" : "var(--es-surface)",
-    color: active ? "#fff" : "var(--es-text)",
+    color: active ? "var(--es-text-on-accent)" : "var(--es-text)",
   });
 
   return (
@@ -751,7 +521,7 @@ export function VNEditor(): React.ReactElement {
             background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
-            color: "#fff",
+            color: "var(--es-text-on-accent)",
             cursor: "pointer",
           }}
         >
@@ -1114,230 +884,24 @@ export function VNEditor(): React.ReactElement {
         )}
 
         {/* Minimap */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 10,
-            right: 10,
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 4,
-          }}
-        >
-          <button
-            onClick={() => setShowMinimap((v) => !v)}
-            title={showMinimap ? "Hide minimap" : "Show minimap"}
-            style={{
-              padding: "2px 7px",
-              background: showMinimap
-                ? "rgba(109,40,217,0.85)"
-                : "rgba(0,0,0,0.6)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 4,
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: 11,
-              lineHeight: "16px",
-            }}
-          >
-            Map
-          </button>
-          {showMinimap && (
-            <canvas
-              ref={minimapCanvasRef}
-              width={MINI_W}
-              height={MINI_H}
-              onPointerDown={handleMinimapPointerDown}
-              onPointerMove={handleMinimapPointerMove}
-              onPointerUp={handleMinimapPointerUp}
-              onPointerCancel={handleMinimapPointerUp}
-              style={{
-                display: "block",
-                background: "rgba(10,10,20,0.82)",
-                borderRadius: 6,
-                border: "1px solid rgba(255,255,255,0.15)",
-                cursor: "crosshair",
-                touchAction: "none",
-              }}
-            />
-          )}
-        </div>
+        <VNMinimap
+          nodes={displayNodes}
+          edges={displayEdges}
+          view={view}
+          selected={selected}
+          containerRef={containerRef}
+          onViewChange={setView}
+        />
       </div>
 
       {/* Edit modal */}
       {editNode !== null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              background: "var(--es-surface)",
-              border: "1px solid var(--es-border)",
-              borderRadius: 8,
-              padding: 16,
-              width: 360,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontWeight: 600 }}>Edit Node</div>
-            {editNode.type === "dialogue" && (
-              <input
-                value={editNode.speaker ?? ""}
-                onChange={(e) =>
-                  setEditNode((n) =>
-                    n ? { ...n, speaker: e.target.value } : n,
-                  )
-                }
-                placeholder="Speaker"
-                style={{
-                  padding: "4px 8px",
-                  background: "var(--es-bg)",
-                  border: "1px solid var(--es-border)",
-                  borderRadius: 4,
-                  color: "var(--es-text)",
-                }}
-              />
-            )}
-            <textarea
-              value={editNode.text}
-              rows={4}
-              onChange={(e) =>
-                setEditNode((n) => (n ? { ...n, text: e.target.value } : n))
-              }
-              style={{
-                padding: "4px 8px",
-                background: "var(--es-bg)",
-                border: "1px solid var(--es-border)",
-                borderRadius: 4,
-                color: "var(--es-text)",
-                resize: "vertical",
-              }}
-            />
-            {editNode.type === "choice" &&
-              editNode.options?.map((opt, i) => (
-                <div key={i} style={{ display: "flex", gap: 4 }}>
-                  <input
-                    value={opt}
-                    onChange={(e) =>
-                      setEditNode((n) => {
-                        if (!n?.options) return n;
-                        const opts = [...n.options];
-                        opts[i] = e.target.value;
-                        return { ...n, options: opts };
-                      })
-                    }
-                    placeholder={`Option ${i + 1}`}
-                    style={{
-                      flex: 1,
-                      padding: "4px 8px",
-                      background: "var(--es-bg)",
-                      border: "1px solid var(--es-border)",
-                      borderRadius: 4,
-                      color: "var(--es-text)",
-                    }}
-                  />
-                  <button
-                    onClick={() =>
-                      setEditNode((n) => {
-                        if (!n?.options) return n;
-                        return {
-                          ...n,
-                          options: n.options.filter((_, j) => j !== i),
-                        };
-                      })
-                    }
-                    style={{
-                      padding: "2px 6px",
-                      background: "none",
-                      border: "1px solid var(--es-border)",
-                      borderRadius: 4,
-                      color: "var(--es-red)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            {editNode.type === "choice" && (
-              <button
-                onClick={() =>
-                  setEditNode((n) =>
-                    n
-                      ? {
-                          ...n,
-                          options: [
-                            ...(n.options ?? []),
-                            `Option ${(n.options?.length ?? 0) + 1}`,
-                          ],
-                        }
-                      : n,
-                  )
-                }
-                style={{
-                  padding: "3px 8px",
-                  background: "var(--es-surface)",
-                  border: "1px solid var(--es-border)",
-                  borderRadius: 4,
-                  color: "var(--es-text)",
-                  cursor: "pointer",
-                  fontSize: 11,
-                }}
-              >
-                + Add option
-              </button>
-            )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => {
-                  commitNodes(
-                    localNodes.map((n) =>
-                      n.id === editNode.id ? editNode : n,
-                    ),
-                  );
-                  setEditNode(null);
-                }}
-                style={{
-                  flex: 1,
-                  padding: "5px 0",
-                  background: "var(--es-accent)",
-                  border: "none",
-                  borderRadius: 4,
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditNode(null)}
-                style={{
-                  flex: 1,
-                  padding: "5px 0",
-                  background: "var(--es-surface)",
-                  border: "1px solid var(--es-border)",
-                  borderRadius: 4,
-                  color: "var(--es-text)",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <VNNodeEditModal
+          node={editNode}
+          localNodes={localNodes}
+          onSave={commitNodes}
+          onClose={() => setEditNode(null)}
+        />
       )}
     </div>
   );

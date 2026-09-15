@@ -8,7 +8,8 @@ import {
   Box,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
-import type { EntityItem } from "../../store/ideStore";
+import type { EntityItem, EntitySnapshot } from "../../store/ideStore";
+import { engineChannel } from "../../services/EngineChannel";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
@@ -70,7 +71,9 @@ function EntityRow({
         className="flex items-center w-full gap-1 py-1 pr-2 group"
         style={{
           paddingLeft: `${8 + depth * 14}px`,
-          background: isSelected ? "var(--es-selection-bg, rgba(124,106,247,0.15))" : undefined,
+          background: isSelected
+            ? "var(--es-selection-bg, rgba(124,106,247,0.15))"
+            : undefined,
           borderLeft: isSelected
             ? "2px solid var(--es-accent)"
             : "2px solid transparent",
@@ -164,11 +167,27 @@ function flattenEntities(entities: EntityItem[]): EntityItem[] {
   return result;
 }
 
+function snapshotToEntityItem(snap: EntitySnapshot): EntityItem {
+  return {
+    id: snap.id,
+    name: snap.name,
+    active: snap.active,
+    type: "Entity",
+    components: snap.components,
+    children: [],
+  };
+}
+
 export function SceneInspector(): React.ReactElement {
   const entities = useIDEStore((s) => s.entities);
+  const liveEntities = useIDEStore((s) => s.liveEntities);
   const addEntity = useIDEStore((s) => s.addEntity);
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
   const selectEntity = useIDEStore((s) => s.selectEntity);
+
+  // Prefer live entity data from the running game; fall back to editor entities
+  const displayEntities: EntityItem[] =
+    liveEntities.length > 0 ? liveEntities.map(snapshotToEntityItem) : entities;
 
   const [filter, setFilter] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
@@ -178,7 +197,7 @@ export function SceneInspector(): React.ReactElement {
   const quipRef = React.useRef(
     EMPTY_SCENE_QUIPS[
       Math.floor(Math.random() * EMPTY_SCENE_QUIPS.length)
-    ] as string
+    ] as string,
   );
 
   // History tracks deleted entity IDs so undo/redo can be described
@@ -191,17 +210,23 @@ export function SceneInspector(): React.ReactElement {
   } = useHistory<SceneHistEntry>({ deletedIds: [] });
 
   const handleAddEntity = (): void => {
-    const name = `Entity${entities.length + 1}`;
+    const name = `Entity${displayEntities.length + 1}`;
     addEntity(name);
   };
 
-  // When selection changes: signal store so EntityProperties can react
+  // When selection changes: signal store so EntityProperties can react,
+  // and notify the engine iframe to push component fields for the selected entity.
   React.useEffect(() => {
     if (selectedIds.size === 0) {
       selectEntity(null);
     } else if (selectedIds.size === 1) {
       const [id] = selectedIds;
-      if (id !== undefined) selectEntity(id);
+      if (id !== undefined) {
+        selectEntity(id);
+        // Clear stale live fields before the engine responds with fresh ones
+        useIDEStore.getState().setLiveComponentFields(null);
+        engineChannel.postToEngine({ type: "es:select-entity", id });
+      }
     } else {
       // Multiple selected — clear the store selection so EntityProperties
       // shows its empty/multi state
@@ -241,7 +266,7 @@ export function SceneInspector(): React.ReactElement {
   }, [undo, redo, selectedIds, deleteEntity, pushHist]);
 
   const isFiltering = filter.length > 0;
-  const flat = flattenEntities(entities);
+  const flat = flattenEntities(displayEntities);
   const filteredFlat = isFiltering
     ? flat.filter((e) => e.name.toLowerCase().includes(filter.toLowerCase()))
     : [];
@@ -255,7 +280,7 @@ export function SceneInspector(): React.ReactElement {
         return next;
       });
     } else if (e.shiftKey && lastClickedId !== null) {
-      const allFlat = flattenEntities(entities);
+      const allFlat = flattenEntities(displayEntities);
       const fromIdx = allFlat.findIndex((x) => x.id === lastClickedId);
       const toIdx = allFlat.findIndex((x) => x.id === entity.id);
       if (fromIdx !== -1 && toIdx !== -1) {
@@ -325,7 +350,7 @@ export function SceneInspector(): React.ReactElement {
               {selectionLabel}
             </Badge>
           )}
-          <Badge variant="default">{entities.length} entities</Badge>
+          <Badge variant="default">{displayEntities.length} entities</Badge>
           <Button
             variant="ghost"
             size="icon"
@@ -375,7 +400,7 @@ export function SceneInspector(): React.ReactElement {
       {/* Entity list */}
       <div className="flex-1 overflow-y-auto py-1">
         {/* Empty scene */}
-        {entities.length === 0 && (
+        {displayEntities.length === 0 && (
           <div
             style={{
               padding: "24px 16px",
@@ -391,18 +416,20 @@ export function SceneInspector(): React.ReactElement {
         )}
 
         {/* No search results */}
-        {entities.length > 0 && isFiltering && filteredFlat.length === 0 && (
-          <div
-            style={{
-              padding: "24px 16px",
-              textAlign: "center",
-              color: "var(--es-text-muted)",
-              fontSize: 11,
-            }}
-          >
-            No entities match &ldquo;{filter}&rdquo;.
-          </div>
-        )}
+        {displayEntities.length > 0 &&
+          isFiltering &&
+          filteredFlat.length === 0 && (
+            <div
+              style={{
+                padding: "24px 16px",
+                textAlign: "center",
+                color: "var(--es-text-muted)",
+                fontSize: 11,
+              }}
+            >
+              No entities match &ldquo;{filter}&rdquo;.
+            </div>
+          )}
 
         {/* Filtered flat list */}
         {isFiltering
@@ -415,7 +442,7 @@ export function SceneInspector(): React.ReactElement {
                 isFiltering={true}
               />
             ))
-          : entities.map((entity) => (
+          : displayEntities.map((entity) => (
               <EntityRow
                 key={entity.id}
                 entity={entity}

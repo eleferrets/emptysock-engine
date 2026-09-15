@@ -161,9 +161,7 @@ export function ConsolePanel(): React.ReactElement {
                   ? "2px solid var(--es-accent)"
                   : "2px solid transparent",
               color:
-                activeTab === tab
-                  ? "var(--es-text)"
-                  : "var(--es-text-muted)",
+                activeTab === tab ? "var(--es-text)" : "var(--es-text-muted)",
               cursor: "pointer",
               textTransform: "capitalize",
             }}
@@ -205,12 +203,12 @@ export function ConsolePanel(): React.ReactElement {
               key={log.id}
               className="flex items-start gap-2 px-3 py-1 border-b"
               style={{
-                borderColor: "rgba(42,42,46,0.5)",
+                borderColor: "var(--es-border)",
                 background:
                   log.level === "error"
-                    ? "rgba(248,113,113,0.05)"
+                    ? "color-mix(in srgb, var(--es-red) 5%, transparent)"
                     : log.level === "warn"
-                      ? "rgba(250,204,21,0.04)"
+                      ? "color-mix(in srgb, var(--es-yellow) 4%, transparent)"
                       : undefined,
               }}
             >
@@ -363,7 +361,7 @@ export function ConsolePanel(): React.ReactElement {
                     <tr
                       key={key}
                       style={{
-                        borderBottom: "1px solid rgba(42,42,46,0.5)",
+                        borderBottom: "1px solid var(--es-border)",
                       }}
                     >
                       <td
@@ -393,7 +391,13 @@ export function ConsolePanel(): React.ReactElement {
           )}
 
           {/* Breakpoints section */}
-          <div style={{ ...SECTION_HEADER, marginTop: 8, borderTop: "1px solid var(--es-border)" }}>
+          <div
+            style={{
+              ...SECTION_HEADER,
+              marginTop: 8,
+              borderTop: "1px solid var(--es-border)",
+            }}
+          >
             Breakpoints
           </div>
           <div

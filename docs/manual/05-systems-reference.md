@@ -21,10 +21,14 @@ player.addComponent(PhysicsBody, {
 // Character controller (handles slope, stairs, one-way platforms):
 player.addComponent(CharacterController, { slopeAngle: 45 });
 
-// In onUpdate:
+// In onUpdate — assumes `input` is an InputSystem instance (see §5.3):
 const ctrl = player.requireComponent(CharacterController);
-if (ctrl.isGrounded() && Input.isPressed("Space")) ctrl.jump(600);
-ctrl.moveAndSlide({ x: Input.axis("Horizontal") * 200 * dt, y: 0 });
+const h = input.isKeyDown("ArrowRight")
+  ? 1
+  : input.isKeyDown("ArrowLeft")
+    ? -1
+    : 0;
+ctrl.moveAndSlide({ x: h * 200 * dt, y: 0 });
 ```
 
 **Collision events:**
@@ -88,9 +92,9 @@ physics.destroy(); // REQUIRED
 
 ---
 
-## 5.3 InputSystem (advanced)
+## 5.3 InputSystem
 
-The high-level `Input` static class covers most cases (see Section 4.8). For direct system access inside a custom system or actor:
+`InputSystem` is the engine's keyboard, mouse, and touch input class. Create one instance in `onLoad`, call `attach()`, and call `flush()` at the start of each frame before reading any state:
 
 ```typescript
 import { InputSystem } from "@emptysock/engine";
@@ -218,17 +222,28 @@ const slots = await SaveSystem.listSlots(); // string[]
 
 ## 5.7 Localisation
 
+`LocalisationSystem` is instanced — create one in `onLoad`, register locale data with `addTranslations()`, then call `setLocale()`.
+
 ```typescript
-import { i18n } from "@emptysock/engine";
+import { LocalisationSystem } from "@emptysock/engine";
+import { z } from "zod";
 
-await i18n.load("en", () => import("./locales/en.json"));
-await i18n.load("fr", () => import("./locales/fr.json"));
+// In onLoad:
+const localisation = new LocalisationSystem();
+const TranslationMapSchema = z.record(z.string());
 
-i18n.setLocale("fr");
+const enRaw = await (await fetch("assets/i18n/en.json")).json();
+const frRaw = await (await fetch("assets/i18n/fr.json")).json();
+localisation.addTranslations("en", TranslationMapSchema.parse(enRaw));
+localisation.addTranslations("fr", TranslationMapSchema.parse(frRaw));
 
-i18n.t("greeting"); // → "Bonjour"
-i18n.t("score", { n: 42 }); // → "Score : 42"
-i18n.t("missing.key"); // → 'missing.key' (never throws)
+localisation.setLocale("fr");
+
+localisation.t("greeting"); // → "Bonjour"
+localisation.t("score", { n: 42 }); // → "Score : 42"
+localisation.t("missing.key"); // → 'missing.key' (never throws)
+
+const lang = localisation.currentLocale; // "fr"
 ```
 
 Locale JSON format: `{ "key": "value", "score": "Score : {{n}}" }`. Template tokens use `{{name}}` syntax.
@@ -331,93 +346,124 @@ TilemapSystem.unload("assets/levels/level1.esmap");
 
 ---
 
-## 5.11 Tween
+## 5.11 TweenManager
 
-Interpolates numeric properties on any object over a duration, integrated with the game loop.
+`TweenManager` interpolates numeric properties on any plain object over a duration. Create one instance per scene, call `update(dt)` each frame. When the scene unloads the instance is garbage-collected with the scene — no explicit teardown is needed.
 
 ```typescript
-import { Tween } from "@emptysock/engine";
+import { TweenManager, type TweenOptions } from "@emptysock/engine";
 
-// Move an entity:
-Tween.to(entity, { x: 400, y: 200 }, { duration: 0.5, ease: "bounceOut" });
+export class GameScene extends Scene {
+  private _tweens!: TweenManager;
 
-// Fade out a sprite and destroy on complete:
-Tween.to(
+  override onLoad(): void {
+    this._tweens = new TweenManager();
+  }
+
+  override onUpdate(dt: number): void {
+    this._tweens.update(dt); // required — drives all active tweens
+  }
+}
+
+// Animate any object's numeric properties to new values:
+this._tweens.to(
+  entity.position,
+  { x: 400, y: 200 },
+  {
+    duration: 0.5,
+    ease: "bounceOut",
+  },
+);
+
+// With delay and completion callback:
+this._tweens.to(
   sprite,
   { alpha: 0 },
   {
     duration: 0.3,
     ease: "sineIn",
+    delay: 0.2,
     onComplete: () => entity.destroy(),
   },
 );
 
-// Tween from a starting value:
-Tween.from(entity, { y: -100 }, { duration: 0.4, ease: "cubicOut" });
-
-// Cancel a running tween:
-const handle = Tween.to(enemy, { alpha: 0.5 }, { duration: 1.0 });
-Tween.kill(handle);
+// Scene-local timers (no handles to cancel — stop when scene unloads):
+this._tweens.after(2.0, () => this.spawnWave());
+this._tweens.every(5.0, () => this.spawnPowerUp());
 ```
+
+**Options:**
+
+| Option       | Type         | Default    | Notes                           |
+| ------------ | ------------ | ---------- | ------------------------------- |
+| `duration`   | `number`     | required   | Seconds                         |
+| `ease`       | `EasingName` | `'linear'` | See easings list below          |
+| `delay`      | `number`     | `0`        | Seconds before tween starts     |
+| `onComplete` | `() => void` | —          | Called once when tween finishes |
 
 **Easing functions:** `linear`, `sineIn/Out/InOut`, `quadIn/Out/InOut`, `cubicIn/Out/InOut`, `bounceOut`, `elasticOut`, `backIn/Out`.
 
-> **Tip:** Tweens do not need to be cancelled in `onDestroy` if the target object is destroyed — the engine detects the destroyed entity and stops the tween automatically. For tweens on plain objects (not entities), cancel them manually.
+> **Note:** `TweenManager` only animates numeric properties. Non-numeric properties are silently ignored. For complex multi-step sequences, use coroutines (`yield waitSeconds(n)`) — they are clearer than chained `onComplete` callbacks.
 
 ---
 
 ## 5.12 UISystem
 
-A retained-mode 2D UI layer rendered on top of the scene canvas. Widgets live in a tree separate from the entity graph; they do not participate in the physics simulation.
+A retained-mode 2D UI overlay rendered on top of the scene canvas using Canvas 2D. `UISystem` is a module-level singleton — access it via `UISystem` (static calls) or `this.uiSystem` inside any `Scene` subclass.
 
 ```typescript
-import { UISystem } from "@emptysock/engine";
+import {
+  UISystem,
+  PanelWidget,
+  LabelWidget,
+  ButtonWidget,
+  ProgressBarWidget,
+  SceneManager,
+} from "@emptysock/engine";
 
-const ui = new UISystem();
-
-// Build a simple health bar:
-const root = ui.createPanel({ x: 16, y: 16, width: 200, height: 20 });
-const label = ui.createLabel({ text: "HP", parent: root, color: "#fff" });
-const bar = ui.createProgressBar({
-  parent: root,
-  value: 1.0, // 0.0–1.0
-  fill: "#e74c3c",
-  background: "#333",
+// In onLoad — build the widget tree:
+const hp = new ProgressBarWidget({
+  anchor: "top-left",
+  x: 16,
+  y: 16,
+  width: 200,
+  height: 14,
+  fillColor: 0xe74c3c,
+  trackColor: 0x333333,
+  value: 1.0,
 });
+UISystem.add(hp);
 
-// Update each frame:
-bar.setValue(player.hp / player.maxHp);
-
-// Button with click handler:
-const btn = ui.createButton({
-  text: "Retry",
-  x: 320,
-  y: 240,
+const btn = new ButtonWidget({
+  label: "Retry",
+  anchor: "center",
   width: 120,
   height: 40,
-  onClick: () => SceneManager.load("GameScene"),
 });
+btn.on("click", () => SceneManager.load("GameScene"));
+btn.animate("fadeIn");
+UISystem.add(btn);
 
-// Render (called automatically if ui is passed to scene.setUI):
-ui.render();
+// In onUpdate:
+UISystem.update(dt);
 
-// Destroy when scene ends:
-ui.destroy();
+// In onDestroy:
+UISystem.clear();
 ```
 
-**Key methods:**
+**Key UISystem methods:**
 
-| Method                      | Returns         | Description                                   |
-| --------------------------- | --------------- | --------------------------------------------- |
-| `createPanel(opts)`         | `UIPanel`       | Container with optional background and border |
-| `createLabel(opts)`         | `UILabel`       | Static or dynamic text element                |
-| `createButton(opts)`        | `UIButton`      | Clickable region with text label              |
-| `createProgressBar(opts)`   | `UIProgressBar` | Horizontal fill bar                           |
-| `createImage(opts)`         | `UIImage`       | Texture rect                                  |
-| `setVisible(node, visible)` | `void`          | Show/hide any node                            |
-| `destroy()`                 | `void`          | Frees all widget state                        |
+| Method                                    | Description                                      |
+| ----------------------------------------- | ------------------------------------------------ |
+| `UISystem.add(widget)`                    | Add a root widget to the overlay                 |
+| `UISystem.removeWidget(widget)`           | Remove a specific root widget                    |
+| `UISystem.clear()`                        | Remove all widgets                               |
+| `UISystem.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state                  |
+| `UISystem.render(ctx, cw, ch)`            | Draw (called automatically in scene render pass) |
 
-> **Note:** UI coordinates are in canvas pixels. (0, 0) is the top-left of the canvas. No layout engine runs automatically — position nodes manually or compute positions in `onUpdate`.
+**Widget classes:** `PanelWidget`, `LabelWidget`, `ButtonWidget`, `ImageWidget`, `ProgressBarWidget`, `SliderWidget`, `CheckboxWidget` — see the **UISystem & Widget API** reference section at the end of this document.
+
+> **Note:** UI coordinates are in canvas pixels. Widgets are positioned relative to their `anchor` point on the canvas — use `anchor: 'top-left'` with `x/y` offsets for HUD elements, `anchor: 'center'` for overlay menus.
 
 ---
 
@@ -472,38 +518,36 @@ post.destroy();
 
 ## 5.14 GamepadSystem
 
-Provides access to the Gamepad API with normalised stick dead-zones and button mapping. Works alongside the `Input` static class — gamepad axes and buttons are also readable through `Input.axis()` and `Input.isPressed()` when a standard mapping is set.
+Provides access to the browser Gamepad API with snapshot-based polling. For keyboard and mouse input, use `InputSystem` directly — see §5.3. `GamepadSystem` handles gamepad-specific axis and button queries.
 
 ```typescript
-import { GamepadSystem } from "@emptysock/engine";
+import {
+  GamepadSystem,
+  type GamepadState,
+  type DualRumbleOptions,
+} from "@emptysock/engine";
 
-const pads = new GamepadSystem({ deadZone: 0.15 });
+const pads = new GamepadSystem();
 
-// In onUpdate:
-pads.poll(); // must call once per frame before reading state
+// In onUpdate — must call update() before reading state:
+pads.update();
 
-const p0 = pads.get(0); // GamepadState | undefined
-if (p0) {
-  const { lx, ly, rx, ry } = p0.axes; // -1..1, dead-zone applied
-  const jump = p0.isPressed("A"); // button pressed this frame
-  const attack = p0.isDown("X"); // button held
-  const lt = p0.trigger("LT"); // 0..1 analog trigger
+const state: GamepadState | null = pads.getState(0);
+if (state !== null && state.connected) {
+  // buttons: ReadonlyArray<boolean> indexed by standard gamepad mapping
+  const jump = state.buttons[0] ?? false; // A / Cross
+  const attack = state.buttons[2] ?? false; // X / Square
+  // axes: ReadonlyArray<number>, -1..1
+  const lx = state.axes[0] ?? 0; // left stick X
+  const ly = state.axes[1] ?? 0; // left stick Y
 }
 
-// Enumerate connected pads:
-for (const pad of pads.connected()) {
-  console.log(pad.index, pad.id);
-}
-
-// Rumble (where supported):
-pads
-  .get(0)
-  ?.vibrate({ duration: 200, weakMagnitude: 0.3, strongMagnitude: 0.6 });
+// Rumble (where supported by the browser):
+pads.rumble(0, 0.5, 200); // equal-motor rumble
+pads.rumbleDual(0, { weakMagnitude: 0.3, strongMagnitude: 0.8, duration: 300 });
 ```
 
-**Standard button names:** `A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `Start`, `Select`, `L3`, `R3`, `DUp`, `DDown`, `DLeft`, `DRight`.
-
-> **Note:** `pads.poll()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
+> **Note:** `pads.update()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
 
 ---
 
@@ -551,139 +595,143 @@ emitter.clear();
 
 ## 5.16 LayerSystem
 
-Manages named render layers and controls draw order, visibility, and per-layer camera parallax. Entities are assigned to a layer; the `RenderSystem` draws layers in ascending `zOrder`.
+Controls draw order: entities are assigned to a named layer at an explicit depth. `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers are pre-registered by the constructor.
 
 ```typescript
-import { LayerSystem } from "@emptysock/engine";
+import { LayerSystem, LAYER, type LayerConfig } from "@emptysock/engine";
 
-// Set up layers once in onLoad:
-const layers = new LayerSystem();
+// LAYER constants for the four built-in layers:
+// LAYER.BACKGROUND = -1000, LAYER.DEFAULT = 0, LAYER.FOREGROUND = 100, LAYER.UI = 1000
 
-layers.defineLayer({
-  name: "Background",
-  zOrder: 0,
-  parallax: { x: 0.2, y: 0.2 },
-});
-layers.defineLayer({
-  name: "Midground",
-  zOrder: 10,
-  parallax: { x: 0.6, y: 0.6 },
-});
-layers.defineLayer({ name: "Gameplay", zOrder: 20 }); // scrolls 1:1
-layers.defineLayer({ name: "FX", zOrder: 30, blendMode: "additive" });
-layers.defineLayer({ name: "UI", zOrder: 40, fixed: true }); // camera-fixed
+private _layers: LayerSystem | null = null
 
-// Assign entities to layers:
-layers.addToLayer("Background", backgroundSprite);
-layers.addToLayer("Gameplay", player);
-layers.addToLayer("FX", explosionEmitter);
+override onLoad(): void {
+  this._layers = new LayerSystem()
+  // Built-in layers already registered: 'background', 'default', 'foreground', 'ui'
 
-// Toggle visibility (culls the whole layer from the render pass):
-layers.setVisible("FX", false);
-layers.setVisible("FX", true);
+  // Add project-specific layers (use index gaps for future insertions):
+  this._layers.defineLayer('midground', 50)
+  this._layers.defineLayer('fx', 80)
 
-// Change parallax at runtime:
-layers.setParallax("Background", { x: 0.3, y: 0.1 });
-
-// Remove an entity from its layer (entity retains its data, just excluded from render):
-layers.removeFromLayer("Gameplay", player);
-
-// Enumerate layers in draw order:
-for (const layer of layers.sorted()) {
-  console.log(layer.name, layer.zOrder, layer.visible);
+  // Assign entities by id, with optional depth within the layer:
+  this._layers.addEntity(background.id, 'background')
+  this._layers.addEntity(treeBack.id,  'midground', -10)
+  this._layers.addEntity(treeFront.id, 'midground',  10)
+  this._layers.addEntity(player.id,    'foreground')
+  this._layers.addEntity(hud.id,       'ui')
 }
 
-// Destroy with scene:
-layers.destroy();
+// Hide / show an entire layer (culls it from the render pass):
+this._layers.setVisible('fx', false)
+this._layers.setVisible('fx', true)
+const visible = this._layers.isVisible('fx')  // boolean
+
+// Move an entity's depth within its current layer:
+this._layers.setDepth(treeBack.id, -20)
+
+// Unregister an entity (entity still exists — excluded from sort):
+this._layers.removeEntity(oldEntity.id)
+
+// Sort key for custom draw calls ([layerIndex, depth]):
+const [layerIdx, depth] = this._layers.getSortKey(entity.id)
+
+// All entities on a layer, sorted by depth ascending:
+const onMidground = this._layers.getEntitiesOnLayer('midground')
+// → Array<{ entityId: number; depth: number }>
+
+// All layer configs sorted by index (render order):
+const sorted: LayerConfig[] = this._layers.getLayersSorted()
+
+override onDestroy(): void {
+  this._layers.destroy()
+}
 ```
 
-**Key options on `defineLayer`:**
+**API reference:**
 
-| Option      | Type                     | Description                                             |
-| ----------- | ------------------------ | ------------------------------------------------------- |
-| `name`      | `string`                 | Unique layer identifier                                 |
-| `zOrder`    | `number`                 | Ascending draw order (lower = further back)             |
-| `parallax`  | `{ x, y }`               | Camera offset multiplier; defaults to `{ x: 1, y: 1 }`  |
-| `blendMode` | `'normal' \| 'additive'` | Composite mode for the layer                            |
-| `fixed`     | `boolean`                | If true, layer ignores camera translation (UI use case) |
-
-> **Integration with RenderSystem:** Pass the `LayerSystem` instance to `scene.setLayerSystem(layers)` and the render pipeline reads layer assignments automatically. Without this call, all entities render in insertion order with no parallax.
+| Method               | Signature                                                     | Notes                                   |
+| -------------------- | ------------------------------------------------------------- | --------------------------------------- |
+| `defineLayer`        | `(name: string, index: number): void`                         | Lower index = drawn behind              |
+| `addEntity`          | `(entityId: number, layerName: string, depth?: number): void` | Unknown layer falls back to `'default'` |
+| `removeEntity`       | `(entityId: number): void`                                    | Unregisters entity from sort            |
+| `setDepth`           | `(entityId: number, depth: number): void`                     | Depth within current layer              |
+| `getSortKey`         | `(entityId: number): [number, number]`                        | `[layerIndex, depth]`                   |
+| `getEntitiesOnLayer` | `(name: string): Array<{entityId, depth}>`                    | Sorted by depth ascending               |
+| `getLayersSorted`    | `(): LayerConfig[]`                                           | All layers sorted by index              |
+| `setVisible`         | `(name: string, visible: boolean): void`                      | Cull whole layer                        |
+| `isVisible`          | `(name: string): boolean`                                     |                                         |
+| `destroy`            | `(): void`                                                    | Call in `onDestroy`                     |
 
 ---
 
 ## 5.17 VNSystem (Story Graph)
 
-Plays back a branching dialogue script exported from the **Story Graph** panel (Module → Story Graph). The script is a JSON file produced by the Story Graph's Export button; it contains Dialogue nodes, Choice nodes, and Condition nodes.
+Plays back a branching dialogue tree exported from the **Story Graph** panel (Module → Story Graph). Export the graph as `.storyGraph.json`, convert to a `DialogueTree` with `storyGraphToDialogueTree`, then call `vn.load(tree)`. `load()` is synchronous and fires `onNode` for the first node immediately.
 
 ```typescript
 import {
   VNSystem,
-  type VNNode,
-  type VNDialogueNode,
-  type VNChoiceNode,
+  storyGraphToDialogueTree,
+  type DialogueNode,
+  type StoryGraph,
 } from "@emptysock/engine";
 
-const vn = new VNSystem();
+// In onLoad — register callbacks BEFORE calling load():
+override async onLoad(): Promise<void> {
+  const response = await fetch("assets/story/chapter1.storyGraph.json");
+  const graph: StoryGraph = await response.json() as StoryGraph;
+  const tree = storyGraphToDialogueTree(graph);
 
-// Load a script exported from the Story Graph panel:
-await vn.loadScript("assets/story/chapter1.vnscript");
+  const vn = new VNSystem();
 
-// Register a node callback — called each time the active node changes:
-vn.onNode((node: VNNode) => {
-  if (node.type === "dialogue") {
-    const d = node as VNDialogueNode;
-    renderDialogue(d.speaker, d.text); // render however you like
-  } else if (node.type === "choice") {
-    const c = node as VNChoiceNode;
-    renderChoices(c.options.map((o) => o.label));
-  }
-});
+  vn.onNode = (node: DialogueNode) => {
+    if (node.type === "dialogue") {
+      renderDialogue(node.speaker, node.text);
+    } else if (node.type === "choice") {
+      renderChoices(node.options);   // options: Array<{ label: string; next: string }>
+    } else if (node.type === "event") {
+      handleGameEvent(node.eventName, node.data);   // auto-advanced by engine
+    }
+    // 'jump' nodes resolved automatically — onNode never fires for them
+    // 'variable-set' nodes: onNode fires, engine auto-advances
+  };
 
-// Begin playback from the first node:
-vn.play();
+  vn.onChoice = (options) => {
+    showChoiceButtons(options);   // options: Array<{ label: string; next: string }>
+  };
 
-// Advance a Dialogue node to its successor:
+  vn.onEnd = () => { hideDialogueBox(); };
+
+  vn.load(tree);   // synchronous; onNode fires immediately for first node
+}
+
+// Advance a dialogue node to its successor:
 vn.advance();
 
-// Select a choice (zero-indexed) on a Choice node:
-vn.choose(1);
+// Select a choice — pass the target node id from the option:
+vn.selectOption(option.next);   // option.next is a node id string
 
-// Skip auto-advance delay (if configured in the script):
-vn.skip();
-
-// Jump to a specific node by its id (use for save/resume):
-vn.jumpToNode("node-uuid-here");
-
-// Variables — read and write arbitrary flags for Condition nodes:
-vn.setVariable("metStranger", true);
-const met = vn.getVariable("metStranger"); // boolean | string | number | undefined
-
-// Read the full variable map (for serialisation):
-const vars = vn.getVariables(); // Record<string, string | number | boolean>
-
-// Destroy when the scene ends:
-vn.destroy();
+// Read the current node at any time:
+const node: DialogueNode | null = vn.currentNode;
 ```
 
-**Node types returned by `onNode`:**
+**`DialogueNode` — discriminated union (narrow by `node.type`):**
 
-| `node.type`   | Interface         | Key fields                                                 |
-| ------------- | ----------------- | ---------------------------------------------------------- |
-| `'dialogue'`  | `VNDialogueNode`  | `id`, `speaker`, `text`                                    |
-| `'choice'`    | `VNChoiceNode`    | `id`, `options: { label, targetId }[]`                     |
-| `'condition'` | `VNConditionNode` | `id`, `variable`, `value`, `trueTargetId`, `falseTargetId` |
+| `node.type`      | Key fields                                            | Notes                               |
+| ---------------- | ----------------------------------------------------- | ----------------------------------- |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                     |
+| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode` |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances after `onNode` |
+| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances after `onNode` |
+| `'jump'`         | (resolved automatically)                              | `onNode` never fires                |
 
-**Condition nodes** are evaluated automatically when the system reaches them — `onNode` is not called for Condition nodes. The system reads the stored variable with `getVariable()`, compares it to `node.value`, and follows the appropriate branch.
+**Save/resume:** VNSystem has no internal save state. Store the current node id (`vn.currentNode?.id`) and re-walk the graph on resume. See Section 8 (Story Graph) for a full example.
 
-**Auto-advance:** If a Dialogue node in the script has a `delay` property set (configured in the Story Graph editor), the system automatically calls `advance()` after the delay in seconds. Call `skip()` to bypass the delay immediately.
-
-> **Story Graph panel:** Open it via **Module → Story Graph** in the IDE menu bar. The panel is an SVG-based node graph. See Section 7 (IDE Reference) for panel controls and the Story Graph panel description. Export the finished graph as `.vnscript` JSON and load it with `vn.loadScript()`.
-
-> **Save/resume pattern:** Call `vn.jumpToNode(savedNodeId)` and restore variables with `vn.setVariable()` before calling `vn.play()`. See the visual novel tutorial (Section 13) for a full example.
+> `VNSystem` has no `destroy()` — release the reference and it is garbage-collected. Register `onNode`, `onChoice`, `onEvent`, and `onEnd` before calling `load()` or the first node fires without a listener.
 
 ---
 
-## 5.14 AutoTileSystem
+## 5.18 AutoTileSystem
 
 Selects the correct tile variant for a cell based on its eight neighbours. Each rule set is keyed to a base tile index; rules match a bitmask where bit 0 = NW, 1 = N, 2 = NE, 3 = W, 4 = E, 5 = SW, 6 = S, 7 = SE.
 
@@ -712,7 +760,7 @@ The Tilemap Editor's **Auto-tile Rules** modal writes and reads rule sets in thi
 
 ---
 
-## 5.15 VariableStore
+## 5.19 VariableStore
 
 Indexed integer variables (1–1000) and boolean switches (1–1000), persisted automatically to `localStorage`. The IDE's **Variables** panel reads and writes this store.
 
@@ -741,7 +789,7 @@ vars.restore(snap);
 
 ---
 
-## 5.16 MapEventSystem
+## 5.20 MapEventSystem
 
 Tile-aligned event system similar to RPG Maker / GMS2. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
 
@@ -771,14 +819,14 @@ events.setHandler(async (cmd) => {
 });
 
 // In onUpdate:
-events.update(playerTileX, playerTileY, Input.isJustPressed("Space"));
+events.update(playerTileX, playerTileY, Input.isPressed("Space"));
 ```
 
 Trigger types: `autorun` runs once on entry; `player-touch` fires when the player steps on the tile; `action-button` fires when the action key is pressed on the tile; `parallel` runs every frame concurrently.
 
 ---
 
-## 5.17 GridMovementBehavior
+## 5.21 GridMovementBehavior
 
 Smooth 4-directional tile-aligned movement. The entity slides between tile centres; new input is accepted only when the entity is at rest.
 
@@ -802,7 +850,7 @@ Set `mover.speed` at runtime to change movement speed. The entity requires a `Tr
 
 ---
 
-## 5.18 CharacterStage
+## 5.22 CharacterStage
 
 Renders character sprites at predefined stage positions (left, center, right) with image fade transitions. Designed for visual-novel-style scenes.
 
@@ -829,7 +877,7 @@ stage.render(ctx);
 
 ---
 
-## 5.19 VNBackgroundLayer
+## 5.23 VNBackgroundLayer
 
 Manages a background image and an optional full-screen CG overlay with cross-fade transitions. Draw it before characters and UI.
 
@@ -859,38 +907,65 @@ Fit modes: `'cover'` (fill, crop sides), `'contain'` (letterbox), `'stretch'`.
 
 ---
 
-## 5.20 VNTextbox
+## 5.24 VNTextbox
 
-Pre-built dialogue box rendered by UISystem. Attach it to a VNSystem instance to have it update automatically on each node change.
+Pre-built dialogue box rendered by `UISystem`. Creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Bind it to a `VNSystem` instance — it syncs automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
 
 ```typescript
-import { VNTextbox, VNSystem } from "@emptysock/engine";
+import {
+  VNTextbox,
+  VNSystem,
+  UISystem,
+  storyGraphToDialogueTree,
+  type VNTextboxOptions,
+} from "@emptysock/engine";
 
-const vn = new VNSystem();
-vn.loadScript(scriptJson);
+class NarrativeScene extends Scene {
+  private _vn!: VNSystem;
+  private _textbox!: VNTextbox;
 
-const textbox = new VNTextbox({
-  canvasWidth: 800,
-  canvasHeight: 600,
-  height: 160,
-  fontSize: 16,
-});
-textbox.bind(vn);
+  override async onLoad(): Promise<void> {
+    const response = await fetch("assets/story/chapter1.storyGraph.json");
+    const graph = await response.json();
+    const tree = storyGraphToDialogueTree(graph);
 
-// In your render callback (after game world, before overlay):
-UISystem.render(ctx, 800, 600);
+    this._vn = new VNSystem();
 
-// Clicking the advance button:
-vn.advance();
+    this._textbox = new VNTextbox({ canvasWidth: 800, canvasHeight: 600 });
+    this._textbox.bind(this._vn); // sync immediately to current node
+
+    // Choice selection is external — VNTextbox shows options as numbered text
+    // but selection requires your own buttons:
+    this._vn.onChoice = (options) => {
+      options.forEach((opt, i) => {
+        const btn = createChoiceButton(i + 1, opt.label);
+        btn.onClick(() => {
+          this._vn.selectOption(opt.next); // opt.next is the target node id
+          removeChoiceButtons();
+        });
+      });
+    };
+
+    this._vn.load(tree); // fires onNode for first node immediately
+  }
+
+  override onUpdate(dt: number): void {
+    UISystem.update(dt);
+  }
+
+  override onDestroy(): void {
+    this._textbox.destroy(); // removes UISystem components — required
+  }
+}
 ```
 
-All colors and dimensions are optional constructor parameters — see `VNTextboxOptions` for the full list.
+`VNTextbox` sets `visible` automatically: `dialogue` and `choice` nodes show the box; `event`, `jump`, `variable-set`, and `null` hide it. All constructor options are optional except `canvasWidth` and `canvasHeight` — see `VNTextboxOptions` for the full list.
 
 ---
 
-## 5.21 VNScriptConvert
+## 5.25 VNScriptConvert
 
-Converts between the Story Graph (visual-editor JSON) and the VNSystem `DialogueTree` format (`.vnscript` JSON).
+Converts between the Story Graph (`.storyGraph.json` — visual-editor format) and the `DialogueTree` format consumed by `VNSystem.load()`.
 
 ```typescript
 import {
@@ -910,7 +985,7 @@ The IDE calls `storyGraphToDialogueTree` automatically when you click **Build** 
 
 ---
 
-## 5.22 CGGallery
+## 5.26 CGGallery
 
 Tracks which CG images the player has unlocked. Persists unlock state through SaveSystem.
 
@@ -949,7 +1024,7 @@ Integrate with VNSystem: call `gallery.unlockFromNode(cgId)` inside a `vn.onNode
 
 ---
 
-## 5.23 BattleSystem
+## 5.27 BattleSystem
 
 Self-contained, opt-in turn-based RPG battle module. No game loop integration — the system is event-driven and resolves a full round whenever all party members have submitted actions.
 

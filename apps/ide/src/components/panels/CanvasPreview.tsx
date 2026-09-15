@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+} from "react";
 import {
   Monitor,
   Wifi,
@@ -11,7 +17,9 @@ import {
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
 import { useIDEStore, debugCommandBus } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
+import { gameBuildService } from "../../services/GameBuildService";
 import { drawGrid, drawRulers, drawGuides } from "../../lib/editorGrid";
+import { useEngineChannel } from "../../hooks/useEngineChannel";
 
 export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,6 +42,7 @@ export function CanvasPreview(): React.ReactElement {
     debugOverlay,
     entities,
     editorCode,
+    openFiles,
     buildMode,
     addLog,
     projectName,
@@ -52,6 +61,22 @@ export function CanvasPreview(): React.ReactElement {
     setDebuggerPaused,
     setDebuggerVars,
   } = useIDEStore();
+
+  // Getter-based ref that always resolves to the current runner iframe
+  const engineIframeRef = useMemo(
+    () => ({
+      get current(): HTMLIFrameElement | null {
+        return (
+          runnerContainerRef.current?.querySelector<HTMLIFrameElement>(
+            "iframe",
+          ) ?? null
+        );
+      },
+    }),
+    [],
+  );
+
+  useEngineChannel(engineIframeRef);
 
   const initDemo = useCallback(async (): Promise<void> => {
     if (canvasRef.current === null) return;
@@ -93,6 +118,7 @@ export function CanvasPreview(): React.ReactElement {
           buildMode,
           runnerContainerRef.current,
           define,
+          openFiles,
         );
       }
       return () => {
@@ -113,7 +139,7 @@ export function CanvasPreview(): React.ReactElement {
     };
   }, [initDemo]);
 
-  // Auto hot reload when editorCode changes while playing (debounced 300ms)
+  // Auto hot reload when any open file changes while playing (debounced 500ms)
   useEffect(() => {
     if (playState !== "playing" || buildMode !== "debug") return;
     if (hotReloadTimerRef.current !== null) {
@@ -121,15 +147,34 @@ export function CanvasPreview(): React.ReactElement {
     }
     hotReloadTimerRef.current = setTimeout(() => {
       hotReloadTimerRef.current = null;
-      playRunner.hotReload(editorCode);
-    }, 300);
+      const define: Record<string, string> = {
+        PROJECT_TITLE: JSON.stringify(windowConfig.title),
+        PROJECT_NAME: JSON.stringify(projectName),
+        GAME_WIDTH: String(windowConfig.width),
+        GAME_HEIGHT: String(windowConfig.height),
+        DEBUG: "true",
+      };
+      void gameBuildService
+        .buildNow({
+          code: editorCode,
+          mode: "debug",
+          define,
+          virtualFiles: openFiles,
+          format: "iife",
+        })
+        .then((result) => {
+          if (result.success) {
+            playRunner.hotReload(result.js);
+          }
+        });
+    }, 500);
     return () => {
       if (hotReloadTimerRef.current !== null) {
         clearTimeout(hotReloadTimerRef.current);
         hotReloadTimerRef.current = null;
       }
     };
-  }, [editorCode, playState, buildMode]);
+  }, [editorCode, openFiles, playState, buildMode]);
 
   // Draw the grid/ruler overlay whenever relevant state changes
   useEffect(() => {
@@ -211,48 +256,52 @@ export function CanvasPreview(): React.ReactElement {
     function onDebugCmd(event: Event): void {
       const detail = (event as CustomEvent<{ type: string }>).detail;
       const iframe =
-        runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
-      iframe?.contentWindow?.postMessage({ type: detail.type }, '*');
+        runnerContainerRef.current?.querySelector<HTMLIFrameElement>("iframe");
+      iframe?.contentWindow?.postMessage({ type: detail.type }, "*");
     }
-    debugCommandBus.addEventListener('debug-cmd', onDebugCmd);
-    return () => debugCommandBus.removeEventListener('debug-cmd', onDebugCmd);
+    debugCommandBus.addEventListener("debug-cmd", onDebugCmd);
+    return () => debugCommandBus.removeEventListener("debug-cmd", onDebugCmd);
   }, []);
 
   // ── Debugger: listen for debug messages posted by the game iframe ────────────
   useEffect(() => {
     function onMessage(event: MessageEvent): void {
       const data = event.data;
-      if (typeof data !== 'object' || data === null) return;
+      if (typeof data !== "object" || data === null) return;
       const d = data as Record<string, unknown>;
-      const msgType = d['type'];
-      if (msgType === 'debug:break') {
+      const msgType = d["type"];
+      if (msgType === "debug:break") {
         setDebuggerPaused(true);
-        const vars = d['vars'];
-        if (typeof vars === 'object' && vars !== null) {
+        const vars = d["vars"];
+        if (typeof vars === "object" && vars !== null) {
           setDebuggerVars(vars as Record<string, unknown>);
         }
-        addLog('debug', `Breakpoint: ${String(d['label'] ?? 'unknown')}`, 'Debugger');
-      } else if (msgType === 'debug:vars') {
-        const vars = d['vars'];
-        if (typeof vars === 'object' && vars !== null) {
+        addLog(
+          "debug",
+          `Breakpoint: ${String(d["label"] ?? "unknown")}`,
+          "Debugger",
+        );
+      } else if (msgType === "debug:vars") {
+        const vars = d["vars"];
+        if (typeof vars === "object" && vars !== null) {
           setDebuggerVars(vars as Record<string, unknown>);
         }
-      } else if (msgType === 'debug:resume') {
+      } else if (msgType === "debug:resume") {
         setDebuggerPaused(false);
       }
     }
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, [setDebuggerPaused, setDebuggerVars, addLog]);
 
   // ── Debugger: sync active breakpoints into the game iframe ───────────────────
   useEffect(() => {
-    if (playState !== 'playing') return;
+    if (playState !== "playing") return;
     const iframe =
-      runnerContainerRef.current?.querySelector<HTMLIFrameElement>('iframe');
+      runnerContainerRef.current?.querySelector<HTMLIFrameElement>("iframe");
     iframe?.contentWindow?.postMessage(
-      { type: 'debug:setBreakpoints', labels: debugBreakpoints },
-      '*',
+      { type: "debug:setBreakpoints", labels: debugBreakpoints },
+      "*",
     );
   }, [debugBreakpoints, playState]);
 
@@ -264,8 +313,10 @@ export function CanvasPreview(): React.ReactElement {
     gap: 4,
     padding: "3px 8px",
     borderRadius: 4,
-    border: `1px solid ${active ? "rgba(124,106,247,0.5)" : "rgba(42,42,46,0.8)"}`,
-    background: active ? "rgba(124,106,247,0.15)" : "rgba(14,14,16,0.6)",
+    border: `1px solid ${active ? "color-mix(in srgb, var(--es-accent) 50%, transparent)" : "var(--es-border)"}`,
+    background: active
+      ? "color-mix(in srgb, var(--es-accent) 15%, transparent)"
+      : "color-mix(in srgb, var(--es-bg) 60%, transparent)",
     color: active ? "var(--es-accent)" : "var(--es-text-muted)",
     cursor: "pointer",
     fontSize: 11,
@@ -286,8 +337,8 @@ export function CanvasPreview(): React.ReactElement {
           alignItems: "center",
           gap: 6,
           padding: "4px 8px",
-          borderBottom: "1px solid rgba(42,42,46,0.8)",
-          background: "rgba(14,14,16,0.85)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "color-mix(in srgb, var(--es-bg) 85%, transparent)",
           flexShrink: 0,
           overflowX: "auto",
         }}
@@ -332,7 +383,7 @@ export function CanvasPreview(): React.ReactElement {
           style={{
             width: 1,
             height: 16,
-            background: "rgba(42,42,46,0.8)",
+            background: "var(--es-border)",
             margin: "0 2px",
             flexShrink: 0,
           }}
@@ -361,8 +412,8 @@ export function CanvasPreview(): React.ReactElement {
               width: 52,
               padding: "2px 4px",
               borderRadius: 4,
-              border: "1px solid rgba(42,42,46,0.8)",
-              background: "rgba(14,14,16,0.6)",
+              border: "1px solid var(--es-border)",
+              background: "var(--es-bg)",
               color: "var(--es-text)",
               fontSize: 11,
               fontFamily: "inherit",
@@ -373,7 +424,7 @@ export function CanvasPreview(): React.ReactElement {
           style={{
             width: 1,
             height: 16,
-            background: "rgba(42,42,46,0.8)",
+            background: "var(--es-border)",
             margin: "0 2px",
             flexShrink: 0,
           }}
@@ -391,8 +442,8 @@ export function CanvasPreview(): React.ReactElement {
           }}
           title="Preview FPS cap"
           style={{
-            background: "rgba(14,14,16,0.6)",
-            border: "1px solid rgba(42,42,46,0.8)",
+            background: "var(--es-bg)",
+            border: "1px solid var(--es-border)",
             borderRadius: 4,
             color: "var(--es-text-muted)",
             fontSize: 11,
@@ -409,7 +460,7 @@ export function CanvasPreview(): React.ReactElement {
 
       <div
         className="flex-1 relative overflow-hidden"
-        style={{ background: "#0e0e10" }}
+        style={{ background: "var(--es-bg)" }}
       >
         {/* Iframe runner */}
         <div
@@ -429,8 +480,8 @@ export function CanvasPreview(): React.ReactElement {
               position: "absolute",
               inset: 0,
               zIndex: 100,
-              background: "rgba(180,0,0,0.85)",
-              color: "white",
+              background: "color-mix(in srgb, var(--es-red) 85%, transparent)",
+              color: "var(--es-text-on-accent)",
               fontFamily: "monospace",
               fontSize: 13,
               padding: 16,
@@ -453,7 +504,7 @@ export function CanvasPreview(): React.ReactElement {
                 style={{
                   background: "none",
                   border: "none",
-                  color: "white",
+                  color: "var(--es-text-on-accent)",
                   cursor: "pointer",
                   fontSize: 18,
                 }}
@@ -500,8 +551,8 @@ export function CanvasPreview(): React.ReactElement {
           <div
             className="flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-mono"
             style={{
-              background: "rgba(14,14,16,0.85)",
-              border: "1px solid rgba(42,42,46,0.8)",
+              background: "color-mix(in srgb, var(--es-bg) 85%, transparent)",
+              border: "1px solid var(--es-border)",
               backdropFilter: "blur(8px)",
             }}
           >
@@ -542,8 +593,8 @@ export function CanvasPreview(): React.ReactElement {
           <div
             className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs"
             style={{
-              background: "rgba(14,14,16,0.85)",
-              border: "1px solid rgba(42,42,46,0.8)",
+              background: "color-mix(in srgb, var(--es-bg) 85%, transparent)",
+              border: "1px solid var(--es-border)",
               backdropFilter: "blur(8px)",
               color: "var(--es-text-muted)",
               fontFamily: "JetBrains Mono, monospace",
@@ -570,8 +621,9 @@ export function CanvasPreview(): React.ReactElement {
               display: "flex",
               alignItems: "center",
               gap: 5,
-              background: "rgba(14,14,16,0.88)",
-              border: "1px solid rgba(124,106,247,0.4)",
+              background: "color-mix(in srgb, var(--es-bg) 88%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--es-accent) 40%, transparent)",
               borderRadius: 6,
               padding: "4px 10px",
               cursor: "pointer",
@@ -595,7 +647,7 @@ export function CanvasPreview(): React.ReactElement {
                 inset: 0,
                 pointerEvents: "none",
                 backgroundImage:
-                  "repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(124,106,247,0.12) 31px,rgba(124,106,247,0.12) 32px),repeating-linear-gradient(90deg,transparent,transparent 31px,rgba(124,106,247,0.12) 31px,rgba(124,106,247,0.12) 32px)",
+                  "repeating-linear-gradient(0deg,transparent,transparent 31px,color-mix(in srgb,var(--es-accent) 12%,transparent) 31px,color-mix(in srgb,var(--es-accent) 12%,transparent) 32px),repeating-linear-gradient(90deg,transparent,transparent 31px,color-mix(in srgb,var(--es-accent) 12%,transparent) 31px,color-mix(in srgb,var(--es-accent) 12%,transparent) 32px)",
               }}
             />
             <div
@@ -603,8 +655,9 @@ export function CanvasPreview(): React.ReactElement {
                 position: "absolute",
                 top: 8,
                 right: 8,
-                background: "rgba(14,14,16,0.9)",
-                border: "1px solid rgba(124,106,247,0.4)",
+                background: "color-mix(in srgb, var(--es-bg) 90%, transparent)",
+                border:
+                  "1px solid color-mix(in srgb, var(--es-accent) 40%, transparent)",
                 borderRadius: 6,
                 padding: "8px 12px",
                 fontSize: 10,
@@ -616,7 +669,7 @@ export function CanvasPreview(): React.ReactElement {
             >
               <div
                 style={{
-                  color: "#7c6af7",
+                  color: "var(--es-accent)",
                   fontWeight: 700,
                   marginBottom: 4,
                   fontSize: 9,
@@ -639,7 +692,7 @@ export function CanvasPreview(): React.ReactElement {
                 Physics: <span style={{ color: "var(--es-text)" }}>–</span>
               </div>
               <div>
-                Mode: <span style={{ color: "#7c6af7" }}>DEBUG</span>
+                Mode: <span style={{ color: "var(--es-accent)" }}>DEBUG</span>
               </div>
             </div>
           </>
@@ -650,7 +703,7 @@ export function CanvasPreview(): React.ReactElement {
           <div
             className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
             style={{
-              background: "rgba(14,14,16,0.6)",
+              background: "color-mix(in srgb, var(--es-bg) 60%, transparent)",
               backdropFilter: "blur(2px)",
             }}
           >

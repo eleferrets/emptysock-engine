@@ -13,9 +13,11 @@ import {
   Box,
   Clock,
   X,
+  FolderOpen,
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
-import type { ProjectFile } from "../../store/ideStore";
+import type { ProjectFile, FileTreeNode } from "../../store/ideStore";
+import { ProjectService } from "../../services/ProjectService";
 
 function FileIcon({ file }: { file: ProjectFile }): React.ReactElement {
   if (file.type === "folder")
@@ -59,7 +61,7 @@ function FileTreeNode({
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,
-          background: isSelected ? "rgba(124,106,247,0.15)" : undefined,
+          background: isSelected ? "var(--es-selection-bg)" : undefined,
           color: isSelected ? "var(--es-accent)" : "var(--es-text-muted)",
         }}
         onMouseEnter={(e) => {
@@ -92,6 +94,94 @@ function FileTreeNode({
         <div>
           {file.children.map((child) => (
             <FileTreeNode key={child.path} file={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function diskFileIcon(name: string): React.ReactElement {
+  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  if (["ts", "tsx", "js", "jsx"].includes(ext))
+    return <FileCode size={13} style={{ color: "var(--es-blue)" }} />;
+  if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext))
+    return <FileImage size={13} style={{ color: "var(--es-green)" }} />;
+  if (["ogg", "mp3", "wav"].includes(ext))
+    return <FileAudio size={13} style={{ color: "var(--es-accent)" }} />;
+  if (ext === "json" || ext === "emptysock")
+    return <FileJson size={13} style={{ color: "var(--es-yellow)" }} />;
+  return <FileCode size={13} style={{ color: "var(--es-text-muted)" }} />;
+}
+
+function DiskTreeRow({
+  node,
+  depth = 0,
+}: {
+  node: FileTreeNode;
+  depth?: number;
+}): React.ReactElement {
+  const [expanded, setExpanded] = useState(depth < 2);
+  const openFile = useIDEStore((s) => s.openFile);
+  const setActiveTab = useIDEStore((s) => s.setActiveTab);
+  const isFolder = node.children !== undefined;
+
+  const handleClick = (): void => {
+    if (isFolder) {
+      setExpanded((e) => !e);
+    } else {
+      void ProjectService.readFile(node.path).then((content) => {
+        openFile(node.path, content ?? "");
+        setActiveTab("code");
+      });
+    }
+  };
+
+  return (
+    <div>
+      <button
+        onClick={handleClick}
+        className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
+        style={{
+          paddingLeft: `${8 + depth * 12}px`,
+          color: "var(--es-text-muted)",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            "var(--es-surface-2)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = "";
+        }}
+      >
+        {isFolder ? (
+          <span
+            style={{
+              color: "var(--es-text-muted)",
+              opacity: 0.6,
+              flexShrink: 0,
+            }}
+          >
+            {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+          </span>
+        ) : (
+          <span style={{ width: 10, flexShrink: 0 }} />
+        )}
+        {isFolder ? (
+          <Folder
+            size={13}
+            style={{ color: "var(--es-yellow)", flexShrink: 0 }}
+          />
+        ) : (
+          diskFileIcon(node.name)
+        )}
+        <span className="truncate text-xs ml-0.5">{node.name}</span>
+      </button>
+
+      {isFolder && expanded && node.children !== undefined && (
+        <div>
+          {node.children.map((child) => (
+            <DiskTreeRow key={child.path} node={child} depth={depth + 1} />
           ))}
         </div>
       )}
@@ -196,6 +286,8 @@ type SidebarSection = "files" | "tools" | "images" | "audio";
 
 export function LeftSidebar(): React.ReactElement {
   const { files } = useIDEStore();
+  const fileTree = useIDEStore((s) => s.fileTree);
+  const projectRoot = useIDEStore((s) => s.projectRoot);
   const [section, setSection] = useState<SidebarSection>("files");
 
   return (
@@ -237,7 +329,7 @@ export function LeftSidebar(): React.ReactElement {
               borderRadius: 4,
               border: "none",
               background:
-                section === item.id ? "rgba(124,106,247,0.15)" : "transparent",
+                section === item.id ? "var(--es-selection-bg)" : "transparent",
               color:
                 section === item.id
                   ? "var(--es-accent)"
@@ -255,21 +347,50 @@ export function LeftSidebar(): React.ReactElement {
       {/* File tree */}
       <div className="flex-1 overflow-hidden flex flex-col min-w-0">
         <div
-          className="flex items-center px-3 h-8 flex-shrink-0"
+          className="flex items-center px-3 h-8 flex-shrink-0 gap-1"
           style={{ borderBottom: "1px solid var(--es-border)" }}
         >
           <span
-            className="text-[10px] uppercase tracking-widest font-semibold"
+            className="text-[10px] uppercase tracking-widest font-semibold flex-1 truncate"
             style={{ color: "var(--es-text-muted)" }}
+            title={projectRoot ?? undefined}
           >
             {section === "files"
-              ? "Project"
+              ? (projectRoot ?? "Project")
               : section === "tools"
                 ? "Components"
                 : section === "images"
                   ? "Textures"
                   : "Audio"}
           </span>
+          {section === "files" && (
+            <button
+              title="Open folder"
+              onClick={() => {
+                void ProjectService.openDirectory();
+              }}
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                padding: 3,
+                borderRadius: 3,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--es-text-muted)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.color = "var(--es-text)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.color =
+                  "var(--es-text-muted)";
+              }}
+            >
+              <FolderOpen size={13} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -277,9 +398,30 @@ export function LeftSidebar(): React.ReactElement {
           <div className="py-1">
             {section === "files" && (
               <>
-                {files.map((file) => (
-                  <FileTreeNode key={file.path} file={file} />
-                ))}
+                {fileTree.length > 0
+                  ? fileTree.map((node) => (
+                      <DiskTreeRow key={node.path} node={node} />
+                    ))
+                  : files.map((file) => (
+                      <FileTreeNode key={file.path} file={file} />
+                    ))}
+                {fileTree.length === 0 && files.length === 0 && (
+                  <div
+                    style={{
+                      padding: "20px 12px",
+                      textAlign: "center",
+                      color: "var(--es-text-muted)",
+                      fontSize: 11,
+                    }}
+                  >
+                    <p style={{ marginBottom: 4 }}>
+                      Click the folder icon above to open a project directory.
+                    </p>
+                    <p style={{ fontSize: 10, opacity: 0.6 }}>
+                      Or add files in the code editor.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

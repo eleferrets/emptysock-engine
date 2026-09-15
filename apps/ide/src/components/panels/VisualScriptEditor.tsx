@@ -1,239 +1,37 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { RotateCcw, RotateCw } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
-import { useIDEStore } from "../../store/ideStore";
-import type { VSNode, VSEdge } from "../../store/ideStore";
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface NodeData {
-  id: string;
-  type: "scene" | "entity" | "component";
-  label: string;
-  x: number;
-  y: number;
-  componentType?: string;
-}
-
-interface EdgeData {
-  id: string;
-  from: string; // node id
-  to: string; // node id
-}
-
-interface PendingEdge {
-  fromNodeId: string;
-  fromSide: "output"; // only output→input connections
-}
-
-interface GraphState {
-  nodes: NodeData[];
-  edges: EdgeData[];
-}
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const NODE_WIDTH = 144;
-const NODE_HEIGHT = 56;
-const PORT_RADIUS = 7;
-
-const NODE_COLORS: Record<
-  NodeData["type"],
-  { bg: string; border: string; icon: string }
-> = {
-  scene: {
-    bg: "var(--es-node-scene-bg)",
-    border: "var(--es-node-scene-border)",
-    icon: "🎬",
-  },
-  entity: {
-    bg: "var(--es-node-entity-bg)",
-    border: "var(--es-node-entity-border)",
-    icon: "📦",
-  },
-  component: {
-    bg: "var(--es-node-component-bg)",
-    border: "var(--es-node-component-border)",
-    icon: "⚙️",
-  },
-};
-
-const COMPONENT_TYPES = [
-  "Transform",
-  "Sprite",
-  "PhysicsBody",
-  "Animator",
-  "CharacterController",
-  "AudioSource",
-];
-
-let _nodeIdCounter = 100;
-function nextId(): string {
-  return `n${_nodeIdCounter++}`;
-}
-
-// ── Default graph ─────────────────────────────────────────────────────────────
-
-function makeDefaultNodes(): NodeData[] {
-  return [
-    { id: "scene-1", type: "scene", label: "MyScene", x: 320, y: 40 },
-    { id: "entity-1", type: "entity", label: "Player", x: 160, y: 160 },
-    { id: "entity-2", type: "entity", label: "Enemy", x: 480, y: 160 },
-    {
-      id: "comp-transform",
-      type: "component",
-      label: "Transform",
-      x: 60,
-      y: 300,
-      componentType: "Transform",
-    },
-    {
-      id: "comp-sprite",
-      type: "component",
-      label: "Sprite",
-      x: 220,
-      y: 300,
-      componentType: "Sprite",
-    },
-    {
-      id: "comp-physics",
-      type: "component",
-      label: "PhysicsBody",
-      x: 380,
-      y: 300,
-      componentType: "PhysicsBody",
-    },
-    {
-      id: "comp-anim",
-      type: "component",
-      label: "Animator",
-      x: 540,
-      y: 300,
-      componentType: "Animator",
-    },
-  ];
-}
-
-function makeDefaultEdges(): EdgeData[] {
-  return [
-    { id: "e1", from: "scene-1", to: "entity-1" },
-    { id: "e2", from: "scene-1", to: "entity-2" },
-    { id: "e3", from: "entity-1", to: "comp-transform" },
-    { id: "e4", from: "entity-1", to: "comp-sprite" },
-    { id: "e5", from: "entity-2", to: "comp-physics" },
-    { id: "e6", from: "entity-2", to: "comp-anim" },
-  ];
-}
-
-// ── Code generation ──────────────────────────────────────────────────────────
-
-function generateCode(nodes: NodeData[], edges: EdgeData[]): string {
-  const sceneNodes = nodes.filter((n) => n.type === "scene");
-  const componentNodes = nodes.filter((n) => n.type === "component");
-
-  // Build adjacency: scene→entities, entity→components
-  const sceneToEntities: Record<string, NodeData[]> = {};
-  const entityToComponents: Record<string, NodeData[]> = {};
-
-  for (const e of edges) {
-    const fromNode = nodes.find((n) => n.id === e.from);
-    const toNode = nodes.find((n) => n.id === e.to);
-    if (!fromNode || !toNode) continue;
-    if (fromNode.type === "scene" && toNode.type === "entity") {
-      if (sceneToEntities[fromNode.id] === undefined)
-        sceneToEntities[fromNode.id] = [];
-      (sceneToEntities[fromNode.id] as NodeData[]).push(toNode);
-    }
-    if (fromNode.type === "entity" && toNode.type === "component") {
-      if (entityToComponents[fromNode.id] === undefined)
-        entityToComponents[fromNode.id] = [];
-      (entityToComponents[fromNode.id] as NodeData[]).push(toNode);
-    }
-  }
-
-  const usedComponents = new Set(
-    componentNodes.map((c) => c.componentType ?? c.label),
-  );
-  const imports = ["Scene", "Entity", ...Array.from(usedComponents)].join(", ");
-
-  const lines: string[] = [
-    "// Auto-generated from Visual Script graph",
-    `import { ${imports} } from '@emptysock/engine';`,
-    "",
-  ];
-
-  for (const scene of sceneNodes) {
-    const entities = sceneToEntities[scene.id] ?? [];
-    const className = scene.label.replace(/\s+/g, "") || "MyScene";
-    lines.push(`class ${className} extends Scene {`);
-    lines.push("  onLoad(): void {");
-    for (const entity of entities) {
-      const varName =
-        entity.label
-          .replace(/\s+/g, "")
-          .replace(/^./, (c) => c.toLowerCase()) || "entity";
-      lines.push(
-        `    const ${varName} = this.createEntity(); // ${entity.label}`,
-      );
-      const comps = entityToComponents[entity.id] ?? [];
-      for (const comp of comps) {
-        const ct = comp.componentType ?? comp.label;
-        lines.push(`    ${varName}.addComponent(new ${ct}());`);
-      }
-      lines.push("");
-    }
-    lines.push("  }");
-    lines.push("");
-    lines.push("  onDestroy(): void {}");
-    lines.push("}");
-    lines.push("");
-    lines.push(`export default ${className};`);
-  }
-
-  if (sceneNodes.length === 0) {
-    lines.push(
-      "// No scene node found — add a Scene node and connect entities to it.",
-    );
-  }
-
-  return lines.join("\n");
-}
-
-// ── Port geometry helpers ─────────────────────────────────────────────────────
-
-function outputPortCenter(node: NodeData): { x: number; y: number } {
-  return { x: node.x + NODE_WIDTH, y: node.y + NODE_HEIGHT / 2 };
-}
-
-function inputPortCenter(node: NodeData): { x: number; y: number } {
-  return { x: node.x, y: node.y + NODE_HEIGHT / 2 };
-}
-
-function hitTestPort(
-  node: NodeData,
-  mx: number,
-  my: number,
-  side: "input" | "output",
-): boolean {
-  const c = side === "output" ? outputPortCenter(node) : inputPortCenter(node);
-  return Math.hypot(mx - c.x, my - c.y) <= PORT_RADIUS + 4;
-}
-
-// ── SVG cubic bezier edge path ────────────────────────────────────────────────
-
-function edgePath(x1: number, y1: number, x2: number, y2: number): string {
-  const dx = Math.abs(x2 - x1) * 0.5 + 40;
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-const MIN_VS_SCALE = 0.25;
-const MAX_VS_SCALE = 2.5;
+import { useVSStore } from "../../store/vsStore";
+import type { VSNode, VSEdge } from "../../store/vsStore";
+import type {
+  NodeData,
+  EdgeData,
+  PendingEdge,
+  GraphState,
+} from "./visual-script/types";
+import {
+  NODE_WIDTH,
+  NODE_HEIGHT,
+  PORT_RADIUS,
+  MIN_VS_SCALE,
+  MAX_VS_SCALE,
+  NODE_COLORS,
+  COMPONENT_TYPES,
+} from "./visual-script/types";
+import {
+  nextId,
+  makeDefaultNodes,
+  makeDefaultEdges,
+  generateCode,
+  outputPortCenter,
+  inputPortCenter,
+  hitTestPort,
+  edgePath,
+} from "./visual-script/helpers";
 
 export function VisualScriptEditor(): React.ReactElement {
-  const storedGraph = useIDEStore((s) => s.visualScriptGraph);
-  const setVisualScriptGraph = useIDEStore((s) => s.setVisualScriptGraph);
+  const storedGraph = useVSStore((s) => s.visualScriptGraph);
+  const setVisualScriptGraph = useVSStore((s) => s.setVisualScriptGraph);
 
   // ── Graph state with undo/redo ────────────────────────────────────────────
   const initialGraph: GraphState =
@@ -627,7 +425,7 @@ export function VisualScriptEditor(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--es-bg, #1a1a2e)",
+        background: "var(--es-bg)",
       }}
     >
       {/* Toolbar */}
@@ -637,8 +435,8 @@ export function VisualScriptEditor(): React.ReactElement {
           alignItems: "center",
           gap: 8,
           padding: "6px 12px",
-          borderBottom: "1px solid var(--es-border, #333)",
-          background: "var(--es-surface, #16213e)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           flexShrink: 0,
           flexWrap: "wrap",
         }}
@@ -718,13 +516,13 @@ export function VisualScriptEditor(): React.ReactElement {
         <span
           style={{
             fontSize: 10,
-            color: "var(--es-text-muted, #888)",
+            color: "var(--es-text-muted)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
           {Math.round(vsScale * 100)}%
         </span>
-        <span style={{ fontSize: 11, color: "var(--es-text-muted, #888)" }}>
+        <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
           Ctrl+scroll to zoom • Click ports to connect • Double-click to rename
         </span>
       </div>
@@ -755,7 +553,7 @@ export function VisualScriptEditor(): React.ReactElement {
             minWidth: "100%",
             minHeight: "100%",
             background:
-              "repeating-linear-gradient(0deg, transparent, transparent 23px, var(--es-border, #333) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, var(--es-border, #333) 24px)",
+              "repeating-linear-gradient(0deg, transparent, transparent 23px, var(--es-border) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, var(--es-border) 24px)",
             backgroundSize: `${24 * vsScale}px ${24 * vsScale}px`,
             userSelect: "none",
             cursor: pendingEdge ? "crosshair" : "default",
@@ -975,8 +773,8 @@ export function VisualScriptEditor(): React.ReactElement {
       {generatedCode !== null && (
         <div
           style={{
-            borderTop: "1px solid var(--es-border, #333)",
-            background: "var(--es-surface, #16213e)",
+            borderTop: "1px solid var(--es-border)",
+            background: "var(--es-surface)",
             maxHeight: 200,
             overflow: "auto",
             flexShrink: 0,
@@ -987,13 +785,13 @@ export function VisualScriptEditor(): React.ReactElement {
               display: "flex",
               alignItems: "center",
               padding: "4px 12px",
-              borderBottom: "1px solid var(--es-border, #333)",
+              borderBottom: "1px solid var(--es-border)",
             }}
           >
             <span
               style={{
                 fontSize: 11,
-                color: "var(--es-text-muted, #888)",
+                color: "var(--es-text-muted)",
                 flex: 1,
               }}
             >
@@ -1011,7 +809,7 @@ export function VisualScriptEditor(): React.ReactElement {
               margin: 0,
               padding: "8px 12px",
               fontSize: 11,
-              color: "#e2e8f0",
+              color: "var(--es-text)",
               fontFamily: "monospace",
               whiteSpace: "pre-wrap",
             }}
@@ -1042,9 +840,9 @@ function btnStyle(color: string): React.CSSProperties {
 const btnStyleGhost: React.CSSProperties = {
   padding: "4px 10px",
   borderRadius: 4,
-  border: "1px solid var(--es-border, #444)",
+  border: "1px solid var(--es-border)",
   background: "transparent",
-  color: "var(--es-text, #e2e8f0)",
+  color: "var(--es-text)",
   cursor: "pointer",
   fontSize: 12,
   flexShrink: 0,
@@ -1053,9 +851,9 @@ const btnStyleGhost: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
   padding: "4px 8px",
   borderRadius: 4,
-  border: "1px solid var(--es-border, #444)",
-  background: "var(--es-surface, #16213e)",
-  color: "var(--es-text, #e2e8f0)",
+  border: "1px solid var(--es-border)",
+  background: "var(--es-surface)",
+  color: "var(--es-text)",
   cursor: "pointer",
   fontSize: 12,
 };

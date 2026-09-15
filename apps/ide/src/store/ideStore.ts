@@ -1,86 +1,58 @@
 import { create } from "zustand";
 import { DEFAULT_ENABLED_MODULES } from "../services/ModuleRegistry";
-import { useDBStore, type DbEntry } from "./dbStore";
-import { useSequenceStore, type SequenceTrack } from "./sequenceStore";
 import {
-  useLocalisationStore,
-  type LocalisationTranslations,
-} from "./localisationStore";
-import { useVariableStore, type VariableStoreSnapshot } from "./variableStore";
-import { useAudioStore, type AudioBus } from "./audioStore";
-import {
-  useTilemapStore,
-  type TileLayer,
-  type AutoTileRule,
-} from "./tilemapStore";
-export type LogLevel = "info" | "warn" | "error" | "debug";
-export type BuildMode = "debug" | "release";
-export type BuildStatus = "idle" | "building" | "success" | "error";
-export type Theme = "dark" | "light" | "system";
+  saveProjectJson as _saveProjectJson,
+  loadProjectFiles as _loadProjectFiles,
+} from "../services/ProjectSerializer";
+import { useDBStore } from "./dbStore";
+import { useSequenceStore } from "./sequenceStore";
+import { useLocalisationStore } from "./localisationStore";
+import { useVariableStore } from "./variableStore";
+import { useAudioStore } from "./audioStore";
+import { useVNStore } from "./vnStore";
+import { useVSStore } from "./vsStore";
+import { useCGStore } from "./cgStore";
+import { DEFAULT_WINDOW_CONFIG } from "./ideTypes";
+import type {
+  LogLevel,
+  BuildMode,
+  BuildStatus,
+  Theme,
+  WindowConfig,
+  LogEntry,
+  EntityItem,
+  AssetItem,
+  EntitySnapshot,
+  FileTreeNode,
+  ProjectFile,
+  RecentFile,
+  PlayState,
+  ActiveTab,
+  BottomTab,
+} from "./ideTypes";
 
-export type WindowMode = "windowed" | "fullscreen" | "borderless";
+// Re-export all types so existing consumers don't need to change imports.
+export type {
+  LogLevel,
+  BuildMode,
+  BuildStatus,
+  Theme,
+  WindowMode,
+  WindowConfig,
+  LogEntry,
+  EntityItem,
+  AssetItem,
+  EntitySnapshot,
+  FileTreeNode,
+  ProjectFile,
+  RecentFile,
+  PlayState,
+  ActiveTab,
+  BottomTab,
+} from "./ideTypes";
+export { DEFAULT_WINDOW_CONFIG } from "./ideTypes";
 
-export interface WindowConfig {
-  mode: WindowMode;
-  width: number;
-  height: number;
-  title: string;
-  resizable: boolean;
-  minWidth: number;
-  minHeight: number;
-}
-
-export const DEFAULT_WINDOW_CONFIG: WindowConfig = {
-  mode: "windowed",
-  width: 1280,
-  height: 720,
-  title: "My Game",
-  resizable: true,
-  minWidth: 320,
-  minHeight: 240,
-};
-
-export interface LogEntry {
-  id: string;
-  level: LogLevel;
-  message: string;
-  timestamp: number;
-  source: string | undefined;
-}
-
-export interface EntityItem {
-  id: string;
-  name: string;
-  type: string;
-  active: boolean;
-  components: string[];
-  children: EntityItem[];
-}
-
-export interface AssetItem {
-  id: string;
-  name: string;
-  type: "image" | "audio" | "font" | "json" | "scene" | "script";
-  path: string;
-  size?: number;
-}
-
-export interface ProjectFile {
-  name: string;
-  path: string;
-  type: "file" | "folder";
-  children?: ProjectFile[];
-}
-
-export interface RecentFile {
-  path: string;
-  name: string;
-  openedAt: number;
-}
-
-export type PlayState = "stopped" | "playing" | "paused";
-export type ActiveTab = "code" | "canvas" | "scene";
-export type BottomTab = "console" | "assets";
+// ── Internal types ─────────────────────────────────────────────────────────────
 
 interface TransformValues {
   x: string;
@@ -127,6 +99,13 @@ interface IDEState {
   entities: EntityItem[];
   selectedEntityId: string | null;
   selectedEntity: SelectedEntity | null;
+
+  // Live entity data from the running engine
+  liveEntities: EntitySnapshot[];
+
+  // Project directory tree
+  projectRoot: string | null;
+  fileTree: FileTreeNode[];
 
   // Assets
   assets: AssetItem[];
@@ -248,21 +227,6 @@ interface IDEState {
   setRecentAssetIds: (ids: string[]) => void;
   setRoomOrder: (ids: string[]) => void;
 
-  // Story Graph node cache (shared with VN Preview)
-  vnNodes: VnNode[];
-  setVNNodes: (nodes: VnNode[]) => void;
-
-  // Visual Script graph (persisted across panel unmount)
-  visualScriptGraph: { nodes: VSNode[]; edges: VSEdge[] } | null;
-  setVisualScriptGraph: (graph: { nodes: VSNode[]; edges: VSEdge[] }) => void;
-
-  // CG Gallery entries and unlock state
-  cgGallery: { entries: CGEntry[]; unlocked: Record<string, boolean> };
-  setCGGallery: (gallery: {
-    entries: CGEntry[];
-    unlocked: Record<string, boolean>;
-  }) => void;
-
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
   editorShowGrid: boolean;
@@ -290,10 +254,24 @@ interface IDEState {
   setDropImportFolder: (folder: "root" | "last") => void;
   openImageEditor: (assetId: string) => void;
 
+  // Live component fields from the running engine (keyed by component type)
+  liveComponentFields: Record<string, Record<string, unknown>> | null;
+
+  // Live entity actions
+  setLiveEntities: (entities: EntitySnapshot[]) => void;
+  setLiveComponentFields: (
+    fields: Record<string, Record<string, unknown>> | null,
+  ) => void;
+
+  // Project directory actions
+  setProjectRoot: (root: string | null) => void;
+  setFileTree: (tree: FileTreeNode[]) => void;
+
   // Project lifecycle
   resetProject: () => void;
   loadProjectFiles: (files: Record<string, string>, name?: string) => void;
   saveProjectJson: () => string;
+  loadProject: (raw: string) => void;
 }
 
 const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
@@ -373,35 +351,6 @@ const INITIAL_FILES: ProjectFile[] = [
   },
 ];
 
-// ── VN types ─────────────────────────────────────────────────────────────────
-export interface VnNode {
-  id: string;
-  [key: string]: unknown;
-}
-
-// ── Visual Script graph types ─────────────────────────────────────────────────
-export interface VSNode {
-  id: string;
-  type: string;
-  label: string;
-  x: number;
-  y: number;
-  componentType?: string;
-}
-
-export interface VSEdge {
-  id: string;
-  from: string;
-  to: string;
-}
-
-// ── CG Gallery types ──────────────────────────────────────────────────────────
-export interface CGEntry {
-  id: string;
-  title: string;
-  imagePath: string;
-}
-
 // ── Entity tree helpers ──────────────────────────────────────────────────────
 function findInTree(
   items: EntityItem[],
@@ -452,7 +401,6 @@ function initialProjectState() {
     recentAssetIds: [] as string[],
     roomOrder: [] as string[],
     enabledModules: DEFAULT_ENABLED_MODULES,
-    vnNodes: [] as VnNode[],
     editorGridSize: 32,
     editorShowGrid: true,
     editorShowRuler: true,
@@ -464,11 +412,6 @@ function initialProjectState() {
     debugBreakpoints: [] as string[],
     dropImportFolder: "root" as const,
     openImageEditorRequest: null as { assetId: string; ts: number } | null,
-    visualScriptGraph: null as { nodes: VSNode[]; edges: VSEdge[] } | null,
-    cgGallery: {
-      entries: [] as CGEntry[],
-      unlocked: {} as Record<string, boolean>,
-    },
   };
 }
 
@@ -502,6 +445,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   entities: [],
   selectedEntityId: null,
   selectedEntity: null,
+  liveEntities: [],
+  liveComponentFields: null,
+  projectRoot: null,
+  fileTree: [],
 
   // Assets — start empty; INITIAL_ASSETS kept for reference but not used at startup
   assets: [],
@@ -556,15 +503,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   dropImportFolder: "root" as const,
   openImageEditorRequest: null,
 
-  // Story Graph node cache
-  vnNodes: [],
-
-  // Visual Script graph
-  visualScriptGraph: null,
-
-  // CG Gallery
-  cgGallery: { entries: [], unlocked: {} },
-
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
   editorShowGrid: true,
@@ -607,7 +545,11 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   selectEntity: (id) => {
     if (id === null) {
-      set({ selectedEntityId: null, selectedEntity: null });
+      set({
+        selectedEntityId: null,
+        selectedEntity: null,
+        liveComponentFields: null,
+      });
       return;
     }
     const { entities } = get();
@@ -617,8 +559,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const existing = get().selectedEntity;
     const existingTransform =
       existing?.id === id ? existing.transform : undefined;
+    const clearFields = existing?.id !== id;
     set({
       selectedEntityId: id,
+      ...(clearFields ? { liveComponentFields: null } : {}),
       selectedEntity: {
         id: entity.id,
         name: entity.name,
@@ -756,12 +700,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
-  setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
-
-  setVisualScriptGraph: (graph) => set({ visualScriptGraph: graph }),
-
-  setCGGallery: (gallery) => set({ cgGallery: gallery }),
-
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
   setEditorShowRuler: (show) => set({ editorShowRuler: show }),
@@ -793,6 +731,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   openImageEditor: (assetId) =>
     set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
 
+  setLiveEntities: (entities) => set({ liveEntities: entities }),
+  setLiveComponentFields: (fields) => set({ liveComponentFields: fields }),
+  setProjectRoot: (root) => set({ projectRoot: root }),
+  setFileTree: (tree) => set({ fileTree: tree }),
+
+  loadProject: (raw) => {
+    get().loadProjectFiles({ "project.emptysock.project.json": raw });
+  },
+
   resetProject: () => {
     set({ ...initialProjectState() });
     useDBStore.getState().resetDBStore();
@@ -800,6 +747,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useLocalisationStore.getState().resetLocalisationStore();
     useVariableStore.getState().resetVariableStore();
     useAudioStore.getState().resetAudioStore();
+    useVNStore.getState().resetVNStore();
+    useVSStore.getState().resetVSStore();
+    useCGStore.getState().resetCGStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -935,305 +885,10 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setRecentAssetIds: (ids) => set({ recentAssetIds: ids }),
   setRoomOrder: (ids) => set({ roomOrder: ids }),
 
-  saveProjectJson: () => {
-    const s = get();
-    const db = useDBStore.getState();
-    const seq = useSequenceStore.getState();
-    const loc = useLocalisationStore.getState();
-    const vars = useVariableStore.getState();
-    const audio = useAudioStore.getState();
-    const tilemap = useTilemapStore.getState();
-    return JSON.stringify(
-      {
-        projectName: get().projectName,
-        entities: s.entities,
-        assets: s.assets,
-        enabledModules: s.enabledModules,
-        audioBuses: audio.audioBuses,
-        tilemapLayers: tilemap.tilemapLayers,
-        tilemapActiveLayer: tilemap.tilemapActiveLayer,
-        sequenceTracks: seq.sequenceTracks,
-        sequenceDuration: seq.sequenceDuration,
-        localisationTranslations: loc.localisationTranslations,
-        localisationLocales: loc.localisationLocales,
-        variableStoreVars: vars.variableStoreVars,
-        variableStoreSwitches: vars.variableStoreSwitches,
-        variableStoreVarNames: vars.variableStoreVarNames,
-        variableStoreSwitchNames: vars.variableStoreSwitchNames,
-        windowConfig: s.windowConfig,
-        vnNodes: s.vnNodes,
-        autoTileRuleSets: tilemap.autoTileRuleSets,
-        dbActors: db.dbActors,
-        dbClasses: db.dbClasses,
-        dbItems: db.dbItems,
-        dbEnemies: db.dbEnemies,
-        editorGridSize: s.editorGridSize,
-        editorShowGrid: s.editorShowGrid,
-        editorShowRuler: s.editorShowRuler,
-        editorSnapToGrid: s.editorSnapToGrid,
-        editorShowGuides: s.editorShowGuides,
-        openFiles: s.openFiles,
-        activeFilePath: s.activeFilePath,
-        recentAssetIds: s.recentAssetIds,
-        roomOrder: s.roomOrder,
-      },
-      null,
-      2,
-    );
-  },
+  saveProjectJson: () => _saveProjectJson(get()),
 
-  loadProjectFiles: (files, name) => {
-    const paths = Object.keys(files);
-
-    // Separate the .project.json entry from code files
-    const projectJsonKey = paths.find((p) => p.endsWith(".project.json"));
-    const codeFiles = Object.fromEntries(
-      Object.entries(files).filter(([p]) => !p.endsWith(".project.json")),
-    );
-    const codePaths = Object.keys(codeFiles);
-    const firstPath = codePaths[0] ?? null;
-    const projectFiles: ProjectFile[] = codePaths.map((p) => ({
-      name: p.split("/").pop() ?? p,
-      path: p,
-      type: "file" as const,
-    }));
-
-    set({
-      projectName: name ?? "LoadedProject",
-      files: projectFiles,
-      openFiles: codeFiles,
-      activeFilePath: firstPath,
-      selectedFile: firstPath,
-      editorCode: firstPath !== null ? (codeFiles[firstPath] ?? "") : "",
-      playState: "stopped",
-      buildStatus: "idle",
-      buildErrors: [],
-      logs: [],
-      // Reset all domain fields so stale data from a previous project cannot bleed through
-      entities: [],
-      selectedEntityId: null,
-      selectedEntity: null,
-      assets: [],
-      recentAssetIds: [],
-      roomOrder: [],
-      enabledModules: DEFAULT_ENABLED_MODULES,
-      vnNodes: [],
-      editorGridSize: 32,
-      editorShowGrid: true,
-      editorShowRuler: true,
-      editorSnapToGrid: true,
-      editorShowGuides: true,
-      windowConfig: { ...DEFAULT_WINDOW_CONFIG },
-      // Reset debugger
-      debuggerPaused: false,
-      debuggerVars: {},
-      debugBreakpoints: [],
-    });
-    useDBStore.getState().resetDBStore();
-    useSequenceStore.getState().resetSequenceStore();
-    useLocalisationStore.getState().resetLocalisationStore();
-    useVariableStore.getState().resetVariableStore();
-    useAudioStore.getState().resetAudioStore();
-    useTilemapStore.getState().resetTilemapStore();
-
-    // Restore project state from .project.json if present
-    if (projectJsonKey !== undefined) {
-      const raw = files[projectJsonKey];
-      if (raw !== undefined) {
-        try {
-          const proj = JSON.parse(raw) as Record<string, unknown>;
-          const updates: Partial<IDEState> = {};
-          if (Array.isArray(proj["entities"])) {
-            updates.entities = proj["entities"] as EntityItem[];
-          }
-          if (Array.isArray(proj["assets"])) {
-            updates.assets = proj["assets"] as AssetItem[];
-          }
-          if (Array.isArray(proj["enabledModules"])) {
-            updates.enabledModules = proj["enabledModules"] as string[];
-          }
-          if (Array.isArray(proj["audioBuses"])) {
-            useAudioStore
-              .getState()
-              .setAudioBuses(proj["audioBuses"] as AudioBus[]);
-          }
-          if (Array.isArray(proj["tilemapLayers"])) {
-            useTilemapStore
-              .getState()
-              .setTilemapLayers(proj["tilemapLayers"] as TileLayer[]);
-          }
-          if (typeof proj["tilemapActiveLayer"] === "string") {
-            useTilemapStore
-              .getState()
-              .setTilemapActiveLayer(proj["tilemapActiveLayer"]);
-          }
-          if (Array.isArray(proj["sequenceTracks"])) {
-            useSequenceStore
-              .getState()
-              .setSequenceTracks(proj["sequenceTracks"] as SequenceTrack[]);
-          }
-          if (typeof proj["sequenceDuration"] === "number") {
-            useSequenceStore
-              .getState()
-              .setSequenceDuration(proj["sequenceDuration"]);
-          }
-          if (
-            proj["localisationTranslations"] !== null &&
-            typeof proj["localisationTranslations"] === "object"
-          ) {
-            useLocalisationStore
-              .getState()
-              .setLocalisationTranslations(
-                proj["localisationTranslations"] as LocalisationTranslations,
-              );
-          }
-          if (Array.isArray(proj["localisationLocales"])) {
-            useLocalisationStore
-              .getState()
-              .setLocalisationLocales(proj["localisationLocales"] as string[]);
-          }
-          {
-            const snapshot: Partial<VariableStoreSnapshot> = {};
-            if (
-              proj["variableStoreVars"] !== null &&
-              typeof proj["variableStoreVars"] === "object"
-            ) {
-              snapshot.variableStoreVars = proj["variableStoreVars"] as Record<
-                number,
-                number
-              >;
-            }
-            if (
-              proj["variableStoreSwitches"] !== null &&
-              typeof proj["variableStoreSwitches"] === "object"
-            ) {
-              snapshot.variableStoreSwitches = proj[
-                "variableStoreSwitches"
-              ] as Record<number, boolean>;
-            }
-            if (
-              proj["variableStoreVarNames"] !== null &&
-              typeof proj["variableStoreVarNames"] === "object"
-            ) {
-              snapshot.variableStoreVarNames = proj[
-                "variableStoreVarNames"
-              ] as Record<number, string>;
-            }
-            if (
-              proj["variableStoreSwitchNames"] !== null &&
-              typeof proj["variableStoreSwitchNames"] === "object"
-            ) {
-              snapshot.variableStoreSwitchNames = proj[
-                "variableStoreSwitchNames"
-              ] as Record<number, string>;
-            }
-            if (Object.keys(snapshot).length > 0) {
-              useVariableStore.getState().hydrateVariableStore({
-                variableStoreVars: {},
-                variableStoreSwitches: {},
-                variableStoreVarNames: {},
-                variableStoreSwitchNames: {},
-                ...snapshot,
-              });
-            }
-          }
-          if (
-            proj["windowConfig"] !== null &&
-            typeof proj["windowConfig"] === "object"
-          ) {
-            updates.windowConfig = {
-              ...DEFAULT_WINDOW_CONFIG,
-              ...(proj["windowConfig"] as Partial<WindowConfig>),
-            };
-          }
-          if (Array.isArray(proj["vnNodes"])) {
-            updates.vnNodes = proj["vnNodes"] as VnNode[];
-          }
-          if (
-            proj["autoTileRuleSets"] !== null &&
-            typeof proj["autoTileRuleSets"] === "object"
-          ) {
-            useTilemapStore
-              .getState()
-              .setAutoTileRuleSets(
-                proj["autoTileRuleSets"] as Record<string, AutoTileRule[]>,
-              );
-          }
-          if (Array.isArray(proj["dbActors"]))
-            useDBStore.getState().setDBActors(proj["dbActors"] as DbEntry[]);
-          if (Array.isArray(proj["dbClasses"]))
-            useDBStore.getState().setDBClasses(proj["dbClasses"] as DbEntry[]);
-          if (Array.isArray(proj["dbItems"]))
-            useDBStore.getState().setDBItems(proj["dbItems"] as DbEntry[]);
-          if (Array.isArray(proj["dbEnemies"]))
-            useDBStore.getState().setDBEnemies(proj["dbEnemies"] as DbEntry[]);
-          if (typeof proj["editorGridSize"] === "number") {
-            updates.editorGridSize = Math.max(
-              4,
-              proj["editorGridSize"] as number,
-            );
-          }
-          if (typeof proj["editorShowGrid"] === "boolean") {
-            updates.editorShowGrid = proj["editorShowGrid"];
-          }
-          if (typeof proj["editorShowRuler"] === "boolean") {
-            updates.editorShowRuler = proj["editorShowRuler"];
-          }
-          if (typeof proj["editorSnapToGrid"] === "boolean") {
-            updates.editorSnapToGrid = proj["editorSnapToGrid"];
-          }
-          if (typeof proj["editorShowGuides"] === "boolean") {
-            updates.editorShowGuides = proj["editorShowGuides"];
-          }
-          // Restore open file tabs from saved JSON (used on autosave restore)
-          if (
-            proj["openFiles"] !== null &&
-            typeof proj["openFiles"] === "object" &&
-            !Array.isArray(proj["openFiles"])
-          ) {
-            const saved = proj["openFiles"] as Record<string, unknown>;
-            const restored: Record<string, string> = {};
-            for (const [k, v] of Object.entries(saved)) {
-              if (typeof v === "string") restored[k] = v;
-            }
-            // Only use saved openFiles if no code files were passed directly
-            if (
-              Object.keys(codeFiles).length === 0 &&
-              Object.keys(restored).length > 0
-            ) {
-              updates.openFiles = restored;
-            }
-          }
-          if (typeof proj["activeFilePath"] === "string") {
-            // Only set activeFilePath if it's in the openFiles we have
-            const files = updates.openFiles ?? codeFiles;
-            if (proj["activeFilePath"] in files) {
-              updates.activeFilePath = proj["activeFilePath"];
-            }
-          }
-          if (Array.isArray(proj["recentAssetIds"])) {
-            updates.recentAssetIds = (
-              proj["recentAssetIds"] as unknown[]
-            ).filter((v): v is string => typeof v === "string");
-          }
-          if (Array.isArray(proj["roomOrder"])) {
-            updates.roomOrder = (proj["roomOrder"] as unknown[]).filter(
-              (v): v is string => typeof v === "string",
-            );
-          }
-          set(updates);
-        } catch (err) {
-          get().addLog(
-            "warn",
-            `Failed to parse .project.json: ${String(err)}`,
-            "IDE",
-          );
-        }
-      }
-    }
-
-    get().addLog("info", `Loaded ${paths.length} file(s)`, "IDE");
-  },
+  loadProjectFiles: (files, name) =>
+    _loadProjectFiles(files, name, set, get().addLog),
 }));
 
 function getDefaultProperties(componentType: string): Record<string, string> {

@@ -161,6 +161,23 @@ export function AudioMixer(): React.ReactElement {
           overflowX: "auto",
         }}
       >
+        {histBuses.length === 0 && (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              color: "var(--es-text-muted)",
+              fontSize: 12,
+              textAlign: "center",
+            }}
+          >
+            <div>No buses yet — click + Bus to add one.</div>
+          </div>
+        )}
         {histBuses.map((bus) => {
           const vol = effectiveVolume(bus);
           const fillPct = vol;
@@ -215,7 +232,11 @@ export function AudioMixer(): React.ReactElement {
                       right: 0,
                       height: `${fillPct}%`,
                       background:
-                        vol > 90 ? "#ef4444" : vol > 70 ? "#4ade80" : bus.color,
+                        vol > 90
+                          ? "var(--es-red)"
+                          : vol > 70
+                            ? "var(--es-green)"
+                            : bus.color,
                       borderRadius: 3,
                       transition: "height 0.1s",
                     }}
@@ -261,8 +282,10 @@ export function AudioMixer(): React.ReactElement {
                   cursor: "pointer",
                   fontSize: 10,
                   fontWeight: 600,
-                  background: bus.muted ? "#ef4444" : "var(--es-surface)",
-                  color: bus.muted ? "#fff" : "var(--es-text-muted)",
+                  background: bus.muted ? "var(--es-red)" : "var(--es-surface)",
+                  color: bus.muted
+                    ? "var(--es-text-on-accent)"
+                    : "var(--es-text-muted)",
                 }}
               >
                 M
@@ -278,8 +301,12 @@ export function AudioMixer(): React.ReactElement {
                   cursor: "pointer",
                   fontSize: 10,
                   fontWeight: 600,
-                  background: bus.solo ? "#fbbf24" : "var(--es-surface)",
-                  color: bus.solo ? "#000" : "var(--es-text-muted)",
+                  background: bus.solo
+                    ? "var(--es-yellow)"
+                    : "var(--es-surface)",
+                  color: bus.solo
+                    ? "var(--es-text-on-yellow)"
+                    : "var(--es-text-muted)",
                 }}
               >
                 S
