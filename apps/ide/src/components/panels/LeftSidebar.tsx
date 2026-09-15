@@ -61,7 +61,7 @@ function FileTreeNode({
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,
-          background: isSelected ? "rgba(124,106,247,0.15)" : undefined,
+          background: isSelected ? "var(--es-selection-bg)" : undefined,
           color: isSelected ? "var(--es-accent)" : "var(--es-text-muted)",
         }}
         onMouseEnter={(e) => {
@@ -329,7 +329,7 @@ export function LeftSidebar(): React.ReactElement {
               borderRadius: 4,
               border: "none",
               background:
-                section === item.id ? "rgba(124,106,247,0.15)" : "transparent",
+                section === item.id ? "var(--es-selection-bg)" : "transparent",
               color:
                 section === item.id
                   ? "var(--es-accent)"

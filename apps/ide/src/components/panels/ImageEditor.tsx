@@ -479,7 +479,9 @@ export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
                 tool === t.id ? "var(--es-accent)" : "var(--es-border)"
               }`,
               background:
-                tool === t.id ? "rgba(124,106,247,0.18)" : "var(--es-surface)",
+                tool === t.id
+                  ? "color-mix(in srgb, var(--es-accent) 18%, transparent)"
+                  : "var(--es-surface)",
               color: tool === t.id ? "var(--es-accent)" : "var(--es-text)",
               fontSize: 11,
               cursor: "pointer",

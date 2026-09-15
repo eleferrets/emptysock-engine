@@ -270,13 +270,16 @@ export function DatabaseEditor(): React.ReactElement {
   const btnStyle: React.CSSProperties = {
     padding: "3px 10px",
     background: "var(--es-accent)",
-    color: "#fff",
+    color: "var(--es-text-on-accent)",
     border: "none",
     borderRadius: 4,
     cursor: "pointer",
     fontSize: 12,
   };
-  const delStyle: React.CSSProperties = { ...btnStyle, background: "#7f1d1d" };
+  const delStyle: React.CSSProperties = {
+    ...btnStyle,
+    background: "var(--es-red)",
+  };
   const thStyle: React.CSSProperties = {
     padding: "4px 6px",
     borderBottom: "1px solid var(--es-border)",
