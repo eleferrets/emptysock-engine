@@ -1,5 +1,5 @@
 import React from "react";
-import { useIDEStore } from "../../store/ideStore";
+import { useVNStore } from "../../store/vnStore";
 
 interface VNNode {
   id: string;
@@ -117,7 +117,7 @@ function wrapText(
 }
 
 export function VNPreviewPanel(): React.ReactElement {
-  const vnNodes = useIDEStore(
+  const vnNodes = useVNStore(
     (s) => s.vnNodes as unknown as VNNode[] | undefined,
   );
   const [selectedId, setSelectedId] = React.useState<string>("");
