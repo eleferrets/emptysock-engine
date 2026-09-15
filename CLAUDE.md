@@ -91,7 +91,7 @@ Create a new ActorSystem in onLoad and destroy it in onDestroy. A shared ActorSy
 
 ## Canonical terms
 
-All documentation, skill files, and agent prompts must use the canonical spelling from [`docs/manual/14-glossary.md`](docs/manual/14-glossary.md). That file lists every term with its deprecated aliases and a one-line definition. Key points:
+All documentation, skill files, and agent prompts must use the canonical spelling from [`docs/glossary.md`](docs/glossary.md). That file lists every term with its deprecated aliases and a one-line definition. Key points:
 
 - `ActorSystem` — one word, never "Actor System"
 - `NavMeshSystem` / `NavMesh` — capital M, never "navmesh" or "Navmesh"

@@ -384,7 +384,7 @@ export function MenuBar({
   }, []);
 
   const openLanguageRef = useCallback((): void => {
-    window.open("/manual/10-language-reference.md", "_blank", "noopener");
+    window.open("/manual/10-language-reference.html", "_blank", "noopener");
   }, []);
 
   const openApiRef = useCallback((): void => {
