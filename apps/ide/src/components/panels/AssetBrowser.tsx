@@ -3,8 +3,6 @@ import { getAssetStore, browserAssetStore } from "../../services/AssetStore";
 import {
   Search,
   Upload,
-  X,
-  Grid,
   PackageOpen,
   ChevronDown,
   ChevronRight,
@@ -29,122 +27,9 @@ import {
 } from "./asset-browser/helpers";
 import { AssetPreviewPopover } from "./asset-browser/AssetPreviewPopover";
 import { RoomOrderDialog } from "./asset-browser/RoomOrderDialog";
-
-// ---------------------------------------------------------------------------
-// GMS2 YYP types (minimal — only what we parse from the project file)
-// ---------------------------------------------------------------------------
-
-interface YYPResourceId {
-  name: string;
-  path: string;
-}
-
-interface YYPResource {
-  id: YYPResourceId;
-}
-
-interface YYProject {
-  resources: YYPResource[];
-}
-
-// FileSystemDirectoryHandle.values() is an async iterator defined in
-// DOM.AsyncIterable which is not in the base lib. Declare it inline.
-type DirHandleIterable = FileSystemDirectoryHandle & {
-  values(): AsyncIterableIterator<FileSystemHandle>;
-};
-
-async function importGMS2FromHandle(
-  dirHandle: FileSystemDirectoryHandle,
-  addItems: (items: AssetItem[]) => void,
-): Promise<void> {
-  const { openFile, addLog } = useIDEStore.getState();
-
-  let yypHandle: FileSystemFileHandle | null = null;
-  const iterable = dirHandle as DirHandleIterable;
-  for await (const entry of iterable.values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".yyp")) {
-      yypHandle = entry as FileSystemFileHandle;
-      break;
-    }
-  }
-
-  if (yypHandle === null) {
-    addLog(
-      "warn",
-      "GMS2 import: no .yyp file found in the selected directory",
-      "GMS2",
-    );
-    return;
-  }
-
-  const file = await yypHandle.getFile();
-  const raw = await file.text();
-
-  let project: YYProject;
-  try {
-    project = JSON.parse(raw) as YYProject;
-  } catch {
-    addLog("error", "GMS2 import: failed to parse .yyp file as JSON", "GMS2");
-    return;
-  }
-
-  if (!Array.isArray(project.resources)) {
-    addLog("error", "GMS2 import: .yyp file has no resources array", "GMS2");
-    return;
-  }
-
-  let scriptCount = 0;
-  let spriteCount = 0;
-  let objectCount = 0;
-  const newAssets: AssetItem[] = [];
-
-  for (const res of project.resources) {
-    const name = res.id.name;
-    const resPath = res.id.path;
-    if (typeof name !== "string" || name.length === 0) continue;
-
-    if (resPath.startsWith("scripts/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
-      scriptCount += 1;
-    } else if (resPath.startsWith("objects/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
-      objectCount += 1;
-    } else if (resPath.startsWith("sprites/")) {
-      newAssets.push({
-        id: `gms2-spr-${Date.now()}-${name}`,
-        name,
-        type: "image",
-        path: `gms2/sprites/${name}`,
-      });
-      spriteCount += 1;
-    }
-  }
-  if (newAssets.length > 0) addItems(newAssets);
-
-  addLog(
-    "info",
-    `GMS2 import complete: ${scriptCount} scripts, ${spriteCount} sprites, ${objectCount} objects`,
-    "GMS2",
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
-
-interface StripDialog {
-  fileName: string;
-  detectedN: number;
-  frameCount: string;
-  objectUrl: string;
-  size: number;
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+import { SpriteSheetStripDialog } from "./asset-browser/SpriteSheetStripDialog";
+import type { StripDialog } from "./asset-browser/SpriteSheetStripDialog";
+import { importGMS2FromHandle } from "./asset-browser/gms2Import";
 
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
@@ -258,6 +143,19 @@ export function AssetBrowser(): React.ReactElement {
     [clearLeaveTimer],
   );
 
+  const openStripDialog = (file: File): void => {
+    const match = STRIP_RE.exec(file.name);
+    const n = match !== null ? parseInt(match[1] ?? "0", 10) : 0;
+    stripFileRef.current = file;
+    setStripDialog({
+      fileName: file.name,
+      detectedN: n,
+      frameCount: String(n),
+      objectUrl: URL.createObjectURL(file),
+      size: file.size,
+    });
+  };
+
   const handleDrop = useCallback(
     (files: FileList): void => {
       const folder =
@@ -266,15 +164,7 @@ export function AssetBrowser(): React.ReactElement {
       for (const file of Array.from(files)) {
         const match = STRIP_RE.exec(file.name);
         if (match !== null && file.type.startsWith("image/")) {
-          const n = parseInt(match[1] ?? "0", 10);
-          stripFileRef.current = file;
-          setStripDialog({
-            fileName: file.name,
-            detectedN: n,
-            frameCount: String(n),
-            objectUrl: URL.createObjectURL(file),
-            size: file.size,
-          });
+          openStripDialog(file);
           return;
         }
         toImport.push(file);
@@ -307,15 +197,7 @@ export function AssetBrowser(): React.ReactElement {
     for (const file of files) {
       const match = STRIP_RE.exec(file.name);
       if (match !== null && file.type.startsWith("image/")) {
-        const n = parseInt(match[1] ?? "0", 10);
-        stripFileRef.current = file;
-        setStripDialog({
-          fileName: file.name,
-          detectedN: n,
-          frameCount: String(n),
-          objectUrl: URL.createObjectURL(file),
-          size: file.size,
-        });
+        openStripDialog(file);
         e.target.value = "";
         return;
       }
@@ -790,191 +672,16 @@ export function AssetBrowser(): React.ReactElement {
 
       {/* Sprite sheet strip import dialog */}
       {stripDialog !== null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 300,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelStripImport();
-          }}
-        >
-          <div
-            style={{
-              background: "var(--es-surface)",
-              border: "1px solid var(--es-border)",
-              borderRadius: 10,
-              width: 400,
-              maxWidth: "calc(100vw - 32px)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 16px",
-                borderBottom: "1px solid var(--es-border)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Grid size={14} style={{ color: "var(--es-accent)" }} />
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--es-text)",
-                  }}
-                >
-                  Import Sprite Sheet
-                </span>
-              </div>
-              <button
-                onClick={cancelStripImport}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--es-text-muted)",
-                  display: "flex",
-                }}
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div
-              style={{
-                padding: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--es-text-muted)",
-                  fontFamily: "JetBrains Mono, monospace",
-                  wordBreak: "break-all",
-                }}
-              >
-                {stripDialog.fileName}
-                <span style={{ marginLeft: 8, opacity: 0.6 }}>
-                  {formatSize(stripDialog.size)}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  border: "1px solid var(--es-border)",
-                  background: "var(--es-surface-deep)",
-                  maxHeight: 120,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src={stripDialog.objectUrl}
-                  alt="strip preview"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 120,
-                    objectFit: "contain",
-                    imageRendering: "pixelated",
-                  }}
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: "var(--es-text)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Frame count
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={1024}
-                  value={stripDialog.frameCount}
-                  onChange={(e) =>
-                    setStripDialog((d) =>
-                      d === null ? null : { ...d, frameCount: e.target.value },
-                    )
-                  }
-                  style={{
-                    flex: 1,
-                    background: "var(--es-bg)",
-                    border: "1px solid var(--es-border)",
-                    borderRadius: 5,
-                    color: "var(--es-text)",
-                    fontSize: 12,
-                    padding: "4px 8px",
-                    outline: "none",
-                    fontFamily: "JetBrains Mono, monospace",
-                  }}
-                />
-                {stripDialog.detectedN > 0 && (
-                  <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
-                    detected: {stripDialog.detectedN}
-                  </span>
-                )}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--es-text-muted)",
-                  lineHeight: 1.5,
-                }}
-              >
-                Frames are read left-to-right from a single horizontal strip.
-                Set the frame count manually if the filename detection was
-                incorrect.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-                padding: "10px 16px",
-                borderTop: "1px solid var(--es-border)",
-              }}
-            >
-              <Button variant="ghost" size="sm" onClick={cancelStripImport}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={confirmStripImport}
-                disabled={
-                  isNaN(parseInt(stripDialog.frameCount, 10)) ||
-                  parseInt(stripDialog.frameCount, 10) < 1
-                }
-              >
-                <Grid size={11} />
-                Import Strip
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SpriteSheetStripDialog
+          dialog={stripDialog}
+          onFrameCountChange={(value) =>
+            setStripDialog((d) =>
+              d === null ? null : { ...d, frameCount: value },
+            )
+          }
+          onConfirm={confirmStripImport}
+          onCancel={cancelStripImport}
+        />
       )}
 
       {/* Room Order dialog */}
