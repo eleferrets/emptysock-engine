@@ -8,3 +8,4 @@ coverage/
 *.log
 .claude/worktrees/
 apps/ide/public/manual/
+apps/ide/public/esbuild.wasm
