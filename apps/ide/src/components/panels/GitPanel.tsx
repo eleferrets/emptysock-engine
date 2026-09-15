@@ -333,8 +333,10 @@ export function GitPanel(): React.ReactElement {
         color: "var(--es-text)",
         fontSize: 12,
         // Define diff palette tokens scoped to the panel
-        ["--es-diff-add-bg" as string]: "rgba(74, 222, 128, 0.12)",
-        ["--es-diff-rm-bg" as string]: "rgba(248, 113, 113, 0.12)",
+        ["--es-diff-add-bg" as string]:
+          "color-mix(in srgb, var(--es-green) 12%, transparent)",
+        ["--es-diff-rm-bg" as string]:
+          "color-mix(in srgb, var(--es-red) 12%, transparent)",
       }}
     >
       {/* Header */}
@@ -374,7 +376,8 @@ export function GitPanel(): React.ReactElement {
           <div
             style={{
               padding: "6px 12px",
-              background: "rgba(250, 204, 21, 0.1)",
+              background:
+                "color-mix(in srgb, var(--es-yellow) 10%, transparent)",
               borderBottom: "1px solid var(--es-yellow)",
               color: "var(--es-yellow)",
               fontSize: 11,

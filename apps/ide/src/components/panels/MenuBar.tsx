@@ -61,7 +61,7 @@ function Kbd({ shortcut }: { shortcut: string }): React.ReactElement {
           padding: "1px 4px",
           fontSize: 10,
           lineHeight: 1.4,
-          background: "rgba(255,255,255,0.04)",
+          background: "var(--es-surface-2)",
         }}
       >
         {shortcut}
@@ -110,7 +110,9 @@ function Dropdown({
         }}
         onMouseEnter={() => onHoverSibling(open)}
         style={{
-          background: open ? "rgba(124,106,247,0.14)" : "transparent",
+          background: open
+            ? "color-mix(in srgb, var(--es-accent) 14%, transparent)"
+            : "transparent",
           border: "none",
           color: open ? "var(--es-text)" : "var(--es-text-muted)",
           cursor: "pointer",
@@ -195,7 +197,7 @@ function Dropdown({
                 onMouseOver={(e) => {
                   if (item.disabled !== true)
                     (e.currentTarget as HTMLButtonElement).style.background =
-                      "rgba(124,106,247,0.1)";
+                      "color-mix(in srgb, var(--es-accent) 10%, transparent)";
                 }}
                 onMouseOut={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
@@ -252,7 +254,6 @@ export function MenuBar({
     projectName,
     resetProject,
     loadProjectFiles,
-    setActiveTab,
   } = useIDEStore();
 
   const isMac = navigator.platform.toUpperCase().includes("MAC");

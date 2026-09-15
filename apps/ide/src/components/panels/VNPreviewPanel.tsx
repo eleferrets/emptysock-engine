@@ -236,7 +236,7 @@ export function VNPreviewPanel(): React.ReactElement {
             width={PANEL_W}
             height={PANEL_H}
             style={{
-              border: "1px solid #333",
+              border: "1px solid var(--es-border)",
               maxWidth: "100%",
               imageRendering: "auto",
             }}

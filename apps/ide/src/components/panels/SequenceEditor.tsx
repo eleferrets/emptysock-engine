@@ -496,9 +496,11 @@ export function SequenceEditor(): React.ReactElement {
           style={{
             padding: "4px 12px",
             borderRadius: 4,
-            border: `1px solid ${playing ? "var(--es-red)" : "var(--es-border, #444)"}`,
-            background: playing ? "rgba(239,68,68,0.13)" : "transparent",
-            color: playing ? "var(--es-red)" : "var(--es-text, #e2e8f0)",
+            border: `1px solid ${playing ? "var(--es-red)" : "var(--es-border)"}`,
+            background: playing
+              ? "color-mix(in srgb, var(--es-red) 13%, transparent)"
+              : "transparent",
+            color: playing ? "var(--es-red)" : "var(--es-text)",
             cursor: "pointer",
             fontSize: 12,
             minWidth: 60,
@@ -813,9 +815,9 @@ export function SequenceEditor(): React.ReactElement {
                         width: 10,
                         height: 10,
                         background: isSelected
-                          ? "#fff"
+                          ? "var(--es-text)"
                           : TYPE_COLORS[track.type],
-                        border: `2px solid ${isSelected ? TYPE_COLORS[track.type] : "rgba(255,255,255,0.35)"}`,
+                        border: `2px solid ${isSelected ? TYPE_COLORS[track.type] : "color-mix(in srgb, var(--es-text) 35%, transparent)"}`,
                         cursor:
                           draggingKf?.kfId === kf.id ? "grabbing" : "grab",
                         zIndex: 5,

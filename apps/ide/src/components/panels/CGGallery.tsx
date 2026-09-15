@@ -332,10 +332,10 @@ function AddEntryForm({
             imagePath.trim().length === 0
           }
           style={{
-            background: "var(--es-accent, #3b82f6)",
+            background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
-            color: "#fff",
+            color: "var(--es-text-on-accent)",
             cursor: "pointer",
             fontSize: 12,
             padding: "5px 12px",
@@ -387,8 +387,7 @@ function CGCard({
         overflow: "hidden",
         cursor: unlocked ? "pointer" : "default",
         opacity: unlocked ? 1 : 0.5,
-        boxShadow:
-          hovered && unlocked ? "0 0 0 2px var(--es-accent, #3b82f6)" : "none",
+        boxShadow: hovered && unlocked ? "0 0 0 2px var(--es-accent)" : "none",
         transition: "box-shadow 0.15s, transform 0.15s",
         transform: hovered && unlocked ? "scale(1.02)" : "scale(1)",
         display: "flex",
@@ -584,10 +583,10 @@ export function CGGallery(): React.ReactElement {
   };
 
   const accentBtnStyle: React.CSSProperties = {
-    background: "var(--es-accent, #3b82f6)",
+    background: "var(--es-accent)",
     border: "none",
     borderRadius: 4,
-    color: "#fff",
+    color: "var(--es-text-on-accent)",
     cursor: "pointer",
     fontSize: 11,
     padding: "4px 10px",

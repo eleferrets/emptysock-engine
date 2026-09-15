@@ -16,7 +16,9 @@ interface LocState {
 
 export function LocalisationEditor(): React.ReactElement {
   const storeLocales = useLocalisationStore((s) => s.localisationLocales);
-  const storeTranslations = useLocalisationStore((s) => s.localisationTranslations);
+  const storeTranslations = useLocalisationStore(
+    (s) => s.localisationTranslations,
+  );
   const setStoreLocales = useLocalisationStore((s) => s.setLocalisationLocales);
   const setStoreTranslations = useLocalisationStore(
     (s) => s.setLocalisationTranslations,
@@ -268,7 +270,7 @@ export function LocalisationEditor(): React.ReactElement {
             background: "var(--es-accent)",
             border: "none",
             borderRadius: 4,
-            color: "#fff",
+            color: "var(--es-text-on-accent)",
             cursor: "pointer",
           }}
         >
@@ -368,12 +370,29 @@ export function LocalisationEditor(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
+            {keys.length === 0 && (
+              <tr>
+                <td
+                  colSpan={locales.length + 1}
+                  style={{
+                    padding: "24px 16px",
+                    textAlign: "center",
+                    color: "var(--es-text-muted)",
+                    fontSize: 12,
+                  }}
+                >
+                  No keys yet — click + Key to add a translation entry.
+                </td>
+              </tr>
+            )}
             {keys.map((key, ri) => (
               <tr
                 key={key}
                 style={{
                   background:
-                    ri % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+                    ri % 2 === 0
+                      ? "transparent"
+                      : "color-mix(in srgb, var(--es-text) 2%, transparent)",
                 }}
               >
                 <td

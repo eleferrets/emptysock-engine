@@ -174,10 +174,12 @@ export function VNMinimap({
         title={showMinimap ? "Hide minimap" : "Show minimap"}
         style={{
           padding: "2px 7px",
-          background: showMinimap ? "rgba(109,40,217,0.85)" : "rgba(0,0,0,0.6)",
-          border: "1px solid rgba(255,255,255,0.2)",
+          background: showMinimap
+            ? "var(--es-accent)"
+            : "color-mix(in srgb, var(--es-bg) 60%, transparent)",
+          border: "1px solid var(--es-border)",
           borderRadius: 4,
-          color: "#fff",
+          color: "var(--es-text-on-accent)",
           cursor: "pointer",
           fontSize: 11,
           lineHeight: "16px",
@@ -196,9 +198,9 @@ export function VNMinimap({
           onPointerCancel={handleMinimapPointerUp}
           style={{
             display: "block",
-            background: "rgba(10,10,20,0.82)",
+            background: "color-mix(in srgb, var(--es-bg) 82%, transparent)",
             borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.15)",
+            border: "1px solid var(--es-border)",
             cursor: "crosshair",
             touchAction: "none",
           }}

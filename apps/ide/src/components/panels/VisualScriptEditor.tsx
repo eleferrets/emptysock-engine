@@ -425,7 +425,7 @@ export function VisualScriptEditor(): React.ReactElement {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--es-bg, #1a1a2e)",
+        background: "var(--es-bg)",
       }}
     >
       {/* Toolbar */}
@@ -435,8 +435,8 @@ export function VisualScriptEditor(): React.ReactElement {
           alignItems: "center",
           gap: 8,
           padding: "6px 12px",
-          borderBottom: "1px solid var(--es-border, #333)",
-          background: "var(--es-surface, #16213e)",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
           flexShrink: 0,
           flexWrap: "wrap",
         }}
@@ -516,13 +516,13 @@ export function VisualScriptEditor(): React.ReactElement {
         <span
           style={{
             fontSize: 10,
-            color: "var(--es-text-muted, #888)",
+            color: "var(--es-text-muted)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
           {Math.round(vsScale * 100)}%
         </span>
-        <span style={{ fontSize: 11, color: "var(--es-text-muted, #888)" }}>
+        <span style={{ fontSize: 11, color: "var(--es-text-muted)" }}>
           Ctrl+scroll to zoom • Click ports to connect • Double-click to rename
         </span>
       </div>
@@ -553,7 +553,7 @@ export function VisualScriptEditor(): React.ReactElement {
             minWidth: "100%",
             minHeight: "100%",
             background:
-              "repeating-linear-gradient(0deg, transparent, transparent 23px, var(--es-border, #333) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, var(--es-border, #333) 24px)",
+              "repeating-linear-gradient(0deg, transparent, transparent 23px, var(--es-border) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, var(--es-border) 24px)",
             backgroundSize: `${24 * vsScale}px ${24 * vsScale}px`,
             userSelect: "none",
             cursor: pendingEdge ? "crosshair" : "default",
@@ -773,8 +773,8 @@ export function VisualScriptEditor(): React.ReactElement {
       {generatedCode !== null && (
         <div
           style={{
-            borderTop: "1px solid var(--es-border, #333)",
-            background: "var(--es-surface, #16213e)",
+            borderTop: "1px solid var(--es-border)",
+            background: "var(--es-surface)",
             maxHeight: 200,
             overflow: "auto",
             flexShrink: 0,
@@ -785,13 +785,13 @@ export function VisualScriptEditor(): React.ReactElement {
               display: "flex",
               alignItems: "center",
               padding: "4px 12px",
-              borderBottom: "1px solid var(--es-border, #333)",
+              borderBottom: "1px solid var(--es-border)",
             }}
           >
             <span
               style={{
                 fontSize: 11,
-                color: "var(--es-text-muted, #888)",
+                color: "var(--es-text-muted)",
                 flex: 1,
               }}
             >
@@ -809,7 +809,7 @@ export function VisualScriptEditor(): React.ReactElement {
               margin: 0,
               padding: "8px 12px",
               fontSize: 11,
-              color: "#e2e8f0",
+              color: "var(--es-text)",
               fontFamily: "monospace",
               whiteSpace: "pre-wrap",
             }}
@@ -840,9 +840,9 @@ function btnStyle(color: string): React.CSSProperties {
 const btnStyleGhost: React.CSSProperties = {
   padding: "4px 10px",
   borderRadius: 4,
-  border: "1px solid var(--es-border, #444)",
+  border: "1px solid var(--es-border)",
   background: "transparent",
-  color: "var(--es-text, #e2e8f0)",
+  color: "var(--es-text)",
   cursor: "pointer",
   fontSize: 12,
   flexShrink: 0,
@@ -851,9 +851,9 @@ const btnStyleGhost: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
   padding: "4px 8px",
   borderRadius: 4,
-  border: "1px solid var(--es-border, #444)",
-  background: "var(--es-surface, #16213e)",
-  color: "var(--es-text, #e2e8f0)",
+  border: "1px solid var(--es-border)",
+  background: "var(--es-surface)",
+  color: "var(--es-text)",
   cursor: "pointer",
   fontSize: 12,
 };
