@@ -10,8 +10,8 @@ import {
   RotateCw,
 } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
-import { useIDEStore } from "../../store/ideStore";
-import type { CGEntry } from "../../store/ideStore";
+import { useCGStore } from "../../store/cgStore";
+import type { CGEntry } from "../../store/cgStore";
 
 export type { CGEntry };
 
@@ -494,8 +494,8 @@ export function CGGallery(): React.ReactElement {
     QUIPS[Math.floor(Math.random() * QUIPS.length)] ?? QUIPS[0],
   ).current;
 
-  const cgGallery = useIDEStore((s) => s.cgGallery);
-  const setCGGallery = useIDEStore((s) => s.setCGGallery);
+  const cgGallery = useCGStore((s) => s.cgGallery);
+  const setCGGallery = useCGStore((s) => s.setCGGallery);
 
   // Entry list — undo/redo via useHistory, initialised from persisted store state
   const {
@@ -509,7 +509,7 @@ export function CGGallery(): React.ReactElement {
 
   // Sync entries changes → store (unlock state is read from store at sync time)
   React.useEffect(() => {
-    const currentUnlocked = useIDEStore.getState().cgGallery.unlocked;
+    const currentUnlocked = useCGStore.getState().cgGallery.unlocked;
     setCGGallery({ entries: histEntries, unlocked: currentUnlocked });
   }, [histEntries, setCGGallery]);
 

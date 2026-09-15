@@ -3,7 +3,8 @@ import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
 } from "@emptysock/engine";
-import { useIDEStore, type VnNode } from "../../store/ideStore";
+import { useIDEStore } from "../../store/ideStore";
+import { useVNStore, type VnNode } from "../../store/vnStore";
 import { useHistory } from "../../hooks/useHistory";
 
 type NodeType = "dialogue" | "choice";
@@ -118,7 +119,7 @@ function saveGraph(nodes: VNNode[], edges: VNEdge[]): void {
 }
 
 export function VNEditor(): React.ReactElement {
-  const setVNNodes = useIDEStore((s) => s.setVNNodes);
+  const setVNNodes = useVNStore((s) => s.setVNNodes);
   const editorGridSize = useIDEStore((s) => s.editorGridSize);
   const editorShowGrid = useIDEStore((s) => s.editorShowGrid);
   const editorSnapToGrid = useIDEStore((s) => s.editorSnapToGrid);

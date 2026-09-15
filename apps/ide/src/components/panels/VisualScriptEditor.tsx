@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { RotateCcw, RotateCw } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
-import { useIDEStore } from "../../store/ideStore";
-import type { VSNode, VSEdge } from "../../store/ideStore";
+import { useVSStore } from "../../store/vsStore";
+import type { VSNode, VSEdge } from "../../store/vsStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -232,8 +232,8 @@ const MIN_VS_SCALE = 0.25;
 const MAX_VS_SCALE = 2.5;
 
 export function VisualScriptEditor(): React.ReactElement {
-  const storedGraph = useIDEStore((s) => s.visualScriptGraph);
-  const setVisualScriptGraph = useIDEStore((s) => s.setVisualScriptGraph);
+  const storedGraph = useVSStore((s) => s.visualScriptGraph);
+  const setVisualScriptGraph = useVSStore((s) => s.setVisualScriptGraph);
 
   // ── Graph state with undo/redo ────────────────────────────────────────────
   const initialGraph: GraphState =

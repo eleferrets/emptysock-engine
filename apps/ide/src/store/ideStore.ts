@@ -13,6 +13,9 @@ import {
   type TileLayer,
   type AutoTileRule,
 } from "./tilemapStore";
+import { useVNStore, type VnNode } from "./vnStore";
+import { useVSStore } from "./vsStore";
+import { useCGStore } from "./cgStore";
 export type LogLevel = "info" | "warn" | "error" | "debug";
 export type BuildMode = "debug" | "release";
 export type BuildStatus = "idle" | "building" | "success" | "error";
@@ -272,21 +275,6 @@ interface IDEState {
   setRecentAssetIds: (ids: string[]) => void;
   setRoomOrder: (ids: string[]) => void;
 
-  // Story Graph node cache (shared with VN Preview)
-  vnNodes: VnNode[];
-  setVNNodes: (nodes: VnNode[]) => void;
-
-  // Visual Script graph (persisted across panel unmount)
-  visualScriptGraph: { nodes: VSNode[]; edges: VSEdge[] } | null;
-  setVisualScriptGraph: (graph: { nodes: VSNode[]; edges: VSEdge[] }) => void;
-
-  // CG Gallery entries and unlock state
-  cgGallery: { entries: CGEntry[]; unlocked: Record<string, boolean> };
-  setCGGallery: (gallery: {
-    entries: CGEntry[];
-    unlocked: Record<string, boolean>;
-  }) => void;
-
   // Editor grid / ruler / alignment guides
   editorGridSize: number;
   editorShowGrid: boolean;
@@ -411,35 +399,6 @@ const INITIAL_FILES: ProjectFile[] = [
   },
 ];
 
-// ── VN types ─────────────────────────────────────────────────────────────────
-export interface VnNode {
-  id: string;
-  [key: string]: unknown;
-}
-
-// ── Visual Script graph types ─────────────────────────────────────────────────
-export interface VSNode {
-  id: string;
-  type: string;
-  label: string;
-  x: number;
-  y: number;
-  componentType?: string;
-}
-
-export interface VSEdge {
-  id: string;
-  from: string;
-  to: string;
-}
-
-// ── CG Gallery types ──────────────────────────────────────────────────────────
-export interface CGEntry {
-  id: string;
-  title: string;
-  imagePath: string;
-}
-
 // ── Entity tree helpers ──────────────────────────────────────────────────────
 function findInTree(
   items: EntityItem[],
@@ -490,7 +449,6 @@ function initialProjectState() {
     recentAssetIds: [] as string[],
     roomOrder: [] as string[],
     enabledModules: DEFAULT_ENABLED_MODULES,
-    vnNodes: [] as VnNode[],
     editorGridSize: 32,
     editorShowGrid: true,
     editorShowRuler: true,
@@ -502,11 +460,6 @@ function initialProjectState() {
     debugBreakpoints: [] as string[],
     dropImportFolder: "root" as const,
     openImageEditorRequest: null as { assetId: string; ts: number } | null,
-    visualScriptGraph: null as { nodes: VSNode[]; edges: VSEdge[] } | null,
-    cgGallery: {
-      entries: [] as CGEntry[],
-      unlocked: {} as Record<string, boolean>,
-    },
   };
 }
 
@@ -597,15 +550,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Image editor
   dropImportFolder: "root" as const,
   openImageEditorRequest: null,
-
-  // Story Graph node cache
-  vnNodes: [],
-
-  // Visual Script graph
-  visualScriptGraph: null,
-
-  // CG Gallery
-  cgGallery: { entries: [], unlocked: {} },
 
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
@@ -804,12 +748,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (t) => set({ theme: t }),
   setProjectFolder: (folder) => set({ projectFolder: folder }),
 
-  setVNNodes: (nodes: VnNode[]) => set({ vnNodes: nodes }),
-
-  setVisualScriptGraph: (graph) => set({ visualScriptGraph: graph }),
-
-  setCGGallery: (gallery) => set({ cgGallery: gallery }),
-
   setEditorGridSize: (size) => set({ editorGridSize: Math.max(4, size) }),
   setEditorShowGrid: (show) => set({ editorShowGrid: show }),
   setEditorShowRuler: (show) => set({ editorShowRuler: show }),
@@ -857,6 +795,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useLocalisationStore.getState().resetLocalisationStore();
     useVariableStore.getState().resetVariableStore();
     useAudioStore.getState().resetAudioStore();
+    useVNStore.getState().resetVNStore();
+    useVSStore.getState().resetVSStore();
+    useCGStore.getState().resetCGStore();
     get().addLog("info", "New project created", "IDE");
   },
 
@@ -1000,6 +941,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     const vars = useVariableStore.getState();
     const audio = useAudioStore.getState();
     const tilemap = useTilemapStore.getState();
+    const vn = useVNStore.getState();
     return JSON.stringify(
       {
         projectName: get().projectName,
@@ -1018,7 +960,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         variableStoreVarNames: vars.variableStoreVarNames,
         variableStoreSwitchNames: vars.variableStoreSwitchNames,
         windowConfig: s.windowConfig,
-        vnNodes: s.vnNodes,
+        vnNodes: vn.vnNodes,
         autoTileRuleSets: tilemap.autoTileRuleSets,
         dbActors: db.dbActors,
         dbClasses: db.dbClasses,
@@ -1074,7 +1016,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       recentAssetIds: [],
       roomOrder: [],
       enabledModules: DEFAULT_ENABLED_MODULES,
-      vnNodes: [],
       editorGridSize: 32,
       editorShowGrid: true,
       editorShowRuler: true,
@@ -1092,6 +1033,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useVariableStore.getState().resetVariableStore();
     useAudioStore.getState().resetAudioStore();
     useTilemapStore.getState().resetTilemapStore();
+    useVNStore.getState().resetVNStore();
+    useVSStore.getState().resetVSStore();
+    useCGStore.getState().resetCGStore();
 
     // Restore project state from .project.json if present
     if (projectJsonKey !== undefined) {
@@ -1204,7 +1148,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             };
           }
           if (Array.isArray(proj["vnNodes"])) {
-            updates.vnNodes = proj["vnNodes"] as VnNode[];
+            useVNStore.getState().setVNNodes(proj["vnNodes"] as VnNode[]);
           }
           if (
             proj["autoTileRuleSets"] !== null &&
