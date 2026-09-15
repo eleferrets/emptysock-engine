@@ -1,25 +1,25 @@
 # EmptySock Engine — AI Agent Guide
 
-This file is the decision record for the monorepo. It records conventions and non-obvious architectural choices. For API signatures and worked examples, see the offline manual in `docs/manual/`.
+This file is the decision record for the monorepo. It records conventions and non-obvious architectural choices. For API signatures and worked examples, see the docs at `docs/`.
 
 ---
 
-## Offline manual
+## Documentation
 
-| Section | Path                                 | Topic                                                                    |
-| ------- | ------------------------------------ | ------------------------------------------------------------------------ |
-| 1       | docs/manual/01-prerequisites.md      | Node, Rust, Android/iOS SDKs, system libs                                |
-| 2       | docs/manual/02-getting-started.md    | Install, run, export pipeline                                            |
-| 3       | docs/manual/03-architecture.md       | Layers, ECS, Actor Model, data flow                                      |
-| 4       | docs/manual/04-core-reference.md     | Scene, Entity, Timer, Coroutine, Camera                                  |
-| 5       | docs/manual/05-systems-reference.md  | Physics 2D/3D, Input, NavMesh, Save, Localisation, Plugin                |
-| 6       | docs/manual/06-actor-model.md        | Actor, ActorSystem, NetworkActor, Transport                              |
-| 7       | docs/manual/07-ide-reference.md      | All panels, shortcuts, build pipeline, PWA                               |
-| 8       | docs/manual/08-tutorial-pong.md      | Step-by-step: full game from scratch                                     |
-| 9       | docs/manual/09-troubleshooting.md    | Common pitfalls and how to diagnose them                                 |
-| 10      | docs/manual/10-language-reference.md | Offline TypeScript & JavaScript reference for engine scripting           |
-| 11      | docs/manual/11-gms2-migration.md     | GMS2 → EmptySock migration guide: import tool, GML mapping, asset status |
-| 14      | docs/manual/14-glossary.md           | Canonical terms, deprecated aliases, definitions                         |
+The docs follow a Unity/Unreal-style layout — four sections that match different reading modes. Start at `docs/README.md` for a full navigation table.
+
+| Section            | Path                         | What it covers                                                                                    |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| Getting Started    | `docs/getting-started/`      | Installation, first game, IDE tour, from GameMaker                                                |
+| Guides             | `docs/guides/`               | Task-oriented: physics, input, saving, navmesh, actors, plugins, hot-reload, building             |
+| Reference          | `docs/reference/`            | Indexed by class/system — Scene, Entity, all systems. Ctrl+F destination, not sequential reading. |
+| Tutorials          | `docs/tutorials/`            | Pong, platformer, visual novel, bullet hell — complete step-by-step projects                      |
+| Architecture       | `docs/architecture.md`       | Layers, ECS, Actor Model, IDE data flow (contributor deep-dive)                                   |
+| Troubleshooting    | `docs/troubleshooting.md`    | Common pitfalls and how to diagnose them                                                          |
+| Glossary           | `docs/glossary.md`           | Canonical term spellings, deprecated aliases, definitions                                         |
+| Language Reference | `docs/language-reference.md` | TypeScript & JavaScript reference for engine scripting                                            |
+
+> The legacy `docs/manual/` files remain for backward compatibility with external links. New content goes in the directories above.
 
 ---
 
