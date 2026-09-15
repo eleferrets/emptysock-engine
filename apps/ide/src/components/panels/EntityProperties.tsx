@@ -433,7 +433,9 @@ export function EntityProperties(): React.ReactElement {
               key={component.type}
               entityId={selectedEntity.id}
               component={component}
-              liveFields={liveComponentFields?.[component.type]}
+              {...(liveComponentFields?.[component.type] !== undefined
+                ? { liveFields: liveComponentFields[component.type] }
+                : {})}
               onRemove={commitRemoveComponent}
               onPatch={(fieldKey, newValue) =>
                 handlePatch(component.type, fieldKey, newValue)

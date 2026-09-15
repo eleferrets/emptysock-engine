@@ -108,26 +108,41 @@ async function openDirectoryTauri(): Promise<void> {
   const selected = await open({ directory: true, multiple: false });
   if (typeof selected !== "string") return;
 
-  type TauriEntry = { name: string; path: string; children?: TauriEntry[] };
-  const entries = (await readDir(selected, {
-    recursive: true,
-  })) as TauriEntry[];
+  const IGNORED = new Set(["node_modules", ".git", "dist", ".tauri"]);
 
-  function toNodes(items: TauriEntry[]): FileTreeNode[] {
-    return items
-      .filter((e) => e.name !== "node_modules" && e.name !== ".git")
-      .map((e) => ({
-        name: e.name,
-        path: e.path,
-        ...(e.children !== undefined ? { children: toNodes(e.children) } : {}),
-      }));
+  async function walkDir(
+    dirPath: string,
+    depth: number,
+  ): Promise<FileTreeNode[]> {
+    if (depth <= 0) return [];
+    const entries = await readDir(dirPath);
+    const nodes: FileTreeNode[] = [];
+    for (const entry of entries) {
+      if (IGNORED.has(entry.name)) continue;
+      const entryPath = `${dirPath}/${entry.name}`;
+      if (entry.isDirectory) {
+        nodes.push({
+          name: entry.name,
+          path: entryPath,
+          children: await walkDir(entryPath, depth - 1),
+        });
+      } else {
+        nodes.push({ name: entry.name, path: entryPath });
+      }
+    }
+    return nodes.sort((a, b) => {
+      const aIsDir = a.children !== undefined;
+      const bIsDir = b.children !== undefined;
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
   }
 
   _tauriDirPath = selected;
   tauriAssetStore.setRoot(selected);
   const store = useIDEStore.getState();
   store.setProjectRoot(selected);
-  store.setFileTree(toNodes(entries));
+  store.setFileTree(await walkDir(selected, 5));
 }
 
 export const ProjectService = {

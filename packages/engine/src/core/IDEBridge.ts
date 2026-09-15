@@ -64,9 +64,9 @@ class IDEBridgeService {
     this._active = true;
     window.addEventListener("message", this._onMessage);
 
-    const esEngine = (window as Record<string, unknown>)["EmptySockEngine"] as
-      | Record<string, unknown>
-      | undefined;
+    const esEngine = (window as unknown as Record<string, unknown>)[
+      "EmptySockEngine"
+    ] as Record<string, unknown> | undefined;
     const EngineClass = esEngine?.["Engine"] as
       | { prototype: Record<string, unknown> }
       | undefined;
