@@ -143,6 +143,7 @@ export class BattleSystem {
   private readonly _fleeChance: number;
 
   private _db: BattleDatabase;
+  private _statusEffectIndex: Map<string, StatusEffectDef> = new Map();
   private _phase: BattlePhase = "idle";
   // Indirection prevents TypeScript from narrowing _phase within callers that
   // assign it and then call methods that can mutate it (e.g. _checkEndConditions).
@@ -171,6 +172,9 @@ export class BattleSystem {
     this._critMultiplier = options?.critMultiplier ?? 1.5;
     this._fleeChance = options?.fleeChance ?? 0.5;
     this._db = options?.db ?? { skills: [], statusEffects: [] };
+    this._statusEffectIndex = new Map(
+      this._db.statusEffects.map((d) => [d.id, d]),
+    );
   }
 
   // --- Setup ---
@@ -185,6 +189,7 @@ export class BattleSystem {
 
   loadDatabase(db: BattleDatabase): void {
     this._db = db;
+    this._statusEffectIndex = new Map(db.statusEffects.map((d) => [d.id, d]));
   }
 
   setDamageFormula(
@@ -412,7 +417,7 @@ export class BattleSystem {
 
     // Iterate over a copy so removal mid-loop is safe
     for (const se of [...state.statusEffects]) {
-      const def = this._db.statusEffects.find((d) => d.id === se.id);
+      const def = this._statusEffectIndex.get(se.id);
 
       // HP drain
       if (
@@ -460,7 +465,7 @@ export class BattleSystem {
     let defMult = 1;
 
     for (const se of state.statusEffects) {
-      const def = this._db.statusEffects.find((d) => d.id === se.id);
+      const def = this._statusEffectIndex.get(se.id);
       if (def === undefined) continue;
       if (def.attackMultiplier !== undefined) atkMult *= def.attackMultiplier;
       if (def.defenseMultiplier !== undefined) defMult *= def.defenseMultiplier;
@@ -649,9 +654,7 @@ export class BattleSystem {
         target.hp > 0 &&
         Math.random() < seSpec.chance
       ) {
-        const seDef = this._db.statusEffects.find(
-          (d) => d.id === seSpec.effectId,
-        );
+        const seDef = this._statusEffectIndex.get(seSpec.effectId);
         if (seDef !== undefined) {
           const alreadyActive = target.statusEffects.some(
             (se) => se.id === seDef.id,

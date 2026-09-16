@@ -25,6 +25,7 @@ export class GamepadSystem {
   private readonly _states: Map<number, GamepadState> = new Map();
 
   update(): void {
+    if (typeof navigator === "undefined") return;
     const pads = navigator.getGamepads();
     for (let i = 0; i < pads.length; i++) {
       const pad = pads[i];
@@ -34,7 +35,7 @@ export class GamepadSystem {
       }
       this._states.set(i, {
         connected: pad.connected,
-        buttons: pad.buttons.map(b => b.pressed),
+        buttons: pad.buttons.map((b) => b.pressed),
         axes: Array.from(pad.axes),
       });
     }
@@ -45,10 +46,11 @@ export class GamepadSystem {
   }
 
   rumble(index: number, intensity: number, duration: number): void {
+    if (typeof navigator === "undefined") return;
     const pads = navigator.getGamepads();
     const pad = pads[index] as GamepadWithVibration | null | undefined;
     if (pad === null || pad === undefined) return;
-    pad.vibrationActuator?.playEffect('dual-rumble', {
+    pad.vibrationActuator?.playEffect("dual-rumble", {
       startDelay: 0,
       duration,
       weakMagnitude: intensity,
@@ -57,10 +59,11 @@ export class GamepadSystem {
   }
 
   rumbleDual(index: number, opts: DualRumbleOptions): void {
+    if (typeof navigator === "undefined") return;
     const pads = navigator.getGamepads();
     const pad = pads[index] as GamepadWithVibration | null | undefined;
     if (pad === null || pad === undefined) return;
-    pad.vibrationActuator?.playEffect('dual-rumble', {
+    pad.vibrationActuator?.playEffect("dual-rumble", {
       startDelay: 0,
       duration: opts.duration,
       weakMagnitude: opts.weakMagnitude,

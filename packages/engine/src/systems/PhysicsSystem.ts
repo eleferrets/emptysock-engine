@@ -1,10 +1,11 @@
 import type RAPIER_TYPE from "@dimforge/rapier2d-compat";
 import type { Entity } from "../core/Entity.js";
 import type { Transform } from "../components/Transform.js";
-import type { PhysicsBody } from "../components/PhysicsBody.js";
+import type { PhysicsBody, ContactInfo } from "../components/PhysicsBody.js";
 
 type RapierModule = typeof RAPIER_TYPE;
 type World = InstanceType<RapierModule["World"]>;
+type EventQueue = InstanceType<RapierModule["EventQueue"]>;
 
 export interface PhysicsWorldOptions {
   gravity?: { x: number; y: number };
@@ -14,8 +15,12 @@ export interface PhysicsWorldOptions {
 export class PhysicsSystem {
   private _RAPIER: RapierModule | null = null;
   private _world: World | null = null;
+  private _eventQueue: EventQueue | null = null;
   private _timestep: number = 1 / 60;
   private _accumulator: number = 0;
+  private readonly _colliderToBody: Map<number, PhysicsBody> = new Map();
+  private readonly _activeSensorPairs: Map<string, [PhysicsBody, PhysicsBody]> =
+    new Map();
 
   async init(options: PhysicsWorldOptions = {}): Promise<void> {
     const RAPIER = await import("@dimforge/rapier2d-compat");
@@ -24,6 +29,7 @@ export class PhysicsSystem {
     this._timestep = options.timestep ?? 1 / 60;
     const gravity = options.gravity ?? { x: 0, y: -9.81 };
     this._world = new RAPIER.World(gravity);
+    this._eventQueue = new RAPIER.EventQueue(true);
   }
 
   get world(): World {
@@ -89,10 +95,12 @@ export class PhysicsSystem {
       .setDensity(pb.density)
       .setFriction(pb.friction)
       .setRestitution(pb.restitution)
-      .setSensor(pb.isSensor);
+      .setSensor(pb.isSensor)
+      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
     const collider = world.createCollider(colliderDesc, body);
     pb.colliderHandle = collider.handle;
+    this._colliderToBody.set(collider.handle, pb);
   }
 
   /**
@@ -115,13 +123,52 @@ export class PhysicsSystem {
     }
   }
 
-  /** Fixed-timestep step with accumulator. */
+  /** Fixed-timestep step with accumulator. Fires collision and sensor callbacks. */
   step(deltaTime: number): void {
-    if (this._world === null) return;
+    if (this._world === null || this._eventQueue === null) return;
     this._accumulator += deltaTime;
     while (this._accumulator >= this._timestep) {
-      this._world.step();
+      this._world.step(this._eventQueue);
+      this._drainCollisionEvents(this._eventQueue);
       this._accumulator -= this._timestep;
+    }
+  }
+
+  private _drainCollisionEvents(queue: EventQueue): void {
+    queue.drainCollisionEvents((h1: number, h2: number, started: boolean) => {
+      const body1 = this._colliderToBody.get(h1);
+      const body2 = this._colliderToBody.get(h2);
+      if (body1 === undefined || body2 === undefined) return;
+
+      const isSensor = body1.isSensor || body2.isSensor;
+      const key = `${Math.min(h1, h2)}:${Math.max(h1, h2)}`;
+
+      if (isSensor) {
+        if (started) {
+          this._activeSensorPairs.set(key, [body1, body2]);
+          body1.isSensor
+            ? body1.dispatchSensorEnter(body2)
+            : body2.dispatchSensorEnter(body1);
+        } else {
+          this._activeSensorPairs.delete(key);
+          body1.isSensor
+            ? body1.dispatchSensorExit(body2)
+            : body2.dispatchSensorExit(body1);
+        }
+      } else {
+        const contact: ContactInfo = { impactForce: 0 };
+        if (started) {
+          body1.dispatchCollisionEnter(body2, contact);
+          body2.dispatchCollisionEnter(body1, contact);
+        } else {
+          body1.dispatchCollisionExit(body2, contact);
+          body2.dispatchCollisionExit(body1, contact);
+        }
+      }
+    });
+
+    for (const [b1, b2] of this._activeSensorPairs.values()) {
+      b1.isSensor ? b1.dispatchSensorStay(b2) : b2.dispatchSensorStay(b1);
     }
   }
 
@@ -129,5 +176,8 @@ export class PhysicsSystem {
     this._world?.free();
     this._world = null;
     this._RAPIER = null;
+    this._eventQueue = null;
+    this._colliderToBody.clear();
+    this._activeSensorPairs.clear();
   }
 }
