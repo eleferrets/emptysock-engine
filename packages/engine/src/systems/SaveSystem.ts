@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export interface SaveSlot {
   readonly id: string;
@@ -16,7 +16,9 @@ const SaveSlotSchema = z.object({
   playtime: z.number().nonnegative(),
 });
 
-const STORAGE_PREFIX = 'emptysock_save_';
+const STORAGE_PREFIX = "emptysock_save_";
+
+const _KNOWN_KEYS = new Set(["scene", "data", "timestamp", "playtime"]);
 
 export class SaveSystem {
   private readonly _prefix: string;
@@ -25,8 +27,40 @@ export class SaveSystem {
     this._prefix = prefix;
   }
 
-  save(slotId: string, data: Omit<SaveSlot, 'id'>): void {
-    const slot: SaveSlot = { ...data, id: slotId };
+  /**
+   * Persist a save slot.
+   *
+   * `timestamp` defaults to `Date.now()` and `playtime` defaults to `0` when
+   * omitted, so a minimal call only needs `scene` and `data`.
+   *
+   * Any key other than `scene`, `data`, `timestamp`, and `playtime` is logged
+   * as a warning and dropped — store everything inside the `data` field.
+   */
+  save(
+    slotId: string,
+    entry: {
+      scene: string;
+      data: Record<string, unknown>;
+      timestamp?: number;
+      playtime?: number;
+    },
+  ): void {
+    for (const k of Object.keys(entry)) {
+      if (!_KNOWN_KEYS.has(k)) {
+        console.warn(
+          `[SaveSystem] save() received unexpected key "${k}" — it will not be persisted. Store all save data inside the "data" field.`,
+        );
+      }
+    }
+
+    const slot: SaveSlot = {
+      id: slotId,
+      scene: entry.scene,
+      data: entry.data,
+      timestamp: entry.timestamp ?? Date.now(),
+      playtime: entry.playtime ?? 0,
+    };
+
     try {
       localStorage.setItem(this._prefix + slotId, JSON.stringify(slot));
     } catch {
