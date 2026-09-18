@@ -2,6 +2,10 @@
 // The render layer is responsible for actually drawing; this system tracks layout.
 
 import type { ImageLoader, IUIRenderer } from "@emptysock/types";
+import {
+  applyEasing,
+  widgetRoundRect,
+} from "../ui/widgets/base.js";
 import type { Widget } from "../ui/Widget.js";
 
 export type UIAnchor =
@@ -209,10 +213,7 @@ export class UIComponent {
     if (this._anim === null) return;
     this._anim.t += dt;
     const progress = Math.min(this._anim.t / this._anim.duration, 1);
-    const eased =
-      progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2; // ease-in-out quad
+    const eased = applyEasing(progress, "ease-in-out");
 
     if (this._anim.type === "fade-in") {
       this.style = { ...this.style, opacity: eased * this._baseOpacity };
@@ -228,10 +229,7 @@ export class UIComponent {
   _animOffset(): { dx: number; dy: number } {
     if (this._anim === null) return { dx: 0, dy: 0 };
     const progress = Math.min(this._anim.t / this._anim.duration, 1);
-    const eased =
-      progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const eased = applyEasing(progress, "ease-in-out");
     const remaining = (1 - eased) * this._anim.slideDistance;
     switch (this._anim.type) {
       case "slide-in-left":
@@ -304,34 +302,6 @@ export class UIComponent {
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
 
-function roundRect(
-  ctx: IUIRenderer,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  if (r <= 0) {
-    ctx.rect(x, y, w, h);
-    return;
-  }
-  if (typeof ctx.roundRect === "function") {
-    ctx.roundRect(x, y, w, h, r);
-  } else {
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
-  }
-}
-
 function numToHex(n: number): string {
   return "#" + (n >>> 0).toString(16).padStart(6, "0");
 }
@@ -342,31 +312,19 @@ function buildFont(comp: UIComponent): string {
 
 // ─── System singleton ─────────────────────────────────────────────────────────
 
-const _defaultImageLoader: ImageLoader = {
-  async load(src: string): Promise<ImageBitmap> {
-    const res = await fetch(src);
-    const blob = await res.blob();
-    return createImageBitmap(blob);
-  },
-};
-
 class UISystemImpl {
   private readonly _roots: UIComponent[] = [];
   private readonly _widgetRoots: Widget[] = [];
-  private _imageLoader: ImageLoader;
+  private _imageLoader: ImageLoader | null = null;
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
   private readonly _imagePending: Set<string> = new Set();
-
-  constructor(imageLoader?: ImageLoader) {
-    this._imageLoader = imageLoader ?? _defaultImageLoader;
-  }
 
   /**
    * Inject an ImageLoader so that image UI components resolve their source
    * instead of rendering a grey placeholder. Call this once during game
    * initialisation before any image components are created.
    */
-  setImageLoader(loader: ImageLoader): void {
+  setImageLoader(loader: ImageLoader | null): void {
     this._imageLoader = loader;
   }
 
@@ -612,7 +570,7 @@ class UISystemImpl {
         const pr = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.beginPath();
-        roundRect(ctx, x, y, w, h, pr);
+        widgetRoundRect(ctx, x, y, w, h, pr);
         ctx.fill();
         if (
           style.borderColor !== undefined &&
@@ -621,7 +579,7 @@ class UISystemImpl {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
           ctx.beginPath();
-          roundRect(ctx, x, y, w, h, pr);
+          widgetRoundRect(ctx, x, y, w, h, pr);
           ctx.stroke();
         }
         break;
@@ -630,7 +588,7 @@ class UISystemImpl {
         const br = style.borderRadius ?? 0;
         ctx.fillStyle = numToHex(style.backgroundColor ?? 0x1a1a2e);
         ctx.beginPath();
-        roundRect(ctx, x, y, w, h, br);
+        widgetRoundRect(ctx, x, y, w, h, br);
         ctx.fill();
         if (
           style.borderColor !== undefined &&
@@ -639,7 +597,7 @@ class UISystemImpl {
           ctx.strokeStyle = numToHex(style.borderColor);
           ctx.lineWidth = style.borderWidth;
           ctx.beginPath();
-          roundRect(ctx, x, y, w, h, br);
+          widgetRoundRect(ctx, x, y, w, h, br);
           ctx.stroke();
         }
         ctx.fillStyle = numToHex(style.color ?? 0xffffff);
@@ -666,7 +624,11 @@ class UISystemImpl {
           // Grey placeholder until the loader resolves (or if no loader is injected).
           ctx.fillStyle = "#888888";
           ctx.fillRect(x, y, w, h);
-          if (src.length > 0 && !this._imagePending.has(src)) {
+          if (
+            src.length > 0 &&
+            this._imageLoader !== null &&
+            !this._imagePending.has(src)
+          ) {
             this._imagePending.add(src);
             this._imageLoader
               .load(src)

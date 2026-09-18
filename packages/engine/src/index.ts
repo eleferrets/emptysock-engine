@@ -166,6 +166,7 @@ export {
   SliderWidget,
   CheckboxWidget,
   widgetRoundRect,
+  applyEasing,
 } from "./ui/Widget.js";
 export type {
   WidgetAnchor,
