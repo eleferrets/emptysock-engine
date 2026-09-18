@@ -44,10 +44,12 @@ export interface TilemapData {
 export class Tilemap {
   public readonly data: TilemapData;
   public readonly entity: Entity;
+  private readonly _layerIndex: Map<string, TilemapLayer>;
 
   constructor(data: TilemapData, entity: Entity) {
     this.data = data;
     this.entity = entity;
+    this._layerIndex = new Map(data.layers.map((l) => [l.name, l]));
   }
 
   get width(): number {
@@ -58,7 +60,7 @@ export class Tilemap {
   }
 
   getLayer(name: string): TilemapLayer | undefined {
-    return this.data.layers.find((l) => l.name === name);
+    return this._layerIndex.get(name);
   }
 
   /** Return all solid cells across all layers as a flat walkability grid (true = walkable). */

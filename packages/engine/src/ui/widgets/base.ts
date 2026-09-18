@@ -145,7 +145,7 @@ export abstract class Widget {
   }
 
   animate(name: AnimationName, opts: AnimationOpts = {}): void {
-    const duration = (opts.duration ?? 200) / 1000;
+    const duration = opts.duration ?? 0.2;
     const easing: EasingName = opts.easing ?? "quadOut";
     const direction = opts.direction ?? "left";
     if (name === "fadeIn") {

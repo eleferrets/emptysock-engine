@@ -156,6 +156,8 @@ export class BattleSystem {
 
   private readonly _party = new Map<string, _CombatantState>();
   private readonly _enemies = new Map<string, _CombatantState>();
+  private _aliveParty = 0;
+  private _aliveEnemies = 0;
   private _insertionCounter = 0;
 
   private readonly _handlers = new Set<(event: BattleEvent) => void>();
@@ -182,11 +184,15 @@ export class BattleSystem {
   // --- Setup ---
 
   addPartyMember(combatant: Combatant): void {
-    this._party.set(combatant.id, this._toState(combatant));
+    const state = this._toState(combatant);
+    this._party.set(combatant.id, state);
+    if (state.hp > 0) this._aliveParty++;
   }
 
   addEnemy(combatant: Combatant): void {
-    this._enemies.set(combatant.id, this._toState(combatant));
+    const state = this._toState(combatant);
+    this._enemies.set(combatant.id, state);
+    if (state.hp > 0) this._aliveEnemies++;
   }
 
   loadDatabase(db: BattleDatabase): void {
@@ -430,6 +436,7 @@ export class BattleSystem {
         def.hpDrainPercentPerTurn > 0
       ) {
         const drain = Math.floor(state.maxHp * def.hpDrainPercentPerTurn);
+        const wasAliveBeforeDrain = state.hp > 0;
         state.hp = Math.max(0, state.hp - drain);
         this._emit({
           kind: "damage",
@@ -438,7 +445,9 @@ export class BattleSystem {
           amount: drain,
           isCrit: false,
         });
-        if (state.hp <= 0) {
+        if (wasAliveBeforeDrain && state.hp <= 0) {
+          if (this._party.has(state.id)) this._aliveParty--;
+          else this._aliveEnemies--;
           this._emit({ kind: "combatant-defeated", combatantId: state.id });
         }
       }
@@ -490,6 +499,7 @@ export class BattleSystem {
     amount: number,
     isCrit: boolean,
   ): void {
+    const wasAlive = target.hp > 0;
     target.hp = Math.max(0, target.hp - amount);
     this._emit({
       kind: "damage",
@@ -498,7 +508,9 @@ export class BattleSystem {
       amount,
       isCrit,
     });
-    if (target.hp <= 0) {
+    if (wasAlive && target.hp <= 0) {
+      if (this._party.has(target.id)) this._aliveParty--;
+      else this._aliveEnemies--;
       this._emit({ kind: "combatant-defeated", combatantId: target.id });
     }
   }
@@ -681,19 +693,13 @@ export class BattleSystem {
   }
 
   private _checkEndConditions(): boolean {
-    const allEnemiesDead = Array.from(this._enemies.values()).every(
-      (s) => s.hp <= 0,
-    );
-    if (allEnemiesDead) {
+    if (this._aliveEnemies <= 0) {
       this._emit({ kind: "victory" });
       this._phase = "victory";
       return true;
     }
 
-    const allPartyDead = Array.from(this._party.values()).every(
-      (s) => s.hp <= 0,
-    );
-    if (allPartyDead) {
+    if (this._aliveParty <= 0) {
       this._emit({ kind: "defeat" });
       this._phase = "defeat";
       return true;
