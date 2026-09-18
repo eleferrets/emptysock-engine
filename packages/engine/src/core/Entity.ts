@@ -6,7 +6,11 @@ export class Entity {
   public readonly id: number;
   public name: string;
   public active: boolean = true;
-  public readonly tags: Set<string> = new Set();
+  private readonly _tags: Set<string> = new Set();
+
+  get tags(): ReadonlySet<string> {
+    return this._tags;
+  }
   private readonly _components: Map<string, Component> = new Map();
   private readonly _children: Entity[] = [];
   private _parent: Entity | null = null;
@@ -103,11 +107,16 @@ export class Entity {
   // ─── Tags ────────────────────────────────────────────────────────────────────
 
   hasTag(tag: string): boolean {
-    return this.tags.has(tag);
+    return this._tags.has(tag);
   }
 
   addTag(tag: string): this {
-    this.tags.add(tag);
+    this._tags.add(tag);
+    return this;
+  }
+
+  removeTag(tag: string): this {
+    this._tags.delete(tag);
     return this;
   }
 }

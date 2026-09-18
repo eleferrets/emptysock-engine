@@ -26,6 +26,7 @@ export class SaveSystem {
   }
 
   save(slotId: string, data: Omit<SaveSlot, 'id'>): void {
+    if (typeof localStorage === 'undefined') return;
     const slot: SaveSlot = { ...data, id: slotId };
     try {
       localStorage.setItem(this._prefix + slotId, JSON.stringify(slot));
@@ -35,6 +36,7 @@ export class SaveSystem {
   }
 
   load(slotId: string): SaveSlot | null {
+    if (typeof localStorage === 'undefined') return null;
     try {
       const raw = localStorage.getItem(this._prefix + slotId);
       if (raw === null) return null;
@@ -46,6 +48,7 @@ export class SaveSystem {
   }
 
   listSlots(): SaveSlot[] {
+    if (typeof localStorage === 'undefined') return [];
     const slots: SaveSlot[] = [];
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -67,6 +70,7 @@ export class SaveSystem {
   }
 
   delete(slotId: string): void {
+    if (typeof localStorage === 'undefined') return;
     try {
       localStorage.removeItem(this._prefix + slotId);
     } catch {
