@@ -11,8 +11,8 @@ export async function detectGPUTier(): Promise<GPUTier> {
   if (gl2 !== null) {
     const ext = gl2.getExtension('WEBGL_debug_renderer_info');
     if (ext !== null) {
-      const renderer = gl2.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
-      return classifyRenderer(renderer);
+      const raw: unknown = gl2.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+      if (typeof raw === 'string') return classifyRenderer(raw);
     }
     // WebGL2 without debug info → at least mid
     return 'mid';
@@ -23,8 +23,8 @@ export async function detectGPUTier(): Promise<GPUTier> {
   if (gl1 !== null) {
     const ext = gl1.getExtension('WEBGL_debug_renderer_info');
     if (ext !== null) {
-      const renderer = gl1.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
-      return classifyRenderer(renderer);
+      const raw: unknown = gl1.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+      if (typeof raw === 'string') return classifyRenderer(raw);
     }
     return 'low';
   }

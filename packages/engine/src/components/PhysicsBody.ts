@@ -29,11 +29,11 @@ export class PhysicsBody extends Component {
 
   // ─── Collision callbacks ─────────────────────────────────────────────────
 
-  private _onCollisionEnter: CollisionCallback | null = null;
-  private _onCollisionExit: CollisionCallback | null = null;
-  private _onSensorEnter: SensorCallback | null = null;
-  private _onSensorStay: SensorCallback | null = null;
-  private _onSensorExit: SensorCallback | null = null;
+  private readonly _onCollisionEnterHandlers: CollisionCallback[] = [];
+  private readonly _onCollisionExitHandlers: CollisionCallback[] = [];
+  private readonly _onSensorEnterHandlers: SensorCallback[] = [];
+  private readonly _onSensorStayHandlers: SensorCallback[] = [];
+  private readonly _onSensorExitHandlers: SensorCallback[] = [];
 
   constructor(options: {
     bodyType?: RigidBodyType;
@@ -60,23 +60,44 @@ export class PhysicsBody extends Component {
 
   // ─── Callback registration ───────────────────────────────────────────────
 
-  onCollisionEnter(cb: CollisionCallback): void { this._onCollisionEnter = cb; }
-  onCollisionExit(cb: CollisionCallback): void { this._onCollisionExit = cb; }
-  onSensorEnter(cb: SensorCallback): void { this._onSensorEnter = cb; }
-  onSensorStay(cb: SensorCallback): void { this._onSensorStay = cb; }
-  onSensorExit(cb: SensorCallback): void { this._onSensorExit = cb; }
+  onCollisionEnter(cb: CollisionCallback): () => void {
+    this._onCollisionEnterHandlers.push(cb);
+    return () => { const i = this._onCollisionEnterHandlers.indexOf(cb); if (i !== -1) this._onCollisionEnterHandlers.splice(i, 1); };
+  }
+  onCollisionExit(cb: CollisionCallback): () => void {
+    this._onCollisionExitHandlers.push(cb);
+    return () => { const i = this._onCollisionExitHandlers.indexOf(cb); if (i !== -1) this._onCollisionExitHandlers.splice(i, 1); };
+  }
+  onSensorEnter(cb: SensorCallback): () => void {
+    this._onSensorEnterHandlers.push(cb);
+    return () => { const i = this._onSensorEnterHandlers.indexOf(cb); if (i !== -1) this._onSensorEnterHandlers.splice(i, 1); };
+  }
+  onSensorStay(cb: SensorCallback): () => void {
+    this._onSensorStayHandlers.push(cb);
+    return () => { const i = this._onSensorStayHandlers.indexOf(cb); if (i !== -1) this._onSensorStayHandlers.splice(i, 1); };
+  }
+  onSensorExit(cb: SensorCallback): () => void {
+    this._onSensorExitHandlers.push(cb);
+    return () => { const i = this._onSensorExitHandlers.indexOf(cb); if (i !== -1) this._onSensorExitHandlers.splice(i, 1); };
+  }
 
   // ─── Dispatchers — called by PhysicsSystem ───────────────────────────────
 
   dispatchCollisionEnter(other: PhysicsBody, contact: ContactInfo): void {
-    this._onCollisionEnter?.(other, contact);
+    for (const cb of this._onCollisionEnterHandlers) cb(other, contact);
   }
   dispatchCollisionExit(other: PhysicsBody, contact: ContactInfo): void {
-    this._onCollisionExit?.(other, contact);
+    for (const cb of this._onCollisionExitHandlers) cb(other, contact);
   }
-  dispatchSensorEnter(other: PhysicsBody): void { this._onSensorEnter?.(other); }
-  dispatchSensorStay(other: PhysicsBody): void { this._onSensorStay?.(other); }
-  dispatchSensorExit(other: PhysicsBody): void { this._onSensorExit?.(other); }
+  dispatchSensorEnter(other: PhysicsBody): void {
+    for (const cb of this._onSensorEnterHandlers) cb(other);
+  }
+  dispatchSensorStay(other: PhysicsBody): void {
+    for (const cb of this._onSensorStayHandlers) cb(other);
+  }
+  dispatchSensorExit(other: PhysicsBody): void {
+    for (const cb of this._onSensorExitHandlers) cb(other);
+  }
 
   override serialize(): Record<string, unknown> {
     return {

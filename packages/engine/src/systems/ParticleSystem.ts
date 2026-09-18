@@ -219,19 +219,17 @@ export class ParticleEmitter {
 // ─── System ───────────────────────────────────────────────────────────────────
 
 export class ParticleSystem {
-  private readonly _emitters: ParticleEmitter[] = [];
+  private readonly _emitters: Set<ParticleEmitter> = new Set();
 
   create(options: ParticleEmitterOptions = {}): ParticleEmitter {
     const emitter = new ParticleEmitter(options);
-    this._emitters.push(emitter);
+    this._emitters.add(emitter);
     return emitter;
   }
 
   remove(emitter: ParticleEmitter): void {
-    const idx = this._emitters.indexOf(emitter);
-    if (idx !== -1) {
+    if (this._emitters.delete(emitter)) {
       emitter.clear();
-      this._emitters.splice(idx, 1);
     }
   }
 
@@ -241,12 +239,12 @@ export class ParticleSystem {
     }
   }
 
-  get emitters(): ReadonlyArray<ParticleEmitter> {
+  get emitters(): ReadonlySet<ParticleEmitter> {
     return this._emitters;
   }
 
   clear(): void {
-    this._emitters.length = 0;
+    this._emitters.clear();
   }
 
   destroy(): void {
