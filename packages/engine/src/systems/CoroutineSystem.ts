@@ -1,33 +1,40 @@
 export type CoroutineYield =
-  | { type: 'frames'; count: number }
-  | { type: 'seconds'; duration: number }
-  | { type: 'condition'; check: () => boolean };
+  | { type: "frames"; count: number }
+  | { type: "seconds"; duration: number }
+  | { type: "condition"; check: () => boolean };
 
 export type CoroutineGen = Generator<CoroutineYield, void, unknown>;
 
 export function waitFrames(n: number): CoroutineYield {
-  return { type: 'frames', count: n };
+  return { type: "frames", count: n };
 }
 
 export function waitSeconds(t: number): CoroutineYield {
-  return { type: 'seconds', duration: t };
+  return { type: "seconds", duration: t };
 }
 
 export function waitUntil(fn: () => boolean): CoroutineYield {
-  return { type: 'condition', check: fn };
+  return { type: "condition", check: fn };
 }
 
 interface CoroutineState {
   gen: CoroutineGen;
   waiting:
-    | { type: 'frames'; remaining: number }
-    | { type: 'seconds'; remaining: number }
-    | { type: 'condition'; check: () => boolean }
+    | { type: "frames"; remaining: number }
+    | { type: "seconds"; remaining: number }
+    | { type: "condition"; check: () => boolean }
     | null;
 }
 
 export class CoroutineSystem {
   private readonly _coroutines: Map<string, CoroutineState> = new Map();
+
+  /**
+   * Called when a coroutine throws. Receives the coroutine id and the error.
+   * The coroutine is stopped before this is called.
+   * When unset, errors are logged to `console.error`.
+   */
+  public onError: ((id: string, error: Error) => void) | null = null;
 
   start(id: string, gen: CoroutineGen): void {
     this._coroutines.set(id, { gen, waiting: null });
@@ -45,10 +52,10 @@ export class CoroutineSystem {
       if (w === null) continue;
 
       let ready = false;
-      if (w.type === 'frames') {
+      if (w.type === "frames") {
         w.remaining -= 1;
         ready = w.remaining <= 0;
-      } else if (w.type === 'seconds') {
+      } else if (w.type === "seconds") {
         w.remaining -= deltaTime;
         ready = w.remaining <= 0;
       } else {
@@ -66,19 +73,32 @@ export class CoroutineSystem {
     const state = this._coroutines.get(id);
     if (state === undefined) return;
 
-    const result = state.gen.next();
+    let result: IteratorResult<CoroutineYield, void>;
+    try {
+      result = state.gen.next();
+    } catch (err) {
+      this._coroutines.delete(id);
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (this.onError !== null) {
+        this.onError(id, error);
+      } else {
+        console.error(`[CoroutineSystem] Coroutine "${id}" threw:`, error);
+      }
+      return;
+    }
+
     if (result.done === true) {
       this._coroutines.delete(id);
       return;
     }
 
     const y = result.value;
-    if (y.type === 'frames') {
-      state.waiting = { type: 'frames', remaining: y.count };
-    } else if (y.type === 'seconds') {
-      state.waiting = { type: 'seconds', remaining: y.duration };
+    if (y.type === "frames") {
+      state.waiting = { type: "frames", remaining: y.count };
+    } else if (y.type === "seconds") {
+      state.waiting = { type: "seconds", remaining: y.duration };
     } else {
-      state.waiting = { type: 'condition', check: y.check };
+      state.waiting = { type: "condition", check: y.check };
     }
   }
 }

@@ -1,4 +1,4 @@
-# EmptySock Engine — Planned Improvements
+# EmptySock Engine — TypeScript Upgrade Todo
 
 ## Pending toolchain upgrades
 
@@ -17,9 +17,11 @@ TypeScript 7.1 is expected in autumn 2026. When it ships:
 - Keep `esbuild-wasm` version in `apps/ide/package.json` in lock-step with the `esbuildWasmUrl` import in `GameBuildService.ts`. The `?url` import ensures the self-hosted WASM file always matches the installed package version — never hardcode a CDN URL.
 - When esbuild releases a new major, regenerate the engine prebundle (`pnpm --filter @emptysock/ide run predev`) and verify the output size.
 
-## Open architectural items (from HANDOFF.md)
+## Resolved architectural items
 
-| Item                                             | Priority                                                        |
+All items from `apps/ide/HANDOFF.md` are complete:
+
+| Item                                             | Status                                                          |
 | ------------------------------------------------ | --------------------------------------------------------------- |
 | Self-host esbuild WASM in Netlify/Vercel deploy  | ✅ Fixed — Vite `?url` import                                   |
 | COOP/COEP headers for SharedArrayBuffer          | ✅ Fixed — added to `vite.config.ts` dev/preview                |
@@ -29,4 +31,4 @@ TypeScript 7.1 is expected in autumn 2026. When it ships:
 | Asset Browser backend storage                    | ✅ Done — `AssetStore.ts` with `BrowserFileStore`               |
 | Project save/load                                | ✅ Done — `.emptysock` files via File System Access API + Tauri |
 | Multi-file project tree (real, not mock)         | ✅ Done — `ProjectService.openDirectory()` + `DiskTreeRow`      |
-| Hot-reload on code change                        | Medium                                                          |
+| Hot-reload on code change                        | ✅ Done — `CanvasPreview.tsx` debounces 500 ms on `openFiles`   |

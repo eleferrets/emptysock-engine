@@ -6,19 +6,19 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 ## Core
 
-| Class / System                        | Description                                                                       |
-| ------------------------------------- | --------------------------------------------------------------------------------- |
-| [Actor](./actor-system.md)            | Base class for objects that communicate via message-passing within an ActorSystem |
-| [ActorSystem](./actor-system.md)      | Owns actor registration, message dispatch, and the inbox-drain-before-update loop |
-| [Camera](./camera.md)                 | Controls viewport: follow, shake, zoom, fade                                      |
-| [Component](./component.md)           | Base conventions for typed data objects attached to entities                      |
-| [Coroutine](./timer-and-coroutine.md) | Generator-based multi-frame sequencing                                            |
-| [Entity](./entity.md)                 | Named container for components; carries a unique ID                               |
-| [NetworkActor](./actor-system.md)     | Actor subclass that bridges the engine Actor Model to an external Transport       |
-| [Scene](./scene.md)                   | Root container for one game screen; owns entities and manages the game loop       |
-| [SceneManager](./scene.md)            | Controls which Scene is running; supports push/pop overlay stacks                 |
-| [Timer](./timer-and-coroutine.md)     | Game-loop-integrated delay and interval callbacks                                 |
-| [Transport](./actor-system.md)        | Interface (not a class) for sending and receiving raw messages in NetworkActor    |
+| Class / System                          | Description                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [Actor](./actor-system.md)              | Base class for objects that communicate via message-passing within an ActorSystem                 |
+| [ActorSystem](./actor-system.md)        | Owns actor registration, message dispatch, and the inbox-drain-before-update loop                 |
+| [Camera](./camera.md)                   | Controls viewport: follow, shake, zoom, fade                                                      |
+| [Component](./component.md)             | Base conventions for typed data objects attached to entities                                      |
+| [Coroutine](./timer-and-coroutine.md)   | Generator-based multi-frame sequencing                                                            |
+| [Entity](./entity.md)                   | Named container for components; carries a unique ID                                               |
+| [NetworkActor](./actor-system.md)       | Actor subclass that bridges the engine Actor Model to an external Transport                       |
+| [Scene](./scene.md)                     | Root container for one game screen; owns entities and manages the game loop                       |
+| [SceneManager](./scene.md#scenemanager) | Module-level singleton (`SceneManagerInstance`) controlling scene transitions and push/pop stacks |
+| [Timer](./timer-and-coroutine.md)       | Game-loop-integrated delay and interval callbacks                                                 |
+| [Transport](./actor-system.md)          | Interface (not a class) for sending and receiving raw messages in NetworkActor                    |
 
 ---
 
@@ -27,13 +27,15 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 | System                                                 | Description                                                             |
 | ------------------------------------------------------ | ----------------------------------------------------------------------- |
 | [AudioSystem](./systems/audio-system.md)               | Sound-effect and music playback, group volume control                   |
+| [BattleSystem](./systems/battle-system.md)             | Turn-based RPG combat engine with skill resolution and status effects   |
+| [InputSystem](./systems/input-system.md)               | Keyboard, mouse, touch, and axis input                                  |
 | [LocalisationSystem](./systems/localisation-system.md) | i18n: loads locale JSON files and looks up translated strings           |
 | [NavMeshSystem](./systems/nav-mesh-system.md)          | Polygon-based 2D pathfinding using A\*                                  |
 | [PhysicsSystem2D](./systems/physics-2d.md)             | 2D physics — PhysicsBody, CharacterController, collision events         |
 | [PhysicsSystem3D](./systems/physics-3d.md)             | 3D physics wrapping Rapier3D — must be destroyed on scene unload        |
-| [InputSystem](./systems/input-system.md)               | Keyboard, mouse, touch, and axis input                                  |
 | [PluginSystem](./systems/plugin-system.md)             | Module-level singleton service locator for optional capabilities        |
 | [SaveSystem](./systems/save-system.md)                 | Reads and writes persistent save slots                                  |
+| [UISystem / Widgets](./systems/ui-system.md)           | Retained-mode screen-space UI widgets (buttons, labels, panels, etc.)   |
 | [VNSystem](./systems/vn-system.md)                     | Plays back branching dialogue trees exported from the Story Graph panel |
 
 ---
@@ -65,3 +67,6 @@ See [ActorSystem reference](./actor-system.md) for `Actor`, `ActorSystem`, `Netw
 | `PhysicsSystem3D.addBody`            | [PhysicsSystem3D](./systems/physics-3d.md)             |
 | `InputSystem.isKeyDown` / `axis`     | [InputSystem](./systems/input-system.md)               |
 | `Audio.play` / `music`               | [AudioSystem](./systems/audio-system.md)               |
+| `BattleSystem` / `submitAction`      | [BattleSystem](./systems/battle-system.md)             |
+| `ButtonWidget`, `PanelWidget`, etc.  | [UISystem / Widgets](./systems/ui-system.md)           |
+| `SceneManagerInstance.transition`    | [SceneManager](./scene.md#scenemanager)                |

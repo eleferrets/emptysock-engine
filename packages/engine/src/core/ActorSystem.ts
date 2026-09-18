@@ -1,5 +1,5 @@
-import type { Actor } from './Actor.js';
-import type { Message } from './Actor.js';
+import type { Actor } from "./Actor.js";
+import type { Message } from "./Actor.js";
 
 /**
  * Manages a registry of Actors. Wire this into your game loop:
@@ -14,7 +14,9 @@ export class ActorSystem {
 
   register(actor: Actor): void {
     if (this._actors.has(actor.id)) {
-      throw new Error(`[ActorSystem] Actor id "${actor.id}" is already registered.`);
+      throw new Error(
+        `[ActorSystem] Actor id "${actor.id}" is already registered.`,
+      );
     }
     this._actors.set(actor.id, actor);
     actor.start();
@@ -30,6 +32,11 @@ export class ActorSystem {
 
   get(id: string): Actor | undefined {
     return this._actors.get(id);
+  }
+
+  /** Returns every registered actor in registration order. */
+  getAll(): Actor[] {
+    return [...this._actors.values()];
   }
 
   /** Send a message to a specific actor by id. No-op if the id is unknown. */
@@ -62,5 +69,7 @@ export class ActorSystem {
     this._actors.clear();
   }
 
-  get size(): number { return this._actors.size; }
+  get size(): number {
+    return this._actors.size;
+  }
 }
