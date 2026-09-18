@@ -1,5 +1,6 @@
 import { UISystem } from "./UISystem.js";
-import type { UIComponent } from "./UISystem.js";
+import { PanelWidget } from "../ui/widgets/panel.js";
+import { LabelWidget } from "../ui/widgets/label.js";
 import type { VNSystem } from "./VNSystem.js";
 
 export interface VNTextboxOptions {
@@ -13,12 +14,12 @@ export interface VNTextboxOptions {
   namePlateHeight?: number;
   /** Horizontal padding inside the panel. Default 24. */
   paddingX?: number;
-  /** Fill colour of the dialogue panel (0xRRGGBB). Default 0x0d0d1a at 80% opacity. */
-  panelColor?: number;
-  /** Fill colour of the name plate (0xRRGGBB). Default 0x3c2d6e. */
-  namePlateColor?: number;
-  /** Text colour (0xRRGGBB). Default 0xffffff. */
-  textColor?: number;
+  /** Fill colour of the dialogue panel (CSS colour). Default "rgba(13,13,26,0.88)". */
+  panelColor?: string;
+  /** Fill colour of the name plate (CSS colour). Default "#3c2d6e". */
+  namePlateColor?: string;
+  /** Text colour (CSS colour). Default "#ffffff". */
+  textColor?: string;
   /** Font size for dialogue text. Default 16. */
   fontSize?: number;
 }
@@ -40,55 +41,79 @@ export interface VNTextboxOptions {
  * ```
  */
 export class VNTextbox {
-  private readonly _panel: UIComponent;
-  private readonly _namePlate: UIComponent;
-  private readonly _text: UIComponent;
+  private readonly _panel: PanelWidget;
+  private readonly _namePlate: PanelWidget;
+  private readonly _nameLabel: LabelWidget;
+  private readonly _textLabel: LabelWidget;
   private _vnSystem: VNSystem | null = null;
+  private _unsubscribe: (() => void) | null = null;
 
   constructor(opts: VNTextboxOptions) {
     const cw = opts.canvasWidth;
+    const ch = opts.canvasHeight;
     const h = opts.height ?? 160;
     const npH = opts.namePlateHeight ?? 36;
     const px = opts.paddingX ?? 24;
-    const panelColor = opts.panelColor ?? 0x0d0d1a;
-    const namePlateColor = opts.namePlateColor ?? 0x3c2d6e;
-    const textColor = opts.textColor ?? 0xffffff;
+    const panelColor = opts.panelColor ?? "rgba(13,13,26,0.88)";
+    const namePlateColor = opts.namePlateColor ?? "#3c2d6e";
+    const textColor = opts.textColor ?? "#ffffff";
     const fs = opts.fontSize ?? 16;
+    const totalH = h + npH;
 
-    this._panel = UISystem.create("panel", {
+    this._panel = new PanelWidget({
       x: 0,
-      y: -(h + npH),
+      y: ch - totalH,
       width: cw,
-      height: h + npH,
-      anchor: "bottom-left",
-      style: { backgroundColor: panelColor, opacity: 0.88 },
-      interactive: true,
+      height: totalH,
+      anchor: "top-left",
+      background: panelColor,
     });
 
-    this._namePlate = this._panel.createChild("panel", {
+    this._namePlate = new PanelWidget({
       x: px,
       y: 0,
       width: 200,
       height: npH,
-      style: { backgroundColor: namePlateColor },
-      interactive: false,
+      anchor: "top-left",
+      background: namePlateColor,
     });
 
-    this._text = this._panel.createChild("text", {
+    this._nameLabel = new LabelWidget({
+      x: 8,
+      y: 0,
+      width: 184,
+      height: npH,
+      anchor: "top-left",
+      color: textColor,
+      fontSize: fs,
+      text: "",
+    });
+
+    this._textLabel = new LabelWidget({
       x: px,
       y: npH + 12,
       width: cw - px * 2,
-      height: h - npH - 24,
-      style: { color: textColor, fontSize: fs },
-      interactive: false,
+      height: h - 24,
+      anchor: "top-left",
+      color: textColor,
+      fontSize: fs,
+      text: "",
     });
 
-    this._panel.onClick(() => this._advance());
+    this._namePlate.children.push(this._nameLabel);
+    this._panel.children.push(this._namePlate);
+    this._panel.children.push(this._textLabel);
+
+    this._panel.on("click", () => { this._advance(); });
+
+    UISystem.add(this._panel);
   }
 
   /** Wire this textbox to a VNSystem instance. The textbox immediately reflects the current node. */
   bind(vn: VNSystem): void {
+    this._unsubscribe?.();
     this._vnSystem = vn;
+    this._unsubscribe = vn.onNode((_node) => { this._sync(); });
     this._sync();
   }
 
@@ -101,7 +126,6 @@ export class VNTextbox {
     return this._panel.visible;
   }
 
-  /** Update speaker name and dialogue text from the current VNSystem node. */
   private _sync(): void {
     if (this._vnSystem === null) return;
     const node = this._vnSystem.currentNode;
@@ -111,13 +135,11 @@ export class VNTextbox {
     }
     this._panel.visible = true;
     if (node.type === "dialogue") {
-      this._namePlate.text = node.speaker;
-      this._text.text = node.text;
+      this._nameLabel.text = node.speaker;
+      this._textLabel.text = node.text;
     } else if (node.type === "choice") {
-      this._namePlate.text = "";
-      this._text.text = node.options
-        .map((o, i) => `${i + 1}. ${o.label}`)
-        .join("\n");
+      this._nameLabel.text = "";
+      this._textLabel.text = node.options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
     } else {
       this._panel.visible = false;
     }
@@ -129,13 +151,14 @@ export class VNTextbox {
     if (node === null) return;
     if (node.type === "dialogue") {
       this._vnSystem.advance();
-      this._sync();
     }
     // choice selection is handled externally via VNSystem.selectOption()
   }
 
-  /** Remove the textbox components from UISystem. Call when the scene unloads. */
+  /** Remove the textbox widgets from UISystem. Call when the scene unloads. */
   destroy(): void {
+    this._unsubscribe?.();
+    this._unsubscribe = null;
     UISystem.remove(this._panel);
     this._vnSystem = null;
   }
