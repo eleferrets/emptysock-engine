@@ -32,7 +32,6 @@ export type {
   PhysicsBody3DOptions,
   Physics3DHandle,
   Vec3,
-  Vec3 as NavVec3,
   BodyType3D,
   Shape3D,
   Quat,
@@ -142,18 +141,16 @@ export type {
 
 // Tweens & Timers
 export { TweenManager } from "./systems/TweenSystem.js";
-export type { TweenOptions, EasingName } from "./systems/TweenSystem.js";
+export type { TweenOptions } from "./systems/TweenSystem.js";
 
 // UI
-export { UISystem, UIComponent } from "./systems/UISystem.js";
-export type {
-  UIComponentType,
-  UIComponentOptions,
-  UIStyle,
-  UIAnchor,
-  UIAnimationType,
-} from "./systems/UISystem.js";
+export { UISystem } from "./systems/UISystem.js";
+export type { UISystemImpl } from "./systems/UISystem.js";
 export type { IUIRenderer } from "@emptysock/types";
+
+// Easing
+export { ease } from "./core/easing.js";
+export type { EasingName } from "./core/easing.js";
 
 // Widget API
 export {
@@ -286,7 +283,6 @@ export const COMPONENT_REGISTRY: readonly string[] = [
   "PhysicsBody",
   "CharacterController",
   "Animator",
-  "UIComponent",
   "RigidJoint",
 ] as const;
 

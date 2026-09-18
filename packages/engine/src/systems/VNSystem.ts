@@ -14,11 +14,36 @@ export class VNSystem {
   private _tree: DialogueTree | null = null;
   private _currentNodeId: string | null = null;
 
-  public onEvent: ((eventName: string, data: Record<string, unknown>) => void) | null = null;
-  public onChoice: ((options: Array<{ label: string; next: string }>) => void) | null = null;
-  public onNode: ((node: DialogueNode) => void) | null = null;
-  public onEnd: (() => void) | null = null;
-  public onCGNode: ((cgPath: string) => void) | null = null;
+  private readonly _eventHandlers: Array<(eventName: string, data: Record<string, unknown>) => void> = [];
+  private readonly _choiceHandlers: Array<(options: Array<{ label: string; next: string }>) => void> = [];
+  private readonly _nodeHandlers: Array<(node: DialogueNode) => void> = [];
+  private readonly _endHandlers: Array<() => void> = [];
+  private readonly _cgNodeHandlers: Array<(cgPath: string) => void> = [];
+
+  onEvent(handler: (eventName: string, data: Record<string, unknown>) => void): () => void {
+    this._eventHandlers.push(handler);
+    return () => { const i = this._eventHandlers.indexOf(handler); if (i !== -1) this._eventHandlers.splice(i, 1); };
+  }
+
+  onChoice(handler: (options: Array<{ label: string; next: string }>) => void): () => void {
+    this._choiceHandlers.push(handler);
+    return () => { const i = this._choiceHandlers.indexOf(handler); if (i !== -1) this._choiceHandlers.splice(i, 1); };
+  }
+
+  onNode(handler: (node: DialogueNode) => void): () => void {
+    this._nodeHandlers.push(handler);
+    return () => { const i = this._nodeHandlers.indexOf(handler); if (i !== -1) this._nodeHandlers.splice(i, 1); };
+  }
+
+  onEnd(handler: () => void): () => void {
+    this._endHandlers.push(handler);
+    return () => { const i = this._endHandlers.indexOf(handler); if (i !== -1) this._endHandlers.splice(i, 1); };
+  }
+
+  onCGNode(handler: (cgPath: string) => void): () => void {
+    this._cgNodeHandlers.push(handler);
+    return () => { const i = this._cgNodeHandlers.indexOf(handler); if (i !== -1) this._cgNodeHandlers.splice(i, 1); };
+  }
 
   load(tree: DialogueTree): void {
     this._tree = tree;
@@ -53,14 +78,14 @@ export class VNSystem {
   private _goto(nodeId: string | null): void {
     if (nodeId === null) {
       this._currentNodeId = null;
-      if (this.onEnd) this.onEnd();
+      for (const h of this._endHandlers) h();
       return;
     }
     this._currentNodeId = nodeId;
     const node = this._tree?.nodes[nodeId];
-    if (node !== undefined && this.onNode) this.onNode(node);
-    if (node !== undefined && node.cgPath !== undefined && this.onCGNode) {
-      this.onCGNode(node.cgPath);
+    if (node !== undefined) {
+      for (const h of this._nodeHandlers) h(node);
+      if (node.cgPath !== undefined) for (const h of this._cgNodeHandlers) h(node.cgPath);
     }
     this._processCurrentNode();
   }
@@ -72,9 +97,9 @@ export class VNSystem {
     if (node.type === 'jump') {
       this._goto(node.target);
     } else if (node.type === 'event') {
-      this.onEvent?.(node.eventName, node.data ?? {});
+      for (const h of this._eventHandlers) h(node.eventName, node.data ?? {});
     } else if (node.type === 'choice') {
-      this.onChoice?.(node.options);
+      for (const h of this._choiceHandlers) h(node.options);
     } else if (node.type === 'variable-set') {
       // onNode was already fired in _goto; advance is triggered by the caller
     }

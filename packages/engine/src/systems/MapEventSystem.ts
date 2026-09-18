@@ -34,6 +34,7 @@ export class MapEventSystem {
   private _running: RunningEvent | null = null;
   private _triggered: Set<string> = new Set();
   private _parallelRunning: Set<string> = new Set();
+  private _destroyed = false;
 
   /** Register the handler that executes each command */
   setHandler(handler: EventCommandHandler): void {
@@ -113,7 +114,7 @@ export class MapEventSystem {
   }
 
   private _executeCommandChain(state: RunningEvent, onDone: () => void): void {
-    if (!this._handler) return;
+    if (this._destroyed || !this._handler) return;
     const { event } = state;
     if (state.commandIndex >= event.commands.length) {
       state.running = false;
@@ -135,6 +136,19 @@ export class MapEventSystem {
     } else {
       this._executeCommandChain(state, onDone);
     }
+  }
+
+  clear(): void {
+    this._events.clear();
+    this._running = null;
+    this._triggered.clear();
+    this._parallelRunning.clear();
+  }
+
+  destroy(): void {
+    this._destroyed = true;
+    this.clear();
+    this._handler = null;
   }
 
   /** Serialize all events (for saving in emptysock.project.json) */

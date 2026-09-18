@@ -26,7 +26,7 @@ export class RenderSystem {
       height: options.height ?? 720,
       backgroundColor: options.backgroundColor ?? 0x0e0e10,
       antialias: options.antialias ?? true,
-      resolution: options.resolution ?? window.devicePixelRatio,
+      resolution: options.resolution ?? (typeof window !== "undefined" ? window.devicePixelRatio : 1),
       powerPreference: 'high-performance',
       preference: ['webgpu', 'webgl'],
     });

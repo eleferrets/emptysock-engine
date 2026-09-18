@@ -40,7 +40,7 @@ export class CoroutineSystem {
   }
 
   update(deltaTime: number): void {
-    for (const [id, state] of this._coroutines) {
+    for (const [id, state] of [...this._coroutines]) {
       const w = state.waiting;
       if (w === null) continue;
 
