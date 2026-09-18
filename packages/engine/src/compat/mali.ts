@@ -20,7 +20,9 @@ export function detectMali(): MaliInfo {
     return { isMali: false, renderer: '', generation: 'unknown' };
   }
 
-  const renderer = (gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string).toLowerCase();
+  const raw: unknown = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+  if (typeof raw !== 'string') return { isMali: false, renderer: '', generation: 'unknown' };
+  const renderer = raw.toLowerCase();
 
   if (!renderer.includes('mali')) {
     return { isMali: false, renderer, generation: 'unknown' };
