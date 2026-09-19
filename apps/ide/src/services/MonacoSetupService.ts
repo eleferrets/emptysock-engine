@@ -80,7 +80,7 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
   // Strict but not overwhelming — no noUncheckedIndexedAccess etc.
   const tsOpts: Monaco.languages.typescript.CompilerOptions = {
     strict: true,
-    target: monaco.languages.typescript.ScriptTarget.ES2020,
+    target: monaco.languages.typescript.ScriptTarget.ES2022,
     module: monaco.languages.typescript.ModuleKind.ESNext,
     moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
     allowJs: true,
