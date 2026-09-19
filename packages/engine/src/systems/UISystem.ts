@@ -96,6 +96,14 @@ export class UISystem {
   ): boolean {
     const hit = this._findHit(this._roots, x, y, canvasWidth, canvasHeight);
     if (hit !== null) {
+      if ("_lastPointerX" in hit) {
+        (
+          hit as { _lastPointerX: number; _lastPointerCW: number }
+        )._lastPointerX = x;
+        (
+          hit as { _lastPointerX: number; _lastPointerCW: number }
+        )._lastPointerCW = canvasWidth;
+      }
       hit.triggerClick();
       return true;
     }
