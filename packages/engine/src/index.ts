@@ -111,7 +111,6 @@ export type { UpdatableSystem } from "./core/SystemManager.js";
 // SceneManager
 export { SceneManagerInstance as SceneManager } from "./core/SceneManager.js";
 export type {
-  TransitionEffect,
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
@@ -142,7 +141,8 @@ export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
-export type { IUIRenderer } from "@emptysock/types";
+export type { IUIRenderer, HostAdapter, HostMessage, HostMessageHandler } from "@emptysock/types";
+export { NullHostAdapter } from "@emptysock/types";
 
 // Easing
 export { ease } from "./core/easing.js";
@@ -208,7 +208,16 @@ export type {
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 
-// Hot reload — internal; accessed via the IDE bridge only
+// Hot reload
+export { HotReloadSystem } from "./systems/HotReloadSystem.js";
+
+// IDE Bridge
+export { ideBridge } from "./core/IDEBridge.js";
+export type { EntitySnapshot, ComponentPatchHandler, SelectHandler } from "./core/IDEBridge.js";
+
+// GPU tier detection
+export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
+export type { GPUTier } from "./core/GPUTier.js";
 
 // Window management
 export { windowSystem } from "./systems/WindowSystem.js";

@@ -9,15 +9,12 @@ type EventQueue = InstanceType<RapierModule["EventQueue"]>;
 
 export interface PhysicsWorldOptions {
   gravity?: { x: number; y: number };
-  timestep?: number;
 }
 
 export class PhysicsSystem {
   private _RAPIER: RapierModule | null = null;
   private _world: World | null = null;
   private _eventQueue: EventQueue | null = null;
-  private _timestep: number = 1 / 60;
-  private _accumulator: number = 0;
   private readonly _colliderToBody: Map<number, PhysicsBody> = new Map();
   private readonly _activeSensorPairs: Map<string, [PhysicsBody, PhysicsBody]> =
     new Map();
@@ -26,7 +23,6 @@ export class PhysicsSystem {
     const RAPIER = await import("@dimforge/rapier2d-compat");
     await RAPIER.init();
     this._RAPIER = RAPIER;
-    this._timestep = options.timestep ?? 1 / 60;
     const gravity = options.gravity ?? { x: 0, y: -9.81 };
     this._world = new RAPIER.World(gravity);
     this._eventQueue = new RAPIER.EventQueue(true);
@@ -123,15 +119,18 @@ export class PhysicsSystem {
     }
   }
 
-  /** Fixed-timestep step with accumulator. Fires collision and sensor callbacks. */
-  step(deltaTime: number): void {
+  /**
+   * Advance the physics world by exactly one step of `fixedDt` seconds and
+   * fire collision/sensor callbacks. Accumulation is handled externally by
+   * `SceneManager` — call this from `onFixedUpdate(dt)` (which is already
+   * driven by the scene manager's accumulator loop) rather than from
+   * `onUpdate(dt)`.
+   */
+  step(fixedDt: number): void {
     if (this._world === null || this._eventQueue === null) return;
-    this._accumulator += deltaTime;
-    while (this._accumulator >= this._timestep) {
-      this._world.step(this._eventQueue);
-      this._drainCollisionEvents(this._eventQueue);
-      this._accumulator -= this._timestep;
-    }
+    this._world.timestep = fixedDt;
+    this._world.step(this._eventQueue);
+    this._drainCollisionEvents(this._eventQueue);
   }
 
   private _drainCollisionEvents(queue: EventQueue): void {
