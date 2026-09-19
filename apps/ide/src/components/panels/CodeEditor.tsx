@@ -7,6 +7,10 @@ import { gameBuildService } from "../../services/GameBuildService";
 import { loadSettings } from "../../services/SettingsService";
 import type { IDESettings } from "../../services/SettingsService";
 import { TauriFileService } from "../../services/TauriFileService";
+import {
+  setupMonaco,
+  registerEditorActions,
+} from "../../services/MonacoSetupService";
 
 interface Snippet {
   label: string;
@@ -15,36 +19,36 @@ interface Snippet {
 
 const SNIPPETS: Snippet[] = [
   {
-    label: "Entity setup",
-    body: 'const entity = scene.createEntity();\nentity.addComponent({ type: "Transform", x: 0, y: 0 });',
+    label: "Scene skeleton",
+    body: `import { Scene, type SceneConfig } from '@emptysock/engine'\n\nexport class GameScene extends Scene {\n  static readonly config: SceneConfig = { renderMode: '2d', gameSpeed: 60 }\n\n  override async onLoad(): Promise<void> {\n    // load assets and build entities here\n  }\n\n  override onUpdate(dt: number): void {\n    // called every frame; dt = seconds since last frame\n  }\n\n  override onDestroy(): void {\n    // clean up timers, remove listeners\n  }\n}`,
   },
   {
-    label: "onLoad async",
-    body: "async onLoad(): Promise<void> {\n  // load assets here\n}",
-  },
-  {
-    label: "Coroutine",
-    body: "this.entity.startCoroutine(function* () {\n  yield;\n});",
-  },
-  {
-    label: "Actor receive",
-    body: "receive(msg: unknown): void {\n  // handle message\n}",
-  },
-  {
-    label: "Timer once",
-    body: "this.timer.after(1000, () => {\n  // one-shot\n});",
+    label: "Entity + Sprite",
+    body: `const e = this.createEntity('Player')\ne.addComponent(Sprite, { texture: 'assets/hero.png', anchor: { x: 0.5, y: 1.0 } })\ne.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })`,
   },
   {
     label: "Camera follow",
-    body: "scene.camera.follow(entity);",
+    body: `private _camera = new CameraSystem()\n\n// in onLoad:\nthis._camera.attach(this.stage)\nthis._camera.setFollow(() => player.position)\nthis._camera.setLerpFactor(0.08)\nthis._camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })\n\n// in onUpdate:\nthis._camera.update(dt)\n\n// in onDestroy:\nthis._camera.destroy()`,
   },
   {
-    label: "Physics body",
-    body: 'const body = physics.createBody({ type: "dynamic", x: 0, y: 0, width: 32, height: 32 });',
+    label: "Timer once",
+    body: `private _tweens = new TweenManager()\n\n// in onLoad:\nthis._tweens.after(2.0, () => { /* runs once after 2 s */ })\n\n// in onUpdate:\nthis._tweens.update(dt)\n\n// in onDestroy:\nthis._tweens.destroy()`,
   },
   {
-    label: "Save data",
-    body: 'saveSystem.set("key", value);\nconst v = saveSystem.get("key");',
+    label: "Coroutine",
+    body: `entity.startCoroutine(function* () {\n  yield waitSeconds(1.5)\n  yield waitUntil(() => player.isGrounded())\n  // continues here after both conditions\n})`,
+  },
+  {
+    label: "Save / load",
+    body: `import { SaveSystem } from '@emptysock/engine'\nimport { z } from 'zod'\n\nconst Schema = z.object({ score: z.number(), level: z.number() })\ntype Data = z.infer<typeof Schema>\n\nconst _save = new SaveSystem()\n\nfunction save(data: Data): void {\n  _save.save('slot-1', data)\n}\n\nfunction load(): Data | null {\n  const slot = _save.load('slot-1')\n  if (slot === null) return null\n  return Schema.parse(slot.data)\n}`,
+  },
+  {
+    label: "Actor receive",
+    body: `import { Actor, type Message } from '@emptysock/engine'\n\nclass EnemyActor extends Actor {\n  receive(msg: Message): void {\n    if (msg.type === 'take_damage') {\n      const dmg = (msg.payload as { amount: number }).amount\n      // handle damage\n    }\n  }\n}`,
+  },
+  {
+    label: "Physics collision",
+    body: `entity.onCollisionEnter((other, contact) => {\n  if (other.hasTag('hazard')) {\n    // handle collision\n  }\n})\n\nentity.onSensorEnter((other) => {\n  if (other.hasTag('player')) {\n    // handle sensor overlap\n  }\n})`,
   },
 ];
 
@@ -148,6 +152,10 @@ export function CodeEditor(): React.ReactElement {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+    // One-time Monaco setup: engine types, resource language, hover providers.
+    void setupMonaco(monaco);
+
+    // Per-editor actions: snippet palette + open-resource context menu.
     editor.addAction({
       id: "emptysock.insertSnippet",
       label: "Insert Snippet",
@@ -156,6 +164,10 @@ export function CodeEditor(): React.ReactElement {
       run: () => {
         openSnippetPalette(false);
       },
+    });
+
+    registerEditorActions(editor, monaco, (path) => {
+      openFile(path, "");
     });
   };
 
@@ -327,13 +339,25 @@ export function CodeEditor(): React.ReactElement {
       .toLowerCase();
     switch (ext) {
       case "js":
-        return "javascript";
       case "jsx":
         return "javascript";
       case "tsx":
         return "typescript";
       case "json":
         return "json";
+      case "glsl":
+      case "vert":
+      case "frag":
+        return "glsl";
+      case "esscene":
+      case "esmap":
+      case "esanim":
+      case "esprefab":
+      case "esvn":
+      case "esparticle":
+      case "esui":
+      case "esdata":
+        return "emptysock-resource";
       case "ts":
       default:
         return "typescript";

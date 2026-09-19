@@ -3,7 +3,13 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/*.js', '**/*.mjs'],
+    ignores: [
+      '**/dist/**',
+      '**/dist-types/**',
+      '**/node_modules/**',
+      '**/*.js',
+      '**/*.mjs',
+    ],
   },
   // Base rules — no type information required
   {
@@ -23,6 +29,20 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'inline-type-imports' }],
+    },
+  },
+  // Game-code rules — apply only to packages (not the IDE, which legitimately
+  // uses setTimeout for React DOM work and imports pixi.js for engine internals).
+  {
+    files: [
+      'packages/engine/src/**/*.ts',
+      'packages/types/src/**/*.ts',
+      'packages/toolchain/src/**/*.ts',
+    ],
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
       'no-restricted-globals': ['error',
         { name: 'setTimeout',    message: 'Use tweens.after() on a TweenManager instance instead.' },
         { name: 'setInterval',   message: 'Use tweens.every() on a TweenManager instance instead.' },
