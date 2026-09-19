@@ -9,20 +9,39 @@ type EventQueue = InstanceType<RapierModule["EventQueue"]>;
 
 export interface PhysicsWorldOptions {
   gravity?: { x: number; y: number };
+  timestep?: number;
+}
+
+/** Internal bookkeeping stored per registered entity. */
+interface _BodyRecord {
+  bodyHandle: number;
+  colliderHandle: number;
+  entity: Entity;
 }
 
 export class PhysicsSystem {
   private _RAPIER: RapierModule | null = null;
   private _world: World | null = null;
   private _eventQueue: EventQueue | null = null;
-  private readonly _colliderToBody: Map<number, PhysicsBody> = new Map();
-  private readonly _activeSensorPairs: Map<string, [PhysicsBody, PhysicsBody]> =
+  private _timestep: number = 1 / 60;
+  private _accumulator: number = 0;
+
+  /** Maps entity id → Rapier handles. Keeps Rapier internals off PhysicsBody. */
+  private readonly _entityHandles: Map<number, _BodyRecord> = new Map();
+  /** Maps collider handle → entity for O(1) lookup during collision drain. */
+  private readonly _colliderToEntity: Map<number, Entity> = new Map();
+  /**
+   * Active sensor pairs — key is `min(h1,h2):max(h1,h2)` — used to fire
+   * sensorStay events on each step.
+   */
+  private readonly _activeSensorPairs: Map<string, [Entity, Entity]> =
     new Map();
 
   async init(options: PhysicsWorldOptions = {}): Promise<void> {
     const RAPIER = await import("@dimforge/rapier2d-compat");
     await RAPIER.init();
     this._RAPIER = RAPIER;
+    this._timestep = options.timestep ?? 1 / 60;
     const gravity = options.gravity ?? { x: 0, y: -9.81 };
     this._world = new RAPIER.World(gravity);
     this._eventQueue = new RAPIER.EventQueue(true);
@@ -41,7 +60,8 @@ export class PhysicsSystem {
   /**
    * Register an entity's PhysicsBody component with the Rapier world.
    * Reads position from a Transform component on the same entity.
-   * Stores body/collider handles back on the PhysicsBody for later sync.
+   * Body and collider handles are stored internally; they are not written back
+   * to PhysicsBody.
    */
   registerEntity(entity: Entity): void {
     const RAPIER = this._RAPIER;
@@ -51,7 +71,7 @@ export class PhysicsSystem {
 
     const pb = entity.getComponent<PhysicsBody>("PhysicsBody");
     if (pb === undefined) return;
-    if (pb.bodyHandle !== null) return; // already registered
+    if (this._entityHandles.has(entity.id)) return; // already registered
 
     const transform = entity.getComponent<Transform>("Transform");
     const x = transform?.x ?? 0;
@@ -75,7 +95,6 @@ export class PhysicsSystem {
     bodyDesc.setTranslation(x, y);
 
     const body = world.createRigidBody(bodyDesc);
-    pb.bodyHandle = body.handle;
 
     // Collider descriptor
     let colliderDesc: ReturnType<typeof RAPIER.ColliderDesc.ball>;
@@ -95,8 +114,14 @@ export class PhysicsSystem {
       .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
     const collider = world.createCollider(colliderDesc, body);
-    pb.colliderHandle = collider.handle;
-    this._colliderToBody.set(collider.handle, pb);
+
+    const record: _BodyRecord = {
+      bodyHandle: body.handle,
+      colliderHandle: collider.handle,
+      entity,
+    };
+    this._entityHandles.set(entity.id, record);
+    this._colliderToEntity.set(collider.handle, entity);
   }
 
   /**
@@ -106,9 +131,9 @@ export class PhysicsSystem {
   syncToTransforms(entities: Iterable<Entity>): void {
     if (this._world === null) return;
     for (const entity of entities) {
-      const pb = entity.getComponent<PhysicsBody>("PhysicsBody");
-      if (pb === undefined || pb.bodyHandle === null) continue;
-      const body = this._world.getRigidBody(pb.bodyHandle);
+      const record = this._entityHandles.get(entity.id);
+      if (record === undefined) continue;
+      const body = this._world.getRigidBody(record.bodyHandle);
       const translation = body.translation();
       const transform = entity.getComponent<Transform>("Transform");
       if (transform !== undefined) {
@@ -119,55 +144,56 @@ export class PhysicsSystem {
     }
   }
 
-  /**
-   * Advance the physics world by exactly one step of `fixedDt` seconds and
-   * fire collision/sensor callbacks. Accumulation is handled externally by
-   * `SceneManager` — call this from `onFixedUpdate(dt)` (which is already
-   * driven by the scene manager's accumulator loop) rather than from
-   * `onUpdate(dt)`.
-   */
-  step(fixedDt: number): void {
+  /** Fixed-timestep step with accumulator. Fires collision and sensor events on entities. */
+  step(deltaTime: number): void {
     if (this._world === null || this._eventQueue === null) return;
-    this._world.timestep = fixedDt;
-    this._world.step(this._eventQueue);
-    this._drainCollisionEvents(this._eventQueue);
+    this._accumulator += deltaTime;
+    while (this._accumulator >= this._timestep) {
+      this._world.step(this._eventQueue);
+      this._drainCollisionEvents(this._eventQueue);
+      this._accumulator -= this._timestep;
+    }
   }
 
   private _drainCollisionEvents(queue: EventQueue): void {
     queue.drainCollisionEvents((h1: number, h2: number, started: boolean) => {
-      const body1 = this._colliderToBody.get(h1);
-      const body2 = this._colliderToBody.get(h2);
-      if (body1 === undefined || body2 === undefined) return;
+      const entity1 = this._colliderToEntity.get(h1);
+      const entity2 = this._colliderToEntity.get(h2);
+      if (entity1 === undefined || entity2 === undefined) return;
 
-      const isSensor = body1.isSensor || body2.isSensor;
+      const pb1 = entity1.getComponent<PhysicsBody>("PhysicsBody");
+      const pb2 = entity2.getComponent<PhysicsBody>("PhysicsBody");
+
+      const isSensor =
+        (pb1 !== undefined && pb1.isSensor) ||
+        (pb2 !== undefined && pb2.isSensor);
       const key = `${Math.min(h1, h2)}:${Math.max(h1, h2)}`;
 
       if (isSensor) {
         if (started) {
-          this._activeSensorPairs.set(key, [body1, body2]);
-          body1.isSensor
-            ? body1.dispatchSensorEnter(body2)
-            : body2.dispatchSensorEnter(body1);
+          this._activeSensorPairs.set(key, [entity1, entity2]);
+          entity1.emit("sensorEnter", entity2);
+          entity2.emit("sensorEnter", entity1);
         } else {
           this._activeSensorPairs.delete(key);
-          body1.isSensor
-            ? body1.dispatchSensorExit(body2)
-            : body2.dispatchSensorExit(body1);
+          entity1.emit("sensorExit", entity2);
+          entity2.emit("sensorExit", entity1);
         }
       } else {
         const contact: ContactInfo = { impactForce: 0 };
         if (started) {
-          body1.dispatchCollisionEnter(body2, contact);
-          body2.dispatchCollisionEnter(body1, contact);
+          entity1.emit("collisionEnter", entity2, contact);
+          entity2.emit("collisionEnter", entity1, contact);
         } else {
-          body1.dispatchCollisionExit(body2, contact);
-          body2.dispatchCollisionExit(body1, contact);
+          entity1.emit("collisionExit", entity2, contact);
+          entity2.emit("collisionExit", entity1, contact);
         }
       }
     });
 
-    for (const [b1, b2] of this._activeSensorPairs.values()) {
-      b1.isSensor ? b1.dispatchSensorStay(b2) : b2.dispatchSensorStay(b1);
+    for (const [e1, e2] of this._activeSensorPairs.values()) {
+      e1.emit("sensorStay", e2);
+      e2.emit("sensorStay", e1);
     }
   }
 
@@ -176,7 +202,8 @@ export class PhysicsSystem {
     this._world = null;
     this._RAPIER = null;
     this._eventQueue = null;
-    this._colliderToBody.clear();
+    this._entityHandles.clear();
+    this._colliderToEntity.clear();
     this._activeSensorPairs.clear();
   }
 }
