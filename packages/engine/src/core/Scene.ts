@@ -1,7 +1,8 @@
 import { Entity } from "./Entity.js";
 import { Engine } from "./EngineAPI.js";
 import { UISystem } from "../systems/UISystem.js";
-import type { Component } from "./Component.js";
+import { SystemManager } from "./SystemManager.js";
+import type { ComponentType } from "./Component.js";
 
 export type SystemFn = (scene: Scene, deltaTime: number) => void;
 
@@ -11,7 +12,13 @@ export class Scene {
   /** Per-scene UI system. Add widgets here; cleared automatically on destroy. */
   public readonly ui: UISystem = new UISystem();
   private readonly _entities: Map<number, Entity> = new Map();
-  private readonly _systems: Array<{ name: string; fn: SystemFn }> = [];
+  /**
+   * The scene's system registry. `addSystem()`/`removeSystem()` are sugar
+   * over this — there is one system-collection concept in the engine
+   * (`SystemManager`), and every scene owns one. Reach for `this.systems`
+   * directly only if you need `SystemManager`'s `get()` lookup.
+   */
+  public readonly systems: SystemManager = new SystemManager();
   private _running: boolean = false;
 
   constructor(name: string) {
@@ -115,7 +122,7 @@ export class Scene {
    * The type string must match the `Component.type` field exactly — it is not
    * derived from a constructor name (which is unsafe under minification).
    */
-  getEntitiesWithComponent(type: string): Entity[] {
+  getEntitiesWithComponent(type: ComponentType | string): Entity[] {
     return Array.from(this._entities.values()).filter((e) =>
       e.hasComponent(type),
     );
@@ -128,14 +135,11 @@ export class Scene {
   // ─── Systems ─────────────────────────────────────────────────────────────────
 
   addSystem(name: string, fn: SystemFn): void {
-    this._systems.push({ name, fn });
+    this.systems.register(name, { update: (dt) => fn(this, dt) });
   }
 
   removeSystem(name: string): boolean {
-    const idx = this._systems.findIndex((s) => s.name === name);
-    if (idx === -1) return false;
-    this._systems.splice(idx, 1);
-    return true;
+    return this.systems.unregister(name);
   }
 
   // ─── Internal lifecycle (called by SceneManager) ────────────────────────────
@@ -178,9 +182,7 @@ export class Scene {
       if (entity.parent === null) entity.update(deltaTime);
     }
 
-    for (const system of this._systems) {
-      system.fn(this, deltaTime);
-    }
+    this.systems.updateAll(deltaTime);
 
     this.ui.update(deltaTime);
     this.onUpdate(deltaTime);

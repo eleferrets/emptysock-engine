@@ -1,6 +1,10 @@
-import { Component } from '../core/Component.js';
+import {
+  Component,
+  componentType,
+  type ComponentType,
+} from "../core/Component.js";
 
-export type JointType = 'fixed' | 'revolute' | 'prismatic' | 'spring';
+export type JointType = "fixed" | "revolute" | "prismatic" | "spring";
 
 export interface RevoluteOptions {
   /** Anchor point on body A in local space */
@@ -29,6 +33,9 @@ export interface SpringOptions {
 }
 
 export class RigidJoint extends Component {
+  static readonly TYPE: ComponentType<RigidJoint> =
+    componentType<RigidJoint>("RigidJoint");
+
   public readonly jointType: JointType;
   /** ID of the Entity that holds the second PhysicsBody in this joint. */
   public bodyBEntityId: number | null;
@@ -40,15 +47,17 @@ export class RigidJoint extends Component {
   /** Runtime Rapier joint handle — set by PhysicsSystem. */
   public jointHandle: number | null = null;
 
-  constructor(options: {
-    jointType?: JointType;
-    bodyBEntityId?: number;
-    revolute?: RevoluteOptions;
-    prismatic?: PrismaticOptions;
-    spring?: SpringOptions;
-  } = {}) {
-    super('RigidJoint');
-    this.jointType = options.jointType ?? 'fixed';
+  constructor(
+    options: {
+      jointType?: JointType;
+      bodyBEntityId?: number;
+      revolute?: RevoluteOptions;
+      prismatic?: PrismaticOptions;
+      spring?: SpringOptions;
+    } = {},
+  ) {
+    super("RigidJoint");
+    this.jointType = options.jointType ?? "fixed";
     this.bodyBEntityId = options.bodyBEntityId ?? null;
     this.revolute = options.revolute ?? {};
     this.prismatic = options.prismatic ?? {};

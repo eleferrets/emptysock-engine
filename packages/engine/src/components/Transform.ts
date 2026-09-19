@@ -1,20 +1,29 @@
-import { Component } from '../core/Component.js';
+import {
+  Component,
+  componentType,
+  type ComponentType,
+} from "../core/Component.js";
 
 export class Transform extends Component {
+  static readonly TYPE: ComponentType<Transform> =
+    componentType<Transform>("Transform");
+
   public x: number;
   public y: number;
   public rotation: number; // radians
   public scaleX: number;
   public scaleY: number;
 
-  constructor(options: {
-    x?: number;
-    y?: number;
-    rotation?: number;
-    scaleX?: number;
-    scaleY?: number;
-  } = {}) {
-    super('Transform');
+  constructor(
+    options: {
+      x?: number;
+      y?: number;
+      rotation?: number;
+      scaleX?: number;
+      scaleY?: number;
+    } = {},
+  ) {
+    super("Transform");
     this.x = options.x ?? 0;
     this.y = options.y ?? 0;
     this.rotation = options.rotation ?? 0;

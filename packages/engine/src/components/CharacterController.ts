@@ -1,19 +1,28 @@
-import { Component } from '../core/Component.js';
+import {
+  Component,
+  componentType,
+  type ComponentType,
+} from "../core/Component.js";
 
 export class CharacterController extends Component {
+  static readonly TYPE: ComponentType<CharacterController> =
+    componentType<CharacterController>("CharacterController");
+
   public speed: number;
   public jumpForce: number;
   public isGrounded: boolean = false;
   public snapToGround: number;
   public maxSlopeAngle: number;
 
-  constructor(options: {
-    speed?: number;
-    jumpForce?: number;
-    snapToGround?: number;
-    maxSlopeAngle?: number;
-  } = {}) {
-    super('CharacterController');
+  constructor(
+    options: {
+      speed?: number;
+      jumpForce?: number;
+      snapToGround?: number;
+      maxSlopeAngle?: number;
+    } = {},
+  ) {
+    super("CharacterController");
     this.speed = options.speed ?? 200;
     this.jumpForce = options.jumpForce ?? 400;
     this.snapToGround = options.snapToGround ?? 0.1;

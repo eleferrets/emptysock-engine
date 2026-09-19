@@ -1,4 +1,8 @@
-import { Component } from '../core/Component.js';
+import {
+  Component,
+  componentType,
+  type ComponentType,
+} from "../core/Component.js";
 
 export interface AnimationClip {
   name: string;
@@ -9,6 +13,9 @@ export interface AnimationClip {
 }
 
 export class Animator extends Component {
+  static readonly TYPE: ComponentType<Animator> =
+    componentType<Animator>("Animator");
+
   public clips: Map<string, AnimationClip> = new Map();
   public currentClip: string | null = null;
   public currentFrame: number = 0;
@@ -18,7 +25,7 @@ export class Animator extends Component {
   private _playing: boolean = false;
 
   constructor() {
-    super('Animator');
+    super("Animator");
   }
 
   addClip(clip: AnimationClip): void {

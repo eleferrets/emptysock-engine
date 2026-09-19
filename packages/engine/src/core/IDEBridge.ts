@@ -8,7 +8,7 @@
 // The bridge is a no-op when no HostAdapter is provided.
 
 import type { HostAdapter, HostMessage } from "@emptysock/types";
-import { NullHostAdapter } from "@emptysock/types";
+import { HostAdapterSlot } from "./HostAdapterSlot.js";
 
 export interface EntitySnapshot {
   id: string;
@@ -37,7 +37,7 @@ class IDEBridgeService {
   private _provider: SnapshotProvider | null = null;
   private _onPatch: ComponentPatchHandler | null = null;
   private _onSelect: SelectHandler | null = null;
-  private _adapter: HostAdapter = new NullHostAdapter();
+  private readonly _adapterSlot = new HostAdapterSlot();
   /** Captured from the first incoming message's origin; used for replies. */
   private _targetOrigin = "*";
 
@@ -51,12 +51,11 @@ class IDEBridgeService {
     },
   ): void {
     this.destroy();
-    this._adapter = adapter;
+    this._adapterSlot.install(adapter, this._onMessage);
     this._active = true;
     this._provider = getSnapshot;
     this._onPatch = opts?.onPatch ?? null;
     this._onSelect = opts?.onSelect ?? null;
-    adapter.addMessageListener(this._onMessage);
     this._tickHandle = adapter.setInterval(() => {
       this._broadcast();
     }, opts?.tickMs ?? 100);
@@ -68,7 +67,7 @@ class IDEBridgeService {
     fields: Record<string, unknown>,
   ): void {
     if (!this._active) return;
-    this._adapter.postMessage(
+    this._adapterSlot.current.postMessage(
       { type: "es:component-fields", entityId, component, fields },
       this._targetOrigin,
     );
@@ -77,20 +76,19 @@ class IDEBridgeService {
   destroy(): void {
     if (!this._active) return;
     if (this._tickHandle !== null) {
-      this._adapter.clearInterval(this._tickHandle);
+      this._adapterSlot.current.clearInterval(this._tickHandle);
       this._tickHandle = null;
     }
-    this._adapter.removeMessageListener(this._onMessage);
+    this._adapterSlot.detach();
     this._active = false;
     this._provider = null;
-    this._adapter = new NullHostAdapter();
     this._targetOrigin = "*";
   }
 
   private _broadcast(): void {
     if (this._provider === null || !this._active) return;
     const payload = this._provider();
-    this._adapter.postMessage(
+    this._adapterSlot.current.postMessage(
       { type: "es:entities", payload },
       this._targetOrigin,
     );
@@ -107,7 +105,7 @@ class IDEBridgeService {
       case "es:select-entity":
         if (typeof data["id"] === "string") {
           this._onSelect?.(data["id"]);
-          this._adapter.postMessage(
+          this._adapterSlot.current.postMessage(
             { type: "es:entity-selected", id: data["id"] },
             this._targetOrigin,
           );

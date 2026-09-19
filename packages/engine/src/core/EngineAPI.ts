@@ -1,7 +1,6 @@
-import type { Scene } from "./Scene.js";
 import { SceneManagerInstance } from "./SceneManager.js";
-import type { HostAdapter, HostMessage } from "@emptysock/types";
-import { NullHostAdapter } from "@emptysock/types";
+import type { HostMessage, HostAdapter } from "@emptysock/types";
+import { HostAdapterSlot } from "./HostAdapterSlot.js";
 
 type ErrorHandler = (msg: string) => void;
 
@@ -12,7 +11,7 @@ let _fileLogHandler: ErrorHandler | null = null;
 
 let _debugPaused = false;
 const _debugBreakpoints = new Set<string>();
-let _adapter: HostAdapter = new NullHostAdapter();
+const _adapterSlot = new HostAdapterSlot();
 
 function _handleDebugMessage(event: HostMessage): void {
   const data = event.data;
@@ -44,10 +43,7 @@ export const Engine = {
    * from the IDE layer or PlayRunner; game code should not call this.
    */
   init(adapter: HostAdapter): void {
-    // Deregister from any previously attached adapter.
-    _adapter.removeMessageListener(_handleDebugMessage);
-    _adapter = adapter;
-    _adapter.addMessageListener(_handleDebugMessage);
+    _adapterSlot.install(adapter, _handleDebugMessage);
   },
 
   /** Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function. */
@@ -121,21 +117,20 @@ export const Engine = {
   debugBreak(label: string, vars: Record<string, unknown> = {}): void {
     if (!_debugBreakpoints.has(label)) return;
     _debugPaused = true;
-    _adapter.postMessage({ type: "debug:break", label, vars }, "*");
+    _adapterSlot.current.postMessage({ type: "debug:break", label, vars }, "*");
   },
 
   // ── Scene stack ───────────────────────────────────────────────────────────
+  // These delegate directly to SceneManagerInstance — no forwarding logic of
+  // their own — so `Engine.pushScene` stays a convenient facade for game code
+  // without hiding a second scene-stack implementation behind it.
 
   /**
    * Push a new scene on top of the active scene (e.g. a pause menu over the game).
    * The scene underneath is paused but stays in memory. Call popScene() to return.
    */
-  pushScene(scene: Scene): void {
-    SceneManagerInstance.pushScene(scene);
-  },
+  pushScene: SceneManagerInstance.pushScene.bind(SceneManagerInstance),
 
   /** Pop the top scene off the stack and resume the scene underneath. */
-  popScene(): void {
-    SceneManagerInstance.popScene();
-  },
+  popScene: SceneManagerInstance.popScene.bind(SceneManagerInstance),
 };

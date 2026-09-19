@@ -1,4 +1,4 @@
-import type { Component } from "./Component.js";
+import type { Component, ComponentType } from "./Component.js";
 import {
   CoroutineSystem,
   type CoroutineGen,
@@ -120,11 +120,13 @@ export class Entity {
     return component;
   }
 
-  getComponent<T extends Component>(type: string): T | undefined {
+  getComponent<T extends Component>(
+    type: ComponentType<T> | string,
+  ): T | undefined {
     return this._components.get(type) as T | undefined;
   }
 
-  requireComponent<T extends Component>(type: string): T {
+  requireComponent<T extends Component>(type: ComponentType<T> | string): T {
     const c = this._components.get(type) as T | undefined;
     if (c === undefined) {
       throw new Error(
@@ -134,11 +136,11 @@ export class Entity {
     return c;
   }
 
-  hasComponent(type: string): boolean {
+  hasComponent(type: ComponentType | string): boolean {
     return this._components.has(type);
   }
 
-  removeComponent(type: string): boolean {
+  removeComponent(type: ComponentType | string): boolean {
     const c = this._components.get(type);
     if (c === undefined) return false;
     c.onDetach?.();

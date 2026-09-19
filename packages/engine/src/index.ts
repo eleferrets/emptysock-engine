@@ -1,5 +1,6 @@
 // Core ECS
-export { Component } from "./core/Component.js";
+export { Component, componentType } from "./core/Component.js";
+export type { ComponentType } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
 export type { Vec2, CoroutineHandle } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
@@ -22,6 +23,11 @@ export type { Plugin, PluginContext } from "./core/PluginSystem.js";
 // Systems
 export { RenderSystem } from "./systems/RenderSystem.js";
 export type { RenderSystemOptions } from "./systems/RenderSystem.js";
+export { RenderPipeline } from "./systems/RenderPipeline.js";
+export type {
+  RenderPipelineOptions,
+  TextureLoader,
+} from "./systems/RenderPipeline.js";
 export { PhysicsSystem } from "./systems/PhysicsSystem.js";
 export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
 export { PhysicsSystem3D } from "./systems/PhysicsSystem3D.js";
@@ -57,7 +63,11 @@ export type { AnimationClip } from "./components/Animator.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
-export type { IVNListener, DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+export type {
+  IVNListener,
+  DialogueNode,
+  DialogueTree,
+} from "./systems/VNSystem.js";
 
 export {
   storyGraphToDialogueTree,
@@ -141,7 +151,12 @@ export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
-export type { IUIRenderer, HostAdapter, HostMessage, HostMessageHandler } from "@emptysock/types";
+export type {
+  IUIRenderer,
+  HostAdapter,
+  HostMessage,
+  HostMessageHandler,
+} from "@emptysock/types";
 export { NullHostAdapter } from "@emptysock/types";
 
 // Easing
@@ -213,7 +228,11 @@ export { HotReloadSystem } from "./systems/HotReloadSystem.js";
 
 // IDE Bridge
 export { ideBridge } from "./core/IDEBridge.js";
-export type { EntitySnapshot, ComponentPatchHandler, SelectHandler } from "./core/IDEBridge.js";
+export type {
+  EntitySnapshot,
+  ComponentPatchHandler,
+  SelectHandler,
+} from "./core/IDEBridge.js";
 
 // GPU tier detection
 export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";

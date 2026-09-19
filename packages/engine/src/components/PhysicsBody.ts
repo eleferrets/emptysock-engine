@@ -1,7 +1,15 @@
-import { Component } from '../core/Component.js';
+import {
+  Component,
+  componentType,
+  type ComponentType,
+} from "../core/Component.js";
 
-export type RigidBodyType = 'dynamic' | 'fixed' | 'kinematicPositionBased' | 'kinematicVelocityBased';
-export type ColliderShape = 'box' | 'circle' | 'capsule';
+export type RigidBodyType =
+  | "dynamic"
+  | "fixed"
+  | "kinematicPositionBased"
+  | "kinematicVelocityBased";
+export type ColliderShape = "box" | "circle" | "capsule";
 
 export interface ContactInfo {
   /** Impact force in Newtons (approximate). */
@@ -15,6 +23,9 @@ export interface ContactInfo {
  * here.
  */
 export class PhysicsBody extends Component {
+  static readonly TYPE: ComponentType<PhysicsBody> =
+    componentType<PhysicsBody>("PhysicsBody");
+
   public bodyType: RigidBodyType;
   public shape: ColliderShape;
   public width: number;
@@ -25,20 +36,22 @@ export class PhysicsBody extends Component {
   public restitution: number;
   public isSensor: boolean;
 
-  constructor(options: {
-    bodyType?: RigidBodyType;
-    shape?: ColliderShape;
-    width?: number;
-    height?: number;
-    radius?: number;
-    density?: number;
-    friction?: number;
-    restitution?: number;
-    isSensor?: boolean;
-  } = {}) {
-    super('PhysicsBody');
-    this.bodyType = options.bodyType ?? 'dynamic';
-    this.shape = options.shape ?? 'box';
+  constructor(
+    options: {
+      bodyType?: RigidBodyType;
+      shape?: ColliderShape;
+      width?: number;
+      height?: number;
+      radius?: number;
+      density?: number;
+      friction?: number;
+      restitution?: number;
+      isSensor?: boolean;
+    } = {},
+  ) {
+    super("PhysicsBody");
+    this.bodyType = options.bodyType ?? "dynamic";
+    this.shape = options.shape ?? "box";
     this.width = options.width ?? 32;
     this.height = options.height ?? 32;
     this.radius = options.radius ?? 16;
