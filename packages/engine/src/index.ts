@@ -83,6 +83,12 @@ export { VNTextbox } from "./systems/VNTextbox.js";
 export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
+export { AStarSearch } from "./core/AStarSearch.js";
+export type {
+  AStarEdge,
+  AStarSearchOptions,
+  AStarSearchResult,
+} from "./core/AStarSearch.js";
 export { PathfindingSystem } from "./systems/PathfindingSystem.js";
 export type {
   GridCell,

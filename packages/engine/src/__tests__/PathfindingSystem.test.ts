@@ -1,35 +1,50 @@
-import { describe, it, expect } from 'vitest';
-import { PathfindingSystem } from '../systems/PathfindingSystem.js';
-import type { GridCell } from '../systems/PathfindingSystem.js';
+import { describe, it, expect } from "vitest";
+import { PathfindingSystem } from "../systems/PathfindingSystem.js";
+import type { GridCell } from "../systems/PathfindingSystem.js";
 
 const W: GridCell = { walkable: true, weight: 1 };
 const B: GridCell = { walkable: false, weight: 1 };
 
-describe('PathfindingSystem', () => {
+describe("PathfindingSystem", () => {
   const pf = new PathfindingSystem();
 
-  it('finds path in simple 3x1 grid (from x=0 to x=2)', () => {
+  it("finds path in simple 3x1 grid (from x=0 to x=2)", () => {
     const grid = [[W, W, W]];
-    const result = pf.findPath({ from: { x: 0, y: 0 }, to: { x: 2, y: 0 }, grid, allowDiagonal: false });
+    const result = pf.findPath({
+      from: { x: 0, y: 0 },
+      to: { x: 2, y: 0 },
+      grid,
+      allowDiagonal: false,
+    });
     expect(result.found).toBe(true);
     expect(result.path[0]).toEqual({ x: 0, y: 0 });
     expect(result.path[result.path.length - 1]).toEqual({ x: 2, y: 0 });
   });
 
-  it('returns found=false when path is blocked', () => {
+  it("returns found=false when path is blocked", () => {
     const grid = [[W, B, W]];
-    const result = pf.findPath({ from: { x: 0, y: 0 }, to: { x: 2, y: 0 }, grid, allowDiagonal: false });
+    const result = pf.findPath({
+      from: { x: 0, y: 0 },
+      to: { x: 2, y: 0 },
+      grid,
+      allowDiagonal: false,
+    });
     expect(result.found).toBe(false);
     expect(result.path.length).toBe(0);
   });
 
-  it('allowDiagonal=false forces straight path', () => {
+  it("allowDiagonal=false forces straight path", () => {
     const grid = [
       [W, W, W],
       [W, W, W],
       [W, W, W],
     ];
-    const result = pf.findPath({ from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, grid, allowDiagonal: false });
+    const result = pf.findPath({
+      from: { x: 0, y: 0 },
+      to: { x: 2, y: 2 },
+      grid,
+      allowDiagonal: false,
+    });
     expect(result.found).toBe(true);
     // No diagonal step should appear
     for (let i = 1; i < result.path.length; i++) {
@@ -42,23 +57,57 @@ describe('PathfindingSystem', () => {
     }
   });
 
-  it('allowDiagonal=true can take diagonal step', () => {
+  it("allowDiagonal=true can take diagonal step", () => {
     const grid = [
       [W, W],
       [W, W],
     ];
-    const result = pf.findPath({ from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, grid, allowDiagonal: true });
+    const result = pf.findPath({
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 1 },
+      grid,
+      allowDiagonal: true,
+    });
     expect(result.found).toBe(true);
     expect(result.path.length).toBe(2); // direct diagonal
   });
 
-  it('finds detour around wall', () => {
+  it("finds detour around wall", () => {
     const grid = [
       [W, B, W],
       [W, W, W],
     ];
-    const result = pf.findPath({ from: { x: 0, y: 0 }, to: { x: 2, y: 0 }, grid, allowDiagonal: false });
+    const result = pf.findPath({
+      from: { x: 0, y: 0 },
+      to: { x: 2, y: 0 },
+      grid,
+      allowDiagonal: false,
+    });
     expect(result.found).toBe(true);
     expect(result.path.length).toBeGreaterThan(3);
+  });
+
+  it("setGrid accepts the boolean[][] produced by Tilemap.asGrid() directly", () => {
+    const booleanGrid: boolean[][] = [
+      [true, false, true],
+      [true, true, true],
+    ];
+    const pf2 = new PathfindingSystem();
+    pf2.setGrid(booleanGrid, false);
+    const result = pf2.findPath({ x: 0, y: 0 }, { x: 2, y: 0 });
+    expect(result.found).toBe(true);
+    expect(result.path[0]).toEqual({ x: 0, y: 0 });
+    expect(result.path[result.path.length - 1]).toEqual({ x: 2, y: 0 });
+  });
+
+  it("setGrid still accepts a pre-built GridCell[][] with custom weights", () => {
+    const grid: GridCell[][] = [
+      [W, W, W],
+      [W, W, W],
+    ];
+    const pf3 = new PathfindingSystem();
+    pf3.setGrid(grid, true);
+    const result = pf3.findPath({ x: 0, y: 0 }, { x: 2, y: 1 });
+    expect(result.found).toBe(true);
   });
 });

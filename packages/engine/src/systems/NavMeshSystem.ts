@@ -1,4 +1,5 @@
 import type { Vec2 } from "../core/Entity.js";
+import { AStarSearch } from "../core/AStarSearch.js";
 export type { Vec2 };
 
 export interface NavPolygon {
@@ -12,81 +13,6 @@ export interface NavPolygon {
 
 export interface NavMeshData {
   readonly polygons: ReadonlyArray<NavPolygon>;
-}
-
-interface AStarNode {
-  id: number;
-  g: number;
-  h: number;
-  f: number;
-  parent: number | null;
-}
-
-// ---------------------------------------------------------------------------
-// Binary min-heap keyed by AStarNode.f
-// ---------------------------------------------------------------------------
-// Replaces the O(n) linear scan that previously found the open-list node with
-// the smallest f-score on every A* iteration.  push() and pop() both run in
-// O(log n), making the overall A* complexity O(V log V) instead of O(V²).
-//
-// Lazy deletion handles updates: when a shorter path to a node is found the
-// improved AStarNode is pushed again.  Stale copies (higher g) are discarded
-// when they surface during pop() via the bestG check in findPath() — no
-// heap-index map is needed.
-
-class AStarMinHeap {
-  private readonly _data: AStarNode[] = [];
-
-  get size(): number {
-    return this._data.length;
-  }
-
-  push(node: AStarNode): void {
-    this._data.push(node);
-    this._siftUp(this._data.length - 1);
-  }
-
-  /** Removes and returns the node with the smallest f. Caller must ensure size > 0. */
-  pop(): AStarNode {
-    const top = this._data[0] as AStarNode;
-    const last = this._data.pop() as AStarNode;
-    if (this._data.length > 0) {
-      this._data[0] = last;
-      this._siftDown(0);
-    }
-    return top;
-  }
-
-  private _siftUp(idx: number): void {
-    const data = this._data;
-    while (idx > 0) {
-      const parent = (idx - 1) >> 1;
-      if ((data[parent] as AStarNode).f <= (data[idx] as AStarNode).f) break;
-      const tmp = data[parent] as AStarNode;
-      data[parent] = data[idx] as AStarNode;
-      data[idx] = tmp;
-      idx = parent;
-    }
-  }
-
-  private _siftDown(idx: number): void {
-    const data = this._data;
-    const n = data.length;
-    for (;;) {
-      let smallest = idx;
-      const l = 2 * idx + 1;
-      const r = 2 * idx + 2;
-      if (l < n && (data[l] as AStarNode).f < (data[smallest] as AStarNode).f)
-        smallest = l;
-      if (r < n && (data[r] as AStarNode).f < (data[smallest] as AStarNode).f)
-        smallest = r;
-      if (smallest === idx) break;
-      const tmp = data[idx] as AStarNode;
-      data[idx] = data[smallest] as AStarNode;
-      data[smallest] = tmp;
-      idx = smallest;
-    }
-  }
 }
 
 /**
@@ -115,86 +41,37 @@ export class NavMeshSystem {
     if (startPoly === null || endPoly === null) return [];
     if (startPoly.id === endPoly.id) return [from, to];
 
-    const open = new AStarMinHeap();
-    const closed = new Set<number>();
-    const bestG = new Map<number, number>(); // best known g-score per polygon id
-    const cameFrom = new Map<number, number | null>();
-
-    const h = (poly: NavPolygon): number =>
-      this._dist(poly.centroid, endPoly.centroid);
-
-    const startNode: AStarNode = {
-      id: startPoly.id,
-      g: 0,
-      h: h(startPoly),
-      f: h(startPoly),
-      parent: null,
-    };
-    open.push(startNode);
-    bestG.set(startPoly.id, 0);
-    cameFrom.set(startPoly.id, null);
-
-    while (open.size > 0) {
-      const current = open.pop();
-
-      // Lazy deletion: a stale copy surfaces when a shorter path was found and
-      // a better node was pushed without removing this one.  Skip it.
-      const knownG = bestG.get(current.id);
-      if (knownG !== undefined && current.g > knownG) continue;
-
-      if (closed.has(current.id)) continue;
-      closed.add(current.id);
-
-      if (current.id === endPoly.id) {
-        return this._reconstructPath(from, to, current.id, cameFrom);
-      }
-
-      const poly = this._polygons.get(current.id);
-      if (poly === undefined) continue;
-
-      for (const neighbourId of poly.neighbours) {
-        if (closed.has(neighbourId)) continue;
-        const neighbour = this._polygons.get(neighbourId);
-        if (neighbour === undefined) continue;
-
-        const g = current.g + this._dist(poly.centroid, neighbour.centroid);
-        const prevBestG = bestG.get(neighbourId);
-        if (prevBestG === undefined || g < prevBestG) {
-          const nh = h(neighbour);
-          open.push({
-            id: neighbourId,
-            g,
-            h: nh,
-            f: g + nh,
-            parent: current.id,
+    const result = AStarSearch<NavPolygon>({
+      start: startPoly,
+      isGoal: (poly) => poly.id === endPoly.id,
+      heuristic: (poly) => this._dist(poly.centroid, endPoly.centroid),
+      key: (poly) => poly.id,
+      neighbours: (poly) => {
+        const edges: Array<{ node: NavPolygon; cost: number }> = [];
+        for (const neighbourId of poly.neighbours) {
+          const neighbour = this._polygons.get(neighbourId);
+          if (neighbour === undefined) continue;
+          edges.push({
+            node: neighbour,
+            cost: this._dist(poly.centroid, neighbour.centroid),
           });
-          bestG.set(neighbourId, g);
-          cameFrom.set(neighbourId, current.id);
         }
-      }
-    }
+        return edges;
+      },
+    });
 
-    return [];
+    if (!result.found) return [];
+    return this._toWaypoints(from, to, result.path);
   }
 
-  private _reconstructPath(
+  private _toWaypoints(
     from: Vec2,
     to: Vec2,
-    endId: number,
-    cameFrom: Map<number, number | null>,
+    polyPath: ReadonlyArray<NavPolygon>,
   ): Vec2[] {
-    const polyIds: number[] = [];
-    let cur: number | null = endId;
-    while (cur !== null) {
-      polyIds.unshift(cur);
-      cur = cameFrom.get(cur) ?? null;
-    }
-
     const waypoints: Vec2[] = [from];
-    for (let i = 1; i < polyIds.length; i++) {
-      const pid = polyIds[i];
-      if (pid === undefined) continue;
-      const poly = this._polygons.get(pid);
+    for (let i = 1; i < polyPath.length; i++) {
+      const poly = polyPath[i];
       if (poly !== undefined) waypoints.push(poly.centroid);
     }
     waypoints.push(to);
