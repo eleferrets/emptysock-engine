@@ -53,6 +53,7 @@ class SceneManager {
    */
   pushScene(scene: Scene): void {
     if (this._active !== null) {
+      this._active._callOnPause();
       this._active.stop();
       this._stack.push(this._active);
     }
@@ -63,6 +64,7 @@ class SceneManager {
       .onLoad()
       .then(() => {
         this._isLoading = false;
+        scene._callOnStart();
       })
       .catch((err: unknown) => {
         this._isLoading = false;
@@ -85,6 +87,7 @@ class SceneManager {
     this._active = prev ?? null;
     if (this._active !== null) {
       this._active.start();
+      this._active._callOnResume();
     }
   }
 
@@ -115,6 +118,7 @@ class SceneManager {
       .onLoad()
       .then(() => {
         this._isLoading = false;
+        next._callOnStart();
       })
       .catch((err: unknown) => {
         this._isLoading = false;

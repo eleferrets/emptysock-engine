@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export interface SaveSlot {
   readonly id: string;
@@ -16,7 +16,7 @@ const SaveSlotSchema = z.object({
   playtime: z.number().nonnegative(),
 });
 
-const STORAGE_PREFIX = 'emptysock_save_';
+const STORAGE_PREFIX = "emptysock_save_";
 
 export class SaveSystem {
   private readonly _prefix: string;
@@ -25,18 +25,27 @@ export class SaveSystem {
     this._prefix = prefix;
   }
 
-  save(slotId: string, data: Omit<SaveSlot, 'id'>): void {
-    if (typeof localStorage === 'undefined') return;
+  /**
+   * Persist a save slot. Returns `true` on success, `false` if storage is
+   * unavailable (private mode, quota exceeded, etc.).
+   */
+  save(slotId: string, data: Omit<SaveSlot, "id">): boolean {
+    if (typeof localStorage === "undefined") return false;
     const slot: SaveSlot = { ...data, id: slotId };
     try {
       localStorage.setItem(this._prefix + slotId, JSON.stringify(slot));
+      return true;
     } catch {
-      // Storage unavailable — silently fail
+      return false;
     }
   }
 
+  /**
+   * Load a save slot. Returns `null` if the slot does not exist or is corrupt.
+   * Always validate `raw.data` through your own Zod schema before use.
+   */
   load(slotId: string): SaveSlot | null {
-    if (typeof localStorage === 'undefined') return null;
+    if (typeof localStorage === "undefined") return null;
     try {
       const raw = localStorage.getItem(this._prefix + slotId);
       if (raw === null) return null;
@@ -47,8 +56,12 @@ export class SaveSystem {
     }
   }
 
+  /**
+   * Return all save slots sorted by timestamp descending (newest first).
+   * Malformed entries are silently skipped.
+   */
   listSlots(): SaveSlot[] {
-    if (typeof localStorage === 'undefined') return [];
+    if (typeof localStorage === "undefined") return [];
     const slots: SaveSlot[] = [];
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -66,11 +79,11 @@ export class SaveSystem {
     } catch {
       // Storage unavailable
     }
-    return slots;
+    return slots.sort((a, b) => b.timestamp - a.timestamp);
   }
 
   delete(slotId: string): void {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof localStorage === "undefined") return;
     try {
       localStorage.removeItem(this._prefix + slotId);
     } catch {
@@ -78,7 +91,7 @@ export class SaveSystem {
     }
   }
 
-  update(_dt: number): void {
-    // No per-frame work
-  }
+  update(_dt: number): void {}
+
+  destroy(): void {}
 }

@@ -146,6 +146,27 @@ export class UISystem {
     return null;
   }
 
+  /** Dispatch a pointer-up event (e.g. touch end or mouse button release). */
+  dispatchPointerUp(
+    x: number,
+    y: number,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): boolean {
+    return this.handleClick(x, y, canvasWidth, canvasHeight);
+  }
+
+  /** Release all ImageBitmap allocations and clear the widget tree. */
+  destroy(): void {
+    this.clear();
+    for (const bitmap of this._imageCache.values()) {
+      bitmap.close();
+    }
+    this._imageCache.clear();
+    this._imagePending.clear();
+    this._imageLoader = null;
+  }
+
   private _updateHover(
     widgets: ReadonlyArray<Widget>,
     px: number,

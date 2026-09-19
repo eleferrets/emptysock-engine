@@ -1,4 +1,4 @@
-import { Howl, Howler } from 'howler';
+import { Howl, Howler } from "howler";
 
 export interface SoundOptions {
   volume?: number;
@@ -21,7 +21,14 @@ export class AudioSystem {
   }
 
   setGroupVolume(group: string, volume: number): void {
-    this._groupVolumes.set(group, Math.max(0, Math.min(1, volume)));
+    const clamped = Math.max(0, Math.min(1, volume));
+    this._groupVolumes.set(group, clamped);
+    // Apply to all already-loaded sounds in this group
+    for (const [id, g] of this._soundGroups) {
+      if (g === group) {
+        this._sounds.get(id)?.volume(clamped);
+      }
+    }
   }
 
   getGroupVolume(group: string): number {
@@ -36,7 +43,16 @@ export class AudioSystem {
     return this.getGroupVolume(busId);
   }
 
-  readonly defaultBuses = ['master', 'music', 'sfx', 'voice', 'ambient'] as const;
+  /** Maps sound id → the group it belongs to, for live volume updates. */
+  private readonly _soundGroups: Map<string, string> = new Map();
+
+  readonly defaultBuses = [
+    "master",
+    "music",
+    "sfx",
+    "voice",
+    "ambient",
+  ] as const;
 
   load(id: string, src: string, options: SoundOptions = {}): Howl {
     const groupVol = options.group ? this.getGroupVolume(options.group) : 1;
@@ -46,6 +62,9 @@ export class AudioSystem {
       loop: options.loop ?? false,
     });
     this._sounds.set(id, howl);
+    if (options.group !== undefined) {
+      this._soundGroups.set(id, options.group);
+    }
     return howl;
   }
 
@@ -79,5 +98,12 @@ export class AudioSystem {
       sound.unload();
     }
     this._sounds.clear();
+    this._soundGroups.clear();
+  }
+
+  update(_dt: number): void {}
+
+  destroy(): void {
+    this.unloadAll();
   }
 }

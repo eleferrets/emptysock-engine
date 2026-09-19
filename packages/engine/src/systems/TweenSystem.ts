@@ -8,6 +8,11 @@ export interface TweenOptions {
   onComplete?: () => void;
 }
 
+/** A cancelable handle returned by `TweenManager.to()`, `after()`, and `every()`. */
+export interface TweenHandle {
+  cancel(): void;
+}
+
 interface TweenState {
   target: Record<string, number>;
   props: Record<string, { from: number; to: number }>;
@@ -19,29 +24,35 @@ interface TweenState {
   done: boolean;
 }
 
+interface TimerState {
+  elapsed: number;
+  delay: number;
+  repeat: number;
+  interval: number;
+  fn: () => void;
+  done: boolean;
+}
+
 export class TweenManager {
   private readonly _tweens: TweenState[] = [];
-  private readonly _timers: Array<{
-    elapsed: number;
-    delay: number;
-    repeat: number;
-    interval: number;
-    fn: () => void;
-    done: boolean;
-  }> = [];
+  private readonly _timers: TimerState[] = [];
 
+  /**
+   * Animate numeric properties of `target` to the values in `props` over time.
+   * Returns a handle whose `cancel()` stops the tween immediately.
+   */
   to(
     target: Record<string, number>,
     props: Record<string, number>,
     options: TweenOptions,
-  ): void {
+  ): TweenHandle {
     const fromProps: Record<string, { from: number; to: number }> = {};
     for (const key of Object.keys(props)) {
       const toVal = props[key];
       if (toVal === undefined) continue;
       fromProps[key] = { from: target[key] ?? 0, to: toVal };
     }
-    this._tweens.push({
+    const state: TweenState = {
       target,
       props: fromProps,
       elapsed: 0,
@@ -50,29 +61,55 @@ export class TweenManager {
       easing: options.ease ?? "linear",
       onComplete: options.onComplete ?? null,
       done: false,
-    });
+    };
+    this._tweens.push(state);
+    return {
+      cancel: () => {
+        state.done = true;
+      },
+    };
   }
 
-  after(seconds: number, fn: () => void): void {
-    this._timers.push({
+  /**
+   * Call `fn` once after `seconds`. Returns a handle whose `cancel()` prevents
+   * the callback from firing.
+   */
+  after(seconds: number, fn: () => void): TweenHandle {
+    const state: TimerState = {
       elapsed: 0,
       delay: seconds,
       repeat: 0,
       interval: 0,
       fn,
       done: false,
-    });
+    };
+    this._timers.push(state);
+    return {
+      cancel: () => {
+        state.done = true;
+      },
+    };
   }
 
-  every(seconds: number, fn: () => void): void {
-    this._timers.push({
+  /**
+   * Call `fn` repeatedly every `seconds`. Returns a handle whose `cancel()`
+   * stops further calls.
+   */
+  every(seconds: number, fn: () => void): TweenHandle {
+    const state: TimerState = {
       elapsed: 0,
       delay: seconds,
       repeat: -1,
       interval: seconds,
       fn,
       done: false,
-    });
+    };
+    this._timers.push(state);
+    return {
+      cancel: () => {
+        state.done = true;
+      },
+    };
   }
 
   update(deltaTime: number): void {

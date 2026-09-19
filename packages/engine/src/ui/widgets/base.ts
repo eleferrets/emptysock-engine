@@ -124,13 +124,14 @@ export abstract class Widget {
     this.alpha = opts.alpha ?? 1;
   }
 
-  on(event: WidgetEvent, handler: (value?: unknown) => void): void {
+  on(event: WidgetEvent, handler: (value?: unknown) => void): () => void {
     let arr = this._handlers.get(event);
     if (arr === undefined) {
       arr = [];
       this._handlers.set(event, arr);
     }
     arr.push(handler);
+    return () => this.off(event, handler);
   }
 
   off(event: WidgetEvent, handler: (value?: unknown) => void): void {

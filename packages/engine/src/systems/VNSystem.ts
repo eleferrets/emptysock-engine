@@ -1,9 +1,33 @@
 export type DialogueNode =
-  | { type: 'dialogue'; speaker: string; text: string; voice?: string; next?: string; cgPath?: string }
-  | { type: 'choice'; text: string; options: Array<{ label: string; next: string }>; cgPath?: string }
-  | { type: 'event'; eventName: string; data?: Record<string, unknown>; next?: string; cgPath?: string }
-  | { type: 'jump'; target: string; cgPath?: string }
-  | { type: 'variable-set'; variableKey: string; variableValue: unknown; next?: string; cgPath?: string };
+  | {
+      type: "dialogue";
+      speaker: string;
+      text: string;
+      voice?: string;
+      next?: string;
+      cgPath?: string;
+    }
+  | {
+      type: "choice";
+      text: string;
+      options: Array<{ label: string; next: string }>;
+      cgPath?: string;
+    }
+  | {
+      type: "event";
+      eventName: string;
+      data?: Record<string, unknown>;
+      next?: string;
+      cgPath?: string;
+    }
+  | { type: "jump"; target: string; cgPath?: string }
+  | {
+      type: "variable-set";
+      variableKey: string;
+      variableValue: unknown;
+      next?: string;
+      cgPath?: string;
+    };
 
 export interface DialogueTree {
   readonly nodes: Record<string, DialogueNode>;
@@ -14,35 +38,58 @@ export class VNSystem {
   private _tree: DialogueTree | null = null;
   private _currentNodeId: string | null = null;
 
-  private readonly _eventHandlers: Array<(eventName: string, data: Record<string, unknown>) => void> = [];
-  private readonly _choiceHandlers: Array<(options: Array<{ label: string; next: string }>) => void> = [];
+  private readonly _eventHandlers: Array<
+    (eventName: string, data: Record<string, unknown>) => void
+  > = [];
+  private readonly _choiceHandlers: Array<
+    (options: Array<{ label: string; next: string }>) => void
+  > = [];
   private readonly _nodeHandlers: Array<(node: DialogueNode) => void> = [];
   private readonly _endHandlers: Array<() => void> = [];
   private readonly _cgNodeHandlers: Array<(cgPath: string) => void> = [];
 
-  onEvent(handler: (eventName: string, data: Record<string, unknown>) => void): () => void {
+  onEvent(
+    handler: (eventName: string, data: Record<string, unknown>) => void,
+  ): () => void {
     this._eventHandlers.push(handler);
-    return () => { const i = this._eventHandlers.indexOf(handler); if (i !== -1) this._eventHandlers.splice(i, 1); };
+    return () => {
+      const i = this._eventHandlers.indexOf(handler);
+      if (i !== -1) this._eventHandlers.splice(i, 1);
+    };
   }
 
-  onChoice(handler: (options: Array<{ label: string; next: string }>) => void): () => void {
+  onChoice(
+    handler: (options: Array<{ label: string; next: string }>) => void,
+  ): () => void {
     this._choiceHandlers.push(handler);
-    return () => { const i = this._choiceHandlers.indexOf(handler); if (i !== -1) this._choiceHandlers.splice(i, 1); };
+    return () => {
+      const i = this._choiceHandlers.indexOf(handler);
+      if (i !== -1) this._choiceHandlers.splice(i, 1);
+    };
   }
 
   onNode(handler: (node: DialogueNode) => void): () => void {
     this._nodeHandlers.push(handler);
-    return () => { const i = this._nodeHandlers.indexOf(handler); if (i !== -1) this._nodeHandlers.splice(i, 1); };
+    return () => {
+      const i = this._nodeHandlers.indexOf(handler);
+      if (i !== -1) this._nodeHandlers.splice(i, 1);
+    };
   }
 
   onEnd(handler: () => void): () => void {
     this._endHandlers.push(handler);
-    return () => { const i = this._endHandlers.indexOf(handler); if (i !== -1) this._endHandlers.splice(i, 1); };
+    return () => {
+      const i = this._endHandlers.indexOf(handler);
+      if (i !== -1) this._endHandlers.splice(i, 1);
+    };
   }
 
   onCGNode(handler: (cgPath: string) => void): () => void {
     this._cgNodeHandlers.push(handler);
-    return () => { const i = this._cgNodeHandlers.indexOf(handler); if (i !== -1) this._cgNodeHandlers.splice(i, 1); };
+    return () => {
+      const i = this._cgNodeHandlers.indexOf(handler);
+      if (i !== -1) this._cgNodeHandlers.splice(i, 1);
+    };
   }
 
   load(tree: DialogueTree): void {
@@ -60,15 +107,19 @@ export class VNSystem {
     const node = this.currentNode;
     if (node === null) return;
 
-    if (node.type === 'dialogue') {
+    if (node.type === "dialogue") {
       this._goto(node.next ?? null);
-    } else if (node.type === 'event') {
+    } else if (node.type === "event") {
       this._goto(node.next ?? null);
-    } else if (node.type === 'variable-set') {
+    } else if (node.type === "variable-set") {
       // auto-advance after variable-set; caller handles the variable via onNode
       this._goto(node.next ?? null);
+    } else if (node.type === "choice") {
+      console.warn(
+        "[VNSystem] advance() was called on a choice node. Call selectOption(next) instead.",
+      );
     }
-    // choice and jump are handled internally / by external call
+    // jump is handled internally
   }
 
   selectOption(next: string): void {
@@ -85,7 +136,8 @@ export class VNSystem {
     const node = this._tree?.nodes[nodeId];
     if (node !== undefined) {
       for (const h of this._nodeHandlers) h(node);
-      if (node.cgPath !== undefined) for (const h of this._cgNodeHandlers) h(node.cgPath);
+      if (node.cgPath !== undefined)
+        for (const h of this._cgNodeHandlers) h(node.cgPath);
     }
     this._processCurrentNode();
   }
@@ -94,14 +146,28 @@ export class VNSystem {
     const node = this.currentNode;
     if (node === null) return;
 
-    if (node.type === 'jump') {
+    if (node.type === "jump") {
       this._goto(node.target);
-    } else if (node.type === 'event') {
+    } else if (node.type === "event") {
       for (const h of this._eventHandlers) h(node.eventName, node.data ?? {});
-    } else if (node.type === 'choice') {
+    } else if (node.type === "choice") {
       for (const h of this._choiceHandlers) h(node.options);
-    } else if (node.type === 'variable-set') {
+    } else if (node.type === "variable-set") {
       // onNode was already fired in _goto; advance is triggered by the caller
     }
+  }
+
+  /**
+   * Clear all event subscriptions. Call in `onDestroy()` if you subscribed
+   * and did not store the unsubscriber functions.
+   */
+  destroy(): void {
+    this._eventHandlers.length = 0;
+    this._choiceHandlers.length = 0;
+    this._nodeHandlers.length = 0;
+    this._endHandlers.length = 0;
+    this._cgNodeHandlers.length = 0;
+    this._tree = null;
+    this._currentNodeId = null;
   }
 }
