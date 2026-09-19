@@ -126,13 +126,13 @@ describe("BattleSystem full combat loop", () => {
       statusEffects: [],
     });
 
-    battle.addPartyMember(makeCombatant("hero", "Hero", true, 100, 30, 10));
-    battle.addEnemy(makeCombatant("slime", "Slime", false, 50, 10, 5));
-
     const events: BattleEvent[] = [];
-    battle.onEvent((e) => events.push(e));
+    battle.subscribe((e) => events.push(e));
 
-    battle.start();
+    battle.start(
+      [makeCombatant("hero", "Hero", true, 100, 30, 10)],
+      [makeCombatant("slime", "Slime", false, 50, 10, 5)],
+    );
     expect(battle.getPhase()).toBe("input");
 
     const actionNeededEvents = events.filter((e) => e.kind === "action-needed");
@@ -175,13 +175,13 @@ describe("BattleSystem full combat loop", () => {
       ],
     });
 
-    battle.addPartyMember(makeCombatant("hero", "Hero", true, 200, 20, 10));
-    battle.addEnemy(makeCombatant("goblin", "Goblin", false, 200, 10, 5));
-
     const events: BattleEvent[] = [];
-    battle.onEvent((e) => events.push(e));
+    battle.subscribe((e) => events.push(e));
 
-    battle.start();
+    battle.start(
+      [makeCombatant("hero", "Hero", true, 200, 20, 10)],
+      [makeCombatant("goblin", "Goblin", false, 200, 10, 5)],
+    );
     // Use poison skill
     battle.submitAction("hero", {
       type: "skill",
@@ -201,12 +201,13 @@ describe("BattleSystem full combat loop", () => {
 
   it("flee action changes phase to idle", () => {
     const battle = new BattleSystem({ fleeChance: 1.0 });
-    battle.addPartyMember(makeCombatant("hero", "Hero", true));
-    battle.addEnemy(makeCombatant("boss", "Boss", false));
-    battle.start();
+    battle.start(
+      [makeCombatant("hero", "Hero", true)],
+      [makeCombatant("boss", "Boss", false)],
+    );
 
     let fled = false;
-    battle.onEvent((e) => {
+    battle.subscribe((e) => {
       if (e.kind === "fled") fled = true;
     });
     battle.submitAction("hero", { type: "flee" });

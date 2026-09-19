@@ -150,7 +150,7 @@ export interface BattleSystemOptions {
 
 // --- Internal ---
 
-interface _CombatantState {
+interface CombatantState {
   id: string;
   name: string;
   hp: number;
@@ -179,6 +179,21 @@ const DEFAULT_PHYSICAL = (ctx: DamageContext): number =>
 
 // --- BattleSystem ---
 
+/**
+ * Turn-based RPG combat engine. Owns combatant state, turn order, damage
+ * formulas, status-effect resolution, and the input/resolving/victory/defeat
+ * phase machine. It emits `BattleEvent`s for the caller to render; it has no
+ * renderer of its own.
+ *
+ * Public surface is intentionally narrow:
+ * - `start()` begins a battle from a party and enemy roster.
+ * - `submitAction()` is the only way to advance an in-progress battle.
+ * - `subscribe()` is the only way to observe what happened.
+ * - The `get*` queries are read-only snapshots.
+ *
+ * Turn order, formula application, and status-effect resolution are fully
+ * internal — there is no public API for stepping through them piecemeal.
+ */
 export class BattleSystem {
   private readonly _critChance: number;
   private readonly _critMultiplier: number;
@@ -188,17 +203,27 @@ export class BattleSystem {
   private _db: BattleDatabase;
   private _statusEffectIndex: Map<string, StatusEffectDef> = new Map();
   private _skillIndex: Map<string, SkillDef> = new Map();
+
+  // `_phase` is read exclusively through `_getPhase()`. TypeScript's
+  // control-flow narrowing caches a class field's literal type across an
+  // entire method body, including after calls to other private methods that
+  // reassign it (e.g. `_checkEndConditions()` setting "victory" mid-loop).
+  // Routing every read through a method call — which the compiler never
+  // narrows across — keeps every phase comparison honest instead of
+  // silently comparing against a stale cached literal.
   private _phase: BattlePhase = "idle";
-  // The getter prevents TypeScript from narrowing _phase within callers that
-  // assign it and then call methods that can mutate it (e.g. _checkEndConditions).
-  private get phase(): BattlePhase {
+  private _getPhase(): BattlePhase {
     return this._phase;
   }
+  private _setPhase(phase: BattlePhase): void {
+    this._phase = phase;
+  }
+
   private _round = 0;
   private _destroyed = false;
 
-  private readonly _party = new Map<string, _CombatantState>();
-  private readonly _enemies = new Map<string, _CombatantState>();
+  private readonly _party = new Map<string, CombatantState>();
+  private readonly _enemies = new Map<string, CombatantState>();
   private _insertionCounter = 0;
 
   private readonly _handlers = new Set<(event: BattleEvent) => void>();
@@ -228,16 +253,9 @@ export class BattleSystem {
     };
   }
 
-  // --- Setup ---
+  // --- Configuration (call before start()) ---
 
-  addPartyMember(combatant: Combatant): void {
-    this._party.set(combatant.id, this._toState(combatant));
-  }
-
-  addEnemy(combatant: Combatant): void {
-    this._enemies.set(combatant.id, this._toState(combatant));
-  }
-
+  /** Load skill and status effect definitions. Call before `start()`. */
   loadDatabase(db: BattleDatabase): void {
     this._db = db;
     this._statusEffectIndex = new Map(db.statusEffects.map((d) => [d.id, d]));
@@ -261,7 +279,8 @@ export class BattleSystem {
 
   // --- Events ---
 
-  onEvent(handler: (event: BattleEvent) => void): () => void {
+  /** Subscribe to battle events. Returns an unsubscribe function. */
+  subscribe(handler: (event: BattleEvent) => void): () => void {
     this._handlers.add(handler);
     return () => {
       this._handlers.delete(handler);
@@ -270,10 +289,21 @@ export class BattleSystem {
 
   // --- Battle lifecycle ---
 
-  start(): void {
+  /**
+   * Begin a battle with the given party and enemy roster. Replaces any
+   * previous roster. Emits `'battle-start'`, then `'round-start'`, then
+   * `'action-needed'` for the first party member in turn order.
+   */
+  start(party: readonly Combatant[], enemies: readonly Combatant[]): void {
     if (this._destroyed) return;
+
+    this._party.clear();
+    this._enemies.clear();
+    for (const c of party) this._party.set(c.id, this._toState(c));
+    for (const c of enemies) this._enemies.set(c.id, this._toState(c));
+
     this._round = 1;
-    this._phase = "input";
+    this._setPhase("input");
     this._pendingActions.clear();
     this._computeTurnOrder();
     this._emit({ kind: "battle-start" });
@@ -281,8 +311,14 @@ export class BattleSystem {
     this._beginInputPhase();
   }
 
+  /**
+   * Submit an action for a party member. Once every party member awaiting
+   * input has submitted, the round resolves automatically: enemies act,
+   * status effects tick, and either the next round begins or the battle
+   * ends in victory/defeat.
+   */
   submitAction(combatantId: string, action: BattleAction): void {
-    if (this._destroyed || this._phase !== "input") return;
+    if (this._destroyed || this._getPhase() !== "input") return;
 
     const state = this._party.get(combatantId);
     if (state === undefined || state.hp <= 0) return;
@@ -307,7 +343,7 @@ export class BattleSystem {
   // --- Read-only queries ---
 
   getPhase(): BattlePhase {
-    return this.phase;
+    return this._getPhase();
   }
   getRound(): number {
     return this._round;
@@ -336,7 +372,7 @@ export class BattleSystem {
 
   // --- Private helpers ---
 
-  private _toState(c: Combatant): _CombatantState {
+  private _toState(c: Combatant): CombatantState {
     const raw = c.stats as Record<string, number>;
     return {
       id: c.id,
@@ -356,7 +392,7 @@ export class BattleSystem {
     };
   }
 
-  private _toSnapshot(state: _CombatantState): Combatant {
+  private _toSnapshot(state: CombatantState): Combatant {
     // Reconstruct from rawStats so custom stat fields are preserved in snapshots.
     const stats: Record<string, number> = {
       ...state.rawStats,
@@ -383,7 +419,7 @@ export class BattleSystem {
   }
 
   private _computeTurnOrder(): void {
-    const states: _CombatantState[] = [
+    const states: CombatantState[] = [
       ...this._party.values(),
       ...this._enemies.values(),
     ].filter((s) => s.hp > 0);
@@ -436,10 +472,10 @@ export class BattleSystem {
   }
 
   private _resolveRound(): void {
-    this._phase = "resolving";
+    this._setPhase("resolving");
 
     for (const id of this._turnOrder) {
-      if (this.phase !== "resolving") break;
+      if (this._getPhase() !== "resolving") break;
 
       const state = this._party.get(id) ?? this._enemies.get(id);
       if (state === undefined || state.hp <= 0) continue;
@@ -459,17 +495,17 @@ export class BattleSystem {
 
     this._pendingActions.clear();
 
-    if (this.phase === "resolving") {
+    if (this._getPhase() === "resolving") {
       // Begin the next round
       this._round++;
-      this._phase = "input";
+      this._setPhase("input");
       this._computeTurnOrder();
       this._emit({ kind: "round-start", round: this._round });
       this._beginInputPhase();
     }
   }
 
-  private _applyStatusEffects(state: _CombatantState): void {
+  private _applyStatusEffects(state: CombatantState): void {
     const toExpire: string[] = [];
 
     // Iterate over a copy so removal mid-loop is safe
@@ -514,7 +550,7 @@ export class BattleSystem {
     }
   }
 
-  private _effectiveStats(state: _CombatantState): {
+  private _effectiveStats(state: CombatantState): {
     attack: number;
     defense: number;
   } {
@@ -540,7 +576,7 @@ export class BattleSystem {
 
   private _applyDamage(
     sourceId: string,
-    target: _CombatantState,
+    target: CombatantState,
     amount: number,
     isCrit: boolean,
   ): void {
@@ -559,18 +595,18 @@ export class BattleSystem {
 
   private _applyHeal(
     sourceId: string,
-    target: _CombatantState,
+    target: CombatantState,
     amount: number,
   ): void {
     target.hp = Math.min(target.maxHp, target.hp + amount);
     this._emit({ kind: "heal", sourceId, targetId: target.id, amount });
   }
 
-  private _executeAction(actor: _CombatantState, action: BattleAction): void {
+  private _executeAction(actor: CombatantState, action: BattleAction): void {
     if (action.type === "flee") {
       if (Math.random() < this._fleeChance) {
         this._emit({ kind: "fled" });
-        this._phase = "victory";
+        this._setPhase("victory");
       }
       return;
     }
@@ -601,10 +637,10 @@ export class BattleSystem {
   }
 
   private _resolveTargets(
-    actor: _CombatantState,
+    actor: CombatantState,
     targetType: SkillTargetType,
     primaryTargetId: string,
-  ): _CombatantState[] {
+  ): CombatantState[] {
     switch (targetType) {
       case "single-enemy": {
         const map = actor.isParty ? this._enemies : this._party;
@@ -631,7 +667,7 @@ export class BattleSystem {
   }
 
   private _executeSkill(
-    actor: _CombatantState,
+    actor: CombatantState,
     skillId: string,
     primaryTargetId: string,
   ): void {
@@ -744,7 +780,7 @@ export class BattleSystem {
     );
     if (allEnemiesDead) {
       this._emit({ kind: "victory" });
-      this._phase = "victory";
+      this._setPhase("victory");
       return true;
     }
 
@@ -753,7 +789,7 @@ export class BattleSystem {
     );
     if (allPartyDead) {
       this._emit({ kind: "defeat" });
-      this._phase = "defeat";
+      this._setPhase("defeat");
       return true;
     }
 
