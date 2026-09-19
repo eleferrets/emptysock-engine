@@ -173,3 +173,51 @@ export interface IUIRenderer {
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
 }
+
+// ─── HostAdapter ──────────────────────────────────────────────────────────────
+
+/**
+ * Minimal event envelope delivered to HostAdapter message listeners.
+ * Mirrors the fields of DOM MessageEvent that the engine actually uses,
+ * without importing any DOM type.
+ */
+export interface HostMessage {
+  readonly data: unknown;
+  readonly origin: string;
+}
+
+export type HostMessageHandler = (event: HostMessage) => void;
+
+/**
+ * Abstraction layer between the engine and its host environment (browser
+ * iframe, Tauri WebView, or Node test harness). Inject a concrete
+ * implementation via IDEBridgeService constructor / Engine.init(); use
+ * NullHostAdapter in contexts where no host integration is needed.
+ */
+export interface HostAdapter {
+  /** Post a structured message to the parent / host frame. */
+  postMessage(data: unknown, targetOrigin: string): void;
+  /** Register a listener for messages arriving from the host. */
+  addMessageListener(handler: HostMessageHandler): void;
+  /** Deregister a previously registered message listener. */
+  removeMessageListener(handler: HostMessageHandler): void;
+  /** Schedule a recurring callback. Returns an opaque handle. */
+  setInterval(fn: () => void, ms: number): unknown;
+  /** Cancel a handle returned by setInterval. */
+  clearInterval(id: unknown): void;
+  /**
+   * Detect GPU capability tier. Returns the best tier the host can determine;
+   * return 'mid' when information is unavailable.
+   */
+  detectGPUTier(): GPUTier;
+}
+
+/** No-op adapter for Node.js tests and contexts without a host frame. */
+export class NullHostAdapter implements HostAdapter {
+  postMessage(_data: unknown, _targetOrigin: string): void {}
+  addMessageListener(_handler: HostMessageHandler): void {}
+  removeMessageListener(_handler: HostMessageHandler): void {}
+  setInterval(_fn: () => void, _ms: number): unknown { return null; }
+  clearInterval(_id: unknown): void {}
+  detectGPUTier(): GPUTier { return 'mid'; }
+}
