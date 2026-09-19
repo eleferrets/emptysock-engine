@@ -101,7 +101,7 @@ class IDEBridgeService {
     component: string,
     fields: Record<string, unknown>,
   ): void {
-    if (!this._active) return;
+    if (!this._active || typeof window === "undefined") return;
     window.parent.postMessage(
       { type: "es:component-fields", entityId, component, fields },
       "*",
@@ -171,7 +171,7 @@ class IDEBridgeService {
   }
 
   private _broadcast(): void {
-    if (this._provider === null || !this._active) return;
+    if (this._provider === null || !this._active || typeof window === "undefined") return;
     const payload = this._provider();
     window.parent.postMessage({ type: "es:entities", payload }, "*");
   }
@@ -182,10 +182,12 @@ class IDEBridgeService {
     const t = data["type"];
     if (t === "es:select-entity" && typeof data["id"] === "string") {
       this._onSelect?.(data["id"]);
-      window.parent.postMessage(
-        { type: "es:entity-selected", id: data["id"] },
-        "*",
-      );
+      if (typeof window !== "undefined") {
+        window.parent.postMessage(
+          { type: "es:entity-selected", id: data["id"] },
+          "*",
+        );
+      }
     } else if (t === "es:set-component") {
       const id = data["id"];
       const component = data["component"];

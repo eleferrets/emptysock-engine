@@ -123,7 +123,8 @@ export interface FadeOptions {
 }
 
 export class PostProcessSystem {
-  private readonly _effects: ActiveEffect[] = [];
+  private readonly _persistent: Map<PostEffectType, ActiveEffect> = new Map();
+  private readonly _transients: ActiveEffect[] = [];
   private readonly _layerFilters: Map<string, LayerFilterOptions> = new Map();
 
   // ─── Per-layer filters ────────────────────────────────────────────────────
@@ -189,30 +190,24 @@ export class PostProcessSystem {
   public transitionColour: number = 0x000000;
 
   add(type: PostEffectType, options: PostEffectOptions = {}): this {
-    const existing = this._effects.findIndex((e) => e.type === type);
-    if (existing !== -1) {
-      this._effects[existing] = { type, options };
-    } else {
-      this._effects.push({ type, options });
-    }
+    this._persistent.set(type, { type, options });
     return this;
   }
 
   remove(type: PostEffectType): void {
-    const idx = this._effects.findIndex((e) => e.type === type);
-    if (idx !== -1) this._effects.splice(idx, 1);
+    this._persistent.delete(type);
   }
 
   has(type: PostEffectType): boolean {
-    return this._effects.some((e) => e.type === type);
+    return this._persistent.has(type);
   }
 
   get(type: PostEffectType): ActiveEffect | undefined {
-    return this._effects.find((e) => e.type === type);
+    return this._persistent.get(type);
   }
 
   get effects(): ReadonlyArray<ActiveEffect> {
-    return this._effects;
+    return [...this._persistent.values(), ...this._transients];
   }
 
   // ─── Transient effects ────────────────────────────────────────────────────
@@ -224,7 +219,7 @@ export class PostProcessSystem {
       options: { strength: 3 },
       lifetime: duration,
     };
-    this._effects.push(effect);
+    this._transients.push(effect);
     // Replace bloom after flash — store flash colour for the render layer
     this._flashColour = options.colour ?? 0xffffff;
     this._flashDuration = duration;
@@ -262,13 +257,12 @@ export class PostProcessSystem {
   // ─── Update ───────────────────────────────────────────────────────────────
 
   update(deltaTime: number): void {
-    // Decay transient effects
-    for (let i = this._effects.length - 1; i >= 0; i--) {
-      const e = this._effects[i];
+    for (let i = this._transients.length - 1; i >= 0; i--) {
+      const e = this._transients[i];
       if (e === undefined) continue;
       if (e.lifetime !== undefined) {
         e.lifetime -= deltaTime;
-        if (e.lifetime <= 0) this._effects.splice(i, 1);
+        if (e.lifetime <= 0) this._transients.splice(i, 1);
       }
     }
 
@@ -278,7 +272,8 @@ export class PostProcessSystem {
   }
 
   clear(): void {
-    this._effects.length = 0;
+    this._persistent.clear();
+    this._transients.length = 0;
     this.transitionEffect = "none";
     this.transitionProgress = 0;
   }

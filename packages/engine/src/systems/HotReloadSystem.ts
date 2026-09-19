@@ -12,24 +12,29 @@ export class HotReloadSystem {
   > = [];
   private roomHooks: Array<(name: string, roomJson: string) => void> = [];
 
-  onBeforeReload(fn: () => void): void {
+  onBeforeReload(fn: () => void): () => void {
     this.beforeHooks.push(fn);
+    return () => { const i = this.beforeHooks.indexOf(fn); if (i !== -1) this.beforeHooks.splice(i, 1); };
   }
 
-  onAfterReload(fn: () => void): void {
+  onAfterReload(fn: () => void): () => void {
     this.afterHooks.push(fn);
+    return () => { const i = this.afterHooks.indexOf(fn); if (i !== -1) this.afterHooks.splice(i, 1); };
   }
 
-  onSpriteReload(fn: (name: string, dataUrl: string) => void): void {
+  onSpriteReload(fn: (name: string, dataUrl: string) => void): () => void {
     this.spriteHooks.push(fn);
+    return () => { const i = this.spriteHooks.indexOf(fn); if (i !== -1) this.spriteHooks.splice(i, 1); };
   }
 
-  onShaderReload(fn: (name: string, vert: string, frag: string) => void): void {
+  onShaderReload(fn: (name: string, vert: string, frag: string) => void): () => void {
     this.shaderHooks.push(fn);
+    return () => { const i = this.shaderHooks.indexOf(fn); if (i !== -1) this.shaderHooks.splice(i, 1); };
   }
 
-  onRoomReload(fn: (name: string, roomJson: string) => void): void {
+  onRoomReload(fn: (name: string, roomJson: string) => void): () => void {
     this.roomHooks.push(fn);
+    return () => { const i = this.roomHooks.indexOf(fn); if (i !== -1) this.roomHooks.splice(i, 1); };
   }
 
   install(): void {

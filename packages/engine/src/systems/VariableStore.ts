@@ -41,8 +41,13 @@ export class VariableStore {
     return this._vars.get(clampIndex(index, MAX_VARS)) ?? 0;
   }
 
+  /**
+   * Store a variable value. Values are stored as integers — fractional parts
+   * are truncated. This matches RPG Maker's variable behaviour and is intentional.
+   * Use separate fields in your save data if you need float precision.
+   */
   setVar(index: number, value: number): void {
-    this._vars.set(clampIndex(index, MAX_VARS), Math.floor(value));
+    this._vars.set(clampIndex(index, MAX_VARS), Math.trunc(value));
   }
 
   getVarName(index: number): string {
@@ -77,9 +82,9 @@ export class VariableStore {
     const raw = readStorage();
     if (raw === null) return;
     try {
-      const parsed = JSON.parse(raw) as unknown;
+      const parsed: unknown = JSON.parse(raw);
       if (parsed !== null && typeof parsed === "object") {
-        this.restore(parsed as VariableStoreData);
+        this.restore(parsed as Partial<VariableStoreData>);
       }
     } catch {
       // Corrupted data — silently ignore
@@ -115,22 +120,22 @@ export class VariableStore {
     return { variables, switches, variableNames, switchNames };
   }
 
-  restore(data: VariableStoreData): void {
+  restore(data: Partial<VariableStoreData>): void {
     this._vars.clear();
     this._switches.clear();
     this._varNames.clear();
     this._switchNames.clear();
 
-    for (const [k, v] of Object.entries(data.variables)) {
-      if (typeof v === "number") this._vars.set(Number(k), Math.floor(v));
+    for (const [k, v] of Object.entries(data.variables ?? {})) {
+      if (typeof v === "number") this._vars.set(Number(k), Math.trunc(v));
     }
-    for (const [k, v] of Object.entries(data.switches)) {
+    for (const [k, v] of Object.entries(data.switches ?? {})) {
       if (typeof v === "boolean") this._switches.set(Number(k), v);
     }
-    for (const [k, v] of Object.entries(data.variableNames)) {
+    for (const [k, v] of Object.entries(data.variableNames ?? {})) {
       if (typeof v === "string") this._varNames.set(Number(k), v);
     }
-    for (const [k, v] of Object.entries(data.switchNames)) {
+    for (const [k, v] of Object.entries(data.switchNames ?? {})) {
       if (typeof v === "string") this._switchNames.set(Number(k), v);
     }
   }

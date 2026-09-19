@@ -32,10 +32,10 @@ export class CGGallery {
     if (!this._saveSystem) return;
     const slot = this._saveSystem.load(this._saveSlot);
     if (!slot) return;
-    const data = slot.data as Record<string, boolean> | undefined;
-    if (!data) return;
-    for (const [key, val] of Object.entries(data)) {
-      if (val) this._unlocked.add(key);
+    const raw: unknown = slot.data;
+    if (typeof raw !== "object" || raw === null) return;
+    for (const [key, val] of Object.entries(raw)) {
+      if (val === true) this._unlocked.add(key);
     }
   }
 
@@ -44,11 +44,6 @@ export class CGGallery {
     if (this._unlocked.has(id)) return;
     this._unlocked.add(id);
     this._persist();
-  }
-
-  /** Unlock a CG by viewing a Story Graph node tagged with that CG id */
-  unlockFromNode(cgId: string): void {
-    this.unlock(cgId);
   }
 
   isUnlocked(id: string): boolean {

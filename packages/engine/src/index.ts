@@ -1,12 +1,9 @@
 // Core ECS
 export { Component } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
+export type { Vec2, CoroutineHandle } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
-/** @internal */
-export { detectGPUTier } from "./core/GPUTier.js";
-/** @internal */
-export type { GPUTier } from "./core/GPUTier.js";
 
 // Engine API
 export { Engine } from "./core/EngineAPI.js";
@@ -32,7 +29,6 @@ export type {
   PhysicsBody3DOptions,
   Physics3DHandle,
   Vec3,
-  Vec3 as NavVec3,
   BodyType3D,
   Shape3D,
   Quat,
@@ -48,7 +44,7 @@ export type {
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
 export { CameraSystem } from "./systems/CameraSystem.js";
-export type { CameraState } from "./systems/CameraSystem.js";
+export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 
 // Components
 export { Transform } from "./components/Transform.js";
@@ -84,7 +80,7 @@ export type {
   PathResult,
 } from "./systems/PathfindingSystem.js";
 export { NavMeshSystem } from "./systems/NavMeshSystem.js";
-export type { NavMeshData, NavPolygon, Vec2 } from "./systems/NavMeshSystem.js";
+export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
 export type { SaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
@@ -142,18 +138,15 @@ export type {
 
 // Tweens & Timers
 export { TweenManager } from "./systems/TweenSystem.js";
-export type { TweenOptions, EasingName } from "./systems/TweenSystem.js";
+export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
-export { UISystem, UIComponent } from "./systems/UISystem.js";
-export type {
-  UIComponentType,
-  UIComponentOptions,
-  UIStyle,
-  UIAnchor,
-  UIAnimationType,
-} from "./systems/UISystem.js";
+export { UISystem } from "./systems/UISystem.js";
 export type { IUIRenderer } from "@emptysock/types";
+
+// Easing
+export { ease } from "./core/easing.js";
+export type { EasingName } from "./core/easing.js";
 
 // Widget API
 export {
@@ -165,7 +158,6 @@ export {
   ProgressBarWidget,
   SliderWidget,
   CheckboxWidget,
-  widgetRoundRect,
 } from "./ui/Widget.js";
 export type {
   WidgetAnchor,
@@ -216,20 +208,10 @@ export type {
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 
-// Compat
-/** @internal */
-export { detectMali, getMaliFixes, applyMaliFixes } from "./compat/mali.js";
-/** @internal */
-export type { MaliInfo, MaliFixes } from "./compat/mali.js";
-/** @internal */
-export * as GMLCompat from "./compat/index.js";
-
-// Hot reload
-/** @internal */
-export { HotReloadSystem } from "./systems/HotReloadSystem.js";
+// Hot reload — internal; accessed via the IDE bridge only
 
 // Window management
-export { windowSystem, WindowSystem } from "./systems/WindowSystem.js";
+export { windowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 
 // Behaviors
@@ -268,15 +250,7 @@ export type {
 // Public type aliases
 export type { GameStage } from "./types/aliases.js";
 
-// IDE Bridge
-/** @internal */
-export { ideBridge } from "./core/IDEBridge.js";
-/** @internal */
-export type {
-  EntitySnapshot as IDEEntitySnapshot,
-  ComponentPatchHandler,
-  SelectHandler,
-} from "./core/IDEBridge.js";
+// IDE Bridge — internal; not part of the public game API
 
 // Component registry — canonical list of built-in component type strings
 export const COMPONENT_REGISTRY: readonly string[] = [
@@ -285,7 +259,6 @@ export const COMPONENT_REGISTRY: readonly string[] = [
   "PhysicsBody",
   "CharacterController",
   "Animator",
-  "UIComponent",
   "RigidJoint",
 ] as const;
 

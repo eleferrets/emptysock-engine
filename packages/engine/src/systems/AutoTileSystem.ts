@@ -36,13 +36,19 @@ const DIRS: Array<{ dx: number; dy: number; bit: number }> = [
 
 export class AutoTileSystem {
   private _ruleSets: Map<number, AutoTileRuleSet> = new Map();
+  /** Pre-computed set of all tile indices in each ruleset for O(1) membership tests. */
+  private _ruleTileIndices: Map<number, Set<number>> = new Map();
 
   addRuleSet(ruleSet: AutoTileRuleSet): void {
     this._ruleSets.set(ruleSet.baseTileIndex, ruleSet);
+    const indices = new Set<number>();
+    for (const r of ruleSet.rules) indices.add(r.tileIndex);
+    this._ruleTileIndices.set(ruleSet.baseTileIndex, indices);
   }
 
   removeRuleSet(baseTileIndex: number): void {
     this._ruleSets.delete(baseTileIndex);
+    this._ruleTileIndices.delete(baseTileIndex);
   }
 
   getRuleSet(baseTileIndex: number): AutoTileRuleSet | undefined {
@@ -79,7 +85,7 @@ export class AutoTileSystem {
   }
 
   private _sameGroup(tileIndex: number, rs: AutoTileRuleSet): boolean {
-    return rs.rules.some((r) => r.tileIndex === tileIndex);
+    return this._ruleTileIndices.get(rs.baseTileIndex)?.has(tileIndex) ?? false;
   }
 
   /**
@@ -109,8 +115,7 @@ export class AutoTileSystem {
   }
 
   private _inGroup(tileIndex: number, baseTileIndex: number): boolean {
-    const rs = this._ruleSets.get(baseTileIndex);
-    return rs !== undefined && rs.rules.some((r) => r.tileIndex === tileIndex);
+    return this._ruleTileIndices.get(baseTileIndex)?.has(tileIndex) ?? false;
   }
 
   toJSON(): AutoTileRuleSet[] {
@@ -119,6 +124,12 @@ export class AutoTileSystem {
 
   fromJSON(ruleSets: AutoTileRuleSet[]): void {
     this._ruleSets.clear();
-    for (const rs of ruleSets) this._ruleSets.set(rs.baseTileIndex, rs);
+    this._ruleTileIndices.clear();
+    for (const rs of ruleSets) {
+      this._ruleSets.set(rs.baseTileIndex, rs);
+      const indices = new Set<number>();
+      for (const r of rs.rules) indices.add(r.tileIndex);
+      this._ruleTileIndices.set(rs.baseTileIndex, indices);
+    }
   }
 }

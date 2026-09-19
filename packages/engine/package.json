@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src/",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist-types --declaration --declarationMap false --skipLibCheck"
   },
   "dependencies": {
     "@dimforge/rapier2d-compat": "^0.14.0",

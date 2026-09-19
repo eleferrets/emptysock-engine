@@ -1,10 +1,63 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-import { resolve } from "path";
+import { resolve, relative, join } from "path";
+import { readdirSync, readFileSync, statSync, existsSync } from "fs";
 import { visualizer } from "rollup-plugin-visualizer";
+import type { Plugin } from "vite";
 
 const __dirname = import.meta.dirname;
+
+// Collects all .d.ts files from dist-types/ and exposes them as virtual:engine-types
+// so Monaco's TypeScript service can provide inline type errors for game code.
+function engineTypesPlugin(): Plugin {
+  const VIRTUAL_ID = "virtual:engine-types";
+  const RESOLVED_ID = "\0" + VIRTUAL_ID;
+
+  function collectDts(dir: string): Record<string, string> {
+    const libs: Record<string, string> = {};
+    if (!existsSync(dir)) return libs;
+    function scan(d: string): void {
+      for (const entry of readdirSync(d)) {
+        const full = join(d, entry);
+        if (statSync(full).isDirectory()) {
+          scan(full);
+        } else if (entry.endsWith(".d.ts")) {
+          const rel = relative(dir, full).replace(/\\/g, "/");
+          libs[`file:///node_modules/@emptysock/engine/${rel}`] = readFileSync(
+            full,
+            "utf-8",
+          );
+        }
+      }
+    }
+    scan(dir);
+    return libs;
+  }
+
+  return {
+    name: "engine-types",
+    resolveId(id) {
+      if (id === VIRTUAL_ID) return RESOLVED_ID;
+    },
+    load(id) {
+      if (id !== RESOLVED_ID) return;
+      const dtDir = resolve(__dirname, "../../packages/engine/dist-types");
+      const libs = collectDts(dtDir);
+      const builtinsPath = resolve(
+        __dirname,
+        "../../packages/engine/src/builtins.d.ts",
+      );
+      if (existsSync(builtinsPath)) {
+        libs["file:///game/builtins.d.ts"] = readFileSync(
+          builtinsPath,
+          "utf-8",
+        );
+      }
+      return `export default ${JSON.stringify(libs)}`;
+    },
+  };
+}
 
 // Teach Vite how to handle Monaco editor web workers so they resolve from
 // the locally installed monaco-editor package rather than a CDN request.
@@ -23,6 +76,7 @@ function monacoWorkerPlugin() {
 export default defineConfig({
   plugins: [
     react(),
+    engineTypesPlugin(),
     monacoWorkerPlugin(),
     VitePWA({
       registerType: "autoUpdate",

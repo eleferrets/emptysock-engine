@@ -45,18 +45,25 @@ if (typeof window !== "undefined") {
 }
 
 export const Engine = {
-  /** Register a callback invoked whenever Engine.logError is called. */
-  onError(handler: ErrorHandler): void {
+  /** Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function. */
+  onError(handler: ErrorHandler): () => void {
     _errorHandlers.push(handler);
+    return () => {
+      const i = _errorHandlers.indexOf(handler);
+      if (i !== -1) _errorHandlers.splice(i, 1);
+    };
   },
 
   /**
    * Register a callback that receives the message when logErrorToFile is called.
    * Wire this up in the IDE/Tauri layer; game code and the engine core must not
-   * import Tauri APIs directly.
+   * import Tauri APIs directly. Returns an unsubscribe function.
    */
-  onFileLog(handler: ErrorHandler): void {
+  onFileLog(handler: ErrorHandler): () => void {
     _fileLogHandler = handler;
+    return () => {
+      if (_fileLogHandler === handler) _fileLogHandler = null;
+    };
   },
 
   /** Log a runtime error to registered handlers and the console. */
@@ -127,13 +134,5 @@ export const Engine = {
   /** Pop the top scene off the stack and resume the scene underneath. */
   popScene(): void {
     SceneManagerInstance.popScene();
-  },
-
-  /**
-   * Load a named scene immediately (replaces the active scene).
-   * The scene must be registered with SceneManager.register() first.
-   */
-  loadScene(name: string): void {
-    SceneManagerInstance.load(name);
   },
 };

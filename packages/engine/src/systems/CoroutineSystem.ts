@@ -37,6 +37,12 @@ export class CoroutineSystem {
   public onError: ((id: string, error: Error) => void) | null = null;
 
   start(id: string, gen: CoroutineGen): void {
+    if (this._coroutines.has(id)) {
+      console.warn(
+        `[CoroutineSystem] duplicate coroutine id "${id}" — stopping the previous one`,
+      );
+      this._coroutines.delete(id);
+    }
     this._coroutines.set(id, { gen, waiting: null });
     // Advance to the first yield immediately
     this._step(id);
@@ -47,7 +53,7 @@ export class CoroutineSystem {
   }
 
   update(deltaTime: number): void {
-    for (const [id, state] of this._coroutines) {
+    for (const [id, state] of [...this._coroutines]) {
       const w = state.waiting;
       if (w === null) continue;
 
@@ -67,6 +73,11 @@ export class CoroutineSystem {
         this._step(id);
       }
     }
+  }
+
+  /** Cancel all running coroutines. The system remains usable; new coroutines can be started after this call. */
+  destroy(): void {
+    this._coroutines.clear();
   }
 
   private _step(id: string): void {

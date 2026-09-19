@@ -25,6 +25,11 @@ class SceneManager {
   private _pending: string | null = null;
   private _pendingOptions: TransitionOptions | null = null;
   private _transitioning: boolean = false;
+  private _elapsed: number = 0;
+  private _isLoading: boolean = false;
+  private _fixedAccum: number = 0;
+  /** Fixed physics timestep in seconds. Default 1/60. */
+  public fixedTimeStep: number = 1 / 60;
 
   /** Register a factory so the scene can be loaded by name. */
   register(name: string, factory: SceneFactory): void {
@@ -39,33 +44,53 @@ class SceneManager {
     return this._transitioning;
   }
 
+  /** True while an async onLoad() is in flight. update() is skipped during this time. */
+  get isLoading(): boolean {
+    return this._isLoading;
+  }
+
   /**
-   * Push a new scene on top of the current one.
-   * The current scene is paused (stop()) but not destroyed; the new scene starts immediately.
-   * Pop it with popScene() to resume the scene underneath.
+   * Push a new scene on top of the current one. The current scene is paused
+   * but stays in memory. Its onDestroy is NOT called — use popScene() to resume.
+   * onLoad() on the incoming scene runs before the first update tick.
    */
   pushScene(scene: Scene): void {
     if (this._active !== null) {
+      this._active._callOnPause();
       this._active.stop();
       this._stack.push(this._active);
     }
     this._active = scene;
     this._active.start();
+    this._isLoading = true;
+    scene
+      .onLoad()
+      .then(() => {
+        this._isLoading = false;
+        scene._callOnStart();
+      })
+      .catch((err: unknown) => {
+        this._isLoading = false;
+        console.error("[SceneManager] onLoad error:", err);
+      });
   }
 
   /**
-   * Pop the current scene off the stack and resume the previous one.
-   * Calls stop() on the popped scene (trigger onDestroy in game code before calling this).
+   * Pop the current scene off the stack and resume the scene underneath.
+   * Calls onDestroy() on the popped scene and clears its UI.
    * No-op if the stack is empty.
    */
   popScene(): void {
     if (this._active !== null) {
+      this._active.onDestroy();
+      this._active.ui.clear();
       this._active.stop();
     }
     const prev = this._stack.pop();
     this._active = prev ?? null;
     if (this._active !== null) {
       this._active.start();
+      this._active._callOnResume();
     }
   }
 
@@ -73,16 +98,36 @@ class SceneManager {
     return this._stack.length + (this._active !== null ? 1 : 0);
   }
 
-  /** Immediately load a scene (no transition). */
+  /**
+   * Immediately load a scene by name (no transition animation).
+   * onDestroy() is called on the current scene first.
+   * onLoad() on the new scene runs asynchronously; update() is skipped until it resolves.
+   */
   load(name: string): Scene {
     const factory = this._registry.get(name);
     if (factory === undefined) {
       throw new Error(`SceneManager: no scene registered as "${name}"`);
     }
-    this._active?.stop();
-    this._active = factory();
-    this._active.start();
-    return this._active;
+    if (this._active !== null) {
+      this._active.onDestroy();
+      this._active.ui.clear();
+      this._active.stop();
+    }
+    const next = factory();
+    this._active = next;
+    next.start();
+    this._isLoading = true;
+    next
+      .onLoad()
+      .then(() => {
+        this._isLoading = false;
+        next._callOnStart();
+      })
+      .catch((err: unknown) => {
+        this._isLoading = false;
+        console.error("[SceneManager] onLoad error:", err);
+      });
+    return next;
   }
 
   /**
@@ -96,14 +141,15 @@ class SceneManager {
     this._elapsed = 0;
   }
 
-  private _elapsed: number = 0;
-
-  queue(name: string): void {
-    this._pending = name;
-  }
-
   update(deltaTime: number): void {
-    this._active?.update(deltaTime);
+    if (!this._isLoading) {
+      this._fixedAccum += deltaTime;
+      while (this._fixedAccum >= this.fixedTimeStep) {
+        this._active?._fixedUpdate(this.fixedTimeStep);
+        this._fixedAccum -= this.fixedTimeStep;
+      }
+      this._active?.update(deltaTime);
+    }
 
     if (this._pending !== null && this._transitioning) {
       const duration = this._pendingOptions?.duration ?? 0.3;

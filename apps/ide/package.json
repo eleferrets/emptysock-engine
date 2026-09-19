@@ -6,8 +6,8 @@
   "scripts": {
     "engine-runtime": "node engine-runtime.build.mjs",
     "copy-docs": "node scripts/copy-docs.mjs",
-    "predev": "node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
-    "prebuild": "NODE_ENV=production node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
+    "predev": "pnpm --filter @emptysock/engine run build:types && node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
+    "prebuild": "pnpm --filter @emptysock/engine run build:types && NODE_ENV=production node engine-runtime.build.mjs && node scripts/copy-docs.mjs",
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",

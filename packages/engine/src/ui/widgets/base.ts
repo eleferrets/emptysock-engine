@@ -1,4 +1,6 @@
 import type { IUIRenderer } from "@emptysock/types";
+import { ease } from "../../core/easing.js";
+export type { EasingName } from "../../core/easing.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,9 +25,11 @@ export type AnimationName =
 export type SlideDirection = "left" | "right" | "up" | "down";
 export type WidgetEvent = "click" | "hover" | "hoverOut" | "change" | "animEnd";
 
+import type { EasingName } from "../../core/easing.js";
+
 export interface AnimationOpts {
   duration?: number;
-  easing?: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+  easing?: EasingName;
   direction?: SlideDirection;
 }
 
@@ -33,7 +37,7 @@ interface ActiveAnim {
   name: AnimationName;
   elapsed: number;
   duration: number;
-  easing: AnimationOpts["easing"];
+  easing: EasingName;
   direction: SlideDirection;
 }
 
@@ -41,20 +45,8 @@ interface ActiveAnim {
 
 let _nextWidgetId = 0;
 
-export function applyEasing(
-  t: number,
-  easing: AnimationOpts["easing"],
-): number {
-  switch (easing) {
-    case "ease-in":
-      return t * t;
-    case "ease-out":
-      return 1 - (1 - t) * (1 - t);
-    case "ease-in-out":
-      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    default:
-      return t;
-  }
+export function applyEasing(t: number, easing: EasingName = "linear"): number {
+  return ease(easing, t);
 }
 
 export function widgetRoundRect(
@@ -132,13 +124,14 @@ export abstract class Widget {
     this.alpha = opts.alpha ?? 1;
   }
 
-  on(event: WidgetEvent, handler: (value?: unknown) => void): void {
+  on(event: WidgetEvent, handler: (value?: unknown) => void): () => void {
     let arr = this._handlers.get(event);
     if (arr === undefined) {
       arr = [];
       this._handlers.set(event, arr);
     }
     arr.push(handler);
+    return () => this.off(event, handler);
   }
 
   off(event: WidgetEvent, handler: (value?: unknown) => void): void {
@@ -153,8 +146,8 @@ export abstract class Widget {
   }
 
   animate(name: AnimationName, opts: AnimationOpts = {}): void {
-    const duration = (opts.duration ?? 200) / 1000;
-    const easing = opts.easing ?? "ease-out";
+    const duration = opts.duration ?? 0.2;
+    const easing: EasingName = opts.easing ?? "quadOut";
     const direction = opts.direction ?? "left";
     if (name === "fadeIn") {
       this.alpha = 0;

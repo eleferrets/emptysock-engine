@@ -45,12 +45,12 @@ describe('Entity', () => {
     expect(entity.removeComponent('Missing')).toBe(false);
   });
 
-  it('tags: add, check, remove via Set', () => {
+  it('tags: add, check, remove', () => {
     entity.addTag('player');
     entity.addTag('hero');
     expect(entity.hasTag('player')).toBe(true);
     expect(entity.hasTag('hero')).toBe(true);
-    entity.tags.delete('hero');
+    entity.removeTag('hero');
     expect(entity.hasTag('hero')).toBe(false);
   });
 

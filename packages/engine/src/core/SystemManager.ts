@@ -1,5 +1,6 @@
 export interface UpdatableSystem {
   update(dt: number): void;
+  destroy?(): void;
 }
 
 export class SystemManager {
@@ -10,6 +11,8 @@ export class SystemManager {
   }
 
   unregister(name: string): void {
+    const system = this._systems.get(name);
+    system?.destroy?.();
     this._systems.delete(name);
   }
 

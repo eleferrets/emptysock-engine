@@ -56,9 +56,11 @@ export class VNBackgroundLayer {
   setBackground(imagePath: string, opts: { fadeDuration?: number; fit?: FitMode } = {}): void {
     const fd = opts.fadeDuration ?? this._defaultFade;
     const state = makeState(imagePath, fd, opts.fit ?? 'cover');
-    const img = new Image();
-    img.onload = () => { state.image = img; };
-    img.src = imagePath;
+    if (typeof document !== 'undefined') {
+      const img = new Image();
+      img.onload = () => { state.image = img; };
+      img.src = imagePath;
+    }
     this._bg = state;
   }
 
@@ -72,9 +74,11 @@ export class VNBackgroundLayer {
   showCG(imagePath: string, opts: { fadeDuration?: number; fit?: FitMode } = {}): void {
     const fd = opts.fadeDuration ?? this._defaultFade;
     const state = makeState(imagePath, fd, opts.fit ?? 'contain');
-    const img = new Image();
-    img.onload = () => { state.image = img; };
-    img.src = imagePath;
+    if (typeof document !== 'undefined') {
+      const img = new Image();
+      img.onload = () => { state.image = img; };
+      img.src = imagePath;
+    }
     this._cg = state;
   }
 

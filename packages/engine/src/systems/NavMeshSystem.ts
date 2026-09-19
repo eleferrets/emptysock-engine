@@ -1,4 +1,5 @@
-export interface Vec2 { x: number; y: number; }
+import type { Vec2 } from "../core/Entity.js";
+export type { Vec2 };
 
 export interface NavPolygon {
   readonly id: number;
@@ -75,8 +76,10 @@ class AStarMinHeap {
       let smallest = idx;
       const l = 2 * idx + 1;
       const r = 2 * idx + 2;
-      if (l < n && (data[l] as AStarNode).f < (data[smallest] as AStarNode).f) smallest = l;
-      if (r < n && (data[r] as AStarNode).f < (data[smallest] as AStarNode).f) smallest = r;
+      if (l < n && (data[l] as AStarNode).f < (data[smallest] as AStarNode).f)
+        smallest = l;
+      if (r < n && (data[r] as AStarNode).f < (data[smallest] as AStarNode).f)
+        smallest = r;
       if (smallest === idx) break;
       const tmp = data[idx] as AStarNode;
       data[idx] = data[smallest] as AStarNode;
@@ -108,18 +111,25 @@ export class NavMeshSystem {
    */
   findPath(from: Vec2, to: Vec2): Vec2[] {
     const startPoly = this._nearestPolygon(from);
-    const endPoly   = this._nearestPolygon(to);
+    const endPoly = this._nearestPolygon(to);
     if (startPoly === null || endPoly === null) return [];
     if (startPoly.id === endPoly.id) return [from, to];
 
-    const open     = new AStarMinHeap();
-    const closed   = new Set<number>();
-    const bestG    = new Map<number, number>();   // best known g-score per polygon id
+    const open = new AStarMinHeap();
+    const closed = new Set<number>();
+    const bestG = new Map<number, number>(); // best known g-score per polygon id
     const cameFrom = new Map<number, number | null>();
 
-    const h = (poly: NavPolygon): number => this._dist(poly.centroid, endPoly.centroid);
+    const h = (poly: NavPolygon): number =>
+      this._dist(poly.centroid, endPoly.centroid);
 
-    const startNode: AStarNode = { id: startPoly.id, g: 0, h: h(startPoly), f: h(startPoly), parent: null };
+    const startNode: AStarNode = {
+      id: startPoly.id,
+      g: 0,
+      h: h(startPoly),
+      f: h(startPoly),
+      parent: null,
+    };
     open.push(startNode);
     bestG.set(startPoly.id, 0);
     cameFrom.set(startPoly.id, null);
@@ -151,7 +161,13 @@ export class NavMeshSystem {
         const prevBestG = bestG.get(neighbourId);
         if (prevBestG === undefined || g < prevBestG) {
           const nh = h(neighbour);
-          open.push({ id: neighbourId, g, h: nh, f: g + nh, parent: current.id });
+          open.push({
+            id: neighbourId,
+            g,
+            h: nh,
+            f: g + nh,
+            parent: current.id,
+          });
           bestG.set(neighbourId, g);
           cameFrom.set(neighbourId, current.id);
         }
@@ -161,7 +177,12 @@ export class NavMeshSystem {
     return [];
   }
 
-  private _reconstructPath(from: Vec2, to: Vec2, endId: number, cameFrom: Map<number, number | null>): Vec2[] {
+  private _reconstructPath(
+    from: Vec2,
+    to: Vec2,
+    endId: number,
+    cameFrom: Map<number, number | null>,
+  ): Vec2[] {
     const polyIds: number[] = [];
     let cur: number | null = endId;
     while (cur !== null) {
@@ -186,7 +207,10 @@ export class NavMeshSystem {
     for (const poly of this._polygons.values()) {
       if (this._pointInPolygon(point, poly.vertices)) return poly;
       const d = this._dist(point, poly.centroid);
-      if (d < minDist) { minDist = d; nearest = poly; }
+      if (d < minDist) {
+        minDist = d;
+        nearest = poly;
+      }
     }
     return nearest;
   }
@@ -197,8 +221,10 @@ export class NavMeshSystem {
       const vi = verts[i];
       const vj = verts[j];
       if (vi === undefined || vj === undefined) continue;
-      if ((vi.y > p.y) !== (vj.y > p.y) &&
-          p.x < ((vj.x - vi.x) * (p.y - vi.y)) / (vj.y - vi.y) + vi.x) {
+      if (
+        vi.y > p.y !== vj.y > p.y &&
+        p.x < ((vj.x - vi.x) * (p.y - vi.y)) / (vj.y - vi.y) + vi.x
+      ) {
         inside = !inside;
       }
     }
@@ -209,5 +235,7 @@ export class NavMeshSystem {
     return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
   }
 
-  update(_dt: number): void { /* on-demand; no per-frame work */ }
+  update(_dt: number): void {
+    /* on-demand; no per-frame work */
+  }
 }

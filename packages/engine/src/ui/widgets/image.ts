@@ -29,7 +29,28 @@ export class ImageWidget extends Widget {
     ctx.save();
     ctx.globalAlpha = this.alpha;
     if (this._cachedBitmap !== null) {
-      ctx.drawImage(this._cachedBitmap, x, y, w, h);
+      const bw = this._cachedBitmap.width;
+      const bh = this._cachedBitmap.height;
+      if (this.scaleMode === "stretch" || bw === 0 || bh === 0) {
+        ctx.drawImage(this._cachedBitmap, x, y, w, h);
+      } else if (this.scaleMode === "none") {
+        ctx.drawImage(this._cachedBitmap, x, y, bw, bh);
+      } else {
+        const scale =
+          this.scaleMode === "fit"
+            ? Math.min(w / bw, h / bh)
+            : Math.max(w / bw, h / bh);
+        const dw = bw * scale;
+        const dh = bh * scale;
+        const dx = x + (w - dw) / 2;
+        const dy = y + (h - dh) / 2;
+        ctx.save();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.drawImage(this._cachedBitmap, dx, dy, dw, dh);
+        ctx.restore();
+        ctx.globalAlpha = this.alpha;
+      }
     } else {
       ctx.fillStyle = "#555555";
       ctx.fillRect(x, y, w, h);

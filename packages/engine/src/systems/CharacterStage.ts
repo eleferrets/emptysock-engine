@@ -52,7 +52,6 @@ export class CharacterStage {
       existing.fadeDir = 1;
       return;
     }
-    const img = new Image();
     const state: SlotState = {
       imagePath,
       expression: opts.expression ?? '',
@@ -63,11 +62,14 @@ export class CharacterStage {
       fadeElapsed: 0,
       loaded: false,
     };
-    img.onload = () => {
-      state.image = img;
-      state.loaded = true;
-    };
-    img.src = imagePath;
+    if (typeof document !== 'undefined') {
+      const img = new Image();
+      img.onload = () => {
+        state.image = img;
+        state.loaded = true;
+      };
+      img.src = imagePath;
+    }
     this._slots[slot] = state;
   }
 

@@ -37,12 +37,18 @@ export interface StoryGraph {
 export function storyGraphToDialogueTree(graph: StoryGraph): DialogueTree {
   const nodeMap: Record<string, DialogueNode> = {};
 
+  // Pre-build edge index keyed by source node id for O(1) lookups
+  const edgesByFrom = new Map<string, StoryGraphEdge[]>();
+  for (const e of graph.edges) {
+    let arr = edgesByFrom.get(e.from);
+    if (arr === undefined) { arr = []; edgesByFrom.set(e.from, arr); }
+    arr.push(e);
+  }
+
   for (const gn of graph.nodes) {
     if (gn.type === "dialogue") {
-      // Find the single outgoing edge from port 0
-      const nextEdge = graph.edges.find(
-        (e) => e.from === gn.id && e.fromPort === 0,
-      );
+      const outEdges = edgesByFrom.get(gn.id);
+      const nextEdge = outEdges?.find((e) => e.fromPort === 0);
       const node: DialogueNode = {
         type: "dialogue",
         speaker: gn.speaker ?? "",
@@ -52,8 +58,8 @@ export function storyGraphToDialogueTree(graph: StoryGraph): DialogueTree {
       nodeMap[gn.id] = node;
     } else {
       // choice node — edges sorted by fromPort become the options array
-      const outEdges = graph.edges
-        .filter((e) => e.from === gn.id)
+      const outEdges = (edgesByFrom.get(gn.id) ?? [])
+        .slice()
         .sort((a, b) => a.fromPort - b.fromPort);
       const labels = gn.options ?? outEdges.map((_, i) => `Option ${i + 1}`);
       const options = outEdges.map((e, i) => ({

@@ -184,7 +184,7 @@ function setUniform(
 // ---------------------------------------------------------------------------
 
 export class LightingSystem {
-  public readonly lights: Map<string, Light> = new Map();
+  private readonly _lights: Map<string, Light> = new Map();
   private _ambientColour: number = 0xffffff;
   private _ambientIntensity: number = 0.2;
   private _filter: LightingFilter | null = null;
@@ -193,16 +193,30 @@ export class LightingSystem {
   private _canvasWidth: number = 1280;
   private _canvasHeight: number = 720;
 
+  // Pre-allocated GPU upload buffers — reused every frame to avoid GC pressure
+  private readonly _pColour = new Float32Array(MAX_POINT_LIGHTS * 3);
+  private readonly _pIntensity = new Float32Array(MAX_POINT_LIGHTS);
+  private readonly _pPos = new Float32Array(MAX_POINT_LIGHTS * 2);
+  private readonly _pRadius = new Float32Array(MAX_POINT_LIGHTS);
+  private readonly _dColour = new Float32Array(12);
+  private readonly _dIntensity = new Float32Array(4);
+  private readonly _dDir = new Float32Array(8);
+  private readonly _texSize = new Float32Array(2);
+
+  get lights(): ReadonlyMap<string, Light> {
+    return this._lights;
+  }
+
   // ---------------------------------------------------------------------------
   // Light registry
   // ---------------------------------------------------------------------------
 
   addLight(config: Light): void {
-    this.lights.set(config.id, { ...config });
+    this._lights.set(config.id, { ...config });
   }
 
   removeLight(id: string): boolean {
-    return this.lights.delete(id);
+    return this._lights.delete(id);
   }
 
   setAmbient(colour: number, intensity: number): void {
@@ -270,67 +284,65 @@ export class LightingSystem {
     // Ambient
     setUniform(res, "uAmbientColour", hexToVec3(this._ambientColour));
     setUniform(res, "uAmbientIntensity", this._ambientIntensity);
-    setUniform(
-      res,
-      "uTextureSize",
-      new Float32Array([this._canvasWidth, this._canvasHeight]),
-    );
+    this._texSize[0] = this._canvasWidth;
+    this._texSize[1] = this._canvasHeight;
+    setUniform(res, "uTextureSize", this._texSize);
     setUniform(res, "uUseNormalMap", this._useNormalMap ? 1 : 0);
 
     // Partition lights
-    const pointLights = [...this.lights.values()].filter(
-      (l) => l.type === "point",
-    );
-    const dirLights = [...this.lights.values()].filter(
-      (l) => l.type === "directional",
-    );
+    const pointLights: Light[] = [];
+    const dirLights: Light[] = [];
+    for (const l of this._lights.values()) {
+      if (l.type === "point") pointLights.push(l);
+      else if (l.type === "directional") dirLights.push(l);
+    }
 
-    // Point lights
+    // Point lights — fill pre-allocated buffers
     const pc = Math.min(pointLights.length, MAX_POINT_LIGHTS);
     setUniform(res, "uPointCount", pc);
-    const pColour = new Float32Array(MAX_POINT_LIGHTS * 3);
-    const pIntensity = new Float32Array(MAX_POINT_LIGHTS);
-    const pPos = new Float32Array(MAX_POINT_LIGHTS * 2);
-    const pRadius = new Float32Array(MAX_POINT_LIGHTS);
+    this._pColour.fill(0);
+    this._pIntensity.fill(0);
+    this._pPos.fill(0);
+    this._pRadius.fill(0);
     for (let i = 0; i < pc; i++) {
       const l = pointLights[i];
       if (!l) continue;
       const rgb = hexToVec3(l.colour);
-      pColour[i * 3] = rgb[0];
-      pColour[i * 3 + 1] = rgb[1];
-      pColour[i * 3 + 2] = rgb[2];
-      pIntensity[i] = l.intensity;
+      this._pColour[i * 3] = rgb[0];
+      this._pColour[i * 3 + 1] = rgb[1];
+      this._pColour[i * 3 + 2] = rgb[2];
+      this._pIntensity[i] = l.intensity;
       // Normalise world position to 0..1 UV space using actual canvas dimensions
-      pPos[i * 2] = (l.x ?? 0) / this._canvasWidth;
-      pPos[i * 2 + 1] = (l.y ?? 0) / this._canvasHeight;
-      pRadius[i] = (l.radius ?? 200) / this._canvasWidth;
+      this._pPos[i * 2] = (l.x ?? 0) / this._canvasWidth;
+      this._pPos[i * 2 + 1] = (l.y ?? 0) / this._canvasHeight;
+      this._pRadius[i] = (l.radius ?? 200) / this._canvasWidth;
     }
-    setUniform(res, "uPointColour", pColour);
-    setUniform(res, "uPointIntensity", pIntensity);
-    setUniform(res, "uPointPos", pPos);
-    setUniform(res, "uPointRadius", pRadius);
+    setUniform(res, "uPointColour", this._pColour);
+    setUniform(res, "uPointIntensity", this._pIntensity);
+    setUniform(res, "uPointPos", this._pPos);
+    setUniform(res, "uPointRadius", this._pRadius);
 
-    // Directional lights
+    // Directional lights — fill pre-allocated buffers
     const dc = Math.min(dirLights.length, 4);
     setUniform(res, "uDirCount", dc);
-    const dColour = new Float32Array(12);
-    const dIntensity = new Float32Array(4);
-    const dDir = new Float32Array(8);
+    this._dColour.fill(0);
+    this._dIntensity.fill(0);
+    this._dDir.fill(0);
     for (let i = 0; i < dc; i++) {
       const l = dirLights[i];
       if (!l) continue;
       const rgb = hexToVec3(l.colour);
-      dColour[i * 3] = rgb[0];
-      dColour[i * 3 + 1] = rgb[1];
-      dColour[i * 3 + 2] = rgb[2];
-      dIntensity[i] = l.intensity;
+      this._dColour[i * 3] = rgb[0];
+      this._dColour[i * 3 + 1] = rgb[1];
+      this._dColour[i * 3 + 2] = rgb[2];
+      this._dIntensity[i] = l.intensity;
       const dir = l.direction ?? { x: 0, y: -1 };
-      dDir[i * 2] = dir.x;
-      dDir[i * 2 + 1] = dir.y;
+      this._dDir[i * 2] = dir.x;
+      this._dDir[i * 2 + 1] = dir.y;
     }
-    setUniform(res, "uDirColour", dColour);
-    setUniform(res, "uDirIntensity", dIntensity);
-    setUniform(res, "uDirDirection", dDir);
+    setUniform(res, "uDirColour", this._dColour);
+    setUniform(res, "uDirIntensity", this._dIntensity);
+    setUniform(res, "uDirDirection", this._dDir);
   }
 }
 

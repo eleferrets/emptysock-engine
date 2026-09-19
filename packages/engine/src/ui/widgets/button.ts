@@ -58,7 +58,7 @@ export class ButtonWidget extends Widget {
     if (this.disabled) return;
     this._btnState = hovered ? "hover" : "normal";
     this._emit(hovered ? "hover" : "hoverOut");
-    if (hovered && this.animateOnHover) this.animate("pop", { duration: 120 });
+    if (hovered && this.animateOnHover) this.animate("pop", { duration: 0.12 });
   }
 
   override triggerClick(): void {
