@@ -75,9 +75,25 @@ export class CoroutineSystem {
     }
   }
 
+  /**
+   * Stop all running coroutines by returning from each generator, then clear
+   * the map. The system remains usable; new coroutines can be started after
+   * this call.
+   */
+  stopAll(): void {
+    for (const state of this._coroutines.values()) {
+      try {
+        state.gen.return(undefined);
+      } catch {
+        // generator may throw from a finally block — ignore
+      }
+    }
+    this._coroutines.clear();
+  }
+
   /** Cancel all running coroutines. The system remains usable; new coroutines can be started after this call. */
   destroy(): void {
-    this._coroutines.clear();
+    this.stopAll();
   }
 
   private _step(id: string): void {
