@@ -1,3 +1,12 @@
+import {
+  type VariableStore,
+  variableStore,
+  evaluateCondition,
+  type VariableCondition,
+} from "./VariableStore.js";
+
+export type { VariableCondition } from "./VariableStore.js";
+
 export type DialogueNode =
   | {
       type: "dialogue";
@@ -10,7 +19,7 @@ export type DialogueNode =
   | {
       type: "choice";
       text: string;
-      options: Array<{ label: string; next: string }>;
+      options: Array<{ label: string; next: string; when?: VariableCondition }>;
       cgPath?: string;
     }
   | {
@@ -27,11 +36,19 @@ export type DialogueNode =
       variableValue: unknown;
       next?: string;
       cgPath?: string;
+    }
+  | {
+      type: "condition";
+      condition: VariableCondition;
+      ifTrue: string;
+      ifFalse?: string;
+      cgPath?: string;
     };
 
 export interface ChoiceOption {
   label: string;
   next: string;
+  when?: VariableCondition;
 }
 
 export interface DialogueTree {
@@ -54,6 +71,18 @@ export class VNSystem {
 
   /** Runtime variable store — populated automatically by variable-set nodes. */
   public readonly variables: Map<string, unknown> = new Map();
+
+  /**
+   * The persistent `VariableStore` backing `"condition"` nodes and
+   * conditional (`when`) choice options. Defaults to the shared
+   * `variableStore` singleton; pass a different instance for isolated
+   * testing or a per-save-slot store.
+   */
+  private readonly _store: VariableStore;
+
+  constructor(store: VariableStore = variableStore) {
+    this._store = store;
+  }
 
   setListener(listener: IVNListener): void {
     this._listener = listener;
@@ -130,12 +159,25 @@ export class VNSystem {
     } else if (node.type === "event") {
       this._listener?.onEvent?.(node.eventName, node.data ?? {});
     } else if (node.type === "choice") {
-      this._listener?.onChoice?.(node.options);
+      // Conditional options (`when`) are evaluated against the VariableStore
+      // and filtered out before the listener ever sees them — the developer
+      // never has to re-check the condition when handling the click.
+      const visible = node.options.filter(
+        (opt) => opt.when === undefined || evaluateCondition(this._store, opt.when),
+      );
+      this._listener?.onChoice?.(visible);
     } else if (node.type === "variable-set") {
       // Store the variable and auto-advance — game code reads variables via
       // getVariable() rather than intercepting the node directly.
       this.variables.set(node.variableKey, node.variableValue);
       this._goto(node.next ?? null);
+    } else if (node.type === "condition") {
+      // Gate the next node on the VariableStore's current values — no
+      // listener callback, this resolves and advances synchronously like jump.
+      const target = evaluateCondition(this._store, node.condition)
+        ? node.ifTrue
+        : (node.ifFalse ?? null);
+      this._goto(target);
     }
   }
 }

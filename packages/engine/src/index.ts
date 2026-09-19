@@ -57,7 +57,12 @@ export type { AnimationClip } from "./components/Animator.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
-export type { IVNListener, DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+export type {
+  IVNListener,
+  DialogueNode,
+  DialogueTree,
+  ChoiceOption,
+} from "./systems/VNSystem.js";
 
 export {
   storyGraphToDialogueTree,
@@ -82,7 +87,7 @@ export type {
 export { NavMeshSystem } from "./systems/NavMeshSystem.js";
 export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
-export type { SaveSlot } from "./systems/SaveSystem.js";
+export type { SaveSlot, GameSaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
 export type { Locale, TranslationMap } from "./systems/LocalisationSystem.js";
 export {
@@ -101,8 +106,15 @@ export type {
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
 
-export { VariableStore, variableStore } from "./systems/VariableStore.js";
-export type { VariableStoreData } from "./systems/VariableStore.js";
+export {
+  VariableStore,
+  variableStore,
+  evaluateCondition,
+} from "./systems/VariableStore.js";
+export type {
+  VariableStoreData,
+  VariableCondition,
+} from "./systems/VariableStore.js";
 
 // Core Manager
 export { SystemManager } from "./core/SystemManager.js";
@@ -141,7 +153,12 @@ export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
-export type { IUIRenderer, HostAdapter, HostMessage, HostMessageHandler } from "@emptysock/types";
+export type {
+  IUIRenderer,
+  HostAdapter,
+  HostMessage,
+  HostMessageHandler,
+} from "@emptysock/types";
 export { NullHostAdapter } from "@emptysock/types";
 
 // Easing
@@ -213,7 +230,11 @@ export { HotReloadSystem } from "./systems/HotReloadSystem.js";
 
 // IDE Bridge
 export { ideBridge } from "./core/IDEBridge.js";
-export type { EntitySnapshot, ComponentPatchHandler, SelectHandler } from "./core/IDEBridge.js";
+export type {
+  EntitySnapshot,
+  ComponentPatchHandler,
+  SelectHandler,
+} from "./core/IDEBridge.js";
 
 // GPU tier detection
 export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";

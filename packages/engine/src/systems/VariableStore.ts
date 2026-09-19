@@ -142,3 +142,46 @@ export class VariableStore {
 }
 
 export const variableStore = new VariableStore();
+
+/**
+ * A condition evaluated against a `VariableStore`, used to gate branches in
+ * `VNSystem` (condition nodes, conditional choice options) and triggers in
+ * `MapEventSystem` (the `when` field on a `MapEvent`).
+ *
+ * - `"switch"` compares a boolean switch to an expected value.
+ * - `"variable"` compares an integer variable to a value with a comparison operator.
+ */
+export type VariableCondition =
+  | { kind: "switch"; index: number; equals: boolean }
+  | {
+      kind: "variable";
+      index: number;
+      op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+      value: number;
+    };
+
+/** Evaluate a `VariableCondition` against a `VariableStore`'s current values. */
+export function evaluateCondition(
+  store: VariableStore,
+  condition: VariableCondition,
+): boolean {
+  if (condition.kind === "switch") {
+    return store.getSwitch(condition.index) === condition.equals;
+  }
+
+  const value = store.getVar(condition.index);
+  switch (condition.op) {
+    case "eq":
+      return value === condition.value;
+    case "neq":
+      return value !== condition.value;
+    case "gt":
+      return value > condition.value;
+    case "gte":
+      return value >= condition.value;
+    case "lt":
+      return value < condition.value;
+    case "lte":
+      return value <= condition.value;
+  }
+}
