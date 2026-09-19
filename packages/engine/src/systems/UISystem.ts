@@ -1,10 +1,11 @@
 // UI system — manages the Widget tree and dispatches input to it.
 // The previous UIComponent API has been removed; use the Widget hierarchy instead.
+// UISystem is instantiated per-scene (via Scene.ui) rather than as a global singleton.
 
 import type { ImageLoader, IUIRenderer } from "@emptysock/types";
 import type { Widget } from "../ui/Widget.js";
 
-class UISystemImpl {
+export class UISystem {
   private readonly _roots: Widget[] = [];
   private _imageLoader: ImageLoader | null = null;
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
@@ -76,7 +77,13 @@ class UISystemImpl {
       canvasWidth !== undefined &&
       canvasHeight !== undefined
     ) {
-      this._updateHover(this._roots, pointerX, pointerY, canvasWidth, canvasHeight);
+      this._updateHover(
+        this._roots,
+        pointerX,
+        pointerY,
+        canvasWidth,
+        canvasHeight,
+      );
     }
   }
 
@@ -152,6 +159,3 @@ class UISystemImpl {
     }
   }
 }
-
-export const UISystem = new UISystemImpl();
-export type { UISystemImpl };

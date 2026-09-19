@@ -48,7 +48,10 @@ export const Engine = {
   /** Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function. */
   onError(handler: ErrorHandler): () => void {
     _errorHandlers.push(handler);
-    return () => { const i = _errorHandlers.indexOf(handler); if (i !== -1) _errorHandlers.splice(i, 1); };
+    return () => {
+      const i = _errorHandlers.indexOf(handler);
+      if (i !== -1) _errorHandlers.splice(i, 1);
+    };
   },
 
   /**
@@ -58,7 +61,9 @@ export const Engine = {
    */
   onFileLog(handler: ErrorHandler): () => void {
     _fileLogHandler = handler;
-    return () => { if (_fileLogHandler === handler) _fileLogHandler = null; };
+    return () => {
+      if (_fileLogHandler === handler) _fileLogHandler = null;
+    };
   },
 
   /** Log a runtime error to registered handlers and the console. */
@@ -132,10 +137,11 @@ export const Engine = {
   },
 
   /**
-   * Load a named scene immediately (replaces the active scene).
-   * The scene must be registered with SceneManager.register() first.
+   * Load a named scene, replacing the active scene.
+   * Uses SceneManager.transition() with no animation so onDestroy/onLoad
+   * lifecycle hooks are honoured. The scene must be registered first.
    */
   loadScene(name: string): void {
-    SceneManagerInstance.load(name);
+    SceneManagerInstance.transition(name, { effect: "none", duration: 0 });
   },
 };

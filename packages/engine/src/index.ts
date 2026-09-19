@@ -145,7 +145,6 @@ export type { TweenOptions } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
-export type { UISystemImpl } from "./systems/UISystem.js";
 export type { IUIRenderer } from "@emptysock/types";
 
 // Easing

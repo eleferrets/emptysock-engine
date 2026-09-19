@@ -7,6 +7,8 @@ export type SystemFn = (scene: Scene, deltaTime: number) => void;
 export class Scene {
   public readonly name: string;
   public backgroundColor: number = 0x1a1a2e;
+  /** Per-scene UI system. Add widgets here; cleared automatically on destroy. */
+  public readonly ui: UISystem = new UISystem();
   private readonly _entities: Map<number, Entity> = new Map();
   private readonly _systems: Array<{ name: string; fn: SystemFn }> = [];
   private _running: boolean = false;
@@ -20,10 +22,26 @@ export class Scene {
     return Engine;
   }
 
-  /** Access the UISystem singleton to add/remove widgets. */
-  get uiSystem(): typeof UISystem {
-    return UISystem;
-  }
+  // ─── Lifecycle hooks (override in subclasses) ────────────────────────────────
+
+  /**
+   * Called once before the scene begins updating. May be async — await it
+   * in SceneManager before the first update() tick. Do not start coroutines or
+   * manipulate entities here; wait for onUpdate.
+   */
+  async onLoad(): Promise<void> {}
+
+  /**
+   * Called every frame while the scene is running. Must be synchronous — do
+   * not declare this async. Use entity.startCoroutine() for multi-frame work.
+   */
+  onUpdate(_dt: number): void {}
+
+  /**
+   * Called when the scene is removed from the stack or replaced. Clean up
+   * timers, audio, and any external subscriptions here.
+   */
+  onDestroy(): void {}
 
   // ─── Entities ────────────────────────────────────────────────────────────────
 
@@ -67,12 +85,14 @@ export class Scene {
     return true;
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────────────────────────
+  // ─── Internal lifecycle (called by SceneManager) ────────────────────────────
 
+  /** @internal */
   start(): void {
     this._running = true;
   }
 
+  /** @internal */
   stop(): void {
     this._running = false;
   }
@@ -86,14 +106,17 @@ export class Scene {
     // Honour the IDE step debugger: freeze the loop while paused.
     if (Engine.isDebugPaused()) return;
 
-    // Update entity components
+    // Only update root entities; child entities are updated recursively by their parents.
     for (const entity of this._entities.values()) {
-      entity.update(deltaTime);
+      if (entity.parent === null) entity.update(deltaTime);
     }
 
-    // Run systems
+    // Run scene-level systems.
     for (const system of this._systems) {
       system.fn(this, deltaTime);
     }
+
+    // Call the game-code hook.
+    this.onUpdate(deltaTime);
   }
 }
