@@ -1,12 +1,9 @@
 // Core ECS
 export { Component } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
+export type { Vec2 as EntityVec2, CoroutineHandle } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
-/** @internal */
-export { detectGPUTier } from "./core/GPUTier.js";
-/** @internal */
-export type { GPUTier } from "./core/GPUTier.js";
 
 // Engine API
 export { Engine } from "./core/EngineAPI.js";
@@ -47,7 +44,7 @@ export type {
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
 export { CameraSystem } from "./systems/CameraSystem.js";
-export type { CameraState } from "./systems/CameraSystem.js";
+export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 
 // Components
 export { Transform } from "./components/Transform.js";
@@ -141,7 +138,7 @@ export type {
 
 // Tweens & Timers
 export { TweenManager } from "./systems/TweenSystem.js";
-export type { TweenOptions } from "./systems/TweenSystem.js";
+export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
@@ -213,17 +210,7 @@ export type {
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 
-// Compat
-/** @internal */
-export { detectMali, getMaliFixes, applyMaliFixes } from "./compat/mali.js";
-/** @internal */
-export type { MaliInfo, MaliFixes } from "./compat/mali.js";
-/** @internal */
-export * as GMLCompat from "./compat/index.js";
-
-// Hot reload
-/** @internal */
-export { HotReloadSystem } from "./systems/HotReloadSystem.js";
+// Hot reload — internal; accessed via the IDE bridge only
 
 // Window management
 export { windowSystem, WindowSystem } from "./systems/WindowSystem.js";
@@ -265,15 +252,7 @@ export type {
 // Public type aliases
 export type { GameStage } from "./types/aliases.js";
 
-// IDE Bridge
-/** @internal */
-export { ideBridge } from "./core/IDEBridge.js";
-/** @internal */
-export type {
-  EntitySnapshot as IDEEntitySnapshot,
-  ComponentPatchHandler,
-  SelectHandler,
-} from "./core/IDEBridge.js";
+// IDE Bridge — internal; not part of the public game API
 
 // Component registry — canonical list of built-in component type strings
 export const COMPONENT_REGISTRY: readonly string[] = [

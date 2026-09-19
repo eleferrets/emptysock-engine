@@ -11,6 +11,8 @@ export interface Message {
  *
  * Network-capable actors should extend NetworkActor instead.
  */
+const INBOX_LIMIT = 1000;
+
 export abstract class Actor {
   readonly id: ActorId;
   private readonly _inbox: Message[] = [];
@@ -20,8 +22,14 @@ export abstract class Actor {
     this.id = id;
   }
 
-  /** Enqueue a message in this actor's mailbox. Thread-safe for JS single thread. */
+  /** Enqueue a message in this actor's mailbox. Drops the message with a warning if the inbox exceeds the limit. */
   send(msg: Message): void {
+    if (this._inbox.length >= INBOX_LIMIT) {
+      console.warn(
+        `[Actor:${this.id}] inbox overflow — dropping message type "${msg.type}"`,
+      );
+      return;
+    }
     this._inbox.push(msg);
   }
 
@@ -32,7 +40,10 @@ export abstract class Actor {
       try {
         this.receive(msg);
       } catch (e) {
-        console.error(`[Actor:${this.id}] receive() threw on type "${msg.type}":`, e);
+        console.error(
+          `[Actor:${this.id}] receive() threw on type "${msg.type}":`,
+          e,
+        );
       }
     }
   }
@@ -46,7 +57,9 @@ export abstract class Actor {
   /** Override to clean up listeners and resources. */
   destroy(): void {}
 
-  get isRunning(): boolean { return this._running; }
+  get isRunning(): boolean {
+    return this._running;
+  }
 
   /** Called by ActorSystem.register(). */
   start(): void {

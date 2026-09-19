@@ -1,4 +1,4 @@
-import type { Container } from 'pixi.js';
+import type { Container } from "pixi.js";
 
 export interface CameraState {
   x: number;
@@ -7,6 +7,13 @@ export interface CameraState {
   rotation: number;
   viewWidth: number;
   viewHeight: number;
+}
+
+export interface CameraBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
 }
 
 export class CameraSystem {
@@ -25,6 +32,7 @@ export class CameraSystem {
   private _viewWidth: number = 1280;
   private _viewHeight: number = 720;
   private _followFn: (() => { x: number; y: number }) | null = null;
+  private _bounds: CameraBounds | null = null;
 
   /** Attach the PixiJS stage container that the camera will transform. */
   attach(stage: Container): void {
@@ -49,10 +57,18 @@ export class CameraSystem {
   }
 
   // GMS2-compatible view accessors
-  get viewX(): number { return this._x; }
-  get viewY(): number { return this._y; }
-  get viewWidth(): number { return this._viewWidth; }
-  get viewHeight(): number { return this._viewHeight; }
+  get viewX(): number {
+    return this._x;
+  }
+  get viewY(): number {
+    return this._y;
+  }
+  get viewWidth(): number {
+    return this._viewWidth;
+  }
+  get viewHeight(): number {
+    return this._viewHeight;
+  }
 
   /** Pan immediately to world position (x, y). Clears any active follow target. */
   snapTo(x: number, y: number): void {
@@ -112,6 +128,16 @@ export class CameraSystem {
   }
 
   /**
+   * Clamp the camera position to a world-space rectangle.
+   * Pass `null` to remove clamping.
+   * The camera's visible half-size is taken into account so the view never
+   * shows outside the bounds when zoom is 1.
+   */
+  setBounds(bounds: CameraBounds | null): void {
+    this._bounds = bounds;
+  }
+
+  /**
    * Convert a world-space position to screen-space pixel coordinates.
    * Useful for UI elements that must track world objects.
    */
@@ -154,11 +180,25 @@ export class CameraSystem {
     }
 
     // Frame-rate-independent exponential lerp.
-    // At lerpFactor=0.1 and 60 fps this is equivalent to the old per-frame
-    // lerp, but now the feel is the same regardless of frame rate.
     const alpha = 1 - Math.pow(1 - this._lerpFactor, deltaTime * 60);
     this._x += (this._targetX - this._x) * alpha;
     this._y += (this._targetY - this._y) * alpha;
+
+    // Clamp to bounds, accounting for the visible half-size at zoom=1
+    if (this._bounds !== null) {
+      const hw = this._viewWidth / 2 / this._zoom;
+      const hh = this._viewHeight / 2 / this._zoom;
+      this._x = Math.max(
+        this._bounds.minX + hw,
+        Math.min(this._bounds.maxX - hw, this._x),
+      );
+      this._y = Math.max(
+        this._bounds.minY + hh,
+        Math.min(this._bounds.maxY - hh, this._y),
+      );
+      this._targetX = this._x;
+      this._targetY = this._y;
+    }
     this._zoom += (this._targetZoom - this._zoom) * alpha;
 
     // Screen shake — decreasing envelope over duration
@@ -177,5 +217,11 @@ export class CameraSystem {
       this._stage.scale.set(this._zoom);
       this._stage.rotation = this._rotation;
     }
+  }
+
+  destroy(): void {
+    this._stage = null;
+    this._followFn = null;
+    this._bounds = null;
   }
 }
