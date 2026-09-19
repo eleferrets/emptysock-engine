@@ -181,6 +181,7 @@ export class Scene {
       system.fn(this, deltaTime);
     }
 
+    this.ui.update(deltaTime);
     this.onUpdate(deltaTime);
   }
 
