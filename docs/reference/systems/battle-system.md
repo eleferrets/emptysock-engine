@@ -23,31 +23,23 @@ new BattleSystem(options?: BattleSystemOptions)
 
 ---
 
-## Setup
+## Configuration (call before `start()`)
 
 ### `loadDatabase(db: BattleDatabase): void`
 
-Load skill and status effect definitions. Call before `start()`.
-
-### `addPartyMember(combatant: Combatant): void`
-
-Register a player-controlled combatant. Receives `'action-needed'` events each round.
-
-### `addEnemy(combatant: Combatant): void`
-
-Register an enemy. Enemies act automatically (basic attack on a random party member).
+Load skill and status effect definitions.
 
 ### `setDamageFormula(fn): void`
 
-Replace the default physical damage formula: `(atk, def, power, isCrit, critMult) => number`.
+Replace the default physical damage formula: `(ctx: DamageContext) => number`.
 
 ---
 
 ## Battle flow
 
-### `start(): void`
+### `start(party: readonly Combatant[], enemies: readonly Combatant[]): void`
 
-Begin the battle. Emits `'battle-start'`, then `'round-start'`, then `'action-needed'` for the first party member.
+Begin a battle with the given roster, replacing any previous one. Party members receive `'action-needed'` events each round, in turn order; enemies act automatically (basic attack on the lowest-HP living party member). Emits `'battle-start'`, then `'round-start'`, then `'action-needed'` for the first combatant in turn order.
 
 ### `submitAction(combatantId: string, action: BattleAction): void`
 
@@ -79,7 +71,7 @@ battle.submitAction("hero", { type: "flee" });
 
 ## Events
 
-### `onEvent(handler: (event: BattleEvent) => void): () => void`
+### `subscribe(handler: (event: BattleEvent) => void): () => void`
 
 Subscribe to battle events. Returns an unsubscribe function.
 

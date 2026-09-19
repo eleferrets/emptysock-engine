@@ -723,23 +723,23 @@ const flag: unknown = vn.getVariable("metHero");
 
 **`IVNListener` interface** — all fields optional; implement only what you need:
 
-| Callback   | Signature                                              | When called                            |
-| ---------- | ------------------------------------------------------ | -------------------------------------- |
-| `onNode`   | `(node: DialogueNode) => void`                         | Every node except auto-resolved jumps  |
-| `onChoice` | `(options: { label: string; next: string }[]) => void` | When a `'choice'` node is reached      |
-| `onEnd`    | `() => void`                                           | When the tree has no more nodes        |
-| `onEvent`  | `(eventName: string, ...args: unknown[]) => void`      | When an `'event'` node fires           |
-| `onCGNode` | `(cgPath: string) => void`                             | When a node carries a CG image path    |
+| Callback   | Signature                                              | When called                           |
+| ---------- | ------------------------------------------------------ | ------------------------------------- |
+| `onNode`   | `(node: DialogueNode) => void`                         | Every node except auto-resolved jumps |
+| `onChoice` | `(options: { label: string; next: string }[]) => void` | When a `'choice'` node is reached     |
+| `onEnd`    | `() => void`                                           | When the tree has no more nodes       |
+| `onEvent`  | `(eventName: string, ...args: unknown[]) => void`      | When an `'event'` node fires          |
+| `onCGNode` | `(cgPath: string) => void`                             | When a node carries a CG image path   |
 
 **`DialogueNode` — discriminated union (narrow by `node.type`):**
 
-| `node.type`      | Key fields                                            | Notes                                      |
-| ---------------- | ----------------------------------------------------- | ------------------------------------------ |
-| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                            |
-| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode`        |
-| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances; fires `onEvent`      |
+| `node.type`      | Key fields                                            | Notes                                          |
+| ---------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                                |
+| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode`            |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances; fires `onEvent`          |
 | `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances; read via `getVariable()` |
-| `'jump'`         | (resolved automatically)                              | `onNode` never fires                       |
+| `'jump'`         | (resolved automatically)                              | `onNode` never fires                           |
 
 **Save/resume:** VNSystem has no internal save state. Store the current node id (`vn.currentNode?.id`) and re-walk the graph on resume. See Section 8 (Story Graph) for a full example.
 
@@ -1059,42 +1059,33 @@ new BattleSystem(options?: BattleSystemOptions)
 | `critMultiplier` | `number`         | `1.5`                               | Damage multiplier on a crit               |
 | `fleeChance`     | `number`         | `0.5`                               | Probability that a `flee` action succeeds |
 
-### Setup methods
+### Configuration methods
 
 ```typescript
-battle.addPartyMember(combatant: Combatant): void
-battle.addEnemy(combatant: Combatant): void
 battle.loadDatabase(db: BattleDatabase): void
+battle.setDamageFormula(fn: (ctx: DamageContext) => number): void
 ```
 
-All setup calls must happen before `start()`. `loadDatabase` replaces the current database.
-
-```typescript
-battle.setDamageFormula(
-  fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number
-): void
-```
-
-Overrides the `physical` formula only. The default is `Math.max(1, Math.floor((atk - def / 2) * power * (isCrit ? critMult : 1)))`.
+Both calls must happen before `start()`. `loadDatabase` replaces the current database. `setDamageFormula` overrides the `physical` formula only — the default is `Math.max(1, Math.floor((ctx.effectiveAttack - ctx.effectiveDefense / 2) * ctx.power * (ctx.isCrit ? ctx.critMultiplier : 1)))`.
 
 ### Event subscription
 
 ```typescript
-const unsub = battle.onEvent((event: BattleEvent) => {
+const unsub = battle.subscribe((event: BattleEvent) => {
   /* ... */
 });
 unsub(); // stop listening
 ```
 
-Subscribe before calling `start()`. Multiple handlers are supported.
+Subscribe before calling `start()` to catch the initial `battle-start`/`round-start`/`action-needed` sequence. Multiple handlers are supported.
 
 ### Battle control
 
 ```typescript
-battle.start(): void
+battle.start(party: readonly Combatant[], enemies: readonly Combatant[]): void
 ```
 
-Fires `battle-start`, then `round-start` (round 1), then the first `action-needed` event for the first party member in speed order.
+Registers the given roster (replacing any previous one) and begins the battle. Fires `battle-start`, then `round-start` (round 1), then the first `action-needed` event for the first party member in speed order. There is no separate `addPartyMember`/`addEnemy` step — the full roster is passed to `start()` directly.
 
 ```typescript
 battle.submitAction(combatantId: string, action: BattleAction): void
@@ -1215,10 +1206,8 @@ const slime: Combatant = {
 
 // In onLoad:
 const battle = new BattleSystem({ db });
-battle.addPartyMember(hero);
-battle.addEnemy(slime);
 
-const unsub = battle.onEvent((event: BattleEvent) => {
+const unsub = battle.subscribe((event: BattleEvent) => {
   switch (event.kind) {
     case "action-needed":
       // Prompt the player; here we auto-submit for brevity
@@ -1239,7 +1228,7 @@ const unsub = battle.onEvent((event: BattleEvent) => {
   }
 });
 
-battle.start();
+battle.start([hero], [slime]);
 
 // In onDestroy:
 unsub();
