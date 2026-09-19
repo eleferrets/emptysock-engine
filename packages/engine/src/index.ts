@@ -57,7 +57,7 @@ export type { AnimationClip } from "./components/Animator.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
-export type { DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+export type { IVNListener, DialogueNode, DialogueTree } from "./systems/VNSystem.js";
 
 export {
   storyGraphToDialogueTree,
