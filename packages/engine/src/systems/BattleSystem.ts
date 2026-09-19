@@ -187,10 +187,11 @@ export class BattleSystem {
 
   private _db: BattleDatabase;
   private _statusEffectIndex: Map<string, StatusEffectDef> = new Map();
+  private _skillIndex: Map<string, SkillDef> = new Map();
   private _phase: BattlePhase = "idle";
-  // Indirection prevents TypeScript from narrowing _phase within callers that
+  // The getter prevents TypeScript from narrowing _phase within callers that
   // assign it and then call methods that can mutate it (e.g. _checkEndConditions).
-  private _readPhase(): BattlePhase {
+  private get phase(): BattlePhase {
     return this._phase;
   }
   private _round = 0;
@@ -218,6 +219,7 @@ export class BattleSystem {
     this._statusEffectIndex = new Map(
       this._db.statusEffects.map((d) => [d.id, d]),
     );
+    this._skillIndex = new Map(this._db.skills.map((s) => [s.id, s]));
     this._statMap = {
       attack: options?.statMap?.attack ?? "attack",
       defense: options?.statMap?.defense ?? "defense",
@@ -239,6 +241,7 @@ export class BattleSystem {
   loadDatabase(db: BattleDatabase): void {
     this._db = db;
     this._statusEffectIndex = new Map(db.statusEffects.map((d) => [d.id, d]));
+    this._skillIndex = new Map(db.skills.map((s) => [s.id, s]));
   }
 
   /**
@@ -304,7 +307,7 @@ export class BattleSystem {
   // --- Read-only queries ---
 
   getPhase(): BattlePhase {
-    return this._readPhase();
+    return this.phase;
   }
   getRound(): number {
     return this._round;
@@ -436,7 +439,7 @@ export class BattleSystem {
     this._phase = "resolving";
 
     for (const id of this._turnOrder) {
-      if (this._readPhase() !== "resolving") break;
+      if (this.phase !== "resolving") break;
 
       const state = this._party.get(id) ?? this._enemies.get(id);
       if (state === undefined || state.hp <= 0) continue;
@@ -456,7 +459,7 @@ export class BattleSystem {
 
     this._pendingActions.clear();
 
-    if (this._readPhase() === "resolving") {
+    if (this.phase === "resolving") {
       // Begin the next round
       this._round++;
       this._phase = "input";
@@ -632,7 +635,7 @@ export class BattleSystem {
     skillId: string,
     primaryTargetId: string,
   ): void {
-    const skill = this._db.skills.find((s) => s.id === skillId);
+    const skill = this._skillIndex.get(skillId);
     if (skill === undefined) return;
 
     // Insufficient MP — fail silently, no event
