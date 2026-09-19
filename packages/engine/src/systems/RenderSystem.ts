@@ -1,5 +1,5 @@
-import { autoDetectRenderer, Container, type Renderer } from 'pixi.js';
-import type { LayerSystem } from './LayerSystem.js';
+import { autoDetectRenderer, Container, type Renderer } from "pixi.js";
+import type { LayerSystem } from "./LayerSystem.js";
 
 export interface RenderSystemOptions {
   width?: number;
@@ -26,9 +26,11 @@ export class RenderSystem {
       height: options.height ?? 720,
       backgroundColor: options.backgroundColor ?? 0x0e0e10,
       antialias: options.antialias ?? true,
-      resolution: options.resolution ?? (typeof window !== "undefined" ? window.devicePixelRatio : 1),
-      powerPreference: 'high-performance',
-      preference: ['webgpu', 'webgl'],
+      resolution:
+        options.resolution ??
+        (typeof window !== "undefined" ? window.devicePixelRatio : 1),
+      powerPreference: "high-performance",
+      preference: ["webgpu", "webgl"],
     });
 
     this._canvas = this._renderer.canvas as HTMLCanvasElement;
@@ -87,9 +89,10 @@ export class RenderSystem {
    * not yet exist (e.g. a layer was defined after init). Falls back to the
    * default container when no LayerSystem is active.
    */
-  getLayerContainer(layerName: string = 'default'): Container {
+  getLayerContainer(layerName: string = "default"): Container {
     if (!this._layerSystem) {
-      if (!this._defaultContainer) throw new Error('RenderSystem not initialized');
+      if (!this._defaultContainer)
+        throw new Error("RenderSystem not initialized");
       return this._defaultContainer;
     }
 
@@ -109,7 +112,10 @@ export class RenderSystem {
    * Insert a newly created layer container into the stage at the correct
    * index relative to already-present containers, respecting layer index order.
    */
-  private _insertContainerOrdered(layerName: string, container: Container): void {
+  private _insertContainerOrdered(
+    layerName: string,
+    container: Container,
+  ): void {
     if (!this._stage || !this._layerSystem) return;
     const sorted = this._layerSystem.getLayersSorted();
     const ownIndex = this._layerSystem.getLayerIndex(layerName);
@@ -138,17 +144,18 @@ export class RenderSystem {
   }
 
   get renderer(): Renderer {
-    if (this._renderer === null) throw new Error('RenderSystem not initialized');
+    if (this._renderer === null)
+      throw new Error("RenderSystem not initialized");
     return this._renderer;
   }
 
   get stage(): Container {
-    if (this._stage === null) throw new Error('RenderSystem not initialized');
+    if (this._stage === null) throw new Error("RenderSystem not initialized");
     return this._stage;
   }
 
   get canvas(): HTMLCanvasElement {
-    if (this._canvas === null) throw new Error('RenderSystem not initialized');
+    if (this._canvas === null) throw new Error("RenderSystem not initialized");
     return this._canvas;
   }
 

@@ -13,14 +13,14 @@ The engine cannot be imported by user code inside an iframe because there is no 
 - `engine-runtime.build.mjs` runs at `predev`/`prebuild` (via package.json scripts) using Vite's programmatic `build()` API. It produces a self-contained IIFE that assigns `window.EmptySockEngine = ...`.
 - The output is written to `src/runtime/engineBundle.generated.ts` (gitignored) as a quoted string: `export const ENGINE_BUNDLE: string = "..."`.
 - PlayRunner injects this as the first `<script>` block in the iframe HTML, before user code.
-- The file is gitignored because it is a build artifact (~3 MB unminified). Every developer must run `pnpm engine-runtime` (or just `pnpm dev`) before working.
+- The file is gitignored because it is a build artifact (~3 MB unminified). Every developer must run `pnpm engine-runtime` (or just `pnpm dev`) before working. Pass `--minify` or set `NODE_ENV=production` for a smaller production bundle.
 
 ### 2. esbuild-wasm WASM URL
 
-`GameBuildService.ts` fetches `esbuild.wasm` from `https://unpkg.com/esbuild-wasm@0.25.5/esbuild.wasm` at runtime. This works in production but:
+`GameBuildService.ts` initialises esbuild-wasm with `wasmURL: "/esbuild.wasm"` — served from the local `public/` directory, not from a CDN. The file is copied there by the `predev`/`prebuild` script (`copy-wasm.mjs`) which runs `cp node_modules/esbuild-wasm/esbuild.wasm public/esbuild.wasm` automatically before every dev or build invocation.
 
-- **Dev server**: Blocked by CORS or slow CDN → blank canvas when playing. To fix for dev, copy `node_modules/esbuild-wasm/esbuild.wasm` into `public/` and change `wasmURL` to `/esbuild.wasm`. Add a `postinstall` or `predev` script to do the copy automatically.
-- **Version pinning**: The version in the URL must match `esbuild-wasm` in package.json exactly. If you bump esbuild-wasm you must also update the URL.
+- **Version pinning**: when you bump `esbuild-wasm` in `package.json`, `pnpm install` triggers `copy-wasm.mjs` via the `postinstall` hook and the WASM file is replaced in lock-step. No manual URL update needed.
+- **`public/esbuild.wasm` is gitignored** — it is a build artifact, not source.
 
 ### 3. engineGlobalPlugin (virtual module resolution)
 
@@ -69,20 +69,20 @@ The Rust `export_game` command in `src-tauri/src/lib.rs` shells out to an `empty
 
 ## Unimplemented PRD items
 
-| Item                              | Status          | Notes                                                                                                                                                        |
-| --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Scene Inspector**               | ✅ Done         | Live ECS binding via `ideBridge`. Streams entity/component state from running game iframe to IDE store.                                                      |
-| **Entity Properties panel**       | ✅ Done         | Real component field editing; changes dispatched as live patches through the iframe bridge.                                                                  |
-| **Asset Browser**                 | ✅ Done         | `AssetStore.ts` — `BrowserFileStore` (File System Access API) with `MemoryFileStore` fallback. Drag-drop import, folder picker, delete.                      |
-| **Left sidebar file tree**        | ✅ Done         | Real filesystem tree via `ProjectService.openDirectory()` — File System Access API in browser, Tauri `fs` plugin on desktop.                                 |
-| **Project save/load**             | ✅ Done         | `.emptysock` project files via File System Access API (browser) and Tauri dialog/fs plugins (desktop). Multi-file `openFiles` map persisted in project JSON. |
-| **Multi-file projects**           | ✅ Done         | Multiple editor tabs backed by `openFiles` map. All open files passed to esbuild `virtualFiles` for cross-file import resolution.                            |
-| **Non-web exports**               | Stub only       | Windows `.exe`, macOS `.app`, Linux binary, Android APK, iOS IPA all require the `emptysock-toolchain` CLI which does not exist.                             |
-| **Android / iOS targets**         | Not started     | Tauri v2 has mobile support but it is not scaffolded. Separate `src-tauri` configuration is needed.                                                          |
-| **Real-time collaboration**       | Not started     | No design exists.                                                                                                                                            |
-| **Plugin/extension system**       | Not started     | No design exists.                                                                                                                                            |
-| **Undo/redo in editor**           | Partial         | `useHistory<T>` hook exists and is wired in panels that mutate data. Monaco has its own per-file undo stack. No history panel.                               |
-| **esbuild.wasm self-hosted**      | ✅ Done         | Vite `?url` import serves WASM from the local package — no CDN dependency.                                                                                   |
-| **Engine bundle minification**    | Not done        | `engine-runtime.build.mjs` builds unminified (~3 MB). Set `minify: true` in production to reduce iframe startup time.                                        |
-| **Hot-reload on code change**     | Not implemented | Clicking Play rebuilds from scratch every time. Could debounce and rebuild automatically on code changes.                                                    |
-| **Screenshot / blank canvas bug** | Unresolved      | Playwright screenshot of the dev server returns white. Likely a COOP/COEP header issue in headless Chrome preventing SharedArrayBuffer.                      |
+| Item                              | Status      | Notes                                                                                                                                                        |
+| --------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Scene Inspector**               | ✅ Done     | Live ECS binding via `ideBridge`. Streams entity/component state from running game iframe to IDE store.                                                      |
+| **Entity Properties panel**       | ✅ Done     | Real component field editing; changes dispatched as live patches through the iframe bridge.                                                                  |
+| **Asset Browser**                 | ✅ Done     | `AssetStore.ts` — `BrowserFileStore` (File System Access API) with `MemoryFileStore` fallback. Drag-drop import, folder picker, delete.                      |
+| **Left sidebar file tree**        | ✅ Done     | Real filesystem tree via `ProjectService.openDirectory()` — File System Access API in browser, Tauri `fs` plugin on desktop.                                 |
+| **Project save/load**             | ✅ Done     | `.emptysock` project files via File System Access API (browser) and Tauri dialog/fs plugins (desktop). Multi-file `openFiles` map persisted in project JSON. |
+| **Multi-file projects**           | ✅ Done     | Multiple editor tabs backed by `openFiles` map. All open files passed to esbuild `virtualFiles` for cross-file import resolution.                            |
+| **Non-web exports**               | Stub only   | Windows `.exe`, macOS `.app`, Linux binary, Android APK, iOS IPA all require the `emptysock-toolchain` CLI which does not exist.                             |
+| **Android / iOS targets**         | Not started | Tauri v2 has mobile support but it is not scaffolded. Separate `src-tauri` configuration is needed.                                                          |
+| **Real-time collaboration**       | Not started | No design exists.                                                                                                                                            |
+| **Plugin/extension system**       | Not started | No design exists.                                                                                                                                            |
+| **Undo/redo in editor**           | Partial     | `useHistory<T>` hook exists and is wired in panels that mutate data. Monaco has its own per-file undo stack. No history panel.                               |
+| **esbuild.wasm self-hosted**      | ✅ Done     | Vite `?url` import serves WASM from the local package — no CDN dependency.                                                                                   |
+| **Engine bundle minification**    | ✅ Done     | `engine-runtime.build.mjs` minifies when `--minify` is passed or `NODE_ENV=production`. The `prebuild` script sets production mode automatically.            |
+| **Hot-reload on code change**     | ✅ Done     | `CanvasPreview.tsx` debounces 500 ms on `openFiles` changes, rebuilds via `GameBuildService`, and reloads the iframe when the build succeeds.                |
+| **Screenshot / blank canvas bug** | Unresolved  | Playwright screenshot of the dev server returns white. Likely a COOP/COEP header issue in headless Chrome preventing SharedArrayBuffer.                      |

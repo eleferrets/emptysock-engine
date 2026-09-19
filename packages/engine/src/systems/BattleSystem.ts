@@ -2,16 +2,18 @@
 
 export type BattlePhase = "idle" | "input" | "resolving" | "victory" | "defeat";
 
-export interface BattleStats {
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  attack: number;
-  defense: number;
-  speed: number;
-  luck: number;
-}
+/**
+ * Stat block for a combatant. `hp`, `maxHp`, `mp`, `maxMp` are required and
+ * drive battle lifecycle. Any additional numeric field is valid — define your
+ * own stat names (`atk`, `str`, `agility`, …) and tell BattleSystem which key
+ * to treat as attack/defense/speed/luck via `BattleSystemOptions.statMap`.
+ */
+export type BattleStats = {
+  readonly hp: number;
+  readonly maxHp: number;
+  readonly mp: number;
+  readonly maxMp: number;
+} & Record<string, number>;
 
 export interface StatusEffect {
   id: string;
@@ -94,11 +96,56 @@ export type BattleEvent =
   | { kind: "defeat" }
   | { kind: "fled" };
 
+/**
+ * Maps logical stat roles to the key names in your BattleStats objects.
+ * All fields are optional and default to the canonical name ('attack', etc.).
+ *
+ * @example
+ * // Use abbreviations:
+ * statMap: { attack: 'atk', defense: 'def', speed: 'spd', luck: 'lck' }
+ *
+ * // Use a fully custom stat name as attack power:
+ * statMap: { attack: 'spellPower' }
+ */
+export interface BattleStatMap {
+  /** Stat key used as attack power. Default: 'attack'. */
+  attack?: string;
+  /** Stat key used as defense. Default: 'defense'. */
+  defense?: string;
+  /** Stat key used for turn order. Default: 'speed'. */
+  speed?: string;
+  /** Stat key added to crit chance. Default: 'luck'. */
+  luck?: string;
+}
+
+/**
+ * Context passed to a custom damage formula set via `setDamageFormula()`.
+ * `effectiveAttack` and `effectiveDefense` already incorporate status
+ * multipliers. Access `attacker.stats` and `target.stats` for any custom stat.
+ */
+export interface DamageContext {
+  readonly attacker: Combatant;
+  readonly target: Combatant;
+  /** Attacker's attack stat after status multipliers. */
+  readonly effectiveAttack: number;
+  /** Target's defense stat after status multipliers. */
+  readonly effectiveDefense: number;
+  readonly power: number;
+  readonly isCrit: boolean;
+  readonly critMultiplier: number;
+}
+
 export interface BattleSystemOptions {
   db?: BattleDatabase;
   critChance?: number;
   critMultiplier?: number;
   fleeChance?: number;
+  /**
+   * Map logical stat roles to the key names used in your BattleStats objects.
+   * Lets you use custom or abbreviated names without losing built-in turn
+   * ordering, crit, and formula behaviour.
+   */
+  statMap?: BattleStatMap;
 }
 
 // --- Internal ---
@@ -110,30 +157,25 @@ interface _CombatantState {
   maxHp: number;
   mp: number;
   maxMp: number;
-  attack: number;
+  attack: number; // resolved from statMap
   defense: number;
   speed: number;
   luck: number;
+  rawStats: Record<string, number>; // original stats for snapshot reconstruction
   statusEffects: StatusEffect[];
   isParty: boolean;
   insertionOrder: number;
 }
 
-type _PhysicalFormula = (
-  atk: number,
-  def: number,
-  power: number,
-  isCrit: boolean,
-  critMultiplier: number,
-) => number;
-
-const DEFAULT_PHYSICAL: _PhysicalFormula = (
-  atk,
-  def,
-  power,
-  isCrit,
-  critMult,
-) => Math.max(1, Math.floor((atk - def / 2) * power * (isCrit ? critMult : 1)));
+const DEFAULT_PHYSICAL = (ctx: DamageContext): number =>
+  Math.max(
+    1,
+    Math.floor(
+      (ctx.effectiveAttack - ctx.effectiveDefense / 2) *
+        ctx.power *
+        (ctx.isCrit ? ctx.critMultiplier : 1),
+    ),
+  );
 
 // --- BattleSystem ---
 
@@ -141,10 +183,10 @@ export class BattleSystem {
   private readonly _critChance: number;
   private readonly _critMultiplier: number;
   private readonly _fleeChance: number;
+  private readonly _statMap: Required<BattleStatMap>;
 
   private _db: BattleDatabase;
-  private _skillMap = new Map<string, SkillDef>();
-  private _statusEffectMap = new Map<string, StatusEffectDef>();
+  private _statusEffectIndex: Map<string, StatusEffectDef> = new Map();
   private _phase: BattlePhase = "idle";
   // Indirection prevents TypeScript from narrowing _phase within callers that
   // assign it and then call methods that can mutate it (e.g. _checkEndConditions).
@@ -156,8 +198,6 @@ export class BattleSystem {
 
   private readonly _party = new Map<string, _CombatantState>();
   private readonly _enemies = new Map<string, _CombatantState>();
-  private _aliveParty = 0;
-  private _aliveEnemies = 0;
   private _insertionCounter = 0;
 
   private readonly _handlers = new Set<(event: BattleEvent) => void>();
@@ -168,48 +208,51 @@ export class BattleSystem {
   // All combatant ids for the current round, sorted by speed desc
   private _turnOrder: string[] = [];
 
-  private _physicalFormula: _PhysicalFormula = DEFAULT_PHYSICAL;
+  private _physicalFormula: (ctx: DamageContext) => number = DEFAULT_PHYSICAL;
 
   constructor(options?: BattleSystemOptions) {
     this._critChance = options?.critChance ?? 0.0625;
     this._critMultiplier = options?.critMultiplier ?? 1.5;
     this._fleeChance = options?.fleeChance ?? 0.5;
     this._db = options?.db ?? { skills: [], statusEffects: [] };
-    this._skillMap = new Map(this._db.skills.map((s) => [s.id, s]));
-    this._statusEffectMap = new Map(
-      this._db.statusEffects.map((se) => [se.id, se]),
+    this._statusEffectIndex = new Map(
+      this._db.statusEffects.map((d) => [d.id, d]),
     );
+    this._statMap = {
+      attack: options?.statMap?.attack ?? "attack",
+      defense: options?.statMap?.defense ?? "defense",
+      speed: options?.statMap?.speed ?? "speed",
+      luck: options?.statMap?.luck ?? "luck",
+    };
   }
 
   // --- Setup ---
 
   addPartyMember(combatant: Combatant): void {
-    const state = this._toState(combatant);
-    this._party.set(combatant.id, state);
-    if (state.hp > 0) this._aliveParty++;
+    this._party.set(combatant.id, this._toState(combatant));
   }
 
   addEnemy(combatant: Combatant): void {
-    const state = this._toState(combatant);
-    this._enemies.set(combatant.id, state);
-    if (state.hp > 0) this._aliveEnemies++;
+    this._enemies.set(combatant.id, this._toState(combatant));
   }
 
   loadDatabase(db: BattleDatabase): void {
     this._db = db;
-    this._skillMap = new Map(db.skills.map((s) => [s.id, s]));
-    this._statusEffectMap = new Map(db.statusEffects.map((se) => [se.id, se]));
+    this._statusEffectIndex = new Map(db.statusEffects.map((d) => [d.id, d]));
   }
 
-  setDamageFormula(
-    fn: (
-      atk: number,
-      def: number,
-      power: number,
-      isCrit: boolean,
-      critMultiplier: number,
-    ) => number,
-  ): void {
+  /**
+   * Replace the physical damage formula. Called with a `DamageContext` that
+   * exposes status-adjusted attack/defense and full combatant snapshots (for
+   * any custom stat access). Return the final integer damage amount.
+   *
+   * @example
+   * battle.setDamageFormula((ctx) => {
+   *   const magicPower = ctx.attacker.stats['magic'] ?? 0;
+   *   return Math.max(1, Math.floor(magicPower * ctx.power - ctx.effectiveDefense / 4));
+   * });
+   */
+  setDamageFormula(fn: (ctx: DamageContext) => number): void {
     this._physicalFormula = fn;
   }
 
@@ -258,38 +301,40 @@ export class BattleSystem {
     }
   }
 
-  // --- State accessors ---
+  // --- Read-only queries ---
 
   getPhase(): BattlePhase {
-    return this._phase;
+    return this._readPhase();
   }
-
-  getCombatant(id: string): Combatant | undefined {
-    const state = this._party.get(id) ?? this._enemies.get(id);
-    if (state === undefined) return undefined;
-    return this._toSnapshot(state);
-  }
-
-  getParty(): readonly Combatant[] {
-    return Array.from(this._party.values()).map((s) => this._toSnapshot(s));
-  }
-
-  getEnemies(): readonly Combatant[] {
-    return Array.from(this._enemies.values()).map((s) => this._toSnapshot(s));
-  }
-
   getRound(): number {
     return this._round;
   }
 
+  getCombatant(id: string): Combatant | undefined {
+    const s = this._party.get(id) ?? this._enemies.get(id);
+    return s !== undefined ? this._toSnapshot(s) : undefined;
+  }
+
+  getParty(): Combatant[] {
+    return Array.from(this._party.values()).map((s) => this._toSnapshot(s));
+  }
+
+  getEnemies(): Combatant[] {
+    return Array.from(this._enemies.values()).map((s) => this._toSnapshot(s));
+  }
+
   destroy(): void {
     this._destroyed = true;
+    this._party.clear();
+    this._enemies.clear();
     this._handlers.clear();
+    this._pendingActions.clear();
   }
 
   // --- Private helpers ---
 
   private _toState(c: Combatant): _CombatantState {
+    const raw = c.stats as Record<string, number>;
     return {
       id: c.id,
       name: c.name,
@@ -297,10 +342,11 @@ export class BattleSystem {
       maxHp: c.stats.maxHp,
       mp: c.stats.mp,
       maxMp: c.stats.maxMp,
-      attack: c.stats.attack,
-      defense: c.stats.defense,
-      speed: c.stats.speed,
-      luck: c.stats.luck,
+      attack: raw[this._statMap.attack] ?? 0,
+      defense: raw[this._statMap.defense] ?? 0,
+      speed: raw[this._statMap.speed] ?? 0,
+      luck: raw[this._statMap.luck] ?? 0,
+      rawStats: { ...raw },
       statusEffects: c.statusEffects.map((se) => ({ ...se })),
       isParty: c.isParty,
       insertionOrder: this._insertionCounter++,
@@ -308,19 +354,18 @@ export class BattleSystem {
   }
 
   private _toSnapshot(state: _CombatantState): Combatant {
+    // Reconstruct from rawStats so custom stat fields are preserved in snapshots.
+    const stats: Record<string, number> = {
+      ...state.rawStats,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      mp: state.mp,
+      maxMp: state.maxMp,
+    };
     return Object.freeze({
       id: state.id,
       name: state.name,
-      stats: Object.freeze<BattleStats>({
-        hp: state.hp,
-        maxHp: state.maxHp,
-        mp: state.mp,
-        maxMp: state.maxMp,
-        attack: state.attack,
-        defense: state.defense,
-        speed: state.speed,
-        luck: state.luck,
-      }),
+      stats: Object.freeze(stats) as BattleStats,
       statusEffects: Object.freeze(
         state.statusEffects.map((se) => Object.freeze<StatusEffect>({ ...se })),
       ),
@@ -426,7 +471,7 @@ export class BattleSystem {
 
     // Iterate over a copy so removal mid-loop is safe
     for (const se of [...state.statusEffects]) {
-      const def = this._statusEffectMap.get(se.id);
+      const def = this._statusEffectIndex.get(se.id);
 
       // HP drain
       if (
@@ -436,7 +481,6 @@ export class BattleSystem {
         def.hpDrainPercentPerTurn > 0
       ) {
         const drain = Math.floor(state.maxHp * def.hpDrainPercentPerTurn);
-        const wasAliveBeforeDrain = state.hp > 0;
         state.hp = Math.max(0, state.hp - drain);
         this._emit({
           kind: "damage",
@@ -445,9 +489,7 @@ export class BattleSystem {
           amount: drain,
           isCrit: false,
         });
-        if (wasAliveBeforeDrain && state.hp <= 0) {
-          if (this._party.has(state.id)) this._aliveParty--;
-          else this._aliveEnemies--;
+        if (state.hp <= 0) {
           this._emit({ kind: "combatant-defeated", combatantId: state.id });
         }
       }
@@ -477,7 +519,7 @@ export class BattleSystem {
     let defMult = 1;
 
     for (const se of state.statusEffects) {
-      const def = this._statusEffectMap.get(se.id);
+      const def = this._statusEffectIndex.get(se.id);
       if (def === undefined) continue;
       if (def.attackMultiplier !== undefined) atkMult *= def.attackMultiplier;
       if (def.defenseMultiplier !== undefined) defMult *= def.defenseMultiplier;
@@ -499,7 +541,6 @@ export class BattleSystem {
     amount: number,
     isCrit: boolean,
   ): void {
-    const wasAlive = target.hp > 0;
     target.hp = Math.max(0, target.hp - amount);
     this._emit({
       kind: "damage",
@@ -508,9 +549,7 @@ export class BattleSystem {
       amount,
       isCrit,
     });
-    if (wasAlive && target.hp <= 0) {
-      if (this._party.has(target.id)) this._aliveParty--;
-      else this._aliveEnemies--;
+    if (target.hp <= 0) {
       this._emit({ kind: "combatant-defeated", combatantId: target.id });
     }
   }
@@ -541,13 +580,15 @@ export class BattleSystem {
       const actEff = this._effectiveStats(actor);
       const tgtEff = this._effectiveStats(target);
       const isCrit = this._rollCrit(actor.luck);
-      const dmg = this._physicalFormula(
-        actEff.attack,
-        tgtEff.defense,
-        1.0,
+      const dmg = this._physicalFormula({
+        attacker: this._toSnapshot(actor),
+        target: this._toSnapshot(target),
+        effectiveAttack: actEff.attack,
+        effectiveDefense: tgtEff.defense,
+        power: 1.0,
         isCrit,
-        this._critMultiplier,
-      );
+        critMultiplier: this._critMultiplier,
+      });
       this._applyDamage(actor.id, target, dmg, isCrit);
       return;
     }
@@ -591,7 +632,7 @@ export class BattleSystem {
     skillId: string,
     primaryTargetId: string,
   ): void {
-    const skill = this._skillMap.get(skillId);
+    const skill = this._db.skills.find((s) => s.id === skillId);
     if (skill === undefined) return;
 
     // Insufficient MP — fail silently, no event
@@ -621,13 +662,15 @@ export class BattleSystem {
         case "physical": {
           isCrit = this._rollCrit(actor.luck);
           const tgtEff = this._effectiveStats(target);
-          amount = this._physicalFormula(
-            actEff.attack,
-            tgtEff.defense,
-            skill.power,
+          amount = this._physicalFormula({
+            attacker: this._toSnapshot(actor),
+            target: this._toSnapshot(target),
+            effectiveAttack: actEff.attack,
+            effectiveDefense: tgtEff.defense,
+            power: skill.power,
             isCrit,
-            this._critMultiplier,
-          );
+            critMultiplier: this._critMultiplier,
+          });
           break;
         }
         case "magical": {
@@ -669,7 +712,7 @@ export class BattleSystem {
         target.hp > 0 &&
         Math.random() < seSpec.chance
       ) {
-        const seDef = this._statusEffectMap.get(seSpec.effectId);
+        const seDef = this._statusEffectIndex.get(seSpec.effectId);
         if (seDef !== undefined) {
           const alreadyActive = target.statusEffects.some(
             (se) => se.id === seDef.id,
@@ -693,13 +736,19 @@ export class BattleSystem {
   }
 
   private _checkEndConditions(): boolean {
-    if (this._aliveEnemies <= 0) {
+    const allEnemiesDead = Array.from(this._enemies.values()).every(
+      (s) => s.hp <= 0,
+    );
+    if (allEnemiesDead) {
       this._emit({ kind: "victory" });
       this._phase = "victory";
       return true;
     }
 
-    if (this._aliveParty <= 0) {
+    const allPartyDead = Array.from(this._party.values()).every(
+      (s) => s.hp <= 0,
+    );
+    if (allPartyDead) {
       this._emit({ kind: "defeat" });
       this._phase = "defeat";
       return true;

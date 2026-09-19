@@ -1,6 +1,6 @@
 # UI Widget System
 
-Status: planned. No widget primitives exist yet. UISystem is an empty Canvas 2D overlay layer with an ImageLoader interface — nothing is rendered through it until this feature is built.
+This document is the original design rationale for the Widget system. The system is now fully implemented. For the current API reference see [`docs/reference/systems/ui-system.md`](reference/systems/ui-system.md) and for the full offline manual page see [`docs/manual/22-ui-widgets.md`](manual/22-ui-widgets.md).
 
 Reference: GameMaker's Flex Panel / UI layer. The goal is the same object model for code and the visual editor — anything you drag together you can script, and anything you script shows up in the editor.
 
@@ -25,12 +25,20 @@ A UI scene is a standard `Scene` subclass that renders only UISystem widgets —
 ```ts
 class PauseMenuScene extends Scene {
   async onLoad() {
-    const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });
-    const resumeBtn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });
-    resumeBtn.on('click', () => this.engine.popScene());
+    const panel = new PanelWidget({
+      anchor: "center",
+      width: 300,
+      height: 200,
+    });
+    const resumeBtn = new ButtonWidget({
+      label: "Resume",
+      anchor: "center",
+      y: 20,
+    });
+    resumeBtn.on("click", () => this.engine.popScene());
     panel.children.push(resumeBtn);
     this.uiSystem.add(panel);
-    panel.animate('fadeIn');
+    panel.animate("fadeIn");
   }
 }
 
@@ -53,14 +61,22 @@ For widgets that appear across many UI scenes (a styled button, a consistent hea
 
 ```ts
 // shared/widgets/PrimaryButton.ts
-export function PrimaryButton(label: string, onClick: () => void): ButtonWidget {
-  const btn = new ButtonWidget({ label, color: '#818cf8', width: 160, height: 40 });
-  btn.on('click', onClick);
+export function PrimaryButton(
+  label: string,
+  onClick: () => void,
+): ButtonWidget {
+  const btn = new ButtonWidget({
+    label,
+    color: "#818cf8",
+    width: 160,
+    height: 40,
+  });
+  btn.on("click", onClick);
   return btn;
 }
 
 // Used in any UI scene:
-const btn = PrimaryButton('Start Game', () => engine.loadScene('GameScene'));
+const btn = PrimaryButton("Start Game", () => engine.loadScene("GameScene"));
 uiSystem.add(btn);
 ```
 
@@ -92,25 +108,25 @@ The `imageLoader` constructor parameter becomes optional — only needed when a 
 
 All widgets live in `packages/engine/src/ui/` and export from `packages/engine/src/index.ts`.
 
-| Widget | Properties |
-|--------|------------|
-| `LabelWidget` | `text`, `font`, `fontSize`, `color`, `align` |
-| `ButtonWidget` | `label`, `icon?`, state machine (normal / hover / pressed / disabled) |
-| `ImageWidget` | `src`, `scaleMode` (fit / fill / stretch / none), `tint?` |
-| `PanelWidget` | `background`, `border`, `cornerRadius`, `children: Widget[]` |
-| `ProgressBarWidget` | `value`, `min`, `max`, `fillColor`, `direction` (h / v) |
-| `SliderWidget` | `value`, `min`, `max`, `step`, `onChange` |
-| `CheckboxWidget` | `checked`, `label`, `onChange` |
+| Widget              | Properties                                                            |
+| ------------------- | --------------------------------------------------------------------- |
+| `LabelWidget`       | `text`, `font`, `fontSize`, `color`, `align`                          |
+| `ButtonWidget`      | `label`, `icon?`, state machine (normal / hover / pressed / disabled) |
+| `ImageWidget`       | `src`, `scaleMode` (fit / fill / stretch / none), `tint?`             |
+| `PanelWidget`       | `background`, `border`, `cornerRadius`, `children: Widget[]`          |
+| `ProgressBarWidget` | `value`, `min`, `max`, `fillColor`, `direction` (h / v)               |
+| `SliderWidget`      | `value`, `min`, `max`, `step`, `onChange`                             |
+| `CheckboxWidget`    | `checked`, `label`, `onChange`                                        |
 
 All widgets share a base `Widget` class:
 
 ```ts
 abstract class Widget {
-  x: number;       // pixels or 0–1 normalised, resolved by layout pass
+  x: number; // pixels or 0–1 normalised, resolved by layout pass
   y: number;
   width: number;
   height: number;
-  anchor: Anchor;  // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
+  anchor: Anchor; // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
   visible: boolean;
   alpha: number;
   animate(name: AnimationName, opts?: AnimationOpts): void;
@@ -137,14 +153,14 @@ No nested flex containers. If a developer needs a scrollable list inside a panel
 
 Built-in named transitions, triggered by `widget.animate(name)` or wired automatically to widget state changes.
 
-| Name | Description |
-|------|-------------|
-| `fadeIn` | alpha 0 → 1 |
-| `fadeOut` | alpha 1 → 0 |
-| `slideIn(direction)` | translate from off-screen edge |
-| `slideOut(direction)` | translate to off-screen edge |
-| `pop` | scale punch (1 → 1.15 → 1), used for button hover/press feedback |
-| `shake` | horizontal jitter, used for error feedback |
+| Name                  | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `fadeIn`              | alpha 0 → 1                                                      |
+| `fadeOut`             | alpha 1 → 0                                                      |
+| `slideIn(direction)`  | translate from off-screen edge                                   |
+| `slideOut(direction)` | translate to off-screen edge                                     |
+| `pop`                 | scale punch (1 → 1.15 → 1), used for button hover/press feedback |
+| `shake`               | horizontal jitter, used for error feedback                       |
 
 All animations accept optional `duration` (ms, default 200) and `easing` (`'linear'` | `'ease-in'` | `'ease-out'` | `'ease-in-out'`). Implemented as lightweight tweens inside UISystem's update loop — no external tween library.
 
@@ -155,22 +171,31 @@ Button hover and press states automatically trigger `pop` unless overridden with
 ## Code API
 
 ```ts
-import { ButtonWidget, LabelWidget, PanelWidget } from '@emptysock/engine';
+import { ButtonWidget, LabelWidget, PanelWidget } from "@emptysock/engine";
 
 // In a UI scene's onLoad:
-const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });
+const panel = new PanelWidget({ anchor: "center", width: 300, height: 200 });
 
-const title = new LabelWidget({ text: 'Paused', fontSize: 24, anchor: 'top', y: 16 });
+const title = new LabelWidget({
+  text: "Paused",
+  fontSize: 24,
+  anchor: "top",
+  y: 16,
+});
 
-const resumeBtn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });
-resumeBtn.on('click', () => this.engine.popScene());
+const resumeBtn = new ButtonWidget({
+  label: "Resume",
+  anchor: "center",
+  y: 20,
+});
+resumeBtn.on("click", () => this.engine.popScene());
 
-const quitBtn = new ButtonWidget({ label: 'Quit', anchor: 'center', y: 70 });
-quitBtn.on('click', () => this.engine.loadScene('MainMenu'));
+const quitBtn = new ButtonWidget({ label: "Quit", anchor: "center", y: 70 });
+quitBtn.on("click", () => this.engine.loadScene("MainMenu"));
 
 panel.children.push(title, resumeBtn, quitBtn);
 this.uiSystem.add(panel);
-panel.animate('fadeIn');
+panel.animate("fadeIn");
 ```
 
 ---

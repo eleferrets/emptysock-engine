@@ -51,6 +51,7 @@ export default [
       'packages/engine/src/systems/CameraSystem.ts',
       'packages/engine/src/core/IDEBridge.ts',
       'packages/engine/src/types/aliases.ts',
+      'packages/engine/src/systems/VNTextbox.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,

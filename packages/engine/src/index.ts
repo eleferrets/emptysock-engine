@@ -267,6 +267,8 @@ export { BattleSystem } from "./systems/BattleSystem.js";
 export type {
   BattlePhase,
   BattleStats,
+  BattleStatMap,
+  DamageContext,
   StatusEffect,
   Combatant,
   SkillTargetType,

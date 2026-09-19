@@ -29,6 +29,13 @@ interface CoroutineState {
 export class CoroutineSystem {
   private readonly _coroutines: Map<string, CoroutineState> = new Map();
 
+  /**
+   * Called when a coroutine throws. Receives the coroutine id and the error.
+   * The coroutine is stopped before this is called.
+   * When unset, errors are logged to `console.error`.
+   */
+  public onError: ((id: string, error: Error) => void) | null = null;
+
   start(id: string, gen: CoroutineGen): void {
     if (this._coroutines.has(id)) {
       console.warn(
@@ -77,7 +84,20 @@ export class CoroutineSystem {
     const state = this._coroutines.get(id);
     if (state === undefined) return;
 
-    const result = state.gen.next();
+    let result: IteratorResult<CoroutineYield, void>;
+    try {
+      result = state.gen.next();
+    } catch (err) {
+      this._coroutines.delete(id);
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (this.onError !== null) {
+        this.onError(id, error);
+      } else {
+        console.error(`[CoroutineSystem] Coroutine "${id}" threw:`, error);
+      }
+      return;
+    }
+
     if (result.done === true) {
       this._coroutines.delete(id);
       return;

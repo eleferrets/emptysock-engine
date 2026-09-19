@@ -24,58 +24,69 @@ interface AStarNode {
   parent: AStarNode | null;
 }
 
-class AStarMinHeap {
-  private readonly _heap: AStarNode[] = [];
-
-  get size(): number { return this._heap.length; }
-
-  push(node: AStarNode): void {
-    this._heap.push(node);
-    this._bubbleUp(this._heap.length - 1);
-  }
-
-  pop(): AStarNode | undefined {
-    const top = this._heap[0];
-    const last = this._heap.pop();
-    if (this._heap.length > 0 && last !== undefined) {
-      this._heap[0] = last;
-      this._siftDown(0);
-    }
-    return top;
-  }
-
-  private _bubbleUp(i: number): void {
-    while (i > 0) {
-      const parent = (i - 1) >> 1;
-      const h = this._heap;
-      if ((h[parent]?.f ?? Infinity) <= (h[i]?.f ?? Infinity)) break;
-      const tmp = h[parent] as AStarNode;
-      h[parent] = h[i] as AStarNode;
-      h[i] = tmp;
-      i = parent;
-    }
-  }
-
-  private _siftDown(i: number): void {
-    const n = this._heap.length;
-    const h = this._heap;
-    for (;;) {
-      const left = 2 * i + 1;
-      const right = 2 * i + 2;
-      let smallest = i;
-      if (left < n && (h[left]?.f ?? Infinity) < (h[smallest]?.f ?? Infinity)) smallest = left;
-      if (right < n && (h[right]?.f ?? Infinity) < (h[smallest]?.f ?? Infinity)) smallest = right;
-      if (smallest === i) break;
-      const tmp = h[i] as AStarNode;
-      h[i] = h[smallest] as AStarNode;
-      h[smallest] = tmp;
-      i = smallest;
-    }
-  }
-}
-
 export class PathfindingSystem {
-  findPath(request: PathRequest): PathResult {
+  private _grid: ReadonlyArray<ReadonlyArray<GridCell>> | null = null;
+  private _allowDiagonal = false;
+
+  /**
+   * Attach a static grid so `findPath(from, to)` can be called without
+   * passing the grid on every request. Call this once in `onLoad` and then
+   * use the two-argument shorthand for all subsequent pathfinding.
+   *
+   * @param allowDiagonal Allow diagonal movement. Default false.
+   *
+   * @example
+   * pf.setGrid(tilemap.asGrid(), true);
+   * // later, in game logic:
+   * const { path } = pf.findPath({ x: 0, y: 0 }, { x: 10, y: 5 });
+   */
+  setGrid(
+    grid: ReadonlyArray<ReadonlyArray<GridCell>>,
+    allowDiagonal = false,
+  ): void {
+    this._grid = grid;
+    this._allowDiagonal = allowDiagonal;
+  }
+
+  /**
+   * Find a path using A*.
+   *
+   * Two call signatures:
+   * - `findPath(request)` — full PathRequest; grid is passed inline each call.
+   * - `findPath(from, to)` — shorthand when a grid is attached via `setGrid()`.
+   */
+  findPath(request: PathRequest): PathResult;
+  findPath(
+    from: { readonly x: number; readonly y: number },
+    to: { readonly x: number; readonly y: number },
+  ): PathResult;
+  findPath(
+    requestOrFrom: PathRequest | { readonly x: number; readonly y: number },
+    to?: { readonly x: number; readonly y: number },
+  ): PathResult {
+    let req: PathRequest;
+
+    if (to !== undefined) {
+      if (this._grid === null) {
+        console.warn(
+          "[PathfindingSystem] findPath(from, to) requires setGrid() to be called first.",
+        );
+        return { path: [], found: false };
+      }
+      req = {
+        from: requestOrFrom as { x: number; y: number },
+        to,
+        grid: this._grid,
+        allowDiagonal: this._allowDiagonal,
+      };
+    } else {
+      req = requestOrFrom as PathRequest;
+    }
+
+    return this._runAStar(req);
+  }
+
+  private _runAStar(request: PathRequest): PathResult {
     const { from, to, grid, allowDiagonal } = request;
     const rows = grid.length;
     if (rows === 0) return { path: [], found: false };
@@ -84,25 +95,29 @@ export class PathfindingSystem {
 
     const key = (x: number, y: number): string => `${x},${y}`;
 
-    const open = new AStarMinHeap();
-    const gScore: Map<string, number> = new Map();
+    const open: Map<string, AStarNode> = new Map();
     const closed: Set<string> = new Set();
 
     const heuristic = (x: number, y: number): number =>
       Math.abs(x - to.x) + Math.abs(y - to.y);
 
-    const startH = heuristic(from.x, from.y);
-    const start: AStarNode = { x: from.x, y: from.y, g: 0, h: startH, f: startH, parent: null };
-    open.push(start);
-    gScore.set(key(from.x, from.y), 0);
+    const start: AStarNode = {
+      x: from.x,
+      y: from.y,
+      g: 0,
+      h: heuristic(from.x, from.y),
+      f: 0,
+      parent: null,
+    };
+    start.f = start.g + start.h;
+    open.set(key(from.x, from.y), start);
 
     while (open.size > 0) {
-      const current = open.pop();
-      if (current === undefined) break;
-
-      const ck = key(current.x, current.y);
-      if (closed.has(ck)) continue; // stale heap entry
-      closed.add(ck);
+      let current: AStarNode | null = null;
+      for (const node of open.values()) {
+        if (current === null || node.f < current.f) current = node;
+      }
+      if (current === null) break;
 
       if (current.x === to.x && current.y === to.y) {
         const path: Array<{ x: number; y: number }> = [];
@@ -114,9 +129,26 @@ export class PathfindingSystem {
         return { path, found: true };
       }
 
+      open.delete(key(current.x, current.y));
+      closed.add(key(current.x, current.y));
+
       const dirs: ReadonlyArray<readonly [number, number]> = allowDiagonal
-        ? [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]] as const
-        : [[-1,0],[1,0],[0,-1],[0,1]] as const;
+        ? ([
+            [-1, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, -1],
+            [0, 1],
+            [1, -1],
+            [1, 0],
+            [1, 1],
+          ] as const)
+        : ([
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ] as const);
 
       for (const dir of dirs) {
         const dx = dir[0];
@@ -131,12 +163,15 @@ export class PathfindingSystem {
         const nk = key(nx, ny);
         if (closed.has(nk)) continue;
 
-        const moveCost = (dx !== 0 && dy !== 0) ? 1.414 : 1;
+        const moveCost = dx !== 0 && dy !== 0 ? 1.414 : 1;
         const g = current.g + moveCost * cell.weight;
-        if (g >= (gScore.get(nk) ?? Infinity)) continue;
-        gScore.set(nk, g);
         const h = heuristic(nx, ny);
-        open.push({ x: nx, y: ny, g, h, f: g + h, parent: current });
+        const f = g + h;
+
+        const existing = open.get(nk);
+        if (existing === undefined || g < existing.g) {
+          open.set(nk, { x: nx, y: ny, g, h, f, parent: current });
+        }
       }
     }
 

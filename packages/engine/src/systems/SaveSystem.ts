@@ -18,6 +18,8 @@ const SaveSlotSchema = z.object({
 
 const STORAGE_PREFIX = "emptysock_save_";
 
+const _KNOWN_KEYS = new Set(["scene", "data", "timestamp", "playtime"]);
+
 export class SaveSystem {
   private readonly _prefix: string;
 
@@ -26,26 +28,47 @@ export class SaveSystem {
   }
 
   /**
-   * Persist a save slot. Returns `true` on success, `false` if storage is
-   * unavailable (private mode, quota exceeded, etc.).
+   * Persist a save slot.
+   *
+   * `timestamp` defaults to `Date.now()` and `playtime` defaults to `0` when
+   * omitted, so a minimal call only needs `scene` and `data`.
+   *
+   * Any key other than `scene`, `data`, `timestamp`, and `playtime` is logged
+   * as a warning and dropped — store everything inside the `data` field.
    */
-  save(slotId: string, data: Omit<SaveSlot, "id">): boolean {
-    if (typeof localStorage === "undefined") return false;
-    const slot: SaveSlot = { ...data, id: slotId };
+  save(
+    slotId: string,
+    entry: {
+      scene: string;
+      data: Record<string, unknown>;
+      timestamp?: number;
+      playtime?: number;
+    },
+  ): void {
+    for (const k of Object.keys(entry)) {
+      if (!_KNOWN_KEYS.has(k)) {
+        console.warn(
+          `[SaveSystem] save() received unexpected key "${k}" — it will not be persisted. Store all save data inside the "data" field.`,
+        );
+      }
+    }
+
+    const slot: SaveSlot = {
+      id: slotId,
+      scene: entry.scene,
+      data: entry.data,
+      timestamp: entry.timestamp ?? Date.now(),
+      playtime: entry.playtime ?? 0,
+    };
+
     try {
       localStorage.setItem(this._prefix + slotId, JSON.stringify(slot));
-      return true;
     } catch {
-      return false;
+      // Storage unavailable — silently fail
     }
   }
 
-  /**
-   * Load a save slot. Returns `null` if the slot does not exist or is corrupt.
-   * Always validate `raw.data` through your own Zod schema before use.
-   */
   load(slotId: string): SaveSlot | null {
-    if (typeof localStorage === "undefined") return null;
     try {
       const raw = localStorage.getItem(this._prefix + slotId);
       if (raw === null) return null;
@@ -56,12 +79,7 @@ export class SaveSystem {
     }
   }
 
-  /**
-   * Return all save slots sorted by timestamp descending (newest first).
-   * Malformed entries are silently skipped.
-   */
   listSlots(): SaveSlot[] {
-    if (typeof localStorage === "undefined") return [];
     const slots: SaveSlot[] = [];
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -79,11 +97,10 @@ export class SaveSystem {
     } catch {
       // Storage unavailable
     }
-    return slots.sort((a, b) => b.timestamp - a.timestamp);
+    return slots;
   }
 
   delete(slotId: string): void {
-    if (typeof localStorage === "undefined") return;
     try {
       localStorage.removeItem(this._prefix + slotId);
     } catch {
@@ -91,7 +108,7 @@ export class SaveSystem {
     }
   }
 
-  update(_dt: number): void {}
-
-  destroy(): void {}
+  update(_dt: number): void {
+    // No per-frame work
+  }
 }

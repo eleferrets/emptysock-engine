@@ -116,9 +116,11 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 **File placement:** engine systems go in `packages/engine/src/systems/`, engine core primitives in `packages/engine/src/core/`, IDE panels in `apps/ide/src/components/panels/`. New exports from the engine must be re-exported from `packages/engine/src/index.ts`.
 
-**Adding a new engine system:** create the file, export from index.ts, add an entry to api-reference.json, add a section to docs/manual/05-systems-reference.md, add a skill to eleferrets/emptysock-ai-skills.
+**Adding a new engine system:** create the file, export from `packages/engine/src/index.ts`, add an entry to `ai/api-reference.json` in `eleferrets/emptysock-ai-skills`, add a page under `docs/reference/systems/`, add a row to `docs/reference/index.md`, add a section to `docs/manual/05-systems-reference.md`, and add a skill file to `eleferrets/emptysock-ai-skills`. All five locations in a single commit — never land a new system without docs.
 
 **Adding a new IDE panel:** create the component file, add a makeTab entry to DEFAULT_LAYOUT in App.tsx, document it in docs/manual/07-ide-reference.md. If the panel needs store state, use useIDEStore — never local useState that other panels cannot read.
+
+**Keeping docs in sync with engine changes:** any commit that adds, removes, or changes a public engine API must also update the corresponding page in `docs/manual/` (offline manual source) and `docs/reference/` (the Ctrl+F reference). Method signature changes update the reference page. Behaviour changes update both. Never merge an engine change that leaves the docs describing the old shape.
 
 **Undo / redo is mandatory in every panel that mutates editor data.** Use a shared `useHistory<T>` hook that snapshots state before each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Wire `Ctrl+Z` / `Ctrl+Shift+Z` globally. Cap history at 50 steps per panel (session-only, never persisted). Monaco has its own per-file undo stack — do not replace it. Every panel added going forward must ship with undo/redo on day one, not as a follow-up.
 
