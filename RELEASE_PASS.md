@@ -118,16 +118,6 @@ The wrapper was removed in this pass. The correct call is `SceneManagerInstance.
 
 ---
 
-## Branch names for the next pass
+## Starting a new pass
 
-The current work (`claude/nifty-fermat-wsmwml`) has open PRs against `main` — they have not been merged yet. The next-pass branches below are at the same HEAD as `nifty-fermat` and include all work from this and the prior session.
-
-**Develop the next pass on these branches:**
-
-| Repo                             | Next branch                  | Open PR (merge to main when ready)                             |
-| -------------------------------- | ---------------------------- | -------------------------------------------------------------- |
-| `eleferrets/emptysock-engine`    | `claude/next-pass-engine`    | [#17](https://github.com/eleferrets/emptysock-engine/pull/17)  |
-| `eleferrets/emptysock-ai-skills` | `claude/next-pass-ai-skills` | [#8](https://github.com/eleferrets/emptysock-ai-skills/pull/8) |
-| `eleferrets/emptysock-mcp`       | `claude/next-pass-mcp`       | [#8](https://github.com/eleferrets/emptysock-mcp/pull/8)       |
-
-Once those PRs merge, the next-pass branches can be rebased onto main or left as-is — they already contain all prior work and any new commits land cleanly on top.
+All prior work is on `main` in each repo. Create a new branch from `main` in each repo at the start of the next pass.
