@@ -97,17 +97,18 @@ class MemoryFileStore implements FileStore {
     return true;
   }
 
-  async list(): Promise<AssetItem[]> {
-    return [...this._entries.values()].map((v) => v.item);
+  list(): Promise<AssetItem[]> {
+    return Promise.resolve([...this._entries.values()].map((v) => v.item));
   }
 
-  async read(path: string): Promise<Blob> {
+  read(path: string): Promise<Blob> {
     const v = this._entries.get(path);
-    if (v === undefined) throw new Error(`Asset not found: ${path}`);
-    return v.blob;
+    if (v === undefined)
+      return Promise.reject(new Error(`Asset not found: ${path}`));
+    return Promise.resolve(v.blob);
   }
 
-  async write(name: string, blob: Blob): Promise<AssetItem> {
+  write(name: string, blob: Blob): Promise<AssetItem> {
     const type =
       mimeToType(blob.type) === "script"
         ? extToType(name)
@@ -120,11 +121,12 @@ class MemoryFileStore implements FileStore {
       size: blob.size,
     };
     this._entries.set(name, { blob, item });
-    return item;
+    return Promise.resolve(item);
   }
 
-  async delete(path: string): Promise<void> {
+  delete(path: string): Promise<void> {
     this._entries.delete(path);
+    return Promise.resolve();
   }
 }
 

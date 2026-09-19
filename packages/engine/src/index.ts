@@ -1,7 +1,7 @@
 // Core ECS
 export { Component } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
-export type { Vec2 as EntityVec2, CoroutineHandle } from "./core/Entity.js";
+export type { Vec2, CoroutineHandle } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
 
@@ -80,7 +80,7 @@ export type {
   PathResult,
 } from "./systems/PathfindingSystem.js";
 export { NavMeshSystem } from "./systems/NavMeshSystem.js";
-export type { NavMeshData, NavPolygon, Vec2 } from "./systems/NavMeshSystem.js";
+export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
 export type { SaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
@@ -158,8 +158,6 @@ export {
   ProgressBarWidget,
   SliderWidget,
   CheckboxWidget,
-  widgetRoundRect,
-  applyEasing,
 } from "./ui/Widget.js";
 export type {
   WidgetAnchor,
@@ -213,7 +211,7 @@ export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 // Hot reload — internal; accessed via the IDE bridge only
 
 // Window management
-export { windowSystem, WindowSystem } from "./systems/WindowSystem.js";
+export { windowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 
 // Behaviors

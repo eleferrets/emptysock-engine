@@ -47,11 +47,11 @@ describe("SceneManager", () => {
     expect(SceneManagerInstance.isTransitioning).toBe(false);
   });
 
-  it("queues a scene switch on next update when not transitioning", () => {
+  it("switches scene immediately with transition effect none", () => {
     SceneManagerInstance.register("X", () => new Scene("X"));
     SceneManagerInstance.register("Y", () => new Scene("Y"));
     SceneManagerInstance.load("X");
-    SceneManagerInstance.queue("Y");
+    SceneManagerInstance.transition("Y", { effect: "none", duration: 0 });
     SceneManagerInstance.update(0);
     expect(SceneManagerInstance.current?.name).toBe("Y");
   });

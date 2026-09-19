@@ -46,11 +46,6 @@ export class CGGallery {
     this._persist();
   }
 
-  /** Unlock a CG by viewing a Story Graph node tagged with that CG id */
-  unlockFromNode(cgId: string): void {
-    this.unlock(cgId);
-  }
-
   isUnlocked(id: string): boolean {
     return this._unlocked.has(id);
   }

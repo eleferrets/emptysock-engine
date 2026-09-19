@@ -27,6 +27,9 @@ class SceneManager {
   private _transitioning: boolean = false;
   private _elapsed: number = 0;
   private _isLoading: boolean = false;
+  private _fixedAccum: number = 0;
+  /** Fixed physics timestep in seconds. Default 1/60. */
+  public fixedTimeStep: number = 1 / 60;
 
   /** Register a factory so the scene can be loaded by name. */
   register(name: string, factory: SceneFactory): void {
@@ -138,12 +141,13 @@ class SceneManager {
     this._elapsed = 0;
   }
 
-  queue(name: string): void {
-    this._pending = name;
-  }
-
   update(deltaTime: number): void {
     if (!this._isLoading) {
+      this._fixedAccum += deltaTime;
+      while (this._fixedAccum >= this.fixedTimeStep) {
+        this._active?._fixedUpdate(this.fixedTimeStep);
+        this._fixedAccum -= this.fixedTimeStep;
+      }
       this._active?.update(deltaTime);
     }
 

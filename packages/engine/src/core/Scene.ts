@@ -184,8 +184,8 @@ export class Scene {
     this.onUpdate(deltaTime);
   }
 
-  /** @internal — called by a fixed-timestep loop if one is wired up */
-  fixedUpdate(deltaTime: number): void {
+  /** @internal */
+  _fixedUpdate(deltaTime: number): void {
     if (!this._running) return;
     this.onFixedUpdate(deltaTime);
   }

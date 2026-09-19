@@ -148,7 +148,7 @@ export class InputSystem {
     return [...this._touches.values()];
   }
 
-  /** Get a specific touch point by its identifier. */
+  /** Returns the active touch with the given pointer id, or `undefined` if no touch with that id is currently down. */
   getTouch(id: number): TouchPoint | undefined {
     return this._touches.get(id);
   }

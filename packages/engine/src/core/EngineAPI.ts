@@ -135,13 +135,4 @@ export const Engine = {
   popScene(): void {
     SceneManagerInstance.popScene();
   },
-
-  /**
-   * Load a named scene, replacing the active scene.
-   * Uses SceneManager.transition() with no animation so onDestroy/onLoad
-   * lifecycle hooks are honoured. The scene must be registered first.
-   */
-  loadScene(name: string): void {
-    SceneManagerInstance.transition(name, { effect: "none", duration: 0 });
-  },
 };

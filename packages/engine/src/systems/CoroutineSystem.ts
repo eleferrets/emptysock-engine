@@ -68,7 +68,7 @@ export class CoroutineSystem {
     }
   }
 
-  /** Stop all running coroutines. */
+  /** Cancel all running coroutines. The system remains usable; new coroutines can be started after this call. */
   destroy(): void {
     this._coroutines.clear();
   }
