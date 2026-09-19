@@ -73,8 +73,9 @@ describe("SceneManager", () => {
   it("calls onLoad on the incoming scene", async () => {
     let loaded = false;
     class LoadScene extends Scene {
-      override async onLoad(): Promise<void> {
+      override onLoad(): Promise<void> {
         loaded = true;
+        return Promise.resolve();
       }
     }
     SceneManagerInstance.register("L", () => new LoadScene("L"));

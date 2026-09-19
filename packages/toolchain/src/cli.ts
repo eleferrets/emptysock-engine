@@ -1,112 +1,173 @@
 #!/usr/bin/env node
-import { program } from 'commander';
-import { detectToolchain, formatToolchainReport } from './ToolchainDetector.js';
-import { loadToolchainSettings, saveToolchainSettings } from './ToolchainSettings.js';
-import { importGMS2Project } from './gms2-import.js';
+import { program } from "commander";
+import { detectToolchain, formatToolchainReport } from "./ToolchainDetector.js";
+import {
+  loadToolchainSettings,
+  saveToolchainSettings,
+} from "./ToolchainSettings.js";
+import { importGMS2Project } from "./gms2-import.js";
 
 program
-  .name('emptysock-toolchain')
-  .description('EmptySock Engine toolchain CLI')
-  .version('0.1.0');
+  .name("emptysock-toolchain")
+  .description("EmptySock Engine toolchain CLI")
+  .version("0.1.0");
 
 program
-  .command('detect')
-  .description('Detect installed toolchain tools')
-  .action(async () => {
+  .command("detect")
+  .description("Detect installed toolchain tools")
+  .action(() => {
     const settings = loadToolchainSettings(process.cwd());
     const report = detectToolchain(settings);
     console.log(formatToolchainReport(report));
   });
 
 program
-  .command('export')
-  .description('Export a game build')
-  .requiredOption('--platform <platform>', 'Target platform (web|linux|windows|mac)')
-  .option('--format <format>', 'Output format (zip|appimage|installer|deb|flatpak)')
-  .requiredOption('--entry <path>', 'Entry file path')
-  .requiredOption('--out <path>', 'Output directory')
-  .option('--minify', 'Minify output', false)
-  .option('--drop-console', 'Remove console calls', false)
-  .option('--sourcemap', 'Emit sourcemaps', false)
-  .option('--aggressive', 'Aggressive minification (tree-shaking + identifier minification)', false)
-  .option('--arch <arch>', 'Target architecture (x86_64|aarch64)', 'x86_64')
-  .action(async (opts: {
-    platform: string; format: string; entry: string; out: string;
-    minify: boolean; dropConsole: boolean; sourcemap: boolean;
-    aggressive: boolean; arch: string;
-  }) => {
-    const settings = loadToolchainSettings(process.cwd());
-    console.log(`Exporting for ${opts.platform} (${opts.arch}) — format: ${opts.format}`);
+  .command("export")
+  .description("Export a game build")
+  .requiredOption(
+    "--platform <platform>",
+    "Target platform (web|linux|windows|mac)",
+  )
+  .option(
+    "--format <format>",
+    "Output format (zip|appimage|installer|deb|flatpak)",
+  )
+  .requiredOption("--entry <path>", "Entry file path")
+  .requiredOption("--out <path>", "Output directory")
+  .option("--minify", "Minify output", false)
+  .option("--drop-console", "Remove console calls", false)
+  .option("--sourcemap", "Emit sourcemaps", false)
+  .option(
+    "--aggressive",
+    "Aggressive minification (tree-shaking + identifier minification)",
+    false,
+  )
+  .option("--arch <arch>", "Target architecture (x86_64|aarch64)", "x86_64")
+  .action(
+    async (opts: {
+      platform: string;
+      format: string;
+      entry: string;
+      out: string;
+      minify: boolean;
+      dropConsole: boolean;
+      sourcemap: boolean;
+      aggressive: boolean;
+      arch: string;
+    }) => {
+      const settings = loadToolchainSettings(process.cwd());
+      console.log(
+        `Exporting for ${opts.platform} (${opts.arch}) — format: ${opts.format}`,
+      );
 
-    if (opts.format === 'zip') {
-      await exportZip({ platform: opts.platform, arch: opts.arch, out: opts.out });
-      return;
-    }
-
-    if (opts.platform === 'linux') {
-      await exportLinux(opts, settings);
-    } else {
-      console.log(`Entry: ${opts.entry}`);
-      console.log(`Output: ${opts.out}`);
-      console.log('Done.');
-    }
-  });
-
-program
-  .command('import')
-  .description('Import a project from another engine')
-  .requiredOption('--from <engine>', 'Source engine (currently only: gms2)')
-  .requiredOption('--project <path>', 'Path to the source project file (e.g. game.yyp)')
-  .option('--out <dir>', 'Output directory (default: ./imported-<projectName>/)')
-  .option('--dry-run', 'Print what would be generated without writing files', false)
-  .option('--verbose', 'Log each asset as it is processed', false)
-  .action(async (opts: { from: string; project: string; out?: string; dryRun: boolean; verbose: boolean }) => {
-    if (opts.from !== 'gms2') {
-      console.error(`Unsupported --from value: "${opts.from}". Currently only "gms2" is supported.`);
-      console.error('Example: emptysock-toolchain import --from gms2 --project game.yyp');
-      process.exit(1);
-    }
-
-    const path = await import('path');
-    const yypPath = path.resolve(opts.project);
-
-    // Derive default project name for output directory
-    const projectName = path.basename(yypPath, '.yyp');
-    const outDir = opts.out ? path.resolve(opts.out) : path.resolve(`./imported-${projectName}`);
-
-    console.log(`Importing GMS2 project: ${yypPath}`);
-    if (opts.dryRun) console.log('[dry-run mode — no files will be written]');
-    console.log(`Output directory: ${outDir}`);
-
-    const result = await importGMS2Project(yypPath, outDir, { dryRun: opts.dryRun, verbose: opts.verbose });
-
-    console.log(`\nDone. Converted: ${result.converted} asset(s).`);
-    if (result.skipped.length > 0) {
-      console.log(`Skipped (manual work required): ${result.skipped.length} asset(s).`);
-    }
-    if (result.warnings.length > 0) {
-      console.log('\nWarnings:');
-      for (const w of result.warnings) {
-        console.warn(`  [warn] ${w}`);
+      if (opts.format === "zip") {
+        await exportZip({
+          platform: opts.platform,
+          arch: opts.arch,
+          out: opts.out,
+        });
+        return;
       }
-    }
-    if (!opts.dryRun) {
-      console.log(`\nSee ${path.join(outDir, 'migration-report.md')} for next steps.`);
-    }
-  });
+
+      if (opts.platform === "linux") {
+        await exportLinux(opts, settings);
+      } else {
+        console.log(`Entry: ${opts.entry}`);
+        console.log(`Output: ${opts.out}`);
+        console.log("Done.");
+      }
+    },
+  );
 
 program
-  .command('settings')
-  .description('Manage toolchain settings')
-  .option('--show', 'Print current settings')
-  .option('--set <key=value>', 'Set a key=value pair')
+  .command("import")
+  .description("Import a project from another engine")
+  .requiredOption("--from <engine>", "Source engine (currently only: gms2)")
+  .requiredOption(
+    "--project <path>",
+    "Path to the source project file (e.g. game.yyp)",
+  )
+  .option(
+    "--out <dir>",
+    "Output directory (default: ./imported-<projectName>/)",
+  )
+  .option(
+    "--dry-run",
+    "Print what would be generated without writing files",
+    false,
+  )
+  .option("--verbose", "Log each asset as it is processed", false)
+  .action(
+    async (opts: {
+      from: string;
+      project: string;
+      out?: string;
+      dryRun: boolean;
+      verbose: boolean;
+    }) => {
+      if (opts.from !== "gms2") {
+        console.error(
+          `Unsupported --from value: "${opts.from}". Currently only "gms2" is supported.`,
+        );
+        console.error(
+          "Example: emptysock-toolchain import --from gms2 --project game.yyp",
+        );
+        process.exit(1);
+      }
+
+      const path = await import("path");
+      const yypPath = path.resolve(opts.project);
+
+      // Derive default project name for output directory
+      const projectName = path.basename(yypPath, ".yyp");
+      const outDir = opts.out
+        ? path.resolve(opts.out)
+        : path.resolve(`./imported-${projectName}`);
+
+      console.log(`Importing GMS2 project: ${yypPath}`);
+      if (opts.dryRun) console.log("[dry-run mode — no files will be written]");
+      console.log(`Output directory: ${outDir}`);
+
+      const result = await importGMS2Project(yypPath, outDir, {
+        dryRun: opts.dryRun,
+        verbose: opts.verbose,
+      });
+
+      console.log(`\nDone. Converted: ${result.converted} asset(s).`);
+      if (result.skipped.length > 0) {
+        console.log(
+          `Skipped (manual work required): ${result.skipped.length} asset(s).`,
+        );
+      }
+      if (result.warnings.length > 0) {
+        console.log("\nWarnings:");
+        for (const w of result.warnings) {
+          console.warn(`  [warn] ${w}`);
+        }
+      }
+      if (!opts.dryRun) {
+        console.log(
+          `\nSee ${path.join(outDir, "migration-report.md")} for next steps.`,
+        );
+      }
+    },
+  );
+
+program
+  .command("settings")
+  .description("Manage toolchain settings")
+  .option("--show", "Print current settings")
+  .option("--set <key=value>", "Set a key=value pair")
   .action((opts: { show?: boolean; set?: string }) => {
     const settings = loadToolchainSettings(process.cwd());
     if (opts.show) {
       console.log(JSON.stringify(settings, null, 2));
     } else if (opts.set) {
-      const eqIdx = opts.set.indexOf('=');
-      if (eqIdx < 1) { console.error('--set requires key=value'); process.exit(1); }
+      const eqIdx = opts.set.indexOf("=");
+      if (eqIdx < 1) {
+        console.error("--set requires key=value");
+        process.exit(1);
+      }
       const key = opts.set.slice(0, eqIdx);
       const val = opts.set.slice(eqIdx + 1);
       (settings as Record<string, unknown>)[key] = val;
@@ -119,59 +180,77 @@ program
 
 async function exportLinux(
   opts: { entry: string; out: string; arch: string; format: string },
-  _settings: ReturnType<typeof loadToolchainSettings>
+  _settings: ReturnType<typeof loadToolchainSettings>,
 ): Promise<void> {
-  const { execFile } = await import('child_process');
-  const { promisify } = await import('util');
-  const path = await import('path');
-  const fs = await import('fs');
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const path = await import("path");
+  const fs = await import("fs");
   const exec = promisify(execFile);
 
   if (!fs.existsSync(opts.out)) fs.mkdirSync(opts.out, { recursive: true });
 
-  if (opts.format === 'zip') {
-    await exportZip({ platform: 'linux', arch: opts.arch, out: opts.out });
+  if (opts.format === "zip") {
+    await exportZip({ platform: "linux", arch: opts.arch, out: opts.out });
     return;
   }
 
   // AppImage
-  console.log('Building AppImage...');
+  console.log("Building AppImage...");
   try {
-    await exec('linuxdeploy', ['--appimage-extract-and-run', '--output', 'appimage', '--appdir', opts.out]);
+    await exec("linuxdeploy", [
+      "--appimage-extract-and-run",
+      "--output",
+      "appimage",
+      "--appdir",
+      opts.out,
+    ]);
     console.log(`AppImage written to: ${opts.out}`);
   } catch {
-    console.warn('linuxdeploy not found — skipping AppImage (install from https://github.com/linuxdeploy/linuxdeploy)');
+    console.warn(
+      "linuxdeploy not found — skipping AppImage (install from https://github.com/linuxdeploy/linuxdeploy)",
+    );
   }
 
   // tar.gz
-  console.log('Building tar.gz...');
+  console.log("Building tar.gz...");
   const tarOut = path.join(opts.out, `game-linux-${opts.arch}.tar.gz`);
   try {
-    await exec('tar', ['-czf', tarOut, '-C', path.dirname(opts.out), path.basename(opts.out)]);
+    await exec("tar", [
+      "-czf",
+      tarOut,
+      "-C",
+      path.dirname(opts.out),
+      path.basename(opts.out),
+    ]);
     console.log(`tar.gz: ${tarOut}`);
   } catch (e) {
-    console.error('tar.gz failed:', e);
+    console.error("tar.gz failed:", e);
   }
 
   // Flatpak manifest
-  console.log('Emitting Flatpak manifest...');
+  console.log("Emitting Flatpak manifest...");
   const manifest = {
-    'app-id': 'io.emptysock.Game',
-    runtime: 'org.freedesktop.Platform',
-    'runtime-version': '23.08',
-    sdk: 'org.freedesktop.Sdk',
-    command: 'game',
-    modules: [{
-      name: 'game',
-      buildsystem: 'simple',
-      'build-commands': [`install -Dm755 game /app/bin/game`],
-      sources: [{ type: 'dir', path: '.' }],
-    }],
+    "app-id": "io.emptysock.Game",
+    runtime: "org.freedesktop.Platform",
+    "runtime-version": "23.08",
+    sdk: "org.freedesktop.Sdk",
+    command: "game",
+    modules: [
+      {
+        name: "game",
+        buildsystem: "simple",
+        "build-commands": [`install -Dm755 game /app/bin/game`],
+        sources: [{ type: "dir", path: "." }],
+      },
+    ],
   };
-  const manifestPath = path.join(opts.out, 'io.emptysock.Game.json');
+  const manifestPath = path.join(opts.out, "io.emptysock.Game.json");
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Flatpak manifest: ${manifestPath}`);
-  console.log(`Run: flatpak-builder --user --install build-dir ${manifestPath}`);
+  console.log(
+    `Run: flatpak-builder --user --install build-dir ${manifestPath}`,
+  );
 }
 
 /**
@@ -182,11 +261,15 @@ async function exportLinux(
  * windows→ zips the portable .exe directory (no registry writes).
  * web    → zips the Vite dist/ folder (serve with any static host).
  */
-async function exportZip(opts: { platform: string; arch: string; out: string }): Promise<void> {
-  const { execFile } = await import('child_process');
-  const { promisify } = await import('util');
-  const path = await import('path');
-  const fs = await import('fs');
+async function exportZip(opts: {
+  platform: string;
+  arch: string;
+  out: string;
+}): Promise<void> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const path = await import("path");
+  const fs = await import("fs");
   const exec = promisify(execFile);
 
   if (!fs.existsSync(opts.out)) fs.mkdirSync(opts.out, { recursive: true });
@@ -195,73 +278,95 @@ async function exportZip(opts: { platform: string; arch: string; out: string }):
   const zipOut = path.join(opts.out, zipName);
 
   switch (opts.platform) {
-    case 'web': {
-      const distDir = path.join(opts.out, 'dist');
+    case "web": {
+      const distDir = path.join(opts.out, "dist");
       if (!fs.existsSync(distDir)) {
-        console.error(`Web dist/ not found at ${distDir}. Run "pnpm build" first.`);
+        console.error(
+          `Web dist/ not found at ${distDir}. Run "pnpm build" first.`,
+        );
         process.exit(1);
       }
       console.log(`Zipping web build → ${zipName}`);
-      await exec('zip', ['-r', zipOut, 'dist'], { cwd: opts.out });
+      await exec("zip", ["-r", zipOut, "dist"], { cwd: opts.out });
       console.log(`Portable web zip: ${zipOut}`);
-      console.log('To serve: unzip and run: npx serve dist  (or: python3 -m http.server --directory dist)');
+      console.log(
+        "To serve: unzip and run: npx serve dist  (or: python3 -m http.server --directory dist)",
+      );
       break;
     }
 
-    case 'linux': {
+    case "linux": {
       // Expect an AppImage in opts.out; zip it as-is (AppImage is already installer-free).
-      const appImages = fs.readdirSync(opts.out).filter(f => f.endsWith('.AppImage'));
+      const appImages = fs
+        .readdirSync(opts.out)
+        .filter((f) => f.endsWith(".AppImage"));
       if (appImages.length === 0) {
-        console.error('No .AppImage found in output dir. Run without --format zip first to produce the AppImage.');
+        console.error(
+          "No .AppImage found in output dir. Run without --format zip first to produce the AppImage.",
+        );
         process.exit(1);
       }
       const appImage = appImages[0];
       if (appImage === undefined) {
-        console.error('No .AppImage found in output dir.');
+        console.error("No .AppImage found in output dir.");
         process.exit(1);
       }
       console.log(`Zipping ${appImage} → ${zipName}`);
-      await exec('zip', [zipOut, appImage], { cwd: opts.out, encoding: 'utf8' as const });
+      await exec("zip", [zipOut, appImage], {
+        cwd: opts.out,
+        encoding: "utf8" as const,
+      });
       console.log(`Portable Linux zip: ${zipOut}`);
-      console.log('To run: unzip, chmod +x *.AppImage, then ./game.AppImage');
+      console.log("To run: unzip, chmod +x *.AppImage, then ./game.AppImage");
       break;
     }
 
-    case 'mac': {
+    case "mac": {
       // Expect a .app bundle in opts.out.
-      const apps = fs.readdirSync(opts.out).filter(f => f.endsWith('.app'));
+      const apps = fs.readdirSync(opts.out).filter((f) => f.endsWith(".app"));
       if (apps.length === 0) {
-        console.error('No .app bundle found in output dir. Run without --format zip first to produce the .app.');
+        console.error(
+          "No .app bundle found in output dir. Run without --format zip first to produce the .app.",
+        );
         process.exit(1);
       }
       const app = apps[0];
       if (app === undefined) {
-        console.error('No .app bundle found in output dir.');
+        console.error("No .app bundle found in output dir.");
         process.exit(1);
       }
       console.log(`Zipping ${app} → ${zipName}`);
-      await exec('zip', ['-r', zipOut, app], { cwd: opts.out, encoding: 'utf8' as const });
+      await exec("zip", ["-r", zipOut, app], {
+        cwd: opts.out,
+        encoding: "utf8" as const,
+      });
       console.log(`Portable macOS zip: ${zipOut}`);
-      console.log('To run: unzip, then open game.app (or double-click in Finder)');
+      console.log(
+        "To run: unzip, then open game.app (or double-click in Finder)",
+      );
       break;
     }
 
-    case 'windows': {
+    case "windows": {
       // On Windows, use PowerShell Compress-Archive. Works on all Windows 10+ machines.
       const exeDir = path.resolve(opts.out);
       const psCmd = `Compress-Archive -Path '${exeDir}\\*' -DestinationPath '${zipOut}' -Force`;
       console.log(`Zipping portable exe → ${zipName}`);
       try {
-        await exec('powershell', ['-NonInteractive', '-Command', psCmd]);
+        await exec("powershell", ["-NonInteractive", "-Command", psCmd]);
         console.log(`Portable Windows zip: ${zipOut}`);
-        console.log('To run: unzip and run game.exe — no installation required');
+        console.log(
+          "To run: unzip and run game.exe — no installation required",
+        );
       } catch {
         // Fallback: 7-Zip if available
         try {
-          await exec('7z', ['a', zipOut, path.join(exeDir, '*')]);
+          await exec("7z", ["a", zipOut, path.join(exeDir, "*")]);
           console.log(`Portable Windows zip (7z): ${zipOut}`);
         } catch {
-          console.error('zip failed: neither PowerShell Compress-Archive nor 7z is available');
+          console.error(
+            "zip failed: neither PowerShell Compress-Archive nor 7z is available",
+          );
           process.exit(1);
         }
       }

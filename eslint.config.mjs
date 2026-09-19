@@ -33,11 +33,24 @@ export default [
   },
   // Game-code rules — apply only to packages (not the IDE, which legitimately
   // uses setTimeout for React DOM work and imports pixi.js for engine internals).
+  // Engine implementation files that ARE the wrappers are excluded: they legitimately
+  // use localStorage (SaveSystem), setInterval (IDEBridge heartbeat), and pixi/howler/rapier.
   {
     files: [
       'packages/engine/src/**/*.ts',
       'packages/types/src/**/*.ts',
       'packages/toolchain/src/**/*.ts',
+    ],
+    ignores: [
+      'packages/engine/src/systems/SaveSystem.ts',
+      'packages/engine/src/systems/VariableStore.ts',
+      'packages/engine/src/systems/AudioSystem.ts',
+      'packages/engine/src/systems/RenderSystem.ts',
+      'packages/engine/src/systems/LightingSystem.ts',
+      'packages/engine/src/systems/PhysicsSystem.ts',
+      'packages/engine/src/systems/CameraSystem.ts',
+      'packages/engine/src/core/IDEBridge.ts',
+      'packages/engine/src/types/aliases.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,
