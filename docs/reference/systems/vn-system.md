@@ -4,7 +4,13 @@
 
 For a task-oriented introduction, see the [Visual Novel tutorial](../../tutorials/visual-novel.md).
 
-Import: `import { VNSystem, storyGraphToDialogueTree, type IVNListener, type DialogueNode, type StoryGraph } from '@emptysock/engine';`
+Import: `import { VNSystem, storyGraphToDialogueTree, type IVNListener, type DialogueNode, type StoryGraph, type VariableCondition } from '@emptysock/engine';`
+
+---
+
+## `new VNSystem(store?: VariableStore)`
+
+Defaults to the shared `variableStore` singleton (see [VariableStore](./variable-store.md)). Pass your own `VariableStore` instance for isolated testing or a per-save-slot store. This is the store `"condition"` nodes and conditional (`when`) choice options read from.
 
 ---
 
@@ -20,8 +26,12 @@ const tree = storyGraphToDialogueTree(graph);
 const vn = new VNSystem();
 // Register a listener BEFORE calling load():
 vn.setListener({
-  onNode(node) { /* ... */ },
-  onEnd() { /* ... */ },
+  onNode(node) {
+    /* ... */
+  },
+  onEnd() {
+    /* ... */
+  },
 });
 vn.load(tree); // synchronous; onNode fires immediately for the first node
 ```
@@ -105,13 +115,76 @@ All fields are optional — implement only the callbacks you need.
 
 Narrow on `node.type`:
 
-| `node.type`      | Key fields                                                   | Notes                                                 |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
-| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`           | Call `vn.advance()` to continue                       |
-| `'choice'`       | `text: string`, `options: { label: string; next: string }[]` | Call `vn.selectOption(opt.next)`                      |
-| `'event'`        | `eventName: string`, `data?: Record<string, unknown>`        | Engine auto-advances; handle side effects in `onEvent` |
-| `'variable-set'` | `variableKey: string`, `variableValue: unknown`              | Engine auto-advances; read result via `getVariable()` |
-| `'jump'`         | (resolved automatically)                                     | `onNode` never fires for jump nodes                   |
+| `node.type`      | Key fields                                                                             | Notes                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`                                     | Call `vn.advance()` to continue                                                                                          |
+| `'choice'`       | `text: string`, `options: { label: string; next: string; when?: VariableCondition }[]` | Call `vn.selectOption(opt.next)`; `when`-gated options are filtered out before `onChoice` fires                          |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>`                                  | Engine auto-advances; handle side effects in `onEvent`                                                                   |
+| `'variable-set'` | `variableKey: string`, `variableValue: unknown`                                        | Engine auto-advances; read result via `getVariable()`                                                                    |
+| `'jump'`         | (resolved automatically)                                                               | `onNode` never fires for jump nodes                                                                                      |
+| `'condition'`    | `condition: VariableCondition`, `ifTrue: string`, `ifFalse?: string`                   | Engine auto-advances to `ifTrue` or `ifFalse` (or ends if omitted and false) — see **Variable-gated conditionals** below |
+
+---
+
+## Variable-gated conditionals
+
+`VNSystem` reads persistent state from a [`VariableStore`](./variable-store.md) to gate branches in two ways:
+
+1. **`"condition"` nodes** route to one of two targets depending on a `VariableCondition`:
+
+   ```typescript
+   const tree: DialogueTree = {
+     startNode: "gate",
+     nodes: {
+       gate: {
+         type: "condition",
+         condition: { kind: "switch", index: 10, equals: true }, // "bossDefeated"
+         ifTrue: "kingThanksYou",
+         ifFalse: "kingWarnsYou",
+       },
+       kingThanksYou: {
+         type: "dialogue",
+         speaker: "King",
+         text: "You saved the realm.",
+       },
+       kingWarnsYou: {
+         type: "dialogue",
+         speaker: "King",
+         text: "The dragon still lives.",
+       },
+     },
+   };
+
+   const vn = new VNSystem(); // reads the shared variableStore
+   vn.setListener({
+     onNode(node) {
+       /* ... */
+     },
+   });
+   vn.load(tree); // resolves the condition node immediately, no listener callback for it
+   ```
+
+   `ifFalse` is optional — if omitted and the condition is false, the tree ends (`onEnd` fires) exactly as if `next` were `undefined` on a dialogue node.
+
+2. **Choice options** can carry a `when: VariableCondition`. Options whose condition is not met are removed from the array passed to `onChoice` — the game code that renders buttons never has to re-check the condition itself:
+
+   ```typescript
+   const node: DialogueNode = {
+     type: "choice",
+     text: "The door is locked.",
+     options: [
+       {
+         label: "Unlock it",
+         next: "open",
+         when: { kind: "switch", index: 2, equals: true },
+       }, // "hasKey"
+       { label: "Walk away", next: "leave" },
+     ],
+   };
+   // If switch 2 ("hasKey") is false, onChoice receives only [{ label: "Walk away", next: "leave" }].
+   ```
+
+Set the variables driving these conditions from map events (`MapEventSystem`'s `set-variable` / `set-switch` commands apply directly to the shared store) or from your own game logic via `variableStore.setVar` / `setSwitch`.
 
 ---
 
@@ -188,3 +261,4 @@ export class NarrativeScene extends Scene {
 - `VNSystem` has no `destroy()` — release the reference and it is garbage-collected.
 - `VNSystem` has no internal save state. Store `vn.currentNode?.id` and re-walk the graph on resume.
 - Register a listener with `setListener()` **before** calling `load()` or the first node fires without a listener.
+- `"condition"` nodes and conditional (`when`) choice options are a `.vnscript` / `DialogueTree` (runtime) feature. The Story Graph panel's visual editor does not yet expose authoring them — build trees with conditions by hand or generate them programmatically until editor support lands.

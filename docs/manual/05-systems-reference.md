@@ -196,27 +196,48 @@ navMesh.update(dt); // call each frame (reserved for dynamic obstacles)
 
 ## 5.6 Save System
 
+`SaveSystem` is instanced and synchronous. It is generic persistence only — the shape of a slot is a Zod schema you supply (or the default `GameSaveSlot` shape if you don't):
+
 ```typescript
-import { SaveSystem } from "@emptysock/engine";
-import { z } from "zod";
+import { SaveSystem, type GameSaveSlot } from "@emptysock/engine";
 
-const Schema = z.object({
-  scene: z.string(),
-  score: z.number(),
-  flags: z.record(z.boolean()),
-});
-type SaveData = z.infer<typeof Schema>;
+// Default GameSaveSlot shape: { id, scene, data, timestamp, playtime }
+const saves = new SaveSystem();
 
-await SaveSystem.save("slot-1", { scene: "Level2", score: 4200, flags: {} });
+saves.save("slot-1", { scene: "Level2", data: { score: 4200, flags: {} } });
 
-const raw = await SaveSystem.load("slot-1"); // throws SlotNotFoundError if missing
-const data = Schema.parse(raw.data); // always validate
-
-await SaveSystem.delete("slot-1");
-const slots = await SaveSystem.listSlots(); // string[]
+const slot: GameSaveSlot | null = saves.load("slot-1"); // null if missing/corrupt/invalid
+saves.delete("slot-1");
+const allSlots = saves.listSlots(); // GameSaveSlot[]
 ```
 
-> **Warning:** Never cast `raw.data as MyType`. Save files can be corrupt, edited, or from a different game version. Schema validation is the contract.
+`load()` and `listSlots()` already validate against the configured schema — a non-null/included result is guaranteed to match the shape, no separate `schema.parse(raw.data)` step needed.
+
+For a slot shape that doesn't fit `{ scene, data, timestamp, playtime }`, pass your own schema instead of relying on the default:
+
+```typescript
+import { z } from "zod";
+
+const CharacterSaveSchema = z.object({
+  id: z.string(),
+  characterName: z.string(),
+  level: z.number().int().positive(),
+  unlockedSkills: z.array(z.string()),
+});
+type CharacterSave = z.infer<typeof CharacterSaveSchema>;
+
+const characterSaves = new SaveSystem<CharacterSave>(
+  "char_save_",
+  CharacterSaveSchema,
+);
+characterSaves.save("hero-1", {
+  characterName: "Aria",
+  level: 5,
+  unlockedSkills: ["dash"],
+});
+```
+
+See [SaveSystem reference](../reference/systems/save-system.md) for the full schema-extension API.
 
 ---
 
@@ -733,13 +754,16 @@ const flag: unknown = vn.getVariable("metHero");
 
 **`DialogueNode` — discriminated union (narrow by `node.type`):**
 
-| `node.type`      | Key fields                                            | Notes                                          |
-| ---------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                                |
-| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode`            |
-| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances; fires `onEvent`          |
-| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances; read via `getVariable()` |
-| `'jump'`         | (resolved automatically)                              | `onNode` never fires                           |
+| `node.type`      | Key fields                                            | Notes                                                                                          |
+| ---------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                                                                                |
+| `'choice'`       | `text: string`, `options: { label, next, when? }[]`   | Use `onChoice` or check in `onNode`; `when`-gated options are filtered before `onChoice` fires |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances; fires `onEvent`                                                          |
+| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances; read via `getVariable()`                                                 |
+| `'jump'`         | (resolved automatically)                              | `onNode` never fires                                                                           |
+| `'condition'`    | `condition: VariableCondition`, `ifTrue`, `ifFalse?`  | Engine auto-advances based on `evaluateCondition()` against the `VariableStore`                |
+
+**Variable-gated conditionals:** `new VNSystem(store?)` defaults to the shared `variableStore` singleton. `'condition'` nodes route to `ifTrue`/`ifFalse` based on a `VariableCondition` (switch or variable comparison); choice options' `when` field filters the array `onChoice` receives. Set the driving variables from `MapEventSystem` (`set-variable` / `set-switch` commands apply automatically) or directly via `variableStore.setVar` / `setSwitch`. See [VariableStore reference](../reference/systems/variable-store.md) and [VNSystem reference](../reference/systems/vn-system.md#variable-gated-conditionals) for a full runnable example.
 
 **Save/resume:** VNSystem has no internal save state. Store the current node id (`vn.currentNode?.id`) and re-walk the graph on resume. See Section 8 (Story Graph) for a full example.
 
@@ -801,7 +825,23 @@ const snap = vars.snapshot(); // VariableStoreData
 vars.restore(snap);
 ```
 
-**MapEventSystem integration:** `set-variable` and `set-switch` commands in map events read from and write to a VariableStore by index.
+**Conditional logic integration:** `VariableCondition` (also exported from `@emptysock/engine`) is the shared condition shape both `VNSystem` and `MapEventSystem` gate on:
+
+```typescript
+import { evaluateCondition, type VariableCondition } from "@emptysock/engine";
+
+const hasKey: VariableCondition = { kind: "switch", index: 2, equals: true };
+const strongEnough: VariableCondition = {
+  kind: "variable",
+  index: 4,
+  op: "gte",
+  value: 10,
+};
+
+evaluateCondition(vars, hasKey); // reads vars.getSwitch(2)
+```
+
+`VNSystem` `"condition"` nodes and choice-option `when` fields, and `MapEventSystem`'s per-event `when` field, all evaluate a `VariableCondition` against a `VariableStore` — see 5.20 and `docs/reference/systems/vn-system.md`.
 
 ---
 
@@ -810,9 +850,10 @@ vars.restore(snap);
 Tile-aligned event system similar to RPG Maker / GMS2. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
 
 ```typescript
-import { MapEventSystem } from "@emptysock/engine";
+import { MapEventSystem, variableStore } from "@emptysock/engine";
 
-const events = new MapEventSystem();
+const events = new MapEventSystem(); // defaults to the shared `variableStore` singleton
+// or: new MapEventSystem(myVariableStore) for a per-save-slot store
 
 events.addEvent({
   id: "chest-event",
@@ -828,10 +869,9 @@ events.addEvent({
 events.setHandler(async (cmd) => {
   if (cmd.type === "show-dialogue") {
     await showDialogue(cmd.speaker, cmd.text);
-  } else if (cmd.type === "set-variable") {
-    varStore.setVar(cmd.index, cmd.value);
   }
-  // handle other commands…
+  // 'set-variable' and 'set-switch' are NOT forwarded here — MapEventSystem
+  // applies them to its VariableStore itself. Handle only the other command types.
 });
 
 // In onUpdate:
@@ -839,6 +879,35 @@ events.update(playerTileX, playerTileY, Input.isPressed("Space"));
 ```
 
 Trigger types: `autorun` runs once on entry; `player-touch` fires when the player steps on the tile; `action-button` fires when the action key is pressed on the tile; `parallel` runs every frame concurrently.
+
+### Conditional events
+
+Add a `when: VariableCondition` field to gate whether an event can run at all. It is re-checked every frame, so a gated `autorun` or `parallel` event starts as soon as the condition becomes true — no polling needed:
+
+```typescript
+events.addEvent({
+  id: "secret-passage",
+  tileX: 12,
+  tileY: 3,
+  trigger: "autorun",
+  when: { kind: "switch", index: 10, equals: true }, // "bossDefeated"
+  commands: [
+    { type: "show-dialogue", speaker: "Narrator", text: "A path appears." },
+  ],
+});
+
+// Elsewhere, another event's set-switch command flips the switch — MapEventSystem
+// applies it to the VariableStore automatically:
+events.addEvent({
+  id: "defeat-boss",
+  tileX: 12,
+  tileY: 1,
+  trigger: "player-touch",
+  commands: [{ type: "set-switch", index: 10, value: true }],
+});
+```
+
+Once the player steps on `defeat-boss`'s tile, `secret-passage`'s `when` condition is met on the very next `update()` call, and its `autorun` fires.
 
 ---
 

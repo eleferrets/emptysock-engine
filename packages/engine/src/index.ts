@@ -67,6 +67,7 @@ export type {
   IVNListener,
   DialogueNode,
   DialogueTree,
+  ChoiceOption,
 } from "./systems/VNSystem.js";
 
 export {
@@ -98,7 +99,7 @@ export type {
 export { NavMeshSystem } from "./systems/NavMeshSystem.js";
 export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
-export type { SaveSlot } from "./systems/SaveSystem.js";
+export type { SaveSlot, GameSaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
 export type { Locale, TranslationMap } from "./systems/LocalisationSystem.js";
 export {
@@ -117,8 +118,15 @@ export type {
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
 
-export { VariableStore, variableStore } from "./systems/VariableStore.js";
-export type { VariableStoreData } from "./systems/VariableStore.js";
+export {
+  VariableStore,
+  variableStore,
+  evaluateCondition,
+} from "./systems/VariableStore.js";
+export type {
+  VariableStoreData,
+  VariableCondition,
+} from "./systems/VariableStore.js";
 
 // Core Manager
 export { SystemManager } from "./core/SystemManager.js";

@@ -1,116 +1,148 @@
 # SaveSystem
 
-`SaveSystem` reads and writes persistent save slots. All operations are async. Always validate save data with a schema — save files can be corrupt, edited, or from a different game version.
+`SaveSystem` is generic key-value persistence for save slots, backed by `localStorage`. All operations are synchronous. It only knows how to store, retrieve, and validate an opaque JSON object per slot under a prefixed key — it does not decide what a "save slot" contains. The shape of a slot is supplied to the constructor as a Zod schema.
 
 For a task-oriented introduction, see the [Saving and Localisation guide](../../guides/saving-and-localisation.md).
 
-Import: `import { SaveSystem } from '@emptysock/engine';`
+Import: `import { SaveSystem, type GameSaveSlot } from '@emptysock/engine';`
 
 ---
 
-## `SaveSystem.save(slot: string, data: unknown): Promise<void>`
+## `new SaveSystem<TSlot>(prefix?: string, schema?: z.ZodType<TSlot>)`
 
-Write `data` to the named slot. Overwrites any existing data in that slot.
+- With no `schema`, `SaveSystem` uses the default `GameSaveSlot` shape — `{ id, scene, data, timestamp, playtime }` — matching a typical `startScene`-driven game. This is the _default policy_, not something baked into the persistence mechanism.
+- With a `schema`, `SaveSystem` stores whatever shape that schema describes instead. `schema` must validate the full slot including an `id: string` field — `save()` fills `id` in from the slot name automatically, so your schema just needs to require it.
+- `prefix` sets the `localStorage` key prefix (default `"emptysock_save_"`). Use a different prefix per `SaveSystem` instance to keep unrelated slot shapes from colliding in storage.
 
 ```typescript
-await SaveSystem.save("slot-1", {
+import { SaveSystem } from "@emptysock/engine";
+
+// Default GameSaveSlot shape:
+const saves = new SaveSystem();
+```
+
+---
+
+## `GameSaveSlot` — the default slot shape
+
+```typescript
+interface GameSaveSlot {
+  readonly id: string;
+  readonly scene: string;
+  readonly data: Record<string, unknown>;
+  readonly timestamp: number;
+  readonly playtime: number;
+}
+```
+
+---
+
+## `save(slotId: string, entry): void`
+
+Write a slot, keyed by `slotId`. With the default schema, `timestamp` defaults to `Date.now()` and `playtime` defaults to `0` when omitted, so a minimal call only needs `scene` and `data`:
+
+```typescript
+saves.save("slot-1", {
   scene: "Level2",
-  score: 4200,
-  flags: { doorOpen: true },
+  data: { score: 4200, flags: { doorOpen: true } },
 });
 ```
 
+With a custom schema, `entry` must supply every field the schema requires except `id`.
+
+If the assembled slot does not validate against the configured schema, `save()` logs a warning and does not write anything — it never silently drops unknown fields or partially persists invalid data.
+
 ---
 
-## `SaveSystem.load(slot: string): Promise<SaveResult>`
+## `load(slotId: string): TSlot | null`
 
-Load data from the named slot. Throws `SlotNotFoundError` if the slot does not exist.
-
-### SaveResult
-
-| Field     | Type      | Description                                         |
-| --------- | --------- | --------------------------------------------------- |
-| `data`    | `unknown` | The raw saved value — always validate with a schema |
-| `slot`    | `string`  | The slot name                                       |
-| `savedAt` | `number`  | Unix timestamp (ms) when the slot was written       |
+Load and validate a slot. Returns `null` if the slot does not exist, the stored JSON is corrupted, or it no longer matches the configured schema (e.g. it was written by an older game version with a different shape).
 
 ```typescript
-import { z } from "zod";
-
-const Schema = z.object({
-  scene: z.string(),
-  score: z.number(),
-  flags: z.record(z.boolean()),
-});
-type SaveData = z.infer<typeof Schema>;
-
-const raw = await SaveSystem.load("slot-1");
-const data = Schema.parse(raw.data); // always validate
+const slot = saves.load("slot-1");
+if (slot !== null) {
+  loadScene(slot.scene);
+}
 ```
 
-> **Warning:** Never cast `raw.data as MyType`. Save files can be corrupt, edited, or from a different game version. Schema validation is the contract between your game and its saves.
+> Because `load()` already validates against the schema you gave the constructor, there's no separate "cast and hope" step — a non-null result is guaranteed to match `TSlot`.
 
 ---
 
-## `SaveSystem.delete(slot: string): Promise<void>`
+## `listSlots(): TSlot[]`
+
+Return every stored slot under this instance's prefix that currently validates against the schema. Malformed or foreign-shaped entries are skipped, not thrown.
+
+```typescript
+for (const slot of saves.listSlots()) {
+  renderSlotButton(slot.id, slot.scene, slot.playtime);
+}
+```
+
+---
+
+## `delete(slotId: string): void`
 
 Delete the named slot. Does nothing if the slot does not exist.
 
-```typescript
-await SaveSystem.delete("slot-1");
-```
-
 ---
 
-## `SaveSystem.listSlots(): Promise<string[]>`
+## Using a custom slot schema
 
-Return the names of all existing save slots.
+A game whose save data doesn't fit `{ scene, data, timestamp, playtime }` — per-character saves, a different set of bookkeeping fields, no `scene` field at all — passes its own Zod schema instead of relying on the default:
 
 ```typescript
-const slots = await SaveSystem.listSlots();
-// → ['slot-1', 'slot-2', 'autosave']
+import { SaveSystem } from "@emptysock/engine";
+import { z } from "zod";
+
+const CharacterSaveSchema = z.object({
+  id: z.string(),
+  characterName: z.string(),
+  level: z.number().int().positive(),
+  unlockedSkills: z.array(z.string()),
+});
+type CharacterSave = z.infer<typeof CharacterSaveSchema>;
+
+const characterSaves = new SaveSystem<CharacterSave>(
+  "char_save_",
+  CharacterSaveSchema,
+);
+
+characterSaves.save("hero-1", {
+  characterName: "Aria",
+  level: 5,
+  unlockedSkills: ["dash", "parry"],
+});
+
+const hero = characterSaves.load("hero-1"); // CharacterSave | null
 ```
 
----
-
-## Error types
-
-| Class               | When thrown                                   |
-| ------------------- | --------------------------------------------- |
-| `SlotNotFoundError` | `load()` called on a slot that does not exist |
+Nothing about `SaveSystem` special-cases `scene`, `data`, `timestamp`, or `playtime` when a custom schema is given — those are purely the default schema's fields, not a hardcoded allow-list.
 
 ---
 
 ## Full example
 
 ```typescript
-import { SaveSystem } from "@emptysock/engine";
-import { z } from "zod";
+import { SaveSystem, type GameSaveSlot } from "@emptysock/engine";
 
-const SaveSchema = z.object({
-  level: z.string(),
-  score: z.number(),
-  inventory: z.array(z.string()),
-});
-type Save = z.infer<typeof SaveSchema>;
+const saves = new SaveSystem();
 
-async function saveGame(slot: string, data: Save): Promise<void> {
-  await SaveSystem.save(slot, data);
+function saveGame(
+  slotId: string,
+  scene: string,
+  data: Record<string, unknown>,
+): void {
+  saves.save(slotId, { scene, data });
 }
 
-async function loadGame(slot: string): Promise<Save | null> {
-  try {
-    const raw = await SaveSystem.load(slot);
-    return SaveSchema.parse(raw.data);
-  } catch {
-    return null; // slot not found or data invalid
-  }
+function loadGame(slotId: string): GameSaveSlot | null {
+  return saves.load(slotId); // already validated — no manual schema.parse needed
 }
 
-async function showSaveSlotMenu(): Promise<void> {
-  const slots = await SaveSystem.listSlots();
-  for (const slot of slots) {
-    // render a button for each slot
+function showSaveSlotMenu(): void {
+  for (const slot of saves.listSlots()) {
+    renderSlotButton(slot.id, slot.scene, slot.playtime);
   }
 }
 ```

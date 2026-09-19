@@ -1,3 +1,12 @@
+import {
+  type VariableStore,
+  variableStore,
+  evaluateCondition,
+  type VariableCondition,
+} from "./VariableStore.js";
+
+export type { VariableCondition } from "./VariableStore.js";
+
 export type EventTriggerType =
   | "autorun"
   | "player-touch"
@@ -18,6 +27,14 @@ export interface MapEvent {
   tileY: number;
   trigger: EventTriggerType;
   commands: EventCommand[];
+  /**
+   * Optional gate evaluated against the `VariableStore` before the event is
+   * allowed to run. When present and false, `update()` skips the event
+   * entirely — it never triggers, autoruns, or fires as a parallel process,
+   * and it is re-checked every frame so it can start once the condition
+   * becomes true.
+   */
+  when?: VariableCondition;
 }
 
 export type EventCommandHandler = (cmd: EventCommand) => void | Promise<void>;
@@ -35,6 +52,17 @@ export class MapEventSystem {
   private _triggered: Set<string> = new Set();
   private _parallelRunning: Set<string> = new Set();
   private _destroyed = false;
+  private readonly _store: VariableStore;
+
+  /**
+   * @param store The `VariableStore` used to gate `when`-conditioned events
+   * and to apply `set-variable` / `set-switch` commands. Defaults to the
+   * shared `variableStore` singleton; pass a different instance for isolated
+   * testing or a per-save-slot store.
+   */
+  constructor(store: VariableStore = variableStore) {
+    this._store = store;
+  }
 
   /** Register the handler that executes each command */
   setHandler(handler: EventCommandHandler): void {
@@ -63,6 +91,12 @@ export class MapEventSystem {
     // Fire all parallel events that are not already running (concurrent — not blocked by _running)
     for (const event of this._events.values()) {
       if (
+        event.when !== undefined &&
+        !evaluateCondition(this._store, event.when)
+      ) {
+        continue;
+      }
+      if (
         event.trigger === "parallel" &&
         !this._parallelRunning.has(event.id)
       ) {
@@ -74,6 +108,12 @@ export class MapEventSystem {
 
     for (const event of this._events.values()) {
       if (event.trigger === "parallel") continue;
+      if (
+        event.when !== undefined &&
+        !evaluateCondition(this._store, event.when)
+      ) {
+        continue;
+      }
       if (event.trigger === "autorun" && !this._triggered.has(event.id)) {
         this._runEvent(event);
         return;
@@ -128,6 +168,21 @@ export class MapEventSystem {
       return;
     }
     state.commandIndex++;
+
+    // `set-variable` / `set-switch` are applied to the VariableStore directly
+    // by the engine — they are the mechanism `when` conditions read back, so
+    // game code never needs to intercept them in its command handler.
+    if (cmd.type === "set-variable") {
+      this._store.setVar(cmd.index, cmd.value);
+      this._executeCommandChain(state, onDone);
+      return;
+    }
+    if (cmd.type === "set-switch") {
+      this._store.setSwitch(cmd.index, cmd.value);
+      this._executeCommandChain(state, onDone);
+      return;
+    }
+
     const result = this._handler(cmd);
     if (result instanceof Promise) {
       void result.then(() => {
