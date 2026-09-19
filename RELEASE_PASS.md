@@ -120,16 +120,14 @@ The wrapper was removed in this pass. The correct call is `SceneManagerInstance.
 
 ## Branch names for the next pass
 
-All three repos must be worked on together. The current `claude/nifty-fermat-wsmwml` branch is the one that has all the changes from this session and the previous one. PRs for it have not been merged yet.
+The current work (`claude/nifty-fermat-wsmwml`) has open PRs against `main` — they have not been merged yet. The next-pass branches below are at the same HEAD as `nifty-fermat` and include all work from this and the prior session.
 
-**Next-pass branch (create from main after merging current PRs):**
+**Develop the next pass on these branches:**
 
-| Repo                             | Next branch                  |
-| -------------------------------- | ---------------------------- |
-| `eleferrets/emptysock-engine`    | `claude/next-pass-engine`    |
-| `eleferrets/emptysock-ai-skills` | `claude/next-pass-ai-skills` |
-| `eleferrets/emptysock-mcp`       | `claude/next-pass-mcp`       |
+| Repo                             | Next branch                  | Open PR (merge to main when ready)                             |
+| -------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| `eleferrets/emptysock-engine`    | `claude/next-pass-engine`    | [#17](https://github.com/eleferrets/emptysock-engine/pull/17)  |
+| `eleferrets/emptysock-ai-skills` | `claude/next-pass-ai-skills` | [#8](https://github.com/eleferrets/emptysock-ai-skills/pull/8) |
+| `eleferrets/emptysock-mcp`       | `claude/next-pass-mcp`       | [#8](https://github.com/eleferrets/emptysock-mcp/pull/8)       |
 
-When starting the next pass, create these branches from `main` (after the current PRs merge), not from `claude/nifty-fermat-wsmwml`.
-
-In `emptysock-engine` the system prompt's "develop on branch" line will say `claude/next-pass-engine`; same pattern for the other two repos.
+Once those PRs merge, the next-pass branches can be rebased onto main or left as-is — they already contain all prior work and any new commits land cleanly on top.
