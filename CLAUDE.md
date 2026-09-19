@@ -104,6 +104,12 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 ---
 
+## Between-session task tracking
+
+`RELEASE_PASS.md` (next to this file) is the canonical task checklist for work that spans agent sessions. Before starting any multi-step pass, write open items there with `[ ]` so context compaction cannot lose them. Mark `[x]` when done. Do not duplicate it in companion repos.
+
+---
+
 ## Conventions
 
 **Commits** follow the Conventional Commits spec, enforced by Husky and commitlint. The format is `type(scope): subject`. Valid types: feat, fix, docs, chore, refactor, test, perf, ci. Never bypass the hook with `--no-verify`; it also runs lint-staged (ESLint + Prettier), so bypassing it leaves unformatted code in git.
