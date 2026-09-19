@@ -377,7 +377,7 @@ class BattleScene extends Scene {
       });
     }
     if (e.kind === "victory") {
-      SceneManagerInstance.transition("overworld", { effect: "fade" });
+      SceneManagerInstance.transition("overworld", { duration: 0.3 });
     }
   }
 

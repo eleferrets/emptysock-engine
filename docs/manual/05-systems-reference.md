@@ -672,11 +672,12 @@ Plays back a branching dialogue tree exported from the **Story Graph** panel (Mo
 import {
   VNSystem,
   storyGraphToDialogueTree,
+  type IVNListener,
   type DialogueNode,
   type StoryGraph,
 } from "@emptysock/engine";
 
-// In onLoad — register callbacks BEFORE calling load():
+// In onLoad — register a listener BEFORE calling load():
 override async onLoad(): Promise<void> {
   const response = await fetch("assets/story/chapter1.storyGraph.json");
   const graph: StoryGraph = await response.json() as StoryGraph;
@@ -684,24 +685,26 @@ override async onLoad(): Promise<void> {
 
   const vn = new VNSystem();
 
-  vn.onNode = (node: DialogueNode) => {
-    if (node.type === "dialogue") {
-      renderDialogue(node.speaker, node.text);
-    } else if (node.type === "choice") {
-      renderChoices(node.options);   // options: Array<{ label: string; next: string }>
-    } else if (node.type === "event") {
-      handleGameEvent(node.eventName, node.data);   // auto-advanced by engine
-    }
-    // 'jump' nodes resolved automatically — onNode never fires for them
-    // 'variable-set' nodes: onNode fires, engine auto-advances
+  const listener: IVNListener = {
+    onNode(node: DialogueNode) {
+      if (node.type === "dialogue") {
+        renderDialogue(node.speaker, node.text);
+      } else if (node.type === "choice") {
+        renderChoices(node.options);   // options: Array<{ label: string; next: string }>
+      }
+      // 'jump' nodes resolved automatically — onNode never fires for them
+      // 'variable-set' nodes auto-advance; read result via vn.getVariable(key)
+    },
+    onEvent(eventName, data) {
+      handleGameEvent(eventName, data);   // auto-advanced by engine
+    },
+    onChoice(options) {
+      showChoiceButtons(options);   // options: Array<{ label: string; next: string }>
+    },
+    onEnd() { hideDialogueBox(); },
   };
 
-  vn.onChoice = (options) => {
-    showChoiceButtons(options);   // options: Array<{ label: string; next: string }>
-  };
-
-  vn.onEnd = () => { hideDialogueBox(); };
-
+  vn.setListener(listener);
   vn.load(tree);   // synchronous; onNode fires immediately for first node
 }
 
@@ -713,21 +716,34 @@ vn.selectOption(option.next);   // option.next is a node id string
 
 // Read the current node at any time:
 const node: DialogueNode | null = vn.currentNode;
+
+// Read variables set by 'variable-set' nodes:
+const flag: unknown = vn.getVariable("metHero");
 ```
+
+**`IVNListener` interface** — all fields optional; implement only what you need:
+
+| Callback   | Signature                                              | When called                            |
+| ---------- | ------------------------------------------------------ | -------------------------------------- |
+| `onNode`   | `(node: DialogueNode) => void`                         | Every node except auto-resolved jumps  |
+| `onChoice` | `(options: { label: string; next: string }[]) => void` | When a `'choice'` node is reached      |
+| `onEnd`    | `() => void`                                           | When the tree has no more nodes        |
+| `onEvent`  | `(eventName: string, ...args: unknown[]) => void`      | When an `'event'` node fires           |
+| `onCGNode` | `(cgPath: string) => void`                             | When a node carries a CG image path    |
 
 **`DialogueNode` — discriminated union (narrow by `node.type`):**
 
-| `node.type`      | Key fields                                            | Notes                               |
-| ---------------- | ----------------------------------------------------- | ----------------------------------- |
-| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                     |
-| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode` |
-| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances after `onNode` |
-| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances after `onNode` |
-| `'jump'`         | (resolved automatically)                              | `onNode` never fires                |
+| `node.type`      | Key fields                                            | Notes                                      |
+| ---------------- | ----------------------------------------------------- | ------------------------------------------ |
+| `'dialogue'`     | `speaker: string`, `text: string`, `next?: string`    |                                            |
+| `'choice'`       | `text: string`, `options: { label, next }[]`          | Use `onChoice` or check in `onNode`        |
+| `'event'`        | `eventName: string`, `data?: Record<string, unknown>` | Engine auto-advances; fires `onEvent`      |
+| `'variable-set'` | `variableKey: string`, `variableValue: unknown`       | Engine auto-advances; read via `getVariable()` |
+| `'jump'`         | (resolved automatically)                              | `onNode` never fires                       |
 
 **Save/resume:** VNSystem has no internal save state. Store the current node id (`vn.currentNode?.id`) and re-walk the graph on resume. See Section 8 (Story Graph) for a full example.
 
-> `VNSystem` has no `destroy()` — release the reference and it is garbage-collected. Register `onNode`, `onChoice`, `onEvent`, and `onEnd` before calling `load()` or the first node fires without a listener.
+> `VNSystem` has no `destroy()` — release the reference and it is garbage-collected. Register a listener with `setListener()` before calling `load()` or the first node fires without a listener.
 
 ---
 
@@ -936,15 +952,17 @@ class NarrativeScene extends Scene {
 
     // Choice selection is external — VNTextbox shows options as numbered text
     // but selection requires your own buttons:
-    this._vn.onChoice = (options) => {
-      options.forEach((opt, i) => {
-        const btn = createChoiceButton(i + 1, opt.label);
-        btn.onClick(() => {
-          this._vn.selectOption(opt.next); // opt.next is the target node id
-          removeChoiceButtons();
+    this._vn.setListener({
+      onChoice: (options) => {
+        options.forEach((opt, i) => {
+          const btn = createChoiceButton(i + 1, opt.label);
+          btn.onClick(() => {
+            this._vn.selectOption(opt.next); // opt.next is the target node id
+            removeChoiceButtons();
+          });
         });
-      });
-    };
+      },
+    });
 
     this._vn.load(tree); // fires onNode for first node immediately
   }

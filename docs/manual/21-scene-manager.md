@@ -59,20 +59,17 @@ SceneManagerInstance.load("gameover");
 
 ### `transition(name, options?)`
 
-Queues a scene switch with a visual transition effect. The switch completes on the next `update()` call once the effect duration has elapsed.
+Queues a scene switch with a delay. The switch completes on the next `update()` call once the duration has elapsed. Visual transition effects are not yet implemented — `transition()` currently introduces a timed delay only.
 
-| Parameter          | Type               | Description                                         |
-| ------------------ | ------------------ | --------------------------------------------------- |
-| `name`             | `string`           | Registered scene name                               |
-| `options.effect`   | `TransitionEffect` | Visual effect (see below). Default: `'none'`        |
-| `options.duration` | `number`           | Effect duration in seconds. Default: `0.3`          |
-| `options.colour`   | `number`           | Overlay colour for flash/fade (hex). Default: black |
-
-**TransitionEffect values:** `'fade'` · `'wipe'` · `'iris'` · `'slide'` · `'zoom'` · `'dissolve'` · `'flash'` · `'none'`
+| Parameter          | Type     | Description                                         |
+| ------------------ | -------- | --------------------------------------------------- |
+| `name`             | `string` | Registered scene name                               |
+| `options.duration` | `number` | Delay before the switch, in seconds. Default: `0.3` |
+| `options.colour`   | `number` | Reserved for future use (overlay colour, hex)       |
 
 ```typescript
-// Fade to black over half a second then show the game scene
-SceneManagerInstance.transition("game", { effect: "fade", duration: 0.5 });
+// Delay 0.5 seconds then load the game scene
+SceneManagerInstance.transition("game", { duration: 0.5 });
 ```
 
 ---
@@ -110,7 +107,7 @@ SceneManagerInstance.popScene();
 | ----------------- | --------------- | -------------------------------------------------- |
 | `current`         | `Scene \| null` | The currently active scene                         |
 | `stackDepth`      | `number`        | Total scenes on the stack including the active one |
-| `isTransitioning` | `boolean`       | `true` while a `transition()` effect is running    |
+| `isTransitioning` | `boolean`       | `true` while a `transition()` delay is in progress |
 
 ---
 
@@ -135,7 +132,7 @@ class LevelCompleteScene extends Scene {
   override async onLoad(): Promise<void> {
     // Show score, play fanfare ...
     await this.waitSeconds(2);
-    SceneManagerInstance.transition("game", { effect: "wipe", duration: 0.4 });
+    SceneManagerInstance.transition("game", { duration: 0.4 });
   }
 }
 ```

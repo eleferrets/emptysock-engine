@@ -107,7 +107,7 @@ const btn = new ButtonWidget({
   height: 44,
 });
 btn.on("click", () =>
-  SceneManagerInstance.transition("game", { effect: "fade" }),
+  SceneManagerInstance.transition("game", { duration: 0.3 }),
 );
 ```
 
