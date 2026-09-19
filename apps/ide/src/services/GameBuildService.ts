@@ -176,7 +176,7 @@ async function runBuild(
   filename = "game.ts",
   aggressiveMode = false,
   virtualFiles: Record<string, string> = {},
-  target: string[] = ["es2026"],
+  target: string[] = ["es2024"],
   define: Record<string, string> = {},
   format: "esm" | "iife" = "esm",
 ): Promise<BuildJobResult> {
@@ -308,7 +308,7 @@ export class GameBuildService {
     const result = await eb.transform(code, {
       loader,
       format: "esm",
-      target: ["es2026"],
+      target: ["es2024"],
     });
     return result.code;
   }
