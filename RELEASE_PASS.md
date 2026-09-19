@@ -90,6 +90,12 @@ All in `emptysock-ai-skills` repo:
 
 ---
 
+## Lint enforcement pass
+
+- [x] **`eslint.config.mjs` — `no-restricted-globals`** — `setTimeout`, `setInterval`, `localStorage`, `sessionStorage` are now lint errors with engine-correct replacement messages. Wrong usage surfaces at `eslint` / pre-commit time, not at runtime.
+- [x] **`eslint.config.mjs` — `no-restricted-imports`** — Direct imports of `pixi.js`, `@dimforge/rapier2d`, `howler`, `three` are now lint errors. Enforces the "import from @emptysock/engine only" rule at the module graph level.
+- [x] **`ai/CLAUDE.md` "Common Mistakes" table removed** — Every entry in it was already a TypeScript compile error (wrong export names), an existing lint error (`any`, `!`, floating-promise), or now a new lint error (`setTimeout`, `document`). Documentation that duplicates enforced defaults adds noise; deleted.
+
 ## Remaining open items
 
 None identified at this time. If Gemini's review surfaces new issues, log them here with `[ ]` and fix them.
