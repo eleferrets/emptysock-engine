@@ -48,35 +48,26 @@ input.isKeyReleased("Escape");
 
 Key names use the `KeyboardEvent.code` string — e.g. `'ArrowLeft'`, `'KeyW'`, `'Space'`, `'Enter'`.
 
-### Axes
-
-`input.axis()` returns a value from -1 to 1 that works with both keyboard and gamepad:
-
-```typescript
-const h = input.axis("Horizontal"); // -1 (left) to 1 (right)
-const v = input.axis("Vertical"); // -1 (up) to 1 (down)
-
-player.x += h * speed * dt;
-player.y += v * speed * dt;
-```
-
-> Use `Input.axis` instead of checking individual arrow keys — axis works with both keyboard and gamepad automatically.
-
 ### Mouse / pointer
 
 ```typescript
 // Current position in canvas space:
-const pos = input.pointer.position; // { x, y }
+const x = input.mouseX; // number
+const y = input.mouseY; // number
 
-// Movement since last frame:
-const delta = input.pointer.delta;
+// Movement since last frame (reset to 0 each flush):
+const dx = input.mouseDX;
+const dy = input.mouseDY;
 
 // Button state (0 = left, 1 = middle, 2 = right):
-if (input.pointer.isDown(0)) {
+if (input.isMouseDown(0)) {
   /* left button held */
 }
-if (input.pointer.isPressed(2)) {
-  /* right button just clicked */
+if (input.isMousePressed(0)) {
+  /* left button just clicked this frame */
+}
+if (input.isMouseReleased(0)) {
+  /* left button just released this frame */
 }
 ```
 
@@ -145,6 +136,31 @@ export class GameScene extends Scene {
 ```
 
 `pads.update()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
+
+### Per-frame button events
+
+`getState()` gives you raw button booleans, but `GamepadSystem` also exposes per-frame pressed and released helpers — identical in semantics to `isKeyPressed` / `isKeyReleased` on `InputSystem`:
+
+```typescript
+// True only on the frame the button went down:
+if (pads.isButtonPressed(0, 0)) {
+  jump();
+} // pad 0, button 0 (A / Cross)
+
+// True only on the frame the button came up:
+if (pads.isButtonReleased(0, 1)) {
+  chargeRelease();
+}
+
+// True every frame the button is held:
+if (pads.isButtonDown(0, 7)) {
+  accelerate();
+} // right trigger
+```
+
+`isButtonPressed` and `isButtonReleased` compare against the previous `update()` snapshot and only return `true` for a single frame.
+
+---
 
 ### Rumble
 

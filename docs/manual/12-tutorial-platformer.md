@@ -20,7 +20,6 @@ Estimated time: 60–90 minutes.
 1. Start the IDE (`pnpm dev` from `apps/ide/`, or open the desktop app).
 2. In the **Files** panel you will see the default `src/scenes/GameScene.ts`. You will replace this file.
 3. Create these additional files in the Files panel:
-
    - `src/scenes/GameScene.ts` (edit existing)
    - `src/components/CoinPickup.ts`
    - `src/locales/en.json`
@@ -54,58 +53,58 @@ import {
   TilemapSystem,
   SaveSystem,
   i18n,
-} from '@emptysock/engine'
-import { z } from 'zod'
-import { CoinPickup } from '../components/CoinPickup'
+} from "@emptysock/engine";
+import { z } from "zod";
+import { CoinPickup } from "../components/CoinPickup";
 
-const SaveSchema = z.object({ coins: z.number() })
-type GameSave = z.infer<typeof SaveSchema>
+const SaveSchema = z.object({ coins: z.number() });
+type GameSave = z.infer<typeof SaveSchema>;
 
 export class GameScene extends Scene {
-  static readonly config: SceneConfig = { renderMode: '2d', gameSpeed: 60 }
+  static readonly config: SceneConfig = { renderMode: "2d", gameSpeed: 60 };
 
   // --- private state ---
-  private _coins = 0
-  private _playerEntity!: ReturnType<Scene['createEntity']>
-  private _ui!: UISystem
-  private _coinLabel!: ReturnType<UISystem['createLabel']>
-  private _touchLeft  = false
-  private _touchRight = false
-  private _touchJump  = false
+  private _coins = 0;
+  private _playerEntity!: ReturnType<Scene["createEntity"]>;
+  private _ui!: UISystem;
+  private _coinLabel!: ReturnType<UISystem["createLabel"]>;
+  private _touchLeft = false;
+  private _touchRight = false;
+  private _touchJump = false;
 
   override async onLoad(): Promise<void> {
-    await i18n.load('en', () => import('../locales/en.json'))
-    i18n.setLocale('en')
+    await i18n.load("en", () => import("../locales/en.json"));
+    i18n.setLocale("en");
 
-    await Audio.preload('coin_sfx',   'assets/sounds/coin.wav')
-    await Audio.preload('level_music','assets/music/level1.ogg')
+    await Audio.preload("coin_sfx", "assets/sounds/coin.wav");
+    await Audio.preload("level_music", "assets/music/level1.ogg");
 
-    this._loadSave()
-    this._buildLevel()
-    this._buildPlayer()
-    this._buildCamera()
-    this._buildUI()
-    this._buildTouchButtons()
+    this._loadSave();
+    this._buildLevel();
+    this._buildPlayer();
+    this._buildCamera();
+    this._buildUI();
+    this._buildTouchButtons();
 
-    Audio.music('level_music', { loop: true, fade: 0.5 })
+    Audio.music("level_music", { loop: true, fade: 0.5 });
   }
 
   override onUpdate(dt: number): void {
-    this._handlePlayerMovement(dt)
-    this._checkCoinPickups()
-    this._updateUI()
+    this._handlePlayerMovement(dt);
+    this._checkCoinPickups();
+    this._updateUI();
   }
 
   override onDestroy(): void {
-    TilemapSystem.unload('assets/levels/level1.esmap')
-    this._ui.destroy()
+    TilemapSystem.unload("assets/levels/level1.esmap");
+    this._ui.destroy();
   }
 
   // --- called by CoinPickup when the player overlaps a coin ---
   collectCoin(): void {
-    this._coins++
-    Audio.play('coin_sfx')
-    this._saveCoinCount()
+    this._coins++;
+    Audio.play("coin_sfx");
+    this._saveCoinCount();
   }
 }
 ```
@@ -142,9 +141,13 @@ private _buildLevel(): void {
 > If your tileset does not support spawn markers, replace the loop with hard-coded positions:
 >
 > ```typescript
-> const coinPositions = [{ x: 200, y: 300 }, { x: 500, y: 200 }, { x: 800, y: 400 }]
+> const coinPositions = [
+>   { x: 200, y: 300 },
+>   { x: 500, y: 200 },
+>   { x: 800, y: 400 },
+> ];
 > for (const pos of coinPositions) {
->   const coin = this.createEntity('Coin')
+>   const coin = this.createEntity("Coin");
 >   // ... (same as above, set coin.position from pos)
 > }
 > ```
@@ -161,7 +164,7 @@ import {
   PhysicsBody,
   CharacterController,
   Animator,
-} from '@emptysock/engine'
+} from "@emptysock/engine";
 ```
 
 Add `_buildPlayer()` inside the class:
@@ -252,12 +255,10 @@ Add `_buildCamera()` inside the class:
 
 ```typescript
 private _buildCamera(): void {
-  Camera.follow(this._playerEntity, {
-    lerp: 0.08,
-    deadzone: { x: 60, y: 30 },
-  })
+  this._camera.setFollow(() => this._playerEntity.position)
+  this._camera.setLerpFactor(0.08)
   // Constrain camera to level bounds (in pixels — match your tilemap size)
-  Camera.setBounds({ left: 0, top: 0, right: 3200, bottom: 900 })
+  this._camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })
 }
 ```
 
@@ -268,51 +269,55 @@ private _buildCamera(): void {
 Create `src/components/CoinPickup.ts`:
 
 ```typescript
-import {
-  type Component,
-  PhysicsBody,
-  Tween,
-} from '@emptysock/engine'
-import type { GameScene } from '../scenes/GameScene'
+import { type Component, PhysicsBody, Tween } from "@emptysock/engine";
+import type { GameScene } from "../scenes/GameScene";
 
 interface CoinPickupOptions {
-  scene: GameScene
+  scene: GameScene;
 }
 
 export class CoinPickup implements Component {
-  private _scene: GameScene
-  private _collected = false
+  private _scene: GameScene;
+  private _collected = false;
 
   constructor(opts: CoinPickupOptions) {
-    this._scene = opts.scene
+    this._scene = opts.scene;
   }
 
   // Called each frame by the engine because it is on an entity
   update(dt: number): void {
-    if (this._collected) return
+    if (this._collected) return;
 
-    const player = this._scene.findEntityByName('Player')
-    if (!player) return
+    const player = this._scene.findEntityByName("Player");
+    if (!player) return;
 
     // Simple AABB overlap check
-    const coin = this.entity
-    const dx = Math.abs(coin.position.x - player.position.x)
-    const dy = Math.abs(coin.position.y - player.position.y)
+    const coin = this.entity;
+    const dx = Math.abs(coin.position.x - player.position.x);
+    const dy = Math.abs(coin.position.y - player.position.y);
     if (dx < 28 && dy < 28) {
-      this._collected = true
-      this._scene.collectCoin()
+      this._collected = true;
+      this._scene.collectCoin();
       // Pop-and-fade the coin sprite
-      Tween.to(coin, { y: coin.position.y - 40 }, { duration: 0.25, ease: 'sineOut' })
-      Tween.to(coin, { alpha: 0 }, {
-        duration: 0.25,
-        ease: 'sineIn',
-        onComplete: () => coin.destroy(),
-      })
+      Tween.to(
+        coin,
+        { y: coin.position.y - 40 },
+        { duration: 0.25, ease: "sineOut" },
+      );
+      Tween.to(
+        coin,
+        { alpha: 0 },
+        {
+          duration: 0.25,
+          ease: "sineIn",
+          onComplete: () => coin.destroy(),
+        },
+      );
     }
   }
 
   // The engine attaches 'entity' automatically when the component is added
-  entity!: ReturnType<import('@emptysock/engine').Scene['createEntity']>
+  entity!: ReturnType<import("@emptysock/engine").Scene["createEntity"]>;
 }
 ```
 
@@ -472,20 +477,20 @@ pnpm emptysock-toolchain export --platform windows --format installer --entry sr
 
 ## What you practised
 
-| Concept | Where |
-|---------|-------|
-| Scene lifecycle (`onLoad`, `onUpdate`, `onDestroy`) | GameScene skeleton |
-| TilemapSystem — load, physics layer, spawn entities | `_buildLevel` |
-| PhysicsBody + CharacterController | `_buildPlayer` |
-| Sprite + Animator | `_buildPlayer` |
-| Keyboard and touch input | `_handlePlayerMovement`, `_buildTouchButtons` |
-| Camera follow with deadzone and bounds | `_buildCamera` |
-| Entity tags for coin identification | `coin.addTag('coin')` |
-| CoinPickup component with Tween feedback | `CoinPickup.ts` |
-| UISystem — label HUD | `_buildUI`, `_updateUI` |
-| Localisation with `i18n` | `en.json`, `i18n.t()` |
-| AudioSystem — SFX and background music | `onLoad` |
-| SaveSystem — slot save/load with Zod validation | `_loadSave`, `_saveCoinCount` |
-| Export pipeline | Step 14 |
+| Concept                                             | Where                                         |
+| --------------------------------------------------- | --------------------------------------------- |
+| Scene lifecycle (`onLoad`, `onUpdate`, `onDestroy`) | GameScene skeleton                            |
+| TilemapSystem — load, physics layer, spawn entities | `_buildLevel`                                 |
+| PhysicsBody + CharacterController                   | `_buildPlayer`                                |
+| Sprite + Animator                                   | `_buildPlayer`                                |
+| Keyboard and touch input                            | `_handlePlayerMovement`, `_buildTouchButtons` |
+| Camera follow with deadzone and bounds              | `_buildCamera`                                |
+| Entity tags for coin identification                 | `coin.addTag('coin')`                         |
+| CoinPickup component with Tween feedback            | `CoinPickup.ts`                               |
+| UISystem — label HUD                                | `_buildUI`, `_updateUI`                       |
+| Localisation with `i18n`                            | `en.json`, `i18n.t()`                         |
+| AudioSystem — SFX and background music              | `onLoad`                                      |
+| SaveSystem — slot save/load with Zod validation     | `_loadSave`, `_saveCoinCount`                 |
+| Export pipeline                                     | Step 14                                       |
 
 From here you can extend the game: add enemies (Actor Model + NavMesh), add a goal door that loads the next scene (`SceneManager.transition`), or add particle effects on coin pickup (ParticleSystem burst).
