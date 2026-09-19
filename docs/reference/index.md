@@ -6,19 +6,20 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 ## Core
 
-| Class / System                          | Description                                                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [Actor](./actor-system.md)              | Base class for objects that communicate via message-passing within an ActorSystem                 |
-| [ActorSystem](./actor-system.md)        | Owns actor registration, message dispatch, and the inbox-drain-before-update loop                 |
-| [Camera](./camera.md)                   | Controls viewport: follow, shake, zoom, fade                                                      |
-| [Component](./component.md)             | Base conventions for typed data objects attached to entities                                      |
-| [Coroutine](./timer-and-coroutine.md)   | Generator-based multi-frame sequencing                                                            |
-| [Entity](./entity.md)                   | Named container for components; carries a unique ID                                               |
-| [NetworkActor](./actor-system.md)       | Actor subclass that bridges the engine Actor Model to an external Transport                       |
-| [Scene](./scene.md)                     | Root container for one game screen; owns entities and manages the game loop                       |
-| [SceneManager](./scene.md#scenemanager) | Module-level singleton (`SceneManagerInstance`) controlling scene transitions and push/pop stacks |
-| [Timer](./timer-and-coroutine.md)       | Game-loop-integrated delay and interval callbacks                                                 |
-| [Transport](./actor-system.md)          | Interface (not a class) for sending and receiving raw messages in NetworkActor                    |
+| Class / System                           | Description                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [Actor](./actor-system.md)               | Base class for objects that communicate via message-passing within an ActorSystem                 |
+| [AStarSearch](./systems/astar-search.md) | Generic weighted-graph A\* search; the shared engine behind PathfindingSystem and NavMeshSystem   |
+| [ActorSystem](./actor-system.md)         | Owns actor registration, message dispatch, and the inbox-drain-before-update loop                 |
+| [Camera](./camera.md)                    | Controls viewport: follow, shake, zoom, fade                                                      |
+| [Component](./component.md)              | Base conventions for typed data objects attached to entities                                      |
+| [Coroutine](./timer-and-coroutine.md)    | Generator-based multi-frame sequencing                                                            |
+| [Entity](./entity.md)                    | Named container for components; carries a unique ID                                               |
+| [NetworkActor](./actor-system.md)        | Actor subclass that bridges the engine Actor Model to an external Transport                       |
+| [Scene](./scene.md)                      | Root container for one game screen; owns entities and manages the game loop                       |
+| [SceneManager](./scene.md#scenemanager)  | Module-level singleton (`SceneManagerInstance`) controlling scene transitions and push/pop stacks |
+| [Timer](./timer-and-coroutine.md)        | Game-loop-integrated delay and interval callbacks                                                 |
+| [Transport](./actor-system.md)           | Interface (not a class) for sending and receiving raw messages in NetworkActor                    |
 
 ---
 

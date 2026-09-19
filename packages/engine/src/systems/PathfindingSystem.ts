@@ -1,3 +1,5 @@
+import { AStarSearch } from "../core/AStarSearch.js";
+
 export interface GridCell {
   readonly walkable: boolean;
   readonly weight: number;
@@ -15,14 +17,28 @@ export interface PathResult {
   readonly found: boolean;
 }
 
-interface AStarNode {
-  x: number;
-  y: number;
-  g: number;
-  h: number;
-  f: number;
-  parent: AStarNode | null;
+interface GridNode {
+  readonly x: number;
+  readonly y: number;
 }
+
+const ORTHOGONAL_DIRS: ReadonlyArray<readonly [number, number]> = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
+
+const DIAGONAL_DIRS: ReadonlyArray<readonly [number, number]> = [
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+];
 
 export class PathfindingSystem {
   private _grid: ReadonlyArray<ReadonlyArray<GridCell>> | null = null;
@@ -33,6 +49,9 @@ export class PathfindingSystem {
    * passing the grid on every request. Call this once in `onLoad` and then
    * use the two-argument shorthand for all subsequent pathfinding.
    *
+   * Accepts the `boolean[][]` produced by `Tilemap.asGrid()` directly, or a
+   * `GridCell[][]` when per-cell movement weight is needed.
+   *
    * @param allowDiagonal Allow diagonal movement. Default false.
    *
    * @example
@@ -41,10 +60,12 @@ export class PathfindingSystem {
    * const { path } = pf.findPath({ x: 0, y: 0 }, { x: 10, y: 5 });
    */
   setGrid(
-    grid: ReadonlyArray<ReadonlyArray<GridCell>>,
+    grid:
+      | ReadonlyArray<ReadonlyArray<GridCell>>
+      | ReadonlyArray<ReadonlyArray<boolean>>,
     allowDiagonal = false,
   ): void {
-    this._grid = grid;
+    this._grid = _asCellGrid(grid);
     this._allowDiagonal = allowDiagonal;
   }
 
@@ -93,92 +114,63 @@ export class PathfindingSystem {
     const cols = grid[0]?.length ?? 0;
     if (cols === 0) return { path: [], found: false };
 
-    const key = (x: number, y: number): string => `${x},${y}`;
+    const startCell = grid[from.y]?.[from.x];
+    if (startCell === undefined) return { path: [], found: false };
 
-    const open: Map<string, AStarNode> = new Map();
-    const closed: Set<string> = new Set();
+    const dirs = allowDiagonal ? DIAGONAL_DIRS : ORTHOGONAL_DIRS;
 
-    const heuristic = (x: number, y: number): number =>
-      Math.abs(x - to.x) + Math.abs(y - to.y);
-
-    const start: AStarNode = {
-      x: from.x,
-      y: from.y,
-      g: 0,
-      h: heuristic(from.x, from.y),
-      f: 0,
-      parent: null,
-    };
-    start.f = start.g + start.h;
-    open.set(key(from.x, from.y), start);
-
-    while (open.size > 0) {
-      let current: AStarNode | null = null;
-      for (const node of open.values()) {
-        if (current === null || node.f < current.f) current = node;
-      }
-      if (current === null) break;
-
-      if (current.x === to.x && current.y === to.y) {
-        const path: Array<{ x: number; y: number }> = [];
-        let n: AStarNode | null = current;
-        while (n !== null) {
-          path.unshift({ x: n.x, y: n.y });
-          n = n.parent;
+    const result = AStarSearch<GridNode>({
+      start: { x: from.x, y: from.y },
+      isGoal: (node) => node.x === to.x && node.y === to.y,
+      heuristic: (node) => Math.abs(node.x - to.x) + Math.abs(node.y - to.y),
+      key: (node) => `${node.x},${node.y}`,
+      neighbours: (node) => {
+        const edges: Array<{ node: GridNode; cost: number }> = [];
+        for (const [dx, dy] of dirs) {
+          const nx = node.x + dx;
+          const ny = node.y + dy;
+          if (nx < 0 || ny < 0 || ny >= rows || nx >= cols) continue;
+          const row = grid[ny];
+          if (row === undefined) continue;
+          const cell = row[nx];
+          if (cell === undefined || !cell.walkable) continue;
+          const moveCost = dx !== 0 && dy !== 0 ? 1.414 : 1;
+          edges.push({ node: { x: nx, y: ny }, cost: moveCost * cell.weight });
         }
-        return { path, found: true };
-      }
+        return edges;
+      },
+    });
 
-      open.delete(key(current.x, current.y));
-      closed.add(key(current.x, current.y));
-
-      const dirs: ReadonlyArray<readonly [number, number]> = allowDiagonal
-        ? ([
-            [-1, -1],
-            [-1, 0],
-            [-1, 1],
-            [0, -1],
-            [0, 1],
-            [1, -1],
-            [1, 0],
-            [1, 1],
-          ] as const)
-        : ([
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1],
-          ] as const);
-
-      for (const dir of dirs) {
-        const dx = dir[0];
-        const dy = dir[1];
-        const nx = current.x + dx;
-        const ny = current.y + dy;
-        if (nx < 0 || ny < 0 || ny >= rows || nx >= cols) continue;
-        const row = grid[ny];
-        if (row === undefined) continue;
-        const cell = row[nx];
-        if (cell === undefined || !cell.walkable) continue;
-        const nk = key(nx, ny);
-        if (closed.has(nk)) continue;
-
-        const moveCost = dx !== 0 && dy !== 0 ? 1.414 : 1;
-        const g = current.g + moveCost * cell.weight;
-        const h = heuristic(nx, ny);
-        const f = g + h;
-
-        const existing = open.get(nk);
-        if (existing === undefined || g < existing.g) {
-          open.set(nk, { x: nx, y: ny, g, h, f, parent: current });
-        }
-      }
-    }
-
-    return { path: [], found: false };
+    return { path: result.path, found: result.found };
   }
 
   update(_dt: number): void {
     // No per-frame work needed; findPath is on-demand
   }
+}
+
+/**
+ * Normalise a raw `boolean[][]` walkability grid (as returned by
+ * `Tilemap.asGrid()`) or an already-built `GridCell[][]` into the
+ * `GridCell[][]` shape `PathfindingSystem` operates on internally, so
+ * `setGrid(tilemap.asGrid())` works as a single call with no manual bridging.
+ */
+function _asCellGrid(
+  grid:
+    | ReadonlyArray<ReadonlyArray<GridCell>>
+    | ReadonlyArray<ReadonlyArray<boolean>>,
+): ReadonlyArray<ReadonlyArray<GridCell>> {
+  if (grid.length === 0) return grid as ReadonlyArray<ReadonlyArray<GridCell>>;
+  const firstRow = grid[0];
+  if (firstRow === undefined || firstRow.length === 0) {
+    return grid as ReadonlyArray<ReadonlyArray<GridCell>>;
+  }
+  const firstCell = firstRow[0];
+  if (typeof firstCell === "boolean") {
+    const boolGrid = grid as ReadonlyArray<ReadonlyArray<boolean>>;
+    return boolGrid.map((row) =>
+      row.map((walkable) => ({ walkable, weight: 1 }) satisfies GridCell),
+    );
+  }
+  return grid as ReadonlyArray<ReadonlyArray<GridCell>>;
 }

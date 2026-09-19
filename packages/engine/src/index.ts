@@ -57,7 +57,11 @@ export type { AnimationClip } from "./components/Animator.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
-export type { IVNListener, DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+export type {
+  IVNListener,
+  DialogueNode,
+  DialogueTree,
+} from "./systems/VNSystem.js";
 
 export {
   storyGraphToDialogueTree,
@@ -73,6 +77,12 @@ export { VNTextbox } from "./systems/VNTextbox.js";
 export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
+export { AStarSearch } from "./core/AStarSearch.js";
+export type {
+  AStarEdge,
+  AStarSearchOptions,
+  AStarSearchResult,
+} from "./core/AStarSearch.js";
 export { PathfindingSystem } from "./systems/PathfindingSystem.js";
 export type {
   GridCell,
@@ -141,7 +151,12 @@ export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 
 // UI
 export { UISystem } from "./systems/UISystem.js";
-export type { IUIRenderer, HostAdapter, HostMessage, HostMessageHandler } from "@emptysock/types";
+export type {
+  IUIRenderer,
+  HostAdapter,
+  HostMessage,
+  HostMessageHandler,
+} from "@emptysock/types";
 export { NullHostAdapter } from "@emptysock/types";
 
 // Easing
@@ -213,7 +228,11 @@ export { HotReloadSystem } from "./systems/HotReloadSystem.js";
 
 // IDE Bridge
 export { ideBridge } from "./core/IDEBridge.js";
-export type { EntitySnapshot, ComponentPatchHandler, SelectHandler } from "./core/IDEBridge.js";
+export type {
+  EntitySnapshot,
+  ComponentPatchHandler,
+  SelectHandler,
+} from "./core/IDEBridge.js";
 
 // GPU tier detection
 export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
