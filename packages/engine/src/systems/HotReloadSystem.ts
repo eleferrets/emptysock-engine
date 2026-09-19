@@ -1,7 +1,11 @@
 /**
- * HotReloadSystem — registers window-level hooks that the IDE iframe message
- * handler calls during hot reload. Game code calls install() once (e.g. in
- * onLoad) and destroy() in onDestroy to clean up.
+ * HotReloadSystem — registers per-reload hooks that the IDE layer calls during
+ * hot reload. Game code calls the on* registration methods (e.g. in onLoad) to
+ * receive reload events.
+ *
+ * The IDE / host layer is responsible for wiring window.__es_before_reload__ and
+ * the other window-level globals to this system's runBefore/runAfter/etc helpers.
+ * The engine does not write to window directly.
  */
 export class HotReloadSystem {
   private beforeHooks: Array<() => void> = [];
@@ -37,34 +41,31 @@ export class HotReloadSystem {
     return () => { const i = this.roomHooks.indexOf(fn); if (i !== -1) this.roomHooks.splice(i, 1); };
   }
 
-  install(): void {
-    if (typeof window === 'undefined') return;
-    const win = window as unknown as Record<string, unknown>;
-    win["__es_before_reload__"] = (): void => {
-      this.beforeHooks.forEach((h) => h());
-    };
-    win["__es_after_reload__"] = (): void => {
-      this.afterHooks.forEach((h) => h());
-    };
-    win["__es_hmr_sprite__"] = (n: string, d: string): void => {
-      this.spriteHooks.forEach((h) => h(n, d));
-    };
-    win["__es_hmr_shader__"] = (n: string, v: string, f: string): void => {
-      this.shaderHooks.forEach((h) => h(n, v, f));
-    };
-    win["__es_hmr_room__"] = (n: string, r: string): void => {
-      this.roomHooks.forEach((h) => h(n, r));
-    };
+  // ── Helpers called by the IDE host layer ─────────────────────────────────
+  // The IDE wires window.__es_before_reload__ etc. to these methods.
+
+  runBeforeReload(): void {
+    this.beforeHooks.forEach((h) => h());
   }
 
+  runAfterReload(): void {
+    this.afterHooks.forEach((h) => h());
+  }
+
+  runSpriteReload(name: string, dataUrl: string): void {
+    this.spriteHooks.forEach((h) => h(name, dataUrl));
+  }
+
+  runShaderReload(name: string, vert: string, frag: string): void {
+    this.shaderHooks.forEach((h) => h(name, vert, frag));
+  }
+
+  runRoomReload(name: string, roomJson: string): void {
+    this.roomHooks.forEach((h) => h(name, roomJson));
+  }
+
+  /** Clear all registered hooks (call when the scene is destroyed). */
   destroy(): void {
-    if (typeof window === 'undefined') return;
-    const win = window as unknown as Record<string, unknown>;
-    delete win["__es_before_reload__"];
-    delete win["__es_after_reload__"];
-    delete win["__es_hmr_sprite__"];
-    delete win["__es_hmr_shader__"];
-    delete win["__es_hmr_room__"];
     this.beforeHooks = [];
     this.afterHooks = [];
     this.spriteHooks = [];

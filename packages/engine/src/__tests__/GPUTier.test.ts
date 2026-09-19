@@ -1,57 +1,42 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { detectGPUTier, classifyRenderer } from '../core/GPUTier.js';
+import type { HostAdapter, GPUTier } from '@emptysock/types';
+import { NullHostAdapter } from '@emptysock/types';
 
-// Mock WebGL canvas for renderer-based detection
-function mockCanvas(renderer: string): void {
-  const ext = {
-    UNMASKED_RENDERER_WEBGL: 37446,
+/** Build a mock HostAdapter that returns a specific GPU tier. */
+function makeAdapter(tier: GPUTier): HostAdapter {
+  return {
+    ...new NullHostAdapter(),
+    detectGPUTier: () => tier,
   };
-  const mockGl = {
-    getExtension: (_name: string) => ext,
-    getParameter: (param: number) => {
-      if (param === ext.UNMASKED_RENDERER_WEBGL) return renderer;
-      return null;
-    },
-  };
-  vi.spyOn(document, 'createElement').mockReturnValue({
-    getContext: (type: string) => {
-      if (type === 'webgl2') return mockGl;
-      return null;
-    },
-  } as unknown as HTMLCanvasElement);
 }
 
-afterEach(() => {
-  vi.restoreAllMocks();
+describe('detectGPUTier', () => {
+  it('delegates to the adapter and returns its tier', () => {
+    expect(detectGPUTier(makeAdapter('ultra'))).toBe('ultra');
+    expect(detectGPUTier(makeAdapter('high'))).toBe('high');
+    expect(detectGPUTier(makeAdapter('potato'))).toBe('potato');
+  });
+
+  it('NullHostAdapter returns mid', () => {
+    expect(detectGPUTier(new NullHostAdapter())).toBe('mid');
+  });
 });
 
-describe('detectGPUTier', () => {
-  it('"RTX 4090" renderer → ultra', async () => {
-    mockCanvas('NVIDIA GeForce RTX 4090');
-    const { detectGPUTier } = await import('../core/GPUTier.js');
-    const tier = await detectGPUTier();
-    expect(tier).toBe('ultra');
+describe('classifyRenderer', () => {
+  it('"RTX 4090" renderer → ultra', () => {
+    expect(classifyRenderer('NVIDIA GeForce RTX 4090')).toBe('ultra');
   });
 
-  it('"GTX 1060" renderer → high', async () => {
-    mockCanvas('NVIDIA GeForce GTX 1060');
-    const { detectGPUTier } = await import('../core/GPUTier.js');
-    const tier = await detectGPUTier();
-    expect(tier).toBe('high');
+  it('"GTX 1060" renderer → high', () => {
+    expect(classifyRenderer('NVIDIA GeForce GTX 1060')).toBe('high');
   });
 
-  it('SwiftShader → potato', async () => {
-    mockCanvas('Google SwiftShader');
-    const { detectGPUTier } = await import('../core/GPUTier.js');
-    const tier = await detectGPUTier();
-    expect(tier).toBe('potato');
+  it('SwiftShader → potato', () => {
+    expect(classifyRenderer('Google SwiftShader')).toBe('potato');
   });
 
-  it('No WebGL → potato', async () => {
-    vi.spyOn(document, 'createElement').mockReturnValue({
-      getContext: (_type: string) => null,
-    } as unknown as HTMLCanvasElement);
-    const { detectGPUTier } = await import('../core/GPUTier.js');
-    const tier = await detectGPUTier();
-    expect(tier).toBe('potato');
+  it('unknown renderer → mid', () => {
+    expect(classifyRenderer('Some Unknown GPU XYZ')).toBe('mid');
   });
 });

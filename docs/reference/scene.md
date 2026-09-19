@@ -126,16 +126,15 @@ Stop the current scene and start the named scene immediately. Throws if `name` i
 
 ### `transition(name: string, options?): void`
 
-Switch scene with a visual effect. Queues the switch; completes on the next `update()` after the duration.
+Queues a scene switch with a timed delay. Completes on the next `update()` after the duration. Visual transition effects are not yet implemented.
 
-| Option     | Type                                                                                 | Default    | Description          |
-| ---------- | ------------------------------------------------------------------------------------ | ---------- | -------------------- |
-| `effect`   | `'fade' \| 'wipe' \| 'iris' \| 'slide' \| 'zoom' \| 'dissolve' \| 'flash' \| 'none'` | `'none'`   | Transition animation |
-| `duration` | `number`                                                                             | `0.3`      | Duration in seconds  |
-| `colour`   | `number`                                                                             | `0x000000` | Overlay colour (hex) |
+| Option     | Type     | Default    | Description                             |
+| ---------- | -------- | ---------- | --------------------------------------- |
+| `duration` | `number` | `0.3`      | Delay in seconds before the switch      |
+| `colour`   | `number` | `0x000000` | Reserved for future effect overlay use  |
 
 ```typescript
-SceneManagerInstance.transition("level2", { effect: "fade", duration: 0.5 });
+SceneManagerInstance.transition("level2", { duration: 0.5 });
 ```
 
 ### `queue(name: string): void`

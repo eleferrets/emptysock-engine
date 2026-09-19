@@ -71,20 +71,23 @@ export class Scene {
 
   createEntity(name?: string): Entity {
     const entity = new Entity(name);
-    this._entities.set(entity.id, entity);
-    // Auto-remove from scene registry when entity.destroy() is called
-    entity.once("destroy", () => {
-      this._entities.delete(entity.id);
-    });
+    this._track(entity);
     return entity;
   }
 
   addEntity(entity: Entity): Entity {
+    this._track(entity);
+    return entity;
+  }
+
+  private _track(entity: Entity): void {
     this._entities.set(entity.id, entity);
+    // Auto-remove from scene registry when entity.destroy() is called.
+    // Using once() is safe here: if entity.destroy() has already fired the
+    // event, once() is a no-op and the entity will not be in _entities anyway.
     entity.once("destroy", () => {
       this._entities.delete(entity.id);
     });
-    return entity;
   }
 
   removeEntity(entity: Entity): boolean {
@@ -107,16 +110,14 @@ export class Scene {
     return Array.from(this._entities.values()).filter((e) => e.hasTag(tag));
   }
 
-  /** Return all entities that have the given component type string attached. */
-  getEntitiesWithComponent(
-    type: string | (new (...args: unknown[]) => Component),
-  ): Entity[] {
-    const typeStr =
-      typeof type === "string"
-        ? type
-        : ((type as unknown as { type?: string }).type ?? type.name);
+  /**
+   * Return all entities that have the given component type string attached.
+   * The type string must match the `Component.type` field exactly — it is not
+   * derived from a constructor name (which is unsafe under minification).
+   */
+  getEntitiesWithComponent(type: string): Entity[] {
     return Array.from(this._entities.values()).filter((e) =>
-      e.hasComponent(typeStr),
+      e.hasComponent(type),
     );
   }
 
@@ -181,6 +182,7 @@ export class Scene {
       system.fn(this, deltaTime);
     }
 
+    this.ui.update(deltaTime);
     this.onUpdate(deltaTime);
   }
 

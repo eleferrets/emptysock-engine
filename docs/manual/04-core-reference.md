@@ -279,7 +279,7 @@ import { SceneManager } from '@emptysock/engine';
 SceneManager.load('MenuScene');
 
 // With a fade transition:
-SceneManager.transition('Level2Scene', { effect: 'fade', duration: 0.4 });
+SceneManager.transition('Level2Scene', { duration: 0.4 });
 
 // Open a pause menu without destroying the game scene:
 SceneManager.push('PauseScene');

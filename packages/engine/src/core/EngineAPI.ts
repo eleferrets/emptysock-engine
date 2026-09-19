@@ -1,5 +1,7 @@
 import type { Scene } from "./Scene.js";
 import { SceneManagerInstance } from "./SceneManager.js";
+import type { HostAdapter, HostMessage } from "@emptysock/types";
+import { NullHostAdapter } from "@emptysock/types";
 
 type ErrorHandler = (msg: string) => void;
 
@@ -10,41 +12,44 @@ let _fileLogHandler: ErrorHandler | null = null;
 
 let _debugPaused = false;
 const _debugBreakpoints = new Set<string>();
+let _adapter: HostAdapter = new NullHostAdapter();
 
-function _installDebugMessageListener(): void {
-  window.addEventListener("message", (event: MessageEvent) => {
-    const data = event.data;
-    if (typeof data !== "object" || data === null) return;
-    const d = data as Record<string, unknown>;
-    const msgType = d["type"];
-    if (msgType === "debug:pause") {
-      _debugPaused = true;
-    } else if (msgType === "debug:resume") {
-      _debugPaused = false;
-    } else if (msgType === "debug:step") {
-      _debugPaused = false;
-      if (typeof requestAnimationFrame !== "undefined") {
-        requestAnimationFrame(() => {
-          _debugPaused = true;
-        });
-      }
-    } else if (msgType === "debug:setBreakpoints") {
-      const labels = d["labels"];
-      _debugBreakpoints.clear();
-      if (Array.isArray(labels)) {
-        for (const l of labels) {
-          if (typeof l === "string") _debugBreakpoints.add(l);
-        }
+function _handleDebugMessage(event: HostMessage): void {
+  const data = event.data;
+  if (typeof data !== "object" || data === null) return;
+  const d = data as Record<string, unknown>;
+  const msgType = d["type"];
+  if (msgType === "debug:pause") {
+    _debugPaused = true;
+  } else if (msgType === "debug:resume") {
+    _debugPaused = false;
+  } else if (msgType === "debug:step") {
+    _debugPaused = false;
+    // The IDE will send debug:pause after the next frame; we just unpause here.
+  } else if (msgType === "debug:setBreakpoints") {
+    const labels = d["labels"];
+    _debugBreakpoints.clear();
+    if (Array.isArray(labels)) {
+      for (const l of labels) {
+        if (typeof l === "string") _debugBreakpoints.add(l);
       }
     }
-  });
-}
-
-if (typeof window !== "undefined") {
-  _installDebugMessageListener();
+  }
 }
 
 export const Engine = {
+  /**
+   * Attach a HostAdapter so the debugger message listener and postMessage
+   * calls route through the correct host environment. Call once at startup
+   * from the IDE layer or PlayRunner; game code should not call this.
+   */
+  init(adapter: HostAdapter): void {
+    // Deregister from any previously attached adapter.
+    _adapter.removeMessageListener(_handleDebugMessage);
+    _adapter = adapter;
+    _adapter.addMessageListener(_handleDebugMessage);
+  },
+
   /** Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function. */
   onError(handler: ErrorHandler): () => void {
     _errorHandlers.push(handler);
@@ -104,8 +109,8 @@ export const Engine = {
 
   /**
    * Trigger a labelled breakpoint from game code. If `label` is in the active
-   * breakpoint set, pauses the game loop and posts a debug:break message with
-   * the current variable snapshot to the IDE window.
+   * breakpoint set, pauses the game loop and posts a debug:break message to
+   * the host frame via the registered HostAdapter.
    *
    * Example:
    *   Engine.debugBreak('player-hit', { hp: player.hp, x: player.x });
@@ -116,9 +121,7 @@ export const Engine = {
   debugBreak(label: string, vars: Record<string, unknown> = {}): void {
     if (!_debugBreakpoints.has(label)) return;
     _debugPaused = true;
-    if (typeof window !== "undefined" && window.parent !== window) {
-      window.parent.postMessage({ type: "debug:break", label, vars }, "*");
-    }
+    _adapter.postMessage({ type: "debug:break", label, vars }, "*");
   },
 
   // ── Scene stack ───────────────────────────────────────────────────────────

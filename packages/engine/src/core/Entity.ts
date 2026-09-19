@@ -235,8 +235,10 @@ export class Entity {
     }
     this._behaviors.length = 0;
 
-    // Stop all coroutines
+    // Stop all coroutines — calls gen.return() on each active generator so
+    // finally blocks run and WASM/external resources are released.
     if (this._coroutines !== null) {
+      this._coroutines.stopAll();
       this._coroutines = null;
     }
 

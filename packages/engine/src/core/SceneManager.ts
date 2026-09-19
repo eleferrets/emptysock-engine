@@ -1,17 +1,11 @@
 import type { Scene } from "./Scene.js";
 
-export type TransitionEffect =
-  | "fade"
-  | "wipe"
-  | "iris"
-  | "slide"
-  | "zoom"
-  | "dissolve"
-  | "flash"
-  | "none";
+// TODO: transition effects (fade, wipe, iris, slide, zoom, dissolve, flash) are
+// not yet implemented. TransitionEffect and the `effect` field on TransitionOptions
+// are intentionally absent from the public API until a rendering implementation
+// exists. The interface will be re-added when effects can actually be rendered.
 
 export interface TransitionOptions {
-  effect?: TransitionEffect;
   duration?: number;
   colour?: number;
 }
@@ -151,14 +145,18 @@ class SceneManager {
       this._active?.update(deltaTime);
     }
 
+    // Invariant: _pending !== null implies _transitioning === true.
+    // transition() is the only way to set _pending, and it always sets
+    // _transitioning = true at the same time. _completeTransition() clears
+    // both atomically, so the !_transitioning branch is unreachable under
+    // normal control flow. We keep a single branch here to enforce the
+    // invariant and avoid processing a stale _pending without a transition.
     if (this._pending !== null && this._transitioning) {
       const duration = this._pendingOptions?.duration ?? 0.3;
       this._elapsed += deltaTime;
       if (this._elapsed >= duration) {
         this._completeTransition();
       }
-    } else if (this._pending !== null && !this._transitioning) {
-      this._completeTransition();
     }
   }
 

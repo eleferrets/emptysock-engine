@@ -1,38 +1,24 @@
-export type GPUTier = "potato" | "low" | "mid" | "high" | "ultra";
+import type { GPUTier, HostAdapter } from "@emptysock/types";
 
-/** Detect GPU tier based on available context info */
-export function detectGPUTier(): GPUTier {
-  if (typeof document === "undefined") return "mid";
-  // Try WebGL debug renderer info
-  const canvas = document.createElement("canvas");
+export type { GPUTier };
 
-  // Try WebGL2 first
-  const gl2 = canvas.getContext("webgl2");
-  if (gl2 !== null) {
-    const ext = gl2.getExtension("WEBGL_debug_renderer_info");
-    if (ext !== null) {
-      const raw: unknown = gl2.getParameter(ext.UNMASKED_RENDERER_WEBGL);
-      if (typeof raw === "string") return classifyRenderer(raw);
-    }
-    // WebGL2 without debug info → at least mid
-    return "mid";
-  }
-
-  // Fall back to WebGL1
-  const gl1 = canvas.getContext("webgl");
-  if (gl1 !== null) {
-    const ext = gl1.getExtension("WEBGL_debug_renderer_info");
-    if (ext !== null) {
-      const raw: unknown = gl1.getParameter(ext.UNMASKED_RENDERER_WEBGL);
-      if (typeof raw === "string") return classifyRenderer(raw);
-    }
-    return "low";
-  }
-
-  return "potato";
+/**
+ * Detect GPU tier by delegating to the HostAdapter.
+ * The adapter implementation may use document.createElement('canvas') and
+ * WebGL debug renderer info — DOM access belongs in the host layer, not here.
+ *
+ * Pass a NullHostAdapter (or omit the adapter) in Node.js / headless contexts;
+ * it returns 'mid' as a safe fallback.
+ */
+export function detectGPUTier(adapter: HostAdapter): GPUTier {
+  return adapter.detectGPUTier();
 }
 
-function classifyRenderer(renderer: string): GPUTier {
+/**
+ * Classify a raw WebGL renderer string into a GPUTier. Exported so that
+ * HostAdapter implementations can reuse the classification logic.
+ */
+export function classifyRenderer(renderer: string): GPUTier {
   const r = renderer.toLowerCase();
 
   // Potato tier

@@ -109,7 +109,7 @@ import { SceneManager } from "@emptysock/engine";
 SceneManager.load("MenuScene");
 
 // Replace with a visual transition:
-SceneManager.transition("Level2Scene", { effect: "fade", duration: 0.4 });
+SceneManager.transition("Level2Scene", { duration: 0.4 });
 
 // Push an overlay scene (pauses the one beneath):
 SceneManager.push("PauseScene");
