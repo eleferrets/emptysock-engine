@@ -63,6 +63,10 @@ export default [
     rules: {
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unnecessary-condition': 'error',
+      // Catches `async onUpdate()` — the engine discards the returned Promise,
+      // so any work after an await runs outside the frame budget silently.
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: true }],
+      '@typescript-eslint/require-await': 'error',
     },
   },
 ];

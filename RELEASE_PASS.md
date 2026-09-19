@@ -33,6 +33,7 @@ This is the canonical log — it does not live in companion repos.
 - [x] MCP particle tests — `maxParticles` → `emissionRate`/`lifetimeMin`/`lifetimeMax`
 - [x] MCP `physics_raycast_3d` test — updated to assert tool not registered
 - [x] `eslint.config.mjs` — `no-restricted-globals` for `setTimeout`/`setInterval`/`localStorage`/`sessionStorage`; `no-restricted-imports` for direct library imports
+- [x] `eslint.config.mjs` — `no-misused-promises` (checksVoidReturn) + `require-await` catches `async onUpdate()` at lint time
 
 ---
 
