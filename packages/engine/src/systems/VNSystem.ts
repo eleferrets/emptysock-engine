@@ -29,24 +29,39 @@ export type DialogueNode =
       cgPath?: string;
     };
 
+export interface ChoiceOption {
+  label: string;
+  next: string;
+}
+
 export interface DialogueTree {
   readonly nodes: Record<string, DialogueNode>;
   readonly startNode: string;
 }
 
+export interface IVNListener {
+  onEvent?: (eventName: string, ...args: unknown[]) => void;
+  onChoice?: (options: ChoiceOption[]) => void;
+  onNode?: (node: DialogueNode) => void;
+  onEnd?: () => void;
+  onCGNode?: (cgPath: string) => void;
+}
+
 export class VNSystem {
   private _tree: DialogueTree | null = null;
   private _currentNodeId: string | null = null;
+  private _listener: IVNListener | null = null;
 
-  public onEvent:
-    | ((eventName: string, data: Record<string, unknown>) => void)
-    | null = null;
-  public onChoice:
-    | ((options: Array<{ label: string; next: string }>) => void)
-    | null = null;
-  public onNode: ((node: DialogueNode) => void) | null = null;
-  public onEnd: (() => void) | null = null;
-  public onCGNode: ((cgPath: string) => void) | null = null;
+  /** Runtime variable store — populated automatically by variable-set nodes. */
+  public readonly variables: Map<string, unknown> = new Map();
+
+  setListener(listener: IVNListener): void {
+    this._listener = listener;
+  }
+
+  removeListener(): void {
+    this._listener = null;
+  }
 
   load(tree: DialogueTree): void {
     this._tree = tree;
@@ -57,9 +72,8 @@ export class VNSystem {
     // behaviour of _goto() for all subsequent nodes.
     const first = this.currentNode;
     if (first !== null) {
-      if (first.cgPath !== undefined && this.onCGNode)
-        this.onCGNode(first.cgPath);
-      if (first.type === "dialogue" && this.onNode) this.onNode(first);
+      if (first.cgPath !== undefined) this._listener?.onCGNode?.(first.cgPath);
+      if (first.type === "dialogue") this._listener?.onNode?.(first);
     }
     this._processCurrentNode();
   }
@@ -78,7 +92,6 @@ export class VNSystem {
     } else if (node.type === "event") {
       this._goto(node.next ?? null);
     } else if (node.type === "variable-set") {
-      // auto-advance after variable-set; caller handles the variable via onNode
       this._goto(node.next ?? null);
     }
     // choice and jump are handled internally / by external call
@@ -88,17 +101,22 @@ export class VNSystem {
     this._goto(next);
   }
 
+  /** Read a runtime variable set by variable-set nodes. Returns undefined if not set. */
+  getVariable(key: string): unknown {
+    return this.variables.get(key);
+  }
+
   private _goto(nodeId: string | null): void {
     if (nodeId === null) {
       this._currentNodeId = null;
-      if (this.onEnd) this.onEnd();
+      this._listener?.onEnd?.();
       return;
     }
     this._currentNodeId = nodeId;
     const node = this._tree?.nodes[nodeId];
-    if (node !== undefined && this.onNode) this.onNode(node);
-    if (node !== undefined && node.cgPath !== undefined && this.onCGNode) {
-      this.onCGNode(node.cgPath);
+    if (node !== undefined) {
+      this._listener?.onNode?.(node);
+      if (node.cgPath !== undefined) this._listener?.onCGNode?.(node.cgPath);
     }
     this._processCurrentNode();
   }
@@ -110,11 +128,14 @@ export class VNSystem {
     if (node.type === "jump") {
       this._goto(node.target);
     } else if (node.type === "event") {
-      this.onEvent?.(node.eventName, node.data ?? {});
+      this._listener?.onEvent?.(node.eventName, node.data ?? {});
     } else if (node.type === "choice") {
-      this.onChoice?.(node.options);
+      this._listener?.onChoice?.(node.options);
     } else if (node.type === "variable-set") {
-      // onNode was already fired in _goto; advance is triggered by the caller
+      // Store the variable and auto-advance — game code reads variables via
+      // getVariable() rather than intercepting the node directly.
+      this.variables.set(node.variableKey, node.variableValue);
+      this._goto(node.next ?? null);
     }
   }
 }
