@@ -4,6 +4,13 @@ import {
   type CoroutineGen,
 } from "../systems/CoroutineSystem.js";
 
+/** Minimal shape Entity expects from attached behaviors. */
+interface BehaviorLike {
+  update(ctx: { entity: Entity; dt: number }): void;
+  onAttach?(): void;
+  onDetach?(): void;
+}
+
 let _nextId = 0;
 
 /** Simple 2-component vector used for position and scale. */
@@ -46,6 +53,9 @@ export class Entity {
   // ─── Event emitter ──────────────────────────────────────────────────────────
   private readonly _listeners: Map<string, Set<EventHandler>> = new Map();
   private readonly _onceListeners: Map<string, Set<EventHandler>> = new Map();
+
+  // ─── Behaviors ──────────────────────────────────────────────────────────────
+  private readonly _behaviors: BehaviorLike[] = [];
 
   // ─── Coroutines ─────────────────────────────────────────────────────────────
   private _coroutines: CoroutineSystem | null = null;
@@ -139,6 +149,33 @@ export class Entity {
     return this._components;
   }
 
+  // ─── Behaviors ──────────────────────────────────────────────────────────────
+
+  /**
+   * Attach a behavior to this entity. `onAttach()` is called immediately.
+   * The behavior's `update()` is called every frame via `entity.update()`.
+   *
+   * @example
+   * ```typescript
+   * const move = new EightDirBehavior(input, 200)
+   * player.addBehavior(move)
+   * ```
+   */
+  addBehavior(behavior: BehaviorLike): this {
+    this._behaviors.push(behavior);
+    behavior.onAttach?.();
+    return this;
+  }
+
+  /** Remove a previously attached behavior. Calls `onDetach()`. */
+  removeBehavior(behavior: BehaviorLike): boolean {
+    const idx = this._behaviors.indexOf(behavior);
+    if (idx === -1) return false;
+    this._behaviors.splice(idx, 1);
+    behavior.onDetach?.();
+    return true;
+  }
+
   // ─── Hierarchy ──────────────────────────────────────────────────────────────
 
   get parent(): Entity | null {
@@ -191,6 +228,12 @@ export class Entity {
       c?.onDetach?.();
     }
     this._components.clear();
+
+    // Detach all behaviors
+    for (const behavior of this._behaviors) {
+      behavior.onDetach?.();
+    }
+    this._behaviors.length = 0;
 
     // Stop all coroutines
     if (this._coroutines !== null) {
@@ -334,6 +377,9 @@ export class Entity {
       if (component.enabled) {
         component.update?.(deltaTime);
       }
+    }
+    for (const behavior of this._behaviors) {
+      behavior.update({ entity: this, dt: deltaTime });
     }
     this._coroutines?.update(deltaTime);
     for (const child of this._children) {

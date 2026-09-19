@@ -15,7 +15,8 @@ function lerpColour(a: number, b: number, t: number): number {
 
 function sampleGradient(colours: number[], t: number): number {
   if (colours.length === 0) return 0xffffff;
-  if (colours.length === 1) return colours[0] ?? colours[colours.length - 1] ?? 0xffffff;
+  if (colours.length === 1)
+    return colours[0] ?? colours[colours.length - 1] ?? 0xffffff;
   const seg = 1 / (colours.length - 1);
   const idx = Math.min(Math.floor(t / seg), colours.length - 2);
   const local = (t - idx * seg) / seg;
@@ -26,7 +27,7 @@ function sampleGradient(colours: number[], t: number): number {
 
 // ─── Emitter options ─────────────────────────────────────────────────────────
 
-export type EmitterShape = 'point' | 'circle' | 'rectangle' | 'line';
+export type EmitterShape = "point" | "circle" | "rectangle" | "line";
 
 export interface ParticleEmitterOptions {
   /** Texture / sprite name for each particle (display layer handles actual rendering). */
@@ -54,13 +55,22 @@ export interface ParticleEmitterOptions {
 // ─── Particle ─────────────────────────────────────────────────────────────────
 
 interface Particle {
-  x: number; y: number;
-  vx: number; vy: number;
-  ax: number; ay: number;
-  life: number; maxLife: number;
-  scale: number; startScale: number; endScale: number;
-  alpha: number; startAlpha: number; endAlpha: number;
-  rotation: number; rotationSpeed: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  ax: number;
+  ay: number;
+  life: number;
+  maxLife: number;
+  scale: number;
+  startScale: number;
+  endScale: number;
+  alpha: number;
+  startAlpha: number;
+  endAlpha: number;
+  rotation: number;
+  rotationSpeed: number;
   colour: number;
   active: boolean;
 }
@@ -84,17 +94,20 @@ export class ParticleEmitter {
 
   constructor(options: ParticleEmitterOptions = {}) {
     this.options = {
-      texture: options.texture ?? '',
+      texture: options.texture ?? "",
       emissionRate: options.emissionRate ?? 20,
       lifetime: options.lifetime ?? { min: 0.5, max: 1.5 },
-      velocity: options.velocity ?? { x: { min: -50, max: 50 }, y: { min: -100, max: -50 } },
+      velocity: options.velocity ?? {
+        x: { min: -50, max: 50 },
+        y: { min: -100, max: -50 },
+      },
       acceleration: options.acceleration ?? { x: 0, y: 100 },
       startScale: options.startScale ?? 1,
       endScale: options.endScale ?? 0,
       startAlpha: options.startAlpha ?? 1,
       endAlpha: options.endAlpha ?? 0,
       colorGradient: options.colorGradient ?? [0xffffff],
-      shape: options.shape ?? 'point',
+      shape: options.shape ?? "point",
       shapeRadius: options.shapeRadius ?? 0,
       shapeWidth: options.shapeWidth ?? 0,
       shapeHeight: options.shapeHeight ?? 0,
@@ -116,14 +129,19 @@ export class ParticleEmitter {
     const opts = this.options;
     const life = rng(opts.lifetime.min, opts.lifetime.max);
 
-    let ox = 0; let oy = 0;
-    if (opts.shape === 'circle' && opts.shapeRadius > 0) {
+    let ox = 0;
+    let oy = 0;
+    if (opts.shape === "circle" && opts.shapeRadius > 0) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * opts.shapeRadius;
-      ox = Math.cos(a) * r; oy = Math.sin(a) * r;
-    } else if (opts.shape === 'rectangle') {
+      ox = Math.cos(a) * r;
+      oy = Math.sin(a) * r;
+    } else if (opts.shape === "rectangle") {
       ox = rng(-opts.shapeWidth / 2, opts.shapeWidth / 2);
       oy = rng(-opts.shapeHeight / 2, opts.shapeHeight / 2);
+    } else if (opts.shape === "line") {
+      // Spawns along a horizontal line of length shapeWidth, centred on (x, y)
+      ox = rng(-opts.shapeWidth / 2, opts.shapeWidth / 2);
     }
 
     const p: Particle = {
@@ -181,7 +199,11 @@ export class ParticleEmitter {
     for (const p of this._particles) {
       if (!p.active) continue;
       p.life -= deltaTime;
-      if (p.life <= 0) { p.active = false; this._activeCount--; continue; }
+      if (p.life <= 0) {
+        p.active = false;
+        this._activeCount--;
+        continue;
+      }
 
       const t = 1 - p.life / p.maxLife;
       p.vx += p.ax * deltaTime;

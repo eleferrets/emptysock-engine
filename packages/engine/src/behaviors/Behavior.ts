@@ -4,7 +4,8 @@ import type { Scene } from "../core/Scene.js";
 export interface BehaviorContext {
   entity: Entity;
   dt: number;
-  scene: Scene;
+  /** The scene that owns this entity. Null when called outside a scene (e.g. unit tests). */
+  scene?: Scene;
 }
 
 export abstract class Behavior {
