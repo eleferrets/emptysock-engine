@@ -767,6 +767,28 @@ export function VisualScriptEditor(): React.ReactElement {
             );
           })}
         </div>
+
+        {nodes.length === 0 && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              color: "var(--es-text-muted)",
+              fontSize: 13,
+              gap: 6,
+            }}
+          >
+            <div>No nodes yet</div>
+            <div style={{ fontSize: 11 }}>
+              Click + Entity or + Component to start the graph
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Generated code panel */}
