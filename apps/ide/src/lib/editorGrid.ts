@@ -21,7 +21,8 @@ export interface GridOptions {
 
 /** Snap a value to the nearest grid cell boundary */
 export function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize;
+  const snapped = Math.round(value / gridSize) * gridSize;
+  return Object.is(snapped, -0) ? 0 : snapped;
 }
 
 /** Snap a point to the nearest grid cell */
@@ -65,7 +66,7 @@ export function drawGrid(
   ctx.lineWidth = 1;
 
   // vertical lines
-  const startX = ((-sx * zoom) % scaledGs + scaledGs) % scaledGs;
+  const startX = (((-sx * zoom) % scaledGs) + scaledGs) % scaledGs;
   for (let x = startX; x < canvasW; x += scaledGs) {
     ctx.beginPath();
     ctx.moveTo(Math.round(x) + 0.5, 0);
@@ -74,7 +75,7 @@ export function drawGrid(
   }
 
   // horizontal lines
-  const startY = ((-sy * zoom) % scaledGs + scaledGs) % scaledGs;
+  const startY = (((-sy * zoom) % scaledGs) + scaledGs) % scaledGs;
   for (let y = startY; y < canvasH; y += scaledGs) {
     ctx.beginPath();
     ctx.moveTo(0, Math.round(y) + 0.5);
@@ -211,7 +212,10 @@ export function drawGuides(
   canvasW: number,
   canvasH: number,
   guides: GuideLineData[],
-  opts: Pick<GridOptions, "scrollX" | "scrollY" | "zoom" | "showGuides" | "showRuler">,
+  opts: Pick<
+    GridOptions,
+    "scrollX" | "scrollY" | "zoom" | "showGuides" | "showRuler"
+  >,
 ): void {
   if (!opts.showGuides || guides.length === 0) return;
   const sx = opts.scrollX ?? 0;
@@ -260,7 +264,14 @@ const SNAP_THRESHOLD_PX = 6;
 
 export function computeAlignmentGuides(
   /** Object being dragged — canvas pixel coords of its edges */
-  obj: { left: number; right: number; top: number; bottom: number; cx: number; cy: number },
+  obj: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    cx: number;
+    cy: number;
+  },
   /** Reference edge positions in canvas pixels */
   refs: { x?: number[]; y?: number[] },
 ): AlignGuide[] {

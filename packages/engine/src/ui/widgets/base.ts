@@ -184,8 +184,15 @@ export abstract class Widget {
     for (const h of this._handlers.get(event) ?? []) h(value);
   }
 
+  /**
+   * Start an animation. `opts.duration` is in milliseconds (matching the
+   * rest of the widget event API); `_tick(dt)` receives `dt` in seconds
+   * (matching the engine's frame loop), so the duration is converted to
+   * seconds once here rather than at every tick.
+   */
   animate(name: AnimationName, opts: AnimationOpts = {}): void {
-    const duration = opts.duration ?? 0.2;
+    const durationMs = opts.duration ?? 200;
+    const duration = durationMs / 1000;
     const easing: EasingName = opts.easing ?? "quadOut";
     const direction = opts.direction ?? "left";
     if (name === "fadeIn") {

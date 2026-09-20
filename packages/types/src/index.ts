@@ -1,29 +1,39 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // ─── Project Manifest ─────────────────────────────────────────────────────────
 
 export const ProjectManifestSchema = z.object({
   name: z.string().min(1).max(128),
-  version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Must be semver'),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/, "Must be semver"),
   engineVersion: z.string(),
-  entryPoint: z.string().default('src/main.ts'),
-  targetResolution: z.object({
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-  }).default({ width: 1280, height: 720 }),
-  physics: z.object({
-    gravity: z.object({ x: z.number(), y: z.number() }).default({ x: 0, y: -9.81 }),
-    enabled: z.boolean().default(true),
-  }).default({}),
-  audio: z.object({
-    masterVolume: z.number().min(0).max(1).default(1),
-  }).default({}),
-  metadata: z.object({
-    author: z.string().optional(),
-    description: z.string().optional(),
-    icon: z.string().optional(),
-    tags: z.array(z.string()).default([]),
-  }).default({}),
+  entryPoint: z.string().default("src/main.ts"),
+  targetResolution: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .default({ width: 1280, height: 720 }),
+  physics: z
+    .object({
+      gravity: z
+        .object({ x: z.number(), y: z.number() })
+        .default({ x: 0, y: -9.81 }),
+      enabled: z.boolean().default(true),
+    })
+    .default({}),
+  audio: z
+    .object({
+      masterVolume: z.number().min(0).max(1).default(1),
+    })
+    .default({}),
+  metadata: z
+    .object({
+      author: z.string().optional(),
+      description: z.string().optional(),
+      icon: z.string().optional(),
+      tags: z.array(z.string()).default([]),
+    })
+    .default({}),
 });
 
 export type ProjectManifest = z.infer<typeof ProjectManifestSchema>;
@@ -62,13 +72,18 @@ export const SceneSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   version: z.number().int().positive().default(1),
-  backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1a1a2e'),
+  backgroundColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default("#1a1a2e"),
   entities: z.array(EntitySchema).default([]),
-  metadata: z.object({
-    author: z.string().optional(),
-    createdAt: z.number().optional(),
-    updatedAt: z.number().optional(),
-  }).default({}),
+  metadata: z
+    .object({
+      author: z.string().optional(),
+      createdAt: z.number().optional(),
+      updatedAt: z.number().optional(),
+    })
+    .default({}),
 });
 
 export type Scene = z.infer<typeof SceneSchema>;
@@ -76,13 +91,13 @@ export type Scene = z.infer<typeof SceneSchema>;
 // ─── Asset Manifest ───────────────────────────────────────────────────────────
 
 export const AssetTypeSchema = z.enum([
-  'image',
-  'audio',
-  'font',
-  'json',
-  'spritesheet',
-  'tilemap',
-  'shader',
+  "image",
+  "audio",
+  "font",
+  "json",
+  "spritesheet",
+  "tilemap",
+  "shader",
 ]);
 
 export type AssetType = z.infer<typeof AssetTypeSchema>;
@@ -108,7 +123,7 @@ export type AssetManifest = z.infer<typeof AssetManifestSchema>;
 
 // ─── GPU Tier ─────────────────────────────────────────────────────────────────
 
-export const GPUTierSchema = z.enum(['potato', 'low', 'mid', 'high', 'ultra']);
+export const GPUTierSchema = z.enum(["potato", "low", "mid", "high", "ultra"]);
 export type GPUTier = z.infer<typeof GPUTierSchema>;
 
 // ─── Engine Config ────────────────────────────────────────────────────────────
@@ -119,11 +134,20 @@ export const EngineConfigSchema = z.object({
   backgroundColor: z.number().default(0x1a1a2e),
   antialias: z.boolean().default(true),
   resolution: z.number().positive().default(1),
-  powerPreference: z.enum(['default', 'high-performance', 'low-power']).default('high-performance'),
-  physics: z.object({
-    gravity: z.object({ x: z.number(), y: z.number() }).default({ x: 0, y: -200 }),
-    timestep: z.number().positive().default(1 / 60),
-  }).default({}),
+  powerPreference: z
+    .enum(["default", "high-performance", "low-power"])
+    .default("high-performance"),
+  physics: z
+    .object({
+      gravity: z
+        .object({ x: z.number(), y: z.number() })
+        .default({ x: 0, y: -200 }),
+      timestep: z
+        .number()
+        .positive()
+        .default(1 / 60),
+    })
+    .default({}),
 });
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
@@ -162,16 +186,36 @@ export interface IUIRenderer {
   stroke(): void;
   rect(x: number, y: number, w: number, h: number): void;
   /** Optional — present in modern canvas implementations. */
-  roundRect?(x: number, y: number, w: number, h: number, r: number | number[]): void;
+  roundRect?(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number | number[],
+  ): void;
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
   arcTo(x1: number, y1: number, x2: number, y2: number, r: number): void;
-  arc(x: number, y: number, r: number, startAngle: number, endAngle: number): void;
+  arc(
+    x: number,
+    y: number,
+    r: number,
+    startAngle: number,
+    endAngle: number,
+  ): void;
   fillText(text: string, x: number, y: number): void;
   /** Draw a pre-loaded image into the context at the given position and size. */
-  drawImage(image: object, dx: number, dy: number, dw: number, dh: number): void;
+  drawImage(
+    image: object,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void;
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
+  /** Restrict subsequent drawing to the current path, until the next restore(). */
+  clip(): void;
 }
 
 // ─── HostAdapter ──────────────────────────────────────────────────────────────
@@ -217,7 +261,11 @@ export class NullHostAdapter implements HostAdapter {
   postMessage(_data: unknown, _targetOrigin: string): void {}
   addMessageListener(_handler: HostMessageHandler): void {}
   removeMessageListener(_handler: HostMessageHandler): void {}
-  setInterval(_fn: () => void, _ms: number): unknown { return null; }
+  setInterval(_fn: () => void, _ms: number): unknown {
+    return null;
+  }
   clearInterval(_id: unknown): void {}
-  detectGPUTier(): GPUTier { return 'mid'; }
+  detectGPUTier(): GPUTier {
+    return "mid";
+  }
 }

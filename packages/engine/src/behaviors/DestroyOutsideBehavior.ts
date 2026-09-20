@@ -39,7 +39,7 @@ export class DestroyOutsideBehavior extends Behavior {
       transform.y < this._y - this.margin ||
       transform.y > this._y + this._height + this.margin;
 
-    if (outside) {
+    if (outside && ctx.scene !== undefined) {
       ctx.scene.removeEntity(ctx.entity);
     }
   }
