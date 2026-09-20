@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tauri::Manager;
 
 // Force discrete GPU on NVIDIA Optimus and AMD PowerXpress laptops.
@@ -124,26 +124,54 @@ fn log_error(message: String) {
 }
 
 // ---------------------------------------------------------------------------
-// Export command — shells out to the emptysock-toolchain CLI
+// Export command — builds a real desktop installer via `cargo tauri build`
 // ---------------------------------------------------------------------------
+//
+// This does NOT shell out to the `emptysock-toolchain` CLI or depend on it
+// being installed. It scaffolds a minimal Tauri v2 "game shell" project
+// (templates embedded at compile time via `include_str!`, so no external
+// files are required at runtime), drops the already-bundled game JS/HTML
+// into its `dist/` folder, and runs `cargo tauri build` against it directly.
+// Real installers/binaries land in the project's own
+// `src-tauri/target/release/bundle/<type>/` — Tauri's standard output path —
+// and that directory is what gets returned to the IDE.
+//
+// Cross-compiling a macOS .dmg from Linux (or a Windows installer from
+// macOS, etc.) is not something a single machine can reliably do — it needs
+// the target OS's native toolchain (and, for macOS signing/notarisation,
+// Xcode on real Apple hardware). We do not pretend otherwise: a request for
+// a platform that doesn't match the host OS fails immediately with an
+// explanation, before any build is attempted.
+
+const CARGO_TOML_TMPL: &str = include_str!("../game-shell-template/Cargo.toml.tmpl");
+const TAURI_CONF_TMPL: &str = include_str!("../game-shell-template/tauri.conf.json.tmpl");
+const BUILD_RS: &str = include_str!("../game-shell-template/build.rs");
+const MAIN_RS: &str = include_str!("../game-shell-template/src/main.rs");
+const ICON_32: &[u8] = include_bytes!("../game-shell-template/icons/32x32.png");
+const ICON_128: &[u8] = include_bytes!("../game-shell-template/icons/128x128.png");
+const ICON_128_2X: &[u8] = include_bytes!("../game-shell-template/icons/128x128@2x.png");
+const ICON_ICNS: &[u8] = include_bytes!("../game-shell-template/icons/icon.icns");
+const ICON_ICO: &[u8] = include_bytes!("../game-shell-template/icons/icon.ico");
 
 #[derive(Deserialize)]
 pub struct ExportArgs {
+    /// "windows" | "macos" | "linux"
     pub platform: String,
+    /// Comma-separated Tauri bundle targets for this platform, e.g.
+    /// "nsis,msi" (windows), "appimage,deb" (linux), "dmg,app" (macos).
     pub format: String,
-    pub code: String,
-    pub minify: bool,
-    #[serde(rename = "dropConsole")]
-    pub drop_console: bool,
-    pub sourcemap: bool,
-    #[serde(rename = "aggressiveMode", default)]
-    pub aggressive_mode: bool,
-    #[serde(default = "default_arch")]
-    pub arch: String,
+    #[serde(rename = "indexHtml")]
+    pub index_html: String,
+    #[serde(rename = "engineJs")]
+    pub engine_js: String,
+    #[serde(rename = "gameJs")]
+    pub game_js: String,
+    #[serde(rename = "projectName", default = "default_project_name")]
+    pub project_name: String,
 }
 
-fn default_arch() -> String {
-    String::from("x86_64")
+fn default_project_name() -> String {
+    String::from("emptysock-game")
 }
 
 #[derive(Serialize)]
@@ -154,62 +182,179 @@ pub struct ExportResult {
     pub error: Option<String>,
 }
 
+/// The Tauri-recognised OS family for the current host.
+fn host_platform() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => "windows",
+        "macos" => "macos",
+        _ => "linux",
+    }
+}
+
+/// Turns a display name into a valid Cargo package / binary name.
+fn slugify(name: &str) -> String {
+    let mut out: String = name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    out = out.trim_matches('-').to_string();
+    if out.is_empty() {
+        out = "emptysock-game".to_string();
+    }
+    if out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        out = format!("g-{out}");
+    }
+    out
+}
+
+fn write_all(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, bytes)
+}
+
 #[tauri::command]
 async fn export_game(args: ExportArgs) -> ExportResult {
-    let tmp_dir = std::env::temp_dir().join("emptysock-export");
-    let out_dir = tmp_dir.join(&args.platform);
-    if let Err(e) = std::fs::create_dir_all(&out_dir) {
+    let host = host_platform();
+    if args.platform != host {
         return ExportResult {
             success: false,
             output_path: String::new(),
-            error: Some(format!("Failed to create output dir: {e}")),
+            error: Some(format!(
+                "Cannot build a {} package on this machine — this machine is {}. \
+                 Cross-compiling a native desktop installer for a different OS is not \
+                 supported from a single machine (Tauri needs the target OS's own \
+                 toolchain, and macOS builds additionally need real Apple hardware for \
+                 signing). Build {} targets on a {} machine, or set up a CI matrix build \
+                 (one job per OS) instead.",
+                args.platform, host, args.platform, args.platform
+            )),
         };
     }
 
-    let entry = tmp_dir.join("main.ts");
-    if let Err(e) = std::fs::write(&entry, &args.code) {
+    // 1. Check the `cargo tauri` subcommand is available. We deliberately do
+    //    NOT depend on `emptysock-toolchain` or any Node/npx toolchain here —
+    //    `cargo` is already a hard requirement for compiling any native
+    //    binary, so this is the one thing we can assume is worth checking
+    //    for rather than trying to install ourselves.
+    let cargo_tauri_check = std::process::Command::new("cargo")
+        .args(["tauri", "--version"])
+        .output();
+    match cargo_tauri_check {
+        Ok(out) if out.status.success() => {}
+        _ => {
+            return ExportResult {
+                success: false,
+                output_path: String::new(),
+                error: Some(
+                    "`cargo tauri` is not available. Desktop export compiles a real \
+                     native binary, which requires the Rust toolchain plus the Tauri \
+                     CLI. Install with:\n\n  cargo install tauri-cli --version \"^2\"\n\n\
+                     (and, on Linux, the Tauri system dependencies: \
+                     https://v2.tauri.app/start/prerequisites/)"
+                        .to_string(),
+                ),
+            };
+        }
+    }
+
+    let slug = slugify(&args.project_name);
+    let tmp_root = std::env::temp_dir()
+        .join("emptysock-export")
+        .join(format!("{slug}-{}", std::process::id()));
+    let src_tauri = tmp_root.join("src-tauri");
+    let dist = tmp_root.join("dist");
+
+    // 2. Write the game's built output as the shell's frontend.
+    if let Err(e) = write_all(&dist.join("index.html"), args.index_html.as_bytes())
+        .and_then(|()| write_all(&dist.join("engine.js"), args.engine_js.as_bytes()))
+        .and_then(|()| write_all(&dist.join("game.js"), args.game_js.as_bytes()))
+    {
         return ExportResult {
             success: false,
             output_path: String::new(),
-            error: Some(format!("Failed to write source: {e}")),
+            error: Some(format!("Failed to write game bundle: {e}")),
         };
     }
 
-    let mut cmd = std::process::Command::new("emptysock-toolchain");
-    cmd.arg("export")
-        .arg("--platform").arg(&args.platform)
-        .arg("--format").arg(&args.format)
-        .arg("--entry").arg(&entry)
-        .arg("--out").arg(&out_dir)
-        .arg("--arch").arg(&args.arch);
+    // 3. Scaffold the Tauri shell project from the embedded templates.
+    let identifier = format!("io.emptysock.game.{slug}");
+    let bundle_targets = if args.format.trim().is_empty() {
+        "\"all\"".to_string()
+    } else {
+        let list = args
+            .format
+            .split(',')
+            .map(|f| format!("\"{}\"", f.trim()))
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("[{list}]")
+    };
 
-    if args.minify { cmd.arg("--minify"); }
-    if args.drop_console { cmd.arg("--drop-console"); }
-    if args.sourcemap { cmd.arg("--sourcemap"); }
-    if args.aggressive_mode { cmd.arg("--aggressive"); }
+    let cargo_toml = CARGO_TOML_TMPL.replace("{{package_name}}", &slug);
+    let tauri_conf = TAURI_CONF_TMPL
+        .replace("{{product_name}}", &args.project_name)
+        .replace("{{identifier}}", &identifier)
+        .replace("{{bundle_targets}}", &bundle_targets);
 
-    match cmd.output() {
-        Ok(output) if output.status.success() => ExportResult {
-            success: true,
-            output_path: out_dir.to_string_lossy().to_string(),
-            error: None,
-        },
+    let writes: [(std::path::PathBuf, &[u8]); 9] = [
+        (src_tauri.join("Cargo.toml"), cargo_toml.as_bytes()),
+        (src_tauri.join("tauri.conf.json"), tauri_conf.as_bytes()),
+        (src_tauri.join("build.rs"), BUILD_RS.as_bytes()),
+        (src_tauri.join("src/main.rs"), MAIN_RS.as_bytes()),
+        (src_tauri.join("icons/32x32.png"), ICON_32),
+        (src_tauri.join("icons/128x128.png"), ICON_128),
+        (src_tauri.join("icons/128x128@2x.png"), ICON_128_2X),
+        (src_tauri.join("icons/icon.icns"), ICON_ICNS),
+        (src_tauri.join("icons/icon.ico"), ICON_ICO),
+    ];
+    for (path, bytes) in writes {
+        if let Err(e) = write_all(&path, bytes) {
+            return ExportResult {
+                success: false,
+                output_path: String::new(),
+                error: Some(format!("Failed to scaffold build project ({path:?}): {e}")),
+            };
+        }
+    }
+
+    // 4. Run the real build.
+    let build = std::process::Command::new("cargo")
+        .arg("tauri")
+        .arg("build")
+        .current_dir(&src_tauri)
+        .output();
+
+    match build {
+        Ok(output) if output.status.success() => {
+            let bundle_dir = src_tauri.join("target/release/bundle");
+            ExportResult {
+                success: true,
+                output_path: bundle_dir.to_string_lossy().to_string(),
+                error: None,
+            }
+        }
         Ok(output) => {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             ExportResult {
                 success: false,
-                output_path: out_dir.to_string_lossy().to_string(),
+                output_path: String::new(),
                 error: Some(if stderr.is_empty() {
-                    format!("toolchain exited with code {:?}", output.status.code())
+                    format!(
+                        "cargo tauri build exited with code {:?}",
+                        output.status.code()
+                    )
                 } else {
                     stderr
                 }),
             }
         }
-        Err(_) => ExportResult {
-            success: true,
-            output_path: out_dir.to_string_lossy().to_string(),
-            error: None,
+        Err(e) => ExportResult {
+            success: false,
+            output_path: String::new(),
+            error: Some(format!("Failed to run cargo tauri build: {e}")),
         },
     }
 }
@@ -234,7 +379,12 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![open_file, save_file, export_game, log_error])
+        .invoke_handler(tauri::generate_handler![
+            open_file,
+            save_file,
+            export_game,
+            log_error
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

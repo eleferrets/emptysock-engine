@@ -6,6 +6,7 @@ import {
   saveToolchainSettings,
 } from "./ToolchainSettings.js";
 import { importGMS2Project } from "./gms2-import.js";
+import { buildDesktopApp } from "./desktopBuild.js";
 
 program
   .name("emptysock-toolchain")
@@ -55,29 +56,108 @@ program
       aggressive: boolean;
       arch: string;
     }) => {
-      const settings = loadToolchainSettings(process.cwd());
       console.log(
         `Exporting for ${opts.platform} (${opts.arch}) — format: ${opts.format}`,
       );
 
-      if (opts.format === "zip") {
-        await exportZip({
-          platform: opts.platform,
-          arch: opts.arch,
-          out: opts.out,
-        });
+      if (opts.platform === "web") {
+        // Web export has no native binary to compile — it's just the
+        // esbuild output plus an index.html, optionally zipped.
+        if (opts.format === "zip") {
+          await exportZip({ platform: "web", arch: opts.arch, out: opts.out });
+          return;
+        }
+        console.log(
+          `Entry: ${opts.entry}\nOutput: ${opts.out}\n` +
+            `Note: web builds aren't packaged unless --format zip is given.`,
+        );
         return;
       }
 
-      if (opts.platform === "linux") {
-        await exportLinux(opts, settings);
-      } else {
-        console.log(`Entry: ${opts.entry}`);
-        console.log(`Output: ${opts.out}`);
-        console.log("Done.");
+      if (
+        opts.platform === "windows" ||
+        opts.platform === "mac" ||
+        opts.platform === "linux"
+      ) {
+        // Real desktop builds: bundles the entry with esbuild, scaffolds a
+        // minimal Tauri v2 shell around it, and runs `cargo tauri build`.
+        // See desktopBuild.ts for exactly what this can and can't do
+        // (notably: no cross-compiling a different OS's installer).
+        const wantsZipWrapper = opts.format.toLowerCase() === "zip";
+        const format = mapLegacyFormat(opts.platform, opts.format);
+        const result = await buildDesktopApp({
+          platform: opts.platform,
+          format,
+          entry: opts.entry,
+          out: opts.out,
+          minify: opts.minify,
+          dropConsole: opts.dropConsole,
+          sourcemap: opts.sourcemap,
+          aggressive: opts.aggressive,
+        });
+
+        if (!result.success) {
+          console.error(result.error);
+          process.exitCode = 1;
+          return;
+        }
+
+        console.log(`Built ${result.artifacts?.length ?? 0} artifact(s):`);
+        for (const a of result.artifacts ?? []) console.log(`  ${a}`);
+
+        if (wantsZipWrapper) {
+          // "--format zip" is not itself a tauri-bundler target (Tauri only
+          // produces installers, not bare portable archives) — we build the
+          // platform's normal bundle target above, then zip whatever came
+          // out of it, so the caller gets one file to hand around.
+          await zipDirectory(
+            opts.out,
+            `game-${opts.platform}-${opts.arch}.zip`,
+          );
+        }
+
+        console.log(`\nDone. Output: ${opts.out}`);
+        return;
       }
+
+      console.error(`Unknown --platform "${opts.platform}"`);
+      process.exitCode = 1;
     },
   );
+
+/**
+ * Translates the CLI's legacy per-platform format flags (kept for backward
+ * compatibility with existing scripts) into the Tauri bundle target names
+ * `cargo tauri build --bundles <list>` (and our tauri.conf.json `targets`)
+ * actually understand.
+ */
+function mapLegacyFormat(
+  platform: "windows" | "mac" | "linux",
+  format: string | undefined,
+): string {
+  const f = (format ?? "").toLowerCase();
+  if (platform === "windows") {
+    if (f === "" || f === "zip" || f === "installer") return "nsis,msi";
+    if (f === "msi") return "msi";
+    if (f === "nsis") return "nsis";
+    return f;
+  }
+  if (platform === "mac") {
+    if (f === "" || f === "zip") return "dmg,app";
+    return f;
+  }
+  // linux
+  if (f === "" || f === "zip" || f === "appimage") return "appimage";
+  if (f === "deb") return "deb";
+  if (f === "flatpak") {
+    console.warn(
+      "Flatpak is not a tauri-bundler target — falling back to appimage,deb. " +
+        "Build a Flatpak manifest around the resulting binary separately.",
+    );
+    return "appimage,deb";
+  }
+  return f;
+}
 
 program
   .command("import")
@@ -178,91 +258,13 @@ program
     }
   });
 
-async function exportLinux(
-  opts: { entry: string; out: string; arch: string; format: string },
-  _settings: ReturnType<typeof loadToolchainSettings>,
-): Promise<void> {
-  const { execFile } = await import("child_process");
-  const { promisify } = await import("util");
-  const path = await import("path");
-  const fs = await import("fs");
-  const exec = promisify(execFile);
-
-  if (!fs.existsSync(opts.out)) fs.mkdirSync(opts.out, { recursive: true });
-
-  if (opts.format === "zip") {
-    await exportZip({ platform: "linux", arch: opts.arch, out: opts.out });
-    return;
-  }
-
-  // AppImage
-  console.log("Building AppImage...");
-  try {
-    await exec("linuxdeploy", [
-      "--appimage-extract-and-run",
-      "--output",
-      "appimage",
-      "--appdir",
-      opts.out,
-    ]);
-    console.log(`AppImage written to: ${opts.out}`);
-  } catch {
-    console.warn(
-      "linuxdeploy not found — skipping AppImage (install from https://github.com/linuxdeploy/linuxdeploy)",
-    );
-  }
-
-  // tar.gz
-  console.log("Building tar.gz...");
-  const tarOut = path.join(opts.out, `game-linux-${opts.arch}.tar.gz`);
-  try {
-    await exec("tar", [
-      "-czf",
-      tarOut,
-      "-C",
-      path.dirname(opts.out),
-      path.basename(opts.out),
-    ]);
-    console.log(`tar.gz: ${tarOut}`);
-  } catch (e) {
-    console.error("tar.gz failed:", e);
-  }
-
-  // Flatpak manifest
-  console.log("Emitting Flatpak manifest...");
-  const manifest = {
-    "app-id": "io.emptysock.Game",
-    runtime: "org.freedesktop.Platform",
-    "runtime-version": "23.08",
-    sdk: "org.freedesktop.Sdk",
-    command: "game",
-    modules: [
-      {
-        name: "game",
-        buildsystem: "simple",
-        "build-commands": [`install -Dm755 game /app/bin/game`],
-        sources: [{ type: "dir", path: "." }],
-      },
-    ],
-  };
-  const manifestPath = path.join(opts.out, "io.emptysock.Game.json");
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`Flatpak manifest: ${manifestPath}`);
-  console.log(
-    `Run: flatpak-builder --user --install build-dir ${manifestPath}`,
-  );
-}
-
 /**
- * Creates a platform-specific portable zip that needs no installer.
- *
- * linux  → zips the AppImage (chmod +x, run directly).
- * mac    → zips the .app bundle (drag-and-drop or run from anywhere).
- * windows→ zips the portable .exe directory (no registry writes).
- * web    → zips the Vite dist/ folder (serve with any static host).
+ * Zips the web `dist/` build. Nothing native to compile here, so this stays
+ * a plain archiving step — unlike the desktop platforms, it never assumed a
+ * prebuilt binary already existed.
  */
 async function exportZip(opts: {
-  platform: string;
+  platform: "web";
   arch: string;
   out: string;
 }): Promise<void> {
@@ -274,108 +276,44 @@ async function exportZip(opts: {
 
   if (!fs.existsSync(opts.out)) fs.mkdirSync(opts.out, { recursive: true });
 
-  const zipName = `game-${opts.platform}-${opts.arch}-portable.zip`;
+  const zipName = `game-web-${opts.arch}-portable.zip`;
   const zipOut = path.join(opts.out, zipName);
+  const distDir = path.join(opts.out, "dist");
+  if (!fs.existsSync(distDir)) {
+    console.error(`Web dist/ not found at ${distDir}. Run "pnpm build" first.`);
+    process.exit(1);
+  }
+  console.log(`Zipping web build → ${zipName}`);
+  await exec("zip", ["-r", zipOut, "dist"], { cwd: opts.out });
+  console.log(`Portable web zip: ${zipOut}`);
+  console.log(
+    "To serve: unzip and run: npx serve dist  (or: python3 -m http.server --directory dist)",
+  );
+}
 
-  switch (opts.platform) {
-    case "web": {
-      const distDir = path.join(opts.out, "dist");
-      if (!fs.existsSync(distDir)) {
-        console.error(
-          `Web dist/ not found at ${distDir}. Run "pnpm build" first.`,
-        );
-        process.exit(1);
-      }
-      console.log(`Zipping web build → ${zipName}`);
-      await exec("zip", ["-r", zipOut, "dist"], { cwd: opts.out });
-      console.log(`Portable web zip: ${zipOut}`);
-      console.log(
-        "To serve: unzip and run: npx serve dist  (or: python3 -m http.server --directory dist)",
-      );
-      break;
+/**
+ * Zips the full contents of a directory that `buildDesktopApp` already
+ * populated with real `cargo tauri build` output — never a directory we
+ * merely hope has a prebuilt binary sitting in it.
+ */
+async function zipDirectory(dir: string, zipName: string): Promise<void> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const path = await import("path");
+  const exec = promisify(execFile);
+
+  const zipOut = path.join(dir, zipName);
+  console.log(`Zipping build output → ${zipName}`);
+  try {
+    if (process.platform === "win32") {
+      const psCmd = `Compress-Archive -Path '${path.resolve(dir)}\\*' -DestinationPath '${zipOut}' -Force`;
+      await exec("powershell", ["-NonInteractive", "-Command", psCmd]);
+    } else {
+      await exec("zip", ["-r", zipOut, "."], { cwd: dir });
     }
-
-    case "linux": {
-      // Expect an AppImage in opts.out; zip it as-is (AppImage is already installer-free).
-      const appImages = fs
-        .readdirSync(opts.out)
-        .filter((f) => f.endsWith(".AppImage"));
-      if (appImages.length === 0) {
-        console.error(
-          "No .AppImage found in output dir. Run without --format zip first to produce the AppImage.",
-        );
-        process.exit(1);
-      }
-      const appImage = appImages[0];
-      if (appImage === undefined) {
-        console.error("No .AppImage found in output dir.");
-        process.exit(1);
-      }
-      console.log(`Zipping ${appImage} → ${zipName}`);
-      await exec("zip", [zipOut, appImage], {
-        cwd: opts.out,
-        encoding: "utf8" as const,
-      });
-      console.log(`Portable Linux zip: ${zipOut}`);
-      console.log("To run: unzip, chmod +x *.AppImage, then ./game.AppImage");
-      break;
-    }
-
-    case "mac": {
-      // Expect a .app bundle in opts.out.
-      const apps = fs.readdirSync(opts.out).filter((f) => f.endsWith(".app"));
-      if (apps.length === 0) {
-        console.error(
-          "No .app bundle found in output dir. Run without --format zip first to produce the .app.",
-        );
-        process.exit(1);
-      }
-      const app = apps[0];
-      if (app === undefined) {
-        console.error("No .app bundle found in output dir.");
-        process.exit(1);
-      }
-      console.log(`Zipping ${app} → ${zipName}`);
-      await exec("zip", ["-r", zipOut, app], {
-        cwd: opts.out,
-        encoding: "utf8" as const,
-      });
-      console.log(`Portable macOS zip: ${zipOut}`);
-      console.log(
-        "To run: unzip, then open game.app (or double-click in Finder)",
-      );
-      break;
-    }
-
-    case "windows": {
-      // On Windows, use PowerShell Compress-Archive. Works on all Windows 10+ machines.
-      const exeDir = path.resolve(opts.out);
-      const psCmd = `Compress-Archive -Path '${exeDir}\\*' -DestinationPath '${zipOut}' -Force`;
-      console.log(`Zipping portable exe → ${zipName}`);
-      try {
-        await exec("powershell", ["-NonInteractive", "-Command", psCmd]);
-        console.log(`Portable Windows zip: ${zipOut}`);
-        console.log(
-          "To run: unzip and run game.exe — no installation required",
-        );
-      } catch {
-        // Fallback: 7-Zip if available
-        try {
-          await exec("7z", ["a", zipOut, path.join(exeDir, "*")]);
-          console.log(`Portable Windows zip (7z): ${zipOut}`);
-        } catch {
-          console.error(
-            "zip failed: neither PowerShell Compress-Archive nor 7z is available",
-          );
-          process.exit(1);
-        }
-      }
-      break;
-    }
-
-    default:
-      console.error(`Unknown platform "${opts.platform}" for zip format`);
-      process.exit(1);
+    console.log(`Zip: ${zipOut}`);
+  } catch (e) {
+    console.error(`Failed to zip build output: ${String(e)}`);
   }
 }
 
