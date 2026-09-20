@@ -1,101 +1,76 @@
 import React from "react";
 import { useHistory } from "../../hooks/useHistory";
+import {
+  useParticleStore,
+  DEFAULT_PARTICLE_OPTIONS,
+} from "../../store/particleStore";
+import {
+  ParticleEmitter,
+  type ParticleEmitterOptions,
+  type EmitterShape,
+} from "@emptysock/engine";
 
-interface EmitterConfig {
-  emissionRate: number;
-  speedMin: number;
-  speedMax: number;
-  lifetimeMin: number;
-  lifetimeMax: number;
-  gravity: number;
-  scaleStart: number;
-  scaleEnd: number;
-  colorStart: string;
-  colorEnd: string;
-  shape: "point" | "circle" | "rect";
-  shapeRadius: number;
-  rotationSpeed: number;
-  alphaEnd: number;
-  /** Name of the loaded sprite texture (display only; the canvas uses spriteImg). */
-  textureName: string;
+// The panel edits ParticleEmitterOptions directly — the exact shape
+// `new ParticleEmitter(options)` accepts in code (see
+// packages/engine/src/systems/ParticleSystem.ts). No ad hoc intermediate
+// shape and no translation step: a config saved here is code-ready as-is.
+
+function rgbToHexString(hex: number): string {
+  return `#${(hex & 0xffffff).toString(16).padStart(6, "0")}`;
 }
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  scale: number;
-  alpha: number;
-  color: string;
-  rotation: number;
+function hexStringToNumber(s: string): number {
+  return parseInt(s.slice(1), 16) || 0;
 }
 
-const DEFAULT_CONFIG: EmitterConfig = {
-  emissionRate: 30,
-  speedMin: 80,
-  speedMax: 150,
-  lifetimeMin: 1.0,
-  lifetimeMax: 2.5,
-  gravity: 120,
-  scaleStart: 1.0,
-  scaleEnd: 0.0,
-  colorStart: "#a78bfa",
-  colorEnd: "#f87171",
-  shape: "point",
-  shapeRadius: 20,
-  rotationSpeed: 0,
-  alphaEnd: 0,
-  textureName: "",
-};
-
-function hexToRgb(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
-}
-
-function lerpColor(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = hexToRgb(a);
-  const [br, bg, bb] = hexToRgb(b);
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r},${g},${bl})`;
-}
+const SHAPES: EmitterShape[] = ["point", "circle", "rectangle", "line"];
 
 export function ParticleEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasSizeRef = React.useRef({ w: 400, h: 500 });
+
+  const storeOptions = useParticleStore((s) => s.particleOptions);
+  const storeSetOptions = useParticleStore((s) => s.setParticleOptions);
+
   const {
-    state: config,
-    set: setConfig,
+    state: histOptions,
+    set: commitToHistory,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useHistory<EmitterConfig>(DEFAULT_CONFIG);
-  // Live state for controls (updates on every slider drag without committing to history)
-  const [liveConfig, setLiveConfig] =
-    React.useState<EmitterConfig>(DEFAULT_CONFIG);
-  // Live ref for RAF loop (bypasses React re-renders during drag)
-  const liveConfigRef = React.useRef<EmitterConfig>(DEFAULT_CONFIG);
-  const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
-    null,
-  );
+  } = useHistory<ParticleEmitterOptions>(storeOptions);
 
-  // Keep liveConfig in sync with history config (on undo/redo)
-  const prevConfigRef = React.useRef<EmitterConfig>(config);
+  // Live options for fast slider updates; committed to history on release.
+  const [liveOptions, setLiveOptions] =
+    React.useState<ParticleEmitterOptions>(storeOptions);
+  const liveOptionsRef = React.useRef<ParticleEmitterOptions>(storeOptions);
+
+  const prevHistRef = React.useRef(histOptions);
   React.useEffect(() => {
-    if (config !== prevConfigRef.current) {
-      prevConfigRef.current = config;
-      liveConfigRef.current = config;
+    if (prevHistRef.current !== histOptions) {
+      prevHistRef.current = histOptions;
+      liveOptionsRef.current = histOptions;
+      setLiveOptions(histOptions);
+      storeSetOptions(histOptions);
     }
-  }, [config]);
+  }, [histOptions, storeSetOptions]);
+
+  const setLive = React.useCallback((next: ParticleEmitterOptions) => {
+    liveOptionsRef.current = next;
+    setLiveOptions(next);
+  }, []);
+
+  const commit = React.useCallback(
+    (next: ParticleEmitterOptions) => {
+      liveOptionsRef.current = next;
+      setLiveOptions(next);
+      storeSetOptions(next);
+      commitToHistory(next);
+    },
+    [storeSetOptions, commitToHistory],
+  );
 
   // Keyboard undo/redo
   React.useEffect(() => {
@@ -113,17 +88,32 @@ export function ParticleEditor(): React.ReactElement {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
-  const particlesRef = React.useRef<Particle[]>([]);
-  const lastTimeRef = React.useRef<number>(0);
-  const accumRef = React.useRef<number>(0);
-  const rafRef = React.useRef<number>(0);
-  const spriteImgRef = React.useRef<HTMLImageElement | null>(null);
 
+  const [spriteImg, setSpriteImg] = React.useState<HTMLImageElement | null>(
+    null,
+  );
+  const spriteImgRef = React.useRef<HTMLImageElement | null>(null);
   React.useEffect(() => {
     spriteImgRef.current = spriteImg;
   }, [spriteImg]);
 
-  // ResizeObserver: update physical canvas size and store logical dimensions
+  // Real engine emitter drives the preview — no hand-rolled simulation.
+  const emitterRef = React.useRef<ParticleEmitter>(
+    new ParticleEmitter(storeOptions),
+  );
+  const rafRef = React.useRef<number>(0);
+  const lastTimeRef = React.useRef<number>(0);
+
+  // Rebuild the emitter whenever committed options change (shape changes,
+  // maxParticles, etc. require a fresh instance; cheap since emitters are
+  // lightweight pooled arrays).
+  React.useEffect(() => {
+    emitterRef.current = new ParticleEmitter(liveOptions);
+    const { w, h } = canvasSizeRef.current;
+    emitterRef.current.x = w / 2;
+    emitterRef.current.y = h / 2;
+  }, [liveOptions]);
+
   React.useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -136,6 +126,8 @@ export function ParticleEditor(): React.ReactElement {
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvasSizeRef.current = { w: width, h: height };
+      emitterRef.current.x = width / 2;
+      emitterRef.current.y = height / 2;
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -148,11 +140,7 @@ export function ParticleEditor(): React.ReactElement {
     const img = new Image();
     img.onload = (): void => {
       setSpriteImg(img);
-      const next = { ...liveConfigRef.current, textureName: file.name };
-      setLiveConfig(next);
-      liveConfigRef.current = next;
-      prevConfigRef.current = next;
-      setConfig(next);
+      commit({ ...liveOptionsRef.current, texture: file.name });
     };
     img.src = url;
     e.target.value = "";
@@ -160,41 +148,7 @@ export function ParticleEditor(): React.ReactElement {
 
   const clearSprite = (): void => {
     setSpriteImg(null);
-    const next = { ...liveConfigRef.current, textureName: "" };
-    setLiveConfig(next);
-    liveConfigRef.current = next;
-    prevConfigRef.current = next;
-    setConfig(next);
-  };
-
-  const spawn = (cfg: EmitterConfig): Particle => {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin);
-    let ox = 0,
-      oy = 0;
-    if (cfg.shape === "circle") {
-      ox = Math.cos(angle) * Math.random() * cfg.shapeRadius;
-      oy = Math.sin(angle) * Math.random() * cfg.shapeRadius;
-    } else if (cfg.shape === "rect") {
-      ox = (Math.random() - 0.5) * cfg.shapeRadius * 2;
-      oy = (Math.random() - 0.5) * cfg.shapeRadius * 2;
-    }
-    const cx = canvasSizeRef.current.w / 2,
-      cy = canvasSizeRef.current.h / 2;
-    const lifetime =
-      cfg.lifetimeMin + Math.random() * (cfg.lifetimeMax - cfg.lifetimeMin);
-    return {
-      x: cx + ox,
-      y: cy + oy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - speed * 0.5,
-      life: lifetime,
-      maxLife: lifetime,
-      scale: cfg.scaleStart,
-      alpha: 1,
-      color: cfg.colorStart,
-      rotation: Math.random() * Math.PI * 2,
-    };
+    commit({ ...liveOptionsRef.current, texture: "" });
   };
 
   React.useEffect(() => {
@@ -204,29 +158,13 @@ export function ParticleEditor(): React.ReactElement {
     if (!ctx) return;
 
     const loop = (now: number): void => {
-      const cfg = liveConfigRef.current;
-      const dt = Math.min((now - lastTimeRef.current) / 1000, 0.05);
+      const dt = Math.min(
+        lastTimeRef.current === 0 ? 0 : (now - lastTimeRef.current) / 1000,
+        0.05,
+      );
       lastTimeRef.current = now;
-      accumRef.current += dt;
 
-      const interval = 1 / cfg.emissionRate;
-      while (accumRef.current >= interval) {
-        accumRef.current -= interval;
-        particlesRef.current.push(spawn(cfg));
-      }
-
-      particlesRef.current = particlesRef.current.filter((p) => p.life > 0);
-      for (const p of particlesRef.current) {
-        p.life -= dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vy += cfg.gravity * dt;
-        p.rotation += cfg.rotationSpeed * dt;
-        const t = 1 - p.life / p.maxLife;
-        p.scale = cfg.scaleStart + (cfg.scaleEnd - cfg.scaleStart) * t;
-        p.alpha = 1 - t * (1 - cfg.alphaEnd);
-        p.color = lerpColor(cfg.colorStart, cfg.colorEnd, t);
-      }
+      emitterRef.current.update(dt);
 
       const dpr = window.devicePixelRatio || 1;
       const { w: lw, h: lh } = canvasSizeRef.current;
@@ -236,7 +174,8 @@ export function ParticleEditor(): React.ReactElement {
       ctx.fillRect(0, 0, lw, lh);
 
       const img = spriteImgRef.current;
-      for (const p of particlesRef.current) {
+      for (const p of emitterRef.current.getParticles()) {
+        if (!p.active) continue;
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.alpha);
         ctx.translate(p.x, p.y);
@@ -246,7 +185,7 @@ export function ParticleEditor(): React.ReactElement {
           ctx.drawImage(img, -size / 2, -size / 2, size, size);
         } else {
           const r = 4 * p.scale;
-          ctx.fillStyle = p.color;
+          ctx.fillStyle = rgbToHexString(p.colour);
           ctx.beginPath();
           ctx.arc(0, 0, Math.max(0.5, r), 0, Math.PI * 2);
           ctx.fill();
@@ -260,50 +199,66 @@ export function ParticleEditor(): React.ReactElement {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, []); // Uses liveConfigRef so no deps needed
+  }, []);
 
-  const field = (
+  const numField = (
     label: string,
-    key: keyof EmitterConfig,
+    get: (o: ParticleEmitterOptions) => number,
+    set: (o: ParticleEmitterOptions, v: number) => ParticleEmitterOptions,
     min: number,
     max: number,
     step = 1,
-  ): React.ReactElement => (
-    <div style={{ marginBottom: 8 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 2,
-        }}
-      >
-        <span style={{ color: "var(--es-text-muted)" }}>{label}</span>
-        <span style={{ color: "var(--es-text)" }}>
-          {typeof liveConfig[key] === "number"
-            ? (liveConfig[key] as number).toFixed(step < 1 ? 2 : 0)
-            : liveConfig[key]}
-        </span>
+  ): React.ReactElement => {
+    const value = get(liveOptions);
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 2,
+          }}
+        >
+          <span style={{ color: "var(--es-text-muted)" }}>{label}</span>
+          <span style={{ color: "var(--es-text)" }}>
+            {value.toFixed(step < 1 ? 2 : 0)}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => {
+            setLive(set(liveOptionsRef.current, Number(e.target.value)));
+          }}
+          onPointerUp={() => commit(liveOptionsRef.current)}
+          style={{ width: "100%", accentColor: "var(--es-accent)" }}
+        />
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={liveConfig[key] as number}
-        onChange={(e) => {
-          const next = { ...liveConfig, [key]: Number(e.target.value) };
-          setLiveConfig(next);
-          liveConfigRef.current = next;
-        }}
-        onPointerUp={() => {
-          const next = liveConfigRef.current;
-          prevConfigRef.current = next;
-          setConfig(next);
-        }}
-        style={{ width: "100%", accentColor: "var(--es-accent)" }}
-      />
-    </div>
-  );
+    );
+  };
+
+  const gradient = liveOptions.colorGradient ??
+    DEFAULT_PARTICLE_OPTIONS.colorGradient ?? [0xffffff];
+
+  const setGradientStop = (index: number, hex: string): void => {
+    const next = gradient.slice();
+    next[index] = hexStringToNumber(hex);
+    commit({ ...liveOptionsRef.current, colorGradient: next });
+  };
+
+  const addGradientStop = (): void => {
+    const last = gradient[gradient.length - 1] ?? 0xffffff;
+    commit({ ...liveOptionsRef.current, colorGradient: [...gradient, last] });
+  };
+
+  const removeGradientStop = (index: number): void => {
+    if (gradient.length <= 1) return;
+    const next = gradient.filter((_, i) => i !== index);
+    commit({ ...liveOptionsRef.current, colorGradient: next });
+  };
 
   return (
     <div
@@ -318,7 +273,7 @@ export function ParticleEditor(): React.ReactElement {
       {/* Controls */}
       <div
         style={{
-          width: 220,
+          width: 240,
           borderRight: "1px solid var(--es-border)",
           padding: 12,
           overflow: "auto",
@@ -383,9 +338,9 @@ export function ParticleEditor(): React.ReactElement {
               fontWeight: 600,
             }}
           >
-            Sprite Texture
+            Texture
           </div>
-          {liveConfig.textureName ? (
+          {liveOptions.texture ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span
                 style={{
@@ -397,7 +352,7 @@ export function ParticleEditor(): React.ReactElement {
                   whiteSpace: "nowrap",
                 }}
               >
-                {liveConfig.textureName}
+                {liveOptions.texture}
               </span>
               <button
                 onClick={clearSprite}
@@ -443,49 +398,169 @@ export function ParticleEditor(): React.ReactElement {
               marginTop: 3,
             }}
           >
-            PNG, JPG, GIF, WebP accepted
+            PNG, JPG, GIF, WebP accepted. Preview only — sets{" "}
+            <code>options.texture</code>.
           </div>
         </div>
 
-        {field("Emission Rate", "emissionRate", 1, 200)}
-        {field("Speed Min", "speedMin", 0, 500)}
-        {field("Speed Max", "speedMax", 0, 500)}
-        {field("Lifetime Min", "lifetimeMin", 0.1, 10, 0.1)}
-        {field("Lifetime Max", "lifetimeMax", 0.1, 10, 0.1)}
-        {field("Gravity", "gravity", -500, 500)}
-        {field("Scale Start", "scaleStart", 0, 5, 0.1)}
-        {field("Scale End", "scaleEnd", 0, 5, 0.1)}
-        {field("Alpha End", "alphaEnd", 0, 1, 0.05)}
-        {field("Rotation Speed", "rotationSpeed", -20, 20, 0.1)}
-        {field("Shape Radius", "shapeRadius", 0, 200)}
+        {numField(
+          "Emission Rate",
+          (o) => o.emissionRate ?? 0,
+          (o, v) => ({ ...o, emissionRate: v }),
+          0,
+          200,
+        )}
+        {numField(
+          "Max Particles",
+          (o) => o.maxParticles ?? 0,
+          (o, v) => ({ ...o, maxParticles: v }),
+          1,
+          2000,
+        )}
+        {numField(
+          "Lifetime Min",
+          (o) => o.lifetime?.min ?? 0,
+          (o, v) => ({ ...o, lifetime: { min: v, max: o.lifetime?.max ?? v } }),
+          0.1,
+          10,
+          0.1,
+        )}
+        {numField(
+          "Lifetime Max",
+          (o) => o.lifetime?.max ?? 0,
+          (o, v) => ({ ...o, lifetime: { min: o.lifetime?.min ?? v, max: v } }),
+          0.1,
+          10,
+          0.1,
+        )}
+        {numField(
+          "Velocity X Min",
+          (o) => o.velocity?.x?.min ?? 0,
+          (o, v) => ({
+            ...o,
+            velocity: {
+              ...o.velocity,
+              x: { min: v, max: o.velocity?.x?.max ?? v },
+            },
+          }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Velocity X Max",
+          (o) => o.velocity?.x?.max ?? 0,
+          (o, v) => ({
+            ...o,
+            velocity: {
+              ...o.velocity,
+              x: { min: o.velocity?.x?.min ?? v, max: v },
+            },
+          }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Velocity Y Min",
+          (o) => o.velocity?.y?.min ?? 0,
+          (o, v) => ({
+            ...o,
+            velocity: {
+              ...o.velocity,
+              y: { min: v, max: o.velocity?.y?.max ?? v },
+            },
+          }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Velocity Y Max",
+          (o) => o.velocity?.y?.max ?? 0,
+          (o, v) => ({
+            ...o,
+            velocity: {
+              ...o.velocity,
+              y: { min: o.velocity?.y?.min ?? v, max: v },
+            },
+          }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Acceleration X",
+          (o) => o.acceleration?.x ?? 0,
+          (o, v) => ({ ...o, acceleration: { ...o.acceleration, x: v } }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Acceleration Y (Gravity)",
+          (o) => o.acceleration?.y ?? 0,
+          (o, v) => ({ ...o, acceleration: { ...o.acceleration, y: v } }),
+          -500,
+          500,
+        )}
+        {numField(
+          "Scale Start",
+          (o) => o.startScale ?? 0,
+          (o, v) => ({ ...o, startScale: v }),
+          0,
+          5,
+          0.1,
+        )}
+        {numField(
+          "Scale End",
+          (o) => o.endScale ?? 0,
+          (o, v) => ({ ...o, endScale: v }),
+          0,
+          5,
+          0.1,
+        )}
+        {numField(
+          "Alpha Start",
+          (o) => o.startAlpha ?? 0,
+          (o, v) => ({ ...o, startAlpha: v }),
+          0,
+          1,
+          0.05,
+        )}
+        {numField(
+          "Alpha End",
+          (o) => o.endAlpha ?? 0,
+          (o, v) => ({ ...o, endAlpha: v }),
+          0,
+          1,
+          0.05,
+        )}
+        {numField(
+          "Rotation Speed",
+          (o) => o.rotationSpeed ?? 0,
+          (o, v) => ({ ...o, rotationSpeed: v }),
+          -20,
+          20,
+          0.1,
+        )}
 
         <div style={{ marginBottom: 8 }}>
           <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
             Shape
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            {(["point", "circle", "rect"] as const).map((s) => (
+            {SHAPES.map((s) => (
               <button
                 key={s}
-                onClick={() => {
-                  const next = { ...liveConfig, shape: s };
-                  setLiveConfig(next);
-                  liveConfigRef.current = next;
-                  prevConfigRef.current = next;
-                  setConfig(next);
-                }}
+                onClick={() => commit({ ...liveOptionsRef.current, shape: s })}
                 style={{
                   flex: 1,
                   padding: "3px 0",
                   background:
-                    liveConfig.shape === s
+                    liveOptions.shape === s
                       ? "var(--es-accent)"
                       : "var(--es-surface)",
                   border: "none",
                   borderRadius: 4,
                   color: "var(--es-text)",
                   cursor: "pointer",
-                  fontSize: 11,
+                  fontSize: 10,
                 }}
               >
                 {s}
@@ -494,48 +569,108 @@ export function ParticleEditor(): React.ReactElement {
           </div>
         </div>
 
+        {liveOptions.shape === "circle" &&
+          numField(
+            "Shape Radius",
+            (o) => o.shapeRadius ?? 0,
+            (o, v) => ({ ...o, shapeRadius: v }),
+            0,
+            200,
+          )}
+        {(liveOptions.shape === "rectangle" || liveOptions.shape === "line") &&
+          numField(
+            "Shape Width",
+            (o) => o.shapeWidth ?? 0,
+            (o, v) => ({ ...o, shapeWidth: v }),
+            0,
+            400,
+          )}
+        {liveOptions.shape === "rectangle" &&
+          numField(
+            "Shape Height",
+            (o) => o.shapeHeight ?? 0,
+            (o, v) => ({ ...o, shapeHeight: v }),
+            0,
+            400,
+          )}
+
         {!spriteImg && (
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
-                Start Color
-              </div>
-              <input
-                type="color"
-                value={config.colorStart}
-                onChange={(e) => {
-                  const next = { ...liveConfig, colorStart: e.target.value };
-                  setLiveConfig(next);
-                  liveConfigRef.current = next;
-                  prevConfigRef.current = next;
-                  setConfig(next);
+          <div style={{ marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 4,
+              }}
+            >
+              <span style={{ color: "var(--es-text-muted)" }}>
+                Colour Gradient
+              </span>
+              <button
+                onClick={addGradientStop}
+                title="Add stop"
+                style={{
+                  padding: "1px 6px",
+                  background: "var(--es-surface)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  color: "var(--es-text)",
+                  cursor: "pointer",
+                  fontSize: 11,
                 }}
-                style={{ width: "100%", height: 28 }}
-              />
+              >
+                +
+              </button>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--es-text-muted)", marginBottom: 2 }}>
-                End Color
-              </div>
-              <input
-                type="color"
-                value={config.colorEnd}
-                onChange={(e) => {
-                  const next = { ...liveConfig, colorEnd: e.target.value };
-                  setLiveConfig(next);
-                  liveConfigRef.current = next;
-                  prevConfigRef.current = next;
-                  setConfig(next);
-                }}
-                style={{ width: "100%", height: 28 }}
-              />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {gradient.map((c, i) => (
+                <div
+                  key={i}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <input
+                    type="color"
+                    value={rgbToHexString(c)}
+                    onChange={(e) => setGradientStop(i, e.target.value)}
+                    style={{ flex: 1, height: 24 }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: "var(--es-text-muted)",
+                      width: 30,
+                    }}
+                  >
+                    {gradient.length > 1
+                      ? `${Math.round((i / (gradient.length - 1)) * 100)}%`
+                      : "100%"}
+                  </span>
+                  {gradient.length > 1 && (
+                    <button
+                      onClick={() => removeGradientStop(i)}
+                      style={{
+                        padding: "1px 5px",
+                        background: "none",
+                        border: "1px solid var(--es-border)",
+                        borderRadius: 4,
+                        color: "var(--es-red)",
+                        cursor: "pointer",
+                        fontSize: 9,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         <button
           onClick={() => {
-            particlesRef.current = [];
+            emitterRef.current.clear();
           }}
           style={{
             marginTop: 8,
@@ -558,12 +693,12 @@ export function ParticleEditor(): React.ReactElement {
             lineHeight: 1.5,
           }}
         >
-          Use the <code>texture</code> property in <code>ParticleEmitter</code>{" "}
-          options to reference your sprite at runtime.
+          This is the real <code>ParticleEmitterOptions</code> shape — copy it
+          straight into <code>particleSystem.create(options)</code> in code.
         </div>
       </div>
 
-      {/* Preview canvas */}
+      {/* Preview canvas — driven by a real ParticleEmitter instance */}
       <div
         ref={containerRef}
         style={{ flex: 1, overflow: "hidden", position: "relative" }}
@@ -581,7 +716,7 @@ export function ParticleEditor(): React.ReactElement {
             color: "rgba(255,255,255,0.3)",
           }}
         >
-          {particlesRef.current.length} particles
+          {emitterRef.current.activeCount} particles
         </div>
       </div>
     </div>
