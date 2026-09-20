@@ -16,6 +16,11 @@ import { Button } from "../ui/Button";
 import { useIDEStore } from "../../store/ideStore";
 import { gameBuildService } from "../../services/GameBuildService";
 import { BrowserFileService } from "../../services/BrowserFileService";
+import { getAssetStore } from "../../services/AssetStore";
+import {
+  collectReferencedAssetPaths,
+  collectProjectAssets,
+} from "../../services/AssetCollector";
 import { ENGINE_BUNDLE } from "../../runtime/engineBundle.generated";
 
 export type ExportPlatform =
@@ -93,6 +98,12 @@ export function ExportModal({
   const [status, setStatus] = useState<ExportStatus>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [outputPath, setOutputPath] = useState("");
+  const [assetWarnings, setAssetWarnings] = useState<string[]>([]);
+  const [assetProgress, setAssetProgress] = useState<{
+    done: number;
+    total: number;
+    bytes: number;
+  } | null>(null);
 
   const {
     projectName,
@@ -100,6 +111,7 @@ export function ExportModal({
     openFiles,
     activeFilePath,
     clearBuildCache,
+    assets,
   } = useIDEStore();
 
   // Derive the list of script entry-point candidates from open files
@@ -127,6 +139,8 @@ export function ExportModal({
     setStatus("exporting");
     setErrorMsg("");
     setOutputPath("");
+    setAssetWarnings([]);
+    setAssetProgress(null);
 
     try {
       if (cleanBuild) clearBuildCache();
@@ -246,6 +260,28 @@ ${scriptTags}
         // sourcemap is already inlined in debug mode; nothing extra to add
       }
 
+      // ── Asset bundling ──────────────────────────────────────────────────
+      // Walk every open source file for asset path literals (Sprite/Tilemap
+      // textures, AudioSystem sounds, fonts, JSON data such as tilemap data,
+      // dialogue trees and save schemas), plus anything registered in the
+      // project's asset registry, and copy the real bytes from AssetStore
+      // into the zip at the same relative path the compiled game.js
+      // references — paths are already relative to index.html, so no
+      // rewriting is needed, only verification that they resolve.
+      const referencedPaths = collectReferencedAssetPaths(openFiles);
+      const assetResult = await collectProjectAssets(
+        referencedPaths,
+        assets,
+        getAssetStore(),
+        (done, total, bytes) => setAssetProgress({ done, total, bytes }),
+      );
+      for (const asset of assetResult.assets) {
+        zip.file(asset.path, asset.blob);
+      }
+      if (assetResult.missing.length > 0) {
+        setAssetWarnings(assetResult.missing);
+      }
+
       if (includeSources) {
         const src = zip.folder("src");
         if (src !== null) {
@@ -286,6 +322,7 @@ ${scriptTags}
     entryCode,
     resolvedEntry,
     openFiles,
+    assets,
     minify,
     dropConsole,
     sourcemap,
@@ -926,6 +963,49 @@ ${scriptTags}
               </div>
             )}
           </div>
+
+          {/* Asset bundling progress */}
+          {status === "exporting" && assetProgress !== null && (
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--es-text-muted)",
+                fontFamily: "JetBrains Mono, monospace",
+              }}
+            >
+              Bundling assets: {assetProgress.done}/{assetProgress.total} (
+              {(assetProgress.bytes / 1024).toFixed(1)} KB)
+            </div>
+          )}
+
+          {/* Missing asset references */}
+          {assetWarnings.length > 0 && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 7,
+                background: "rgba(251,191,36,0.08)",
+                border: "1px solid rgba(251,191,36,0.3)",
+                fontSize: 12,
+                color: "var(--es-yellow)",
+              }}
+            >
+              {assetWarnings.length} referenced asset
+              {assetWarnings.length === 1 ? "" : "s"} could not be found and{" "}
+              {assetWarnings.length === 1 ? "was" : "were"} left out of the
+              export — the game will 404 on these at runtime:
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                {assetWarnings.map((p) => (
+                  <li
+                    key={p}
+                    style={{ fontFamily: "JetBrains Mono, monospace" }}
+                  >
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Status */}
           {status === "success" && (
