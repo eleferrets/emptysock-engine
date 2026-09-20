@@ -344,24 +344,43 @@ Changes take effect immediately in the running game (the VariableStore is shared
 
 Open via **Module → UI Placement** in the menu bar.
 
-A WYSIWYG canvas editor for `UISystem` layouts. Drag components from the palette on the left onto the canvas. Select a component to edit its position, size, anchor, and style in the right-hand property panel.
+A canvas editor for `Widget`/`UISystem` layouts that produces the exact same
+constructor-options shape a developer would hand-write in code — see
+[Building UI: visual vs code](../guides/ui-visual-vs-code.md) for the full
+round-trip explanation.
 
-**Palette types:** `panel`, `text`, `button`, `image`, `progressbar`, `slider`, `checkbox`.
+**Palette types (every `Widget` subclass the engine ships):** `PanelWidget`,
+`ButtonWidget`, `LabelWidget`, `ProgressBarWidget`, `SliderWidget`,
+`CheckboxWidget`, `ImageWidget`. Drag a type from the palette onto the canvas,
+or click it to arm placement and click the canvas.
+
+**Property panel:** every constructor option for the selected widget's type is
+editable — for example `ButtonWidget` exposes `label`, `background`,
+`hoverBackground`, `pressedBackground`, `borderRadius`, `fontSize`,
+`disabled`, and `animateOnHover`, in addition to position, size and anchor.
+The 9-way `WidgetAnchor` is set from the anchor grid above the canvas.
+
+**Live preview is real, not a mockup.** The canvas constructs actual
+`Widget` instances through the real `UISystem` (`uiSystem.render()`) on every
+change — the same render path the game uses, not a hand-drawn approximation.
 
 **Canvas controls:**
 
-- Drag a component to reposition it.
-- Drag a handle on the selection border to resize.
-- Hold `Shift` to snap to the grid (default 8 px).
+- Click or drop a palette item to place it at the cursor.
+- Click an existing widget to select it; `Delete`/`Backspace` removes it.
+- Toggle grid size, ruler and snap-to-grid in the toolbar. Alignment guides
+  appear automatically while placing near another widget's edges.
 
-**Export:** Click **Export JSON** to save the layout as a `.eslayout` file. Load it at runtime:
+**Code:** the **Insert** / **Copy** buttons on a selected widget emit the
+`new XWidget({ ...opts })` construction for that widget from its exact saved
+`opts` object; **Insert all** emits the whole layout. There is no separate
+IDE-only export format — the panel's saved layout (`PlacedWidget[]`, from
+`apps/ide/src/components/panels/ui-placement/layout.ts`) stores each widget's
+real constructor-options object, and `layoutToWidgets()` turns that layout
+into `Widget[]` with one call, identical to constructing them by hand.
 
-```typescript
-import { UISystem } from "@emptysock/engine";
-await UISystem.loadLayout("assets/ui/hud.eslayout");
-```
-
-Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`).
+Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`), backed
+by the shared `useHistory` hook.
 
 ---
 
