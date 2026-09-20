@@ -36,6 +36,20 @@ pnpm emptysock-toolchain export --platform windows --format zip --entry src/scen
 
 ---
 
+## Exporting from the IDE (web)
+
+The IDE's **Export Project** dialog (Export button in the toolbar) can produce a web export directly in the browser, without the CLI. Choosing platform **Web** builds your entry script with esbuild-wasm, then zips `index.html`, `engine.js` (or an inlined bundle), `game.js`, and — automatically — every asset your project actually uses.
+
+Asset bundling works by:
+
+1. Scanning every open source file for string literals that look like asset paths (any quoted string ending in `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.ogg`, `.mp3`, `.wav`, `.flac`, `.ttf`, `.otf`, `.woff`, `.woff2` or `.json`) — this covers `Sprite`/`Tilemap` texture paths, `AudioSystem` sound files, fonts, and JSON data assets such as tilemap data, dialogue trees and save schemas.
+2. Also including every asset registered in the Asset Browser, so data loaded indirectly (by id rather than a literal path) is still bundled.
+3. Reading each referenced path's real bytes from the project's `AssetStore` (the File System Access directory or Tauri filesystem the project is rooted in) and writing them into the zip at the same relative path the compiled `game.js` requests them at — asset paths are already relative to `index.html`, both in the IDE's live preview and in the exported zip, so no path rewriting is needed.
+
+If a referenced asset path cannot be found in the asset store, the export still completes but the dialog shows a warning listing the missing paths, so a broken reference is caught before the game ships rather than discovered as a 404 by a player. Asset-heavy projects show live progress (`n`/`total` files, KB copied) while bundling runs.
+
+---
+
 ## Platform-specific formats
 
 ```bash
