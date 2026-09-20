@@ -57,12 +57,14 @@ This is the canonical log — it does not live in companion repos.
 
 - [x] Test `gms2_inspect_project` against a real `.yyp` project file
   - Ran `importGMS2Project` end to end against a real, full GameMaker export
-    ("J3 Adventure": 59 objects, 202 sprites, 10 rooms, 98 scripts). The
-    fixture is real user-owned game data — it lives locally on disk at
-    `packages/toolchain/src/__fixtures__/gms2-j3-adventure/` and is
-    gitignored; it is intentionally NOT committed to this repo. Anyone
-    re-running the fixture-backed tests in `src/__tests__/gms2-import.test.ts`
-    needs a local copy — the suite skips itself when the fixture is absent.
+    ("J3 Adventure": 59 objects, 202 sprites, 10 rooms, 98 scripts),
+    provided temporarily by the user solely to validate this importer. The
+    project data was **deleted from disk** after use — it was never
+    committed and is not kept anywhere in this repo, gitignored or
+    otherwise. The learnings below, and the permanent regression tests in
+    `src/__tests__/gms2-import.test.ts` (fully synthetic — small
+    hand-written `.yyp`/`.yy` snippets built inline in the test file), are
+    what's left to show for it.
   - **Real format quirks learned (undocumented by YoYo, confirmed against
     real files, not guessed):**
     - `.yyp`/`.yy` files are **not strict JSON** — GameMaker's IDE always

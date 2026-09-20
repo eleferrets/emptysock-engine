@@ -9,7 +9,3 @@ coverage/
 .claude/worktrees/
 apps/ide/public/manual/
 apps/ide/public/esbuild.wasm
-
-# Real GameMaker project used to validate the GMS2 importer locally.
-# Contains user-owned game assets — never commit this.
-packages/toolchain/src/__fixtures__/

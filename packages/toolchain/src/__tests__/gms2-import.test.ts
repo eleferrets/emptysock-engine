@@ -1,21 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "fs/promises";
-import { existsSync } from "fs";
 import path from "path";
 import os from "os";
-import { fileURLToPath } from "url";
 import { importGMS2Project, parseGmsJson } from "../gms2-import.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { convertGms2Sprite } from "../gms2-sprite-import.js";
+import { convertGms2Room } from "../gms2-room-import.js";
 
 // ---------------------------------------------------------------------------
-// Synthetic unit tests — no real fixture required, always run (CI included).
-// These cover the pure-logic pieces the real-fixture bugs were found in,
-// so a regression is caught even on a machine/CI without the real project.
+// This suite is fully synthetic — it builds small, hand-written .yyp/.yy
+// snippets on disk in a temp directory rather than depending on any real
+// GameMaker project. It exists to capture, as permanent regression tests,
+// the real-format quirks discovered while validating the importer against
+// a real GMS2 export (see RELEASE_PASS.md for the full write-up of what
+// broke and why). No fixture directory is required or referenced.
 // ---------------------------------------------------------------------------
 
 describe("parseGmsJson (trailing-comma tolerant parsing)", () => {
-  it("parses real GMS2-style JSON with trailing commas in objects and arrays", () => {
+  it("parses GMS2-style JSON with trailing commas in objects and arrays", () => {
     const raw = `{
       "%Name":"Test Project",
       "resources":[
@@ -52,10 +53,8 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     );
     outDir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-synthetic-out-"));
 
-    // Minimal .yyp with GameMaker-style trailing commas, one object with a
-    // Create event, a Collision event, and KeyPress/KeyRelease events —
-    // exercising the same event-naming logic the real fixture exposed as
-    // broken, without depending on the real fixture being present.
+    // Minimal .yyp with GameMaker-style trailing commas and a "%Name" key
+    // (the project root only ever carries "%Name", never a plain "name").
     await fs.writeFile(
       path.join(projectDir, "test.yyp"),
       `{
@@ -68,6 +67,10 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       "utf-8",
     );
 
+    // Object with a Create event, a Collision event, and KeyPress/KeyRelease
+    // events — exercising the event-naming logic that silently dropped
+    // these on a real project (only Create_/Step_/Draw_/Destroy_ were
+    // previously recognised).
     const objDir = path.join(projectDir, "objects", "obj_hero");
     await fs.mkdir(objDir, { recursive: true });
     await fs.writeFile(
@@ -97,7 +100,7 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     await fs.rm(outDir, { recursive: true, force: true });
   });
 
-  it("parses the trailing-comma .yyp and converts the object", async () => {
+  it("parses the trailing-comma .yyp (via %Name) and converts the object", async () => {
     const result = await importGMS2Project(
       path.join(projectDir, "test.yyp"),
       outDir,
@@ -120,115 +123,123 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Real-fixture suite below. This is a real, full GameMaker Studio 2 export
-// ("J3 Adventure") rather than a synthetic fixture. The project data is
-// user-provided and lives only on disk (gitignored — see
-// packages/toolchain/src/__fixtures__/gms2-j3-adventure), so it is never
-// committed to the repo or available in CI. When the fixture isn't present
-// (any clone other than the one it was validated on), this whole suite is
-// skipped cleanly rather than failing.
-// ---------------------------------------------------------------------------
-
-const FIXTURE_ROOT = path.join(
-  __dirname,
-  "..",
-  "__fixtures__",
-  "gms2-j3-adventure",
-);
-const YYP_PATH = path.join(FIXTURE_ROOT, "J3 Adventure.yyp");
-const FIXTURE_PRESENT = existsSync(YYP_PATH);
-
-if (!FIXTURE_PRESENT) {
-  describe.skip("importGMS2Project (real fixture) — SKIPPED: real GMS2 fixture not present, see RELEASE_PASS.md", () => {
-    it("skipped", () => {
-      /* no-op: fixture-backed suite only runs when the real project is on disk locally */
-    });
-  });
-}
-
-describe.runIf(FIXTURE_PRESENT)("importGMS2Project (real fixture)", () => {
-  let outDir: string;
+describe("convertGms2Sprite (synthetic per-frame PNGs)", () => {
+  let spriteDir: string;
 
   beforeAll(async () => {
-    outDir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-import-test-"));
+    spriteDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-sprite-"),
+    );
+
+    // Real GMS2 sprites store one PNG per frame at the sprite directory
+    // root, named by the frame's own UUID resource name from the .yy
+    // "frames[].name" field — never "<sprite name>.png". Reproduce that
+    // shape with two fake "frame" PNGs (1x1 PNG bytes are enough; the
+    // importer only copies bytes, it doesn't decode them).
+    const tinyPng = Buffer.from(
+      "89504e470d0a1a0a0000000d49484452000000010000000108020000009077" +
+        "53de0000000a49444154789c6300010000050001a5f645400000000049454e" +
+        "44ae426082",
+      "hex",
+    );
+    await fs.writeFile(path.join(spriteDir, "frame-uuid-aaaa.png"), tinyPng);
+    await fs.writeFile(path.join(spriteDir, "frame-uuid-bbbb.png"), tinyPng);
+    await fs.writeFile(
+      path.join(spriteDir, "MySprite.yy"),
+      `{
+        "%Name":"MySprite",
+        "name":"MySprite",
+        "width":32,
+        "height":32,
+        "frames":[
+          {"$GMSpriteFrame":"v1","%Name":"frame-uuid-aaaa","name":"frame-uuid-aaaa","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+          {"$GMSpriteFrame":"v1","%Name":"frame-uuid-bbbb","name":"frame-uuid-bbbb","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+        ],
+        "resourceType":"GMSprite",
+      }`,
+      "utf-8",
+    );
   });
 
   afterAll(async () => {
-    await fs.rm(outDir, { recursive: true, force: true });
+    await fs.rm(spriteDir, { recursive: true, force: true });
   });
 
-  it("parses the real, non-strict-JSON .yyp file without throwing", async () => {
-    // Real GMS2 .yyp/.yy files use trailing commas — this would throw a
-    // JSON.parse error if the lenient parser regressed.
-    await expect(
-      importGMS2Project(YYP_PATH, outDir, { verbose: false }),
-    ).resolves.toBeDefined();
+  it("resolves each frame to its own UUID-named PNG on disk, not <name>.png", async () => {
+    const sprite = await convertGms2Sprite(spriteDir);
+    expect(sprite.frameCount).toBe(2);
+    expect(sprite.frames[0]?.imagePath).toContain("frame-uuid-aaaa.png");
+    expect(sprite.frames[1]?.imagePath).toContain("frame-uuid-bbbb.png");
   });
 
-  it("converts a realistic number of objects, scripts, sprites, and rooms", async () => {
-    const result = await importGMS2Project(YYP_PATH, outDir, {
-      verbose: false,
-    });
-    // Real project has 59 object directories, ~200 sprites, 10 rooms.
-    expect(result.converted).toBeGreaterThan(150);
-    expect(result.skipped.length).toBeGreaterThan(0); // sounds/fonts/notes stay manual
-  });
-
-  it("emits onCollideWith*/onKeyPress*/onKeyRelease* methods for obj_Brian", async () => {
-    await importGMS2Project(YYP_PATH, outDir, { verbose: false });
-    const content = await fs.readFile(
-      path.join(outDir, "obj_Brian.ts"),
+  it("throws a clear error when a referenced frame PNG is missing on disk", async () => {
+    const brokenDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-sprite-broken-"),
+    );
+    await fs.writeFile(
+      path.join(brokenDir, "Broken.yy"),
+      `{
+        "name":"Broken",
+        "width":16,
+        "height":16,
+        "frames":[
+          {"name":"does-not-exist-on-disk",},
+        ],
+      }`,
       "utf-8",
     );
-    // Real obj_Brian has Collision_obj_boulder.gml, Collision_obj_newroom_vert.gml,
-    // and KeyPress_37..40 / KeyRelease_37..40 (GameMaker vk codes for arrow keys).
-    expect(content).toContain("onCollideWithObjBoulder");
-    expect(content).toContain("onCollideWithObjNewroomVert");
-    expect(content).toContain("onKeyPressLeft");
-    expect(content).toContain("onKeyPressUp");
-    expect(content).toContain("onKeyPressRight");
-    expect(content).toContain("onKeyPressDown");
-    expect(content).toContain("onKeyReleaseLeft");
-    expect(content).toContain("class ObjBrian extends Component");
+    await expect(convertGms2Sprite(brokenDir)).rejects.toThrow(
+      /does not exist on disk/,
+    );
+    await fs.rm(brokenDir, { recursive: true, force: true });
   });
+});
 
-  it("copies real sprite frame PNGs to disk with correct byte size", async () => {
-    await importGMS2Project(YYP_PATH, outDir, { verbose: false });
-    const spriteDir = path.join(outDir, "assets", "sprites", "Breakable_Block");
-    const files = await fs.readdir(spriteDir);
-    expect(files.length).toBeGreaterThan(0);
+describe("convertGms2Room (synthetic resourceType-based layers)", () => {
+  let roomYyPath: string;
 
-    // frame_0.png in the output corresponds to the .yy file's first listed
-    // frame — read the .yy to find that frame's real UUID filename on disk.
-    const sourceDir = path.join(FIXTURE_ROOT, "sprites", "Breakable_Block");
-    const yyRaw = await fs.readFile(
-      path.join(sourceDir, "Breakable_Block.yy"),
+  beforeAll(async () => {
+    const roomDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-room-"),
+    );
+    roomYyPath = path.join(roomDir, "rm_test.yy");
+    // Real room .yy layers identify their kind via "resourceType"
+    // (e.g. "GMRInstanceLayer") — there is no "layerType" field in real
+    // files, so relying on it alone always fell back to "unknown".
+    await fs.writeFile(
+      roomYyPath,
+      `{
+        "name":"rm_test",
+        "roomSettings":{"Width":640,"Height":480,},
+        "layers":[
+          {
+            "resourceType":"GMRInstanceLayer",
+            "name":"Instances",
+            "instances":[
+              {"objectId":{"name":"obj_hero",},"x":80,"y":64,},
+            ],
+          },
+        ],
+      }`,
       "utf-8",
     );
-    const parsed = JSON.parse(yyRaw.replace(/,(\s*[}\]])/g, "$1")) as {
-      frames: Array<{ name: string }>;
-    };
-    const firstFrameName = parsed.frames[0]?.name;
-    expect(firstFrameName).toBeDefined();
-
-    const sourceStat = await fs.stat(
-      path.join(sourceDir, `${firstFrameName}.png`),
-    );
-    const copiedStat = await fs.stat(path.join(spriteDir, "frame_0.png"));
-    // The copy is byte-for-byte, so sizes must match exactly (not just be nonzero).
-    expect(copiedStat.size).toBe(sourceStat.size);
-    expect(copiedStat.size).toBeGreaterThan(0);
   });
 
-  it("produces structurally correct room data with real instance placements", async () => {
-    await importGMS2Project(YYP_PATH, outDir, { verbose: false });
-    const content = await fs.readFile(
-      path.join(outDir, "rooms", "rm_Brians_Room.ts"),
-      "utf-8",
-    );
-    expect(content).toContain("Room size: 640x480");
-    expect(content).toContain("createEntity()");
-    expect(content).toContain("ObjBriansRoom");
+  afterAll(async () => {
+    await fs.rm(path.dirname(roomYyPath), { recursive: true, force: true });
+  });
+
+  it("detects layer type from resourceType, not the nonexistent layerType field", async () => {
+    const room = await convertGms2Room(roomYyPath);
+    expect(room.layers[0]?.type).toBe("GMRInstanceLayer");
+  });
+
+  it("extracts real instance placements with object name and position", async () => {
+    const room = await convertGms2Room(roomYyPath);
+    expect(room.width).toBe(640);
+    expect(room.height).toBe(480);
+    expect(room.layers[0]?.instances).toEqual([
+      { objectName: "obj_hero", x: 80, y: 64 },
+    ]);
   });
 });
