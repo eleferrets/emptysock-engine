@@ -1691,3 +1691,23 @@ pointers.onWheel((w) => {
 Supports multiple simultaneous pointers, keyed by `pointerId`, for multi-touch. `pointers.destroy()` (alias for `detach()`) removes listeners on scene unload.
 
 `UISystem.dispatchPointerDown` / `dispatchPointerDrag` / `dispatchPointerUp` give widget hit-testing real press/drag/release semantics — wire them from a `PointerSystem`'s handlers instead of calling the legacy `handleClick` on every down. `UISystem.setScale(ratio)` applies a canvas-to-design-resolution scale to widget positioning, sizing, and hit-testing; `MIN_TOUCH_TARGET_SIZE` (44px, iOS HIG) documents the recommended minimum interactive-widget size, and `ButtonWidget` warns in dev mode when configured smaller.
+
+---
+
+## 5.35 VisualScriptComponent
+
+Node-graph interpreter component. Holds a serialized `VisualScriptGraph` (nodes + `next` edges) and walks it each frame (`onUpdate` nodes) or when fired (`onEvent` nodes via `fireEvent()`). Backs the Visual Script Editor panel; graphs can equally be hand-written with `VisualScriptGraphBuilder`.
+
+```typescript
+import { VisualScriptGraphBuilder, VisualScriptComponent } from "@emptysock/engine";
+
+const b = new VisualScriptGraphBuilder();
+const start = b.onUpdate();
+const setHp = b.setVariable(1, 100);
+b.connect(start, setHp);
+
+const vs = new VisualScriptComponent({ graph: b.build() });
+entity.addComponent(vs);
+```
+
+Node kinds: `onUpdate`, `onEvent`, `sequence`, `branch` (compares a `VariableStore` variable), `getVariable`/`setVariable`, `getSwitch`/`setSwitch`, `sendMessage` (dispatches through `ActorSystem.send()`). `VisualScriptComponent.TYPE` is `"VisualScript"`. See the [VisualScriptComponent reference](../reference/systems/visual-script-component.md) for the full node table and execution semantics, including the step cap that guards against a self-cycling graph.

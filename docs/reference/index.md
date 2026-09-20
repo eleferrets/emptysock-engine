@@ -26,7 +26,7 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 ## Systems
 
 | System                                                  | Description                                                                                         |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | [AnimatorController](./systems/animator-controller.md)  | Code-first animation state machine: named states, parameter-gated transitions, cross-fade blending  |
 | [AssetManifest](./systems/asset-manifest.md)            | Declarative asset preloading with progress reporting and per-asset failure handling                 |
 | [AudioSystem](./systems/audio-system.md)                | Sound-effect and music playback, group volume control, ducking and snapshots                        |
@@ -43,6 +43,7 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 | [PointerSystem](./systems/pointer-system.md)            | Unified mouse/touch/pen pointer stream, gestures (tap/long-press/swipe/pinch), wheel classification |
 | [SaveSystem](./systems/save-system.md)                  | Generic persistence for save slots, schema-configurable per game                                    |
 | [UISystem / Widgets](./systems/ui-system.md)            | Retained-mode screen-space UI widgets (buttons, labels, panels, etc.)                               |
+| [VisualScriptComponent](./systems/visual-script-component.md) | ECS component that interprets a node graph authored in the Visual Script Editor               |
 | [VNSystem](./systems/vn-system.md)                      | Plays back branching dialogue trees, with `VariableStore`-gated conditionals                        |
 | [VariableStore](./systems/variable-store.md)            | Indexed persistent variables/switches backing conditional VN and map logic                          |
 | [ViewportSystem](./systems/viewport-system.md)          | Design-resolution scaling, resize/orientation listening, safe-area insets                           |

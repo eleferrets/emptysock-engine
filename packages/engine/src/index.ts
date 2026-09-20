@@ -101,6 +101,25 @@ export type {
   AnimTransitionOptions,
   ActiveClipFrame,
 } from "./components/AnimatorController.js";
+export {
+  VisualScriptComponent,
+  VisualScriptGraphBuilder,
+} from "./components/VisualScriptComponent.js";
+export type {
+  VSNode,
+  VSNodeKind,
+  VSConnection,
+  VisualScriptGraph,
+  OnUpdateNode,
+  OnEventNode,
+  SequenceNode,
+  BranchNode,
+  GetVariableNode,
+  SetVariableNode,
+  GetSwitchNode,
+  SetSwitchNode,
+  SendMessageNode,
+} from "./components/VisualScriptComponent.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";
