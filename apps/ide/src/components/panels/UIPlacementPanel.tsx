@@ -1,4 +1,5 @@
 import React from "react";
+import { UISystem, type IUIRenderer } from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 import {
@@ -11,22 +12,29 @@ import {
   type GuideLineData,
 } from "../../lib/editorGrid";
 import type {
-  WidgetType,
   WidgetAnchor,
   PlacedWidget,
-} from "./ui-placement/constants";
+  WidgetType,
+} from "./ui-placement/layout";
 import {
-  WIDGET_SIZE,
   WIDGET_LABEL,
-  WIDGET_SNIPPET,
+  WIDGET_TYPES,
+  defaultOpts,
+  widgetBounds,
+  widgetAnchor,
+  layoutToWidgets,
+  layoutToSnippet,
+  widgetToSnippet,
+} from "./ui-placement/layout";
+import {
   ANCHORS,
   ANCHOR_GRID_POS,
   CANVAS_W,
   CANVAS_H,
   QUIPS,
   nextId,
-  canvasEventToWorld,
 } from "./ui-placement/constants";
+import { PropertyEditor } from "./ui-placement/PropertyEditor";
 
 export function UIPlacementPanel(): React.ReactElement {
   const setEditorCode = useIDEStore((s) => s.setEditorCode);
@@ -66,6 +74,9 @@ export function UIPlacementPanel(): React.ReactElement {
   } = useHistory<PlacedWidget[]>([]);
 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  // Real UISystem instance the preview renders through — never a hand-drawn
+  // mockup of what a widget "looks like".
+  const uiSystemRef = React.useRef<UISystem>(new UISystem());
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -124,23 +135,28 @@ export function UIPlacementPanel(): React.ReactElement {
 
     drawGrid(ctx, cw, ch, { ...gridOpts, showRuler: false });
 
-    for (const w of widgets) {
-      const isSelected = w.id === selectedId;
-      ctx.fillStyle = isSelected
-        ? "rgba(124,106,247,0.4)"
-        : "rgba(96,100,255,0.25)";
-      ctx.strokeStyle = isSelected
-        ? "rgba(200,180,255,1)"
-        : "rgba(96,100,255,0.8)";
-      ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.fillRect(R + w.x, R + w.y, w.w, w.h);
-      ctx.strokeRect(R + w.x + 0.5, R + w.y + 0.5, w.w, w.h);
-      ctx.fillStyle = isSelected
-        ? "rgba(220,210,255,1)"
-        : "rgba(180,180,255,0.9)";
-      ctx.font = "9px monospace";
-      ctx.fillText(w.label || WIDGET_LABEL[w.type], R + w.x + 4, R + w.y + 12);
+    // Real preview: rebuild the actual Widget tree from the saved layout and
+    // render it through the actual UISystem/Widget.render() path.
+    ctx.save();
+    ctx.translate(R, R);
+    const uiSystem = uiSystemRef.current;
+    uiSystem.clear();
+    for (const w of layoutToWidgets(widgets)) uiSystem.add(w);
+    uiSystem.update(0);
+    uiSystem.render(ctx as unknown as IUIRenderer, CANVAS_W, CANVAS_H);
+
+    if (selectedId !== null) {
+      const sel = widgets.find((w) => w.id === selectedId);
+      if (sel !== undefined) {
+        const b = widgetBounds(sel);
+        ctx.strokeStyle = "rgba(200,180,255,1)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w, b.h);
+        ctx.setLineDash([]);
+      }
     }
+    ctx.restore();
 
     let activeGuides: GuideLineData[] = [];
     if (
@@ -149,19 +165,25 @@ export function UIPlacementPanel(): React.ReactElement {
       widgets.length > 0 &&
       dragType !== null
     ) {
-      const sz = WIDGET_SIZE[dragType];
+      const sz = defaultOpts(dragType, selectedAnchor, 0, 0) as {
+        width?: number;
+        height?: number;
+      };
+      const w = sz.width ?? 100;
+      const h = sz.height ?? 40;
       const ghostLeft = R + ghostPos.x;
-      const ghostRight = ghostLeft + sz.w;
+      const ghostRight = ghostLeft + w;
       const ghostTop = R + ghostPos.y;
-      const ghostBot = ghostTop + sz.h;
+      const ghostBot = ghostTop + h;
       const ghostCx = (ghostLeft + ghostRight) / 2;
       const ghostCy = (ghostTop + ghostBot) / 2;
 
       const refX: number[] = [];
       const refY: number[] = [];
       for (const c of widgets) {
-        refX.push(R + c.x, R + c.x + c.w / 2, R + c.x + c.w);
-        refY.push(R + c.y, R + c.y + c.h / 2, R + c.y + c.h);
+        const b = widgetBounds(c);
+        refX.push(R + b.x, R + b.x + b.w / 2, R + b.x + b.w);
+        refY.push(R + b.y, R + b.y + b.h / 2, R + b.y + b.h);
       }
 
       const alignGuides = computeAlignmentGuides(
@@ -185,13 +207,18 @@ export function UIPlacementPanel(): React.ReactElement {
     }
 
     if (ghostPos !== null && dragType !== null) {
-      const sz = WIDGET_SIZE[dragType];
+      const sz = defaultOpts(dragType, selectedAnchor, 0, 0) as {
+        width?: number;
+        height?: number;
+      };
+      const w = sz.width ?? 100;
+      const h = sz.height ?? 40;
       ctx.fillStyle = "rgba(100,180,255,0.25)";
       ctx.strokeStyle = "rgba(100,180,255,0.9)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 3]);
-      ctx.fillRect(R + ghostPos.x, R + ghostPos.y, sz.w, sz.h);
-      ctx.strokeRect(R + ghostPos.x + 0.5, R + ghostPos.y + 0.5, sz.w, sz.h);
+      ctx.fillRect(R + ghostPos.x, R + ghostPos.y, w, h);
+      ctx.strokeRect(R + ghostPos.x + 0.5, R + ghostPos.y + 0.5, w, h);
       ctx.setLineDash([]);
       ctx.fillStyle = "rgba(180,220,255,0.85)";
       ctx.font = "9px monospace";
@@ -210,12 +237,18 @@ export function UIPlacementPanel(): React.ReactElement {
     widgets,
     dragType,
     selectedId,
+    selectedAnchor,
     R,
   ]);
 
   React.useEffect(() => {
     drawCanvas();
   }, [drawCanvas]);
+
+  React.useEffect(() => {
+    const uiSystem = uiSystemRef.current;
+    return () => uiSystem.destroy();
+  }, []);
 
   const resolveWorldPos = React.useCallback(
     (
@@ -225,7 +258,19 @@ export function UIPlacementPanel(): React.ReactElement {
     ): { x: number; y: number } | null => {
       const canvas = canvasRef.current;
       if (canvas === null) return null;
-      const raw = canvasEventToWorld(e, canvas, R);
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const point =
+        "touches" in e
+          ? e.type === "touchend"
+            ? e.changedTouches[0]
+            : e.touches[0]
+          : e;
+      if (point === undefined) return null;
+      const px = (point.clientX - rect.left) * scaleX;
+      const py = (point.clientY - rect.top) * scaleY;
+      const raw = { x: Math.round(px - R), y: Math.round(py - R) };
       if (raw.x < 0 || raw.y < 0 || raw.x > CANVAS_W || raw.y > CANVAS_H)
         return null;
       return editorSnapToGrid ? snapPoint(raw.x, raw.y, editorGridSize) : raw;
@@ -237,17 +282,11 @@ export function UIPlacementPanel(): React.ReactElement {
     pos: { x: number; y: number },
     type: WidgetType,
   ): void => {
-    const sz = WIDGET_SIZE[type];
     const newWidget: PlacedWidget = {
       id: nextId(),
       type,
-      anchor: selectedAnchor,
-      x: pos.x,
-      y: pos.y,
-      w: sz.w,
-      h: sz.h,
-      label: WIDGET_LABEL[type],
-    };
+      opts: defaultOpts(type, selectedAnchor, pos.x, pos.y),
+    } as PlacedWidget;
     setWidgets((prev) => [...prev, newWidget]);
     setSelectedId(newWidget.id);
     addLog("info", `Placed ${type} at (${pos.x}, ${pos.y})`);
@@ -256,22 +295,17 @@ export function UIPlacementPanel(): React.ReactElement {
   const hitTestWidgets = (x: number, y: number): PlacedWidget | null => {
     const reversed = [...widgets].reverse();
     for (const w of reversed) {
-      if (x >= w.x && x <= w.x + w.w && y >= w.y && y <= w.y + w.h) {
-        return w;
-      }
+      const b = widgetBounds(w);
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return w;
     }
     return null;
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (dragType === null) return;
-    const pos = resolveWorldPos(e);
-    setGhostPos(pos);
+    setGhostPos(resolveWorldPos(e));
   };
-
-  const handleMouseLeave = (): void => {
-    setGhostPos(null);
-  };
+  const handleMouseLeave = (): void => setGhostPos(null);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     const pos = resolveWorldPos(e);
@@ -293,16 +327,10 @@ export function UIPlacementPanel(): React.ReactElement {
     setGhostPos(pos);
     if (dragType !== null) placeWidget(pos, dragType);
   };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>): void => {
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>): void =>
     setGhostPos(resolveWorldPos(e));
-  };
+  const handleTouchEnd = (): void => setGhostPos(null);
 
-  const handleTouchEnd = (): void => {
-    setGhostPos(null);
-  };
-
-  // Drag-and-drop from palette onto canvas
   const handleDragOver = (e: React.DragEvent<HTMLCanvasElement>): void => {
     e.preventDefault();
     const canvas = canvasRef.current;
@@ -344,35 +372,42 @@ export function UIPlacementPanel(): React.ReactElement {
     placeWidget(pos, type);
     setGhostPos(null);
   };
+  const handleDragLeave = (): void => setGhostPos(null);
 
-  const handleDragLeave = (): void => {
-    setGhostPos(null);
-  };
-
-  const insertSnippet = (type: WidgetType, x: number, y: number): void => {
-    const snippet = WIDGET_SNIPPET[type](selectedAnchor, x, y);
-    const insertion = `\n// ${WIDGET_LABEL[type]}\n${snippet}\n`;
+  const insertSnippet = (w: PlacedWidget): void => {
+    const snippet = widgetToSnippet(w);
+    const insertion = `\n// ${WIDGET_LABEL[w.type]}\n${snippet}\n`;
     setEditorCode(editorCode.trim() + insertion);
-    addLog("info", `Inserted ${WIDGET_LABEL[type]} snippet into editor`);
-    setCopied(type);
+    addLog("info", `Inserted ${WIDGET_LABEL[w.type]} snippet into editor`);
+    setCopied(w.id);
     setTimeout(() => setCopied(null), 1200);
   };
 
-  const copySnippet = (type: WidgetType, x: number, y: number): void => {
-    const code = WIDGET_SNIPPET[type](selectedAnchor, x, y);
-    navigator.clipboard.writeText(code).catch(() => {
+  const copySnippet = (w: PlacedWidget): void => {
+    navigator.clipboard.writeText(widgetToSnippet(w)).catch(() => {
       /* ignore */
     });
-    setCopied(type + "-copy");
+    setCopied(w.id + "-copy");
     setTimeout(() => setCopied(null), 1200);
+  };
+
+  const insertAllSnippets = (): void => {
+    if (widgets.length === 0) return;
+    const insertion = `\n${layoutToSnippet(widgets)}\n`;
+    setEditorCode(editorCode.trim() + insertion);
+    addLog("info", `Inserted ${widgets.length} widget snippet(s) into editor`);
   };
 
   const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
 
-  const updateSelected = (patch: Partial<PlacedWidget>): void => {
+  const updateSelectedOpts = (opts: Record<string, unknown>): void => {
     if (selectedId === null) return;
     setWidgets((prev) =>
-      prev.map((w) => (w.id === selectedId ? { ...w, ...patch } : w)),
+      prev.map((w) =>
+        w.id === selectedId
+          ? ({ ...w, opts: { ...w.opts, ...opts } } as PlacedWidget)
+          : w,
+      ),
     );
   };
 
@@ -391,16 +426,6 @@ export function UIPlacementPanel(): React.ReactElement {
     opacity: enabled ? 1 : 0.4,
     cursor: enabled ? "pointer" : "default",
   });
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "2px 4px",
-    background: "var(--es-surface)",
-    color: "var(--es-text)",
-    border: "1px solid var(--es-border)",
-    borderRadius: 3,
-    fontSize: 11,
-  };
 
   return (
     <div
@@ -491,6 +516,14 @@ export function UIPlacementPanel(): React.ReactElement {
         })}
         <div style={{ flex: 1 }} />
         <button
+          onClick={insertAllSnippets}
+          disabled={widgets.length === 0}
+          title="Insert code for every placed widget"
+          style={disabledBtnStyle(widgets.length > 0)}
+        >
+          Insert all
+        </button>
+        <button
           onClick={() => undo()}
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
@@ -552,7 +585,7 @@ export function UIPlacementPanel(): React.ReactElement {
               gap: 3,
             }}
           >
-            {(Object.keys(WIDGET_LABEL) as WidgetType[]).map((type) => (
+            {WIDGET_TYPES.map((type) => (
               <div
                 key={type}
                 draggable
@@ -564,7 +597,7 @@ export function UIPlacementPanel(): React.ReactElement {
                 onClick={() =>
                   setDragType((prev) => (prev === type ? null : type))
                 }
-                title={`Drag onto canvas, or click to select then click canvas`}
+                title="Drag onto canvas, or click to select then click canvas"
                 style={{
                   padding: "5px 6px",
                   background:
@@ -712,7 +745,7 @@ export function UIPlacementPanel(): React.ReactElement {
         {/* Right: widget tree + property panel */}
         <div
           style={{
-            width: 160,
+            width: 190,
             flexShrink: 0,
             borderLeft: "1px solid var(--es-border)",
             display: "flex",
@@ -786,7 +819,12 @@ export function UIPlacementPanel(): React.ReactElement {
 
           {/* Property panel */}
           <div
-            style={{ borderTop: "1px solid var(--es-border)", flexShrink: 0 }}
+            style={{
+              borderTop: "1px solid var(--es-border)",
+              flexShrink: 0,
+              maxHeight: "55%",
+              overflowY: "auto",
+            }}
           >
             <div
               style={{
@@ -821,26 +859,12 @@ export function UIPlacementPanel(): React.ReactElement {
                 <div style={{ color: "var(--es-text-muted)", fontSize: 10 }}>
                   {WIDGET_LABEL[selectedWidget.type]}
                 </div>
-                {(["x", "y", "w", "h"] as const).map((field) => (
-                  <label
-                    key={field}
-                    style={{ display: "flex", flexDirection: "column", gap: 1 }}
-                  >
-                    <span
-                      style={{ color: "var(--es-text-muted)", fontSize: 10 }}
-                    >
-                      {field}
-                    </span>
-                    <input
-                      type="number"
-                      value={selectedWidget[field]}
-                      onChange={(e) =>
-                        updateSelected({ [field]: Number(e.target.value) })
-                      }
-                      style={inputStyle}
-                    />
-                  </label>
-                ))}
+
+                <PropertyEditor
+                  widget={selectedWidget}
+                  onChange={updateSelectedOpts}
+                />
+
                 <label
                   style={{ display: "flex", flexDirection: "column", gap: 1 }}
                 >
@@ -848,11 +872,21 @@ export function UIPlacementPanel(): React.ReactElement {
                     anchor
                   </span>
                   <select
-                    value={selectedWidget.anchor}
+                    value={widgetAnchor(selectedWidget)}
                     onChange={(e) =>
-                      updateSelected({ anchor: e.target.value as WidgetAnchor })
+                      updateSelectedOpts({
+                        anchor: e.target.value as WidgetAnchor,
+                      })
                     }
-                    style={inputStyle}
+                    style={{
+                      width: "100%",
+                      padding: "2px 4px",
+                      background: "var(--es-surface)",
+                      color: "var(--es-text)",
+                      border: "1px solid var(--es-border)",
+                      borderRadius: 3,
+                      fontSize: 11,
+                    }}
                   >
                     {ANCHORS.map((a) => (
                       <option key={a} value={a}>
@@ -861,21 +895,16 @@ export function UIPlacementPanel(): React.ReactElement {
                     ))}
                   </select>
                 </label>
+
                 <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                   <button
-                    onClick={() =>
-                      insertSnippet(
-                        selectedWidget.type,
-                        selectedWidget.x,
-                        selectedWidget.y,
-                      )
-                    }
+                    onClick={() => insertSnippet(selectedWidget)}
                     title="Insert snippet into editor"
                     style={{
                       flex: 1,
                       padding: "4px 0",
                       background:
-                        copied === selectedWidget.type
+                        copied === selectedWidget.id
                           ? "var(--es-green)"
                           : "var(--es-surface)",
                       color: "var(--es-text)",
@@ -885,22 +914,16 @@ export function UIPlacementPanel(): React.ReactElement {
                       fontSize: 10,
                     }}
                   >
-                    {copied === selectedWidget.type ? "✓" : "Insert"}
+                    {copied === selectedWidget.id ? "✓" : "Insert"}
                   </button>
                   <button
-                    onClick={() =>
-                      copySnippet(
-                        selectedWidget.type,
-                        selectedWidget.x,
-                        selectedWidget.y,
-                      )
-                    }
+                    onClick={() => copySnippet(selectedWidget)}
                     title="Copy snippet"
                     style={{
                       flex: 1,
                       padding: "4px 0",
                       background:
-                        copied === selectedWidget.type + "-copy"
+                        copied === selectedWidget.id + "-copy"
                           ? "var(--es-green)"
                           : "var(--es-surface)",
                       color: "var(--es-text)",
@@ -910,7 +933,7 @@ export function UIPlacementPanel(): React.ReactElement {
                       fontSize: 10,
                     }}
                   >
-                    {copied === selectedWidget.type + "-copy" ? "✓" : "Copy"}
+                    {copied === selectedWidget.id + "-copy" ? "✓" : "Copy"}
                   </button>
                   <button
                     onClick={() => {

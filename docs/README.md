@@ -21,18 +21,19 @@ New to EmptySock? Start here. These pages get you from zero to a running game in
 
 Task-oriented answers to "how do I X?" Each guide explains the concept, shows you how to use it, and links to the full API reference for exhaustive details.
 
-| Guide                                                          | What it covers                                                   |
-| -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Entities and Scenes](./guides/entities-and-scenes.md)         | Scene lifecycle, Entity, Component, Coroutine, SceneManager      |
-| [Physics](./guides/physics.md)                                 | 2D and 3D physics, bodies, collision events, CharacterController |
-| [Input and Gamepad](./guides/input-and-gamepad.md)             | Keyboard, mouse, touch, gamepad                                  |
-| [Saving and Localisation](./guides/saving-and-localisation.md) | SaveSystem, LocalisationSystem                                   |
-| [Navigation](./guides/navigation.md)                           | NavMeshSystem, pathfinding, offline NavMesh data                 |
-| [Actors and Networking](./guides/actors-and-networking.md)     | Actor Model, ActorSystem, NetworkActor, Transport                |
-| [Plugins](./guides/plugins.md)                                 | PluginSystem, writing and registering plugins                    |
-| [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap              |
-| [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                     |
-| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale          |
+| Guide                                                          | What it covers                                                    |
+| -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Entities and Scenes](./guides/entities-and-scenes.md)         | Scene lifecycle, Entity, Component, Coroutine, SceneManager       |
+| [Physics](./guides/physics.md)                                 | 2D and 3D physics, bodies, collision events, CharacterController  |
+| [Input and Gamepad](./guides/input-and-gamepad.md)             | Keyboard, mouse, touch, gamepad                                   |
+| [Saving and Localisation](./guides/saving-and-localisation.md) | SaveSystem, LocalisationSystem                                    |
+| [Navigation](./guides/navigation.md)                           | NavMeshSystem, pathfinding, offline NavMesh data                  |
+| [Actors and Networking](./guides/actors-and-networking.md)     | Actor Model, ActorSystem, NetworkActor, Transport                 |
+| [Plugins](./guides/plugins.md)                                 | PluginSystem, writing and registering plugins                     |
+| [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap               |
+| [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                      |
+| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale           |
+| [Building UI: visual vs code](./guides/ui-visual-vs-code.md)   | Widget/UISystem layouts — panel and hand-written code, round-trip |
 
 ---
 
