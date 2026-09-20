@@ -1,5 +1,7 @@
 import { autoDetectRenderer, Container, type Renderer } from "pixi.js";
 import type { LayerSystem } from "./LayerSystem.js";
+import { gpuTierRenderDefaults } from "./ViewportSystem.js";
+import type { GPUTier } from "../core/GPUTier.js";
 
 export interface RenderSystemOptions {
   width?: number;
@@ -8,6 +10,13 @@ export interface RenderSystemOptions {
   antialias?: boolean;
   resolution?: number;
   layerSystem?: LayerSystem;
+  /**
+   * When provided (and `antialias`/`resolution` are not explicitly set),
+   * caps resolution and disables antialiasing below "mid" tier so weak GPUs
+   * (older mobile, integrated) don't pay full fill-rate cost. See
+   * gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
+   */
+  gpuTier?: GPUTier;
 }
 
 export class RenderSystem {
@@ -21,14 +30,18 @@ export class RenderSystem {
   private _defaultContainer: Container | null = null;
 
   async init(options: RenderSystemOptions = {}): Promise<void> {
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
+    const tierDefaults =
+      options.gpuTier !== undefined
+        ? gpuTierRenderDefaults(options.gpuTier, dpr)
+        : { antialias: true, resolution: dpr };
+
     this._renderer = await autoDetectRenderer({
       width: options.width ?? 1280,
       height: options.height ?? 720,
       backgroundColor: options.backgroundColor ?? 0x0e0e10,
-      antialias: options.antialias ?? true,
-      resolution:
-        options.resolution ??
-        (typeof window !== "undefined" ? window.devicePixelRatio : 1),
+      antialias: options.antialias ?? tierDefaults.antialias,
+      resolution: options.resolution ?? tierDefaults.resolution,
       powerPreference: "high-performance",
       preference: ["webgpu", "webgl"],
     });

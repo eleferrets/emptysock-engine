@@ -256,6 +256,21 @@ export type { GPUTier } from "./core/GPUTier.js";
 export { windowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 
+// Viewport management (design-resolution scaling, resize, safe-area insets)
+export {
+  ViewportSystem,
+  viewportSystem,
+  computeViewportSize,
+  gpuTierRenderDefaults,
+} from "./systems/ViewportSystem.js";
+export type {
+  ScaleMode,
+  ViewportConfig,
+  ViewportSize,
+  SafeAreaInsets,
+  ResizableRenderTarget,
+} from "./systems/ViewportSystem.js";
+
 // Behaviors
 export * from "./behaviors/index.js";
 

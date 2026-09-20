@@ -1306,6 +1306,61 @@ battle.destroy();
 
 ---
 
+## 5.28 ViewportSystem
+
+Automatic viewport handling: scales a fixed design resolution to fit the actual browser window/container, listens for resize and orientation-change, and feeds the result to `RenderPipeline`/`RenderSystem` and `CameraSystem` so neither goes stale.
+
+```typescript
+import {
+  RenderPipeline,
+  CameraSystem,
+  ViewportSystem,
+} from "@emptysock/engine";
+
+const renderPipeline = new RenderPipeline();
+await renderPipeline.init({ width: 1280, height: 720 });
+
+const camera = new CameraSystem();
+camera.attach(renderPipeline.stage);
+
+const viewport = new ViewportSystem();
+viewport.init(
+  { designWidth: 1280, designHeight: 720, scaleMode: "fit" },
+  { renderTarget: renderPipeline, cameraSystem: camera },
+);
+```
+
+| Scale mode  | Behaviour                                         |
+| ----------- | ------------------------------------------------- |
+| `"fit"`     | Letterboxes to fit without cropping. Default.     |
+| `"fill"`    | Cover-crops to fill the container completely.     |
+| `"stretch"` | Stretches to fill exactly, ignoring aspect ratio. |
+
+On resize (via `ResizeObserver` on `config.container`, or `window` `"resize"`/`"orientationchange"` when no container is given), `ViewportSystem` recomputes the letterboxed size, calls `resize(width, height)` on the wired render target, and calls `CameraSystem.setViewSize(designWidth, designHeight)` so `worldToScreen`/`screenToWorld` stay correct.
+
+**Safe-area insets** (notches, home indicators):
+
+```typescript
+const insets = viewport.getSafeAreaInsets(); // { top, right, bottom, left } in CSS px
+hud.padding = { top: insets.top, bottom: insets.bottom };
+```
+
+**GPU-tier-aware render defaults:** pass a `GPUTier` (from `detectGPUTier()`) to `RenderPipeline.init()`/`RenderSystem.init()` as `gpuTier` to automatically disable antialiasing and cap `resolution` at 1 below `"mid"` tier:
+
+```typescript
+import { detectGPUTier } from "@emptysock/engine";
+
+await renderPipeline.init({
+  width: 1280,
+  height: 720,
+  gpuTier: detectGPUTier(hostAdapter),
+});
+```
+
+Call `viewport.destroy()` when tearing down the game to remove its listeners. See the [ViewportSystem reference page](../reference/systems/viewport-system.md) for the full API.
+
+---
+
 ## UISystem & Widget API
 
 UISystem renders a Canvas 2D overlay on top of the PixiJS scene — the right layer for screen-space HUD elements, menus, and dialogue boxes. Widgets that need to float in world space (health bars above enemies, damage numbers) stay in PixiJS as regular scene objects.

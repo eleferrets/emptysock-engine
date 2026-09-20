@@ -39,6 +39,7 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 | [SaveSystem](./systems/save-system.md)                 | Generic persistence for save slots, schema-configurable per game             |
 | [UISystem / Widgets](./systems/ui-system.md)           | Retained-mode screen-space UI widgets (buttons, labels, panels, etc.)        |
 | [VariableStore](./systems/variable-store.md)           | Indexed persistent variables/switches backing conditional VN and map logic   |
+| [ViewportSystem](./systems/viewport-system.md)         | Design-resolution scaling, resize/orientation listening, safe-area insets    |
 | [VNSystem](./systems/vn-system.md)                     | Plays back branching dialogue trees, with `VariableStore`-gated conditionals |
 
 ---

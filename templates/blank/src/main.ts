@@ -4,6 +4,8 @@ import {
   InputSystem,
   AudioSystem,
   SceneManager,
+  CameraSystem,
+  ViewportSystem,
 } from "@emptysock/engine";
 import { GameScene } from "./scenes/GameScene";
 
@@ -29,7 +31,20 @@ async function main(): Promise<void> {
   const audio = new AudioSystem();
   audio.masterVolume = 1;
 
+  const camera = new CameraSystem();
+  camera.attach(renderPipeline.stage);
+
   document.body.appendChild(renderPipeline.canvas);
+
+  // ViewportSystem letterboxes the 1280x720 design resolution into whatever
+  // size the browser window (or, in Tauri, the WebView) actually gives us,
+  // and keeps RenderPipeline + CameraSystem in sync on resize/orientation
+  // change — no manual resize listener required.
+  const viewport = new ViewportSystem();
+  viewport.init(
+    { designWidth: 1280, designHeight: 720, scaleMode: "fit" },
+    { renderTarget: renderPipeline, cameraSystem: camera },
+  );
 
   SceneManager.register("game", () => new GameScene());
   SceneManager.load("game");
@@ -41,6 +56,7 @@ async function main(): Promise<void> {
     lastTime = now;
 
     physics.step(deltaTime);
+    camera.update(deltaTime);
     SceneManager.update(deltaTime);
     const scene = SceneManager.current;
     if (scene !== null) {

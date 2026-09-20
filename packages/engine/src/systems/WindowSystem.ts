@@ -55,22 +55,48 @@ interface TauriWindow {
   setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>;
 }
 
+// `dvh` tracks the browser's dynamic viewport (it shrinks when a mobile
+// toolbar shows and grows back when it hides); `vh` is a fixed fallback for
+// browsers that predate dvh support. @supports lets the browser pick the
+// best one it understands without any JS feature-detection.
+function ensureDvhStyleSheet(): void {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("es-viewport-dvh") !== null) return;
+  const style = document.createElement("style");
+  style.id = "es-viewport-dvh";
+  style.textContent = `
+    #game-canvas.es-fill { width: 100vw; height: 100vh; }
+    @supports (height: 100dvh) {
+      #game-canvas.es-fill { height: 100dvh; }
+    }
+    #game-canvas.es-bounded { max-width: 100vw; max-height: 100vh; }
+    @supports (max-height: 100dvh) {
+      #game-canvas.es-bounded { max-height: 100dvh; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function applyBrowserSize(w: number, h: number): void {
   if (typeof document === "undefined") return;
   const canvas = document.querySelector<HTMLElement>("#game-canvas");
   if (canvas === null) return;
+  ensureDvhStyleSheet();
+  canvas.classList.remove("es-fill");
+  canvas.classList.add("es-bounded");
   canvas.style.width = `${w}px`;
   canvas.style.height = `${h}px`;
-  canvas.style.maxWidth = "100vw";
-  canvas.style.maxHeight = "100vh";
 }
 
 function applyBrowserFill(): void {
   if (typeof document === "undefined") return;
   const canvas = document.querySelector<HTMLElement>("#game-canvas");
   if (canvas === null) return;
-  canvas.style.width = "100vw";
-  canvas.style.height = "100vh";
+  ensureDvhStyleSheet();
+  canvas.classList.remove("es-bounded");
+  canvas.classList.add("es-fill");
+  canvas.style.width = "";
+  canvas.style.height = "";
   canvas.style.maxWidth = "";
   canvas.style.maxHeight = "";
 }

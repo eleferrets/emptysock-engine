@@ -54,6 +54,7 @@ export default [
       'packages/engine/src/types/aliases.ts',
       'packages/engine/src/systems/VNTextbox.ts',
       'packages/engine/src/__tests__/RenderPipeline.test.ts',
+      'packages/engine/src/__tests__/ViewportSystem.test.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,
