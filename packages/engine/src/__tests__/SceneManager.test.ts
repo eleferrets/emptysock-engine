@@ -70,6 +70,39 @@ describe("SceneManager", () => {
     expect(destroyed).toBe(true);
   });
 
+  it("drives an attached PostProcessSystem-like sink through a transition", () => {
+    SceneManagerInstance.register("P", () => new Scene("P"));
+    SceneManagerInstance.register("Q", () => new Scene("Q"));
+    SceneManagerInstance.load("P");
+
+    const calls: string[] = [];
+    let progress = 0;
+    const sink = {
+      beginTransition: (effect: string) => calls.push(`begin:${effect}`),
+      endTransition: () => calls.push("end"),
+      get transitionProgress(): number {
+        return progress;
+      },
+      set transitionProgress(v: number) {
+        progress = v;
+        calls.push(`progress:${v}`);
+      },
+    };
+    SceneManagerInstance.attachPostProcess(sink);
+
+    SceneManagerInstance.transition("Q", { duration: 0.2, effect: "fade" });
+    expect(calls[0]).toBe("begin:fade");
+
+    SceneManagerInstance.update(0.1);
+    expect(progress).toBeCloseTo(0.5, 5);
+
+    SceneManagerInstance.update(0.1);
+    expect(calls[calls.length - 1]).toBe("end");
+    expect(SceneManagerInstance.current?.name).toBe("Q");
+
+    SceneManagerInstance.attachPostProcess(null);
+  });
+
   it("calls onLoad on the incoming scene", async () => {
     let loaded = false;
     class LoadScene extends Scene {

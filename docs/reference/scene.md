@@ -126,15 +126,19 @@ Stop the current scene and start the named scene immediately. Throws if `name` i
 
 ### `transition(name: string, options?): void`
 
-Queues a scene switch with a timed delay. Completes on the next `update()` after the duration. Visual transition effects are not yet implemented.
+Queues a scene switch with a timed delay and an optional visual effect. Completes on the next `update()` after the duration.
 
-| Option     | Type     | Default    | Description                             |
-| ---------- | -------- | ---------- | --------------------------------------- |
-| `duration` | `number` | `0.3`      | Delay in seconds before the switch      |
-| `colour`   | `number` | `0x000000` | Reserved for future effect overlay use  |
+| Option     | Type                                    | Default    | Description                                    |
+| ---------- | --------------------------------------- | ---------- | ---------------------------------------------- |
+| `duration` | `number`                                | `0.3`      | Delay in seconds before the switch             |
+| `colour`   | `number`                                | `0x000000` | Overlay colour (hex) for `fade`/`wipe`/`slide` |
+| `effect`   | `'none' \| 'fade' \| 'wipe' \| 'slide'` | `'none'`   | Visual transition style                        |
+
+`SceneManager` only tracks and times the effect — it never touches pixi/DOM. Attach a `PostProcessSystem` with `attachPostProcess()` so `transition()` drives its transition state, and call `RenderPipeline.renderTransitionOverlay()` (or `renderFrame(scene, postProcess)`) each frame to paint it.
 
 ```typescript
-SceneManagerInstance.transition("level2", { duration: 0.5 });
+SceneManagerInstance.attachPostProcess(postProcess);
+SceneManagerInstance.transition("level2", { duration: 0.5, effect: "wipe" });
 ```
 
 ### `queue(name: string): void`

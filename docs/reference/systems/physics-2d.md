@@ -33,28 +33,40 @@ player.addComponent(PhysicsBody, {
 | `restitution`  | `number`                                      | `0`         | Bounciness (0 = no bounce, 1 = perfect bounce) |
 | `isSensor`     | `boolean`                                     | `false`     | Detect overlaps without generating forces      |
 
-### Methods
+### Runtime handles
 
-| Method             | Signature                                         | Description                             |
-| ------------------ | ------------------------------------------------- | --------------------------------------- |
-| `applyImpulse`     | `(impulse: { x: number; y: number }): void`       | Apply an instant velocity change        |
-| `applyForce`       | `(force: { x: number; y: number }): void`         | Apply a continuous force for this frame |
-| `setVelocity`      | `(v: { x: number; y: number }): void`             | Set velocity directly                   |
-| `getVelocity`      | `(): { x: number; y: number }`                    | Read current velocity                   |
-| `onCollisionEnter` | `(handler: (other: CollisionInfo) => void): void` | Register a collision start callback     |
-| `onCollisionExit`  | `(handler: (other: CollisionInfo) => void): void` | Register a collision end callback       |
+| Field            | Type             | Description                                                                  |
+| ---------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `bodyHandle`     | `number \| null` | Rapier rigid body handle. `null` until `PhysicsSystem.registerEntity()` runs |
+| `colliderHandle` | `number \| null` | Rapier collider handle. `null` until `PhysicsSystem.registerEntity()` runs   |
 
-### CollisionInfo
+### Collision and sensor callbacks
 
-| Field    | Type                       | Description                                |
-| -------- | -------------------------- | ------------------------------------------ |
-| `entity` | `Entity`                   | The other entity involved in the collision |
-| `normal` | `{ x: number; y: number }` | Collision normal                           |
+Register callbacks directly on the `PhysicsBody` you already hold a reference to. `PhysicsSystem` owns the Rapier world and invokes these when it drains real Rapier collision/intersection events each `step()` — game code never calls the `dispatch*` methods itself.
+
+| Method             | Signature                                                        | Description                                                    |
+| ------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `onCollisionEnter` | `(cb: (other: PhysicsBody, contact: ContactInfo) => void): void` | Fires when this body starts touching another (non-sensor) body |
+| `onCollisionExit`  | `(cb: (other: PhysicsBody, contact: ContactInfo) => void): void` | Fires when this body stops touching another (non-sensor) body  |
+| `onSensorEnter`    | `(cb: (other: PhysicsBody) => void): void`                       | Fires when another body enters this sensor                     |
+| `onSensorExit`     | `(cb: (other: PhysicsBody) => void): void`                       | Fires when another body exits this sensor                      |
+| `onSensorStay`     | `(cb: (other: PhysicsBody) => void): void`                       | Fires every step while another body remains inside this sensor |
+
+### ContactInfo
+
+| Field         | Type     | Description                          |
+| ------------- | -------- | ------------------------------------ |
+| `impactForce` | `number` | Approximate impact force, in Newtons |
 
 ```typescript
-const body = player.requireComponent(PhysicsBody);
-body.onCollisionEnter((other) => {
-  if (other.entity.hasTag("spike")) playerDie();
+const spikes = new PhysicsBody({ isSensor: true });
+spikes.onSensorEnter((other) => {
+  playerDie();
+});
+
+const player = new PhysicsBody();
+player.onCollisionEnter((other, contact) => {
+  if (contact.impactForce > 50) console.log("Ouch.");
 });
 ```
 

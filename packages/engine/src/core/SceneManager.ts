@@ -1,16 +1,34 @@
 import type { Scene } from "./Scene.js";
 
-// TODO: transition effects (fade, wipe, iris, slide, zoom, dissolve, flash) are
-// not yet implemented. TransitionEffect and the `effect` field on TransitionOptions
-// are intentionally absent from the public API until a rendering implementation
-// exists. The interface will be re-added when effects can actually be rendered.
+/**
+ * Visual style for a scene transition. Actual pixels are drawn by
+ * `RenderPipeline.renderTransitionOverlay()`, driven by the
+ * `PostProcessSystem` state this class updates each frame — SceneManager
+ * itself stays render-agnostic (no pixi/DOM imports), per the engine
+ * environment boundary.
+ */
+export type TransitionEffect = "none" | "fade" | "wipe" | "slide";
 
 export interface TransitionOptions {
   duration?: number;
   colour?: number;
+  /** Visual style for the transition. Defaults to "none" (instant cut). */
+  effect?: TransitionEffect;
 }
 
 export type SceneFactory = () => Scene;
+
+/**
+ * The slice of PostProcessSystem SceneManager needs to drive a transition's
+ * visuals. Kept minimal so SceneManager doesn't depend on the full
+ * PostProcessSystem class shape, only the transition fields/methods it
+ * actually writes to.
+ */
+export interface TransitionEffectSink {
+  beginTransition(effect: TransitionEffect, colour?: number): void;
+  endTransition(): void;
+  transitionProgress: number;
+}
 
 class SceneManager {
   private readonly _registry: Map<string, SceneFactory> = new Map();
@@ -24,6 +42,17 @@ class SceneManager {
   private _fixedAccum: number = 0;
   /** Fixed physics timestep in seconds. Default 1/60. */
   public fixedTimeStep: number = 1 / 60;
+  private _postProcess: TransitionEffectSink | null = null;
+
+  /**
+   * Attach the PostProcessSystem instance whose transitionEffect/
+   * transitionProgress/transitionColour drive `RenderPipeline`'s transition
+   * overlay. Optional — without it, transitions still time and switch
+   * scenes correctly, they just render as an instant cut.
+   */
+  attachPostProcess(sink: TransitionEffectSink | null): void {
+    this._postProcess = sink;
+  }
 
   /** Register a factory so the scene can be loaded by name. */
   register(name: string, factory: SceneFactory): void {
@@ -133,6 +162,8 @@ class SceneManager {
     this._pendingOptions = options;
     this._transitioning = true;
     this._elapsed = 0;
+    const effect = options.effect ?? "none";
+    this._postProcess?.beginTransition(effect, options.colour);
   }
 
   update(deltaTime: number): void {
@@ -154,6 +185,9 @@ class SceneManager {
     if (this._pending !== null && this._transitioning) {
       const duration = this._pendingOptions?.duration ?? 0.3;
       this._elapsed += deltaTime;
+      const progress = duration > 0 ? Math.min(this._elapsed / duration, 1) : 1;
+      if (this._postProcess !== null)
+        this._postProcess.transitionProgress = progress;
       if (this._elapsed >= duration) {
         this._completeTransition();
       }
@@ -167,6 +201,7 @@ class SceneManager {
     this._pendingOptions = null;
     this._transitioning = false;
     this._elapsed = 0;
+    this._postProcess?.endTransition();
   }
 }
 

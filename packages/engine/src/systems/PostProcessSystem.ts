@@ -335,6 +335,11 @@ export class PostProcessSystem {
     this.transitionProgress = 0;
   }
 
+  /** Whether a transition overlay should currently be rendered. */
+  get transitionActive(): boolean {
+    return this.transitionEffect !== "none" && this.transitionProgress < 1;
+  }
+
   endTransition(): void {
     this.transitionEffect = "none";
     this.transitionProgress = 0;

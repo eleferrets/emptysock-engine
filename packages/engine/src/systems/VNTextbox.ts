@@ -71,6 +71,7 @@ export interface VNTextboxOptions {
  */
 export class VNTextbox {
   private readonly _panel: PanelWidget;
+  private readonly _namePlateBg: PanelWidget;
   private readonly _namePlate: LabelWidget;
   private readonly _text: LabelWidget;
   private readonly _ui: UISystem;
@@ -139,6 +140,19 @@ export class VNTextbox {
     });
     this._panel.alpha = 0.88;
 
+    // Name plate background: a coloured strip sitting behind the speaker
+    // name label, using namePlateColor to visually separate the speaker's
+    // name from the dialogue body below it.
+    this._namePlateBg = new PanelWidget({
+      x: 0,
+      y: h,
+      width: cw,
+      height: npH,
+      anchor: "bottom-left",
+      background: namePlateColor,
+      cornerRadius: 0,
+    });
+
     // Name plate: top strip of the panel.
     // From bottom: y = h so that oy = ch - npH - h = ch - (h+npH).
     this._namePlate = new LabelWidget({
@@ -168,7 +182,10 @@ export class VNTextbox {
     });
 
     // Children are positioned absolutely (same cw/ch reference), but grouping
-    // them under the panel keeps tick/hit-test in the right order.
+    // them under the panel keeps tick/hit-test in the right order. The
+    // background strip must render before (i.e. be pushed before) the label
+    // that sits on top of it.
+    this._panel.children.push(this._namePlateBg);
     this._panel.children.push(this._namePlate);
     this._panel.children.push(this._text);
 

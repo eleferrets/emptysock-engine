@@ -31,15 +31,26 @@ const h = input.isKeyDown("ArrowRight")
 ctrl.moveAndSlide({ x: h * 200 * dt, y: 0 });
 ```
 
-**Collision events:**
+**Collision and sensor events:**
+
+Register callbacks directly on the `PhysicsBody` value component. `PhysicsSystem` calls them when it drains real Rapier collision/intersection events each physics step — the callback receives the _other_ body's `PhysicsBody`, not an `Entity`.
 
 ```typescript
 const body = player.requireComponent(PhysicsBody);
-body.onCollisionEnter((other) => {
-  if (other.entity.name === "Spike") playerDie();
+body.onCollisionEnter((other, contact) => {
+  if (contact.impactForce > 50) playerDie();
 });
-body.onCollisionExit((other) => {
+body.onCollisionExit((other, contact) => {
   /* ... */
+});
+
+// Sensors (isSensor: true) get their own enter/exit/stay events:
+const trigger = new PhysicsBody({ isSensor: true });
+trigger.onSensorEnter((other) => {
+  /* ... */
+});
+trigger.onSensorStay((other) => {
+  /* fires every step the other body remains inside */
 });
 ```
 

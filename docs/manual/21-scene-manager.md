@@ -59,17 +59,25 @@ SceneManagerInstance.load("gameover");
 
 ### `transition(name, options?)`
 
-Queues a scene switch with a delay. The switch completes on the next `update()` call once the duration has elapsed. Visual transition effects are not yet implemented — `transition()` currently introduces a timed delay only.
+Queues a scene switch with a delay and an optional visual effect. The switch completes on the next `update()` call once the duration has elapsed.
 
-| Parameter          | Type     | Description                                         |
-| ------------------ | -------- | --------------------------------------------------- |
-| `name`             | `string` | Registered scene name                               |
-| `options.duration` | `number` | Delay before the switch, in seconds. Default: `0.3` |
-| `options.colour`   | `number` | Reserved for future use (overlay colour, hex)       |
+| Parameter          | Type                                    | Description                                                    |
+| ------------------ | --------------------------------------- | -------------------------------------------------------------- |
+| `name`             | `string`                                | Registered scene name                                          |
+| `options.duration` | `number`                                | Delay before the switch, in seconds. Default: `0.3`            |
+| `options.colour`   | `number`                                | Overlay colour (hex) used by the `fade`/`wipe`/`slide` effects |
+| `options.effect`   | `'none' \| 'fade' \| 'wipe' \| 'slide'` | Visual transition style. Default: `'none'` (instant cut)       |
+
+Rendering the effect is `RenderPipeline`'s job, not `SceneManager`'s — `SceneManager` stays render-agnostic (no pixi/DOM imports). Call `SceneManagerInstance.attachPostProcess(postProcessSystem)` once at startup so `transition()`/`update()` drive that `PostProcessSystem`'s `transitionEffect`/`transitionProgress`/`transitionColour`, then call `renderPipeline.renderTransitionOverlay(postProcessSystem)` (or pass it as `renderPipeline.renderFrame(scene, postProcessSystem)`) each frame to actually paint it.
 
 ```typescript
-// Delay 0.5 seconds then load the game scene
-SceneManagerInstance.transition("game", { duration: 0.5 });
+// Delay 0.5 seconds then load the game scene, with a fade through black
+SceneManagerInstance.attachPostProcess(postProcess);
+SceneManagerInstance.transition("game", {
+  duration: 0.5,
+  effect: "fade",
+  colour: 0x000000,
+});
 ```
 
 ---

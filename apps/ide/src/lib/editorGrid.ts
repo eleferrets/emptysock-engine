@@ -19,9 +19,18 @@ export interface GridOptions {
   zoom?: number;
 }
 
-/** Snap a value to the nearest grid cell boundary */
+/**
+ * Snap a value to the nearest grid cell boundary. Rounds the exact midpoint
+ * between two cells away from zero (so -16 with a 32px grid snaps to -32,
+ * mirroring how +16 snaps to +32) rather than using `Math.round`'s
+ * round-half-up behaviour, which would pull negative midpoints toward zero
+ * instead. Also normalizes a `-0` result (e.g. snapToGrid(-15, 32)) to `0`.
+ */
 export function snapToGrid(value: number, gridSize: number): number {
-  const snapped = Math.round(value / gridSize) * gridSize;
+  const cells = value / gridSize;
+  const roundedCells =
+    cells >= 0 ? Math.floor(cells + 0.5) : Math.ceil(cells - 0.5);
+  const snapped = roundedCells * gridSize;
   return Object.is(snapped, -0) ? 0 : snapped;
 }
 
