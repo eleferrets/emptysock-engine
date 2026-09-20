@@ -1,6 +1,10 @@
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type NodeType = "dialogue" | "choice";
+import type { VariableCondition } from "@emptysock/engine";
+
+export type { VariableCondition } from "@emptysock/engine";
+
+export type NodeType = "dialogue" | "choice" | "condition";
 
 export interface VNNode {
   id: string;
@@ -10,6 +14,10 @@ export interface VNNode {
   speaker?: string;
   text: string;
   options?: string[];
+  /** Per-option `when` gate, aligned by index with `options`. `"choice"` nodes only. */
+  optionWhens?: Array<VariableCondition | undefined>;
+  /** The gate evaluated to pick a branch. `"condition"` nodes only. */
+  condition?: VariableCondition;
 }
 
 export interface VNEdge {

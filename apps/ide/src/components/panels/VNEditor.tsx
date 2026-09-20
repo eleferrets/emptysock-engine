@@ -184,13 +184,17 @@ export function VNEditor(): React.ReactElement {
   const nodeById = (id: string): VNNode | undefined =>
     displayNodes.find((n) => n.id === id);
 
+  const outPortCount = (node: VNNode): number => {
+    if (node.type === "condition") return 2; // True / False
+    return Math.max(1, node.options?.length ?? 1);
+  };
+
   const portPos = (
     node: VNNode,
     port: number,
     side: "in" | "out",
   ): { x: number; y: number } => {
-    const portCount =
-      side === "out" ? Math.max(1, node.options?.length ?? 1) : 1;
+    const portCount = side === "out" ? outPortCount(node) : 1;
     const spacing = NODE_H / (portCount + 1);
     return {
       x: side === "in" ? node.x : node.x + NODE_W,
@@ -326,14 +330,23 @@ export function VNEditor(): React.ReactElement {
     const newNode: VNNode =
       type === "dialogue"
         ? { id, type, x, y, text: "New dialogue...", speaker: "Speaker" }
-        : {
-            id,
-            type,
-            x,
-            y,
-            text: "Choose...",
-            options: ["Option A", "Option B"],
-          };
+        : type === "choice"
+          ? {
+              id,
+              type,
+              x,
+              y,
+              text: "Choose...",
+              options: ["Option A", "Option B"],
+            }
+          : {
+              id,
+              type,
+              x,
+              y,
+              text: "switch[1] == true",
+              condition: { kind: "switch", index: 1, equals: true },
+            };
     commitNodes([...localNodes, newNode]);
   };
 
@@ -539,6 +552,20 @@ export function VNEditor(): React.ReactElement {
           }}
         >
           + Choice
+        </button>
+        <button
+          onClick={() => addNode("condition")}
+          title="Add a condition node — gates the next node on a VariableStore switch or variable"
+          style={{
+            padding: "3px 10px",
+            background: "var(--es-accent)",
+            border: "none",
+            borderRadius: 4,
+            color: "var(--es-text-on-accent)",
+            cursor: "pointer",
+          }}
+        >
+          + Condition
         </button>
         <button
           onClick={deleteSelected}
@@ -754,7 +781,13 @@ export function VNEditor(): React.ReactElement {
                     width={NODE_W}
                     height={NODE_H}
                     rx={6}
-                    fill={node.type === "dialogue" ? "#1e1b4b" : "#1a1a2e"}
+                    fill={
+                      node.type === "dialogue"
+                        ? "#1e1b4b"
+                        : node.type === "condition"
+                          ? "#1c2e1a"
+                          : "#1a1a2e"
+                    }
                     stroke={
                       isSelected ? "var(--es-accent)" : "rgba(255,255,255,0.15)"
                     }
@@ -763,13 +796,21 @@ export function VNEditor(): React.ReactElement {
                   <text
                     x={8}
                     y={18}
-                    fill={node.type === "dialogue" ? "#a78bfa" : "#f87171"}
+                    fill={
+                      node.type === "dialogue"
+                        ? "#a78bfa"
+                        : node.type === "condition"
+                          ? "#4ade80"
+                          : "#f87171"
+                    }
                     fontSize={10}
                     fontWeight={600}
                   >
                     {node.type === "dialogue"
                       ? `🗨 ${node.speaker ?? ""}`
-                      : "🔀 Choice"}
+                      : node.type === "condition"
+                        ? "⑂ Condition"
+                        : "🔀 Choice"}
                   </text>
                   <foreignObject
                     x={6}
@@ -798,8 +839,11 @@ export function VNEditor(): React.ReactElement {
                     stroke="var(--es-accent)"
                     strokeWidth={1.5 / view.scale}
                   />
-                  {(node.options ?? [null]).map((opt, i) => {
-                    const portCount = node.options?.length ?? 1;
+                  {(node.type === "condition"
+                    ? ["True", "False"]
+                    : (node.options ?? [null])
+                  ).map((opt, i) => {
+                    const portCount = outPortCount(node);
                     const spacing = NODE_H / (portCount + 1);
                     const py = spacing * (i + 1);
                     return (
@@ -878,7 +922,7 @@ export function VNEditor(): React.ReactElement {
           >
             <div>Story Graph is empty</div>
             <div style={{ fontSize: 11 }}>
-              Click + Dialogue or + Choice to add nodes
+              Click + Dialogue, + Choice, or + Condition to add nodes
             </div>
           </div>
         )}

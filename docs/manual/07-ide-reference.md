@@ -102,8 +102,8 @@ An SVG-based node graph editor for branching dialogue trees. Open it via **Modul
 **Node types:**
 
 - **Dialogue** — speaker name + text body. One output port (continues to next node).
-- **Choice** — array of option strings. One output port per option (fan-out).
-- **Condition** — reads a variable set by `VNSystem.setVariable()` and routes to a "true" or "false" successor.
+- **Choice** — array of option strings. One output port per option (fan-out). Any option can be gated with a `when` condition (check "Only show when…" in the edit modal) — the option is hidden from the player at runtime unless the switch/variable check passes.
+- **Condition** — checks a `VariableStore` switch or variable (double-click to configure kind, index, and comparison) and routes to a "True" or "False" port. Leave the False port unconnected to end the story there when the check fails.
 
 **Canvas controls:**
 

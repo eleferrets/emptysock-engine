@@ -66,7 +66,10 @@ export function VNMinimap({
       const fromNode = nodes.find((n) => n.id === edge.from);
       const toNode = nodes.find((n) => n.id === edge.to);
       if (!fromNode || !toNode) continue;
-      const portCount = Math.max(1, fromNode.options?.length ?? 1);
+      const portCount =
+        fromNode.type === "condition"
+          ? 2
+          : Math.max(1, fromNode.options?.length ?? 1);
       const fromSpacing = NODE_H / (portCount + 1);
       const x1 = (fromNode.x + NODE_W) * scale + offsetX;
       const y1 =

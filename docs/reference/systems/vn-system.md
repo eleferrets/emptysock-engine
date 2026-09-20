@@ -261,4 +261,4 @@ export class NarrativeScene extends Scene {
 - `VNSystem` has no `destroy()` — release the reference and it is garbage-collected.
 - `VNSystem` has no internal save state. Store `vn.currentNode?.id` and re-walk the graph on resume.
 - Register a listener with `setListener()` **before** calling `load()` or the first node fires without a listener.
-- `"condition"` nodes and conditional (`when`) choice options are a `.vnscript` / `DialogueTree` (runtime) feature. The Story Graph panel's visual editor does not yet expose authoring them — build trees with conditions by hand or generate them programmatically until editor support lands.
+- `"condition"` nodes and conditional (`when`) choice options can be authored visually in the Story Graph panel — click **+ Condition** to add a gate node (double-click to pick switch/variable and comparison), or check "Only show when…" on a choice option in its edit modal. The panel's Import/Export .vnscript round-trips this data losslessly, including branch targets and per-option conditions.
