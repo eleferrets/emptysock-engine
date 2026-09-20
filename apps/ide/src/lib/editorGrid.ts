@@ -19,9 +19,19 @@ export interface GridOptions {
   zoom?: number;
 }
 
-/** Snap a value to the nearest grid cell boundary */
+/**
+ * Snap a value to the nearest grid cell boundary. Rounds the exact midpoint
+ * between two cells away from zero (so -16 with a 32px grid snaps to -32,
+ * mirroring how +16 snaps to +32) rather than using `Math.round`'s
+ * round-half-up behaviour, which would pull negative midpoints toward zero
+ * instead. Also normalizes a `-0` result (e.g. snapToGrid(-15, 32)) to `0`.
+ */
 export function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize;
+  const cells = value / gridSize;
+  const roundedCells =
+    cells >= 0 ? Math.floor(cells + 0.5) : Math.ceil(cells - 0.5);
+  const snapped = roundedCells * gridSize;
+  return Object.is(snapped, -0) ? 0 : snapped;
 }
 
 /** Snap a point to the nearest grid cell */
@@ -65,7 +75,7 @@ export function drawGrid(
   ctx.lineWidth = 1;
 
   // vertical lines
-  const startX = ((-sx * zoom) % scaledGs + scaledGs) % scaledGs;
+  const startX = (((-sx * zoom) % scaledGs) + scaledGs) % scaledGs;
   for (let x = startX; x < canvasW; x += scaledGs) {
     ctx.beginPath();
     ctx.moveTo(Math.round(x) + 0.5, 0);
@@ -74,7 +84,7 @@ export function drawGrid(
   }
 
   // horizontal lines
-  const startY = ((-sy * zoom) % scaledGs + scaledGs) % scaledGs;
+  const startY = (((-sy * zoom) % scaledGs) + scaledGs) % scaledGs;
   for (let y = startY; y < canvasH; y += scaledGs) {
     ctx.beginPath();
     ctx.moveTo(0, Math.round(y) + 0.5);
@@ -211,7 +221,10 @@ export function drawGuides(
   canvasW: number,
   canvasH: number,
   guides: GuideLineData[],
-  opts: Pick<GridOptions, "scrollX" | "scrollY" | "zoom" | "showGuides" | "showRuler">,
+  opts: Pick<
+    GridOptions,
+    "scrollX" | "scrollY" | "zoom" | "showGuides" | "showRuler"
+  >,
 ): void {
   if (!opts.showGuides || guides.length === 0) return;
   const sx = opts.scrollX ?? 0;
@@ -260,7 +273,14 @@ const SNAP_THRESHOLD_PX = 6;
 
 export function computeAlignmentGuides(
   /** Object being dragged — canvas pixel coords of its edges */
-  obj: { left: number; right: number; top: number; bottom: number; cx: number; cy: number },
+  obj: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    cx: number;
+    cy: number;
+  },
   /** Reference edge positions in canvas pixels */
   refs: { x?: number[]; y?: number[] },
 ): AlignGuide[] {

@@ -117,6 +117,8 @@ export class PhysicsSystem {
     };
     this._entityHandles.set(entity.id, record);
     this._colliderToEntity.set(collider.handle, entity);
+    pb.bodyHandle = body.handle;
+    pb.colliderHandle = collider.handle;
   }
 
   /**
@@ -172,19 +174,35 @@ export class PhysicsSystem {
           this._activeSensorPairs.set(key, [entity1, entity2]);
           entity1.emit("sensorEnter", entity2);
           entity2.emit("sensorEnter", entity1);
+          if (pb1 !== undefined && pb2 !== undefined) {
+            pb1.dispatchSensorEnter(pb2);
+            pb2.dispatchSensorEnter(pb1);
+          }
         } else {
           this._activeSensorPairs.delete(key);
           entity1.emit("sensorExit", entity2);
           entity2.emit("sensorExit", entity1);
+          if (pb1 !== undefined && pb2 !== undefined) {
+            pb1.dispatchSensorExit(pb2);
+            pb2.dispatchSensorExit(pb1);
+          }
         }
       } else {
         const contact: ContactInfo = { impactForce: 0 };
         if (started) {
           entity1.emit("collisionEnter", entity2, contact);
           entity2.emit("collisionEnter", entity1, contact);
+          if (pb1 !== undefined && pb2 !== undefined) {
+            pb1.dispatchCollisionEnter(pb2, contact);
+            pb2.dispatchCollisionEnter(pb1, contact);
+          }
         } else {
           entity1.emit("collisionExit", entity2, contact);
           entity2.emit("collisionExit", entity1, contact);
+          if (pb1 !== undefined && pb2 !== undefined) {
+            pb1.dispatchCollisionExit(pb2, contact);
+            pb2.dispatchCollisionExit(pb1, contact);
+          }
         }
       }
     });
@@ -192,6 +210,12 @@ export class PhysicsSystem {
     for (const [e1, e2] of this._activeSensorPairs.values()) {
       e1.emit("sensorStay", e2);
       e2.emit("sensorStay", e1);
+      const pb1 = e1.getComponent<PhysicsBody>("PhysicsBody");
+      const pb2 = e2.getComponent<PhysicsBody>("PhysicsBody");
+      if (pb1 !== undefined && pb2 !== undefined) {
+        pb1.dispatchSensorStay(pb2);
+        pb2.dispatchSensorStay(pb1);
+      }
     }
   }
 

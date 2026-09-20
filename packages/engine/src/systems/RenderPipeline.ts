@@ -1,6 +1,7 @@
 import {
   Assets,
   Container,
+  Graphics,
   Rectangle,
   Sprite as PixiSprite,
   Texture,
@@ -13,6 +14,7 @@ import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { AutoTileSystem } from "./AutoTileSystem.js";
 import type { Tilemap } from "./TilemapSystem.js";
+import type { PostProcessSystem } from "./PostProcessSystem.js";
 
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
@@ -65,6 +67,9 @@ export class RenderPipeline {
   private readonly _mountedTilemaps: Map<Tilemap, MountedTilemap> = new Map();
   private _tilemapGeneration = 0;
 
+  /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
+  private _transitionOverlay: Graphics | null = null;
+
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._loadTexture = options.textureLoader ?? defaultTextureLoader;
@@ -102,9 +107,81 @@ export class RenderPipeline {
    * render the frame. Call this once per frame from the game loop, after
    * `SceneManager.update()`.
    */
-  renderFrame(scene: Scene): void {
+  renderFrame(scene: Scene, postProcess?: PostProcessSystem): void {
     this.syncEntities(scene);
+    if (postProcess !== undefined) this.renderTransitionOverlay(postProcess);
     this._render.render();
+  }
+
+  /**
+   * Paint the scene-transition overlay described by `postProcess`'s
+   * transitionEffect/transitionProgress/transitionColour on top of the
+   * stage. Called automatically from `renderFrame()` when a PostProcessSystem
+   * is supplied; callers with a custom render loop can call it directly
+   * after `syncEntities()`.
+   *
+   * - "fade": full-screen colour rect, alpha rises to 1 over the first half
+   *   of the transition and falls back to 0 over the second half (a
+   *   crossfade through `transitionColour`).
+   * - "wipe": a directional reveal — a colour rect that grows from one edge
+   *   of the screen to the other as progress advances.
+   * - "slide": a colour panel that pushes fully across the screen and off
+   *   again, simulating the outgoing/incoming scene sliding — since
+   *   RenderPipeline doesn't keep two scenes' worth of sprites live
+   *   simultaneously, the panel itself carries the transition motion.
+   */
+  renderTransitionOverlay(postProcess: PostProcessSystem): void {
+    if (!postProcess.transitionActive) {
+      if (this._transitionOverlay !== null) {
+        this._transitionOverlay.visible = false;
+      }
+      return;
+    }
+
+    const overlay = this._ensureTransitionOverlay();
+    overlay.visible = true;
+    overlay.clear();
+
+    const w = this._render.canvas.width;
+    const h = this._render.canvas.height;
+    const colour = postProcess.transitionColour;
+    const progress = postProcess.transitionProgress; // 0..1 across the whole transition
+
+    switch (postProcess.transitionEffect) {
+      case "fade": {
+        // Triangle wave: 0 -> 1 at the midpoint -> 0 at the end.
+        const alpha =
+          progress < 0.5 ? progress / 0.5 : 1 - (progress - 0.5) / 0.5;
+        overlay.rect(0, 0, w, h).fill({ color: colour, alpha });
+        break;
+      }
+      case "wipe": {
+        // Grows left-to-right across the whole transition, covering the cut
+        // at the midpoint, then continues off to fully reveal the new scene.
+        const width = w * progress;
+        overlay.rect(0, 0, width, h).fill({ color: colour, alpha: 1 });
+        break;
+      }
+      case "slide": {
+        // A full-screen panel travels left-to-right across the screen once.
+        const x = -w + w * 2 * progress;
+        overlay.rect(x, 0, w, h).fill({ color: colour, alpha: 1 });
+        break;
+      }
+      default:
+        overlay.visible = false;
+        break;
+    }
+  }
+
+  private _ensureTransitionOverlay(): Graphics {
+    if (this._transitionOverlay === null) {
+      this._transitionOverlay = new Graphics();
+      this._transitionOverlay.zIndex = Number.MAX_SAFE_INTEGER;
+      this._render.stage.addChild(this._transitionOverlay);
+      this._render.stage.sortableChildren = true;
+    }
+    return this._transitionOverlay;
   }
 
   /** Sync PixiJS sprites from Transform+Sprite components without rendering. Exposed for tests and custom loops. */
@@ -305,6 +382,8 @@ export class RenderPipeline {
       this._removeSprite(id);
     }
     this._textureCache.clear();
+    this._transitionOverlay?.destroy();
+    this._transitionOverlay = null;
     this._render.destroy();
     this._layers.destroy();
   }

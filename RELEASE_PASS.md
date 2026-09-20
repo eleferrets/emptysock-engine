@@ -19,19 +19,19 @@ This is the canonical log — it does not live in companion repos.
 
 ### Fix remaining pre-existing test/type failures (previously catalogued as "known, unrelated" — now being fixed for real)
 
-- [ ] `PhysicsBody.test.ts`/`PhysicsBodyCallbacks.test.ts` — tests reference `bodyHandle`/`colliderHandle`/`onCollisionEnter`/`dispatchCollisionEnter`/`onSensorEnter`/`onSensorExit`/`dispatchSensorEnter`/`dispatchSensorExit`/`onSensorStay`/`dispatchSensorStay` on `PhysicsBody`, none of which exist on the component. Determine whether the callback API belongs on `PhysicsBody` (value component) or `PhysicsSystem` (owns the Rapier handles) and implement for real — no `any`, no stub.
-- [ ] `Widget.test.ts` — `fadeIn`/`fadeOut`/`animEnd`/`shake` animation assertions fail; real timing/state bug in `ui/Widget.ts`, not a flaky test.
-- [ ] `apps/ide/src/__tests__/ideStore.test.ts` — `addEntity` with `parentId` stack-overflows in `mapTree` (`ideStore.ts:371`) — real infinite-recursion bug.
-- [ ] `apps/ide/src/__tests__/editorGrid.test.ts` — `snapToGrid(-15, 32)` returns `-0` instead of `0`; normalize negative zero.
-- [ ] `GPUTier.test.ts` — test's `HostAdapter` mock is missing required members; either complete the mock or (if `detectGPUTier` shouldn't require a full `HostAdapter`) narrow its parameter type.
-- [ ] `SceneManager.test.ts` / `PostProcessSystem.ts` — `TransitionOptions.effect`/`TransitionEffect` were deliberately left out of `SceneManager.ts` per the old comment "re-add when effects can actually be rendered" — `RenderPipeline` now exists, so implement real transition effects (fade/wipe/slide at minimum) instead of leaving the field/type undefined.
-- [ ] `TweenSystem.ts` — `EasingName` used but not imported; fix the import.
-- [ ] `ui/widgets/image.ts` — references `IUIRenderer.clip`, which doesn't exist on the interface; add it (in `@emptysock/types`) and implement in the concrete renderer(s).
-- [ ] `index.ts` — exports `CollisionCallback`/`SensorCallback` from `components/PhysicsBody.js`, which doesn't export them; resolve as part of the PhysicsBody callback fix above.
-- [ ] `behaviors/BulletBehavior.ts` / `DestroyOutsideBehavior.ts` — `ctx.scene` is possibly `undefined`; fix the type-unsafe access.
-- [ ] `systems/VNTextbox.ts` — unused `namePlateColor` var (lint).
-- [ ] `packages/export-utils/` — lint errors (unused `mkdirSync`, non-null assertions, `import()` type annotations) **and** the latent duplicate/inconsistent per-platform export implementation flagged in the desktop-export work (nothing calls it; nothing in it produces a real signed/working macOS `.app`) — resolve by deleting it if `packages/toolchain/src/desktopBuild.ts` fully supersedes it, or wiring it in for real if it does something the new pipeline doesn't.
-- [ ] `templates/platformer/src/scenes/GameScene.ts` — `Entity` imported as a value but only used as a type (lint).
+- [x] `PhysicsBody.test.ts`/`PhysicsBodyCallbacks.test.ts` — `PhysicsBody` now owns `bodyHandle`/`colliderHandle` (set by `PhysicsSystem.registerEntity()`) and `onCollisionEnter`/`onCollisionExit`/`onSensorEnter`/`onSensorExit`/`onSensorStay` registration methods, plus matching `dispatch*` methods that `PhysicsSystem` calls when it drains real Rapier collision/intersection events in `_drainCollisionEvents()`. `CollisionCallback`/`SensorCallback` exported from `PhysicsBody.ts`.
+- [x] `Widget.test.ts` — bug was a unit mismatch: `animate()`'s `duration` option is documented/used in milliseconds everywhere else in the widget API, but `_tick(dt)` receives `dt` in seconds. Fixed by converting `durationMs` to seconds once in `animate()`.
+- [x] `apps/ide/src/__tests__/ideStore.test.ts` — real bug: entity ids were `ent-${Date.now()}`, so two `addEntity()` calls in the same millisecond (routine in tests, possible in real fast interaction) collided. A colliding child id equal to its own parent id made `mapTree`'s transform match and re-nest the same node as its own child forever. Fixed with a monotonic `entityIdCounter` suffix.
+- [x] `apps/ide/src/__tests__/editorGrid.test.ts` — fixed `-0` AND a correctness bug the naive fix would have introduced: `Math.round` rounds `-0.5` toward `-0`/`0`, not away from zero, so `snapToGrid(-16, 32)` must round half away from zero (matching `+16 → +32`) via `Math.ceil(cells - 0.5)` for negative values, then normalize any resulting `-0` to `0`.
+- [x] `GPUTier.test.ts` — narrowed `detectGPUTier`'s parameter to a new `GPUTierAdapter = Pick<HostAdapter, "detectGPUTier">` type (interface segregation) instead of requiring the full `HostAdapter`; updated the test's mock to match.
+- [x] `SceneManager.test.ts` / `PostProcessSystem.ts` — implemented real `fade`/`wipe`/`slide`/`none` transition effects. `SceneManager` gained `TransitionEffect`, `effect` on `TransitionOptions`, and `attachPostProcess(sink)` to drive a `PostProcessSystem`-shaped sink's `beginTransition`/`transitionProgress`/`endTransition` without importing pixi (environment boundary preserved). `RenderPipeline.renderTransitionOverlay()` actually paints the effect with a `Graphics` overlay each frame.
+- [x] `TweenSystem.ts` — added a real `import type { EasingName }` alongside the re-export.
+- [x] `ui/widgets/image.ts` — added `clip(): void` to `IUIRenderer` in `@emptysock/types`; `CanvasRenderingContext2D` already satisfies it structurally, no concrete renderer needed changes.
+- [x] `index.ts` — `CollisionCallback`/`SensorCallback` now genuinely exported from `PhysicsBody.ts`.
+- [x] `behaviors/BulletBehavior.ts` / `DestroyOutsideBehavior.ts` — added `ctx.scene !== undefined` guards (no non-null assertion) before `removeEntity()`.
+- [x] `systems/VNTextbox.ts` — `namePlateColor` was computed but never applied. Wired it in for real as the fill of a new `_namePlateBg` `PanelWidget` sitting behind the speaker-name label.
+- [x] `packages/export-utils/` — fixed the three lint errors (unused `mkdirSync` import via a proper `import type { Dirent }`, non-null assertions replaced with `expect(...).toBeDefined()` + optional chaining, `import()` type annotation replaced with a top-level `import type`). Deleted the dead, unwired `exportWindows`/`exportMacOS`/`exportLinux` (fake NSIS script, empty `.app` bundle, hand-rolled `.AppImage`/`.deb` — nothing called them and none could produce a real signed/working desktop build); `packages/toolchain/src/desktopBuild.ts`'s real `cargo tauri build` pipeline is the only desktop export path now. `exportWeb`/`exportAndroid`/`exportIOS`/`exportRaspi` were kept — `desktopBuild.ts` doesn't cover those platforms.
+- [x] `templates/platformer/src/scenes/GameScene.ts` — split into a value import (`Scene`, `Transform`, `Sprite`, `PhysicsBody`, `CharacterController`, `InputSystem`) and `import type { Entity }`.
 
 ### Debug-mode visibility
 
@@ -51,6 +51,18 @@ This is the canonical log — it does not live in companion repos.
 ---
 
 ## Decisions a future agent cannot read from code
+
+### Collision/sensor callbacks live on PhysicsBody, dispatched by PhysicsSystem
+
+Registration (`onCollisionEnter`, `onSensorEnter`, etc.) belongs on `PhysicsBody` because that's the value component game code already holds a reference to after `entity.getComponent("PhysicsBody")` — no second lookup, no event-bus indirection. Dispatch (`dispatchCollisionEnter`, etc.) is `PhysicsSystem`'s job because it owns the Rapier `World`/`EventQueue` and is the only thing that ever observes a real collision. `PhysicsSystem._drainCollisionEvents()` still also emits `entity.emit("collisionEnter", ...)` for existing consumers of the old entity-event path — both fire side by side, no behavioural regression for code written against the old API.
+
+### Scene transitions: SceneManager times them, RenderPipeline paints them
+
+`SceneManager.transition()` takes an `effect: TransitionEffect` but never imports pixi — it stays inside the engine environment boundary (Node/browser/Tauri all run it). It drives a minimal `TransitionEffectSink` interface (`beginTransition`/`transitionProgress`/`endTransition`) via `attachPostProcess()`; `PostProcessSystem` satisfies that shape structurally. Actual pixels come from `RenderPipeline.renderTransitionOverlay(postProcess)`, which reads `PostProcessSystem`'s `transitionEffect`/`transitionProgress`/`transitionColour` and draws a full-screen `Graphics` rect — a triangle wave for `fade`, a growing rect for `wipe`, a rect sweeping across the screen for `slide`. This is an overlay-based transition (one rect on top of whatever's currently rendered), not a true two-scene crossfade — RenderPipeline doesn't keep two scenes' sprites live simultaneously. Good enough for a cut-covering transition; revisit if a game needs to see both scenes blending.
+
+### export-utils no longer has a desktop path
+
+`packages/export-utils`'s `exportWindows`/`exportMacOS`/`exportLinux` were deleted — they were a second, unwired, non-functional desktop packaging implementation (fake NSIS script, an empty `.app` directory with no compiled binary, a hand-assembled `.AppImage`). `packages/toolchain/src/desktopBuild.ts` is the one real desktop export path: it scaffolds an actual Tauri v2 project and runs `cargo tauri build`. If desktop export logic needs to change, change it there — don't resurrect the export-utils versions. `exportWeb`/`exportAndroid`/`exportIOS`/`exportRaspi` still live in export-utils since desktopBuild.ts doesn't cover those targets, but nothing currently calls them from the CLI either — that's flagged here for whoever picks up mobile/web export next, not fixed in this pass.
 
 ### ES target is es2024 everywhere, not es2026
 

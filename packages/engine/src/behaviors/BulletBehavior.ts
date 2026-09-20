@@ -51,7 +51,7 @@ export class BulletBehavior extends Behavior {
         transform.x > this._boundsX + this._boundsWidth * 1.5 ||
         transform.y < this._boundsY - this._boundsHeight / 2 ||
         transform.y > this._boundsY + this._boundsHeight * 1.5;
-      if (outside) {
+      if (outside && ctx.scene !== undefined) {
         ctx.scene.removeEntity(ctx.entity);
       }
     }

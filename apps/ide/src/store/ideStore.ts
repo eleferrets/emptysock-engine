@@ -375,6 +375,7 @@ function mapTree(
 }
 
 let logCounter = 0;
+let entityIdCounter = 0;
 
 // ── Initial project state factory ───────────────────────────────────────────
 // All fields that should be wiped on resetProject() or loadProjectFiles().
@@ -755,7 +756,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   addEntity: (name, parentId) => {
     const newEntity: EntityItem = {
-      id: `ent-${Date.now()}`,
+      id: `ent-${Date.now()}-${entityIdCounter++}`,
       name,
       type: "Entity",
       active: true,
