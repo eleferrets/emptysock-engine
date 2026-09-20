@@ -1592,9 +1592,66 @@ const score = new LabelWidget({ text: "0", anchor: "top-right", x: 16, y: 16 });
 UISystem.add(score);
 ```
 
+## 5.31 InputBindings
+
+`InputBindings` maps named actions to physical inputs (keys, mouse buttons, gamepad buttons/axes) so game code queries `isActionActive("jump")` instead of a raw key code, and rebinds at runtime.
+
+```ts
+import { InputBindings, createBindingsSaveSystem } from "@emptysock/engine";
+
+const bindings = new InputBindings(input, {
+  jump: [{ kind: "key", code: "Space" }],
+});
+
+if (bindings.isActionActive("jump")) player.jump();
+
+bindings.rebind("jump", [{ kind: "key", code: "KeyW" }]);
+bindings.save(createBindingsSaveSystem());
+```
+
+See [InputBindings reference](../reference/systems/input-bindings.md) for the full `Binding` union and the `SaveSystem`-backed persistence API.
+
+## 5.32 DebugOverlaySystem
+
+A shippable in-game debug overlay and console (FPS, frame time, entity count, log capture, `registerCommand`), disabled by default. Renders through the standard `PanelWidget`/`LabelWidget` tree.
+
+```ts
+import { DebugOverlaySystem } from "@emptysock/engine";
+
+const overlay = new DebugOverlaySystem();
+if (isDevBuild) overlay.enable();
+scene.ui.add(overlay.root);
+
+overlay.registerCommand("spawn", (args) => spawnEnemy(args[0]));
+
+// once per frame:
+overlay.update(dt, scene.entities.length);
+```
+
+See [DebugOverlaySystem reference](../reference/systems/debug-overlay-system.md).
+
+## 5.33 Accessibility: colourblind filter and text scale
+
+`PostProcessSystem` supports a `"colourblind"` layer filter (protanopia/deuteranopia/tritanopia _simulation_ matrices — for previewing a palette, not correcting it), and `accessibilitySettings.textScale` is a global multiplier every `LabelWidget` reads at render time.
+
+```ts
+import {
+  PostProcessSystem,
+  colourblindFilterDefsSVG,
+  accessibilitySettings,
+} from "@emptysock/engine";
+
+postProcess.setLayerFilter("ui", { type: "colourblind", mode: "deuteranopia" });
+// Inject colourblindFilterDefsSVG() into the host page once so the url(#...) filter resolves.
+
+accessibilitySettings.textScale = 1.5; // wire to a settings-menu slider
+```
+
+See the [Accessibility guide](../guides/accessibility.md) for the honest scope of the colourblind filter (simulation, not correction) and for `InputBindings` as the highest-value accessibility primitive (control remapping).
+
 ---
 
-## 5.31 PointerSystem
+## 5.34 PointerSystem
 
 `PointerSystem` unifies mouse, touch, and pen input into a single stream using native Pointer Events, and adds a small gesture recognizer (tap, long-press, swipe, pinch) plus wheel/trackpad classification. Use it alongside — not instead of — `InputSystem` (keyboard/axes) and `GamepadSystem`.
 

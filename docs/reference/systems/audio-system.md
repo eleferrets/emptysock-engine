@@ -73,6 +73,35 @@ Audio.setGroupVolume("music", 0.5);
 
 ---
 
+---
+
+## Mixer: ducking and snapshots
+
+These live on the `AudioSystem` class directly (`import { AudioSystem } from '@emptysock/engine'`) rather than the `Audio` facade, since they operate on buses, not individual sounds.
+
+### `duck(bus: string, amount: number, fadeTime?: number): void` / `endDuck(bus, fadeTime?): void`
+
+Temporarily lowers a bus's volume — e.g. duck music while dialogue plays — fading over `fadeTime` seconds (default `0.15`). `amount` is `0..1`, the fraction to cut (`1` mutes the bus). `endDuck` fades back to the bus's volume from before the duck. `isDucked(bus)` reports whether a duck is currently active.
+
+```typescript
+audio.duck("music", 0.6, 0.2); // drop music to 40% over 0.2s
+// ...dialogue line plays...
+audio.endDuck("music", 0.3);
+```
+
+### `defineSnapshot(name, busVolumes)` / `transitionToSnapshot(name, duration?)`
+
+A snapshot is a named volume preset across buses. Transitioning to one fades every named bus toward its stored volume over `duration` seconds (default `0.5`). This is volume-based mixing only — it does not apply DSP filtering (no low-pass "underwater" muffling), which would require a filter chain Howler does not expose without more invasive changes.
+
+```typescript
+audio.defineSnapshot("underwater", { music: 0.2, sfx: 0.3, voice: 0.4 });
+audio.transitionToSnapshot("underwater", 1.5);
+```
+
+Both ducking and snapshot transitions advance in `AudioSystem.update(dt)`, which the engine already calls once per frame.
+
+---
+
 ## Tips
 
 - Sound assets are referenced by name (the filename without extension, relative to `assets/audio/`). Place audio files there so the IDE can find them.

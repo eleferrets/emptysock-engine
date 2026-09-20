@@ -32,6 +32,7 @@ Task-oriented answers to "how do I X?" Each guide explains the concept, shows yo
 | [Plugins](./guides/plugins.md)                                 | PluginSystem, writing and registering plugins                    |
 | [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap              |
 | [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                     |
+| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale          |
 
 ---
 

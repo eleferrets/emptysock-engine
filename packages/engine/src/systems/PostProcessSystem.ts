@@ -14,7 +14,21 @@ export type LayerFilterType =
   | "saturate"
   | "hue-rotate"
   | "invert"
+  | "colourblind"
   | "none";
+
+/**
+ * Colour-vision-deficiency modes. The matrices shipped here (see
+ * `COLOURBLIND_MATRICES`) are the standard Brettel/Viénot/Machado
+ * *simulation* matrices — they show a non-colourblind player what a
+ * colourblind player sees. They are not a correction/daltonisation filter
+ * that increases discriminability for a colourblind player; a full
+ * correction algorithm needs per-scene palette analysis and is out of scope
+ * for this pass. Ship this honestly as a simulation tool for
+ * designers/QA checking their palette, and pair it with palette choices
+ * (avoid red/green as the only distinguishing signal) for real accessibility.
+ */
+export type ColourblindMode = "protanopia" | "deuteranopia" | "tritanopia";
 
 export interface LayerFilterOptions {
   type: LayerFilterType;
@@ -32,7 +46,77 @@ export interface LayerFilterOptions {
   colour?: number;
   /** outline: thickness px */
   thickness?: number;
+  /** colourblind: which deficiency to simulate */
+  mode?: ColourblindMode;
   enabled?: boolean;
+}
+
+/**
+ * Standard colour-vision-deficiency *simulation* matrices (row-major 3x3,
+ * applied to linear-ish sRGB). Source: Viénot, Brettel & Mollon /
+ * Machado-Oliveira-Fernandes (2009), the commonly cited coefficients used
+ * by browser devtools' own CVD emulation. These simulate the deficiency —
+ * they do not correct for it.
+ */
+export const COLOURBLIND_MATRICES: Record<ColourblindMode, readonly number[]> =
+  {
+    protanopia: [
+      0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882,
+      -0.048116, 1.051998,
+    ],
+    deuteranopia: [
+      0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182,
+      0.04294, 0.968881,
+    ],
+    tritanopia: [
+      1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733,
+      0.691367, 0.3039,
+    ],
+  };
+
+/** Element id used for the injected SVG `<filter>` for a given CVD mode. */
+export function colourblindFilterId(mode: ColourblindMode): string {
+  return `es-cvd-${mode}`;
+}
+
+/**
+ * Builds an inert `<svg>` fragment (as markup) containing one `<filter>` per
+ * CVD mode via `feColorMatrix`. The host page/renderer injects this once
+ * (hidden, zero-size) and references a filter with
+ * `cssFilterForLayer()`'s `url(#es-cvd-<mode>)` output. This module never
+ * touches the DOM itself — it only returns markup — so it stays inside the
+ * engine's environment boundary (no DOM APIs are called here).
+ */
+export function colourblindFilterDefsSVG(): string {
+  const filters = (Object.keys(COLOURBLIND_MATRICES) as ColourblindMode[])
+    .map((mode) => {
+      const m = COLOURBLIND_MATRICES[mode];
+      const values = [
+        m[0],
+        m[1],
+        m[2],
+        0,
+        0,
+        m[3],
+        m[4],
+        m[5],
+        0,
+        0,
+        m[6],
+        m[7],
+        m[8],
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+      ].join(" ");
+      return `<filter id="${colourblindFilterId(mode)}"><feColorMatrix type="matrix" values="${values}"/></filter>`;
+    })
+    .join("");
+  return `<svg width="0" height="0" style="position:absolute"><defs>${filters}</defs></svg>`;
 }
 
 export interface LayerFilter {
@@ -163,6 +247,8 @@ export class PostProcessSystem {
         return `hue-rotate(${f.degrees ?? 0}deg)`;
       case "invert":
         return "invert(1)";
+      case "colourblind":
+        return `url(#${colourblindFilterId(f.mode ?? "deuteranopia")})`;
       case "colour-grade": {
         const sat = f.saturation ?? f.value ?? 1;
         const bri = f.value ?? 1;

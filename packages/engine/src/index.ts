@@ -58,6 +58,31 @@ export type {
   AssetProgressListener,
   AssetManifestOptions,
 } from "./systems/AssetManifest.js";
+export {
+  InputBindings,
+  createBindingsSaveSystem,
+  BindingsSaveSlotSchema,
+} from "./systems/InputBindings.js";
+export type {
+  Binding,
+  BindingKind,
+  ActionMap,
+  KeyBinding,
+  MouseButtonBinding,
+  GamepadButtonBinding,
+  GamepadAxisBinding,
+  BindingsSaveSlot,
+} from "./systems/InputBindings.js";
+export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
+export type {
+  DebugLogEntry,
+  DebugCommandHandler,
+  LogLevel,
+} from "./systems/DebugOverlaySystem.js";
+export {
+  accessibilitySettings,
+  AccessibilitySettings,
+} from "./ui/AccessibilitySettings.js";
 export { CameraSystem } from "./systems/CameraSystem.js";
 export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 
@@ -243,6 +268,12 @@ export type {
 
 // Post-processing
 export { PostProcessSystem } from "./systems/PostProcessSystem.js";
+export {
+  COLOURBLIND_MATRICES,
+  colourblindFilterId,
+  colourblindFilterDefsSVG,
+} from "./systems/PostProcessSystem.js";
+export type { ColourblindMode } from "./systems/PostProcessSystem.js";
 export type {
   PostEffectType,
   PostEffectOptions,

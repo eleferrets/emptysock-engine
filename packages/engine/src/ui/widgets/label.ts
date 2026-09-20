@@ -1,6 +1,7 @@
 import type { IUIRenderer } from "@emptysock/types";
 import { Widget } from "./base.js";
 import type { BaseWidgetOpts } from "./base.js";
+import { accessibilitySettings } from "../AccessibilitySettings.js";
 
 export interface LabelWidgetOpts extends BaseWidgetOpts {
   text?: string;
@@ -36,7 +37,8 @@ export class LabelWidget extends Widget {
     ctx.save();
     ctx.globalAlpha = this.alpha;
     ctx.fillStyle = this.color;
-    ctx.font = `${this.fontSize}px ${this.font}`;
+    const scaledFontSize = this.fontSize * accessibilitySettings.textScale;
+    ctx.font = `${scaledFontSize}px ${this.font}`;
     ctx.textAlign = this.align;
     ctx.textBaseline = "middle";
     const tx =
