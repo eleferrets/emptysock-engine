@@ -65,7 +65,11 @@ export interface PinchGesture {
   deltaScale: number;
 }
 
-export type Gesture = TapGesture | LongPressGesture | SwipeGesture | PinchGesture;
+export type Gesture =
+  | TapGesture
+  | LongPressGesture
+  | SwipeGesture
+  | PinchGesture;
 
 export interface WheelEventInfo {
   /** Horizontal scroll amount, sign/units depend on deltaMode. */
@@ -125,7 +129,6 @@ interface InternalPointer {
   isPrimary: boolean;
   buttons: number;
   longPressFired: boolean;
-  longPressTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface PinchTracker {
@@ -153,14 +156,25 @@ export class PointerSystem {
    * may still feed synthetic events directly via the public dispatch methods
    * below for testing.
    */
-  attach(target: EventTarget = typeof window !== "undefined" ? window : (undefined as unknown as EventTarget)): void {
-    if (target === undefined || target === null) return;
-    this._boundTarget = target;
-    target.addEventListener("pointerdown", this._onPointerDown as EventListener);
-    target.addEventListener("pointermove", this._onPointerMove as EventListener);
-    target.addEventListener("pointerup", this._onPointerUp as EventListener);
-    target.addEventListener("pointercancel", this._onPointerCancel as EventListener);
-    target.addEventListener("wheel", this._onWheel as EventListener, {
+  attach(target?: EventTarget): void {
+    const resolved: EventTarget | undefined =
+      target ?? (typeof window !== "undefined" ? window : undefined);
+    if (resolved === undefined) return;
+    this._boundTarget = resolved;
+    resolved.addEventListener(
+      "pointerdown",
+      this._onPointerDown as EventListener,
+    );
+    resolved.addEventListener(
+      "pointermove",
+      this._onPointerMove as EventListener,
+    );
+    resolved.addEventListener("pointerup", this._onPointerUp as EventListener);
+    resolved.addEventListener(
+      "pointercancel",
+      this._onPointerCancel as EventListener,
+    );
+    resolved.addEventListener("wheel", this._onWheel as EventListener, {
       passive: true,
     });
   }
@@ -171,10 +185,12 @@ export class PointerSystem {
     t.removeEventListener("pointerdown", this._onPointerDown as EventListener);
     t.removeEventListener("pointermove", this._onPointerMove as EventListener);
     t.removeEventListener("pointerup", this._onPointerUp as EventListener);
-    t.removeEventListener("pointercancel", this._onPointerCancel as EventListener);
+    t.removeEventListener(
+      "pointercancel",
+      this._onPointerCancel as EventListener,
+    );
     t.removeEventListener("wheel", this._onWheel as EventListener);
     this._boundTarget = null;
-    for (const p of this._pointers.values()) this._clearLongPressTimer(p);
     this._pointers.clear();
     this._pinch = null;
   }
@@ -182,6 +198,26 @@ export class PointerSystem {
   /** Alias for detach() — compatible with SystemManager teardown. */
   destroy(): void {
     this.detach();
+  }
+
+  /**
+   * Poll for time-based gestures. Call once per frame (like `GamepadSystem.
+   * update()`); this is what fires `longpress` for a pointer held still past
+   * `LONGPRESS_DURATION`. Uses polling rather than `setTimeout` so gesture
+   * timing stays tied to the game loop instead of firing at an arbitrary
+   * wall-clock moment mid-frame.
+   */
+  update(): void {
+    if (this._pointers.size === 0) return;
+    const t = now();
+    for (const p of this._pointers.values()) {
+      if (p.longPressFired) continue;
+      if (t - p.startTime < LONGPRESS_DURATION) continue;
+      const moved = Math.hypot(p.x - p.startX, p.y - p.startY);
+      if (moved > LONGPRESS_MAX_DISTANCE) continue;
+      p.longPressFired = true;
+      this._emitGesture({ type: "longpress", x: p.x, y: p.y, pointerId: p.id });
+    }
   }
 
   // ─── Subscriptions ────────────────────────────────────────────────────────
@@ -277,10 +313,8 @@ export class PointerSystem {
       isPrimary: evt.isPrimary ?? this._pointers.size === 0,
       buttons: evt.buttons ?? 1,
       longPressFired: false,
-      longPressTimer: null,
     };
     this._pointers.set(p.id, p);
-    this._scheduleLongPress(p);
     this._maybeStartPinch();
     for (const h of this._downHandlers) h(this._toPublic(p));
   }
@@ -298,19 +332,19 @@ export class PointerSystem {
     p.y = evt.clientY;
     p.lastMoveTime = now();
 
-    const moved = Math.hypot(p.x - p.startX, p.y - p.startY);
-    if (moved > LONGPRESS_MAX_DISTANCE) this._clearLongPressTimer(p);
-
     this._updatePinch();
     for (const h of this._moveHandlers) h(this._toPublic(p));
   }
 
-  dispatchPointerUp(evt: { pointerId: number; clientX: number; clientY: number }): void {
+  dispatchPointerUp(evt: {
+    pointerId: number;
+    clientX: number;
+    clientY: number;
+  }): void {
     const p = this._pointers.get(evt.pointerId);
     if (p === undefined) return;
     p.x = evt.clientX;
     p.y = evt.clientY;
-    this._clearLongPressTimer(p);
 
     const t = now();
     const dist = Math.hypot(p.x - p.startX, p.y - p.startY);
@@ -348,7 +382,6 @@ export class PointerSystem {
   dispatchPointerCancel(evt: { pointerId: number }): void {
     const p = this._pointers.get(evt.pointerId);
     if (p === undefined) return;
-    this._clearLongPressTimer(p);
     this._pointers.delete(p.id);
     if (
       this._pinch !== null &&
@@ -452,31 +485,6 @@ export class PointerSystem {
     for (const h of this._gestureHandlers) h(g);
   }
 
-  private _scheduleLongPress(p: InternalPointer): void {
-    if (typeof setTimeout === "undefined") return;
-    p.longPressTimer = setTimeout(() => {
-      const cur = this._pointers.get(p.id);
-      if (cur === undefined) return;
-      const moved = Math.hypot(cur.x - cur.startX, cur.y - cur.startY);
-      if (moved <= LONGPRESS_MAX_DISTANCE) {
-        cur.longPressFired = true;
-        this._emitGesture({
-          type: "longpress",
-          x: cur.x,
-          y: cur.y,
-          pointerId: cur.id,
-        });
-      }
-    }, LONGPRESS_DURATION);
-  }
-
-  private _clearLongPressTimer(p: InternalPointer): void {
-    if (p.longPressTimer !== null) {
-      clearTimeout(p.longPressTimer);
-      p.longPressTimer = null;
-    }
-  }
-
   private _maybeStartPinch(): void {
     if (this._pointers.size !== 2) return;
     const [a, b] = [...this._pointers.values()];
@@ -489,7 +497,8 @@ export class PointerSystem {
     if (this._pinch === null) return;
     const a = this._pointers.get(this._pinch.ids[0]);
     const b = this._pointers.get(this._pinch.ids[1]);
-    if (a === undefined || b === undefined || this._pinch.startDistance === 0) return;
+    if (a === undefined || b === undefined || this._pinch.startDistance === 0)
+      return;
     const distance = Math.hypot(a.x - b.x, a.y - b.y);
     const scale = distance / this._pinch.startDistance;
     const deltaScale = scale - this._pinch.lastScale;

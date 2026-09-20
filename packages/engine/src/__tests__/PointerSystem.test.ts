@@ -18,8 +18,18 @@ describe("PointerSystem", () => {
   // ─── Multi-pointer tracking ──────────────────────────────────────────────
 
   it("tracks multiple simultaneous pointers by id", () => {
-    ps.dispatchPointerDown({ pointerId: 1, clientX: 10, clientY: 10, pointerType: "touch" });
-    ps.dispatchPointerDown({ pointerId: 2, clientX: 50, clientY: 50, pointerType: "touch" });
+    ps.dispatchPointerDown({
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+      pointerType: "touch",
+    });
+    ps.dispatchPointerDown({
+      pointerId: 2,
+      clientX: 50,
+      clientY: 50,
+      pointerType: "touch",
+    });
     expect(ps.pointerCount).toBe(2);
     expect(ps.getPointer(1)?.x).toBe(10);
     expect(ps.getPointer(2)?.x).toBe(50);
@@ -110,17 +120,28 @@ describe("PointerSystem", () => {
     ps.onGesture((g) => gestures.push(g));
     ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
     vi.advanceTimersByTime(600);
+    ps.update();
     expect(gestures).toHaveLength(1);
     expect(gestures[0]?.type).toBe("longpress");
   });
 
-  it("cancels longpress if the pointer moves too far before the timer fires", () => {
+  it("does not emit longpress before the threshold elapses", () => {
+    const gestures: Gesture[] = [];
+    ps.onGesture((g) => gestures.push(g));
+    ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    vi.advanceTimersByTime(200);
+    ps.update();
+    expect(gestures.find((g) => g.type === "longpress")).toBeUndefined();
+  });
+
+  it("does not emit longpress if the pointer moved too far before the poll", () => {
     const gestures: Gesture[] = [];
     ps.onGesture((g) => gestures.push(g));
     ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
     vi.advanceTimersByTime(100);
     ps.dispatchPointerMove({ pointerId: 1, clientX: 50, clientY: 0 });
     vi.advanceTimersByTime(500);
+    ps.update();
     expect(gestures.find((g) => g.type === "longpress")).toBeUndefined();
   });
 
@@ -129,6 +150,7 @@ describe("PointerSystem", () => {
     ps.onGesture((g) => gestures.push(g));
     ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
     vi.advanceTimersByTime(600);
+    ps.update();
     ps.dispatchPointerUp({ pointerId: 1, clientX: 0, clientY: 0 });
     expect(gestures.filter((g) => g.type === "tap")).toHaveLength(0);
   });
@@ -181,8 +203,18 @@ describe("PointerSystem", () => {
   it("emits pinch events with increasing scale as two pointers spread apart", () => {
     const gestures: Gesture[] = [];
     ps.onGesture((g) => gestures.push(g));
-    ps.dispatchPointerDown({ pointerId: 1, clientX: 100, clientY: 100, pointerType: "touch" });
-    ps.dispatchPointerDown({ pointerId: 2, clientX: 120, clientY: 100, pointerType: "touch" });
+    ps.dispatchPointerDown({
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+      pointerType: "touch",
+    });
+    ps.dispatchPointerDown({
+      pointerId: 2,
+      clientX: 120,
+      clientY: 100,
+      pointerType: "touch",
+    });
     ps.dispatchPointerMove({ pointerId: 2, clientX: 160, clientY: 100 });
     const pinches = gestures.filter((g) => g.type === "pinch");
     expect(pinches.length).toBeGreaterThan(0);
@@ -193,8 +225,18 @@ describe("PointerSystem", () => {
   it("emits pinch events with decreasing scale as two pointers move together", () => {
     const gestures: Gesture[] = [];
     ps.onGesture((g) => gestures.push(g));
-    ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0, pointerType: "touch" });
-    ps.dispatchPointerDown({ pointerId: 2, clientX: 100, clientY: 0, pointerType: "touch" });
+    ps.dispatchPointerDown({
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      pointerType: "touch",
+    });
+    ps.dispatchPointerDown({
+      pointerId: 2,
+      clientX: 100,
+      clientY: 0,
+      pointerType: "touch",
+    });
     ps.dispatchPointerMove({ pointerId: 2, clientX: 20, clientY: 0 });
     const pinches = gestures.filter((g) => g.type === "pinch");
     const last = pinches[pinches.length - 1];
@@ -202,8 +244,18 @@ describe("PointerSystem", () => {
   });
 
   it("stops tracking pinch once one of the two pointers lifts", () => {
-    ps.dispatchPointerDown({ pointerId: 1, clientX: 0, clientY: 0, pointerType: "touch" });
-    ps.dispatchPointerDown({ pointerId: 2, clientX: 100, clientY: 0, pointerType: "touch" });
+    ps.dispatchPointerDown({
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      pointerType: "touch",
+    });
+    ps.dispatchPointerDown({
+      pointerId: 2,
+      clientX: 100,
+      clientY: 0,
+      pointerType: "touch",
+    });
     ps.dispatchPointerUp({ pointerId: 1, clientX: 0, clientY: 0 });
     expect(ps.pointerCount).toBe(1);
   });

@@ -1437,3 +1437,46 @@ UISystem.add(hp);
 const score = new LabelWidget({ text: "0", anchor: "top-right", x: 16, y: 16 });
 UISystem.add(score);
 ```
+
+---
+
+## 5.28 PointerSystem
+
+`PointerSystem` unifies mouse, touch, and pen input into a single stream using native Pointer Events, and adds a small gesture recognizer (tap, long-press, swipe, pinch) plus wheel/trackpad classification. Use it alongside — not instead of — `InputSystem` (keyboard/axes) and `GamepadSystem`.
+
+```typescript
+import { PointerSystem, type Gesture } from "@emptysock/engine";
+
+const pointers = new PointerSystem();
+pointers.attach(canvasElement);
+
+// In onUpdate — polls for longpress:
+pointers.update();
+
+pointers.onGesture((g: Gesture) => {
+  switch (g.type) {
+    case "tap":
+      button.triggerClick();
+      break;
+    case "longpress":
+      openContextMenu(g.x, g.y);
+      break;
+    case "swipe":
+      if (g.direction === "left") gallery.next();
+      break;
+    case "pinch":
+      camera.zoom *= 1 + g.deltaScale;
+      break;
+  }
+});
+
+pointers.onWheel((w) => {
+  if (w.isPinchZoom) camera.zoom *= 1 - w.deltaY * 0.01;
+  else if (w.source === "trackpad") camera.pan(w.deltaX, w.deltaY);
+  else camera.zoom *= w.deltaY > 0 ? 0.9 : 1.1;
+});
+```
+
+Supports multiple simultaneous pointers, keyed by `pointerId`, for multi-touch. `pointers.destroy()` (alias for `detach()`) removes listeners on scene unload.
+
+`UISystem.dispatchPointerDown` / `dispatchPointerDrag` / `dispatchPointerUp` give widget hit-testing real press/drag/release semantics — wire them from a `PointerSystem`'s handlers instead of calling the legacy `handleClick` on every down. `UISystem.setScale(ratio)` applies a canvas-to-design-resolution scale to widget positioning, sizing, and hit-testing; `MIN_TOUCH_TARGET_SIZE` (44px, iOS HIG) documents the recommended minimum interactive-widget size, and `ButtonWidget` warns in dev mode when configured smaller.
