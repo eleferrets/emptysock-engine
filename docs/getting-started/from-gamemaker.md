@@ -10,11 +10,19 @@ If you are starting a new project from scratch, go to [Your First Game](./your-f
 
 ## What is automated
 
-The toolchain reads your `.yyp` project and generates TypeScript stub files — one per GML object and one per GML script. Your project will compile immediately (with type errors to fix). Object names and variable declarations are preserved.
+The toolchain reads your `.yyp` project and generates TypeScript stub files — one per GML object and one per GML script. Object logic in `Create`, `Step`, `Draw`, and `Destroy` events is regex-transpiled where a direct pattern match exists; collision events (`Collision_<other object>.gml`) and keyboard events (`KeyPress_<vk code>.gml` / `KeyRelease_<vk code>.gml`) are also converted, each becoming its own `onCollideWith<Other>()` / `onKeyPress<Name>()` / `onKeyRelease<Name>()` method. This has been validated end to end against a real, moderately complex GMS2 export (59 objects, 202 sprites, 10 rooms).
+
+**Sprites** are converted: each frame's PNG is copied into `assets/sprites/<name>/` and a `.sprite.ts` descriptor is generated for use with the engine's `Sprite` component.
+
+**Rooms** are converted: each room becomes a `loadRoom<Name>()` function that spawns one entity per real instance placement in the room, wired to the imported object classes. Tile layers and instance `creation code` are not reconstructed — only instance placement.
 
 ## What is not automated
 
-The actual GML logic inside events. GML-to-TypeScript transpilation is not automated; the migration report identifies every line that needs manual attention.
+- **Tilesets and tile layer data** — room tile grids are read but not re-emitted as `TilemapSystem` data; recreate tile layers manually in the level editor.
+- **Sounds** — audio files are listed in the migration report but must be added to the project's asset store manually.
+- **Instance creation code** (per-instance overrides set in the room editor) — only the object's own `Create` event is migrated.
+- **GML Visual (drag-and-drop) events** — these have no text source file to transpile; they fall back to a `TODO` stub.
+- **Legacy GameMaker 8.1 compatibility internals** — projects originally migrated from GM8 (or using its DnD-compatibility layer) call functions like `action_move`, `action_sprite_set`, `gml_pragma`, or `__global_object_depths`. These are GM8-era internals, not modern GML, and are left as unresolved identifiers for manual review rather than guessed at.
 
 ---
 

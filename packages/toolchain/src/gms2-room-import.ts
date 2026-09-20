@@ -39,6 +39,10 @@ interface YyInstance {
 interface YyLayer {
   name?: string;
   layerType?: string;
+  // Real GMS2 room .yy files identify layer kind via the resourceType field
+  // (e.g. "GMRInstanceLayer", "GMRTileLayer", "GMRBackgroundLayer"), not a
+  // "layerType" field — that field does not exist in the real format.
+  resourceType?: string;
   tiles?: {
     TileData?: number[][];
     tilesetId?: { name?: string };
@@ -115,7 +119,8 @@ export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    // Real GMS2 .yy files use trailing commas, which JSON.parse rejects.
+    parsed = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
   } catch (err) {
     throw new Error(
       `convertGms2Room: invalid JSON in "${roomYyPath}": ${String(err)}`,
@@ -137,7 +142,11 @@ export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
   const layers: RoomLayer[] = rawLayers.map((layer) => {
     const layerName = typeof layer.name === "string" ? layer.name : "Layer";
     const layerType =
-      typeof layer.layerType === "string" ? layer.layerType : "unknown";
+      typeof layer.layerType === "string"
+        ? layer.layerType
+        : typeof layer.resourceType === "string"
+          ? layer.resourceType
+          : "unknown";
     return {
       name: layerName,
       type: layerType,

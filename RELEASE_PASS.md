@@ -55,10 +55,61 @@ This is the canonical log — it does not live in companion repos.
 
 ### GMS2 importer validation
 
-- [ ] Test `gms2_inspect_project` against a real `.yyp` project file
-  - The tool parses the `.yyp` JSON and walks `assets/`; the format is undocumented by YoYo
-  - Need a test project to confirm room, object, sprite, and sound extraction
-  - Get a `.yyp` from the user before starting this work — do not guess the schema
+- [x] Test `gms2_inspect_project` against a real `.yyp` project file
+  - Ran `importGMS2Project` end to end against a real, full GameMaker export
+    ("J3 Adventure": 59 objects, 202 sprites, 10 rooms, 98 scripts). The
+    fixture is real user-owned game data — it lives locally on disk at
+    `packages/toolchain/src/__fixtures__/gms2-j3-adventure/` and is
+    gitignored; it is intentionally NOT committed to this repo. Anyone
+    re-running the fixture-backed tests in `src/__tests__/gms2-import.test.ts`
+    needs a local copy — the suite skips itself when the fixture is absent.
+  - **Real format quirks learned (undocumented by YoYo, confirmed against
+    real files, not guessed):**
+    - `.yyp`/`.yy` files are **not strict JSON** — GameMaker's IDE always
+      writes a trailing comma before the final `}`/`]` of every object and
+      array. `JSON.parse` throws outright on real files. Fix: strip
+      `,(\s*[}\]])` → `$1` before parsing (done in `gms2-import.ts`,
+      `gms2-sprite-import.ts`, `gms2-room-import.ts`, and the IDE's
+      `gms2Import.ts`).
+    - The project's own display name lives at `.yyp` root under `"%Name"`,
+      not `"name"` — most _nested_ resources redundantly carry both, but
+      the project root does not.
+    - Object events are one `.gml` file per event, but naming goes well
+      beyond `Create_/Step_/Draw_/Destroy_`: collision handlers are
+      `Collision_<other object name>.gml` (one file per colliding object),
+      and keyboard handlers are `KeyPress_<vk code>.gml` /
+      `KeyRelease_<vk code>.gml`, where the code is GameMaker's virtual key
+      code (37-40 = arrow keys). The importer previously dropped these
+      entirely and silently — no warning, no stub, just gone. Now emits
+      `onCollideWith<Other>()`, `onKeyPress<Name>()`, `onKeyRelease<Name>()`.
+    - Room `.yy` layers identify their kind via `resourceType`
+      (`"GMRInstanceLayer"`, `"GMRTileLayer"`, `"GMRBackgroundLayer"`, …) —
+      there is no `"layerType"` field in real files, so the importer's
+      layer-type detection always fell back to `"unknown"`.
+    - Sprites store **one PNG per frame** at the sprite directory root,
+      named by that frame's own UUID resource name (from the `.yy`
+      `frames[].name` field) — never `<sprite name>.png`. The sprite
+      importer previously assumed a single `<name>.png`, which does not
+      exist for any real sprite, producing a dangling path.
+    - `defaultScriptType: 1` at the project root does **not** reliably mean
+      "this project uses GML Visual (drag-and-drop)" — the real fixture
+      carries that value while being 100% text-GML. The old code emitted a
+      false-positive project-wide warning from this alone; removed.
+    - Real GMS2 projects carry legacy GameMaker 8.1-era compatibility
+      symbols in their compiled action lists (`action_move`,
+      `action_sprite_set`, `gml_pragma`, `__global_object_depths`, etc.) —
+      these are GM8 DnD-compatibility internals, not modern GML builtins,
+      and are intentionally left untranspiled (surfacing as unresolved
+      identifiers for manual review) rather than faked with stubs.
+  - Sprites and rooms are now wired into the main import path (previously
+    real parsers existed in `gms2-sprite-import.ts`/`gms2-room-import.ts`
+    but were never called — everything was pushed straight to `skipped`).
+    Sprites produce a `.sprite.ts` descriptor plus real copied frame PNGs
+    under `assets/sprites/<name>/`; rooms produce a scene loader function
+    that spawns one entity per real room instance placement.
+  - Deleted `gms2/spriteImport.ts` and `gms2/roomImport.ts` — near-duplicate,
+    never-wired implementations of the same conversion, superseded by the
+    canonical `gms2-sprite-import.ts`/`gms2-room-import.ts` pair.
 
 ### dist-types cleanup
 
