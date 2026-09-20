@@ -128,6 +128,27 @@ export type {
   VariableCondition,
 } from "./systems/VariableStore.js";
 
+export {
+  PointerSystem,
+  MIN_TOUCH_TARGET_SIZE,
+} from "./systems/PointerSystem.js";
+export type {
+  PointerState,
+  GestureType,
+  Gesture,
+  TapGesture,
+  LongPressGesture,
+  SwipeGesture,
+  SwipeDirection,
+  PinchGesture,
+  WheelEventInfo,
+  PointerDownHandler,
+  PointerMoveHandler,
+  PointerUpHandler,
+  GestureHandler,
+  WheelHandler,
+} from "./systems/PointerSystem.js";
+
 // Core Manager
 export { SystemManager } from "./core/SystemManager.js";
 export type { UpdatableSystem } from "./core/SystemManager.js";

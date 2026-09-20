@@ -5,11 +5,55 @@
 import type { ImageLoader, IUIRenderer } from "@emptysock/types";
 import type { Widget } from "../ui/Widget.js";
 
+/**
+ * How far a pointer may move between press and release, in design-resolution
+ * pixels, before the gesture is treated as a drag instead of a click. A drag
+ * still fires `release` but not `click`.
+ */
+const CLICK_DRAG_THRESHOLD = 6;
+
+interface PressState {
+  widget: Widget;
+  startX: number;
+  startY: number;
+  dragging: boolean;
+}
+
 export class UISystem {
   private readonly _roots: Widget[] = [];
   private _imageLoader: ImageLoader | null = null;
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
   private readonly _imagePending: Set<string> = new Set();
+
+  /**
+   * Uniform scale applied when resolving widget positions/sizes, intended to
+   * be fed by a ViewportSystem (canvas-size / design-resolution ratio) once
+   * one exists. Defaults to 1 (no scaling) so existing callers are unaffected.
+   */
+  private _scale = 1;
+
+  /** In-flight presses, keyed by pointer id (mouse uses id 0 by convention). */
+  private readonly _presses: Map<number, PressState> = new Map();
+
+  /**
+   * Set the canvas-to-design-resolution scale factor used by widget
+   * positioning, sizing, and hit-testing. Intended to be fed by a
+   * ViewportSystem (canvas size / design resolution); applied to every root
+   * widget's tree immediately.
+   */
+  setScale(scale: number): void {
+    this._scale = scale > 0 ? scale : 1;
+    for (const w of this._roots) this._applyScale(w);
+  }
+
+  private _applyScale(widget: Widget): void {
+    widget.uiScale = this._scale;
+    for (const child of widget.children) this._applyScale(child);
+  }
+
+  get scale(): number {
+    return this._scale;
+  }
 
   /**
    * Inject an ImageLoader so that ImageWidget components resolve their source
@@ -43,6 +87,7 @@ export class UISystem {
 
   add(widget: Widget): void {
     this._roots.push(widget);
+    if (this._scale !== 1) this._applyScale(widget);
   }
 
   remove(widget: Widget): void {
@@ -87,7 +132,12 @@ export class UISystem {
     }
   }
 
-  /** Hit-test and dispatch click to the topmost matching widget. */
+  /**
+   * Legacy convenience: hit-test and immediately trigger a click on the
+   * topmost matching widget, with no press/drag distinction. Prefer
+   * `dispatchPointerDown` + `dispatchPointerUp` for real touch/mouse
+   * semantics; this remains for callers that only need a single-shot click.
+   */
   handleClick(
     x: number,
     y: number,
@@ -96,28 +146,65 @@ export class UISystem {
   ): boolean {
     const hit = this._findHit(this._roots, x, y, canvasWidth, canvasHeight);
     if (hit !== null) {
-      if ("_lastPointerX" in hit) {
-        const slider = hit as unknown as {
-          _lastPointerX: number;
-          _lastPointerCW: number;
-        };
-        slider._lastPointerX = x;
-        slider._lastPointerCW = canvasWidth;
-      }
+      this._syncSliderPointer(hit, x, canvasWidth);
       hit.triggerClick();
       return true;
     }
     return false;
   }
 
-  /** Alias for handleClick — preferred name for pointer-down dispatch. */
+  private _syncSliderPointer(
+    hit: Widget,
+    x: number,
+    canvasWidth: number,
+  ): void {
+    if ("_lastPointerX" in hit) {
+      const slider = hit as unknown as {
+        _lastPointerX: number;
+        _lastPointerCW: number;
+      };
+      slider._lastPointerX = x;
+      slider._lastPointerCW = canvasWidth;
+    }
+  }
+
+  /**
+   * Begin a press on the topmost widget under (x, y). Does not fire `click`
+   * immediately — the click fires on `dispatchPointerUp` only if the pointer
+   * did not move past the drag threshold, giving real press/drag/release
+   * semantics for both mouse and touch instead of firing a click on down.
+   * `pointerId` distinguishes simultaneous multi-touch presses (default 0
+   * for a single mouse pointer).
+   */
   dispatchPointerDown(
     x: number,
     y: number,
     canvasWidth: number,
     canvasHeight: number,
+    pointerId = 0,
   ): boolean {
-    return this.handleClick(x, y, canvasWidth, canvasHeight);
+    const hit = this._findHit(this._roots, x, y, canvasWidth, canvasHeight);
+    if (hit === null) return false;
+    this._syncSliderPointer(hit, x, canvasWidth);
+    this._presses.set(pointerId, {
+      widget: hit,
+      startX: x,
+      startY: y,
+      dragging: false,
+    });
+    return true;
+  }
+
+  /**
+   * Update an in-flight press's position. Once the pointer has moved past
+   * `CLICK_DRAG_THRESHOLD` from its start point, the press is marked as a
+   * drag and will not fire `click` on release.
+   */
+  dispatchPointerDrag(x: number, y: number, pointerId = 0): void {
+    const press = this._presses.get(pointerId);
+    if (press === undefined) return;
+    const dist = Math.hypot(x - press.startX, y - press.startY);
+    if (dist > CLICK_DRAG_THRESHOLD) press.dragging = true;
   }
 
   /** Update hover state given the current pointer position. */
@@ -154,14 +241,32 @@ export class UISystem {
     return null;
   }
 
-  /** Dispatch a pointer-up event (e.g. touch end or mouse button release). */
+  /**
+   * Complete a press started with `dispatchPointerDown`. Fires `click` on the
+   * pressed widget only if it was not marked as a drag (see
+   * `dispatchPointerDrag`) and the release still lands on that same widget's
+   * bounds — this is the real release semantics that `handleClick` alone
+   * cannot express, since it always fires unconditionally on down.
+   */
   dispatchPointerUp(
     x: number,
     y: number,
     canvasWidth: number,
     canvasHeight: number,
+    pointerId = 0,
   ): boolean {
-    return this.handleClick(x, y, canvasWidth, canvasHeight);
+    const press = this._presses.get(pointerId);
+    this._presses.delete(pointerId);
+    if (press === undefined) return false;
+    if (press.dragging) return false;
+    if (!press.widget.contains(x, y, canvasWidth, canvasHeight)) return false;
+    press.widget.triggerClick();
+    return true;
+  }
+
+  /** Abort an in-flight press without firing `click` (e.g. pointercancel). */
+  cancelPointer(pointerId = 0): void {
+    this._presses.delete(pointerId);
   }
 
   /** Release all ImageBitmap allocations and clear the widget tree. */

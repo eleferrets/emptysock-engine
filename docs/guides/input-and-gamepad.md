@@ -176,8 +176,28 @@ Rumble support varies by browser and gamepad. It is a best-effort call with no e
 
 ---
 
+## Unified pointer input and gestures
+
+For anything that needs mouse and touch to behave identically — drag-to-pan, swipe menus, pinch-zoom, or tap targets that should also long-press — use `PointerSystem` instead of reading `InputSystem`'s mouse and touch state separately. It merges both into one native-Pointer-Events stream and recognizes tap, long-press, swipe, and pinch gestures for you. See the [PointerSystem reference](../reference/systems/pointer-system.md) for the full API.
+
+```typescript
+import { PointerSystem } from "@emptysock/engine";
+
+const pointers = new PointerSystem();
+pointers.attach(canvasElement);
+
+pointers.onGesture((g) => {
+  if (g.type === "swipe" && g.direction === "left") menu.next();
+  if (g.type === "pinch") camera.zoom *= 1 + g.deltaScale;
+});
+
+// In onUpdate — polls for longpress:
+pointers.update();
+```
+
 ## Tips
 
 - Put all input reads **after** `input.flush()` in `onUpdate`. Reading state before `flush()` gives you last frame's values.
 - For on-screen virtual buttons (mobile), implement them as UI widgets that set boolean flags your game logic reads — do not reach into `InputSystem` from touch event handlers.
 - `GamepadSystem` gamepad index 0 is the first connected gamepad. Indices are browser-assigned and may skip numbers if gamepads are disconnected and reconnected.
+- For gesture-based input (tap/long-press/swipe/pinch) or trackpad-vs-mouse-wheel discrimination, use `PointerSystem` — see above — rather than hand-rolling gesture detection on top of `InputSystem`'s raw mouse/touch state.
