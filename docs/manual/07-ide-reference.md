@@ -75,23 +75,27 @@ Data is stored as `Record<"col,row", tileIndex>` per layer. Export the tilemap J
 
 ## 7.7 Particle Editor
 
-Live particle system preview with editable emitter parameters.
+The panel edits a real `ParticleEmitterOptions` object (see `packages/engine/src/systems/ParticleSystem.ts`) — the exact shape `new ParticleEmitter(options)` accepts in code. There is no separate editor-only format and no translation step: copy the options straight into `particleSystem.create(options)`.
 
-**Emitter properties:**
+The live preview instantiates a real `ParticleEmitter` and calls `emitter.update(dt)` every animation frame, drawing from `emitter.getParticles()`. It is not a separate hand-rolled canvas simulation.
 
-| Property           | Description                             |
-| ------------------ | --------------------------------------- |
-| Emission Rate      | Particles spawned per second            |
-| Speed Min / Max    | Random speed range per particle         |
-| Lifetime Min / Max | Random lifetime range (seconds)         |
-| Gravity            | Downward acceleration                   |
-| Scale Start / End  | Size interpolation over lifetime        |
-| Color Start / End  | Color interpolation over lifetime       |
-| Shape              | `point`, `circle` (with radius), `rect` |
+**Emitter properties (all fields of `ParticleEmitterOptions`):**
 
-The preview canvas runs a requestAnimationFrame loop. Particles are updated and drawn every frame in real time.
+| Property               | Description                                                            |
+| ---------------------- | ---------------------------------------------------------------------- |
+| Texture                | Sprite name (`options.texture`); preview-only upload                   |
+| Emission Rate          | Particles spawned per second                                           |
+| Max Particles          | Pool cap (`options.maxParticles`)                                      |
+| Lifetime Min / Max     | Random lifetime range (seconds)                                        |
+| Velocity X/Y Min / Max | Random initial velocity range per axis                                 |
+| Acceleration X / Y     | Constant per-frame acceleration (Y acts as gravity)                    |
+| Scale Start / End      | Size interpolation over lifetime                                       |
+| Alpha Start / End      | Opacity interpolation over lifetime                                    |
+| Colour Gradient        | Arbitrary number of colour stops (`options.colorGradient`), add/remove |
+| Rotation Speed         | Radians per second                                                     |
+| Shape                  | `point`, `circle` (radius), `rectangle` (width/height), `line` (width) |
 
-Export settings as JSON to pass directly to the engine's ParticleSystem component.
+State lives in `useParticleStore` (`apps/ide/src/store/particleStore.ts`), a Zustand store holding the actual `ParticleEmitterOptions`, so other panels and the Code Editor can read the same data. Undo/redo is wired via the shared `useHistory` hook (Ctrl+Z / Ctrl+Shift+Z), committed on control release so drags don't spam history.
 
 ---
 
