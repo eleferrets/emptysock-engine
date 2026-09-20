@@ -1,34 +1,72 @@
 # Building and Exporting
 
-Use the `emptysock-toolchain` CLI to export your game to any platform. It is installed as a workspace binary when you run `pnpm install`.
+Use the `emptysock-toolchain` CLI, or the Export dialog in the desktop IDE, to export your game. Web export needs nothing beyond `pnpm install`. **Desktop export (Windows/macOS/Linux) compiles a real native binary and needs the Rust toolchain and the Tauri CLI installed locally** — there is no way around this for native compilation, and this tool does not pretend otherwise.
 
 ---
 
-## Detect platform
+## What actually works today
+
+| Target                                                   | Status                                                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Web (`--platform web`)                                   | Works out of the box. Bundles with esbuild, zips on request.                                   |
+| Windows / macOS / Linux                                  | Works, **only when run on that same OS**, and only once `cargo` + `cargo tauri` are installed. |
+| Android / iOS                                            | Not implemented. Selecting it in the IDE's Export dialog is disabled and says so.              |
+| Cross-compiling another OS's installer from this machine | Not supported anywhere in this pipeline — see "Why no cross-compiling" below.                  |
+
+---
+
+## Desktop prerequisites (one-time, per machine)
 
 ```bash
-pnpm emptysock-toolchain detect
+# 1. Rust toolchain (if you don't already have it)
+curl https://sh.rustup.rs -sSf | sh
+
+# 2. Tauri's CLI, as a cargo subcommand
+cargo install tauri-cli --version "^2"
+
+# 3. On Linux only — Tauri's system dependencies (webkit2gtk etc.)
+#    See https://v2.tauri.app/start/prerequisites/ for the current package list.
 ```
 
-Prints the detected platform and available targets.
+Run `pnpm emptysock-toolchain detect` to check what's already installed.
+
+## How desktop export actually builds
+
+Both the CLI and the IDE's Export dialog do the same thing under the hood:
+
+1. Bundle your game's entry point with esbuild into a single IIFE `game.js`.
+2. Scaffold a minimal, disposable Tauri v2 project (a plain HTML/JS "shell" with no custom native code) in a temp directory, with your `game.js` as its frontend.
+3. Run `cargo tauri build` against that scaffold.
+4. Copy whatever Tauri's bundler wrote into `src-tauri/target/release/bundle/<type>/` — its standard output location — into your requested `--out` directory.
+
+That means the output is a real installer produced by Tauri's own bundler, not a hand-rolled approximation of one — but it also means the same constraints Tauri itself has apply here:
+
+- **No code signing or notarisation.** A macOS `.app`/`.dmg` built this way will trigger a Gatekeeper warning on any Mac other than the one that built it. A signed, notarised build needs a paid Apple Developer account and a separate signing step this tool does not perform.
+- **Built for the host machine's own CPU architecture only.** There is no `--arch` flag that actually cross-compiles a different architecture's binary.
+
+## Why no cross-compiling
+
+You cannot reliably build a Windows `.exe`/`.msi` from Linux or macOS, a macOS `.app`/`.dmg` from Windows or Linux, or a Linux `.deb`/`.AppImage` from Windows or macOS on a single developer machine. Tauri's bundler shells out to platform-native tools (`makensis` on Windows, `hdiutil`/`codesign` on macOS, `dpkg-deb`/`appimagetool` on Linux) that only exist, and only work correctly, on their own OS. If you request a platform export that doesn't match the host OS, both the CLI and the IDE fail immediately with an explanation, rather than running for several minutes and failing partway through (or, worse, silently producing nothing).
+
+If you need to ship all three platforms from one push, set up a CI matrix build — one job per OS, each running `emptysock-toolchain export` (or `cargo tauri build`) natively on that OS's own runner. GitHub Actions' `windows-latest` / `macos-latest` / `ubuntu-latest` runners are the standard way to do this; this repo does not currently ship such a workflow, but the CLI's exit codes and output paths are meant to be scriptable.
 
 ---
 
-## Portable zip (recommended for sharing)
+## Portable zip (recommended for sharing on one OS)
 
-The `--format zip` flag produces a self-contained zip on every platform. Recipients unzip and run — no setup wizard, no registry writes, no `sudo`.
+`--format zip` still runs the real desktop build above, then wraps whatever came out of it (installer, `.app`, `.AppImage`, …) into one zip file for handing around. It is not a substitute for the installer — Tauri's bundler doesn't produce a truly-portable no-install binary — it just saves you attaching multiple files.
 
 ```bash
 # Web — zips the Vite dist/ folder; serve with any static host
-pnpm emptysock-toolchain export --platform web   --format zip --entry src/scenes/GameScene.ts --out dist/
+pnpm emptysock-toolchain export --platform web     --format zip --entry src/scenes/GameScene.ts --out dist/
 
-# Linux — zips the AppImage (chmod +x, run directly)
+# Linux — builds an AppImage, then zips it (run on Linux)
 pnpm emptysock-toolchain export --platform linux   --format zip --entry src/scenes/GameScene.ts --out dist/
 
-# macOS — zips the .app bundle
+# macOS — builds the .app + .dmg, then zips them (run on macOS)
 pnpm emptysock-toolchain export --platform mac     --format zip --entry src/scenes/GameScene.ts --out dist/
 
-# Windows — zips the portable .exe directory (no registry writes)
+# Windows — builds the NSIS/MSI installer, then zips it (run on Windows)
 pnpm emptysock-toolchain export --platform windows --format zip --entry src/scenes/GameScene.ts --out dist/
 ```
 
@@ -52,27 +90,33 @@ If a referenced asset path cannot be found in the asset store, the export still 
 
 ## Platform-specific formats
 
+Formats map directly to Tauri's own bundle targets — there is nothing else this pipeline can produce:
+
 ```bash
-pnpm emptysock-toolchain export --platform linux   --format appimage
-pnpm emptysock-toolchain export --platform linux   --format deb
-pnpm emptysock-toolchain export --platform windows --format installer
-pnpm emptysock-toolchain export --platform android
-pnpm emptysock-toolchain export --platform ios
+pnpm emptysock-toolchain export --platform linux   --format appimage --entry src/scenes/GameScene.ts --out dist/
+pnpm emptysock-toolchain export --platform linux   --format deb      --entry src/scenes/GameScene.ts --out dist/
+pnpm emptysock-toolchain export --platform windows --format nsis     --entry src/scenes/GameScene.ts --out dist/
+pnpm emptysock-toolchain export --platform windows --format msi      --entry src/scenes/GameScene.ts --out dist/
+pnpm emptysock-toolchain export --platform mac      --format dmg     --entry src/scenes/GameScene.ts --out dist/
 ```
+
+`--format flatpak` is no longer accepted as a real target — Tauri's bundler has no Flatpak output. Use `appimage` and build a Flatpak manifest around the resulting binary yourself if you need one.
+
+Android and iOS export (`--platform android` / `--platform ios`) do not exist in this CLI or the IDE. There is no Gradle/Xcode integration anywhere in the toolchain today.
 
 ---
 
 ## Common flags
 
-| Flag                              | Purpose                                            |
-| --------------------------------- | -------------------------------------------------- |
-| `--entry src/scenes/GameScene.ts` | Entry point. Accepts `.ts` or `.js`.               |
-| `--out dist/`                     | Output directory                                   |
-| `--format zip`                    | Portable zip — no installer needed on any platform |
-| `--minify`                        | Minify the JS bundle                               |
-| `--drop-console`                  | Strip all `console.*` calls                        |
-| `--sourcemap`                     | Emit source maps alongside the bundle              |
-| `--aggressive`                    | Enable aggressive tree-shaking                     |
+| Flag                              | Purpose                                                       |
+| --------------------------------- | ------------------------------------------------------------- |
+| `--entry src/scenes/GameScene.ts` | Entry point. Accepts `.ts` or `.js`.                          |
+| `--out dist/`                     | Output directory — the real build artifacts land here         |
+| `--format zip`                    | Build normally, then zip whatever the platform build produced |
+| `--minify`                        | Minify the JS bundle                                          |
+| `--drop-console`                  | Strip all `console.*` calls                                   |
+| `--sourcemap`                     | Emit source maps alongside the bundle                         |
+| `--aggressive`                    | Enable aggressive tree-shaking / property mangling            |
 
 ---
 

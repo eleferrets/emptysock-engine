@@ -30,10 +30,8 @@ export type ExportPlatform =
   | "linux"
   | "android"
   | "ios";
-type WindowsArch = "x64" | "arm64" | "x86";
-type LinuxArch = "x64" | "arm64";
-type WindowsFormat = "ZIP" | "EXE" | "MSI";
-type LinuxFormat = "AppImage" | "tar.gz" | "Flatpak";
+type WindowsFormat = "NSIS" | "MSI";
+type LinuxFormat = "AppImage" | "deb" | "rpm";
 type EngineMode = "separate" | "inline";
 type ESTarget = "es2015" | "es2018" | "es2020" | "es2022" | "esnext";
 type ExportStatus = "idle" | "exporting" | "success" | "error";
@@ -72,13 +70,14 @@ export function ExportModal({
   const [selectedPlatform, setSelectedPlatform] =
     useState<ExportPlatform>("web");
   // Windows
-  const [windowsArch, setWindowsArch] = useState<WindowsArch>("x64");
-  const [windowsFormat, setWindowsFormat] = useState<WindowsFormat>("ZIP");
-  // Linux
-  const [linuxArch, setLinuxArch] = useState<LinuxArch>("x64");
+  const [windowsFormat, setWindowsFormat] = useState<WindowsFormat>("NSIS");
+  // Linux — always the host's own architecture; see note in the UI below.
   const [linuxFormats, setLinuxFormats] = useState<Set<LinuxFormat>>(
     new Set<LinuxFormat>(["AppImage"]),
   );
+  // Tauri's bundler natively produces AppImage, .deb and .rpm on Linux.
+  // (Earlier UI offered "tar.gz" and "Flatpak" — dropped: nothing in this
+  // pipeline ever produced either, tauri-bundler has no such targets.)
   // Build — compiler
   const [minify, setMinify] = useState(true);
   const [dropConsole, setDropConsole] = useState(true);
@@ -148,38 +147,85 @@ export function ExportModal({
       const isTauri =
         typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-      if (isTauri && selectedPlatform !== "web") {
+      if (selectedPlatform === "android" || selectedPlatform === "ios") {
+        // Not implemented anywhere in the toolchain yet — see the disabled
+        // Export button and the notice rendered for these platforms below.
+        setStatus("error");
+        setErrorMsg(
+          `${selectedPlatform === "android" ? "Android" : "iOS"} export is not supported yet.`,
+        );
+        return;
+      }
+
+      if (selectedPlatform !== "web") {
+        if (!isTauri) {
+          setStatus("error");
+          setErrorMsg(
+            "Desktop export only runs from the EmptySock desktop IDE (Tauri), " +
+              "not the browser preview — it compiles a real native installer, " +
+              "which needs a local Rust/Tauri toolchain to do the compiling.",
+          );
+          return;
+        }
+
+        // Compile the game the same way the web export does, then hand the
+        // finished JS/HTML to the Tauri side, which builds a real installer
+        // via `cargo tauri build` (see src-tauri/src/lib.rs export_game).
+        const buildResult = await gameBuildService.buildNow({
+          code: entryCode,
+          filename: resolvedEntry || "game.ts",
+          mode: minify ? "release" : "debug",
+          aggressiveMode,
+          target: [esTarget],
+          virtualFiles: openFiles,
+        });
+
+        if (!buildResult.success) {
+          setStatus("error");
+          setErrorMsg(buildResult.errors.join("\n"));
+          return;
+        }
+
+        const desktopHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${projectName}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; display: flex; align-items: center; justify-content: center; height: 100dvh; overflow: hidden; }
+    canvas { display: block; max-width: 100%; max-height: 100%; }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>`;
+
+        const format =
+          selectedPlatform === "windows"
+            ? windowsFormat.toLowerCase()
+            : selectedPlatform === "linux"
+              ? [...linuxFormats]
+                  .map((f) => (f === "AppImage" ? "appimage" : f.toLowerCase()))
+                  .join(",")
+              : "dmg,app";
+
         const { invoke } = await import("@tauri-apps/api/core");
         const result = await invoke<{
           success: boolean;
           outputPath: string;
           error?: string;
         }>("export_game", {
-          platform: selectedPlatform,
-          format:
-            selectedPlatform === "windows"
-              ? windowsFormat
-              : selectedPlatform === "linux"
-                ? [...linuxFormats].join(",")
-                : undefined,
-          arch:
-            selectedPlatform === "windows"
-              ? windowsArch
-              : selectedPlatform === "linux"
-                ? linuxArch
-                : undefined,
-          entryPath: resolvedEntry,
-          code: entryCode,
-          virtualFiles: openFiles,
-          minify,
-          dropConsole,
-          sourcemap,
-          aggressiveMode,
-          esTarget,
-          cleanBuild,
-          engineMode,
-          includeUnreferenced,
-          includeSources,
+          platform: selectedPlatform === "macos" ? "macos" : selectedPlatform,
+          format,
+          projectName,
+          indexHtml: desktopHtml,
+          engineJs: ENGINE_BUNDLE,
+          gameJs: buildResult.js,
         });
         if (result.success) {
           setStatus("success");
@@ -188,16 +234,6 @@ export function ExportModal({
           setStatus("error");
           setErrorMsg(result.error ?? "Export failed");
         }
-        return;
-      }
-
-      if (selectedPlatform !== "web") {
-        const platformFlag =
-          selectedPlatform === "macos" ? "macos" : selectedPlatform;
-        setStatus("error");
-        setErrorMsg(
-          `Desktop export requires the EmptySock CLI:\n  npx emptysock-toolchain export --platform ${platformFlag}`,
-        );
         return;
       }
 
@@ -315,9 +351,7 @@ ${scriptTags}
     }
   }, [
     selectedPlatform,
-    windowsArch,
     windowsFormat,
-    linuxArch,
     linuxFormats,
     entryCode,
     resolvedEntry,
@@ -567,26 +601,8 @@ ${scriptTags}
 
           {/* Windows options */}
           {selectedPlatform === "windows" && (
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <SectionLabel text="Architecture" />
-                <select
-                  value={windowsArch}
-                  onChange={(e) =>
-                    setWindowsArch(e.target.value as WindowsArch)
-                  }
-                  style={selectStyle}
-                >
-                  <option value="x64">
-                    x64 — Intel/AMD 64-bit (recommended)
-                  </option>
-                  <option value="arm64">
-                    ARM64 — Snapdragon X / Surface Pro X
-                  </option>
-                  <option value="x86">x86 — 32-bit (legacy)</option>
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
                 <SectionLabel text="Format" />
                 <select
                   value={windowsFormat}
@@ -595,10 +611,20 @@ ${scriptTags}
                   }
                   style={selectStyle}
                 >
-                  <option value="ZIP">Portable ZIP (no installer)</option>
-                  <option value="EXE">Installer EXE (NSIS)</option>
+                  <option value="NSIS">Installer EXE (NSIS)</option>
                   <option value="MSI">MSI Package</option>
                 </select>
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--es-text-muted)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Built for this machine&apos;s own architecture — there is no
+                cross-compiling to a different CPU architecture from here. Only
+                runs from the desktop IDE on Windows itself.
               </div>
             </div>
           )}
@@ -617,85 +643,85 @@ ${scriptTags}
               }}
             >
               <span style={{ color: "var(--es-accent)", fontWeight: 600 }}>
-                Universal binary:{" "}
+                Runs on this Mac only:{" "}
               </span>
-              macOS builds produce a single universal{" "}
+              Export produces a{" "}
               <code style={{ fontFamily: "monospace", fontSize: 11 }}>
                 .app
               </code>{" "}
-              that runs natively on both Intel and Apple Silicon (arm64 +
-              x86_64). Requires Xcode on the build machine — Export generates an
-              Xcode project for archiving and notarisation.
+              and .dmg for this machine's own architecture (Intel or Apple
+              Silicon, whichever you're running). It is not code-signed or
+              notarised — Gatekeeper will warn on first launch on other Macs. A
+              universal binary or a notarised build needs a separate signing
+              step this tool doesn't do. This only works when run from the
+              desktop IDE on macOS itself — there is no way to produce a macOS
+              build from Windows or Linux.
             </div>
           )}
 
           {/* Linux options */}
           {selectedPlatform === "linux" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div>
-                <SectionLabel text="Architecture" />
-                <select
-                  value={linuxArch}
-                  onChange={(e) => setLinuxArch(e.target.value as LinuxArch)}
-                  style={selectStyle}
-                >
-                  <option value="x64">x86_64 — Intel/AMD (recommended)</option>
-                  <option value="arm64">
-                    ARM64 — Raspberry Pi 4+, Ampere, AWS Graviton
-                  </option>
-                </select>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--es-text-muted)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Built for this machine&apos;s own architecture — there is no
+                cross-compiling to a different CPU architecture from here. Only
+                runs from the desktop IDE on Linux itself.
               </div>
               <div>
                 <SectionLabel text="Output Formats (select all that apply)" />
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {(["AppImage", "tar.gz", "Flatpak"] as LinuxFormat[]).map(
-                    (fmt) => {
-                      const checked = linuxFormats.has(fmt);
-                      return (
-                        <label
-                          key={fmt}
+                  {(["AppImage", "deb", "rpm"] as LinuxFormat[]).map((fmt) => {
+                    const checked = linuxFormats.has(fmt);
+                    return (
+                      <label
+                        key={fmt}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          border: `1px solid ${checked ? "var(--es-accent)" : "var(--es-border)"}`,
+                          background: checked
+                            ? "rgba(124,106,247,0.10)"
+                            : "var(--es-bg)",
+                          fontSize: 12,
+                          color: checked
+                            ? "var(--es-accent)"
+                            : "var(--es-text)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleLinuxFormat(fmt)}
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "4px 10px",
-                            borderRadius: 6,
-                            border: `1px solid ${checked ? "var(--es-accent)" : "var(--es-border)"}`,
-                            background: checked
-                              ? "rgba(124,106,247,0.10)"
-                              : "var(--es-bg)",
-                            fontSize: 12,
-                            color: checked
-                              ? "var(--es-accent)"
-                              : "var(--es-text)",
-                            cursor: "pointer",
+                            accentColor: "var(--es-accent)",
+                            width: 12,
+                            height: 12,
                           }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleLinuxFormat(fmt)}
+                        />
+                        {fmt}
+                        {fmt === "AppImage" && (
+                          <span
                             style={{
-                              accentColor: "var(--es-accent)",
-                              width: 12,
-                              height: 12,
+                              fontSize: 9,
+                              color: "var(--es-text-muted)",
                             }}
-                          />
-                          {fmt}
-                          {fmt === "AppImage" && (
-                            <span
-                              style={{
-                                fontSize: 9,
-                                color: "var(--es-text-muted)",
-                              }}
-                            >
-                              no install
-                            </span>
-                          )}
-                        </label>
-                      );
-                    },
-                  )}
+                          >
+                            no install
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -715,22 +741,13 @@ ${scriptTags}
               }}
             >
               <span style={{ color: "var(--es-red)", fontWeight: 600 }}>
-                Mobile export requires the EmptySock CLI:
-              </span>
-              <pre
-                style={{
-                  marginTop: 6,
-                  fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 11,
-                  color: "var(--text)",
-                  background: "var(--bg)",
-                  padding: "6px 8px",
-                  borderRadius: 5,
-                  overflowX: "auto",
-                }}
-              >
-                {`npx emptysock-toolchain export --platform ${selectedPlatform}`}
-              </pre>
+                Not yet supported.
+              </span>{" "}
+              {selectedPlatform === "android" ? "Android" : "iOS"} export
+              isn&apos;t implemented anywhere in the toolchain yet — no build
+              step, no packaging, nothing to invoke. Selecting it here is a
+              placeholder for a future release; the Export button below stays
+              disabled for it so nothing pretends to work.
             </div>
           )}
 
