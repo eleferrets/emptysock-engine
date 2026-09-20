@@ -1361,6 +1361,105 @@ Call `viewport.destroy()` when tearing down the game to remove its listeners. Se
 
 ---
 
+## 5.29 AnimatorController
+
+A code-first animation state machine that sits alongside `Animator` (it does not replace it — `Animator` keeps working exactly as before for single-clip playback). `AnimatorController` owns a graph of named states (each wrapping an `AnimationClip`), transitions gated by a small parameter bag (floats, bools, triggers — modelled on Unity's Animator Controller parameters, without a visual graph editor), and optional linear cross-fade blending between the outgoing and incoming clip instead of an instant cut.
+
+```typescript
+import { AnimatorController } from "@emptysock/engine";
+
+const controller = player.addComponent(AnimatorController);
+
+controller.addState("idle", {
+  name: "idle",
+  frameStart: 0,
+  frameEnd: 3,
+  frameRate: 6,
+  loop: true,
+});
+controller.addState("walk", {
+  name: "walk",
+  frameStart: 0,
+  frameEnd: 7,
+  frameRate: 12,
+  loop: true,
+});
+controller.addState("attack", {
+  name: "attack",
+  frameStart: 0,
+  frameEnd: 5,
+  frameRate: 15,
+  loop: false,
+});
+
+// Parameter-gated transition with a 0.2s cross-fade:
+controller.addTransition("idle", {
+  to: "walk",
+  condition: (ctx) => (ctx.getParam("speed") as number) > 0,
+  duration: 0.2,
+});
+controller.addTransition("walk", {
+  to: "idle",
+  condition: (ctx) => (ctx.getParam("speed") as number) === 0,
+  duration: 0.2,
+});
+
+// '*' matches a transition from any state — good for interrupts like attacks:
+controller.addTransition("*", {
+  to: "attack",
+  condition: (ctx) => ctx.isTriggered("attack"),
+});
+
+controller.play("idle");
+
+// In onUpdate:
+controller.setFloat("speed", velocity.length());
+if (input.isKeyPressed("Space")) controller.setTrigger("attack");
+controller.update(dt);
+
+// A renderer reads the active clip(s) to draw — normally one, two during a blend:
+for (const { clip, frame, weight } of controller.getActiveClips()) {
+  // composite `clip`'s `frame` at `weight` opacity
+}
+```
+
+Triggers set with `setTrigger()` are consumed the first time a transition's condition observes them and reset automatically — call `setTrigger()` again to re-arm one. `setFloat`/`setBool` values persist until changed. Transitions are evaluated in the order they were added; the state machine does not evaluate new transitions while a blend is in progress.
+
+---
+
+## 5.30 AssetManifest
+
+A declarative preloader with progress reporting, for building your own loading screen (see [No loading screen, no splash screen](../../CLAUDE.md) — the engine intentionally never renders one itself). `AssetManifest` loads textures through the same loader shape as `RenderPipelineOptions.textureLoader` (defaulting to pixi.js's `Assets.load`, so a preloaded texture is already warm in `RenderPipeline`'s cache) and audio through an injected `AudioSystem` (so a preloaded sound is already registered under its id and `audio.play(id)` does not reload it).
+
+```typescript
+import { AssetManifest, AudioSystem } from "@emptysock/engine";
+
+const audio = new AudioSystem();
+const manifest = new AssetManifest({ audioSystem: audio });
+
+manifest.addAll([
+  { id: "hero", path: "assets/hero.png", type: "texture" },
+  { id: "jump", path: "assets/jump.ogg", type: "audio" },
+  { id: "level1", path: "assets/level1.json", type: "json" },
+]);
+
+manifest.onProgress((loaded, total) => {
+  loadingScreen.setProgress(loaded / total);
+});
+
+const result = await manifest.load();
+for (const failure of result.failed) {
+  console.warn(`Asset "${failure.id}" failed to load:`, failure.error);
+  // decide per-asset whether to retry, substitute a placeholder, or abort
+}
+
+sceneManager.change("Level1");
+```
+
+By default a failed asset is recorded in `result.failed` (and `manifest.failures`) without aborting the rest of the batch; pass `{ continueOnError: false }` to have `load()` reject on the first failure instead. Already-loaded assets are available synchronously via `manifest.get(id)` / `manifest.has(id)`.
+
+---
+
 ## UISystem & Widget API
 
 UISystem renders a Canvas 2D overlay on top of the PixiJS scene — the right layer for screen-space HUD elements, menus, and dialogue boxes. Widgets that need to float in world space (health bars above enemies, damage numbers) stay in PixiJS as regular scene objects.
@@ -1495,7 +1594,7 @@ UISystem.add(score);
 
 ---
 
-## 5.28 PointerSystem
+## 5.31 PointerSystem
 
 `PointerSystem` unifies mouse, touch, and pen input into a single stream using native Pointer Events, and adds a small gesture recognizer (tap, long-press, swipe, pinch) plus wheel/trackpad classification. Use it alongside — not instead of — `InputSystem` (keyboard/axes) and `GamepadSystem`.
 

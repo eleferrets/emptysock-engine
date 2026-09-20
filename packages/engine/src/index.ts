@@ -49,6 +49,15 @@ export type {
 } from "./systems/InputSystem.js";
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
+export { AssetManifest } from "./systems/AssetManifest.js";
+export type {
+  AssetType,
+  AssetDescriptor,
+  AssetLoadFailure,
+  AssetLoadResult,
+  AssetProgressListener,
+  AssetManifestOptions,
+} from "./systems/AssetManifest.js";
 export { CameraSystem } from "./systems/CameraSystem.js";
 export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 
@@ -60,6 +69,13 @@ export type { RigidBodyType, ColliderShape } from "./components/PhysicsBody.js";
 export { CharacterController } from "./components/CharacterController.js";
 export { Animator } from "./components/Animator.js";
 export type { AnimationClip } from "./components/Animator.js";
+export { AnimatorController } from "./components/AnimatorController.js";
+export type {
+  AnimParamValue,
+  AnimTransitionContext,
+  AnimTransitionOptions,
+  ActiveClipFrame,
+} from "./components/AnimatorController.js";
 
 // New Systems
 export { VNSystem } from "./systems/VNSystem.js";

@@ -47,6 +47,7 @@ export default [
       'packages/engine/src/systems/AudioSystem.ts',
       'packages/engine/src/systems/RenderSystem.ts',
       'packages/engine/src/systems/RenderPipeline.ts',
+      'packages/engine/src/systems/AssetManifest.ts',
       'packages/engine/src/systems/LightingSystem.ts',
       'packages/engine/src/systems/PhysicsSystem.ts',
       'packages/engine/src/systems/CameraSystem.ts',
@@ -55,6 +56,7 @@ export default [
       'packages/engine/src/systems/VNTextbox.ts',
       'packages/engine/src/__tests__/RenderPipeline.test.ts',
       'packages/engine/src/__tests__/ViewportSystem.test.ts',
+      'packages/engine/src/__tests__/AssetManifest.test.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,

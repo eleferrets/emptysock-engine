@@ -27,6 +27,8 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 | System                                                 | Description                                                                                         |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| [AnimatorController](./systems/animator-controller.md) | Code-first animation state machine: named states, parameter-gated transitions, cross-fade blending  |
+| [AssetManifest](./systems/asset-manifest.md)           | Declarative asset preloading with progress reporting and per-asset failure handling                 |
 | [AudioSystem](./systems/audio-system.md)               | Sound-effect and music playback, group volume control                                               |
 | [BattleSystem](./systems/battle-system.md)             | Turn-based RPG combat engine with skill resolution and status effects                               |
 | [InputSystem](./systems/input-system.md)               | Keyboard, mouse, touch, and axis input                                                              |
