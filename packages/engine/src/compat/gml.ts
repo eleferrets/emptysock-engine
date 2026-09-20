@@ -298,3 +298,70 @@ export function game_end(): void {
     "game_end() called — this is a no-op in EmptySock. Stop or destroy your scene instead.",
   );
 }
+
+// ---------------------------------------------------------------------------
+// Builtins found when importing a real GMS2 project (J3 Adventure fixture)
+// that were missing from the original ~50-function map.
+// ---------------------------------------------------------------------------
+
+/** GML object_exists — checks whether an object asset name/index is valid. */
+export function object_exists(_objectName: string): boolean {
+  console.warn(
+    "object_exists() is a no-op stub — resolve object existence via your own registry.",
+  );
+  return true;
+}
+
+/** GML asset_get_index — resolves an asset name to an index. No-op stub: EmptySock references assets by name/path directly. */
+export function asset_get_index(name: string): string {
+  return name;
+}
+
+/** GML array_length_1d — length of a 1D array (JS arrays are always 1D). */
+export function array_length_1d(arr: unknown[]): number {
+  return arr.length;
+}
+
+/** GML string_char_at — 1-based index. */
+export function string_char_at(str: string, index: number): string {
+  return str.charAt(index - 1);
+}
+
+/** GML keyboard_wait — blocks until a key is pressed. No-op stub: use onKeyPress instead. */
+export function keyboard_wait(): void {
+  console.warn(
+    "keyboard_wait() is a no-op stub — GameMaker's blocking wait has no EmptySock equivalent. Use onKeyPress instead.",
+  );
+}
+
+/** GML mouse_button_down (legacy GM8-style action) — no-op stub; use InputSystem. */
+export function mouse_button_down(_button: number): boolean {
+  console.warn(
+    "mouse_button_down() is a no-op stub — use the engine's InputSystem instead.",
+  );
+  return false;
+}
+
+/** GML mouse_button_released (legacy GM8-style action) — no-op stub; use InputSystem. */
+export function mouse_button_released(_button: number): boolean {
+  console.warn(
+    "mouse_button_released() is a no-op stub — use the engine's InputSystem instead.",
+  );
+  return false;
+}
+
+/** GML place_free(x, y) — legacy collision-check action. No-op stub: always reports free. */
+export function place_free(_x: number, _y: number): boolean {
+  console.warn(
+    "place_free() is a no-op stub — implement collision checks via PhysicsSystem or manual bounds checks.",
+  );
+  return true;
+}
+
+/** GML place_empty(x, y) — legacy collision-check action. No-op stub: always reports empty. */
+export function place_empty(_x: number, _y: number): boolean {
+  console.warn(
+    "place_empty() is a no-op stub — implement collision checks via PhysicsSystem or manual bounds checks.",
+  );
+  return true;
+}

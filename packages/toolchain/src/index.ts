@@ -42,15 +42,9 @@ export type { WindowConfig, WindowMode } from "./window-config.js";
 export { importGMS2Project } from "./gms2-import.js";
 export type { ImportResult } from "./gms2-import.js";
 
-export { importGMS2Sprite, importGMS2SpriteDir } from "./gms2/spriteImport.js";
-export type { SpriteAsset as GMS2SpriteAsset } from "./gms2/spriteImport.js";
-
-export { importGMS2Room, importGMS2RoomDir } from "./gms2/roomImport.js";
-export type {
-  TileLayer as GMS2TileLayer,
-  RoomEntity as GMS2RoomEntity,
-  RoomAsset as GMS2RoomAsset,
-} from "./gms2/roomImport.js";
+// NOTE: gms2/spriteImport.ts and gms2/roomImport.ts were removed as
+// near-duplicates of ./gms2-sprite-import.ts and ./gms2-room-import.ts,
+// which are the canonical implementations wired into importGMS2Project.
 
 export {
   gmlObjectToTypeScript,

@@ -1,16 +1,32 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+export interface SpriteFrame {
+  /** Absolute path to this frame's source PNG on disk. */
+  imagePath: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface SpriteAsset {
   name: string;
-  frames: Array<{ x: number; y: number; w: number; h: number }>;
+  frames: SpriteFrame[];
   frameCount: number;
   width: number;
   height: number;
+  /**
+   * @deprecated kept for backward compatibility with callers that expect a
+   * single image path. GMS2 stores one PNG per frame (named by frame UUID),
+   * not one PNG per sprite, so this is simply the first frame's image.
+   */
   imagePath: string;
 }
 
 interface YyFrame {
+  /** Frame's own resource name — this is the UUID that names its PNG file. */
+  name?: string;
   compositeImage?: { FrameId?: { name?: string } };
   images?: Array<{ FrameId?: { name?: string } }>;
   [key: string]: unknown;
@@ -62,7 +78,8 @@ export async function convertGms2Sprite(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    // Real GMS2 .yy files use trailing commas, which JSON.parse rejects.
+    parsed = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
   } catch (err) {
     throw new Error(
       `convertGms2Sprite: invalid JSON in "${yyPath}": ${String(err)}`,
@@ -81,15 +98,34 @@ export async function convertGms2Sprite(
   const height = typeof parsed.height === "number" ? parsed.height : 0;
 
   const rawFrames = Array.isArray(parsed.frames) ? parsed.frames : [];
-  const frames: Array<{ x: number; y: number; w: number; h: number }> =
-    rawFrames.map((_f, idx) => ({
-      x: (idx % Math.max(1, Math.floor(width || 1))) * width,
-      y: Math.floor(idx / Math.max(1, Math.floor(width || 1))) * height,
+
+  // Real GMS2 sprites store one PNG per frame at the sprite directory root,
+  // named by the frame's own resource name (a UUID) — never "<sprite>.png".
+  // Each frame is laid out as its own full-size image, not a shared sheet.
+  const frames: SpriteFrame[] = rawFrames.map((f) => {
+    const frameName = typeof f.name === "string" ? f.name : name;
+    return {
+      imagePath: path.join(spriteYyDir, `${frameName}.png`),
+      x: 0,
+      y: 0,
       w: width,
       h: height,
-    }));
+    };
+  });
 
-  const imagePath = path.join(spriteYyDir, `${name}.png`);
+  // Verify at least the first frame's file actually exists, so a mismatch
+  // between the .yy frame list and the PNGs on disk surfaces immediately
+  // instead of producing a silently-dangling reference downstream.
+  const firstFrame = frames[0];
+  if (firstFrame !== undefined) {
+    try {
+      await fs.access(firstFrame.imagePath);
+    } catch {
+      throw new Error(
+        `convertGms2Sprite: frame image "${firstFrame.imagePath}" referenced by "${yyPath}" does not exist on disk`,
+      );
+    }
+  }
 
   return {
     name,
@@ -97,6 +133,6 @@ export async function convertGms2Sprite(
     frameCount: frames.length,
     width,
     height,
-    imagePath,
+    imagePath: frames[0]?.imagePath ?? path.join(spriteYyDir, `${name}.png`),
   };
 }
