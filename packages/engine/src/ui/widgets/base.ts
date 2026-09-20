@@ -2,6 +2,37 @@ import type { IUIRenderer } from "@emptysock/types";
 import { ease } from "../../core/easing.js";
 export type { EasingName } from "../../core/easing.js";
 
+/**
+ * Minimum recommended interactive-widget dimension (in design-resolution
+ * pixels), per the iOS Human Interface Guidelines' 44pt touch-target
+ * recommendation. Button-like widgets warn (dev-mode console warning, never
+ * a thrown error) when configured below this.
+ */
+export const MIN_INTERACTIVE_SIZE = 44;
+
+/**
+ * Warn (once per widget instance) if a button-like widget's configured size
+ * falls below `MIN_INTERACTIVE_SIZE`. Never throws — this is UX guidance,
+ * not a hard constraint, since some UIs intentionally use small controls.
+ * No-op outside dev builds with a console available (guards the engine
+ * environment boundary — this file must still run under Node/Vitest).
+ */
+export function warnIfBelowMinTouchTarget(
+  label: string,
+  width: number,
+  height: number,
+): void {
+  if (typeof console === "undefined" || typeof console.warn !== "function") {
+    return;
+  }
+  if (width < MIN_INTERACTIVE_SIZE || height < MIN_INTERACTIVE_SIZE) {
+    console.warn(
+      `[EmptySock] ${label} is ${width}x${height}px, below the recommended ` +
+        `${MIN_INTERACTIVE_SIZE}x${MIN_INTERACTIVE_SIZE}px minimum touch target.`,
+    );
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type WidgetAnchor =
@@ -107,6 +138,14 @@ export abstract class Widget {
   _scaleX: number = 1;
   _scaleY: number = 1;
   _hovered: boolean = false;
+
+  /**
+   * Uniform display scale applied on top of `width`/`height`/`x`/`y` when
+   * resolving screen-space position and hit-testing, intended to be driven
+   * by the canvas-to-design-resolution ratio (e.g. from a future
+   * ViewportSystem, or `UISystem.setScale`). Defaults to 1 — unscaled.
+   */
+  uiScale: number = 1;
 
   private readonly _handlers = new Map<
     WidgetEvent,
@@ -233,35 +272,40 @@ export abstract class Widget {
   }
 
   resolvedPosition(cw: number, ch: number): { x: number; y: number } {
+    const s = this.uiScale;
+    const w = this.width * s;
+    const h = this.height * s;
+    const x = this.x * s;
+    const y = this.y * s;
     let ox: number;
     switch (this.anchor) {
       case "top-right":
       case "right":
       case "bottom-right":
-        ox = cw - this.width - this.x;
+        ox = cw - w - x;
         break;
       case "top":
       case "center":
       case "bottom":
-        ox = cw / 2 + this.x - this.width / 2;
+        ox = cw / 2 + x - w / 2;
         break;
       default:
-        ox = this.x;
+        ox = x;
     }
     let oy: number;
     switch (this.anchor) {
       case "bottom-left":
       case "bottom":
       case "bottom-right":
-        oy = ch - this.height - this.y;
+        oy = ch - h - y;
         break;
       case "left":
       case "center":
       case "right":
-        oy = ch / 2 + this.y - this.height / 2;
+        oy = ch / 2 + y - h / 2;
         break;
       default:
-        oy = this.y;
+        oy = y;
     }
     return { x: ox + this._animDx, y: oy + this._animDy };
   }
@@ -271,11 +315,13 @@ export abstract class Widget {
     ch: number,
   ): { x: number; y: number; w: number; h: number } {
     const pos = this.resolvedPosition(cw, ch);
-    const sw = this.width * this._scaleX;
-    const sh = this.height * this._scaleY;
+    const baseW = this.width * this.uiScale;
+    const baseH = this.height * this.uiScale;
+    const sw = baseW * this._scaleX;
+    const sh = baseH * this._scaleY;
     return {
-      x: pos.x + (this.width - sw) / 2,
-      y: pos.y + (this.height - sh) / 2,
+      x: pos.x + (baseW - sw) / 2,
+      y: pos.y + (baseH - sh) / 2,
       w: sw,
       h: sh,
     };

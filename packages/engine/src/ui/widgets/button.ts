@@ -1,5 +1,5 @@
 import type { IUIRenderer } from "@emptysock/types";
-import { Widget, widgetRoundRect } from "./base.js";
+import { Widget, widgetRoundRect, warnIfBelowMinTouchTarget } from "./base.js";
 import type { BaseWidgetOpts } from "./base.js";
 
 export type ButtonState = "normal" | "hover" | "pressed" | "disabled";
@@ -46,6 +46,11 @@ export class ButtonWidget extends Widget {
     this.font = opts.font ?? "sans-serif";
     this.disabled = opts.disabled ?? false;
     this.animateOnHover = opts.animateOnHover ?? true;
+    warnIfBelowMinTouchTarget(
+      `ButtonWidget "${this.label}"`,
+      this.width,
+      this.height,
+    );
   }
 
   get state(): ButtonState {
