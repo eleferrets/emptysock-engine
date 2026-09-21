@@ -60,8 +60,15 @@ export { SaveSystem } from "./systems/SaveSystem.js";
 export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
 export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
 export type { StorageAdapter } from "./systems/StorageAdapter.js";
-export { PhysicsSystem } from "./systems/PhysicsSystem.js";
-export type { PhysicsSystemOptions } from "./systems/PhysicsSystem.js";
+export {
+  PhysicsSystem,
+  PhysicsNotInitializedError,
+} from "./systems/PhysicsSystem.js";
+export type {
+  PhysicsSystemOptions,
+  RaycastHit2D,
+  BodyState2D,
+} from "./systems/PhysicsSystem.js";
 export { PhysicsSystem3D } from "./systems/PhysicsSystem3D.js";
 export type {
   PhysicsSystem3DOptions,
@@ -75,6 +82,24 @@ export type {
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
 export { PhysicsBody, getPhysicsBody } from "./components/PhysicsBody.js";
+export { QueryChannel } from "./bridge/QueryChannel.js";
+export type {
+  EngineQuery,
+  EngineQueryRequest,
+  EngineQueryResponse,
+  EngineQueryResult,
+  EngineQueryError,
+  EngineQueryErrorCode,
+  EntitySummary,
+  RaycastResultData,
+  BodyStateData,
+  ListEntitiesQuery,
+  EntityInfoQuery,
+  GetComponentQuery,
+  Raycast2DQuery,
+  OverlapCircle2DQuery,
+  BodyState2DQuery,
+} from "./bridge/QueryChannel.js";
 export type {
   PhysicsBodyHandle,
   PhysicsBodyType,

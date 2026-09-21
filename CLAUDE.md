@@ -348,6 +348,10 @@ in behaviour.
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
 
+### QueryChannel: transport-agnostic, and errors instead of fabricated empty results
+
+`v2/bridge/QueryChannel.ts` (ENGINE_DESIGN.md §8) is the engine-side half of the MCP live bridge — the one place `emptysock-mcp`'s physics/scene tools get a real answer instead of a stub. Two rules matter here that aren't obvious from the query shapes alone. First, `QueryChannel` never imports a transport: `handle(query)` is a plain synchronous function, same "engine defines the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter` — whoever owns a live instance (IDE preview host, a dev build's bootstrap code) wires an actual socket/postMessage pipe around it. Second, a query that finds genuinely nothing (`raycast2d` hits nothing, `overlapCircle2d` finds nothing) returns `{ ok: true, data: null }`/`{ ok: true, data: [] }`, which is a different shape from every "there's nothing to even ask" case: `"no-live-instance"` (nothing `attach()`-ed) and `"no-physics-world"` (a `Scene` is attached but its `PhysicsSystem` was never `.init()`-ed) are both explicit `ok: false` errors. Do not collapse any of these three into one "empty" result — an agent consuming a raycast result that reads `hit: null` needs to know whether that means "clear line of sight" or "nothing was actually queried."
+
 ---
 
 ## Canonical terms

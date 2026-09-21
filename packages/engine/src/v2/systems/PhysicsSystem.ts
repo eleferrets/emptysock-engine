@@ -34,6 +34,36 @@ interface Snapshot {
   rotation: number;
 }
 
+interface Vec2 {
+  x: number;
+  y: number;
+}
+
+/** Thrown by the query methods below when called before `init()` (or after `destroy()`). */
+export class PhysicsNotInitializedError extends Error {
+  constructor() {
+    super("PhysicsSystem not initialized — no physics world to query.");
+    this.name = "PhysicsNotInitializedError";
+  }
+}
+
+/** Result of `PhysicsSystem.raycast` — `null` means the ray genuinely hit nothing. */
+export interface RaycastHit2D {
+  entity: Entity;
+  point: Vec2;
+  normal: Vec2;
+  toi: number;
+}
+
+/** Live state of a registered `PhysicsBody`, as read straight from Rapier. */
+export interface BodyState2D {
+  position: Vec2;
+  rotation: number;
+  velocity: Vec2;
+  type: string;
+  isSensor: boolean;
+}
+
 /** Internal bookkeeping stored per registered entity. */
 interface BodyRecord {
   entity: Entity;
@@ -293,6 +323,88 @@ export class PhysicsSystem {
       cb1.onSensorStay?.(record2.entity);
       cb2.onSensorStay?.(record1.entity);
     }
+  }
+
+  /**
+   * Cast a ray into the world and return the first collider it hits, mapped
+   * back to the registered `Entity` that owns it (ENGINE_DESIGN.md §8 — the
+   * primitive the MCP query bridge's `raycast2d` query wraps). `null` means
+   * a real "nothing along this ray" result, distinct from the
+   * `PhysicsNotInitializedError` thrown when there is no world to query at
+   * all — callers (the query bridge in particular) must not conflate the
+   * two into a single "empty" shape.
+   */
+  raycast(
+    origin: Vec2,
+    direction: Vec2,
+    maxToi = 1000,
+    solid = true,
+  ): RaycastHit2D | null {
+    const RAPIER = this._RAPIER;
+    const world = this._world;
+    if (RAPIER === null || world === null) {
+      throw new PhysicsNotInitializedError();
+    }
+    const ray = new RAPIER.Ray(origin, direction);
+    const hit = world.castRayAndGetNormal(ray, maxToi, solid);
+    if (hit === null) return null;
+    const eid = this._colliderToEid.get(hit.collider.handle);
+    const record = eid === undefined ? undefined : this._records.get(eid);
+    if (record === undefined) return null;
+    const point = ray.pointAt(hit.timeOfImpact);
+    return {
+      entity: record.entity,
+      point: { x: point.x, y: point.y },
+      normal: { x: hit.normal.x, y: hit.normal.y },
+      toi: hit.timeOfImpact,
+    };
+  }
+
+  /**
+   * All registered entities whose collider overlaps a circle at `center`
+   * with radius `radius` (ENGINE_DESIGN.md §8's `overlapCircle2d` query
+   * primitive). Empty array is a real "nothing overlapping" result;
+   * `PhysicsNotInitializedError` is the "no world to query" case.
+   */
+  overlapCircle(center: Vec2, radius: number): Entity[] {
+    const RAPIER = this._RAPIER;
+    const world = this._world;
+    if (RAPIER === null || world === null) {
+      throw new PhysicsNotInitializedError();
+    }
+    const shape = new RAPIER.Ball(radius);
+    const hits: Entity[] = [];
+    world.intersectionsWithShape(center, 0, shape, (collider) => {
+      const eid = this._colliderToEid.get(collider.handle);
+      const record = eid === undefined ? undefined : this._records.get(eid);
+      if (record !== undefined) hits.push(record.entity);
+      return true;
+    });
+    return hits;
+  }
+
+  /**
+   * Live Rapier state for a registered `PhysicsBody`, straight off the
+   * rigid body — the primitive `physics_body_state` in `emptysock-mcp`
+   * wraps. `undefined` means "this entity has no registered body" (not yet
+   * stepped, wrong entity, dead handle) — a real, meaningful absence, not
+   * the "no world at all" case `PhysicsNotInitializedError` covers.
+   */
+  getBodyState(entity: Entity): BodyState2D | undefined {
+    const world = this._world;
+    if (world === null) throw new PhysicsNotInitializedError();
+    const record = this._records.get(entity.eid);
+    if (record === undefined) return undefined;
+    const body = entity.get(PhysicsBody);
+    const rigidBody = world.getRigidBody(record.bodyHandle);
+    const linvel = rigidBody.linvel();
+    return {
+      position: { x: record.current.x, y: record.current.y },
+      rotation: record.current.rotation,
+      velocity: { x: linvel.x, y: linvel.y },
+      type: body?.type ?? "dynamic",
+      isSensor: body?.isSensor ?? false,
+    };
   }
 
   /**
