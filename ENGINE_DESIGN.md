@@ -755,3 +755,93 @@ worth guessing at in a design doc.
    first real v2 release already has a real process, instead of
    retrofitting one onto several already-shipped 0.1.0 tags once the
    module-package split makes there be more packages to keep straight.
+
+## 21. Closing a real implementation gap: how the facade actually wraps bitECS
+
+Checked bitECS's real API before calling §16.1 done — it wasn't. bitECS
+components are plain objects of parallel typed arrays keyed by a numeric
+entity ID, read/written directly:
+
+```ts
+const Position = { x: [] as number[], y: [] as number[] };
+const eid = addEntity(world);
+addComponent(world, eid, Position);
+Position.x[eid] = 0; // bitECS's real access pattern — no object, no getter
+```
+
+That is not `player.get(PhysicsBody).velocity.x` — §3's promised facade
+doesn't fall out of bitECS for free, and assuming it did would have been
+discovered mid-implementation instead of now. **Resolution:** `entity.get(Component)`
+returns a lazily-created, cached `Proxy` per `(entity, componentType)` pair
+whose property getters/setters read and write directly into that
+component's underlying bitECS arrays at that entity's index — created
+once per (entity, component) the first time it's requested, reused on
+every subsequent `.get()` for that pair, never reallocated per call. This
+keeps `§1.3`'s performance stance intact (no per-access allocation in the
+hot path) while making `.get()` read like a plain object from game code.
+`scene.each(...)` bypasses the proxy layer entirely and iterates the raw
+arrays directly via bitECS's own `query()` — the actual reason §3 called
+out that the power path exists: `each` isn't just "the same thing without
+a handle," it's measurably faster because it skips proxy overhead
+altogether.
+
+## 22. Implementation readiness — where every prior section stands
+
+You asked to lock the whole engine down before implementation starts. This
+is that lock: every major area, its status, and where its decision lives.
+
+| Area                                                                  | Status                                                                                                                                                                                                                                | Where                                                                           |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Object model / ECS storage                                            | **Locked**                                                                                                                                                                                                                            | §3, §7, §16.1, §21                                                              |
+| Lifecycle (scene/physics/actor ownership)                             | **Locked**                                                                                                                                                                                                                            | §4                                                                              |
+| Shared state (services)                                               | **Locked**                                                                                                                                                                                                                            | §5                                                                              |
+| Physics & collision ergonomics                                        | **Locked**                                                                                                                                                                                                                            | §6                                                                              |
+| Determinism                                                           | **Locked** (opt-in via Rapier's deterministic build)                                                                                                                                                                                  | §15.2                                                                           |
+| MCP live bridge                                                       | **Locked** (design only — implementation is §9's pass 3)                                                                                                                                                                              | §8                                                                              |
+| Naming (`Game`/`Scene`/`Entity`/`Component`)                          | **Locked**                                                                                                                                                                                                                            | §11.1                                                                           |
+| JS/TS support                                                         | **Locked**                                                                                                                                                                                                                            | §10.2                                                                           |
+| Scene composition (flat + prefabs)                                    | **Locked**                                                                                                                                                                                                                            | §11.2                                                                           |
+| Bulk-iteration API naming (`each`, not `query`)                       | **Locked**                                                                                                                                                                                                                            | §11.3                                                                           |
+| Networking (Colyseus only, for now)                                   | **Locked**                                                                                                                                                                                                                            | §11.4, §18                                                                      |
+| Save/serialization shape                                              | **Locked**                                                                                                                                                                                                                            | §12.1                                                                           |
+| Save durability & schema migration                                    | **Locked**                                                                                                                                                                                                                            | §19.3                                                                           |
+| Visual scripting → same public API                                    | **Locked**                                                                                                                                                                                                                            | §12.2                                                                           |
+| Overlay scenes                                                        | **Locked**                                                                                                                                                                                                                            | §12.3                                                                           |
+| Pooling folded into spawn/destroy                                     | **Locked**                                                                                                                                                                                                                            | §12.4                                                                           |
+| Package boundary (core + optional modules)                            | **Locked**                                                                                                                                                                                                                            | §13.1                                                                           |
+| First-run scaffold behavior (blank canvas)                            | **Locked**                                                                                                                                                                                                                            | §13.2                                                                           |
+| Hot reload guarantees                                                 | **Locked**                                                                                                                                                                                                                            | §13.3                                                                           |
+| Scene/prefab file format                                              | **Locked**                                                                                                                                                                                                                            | §13.4                                                                           |
+| Asset loading (build-time vs. external)                               | **Locked**                                                                                                                                                                                                                            | §14, §20 (asset-copy behavior confirmed already correct in v1, carries forward) |
+| Error UX                                                              | **Locked**                                                                                                                                                                                                                            | §15                                                                             |
+| Plugin extension points vs. player modding                            | **Locked**                                                                                                                                                                                                                            | §15, §16.2                                                                      |
+| Testing harness                                                       | **Locked**                                                                                                                                                                                                                            | §15.1                                                                           |
+| Input model                                                           | **Locked**                                                                                                                                                                                                                            | §15.3                                                                           |
+| Bundler (Rolldown/Oxc everywhere)                                     | **Locked**                                                                                                                                                                                                                            | §16.3, §17                                                                      |
+| Library picks (bitECS, Howler, Rapier, Pixi renderer default)         | **Locked, audited**                                                                                                                                                                                                                   | §18                                                                             |
+| Docs generation (TypeDoc)                                             | **Locked**                                                                                                                                                                                                                            | §19.1                                                                           |
+| Localisation/accessibility                                            | **Locked**                                                                                                                                                                                                                            | §19.2                                                                           |
+| VS Code integration scope                                             | **Locked**                                                                                                                                                                                                                            | §20                                                                             |
+| Release/versioning (changesets)                                       | **Locked**                                                                                                                                                                                                                            | §20                                                                             |
+| GMS2 import scope                                                     | **Locked, unchanged from v1**                                                                                                                                                                                                         | §9                                                                              |
+| Editor panel usability (Image/VN/Tilemap/UIPlacement/Sequence/Shader) | **Not fully audited** — confirmed real and substantial, not stubs; a full pass against `CLAUDE.md`'s IDE UI checklist is real, separate work                                                                                          | §20                                                                             |
+| Module-enable floating-panel bug                                      | **Open, real, reproduced** — logged in `RELEASE_PASS.md` as a v1 bug, not a v2 design question, but must be fixed before v2's module-package split (§13.1) ships, since that split means _more_ modules a developer routinely enables | `RELEASE_PASS.md`                                                               |
+
+**What "locked" means here:** every row above has a stated decision with
+reasoning, checked against real code or real research where a check was
+possible, and revised at least once when checking surfaced something
+better (bitECS's real shape just now, Rolldown's browser build in §17,
+the determinism build in §15.2). It does not mean zero remaining
+judgment calls during implementation — exact method signatures, file
+layout, and the two open items above are real work still ahead. Those are
+implementation details to resolve by writing code, not open architectural
+forks that would send the design back to the drawing board.
+
+**Two things stand between this and "start writing `packages/engine`":**
+
+1. The module-enable floating-panel bug (v1, `RELEASE_PASS.md`) — not
+   blocking, since it's a v1 IDE bug, not a v2 engine decision, but worth
+   fixing in the same window since §13.1's module split makes it worse.
+2. Your go-ahead. Every open architectural question across 11 rounds has
+   a stated, reasoned answer. Say the word and pass 1 of §9 (core engine
+   implementation) starts.
