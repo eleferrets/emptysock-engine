@@ -87,6 +87,34 @@ addComponent and getComponent use the `component.type` string field as the key, 
 
 Create a new ActorSystem in onLoad and destroy it in onDestroy. A shared ActorSystem that persists across scenes will process stale messages from actors that belong to an unloaded scene. Since actors from the old scene are still registered, broadcast() will invoke them after their scene's onDestroy has run, causing use-after-destroy bugs that are difficult to reproduce.
 
+### Collision/sensor callbacks live on PhysicsBody, dispatched by PhysicsSystem
+
+Registration (`onCollisionEnter`, `onSensorEnter`, etc.) belongs on `PhysicsBody` because that's the value component game code already holds a reference to after `entity.getComponent("PhysicsBody")` — no second lookup, no event-bus indirection. Dispatch (`dispatchCollisionEnter`, etc.) is `PhysicsSystem`'s job because it owns the Rapier `World`/`EventQueue` and is the only thing that ever observes a real collision. `PhysicsSystem._drainCollisionEvents()` still also emits `entity.emit("collisionEnter", ...)` for existing consumers of the old entity-event path — both fire side by side, no behavioural regression for code written against the old API.
+
+### Scene transitions: SceneManager times them, RenderPipeline paints them
+
+`SceneManager.transition()` takes an `effect: TransitionEffect` but never imports pixi — it stays inside the engine environment boundary (Node/browser/Tauri all run it). It drives a minimal `TransitionEffectSink` interface (`beginTransition`/`transitionProgress`/`endTransition`) via `attachPostProcess()`; `PostProcessSystem` satisfies that shape structurally. Actual pixels come from `RenderPipeline.renderTransitionOverlay(postProcess)`, which reads `PostProcessSystem`'s `transitionEffect`/`transitionProgress`/`transitionColour` and draws a full-screen `Graphics` rect — a triangle wave for `fade`, a growing rect for `wipe`, a rect sweeping across the screen for `slide`. This is an overlay-based transition (one rect on top of whatever's currently rendered), not a true two-scene crossfade — RenderPipeline doesn't keep two scenes' sprites live simultaneously. Good enough for a cut-covering transition; revisit if a game needs to see both scenes blending.
+
+### export-utils has no desktop packaging path — use packages/toolchain/src/desktopBuild.ts
+
+`packages/export-utils`'s `exportWindows`/`exportMacOS`/`exportLinux` were deleted — they were a second, unwired, non-functional desktop packaging implementation (fake NSIS script, an empty `.app` directory with no compiled binary, a hand-assembled `.AppImage`). `packages/toolchain/src/desktopBuild.ts` is the one real desktop export path: it scaffolds an actual Tauri v2 project and runs `cargo tauri build`. If desktop export logic needs to change, change it there — don't resurrect the export-utils versions. `exportWeb`/`exportAndroid`/`exportIOS`/`exportRaspi` still live in export-utils since desktopBuild.ts doesn't cover those targets, but nothing currently calls them from the CLI either.
+
+### GMS2 `.yyp`/`.yy` are not strict JSON, and other real-format quirks
+
+Learned by testing the importer once, end to end, against a real full GameMaker export provided temporarily by the user solely for that purpose; the project data was deleted from disk immediately after and was never committed. Permanently captured as synthetic regression tests in `packages/toolchain/src/__tests__/gms2-import.test.ts`. The quirks:
+
+- `.yyp`/`.yy` files are **not strict JSON** — GameMaker's IDE always writes a trailing comma before the final `}`/`]` of every object and array. Strip `,(\s*[}\]])` → `$1` before parsing.
+- The project's own display name lives at `.yyp` root under `"%Name"`, not `"name"`.
+- Object events go well beyond `Create_/Step_/Draw_/Destroy_`: collision handlers are `Collision_<other object name>.gml`, keyboard handlers are `KeyPress_<vk code>.gml`/`KeyRelease_<vk code>.gml` (37-40 = arrow keys). Emit `onCollideWith<Other>()`/`onKeyPress<Name>()`/`onKeyRelease<Name>()`.
+- Room `.yy` layers identify their kind via `resourceType` (`"GMRInstanceLayer"`, `"GMRTileLayer"`, `"GMRBackgroundLayer"`, …), never `"layerType"`.
+- Sprites store one PNG per frame at the sprite directory root, named by that frame's own UUID (`.yy` `frames[].name`), never `<sprite name>.png`.
+- `defaultScriptType: 1` does **not** reliably mean "uses GML Visual" — do not warn on it alone.
+- Real projects carry legacy GameMaker 8.1 DnD-compatibility symbols (`action_move`, `gml_pragma`, etc.) in compiled action lists — leave these untranspiled (surface as unresolved identifiers) rather than faking them.
+
+### MCP server has no 3D physics tool
+
+`physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
+
 ---
 
 ## Canonical terms

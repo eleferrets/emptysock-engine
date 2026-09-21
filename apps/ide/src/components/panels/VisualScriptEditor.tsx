@@ -3,6 +3,7 @@ import { RotateCcw, RotateCw } from "lucide-react";
 import { useHistory } from "../../hooks/useHistory";
 import { useVSStore } from "../../store/vsStore";
 import type { VSNode, VSEdge } from "../../store/vsStore";
+import { LogicScriptEditor } from "./visual-script/LogicScriptEditor";
 import type {
   NodeData,
   EdgeData,
@@ -29,7 +30,62 @@ import {
   edgePath,
 } from "./visual-script/helpers";
 
+const MODE_TAB_STYLE: React.CSSProperties = {
+  padding: "6px 14px",
+  fontSize: 12,
+  fontWeight: 600,
+  background: "transparent",
+  border: "none",
+  borderBottom: "2px solid transparent",
+  color: "var(--es-text-muted)",
+  cursor: "pointer",
+};
+
 export function VisualScriptEditor(): React.ReactElement {
+  const [mode, setMode] = useState<"scaffold" | "logic">("scaffold");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          borderBottom: "1px solid var(--es-border)",
+          background: "var(--es-surface)",
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={() => setMode("scaffold")}
+          style={{
+            ...MODE_TAB_STYLE,
+            color:
+              mode === "scaffold" ? "var(--es-text)" : "var(--es-text-muted)",
+            borderBottomColor:
+              mode === "scaffold" ? "var(--es-accent)" : "transparent",
+          }}
+        >
+          Scene Scaffold
+        </button>
+        <button
+          onClick={() => setMode("logic")}
+          style={{
+            ...MODE_TAB_STYLE,
+            color: mode === "logic" ? "var(--es-text)" : "var(--es-text-muted)",
+            borderBottomColor:
+              mode === "logic" ? "var(--es-accent)" : "transparent",
+          }}
+        >
+          Logic Script
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {mode === "scaffold" ? <SceneScaffoldEditor /> : <LogicScriptEditor />}
+      </div>
+    </div>
+  );
+}
+
+function SceneScaffoldEditor(): React.ReactElement {
   const storedGraph = useVSStore((s) => s.visualScriptGraph);
   const setVisualScriptGraph = useVSStore((s) => s.setVisualScriptGraph);
 
