@@ -657,66 +657,34 @@ box, per §1.4) — and treat a PartyKit backend as a candidate _second_
 `@emptysock/network` transport once the first is real and the abstraction
 boundary is known from experience rather than guessed at up front.
 
-## 19. Open questions — round 10: docs generation, i18n/a11y, save durability
+## 19. Decisions locked from review round 10
 
-Four more areas untouched across nine rounds, each with a recommendation
-stated up front.
+All three accepted as recommended.
 
-1. **API reference docs: hand-authored per CLAUDE.md's current five-location
-   ritual, or generated from TSDoc comments in the actual source?** Today's
-   convention ("Adding a new engine system" in `CLAUDE.md`) requires
-   manually writing `docs/reference/systems/*.md`, a row in
-   `docs/reference/index.md`, and a section in `docs/manual/05-systems-
-reference.md` by hand, alongside the code — a real, ongoing chance for
-   the docs to drift from what the code actually does. **Recommended:**
-   [TypeDoc + typedoc-plugin-markdown](https://typedoc-plugin-markdown.org/)
-   generates the `docs/reference/` pages directly from TSDoc comments
-   already living on the exported classes/methods — the Reference
-   section's own stated purpose ("indexed by class/system... Ctrl+F
-   destination, not sequential reading") is exactly what a generated API
-   reference is for. `docs/manual/`, `docs/guides/`, and `docs/tutorials/`
-   stay hand-written prose — generation only replaces the mechanical,
-   error-prone part. This is v2 engine-scoped work (write good TSDoc
-   comments as part of writing the code), but the payoff (docs/reference/
-   in §9's later docs pass) is real enough to decide the shape now.
-   Alternative: keep hand-authoring reference pages — full control over
-   wording and structure, but it's the exact kind of manual-sync burden
-   that produces "docs describing the old shape" (the failure mode
-   CLAUDE.md's own "Keeping docs in sync" convention exists to prevent).
-2. **Localisation and accessibility: first-class (every UI component
-   auto-participates) or manual opt-in per component, as in v1?** v1 has
-   `LocalisationSystem`/`AccessibilitySettings` as separate systems a
-   developer wires up themselves. **Recommended:** any text-bearing UI
-   component (`Label`, button text, dialogue text) takes a translation-key
-   string by default rather than a raw literal, resolved through
-   `LocalisationSystem` automatically — a beginner writes
-   `label.text = "greeting"` once, adds locale files later, and nothing
-   needs converting. Accessibility (font scaling, high-contrast, reduced
-   motion) hooks into the same UI component base rather than being a
-   separate manual check every component author has to remember — matches
-   §1's "foolproof by default" applied to UI specifically, an area rounds
-   1–9 didn't touch. Alternative: keep both as v1-style opt-in systems a
-   developer wires up per-project — less structure imposed on UI
-   components that don't need it, but localisation/accessibility become
-   another "remember to do this" the whole redesign has been trying to
-   eliminate elsewhere.
-3. **Save file durability: where do saves actually live, and what happens
-   when a component's shape changes between game versions?** §14.1 locked
-   _how_ a component serializes (plain-data constraint); this is about
-   _where_ the bytes go and what happens when yesterday's save meets
-   today's code. **Recommended:** `SaveSystem` picks the storage backend
-   automatically per runtime target (IndexedDB in the browser preview,
-   real filesystem via Tauri's fs plugin on desktop) behind one save/load
-   API — a beginner never chooses a backend. For version drift: every save
-   carries the schema version of each component it contains (cheap, since
-   §14.1 already means every component is a plain serializable shape); on
-   load, a component whose current shape doesn't match its saved shape
-   either resolves via an optional `migrate(oldData, oldVersion)` hook on
-   that component, or — if none is provided — logs a clear warning and
-   drops just that component's data rather than corrupting the whole save
-   or crashing. "Beginner never thinks about save compatibility until they
-   actually ship an update that needs it" is the foolproof bar here.
-   Alternative: no built-in migration story — a developer who changes a
-   component's shape after shipping is on their own to detect and handle
-   old saves, which is exactly the kind of silent, easy-to-miss footgun
-   this whole redesign has been eliminating everywhere else.
+1. **API reference docs generate from TSDoc, replacing CLAUDE.md's
+   five-location manual ritual.** [TypeDoc +
+   typedoc-plugin-markdown](https://typedoc-plugin-markdown.org/) produces
+   `docs/reference/` pages directly from TSDoc comments on the actual
+   exported classes/methods — matching the Reference section's own stated
+   purpose ("Ctrl+F destination, not sequential reading"). `docs/manual/`,
+   `docs/guides/`, and `docs/tutorials/` stay hand-written; only the
+   mechanical reference pages generate. Writing good TSDoc comments is now
+   part of writing the code, not a separate followup step across three
+   files.
+2. **Localisation and accessibility are first-class on the UI component
+   base, not opt-in systems.** Any text-bearing UI component takes a
+   translation-key string by default, resolved through `LocalisationSystem`
+   automatically; accessibility (font scaling, high-contrast, reduced
+   motion) hooks into the same UI component base. `§1`'s foolproof-by-
+   default bar now covers UI specifically, closing a gap rounds 1–9 left
+   open.
+3. **`SaveSystem` picks its storage backend automatically per runtime
+   target, with a per-component `migrate()` hook for schema drift.**
+   IndexedDB in the browser preview, real filesystem via Tauri's fs plugin
+   on desktop — one save/load API, a beginner never chooses a backend.
+   Every save carries each component's schema version; on load, a
+   mismatched component either runs an optional `migrate(oldData,
+oldVersion)` hook or logs a warning and drops just that component's
+   data, never corrupting the whole save or crashing. A developer never
+   thinks about save compatibility until they actually ship an update that
+   needs it.
