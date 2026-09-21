@@ -216,7 +216,7 @@ That has two problems v2 drops:
    hand) can't produce in the first place.
 
 v2 stores components as structure-of-arrays per component type, queried by
-class reference (`entity.get(PhysicsBody)`, `scene.query(Transform, Sprite)`).
+class reference (`entity.get(PhysicsBody)`, `scene.each(Transform, Sprite, ...)`).
 No string keys anywhere in the hot path.
 
 ## 8. MCP: a live bridge, not a second physics engine
@@ -250,7 +250,7 @@ v2 architecture:
 ## 9. Explicitly out of scope for this pass
 
 Per the agreed sequencing: this pass is the engine core design + doc only.
-Once the design here is approved and the core is rewritt en, a **separate**
+Once the design here is approved and the core is rewritten, a **separate**
 pass rewrites, in this order:
 
 1. `packages/engine` implementation against this doc.
@@ -360,85 +360,103 @@ Promise. That's not a thing here — use entity.startCoroutine() instead."`,
    networking code, but multiplayer is an official, zero-glue-code `npm
 install` away, not a from-scratch integration.
 
-## 12. Open questions — round 3
+## 12. Decisions locked from review round 3
 
-Same format, with my actual recommendation stated up front this time rather
-than left neutral.
+All four recommendations accepted as stated in round 3's questions:
 
-1. **Save/serialization.** SaveSystem needs to turn "everything on this
-   entity" into JSON and back without hand-written per-component logic for
-   the common case. **Recommended:** components are constrained to plain,
-   JSON-serializable fields (numbers, strings, booleans, arrays/objects of
-   the same, or references to other entities via their typed handle) by a
-   `Serializable` type constraint components must satisfy, plus a dev-mode
-   runtime check that warns if a function sneaks into a component's fields.
-   SaveSystem then serializes any component generically, with zero custom
-   code required — a component only writes custom `serialize`/`deserialize`
-   hooks for a genuine edge case (e.g. resolving a reference that must be
-   re-linked after load). Alternative: no structural constraint at all,
-   every component free to hold anything, and save/load is opt-in per
-   component from day one — more flexible, but "beginner saves their game"
-   stops being a zero-effort default and becomes something every component
-   author has to remember to implement.
-2. **Visual scripting's relationship to the code API.** `VisualScriptComponent`
-   and the Story Graph are real, load-bearing parts of this engine, not an
-   afterthought. **Recommended:** visual-script nodes compile to calls
-   against the exact same public API a code-first developer uses — a node
-   that spawns an enemy generates literal `scene.spawn(...)` calls, not a
-   call into some separate internal-only visual-scripting runtime. This
-   makes §1.2 ("one clean path to power") true for no-code users too: pop
-   open the generated code from a graph and it reads like the tutorial code,
-   and someone graduating from nodes to code isn't learning a second API.
-   Alternative: visual scripting gets its own optimized internal execution
-   path (faster for large graphs, more implementation freedom), at the cost
-   of the generated/inspectable code no longer being "just" calls to the API
-   a beginner would otherwise be taught.
-3. **Multiple simultaneously-active scenes (distinct from nesting — this is
-   about a HUD/pause-menu scene running _alongside_ the game world, not one
-   scene living inside another).** v1 is implicitly one-active-scene-at-a-
-   time. **Recommended:** `Game.loadScene(x)` still replaces the active
-   scene exclusively, but a new `Game.loadOverlay(y)` stacks an additional
-   always-on-top scene with its own lifecycle (own `ActorSystem`, no
-   `PhysicsSystem` by default since a HUD doesn't need one) — solves HUD/
-   pause-menu/minimap without the classic hack of cramming UI entities into
-   the gameplay scene. Alternative: skip this entirely for v2 and treat
-   HUD as UI-layer concerns handled by `UISystem` directly on the main
-   scene (simpler engine, but every HUD becomes coupled to gameplay-scene
-   lifecycle — it unloads/reloads whenever the game scene does, even if
-   the HUD chrome shouldn't).
-4. **Object pooling vs. "the engine owns destruction."** §4's guarantee is
-   "if the engine created it, the engine destroys it" — but bullet-hell/
-   particle-heavy games rely on pooling (reuse, don't destroy) for
-   performance, which looks like it fights that guarantee. **Recommended:**
-   pooling is a `spawn` option, not a separate mechanism —
-   `scene.spawn(BulletPrefab, props, { pool: true })` — and
-   `scene.destroy(entity)` is the same call either way; the engine decides
-   whether that call actually tears the entity down or returns it to a pool,
-   based on how it was spawned. Game code never has to know which happened.
-   This keeps §4's guarantee intact (the engine still owns the real
-   destroy/reuse decision) while giving pooling for free instead of a
-   hand-rolled `ObjectPool.ts`-style pattern layered on top by whoever needs
-   it (v1 has `ObjectPool.ts` today as a manual utility — this would absorb
-   it into the spawn/destroy API itself rather than a parallel class to
-   learn). Alternative: keep pooling as an explicit opt-in utility class
-   (closer to v1's `ObjectPool.ts`), which is more transparent about what's
-   happening but is exactly the kind of "remember to use the right API for
-   performance" split §1.2 says we're trying to avoid.
+1. **Save/serialization: plain-data constraint, zero effort by default.**
+   Components are constrained to JSON-serializable fields via a
+   `Serializable` type constraint, plus a dev-mode runtime warning if a
+   function sneaks into one anyway. `SaveSystem` serializes any component
+   generically — no per-component save/load code required for the common
+   case. Custom `serialize`/`deserialize` hooks remain available for the
+   genuine edge case (e.g. a reference that must be re-linked after load),
+   but they're the exception a component reaches for, not a chore every
+   component owes by default.
+2. **Visual scripting compiles to the same public API code-first devs use.**
+   A "spawn enemy" node generates a literal `scene.spawn(...)` call, not a
+   call into a separate visual-scripting-only runtime. `§1.2`'s "one clean
+   path to power" now holds for no-code users too — popping open the
+   generated code from a Story Graph or `VisualScriptComponent` graph reads
+   like the same code a tutorial would teach, and graduating from nodes to
+   code isn't learning a second API.
+3. **Overlay scenes: `Game.loadOverlay()` alongside `Game.loadScene()`.**
+   `loadScene(x)` still replaces the main scene exclusively.
+   `loadOverlay(y)` stacks an additional, independently-lifecycled scene on
+   top (own `ActorSystem`; no `PhysicsSystem` by default, since a HUD
+   doesn't need one) that survives the main scene reloading underneath it.
+   Solves HUD/pause-menu/minimap without coupling UI chrome to gameplay
+   scene lifecycle.
+4. **Pooling folds into `spawn`/`destroy`, not a separate utility.**
+   `scene.spawn(BulletPrefab, props, { pool: true })`; `scene.destroy(entity)`
+   is the same call whether or not the entity was pooled — the engine
+   decides internally whether that call tears the entity down or returns it
+   to a pool. `§4`'s "the engine owns destruction" guarantee holds even for
+   pooled objects, since the engine still makes the real decision; game code
+   never branches on which happened. This absorbs what v1's `ObjectPool.ts`
+   did into the spawn/destroy API itself rather than a parallel class to
+   learn.
 
-5. **Is the raw ECS query surface (§3's "power path") a good idea to expose
-   at all, or does it undermine "foolproof by default"?** A beginner poking
-   around autocomplete will find `scene.query(...)` sitting right next to
-   `entity.get(...)` with no signal that one is the 95%-of-the-time path and
-   the other is an optimization for thousands-of-entities cases. Do we want
-   it visible by default, tucked under a separate import
-   (`from "@emptysock/engine/advanced"`) so it doesn't show up until someone
-   goes looking, or something else?
-6. **Networking ambition.** v1's `NetworkActor`/`Transport` is a thin
-   interface — the engine ships zero concrete transport and zero netcode
-   (no state sync, no rollback, no reconciliation). Does "the engine cares
-   for everything out of the box" extend to multiplayer at all in v2, or
-   does networking stay explicitly "bring your own transport and your own
-   sync strategy," same as v1, with the interface just cleaned up? Real
-   netcode (rollback, interpolation, authority) is a massive scope increase
-   if you want it — worth saying no to explicitly if the answer is no,
-   rather than leaving it ambiguous.
+## 13. Open questions — round 4: buildout, tooling, feature depth
+
+Twelve decisions in, the object model and lifecycle are settled. Round 4
+turns to something rounds 1–3 mostly skipped: what does actually building
+and running a project _feel_ like — the toolchain, the dependency story, and
+how much depth is available under the "brain-dead simple" surface before you
+hit a wall and have to reach for something outside the engine. "We can gut
+this entire thing" stays the operating assumption — nothing below is
+constrained by what v1 already does.
+
+1. **Package boundary: one `@emptysock/engine`, or split by concern?** v1 is
+   one package with everything in it (core + every system). A beginner
+   never has to think about packages either way — the question is what the
+   dependency tree and bundle actually look like. **Recommended:** keep
+   ECS core + the systems every game plausibly needs (render, physics,
+   audio, input) in `@emptysock/engine`, but split genuinely optional heavy
+   modules — VN/Story Graph, battle system, tilemap/navmesh, visual
+   scripting — into their own `@emptysock/<module>` packages that the
+   project templates (§10.4) pull in by default so a beginner never runs an
+   install command themselves, but a 2D-platformer game never ships a
+   VN dialogue-box renderer in its bundle. Alternative: one package, always
+   everything — simpler mental model (there's only ever one thing to
+   install), but every game pays the bundle-size cost of every module
+   whether it uses it or not, in tension with §1.3 ("performance is not for
+   sale").
+2. **First build after `npm install`: how much is already working?**
+   **Recommended:** every template (§10.4) is a complete, runnable game the
+   moment it's scaffolded — hit run and something is genuinely on screen
+   (a moving player in the 2D/3D templates, a rendered dialogue box in VN, a
+   battle screen in RPG), not a blank canvas with comments explaining what
+   you'd add. This is the actual "brain-dead simple" test: does the very
+   first thing a beginner does (create project, hit run) produce something,
+   or a blank screen with homework. Alternative: scaffold structure and
+   wiring but leave the screen blank until the developer adds their first
+   entity — teaches the API faster since there's no scaffolded code to
+   read past, but the very first `npm run dev` shows nothing, which is a
+   worse first five minutes for exactly the audience this redesign is for.
+3. **Hot reload: how much state survives an edit?** v1 has a
+   `HotReloadSystem` already; worth deciding what it guarantees in v2 rather
+   than inheriting whatever it currently does. **Recommended:** component
+   _code_ (behavior, systems) hot-swaps without resetting the scene —
+   entity/component _data_ (positions, health, inventory) survives a reload
+   by default, so tweaking a jump-height constant or a collision handler
+   doesn't kick you back to the start of the level. A change to a
+   component's _shape_ (added/removed field) forces a full scene reload
+   for just the affected entities, with a clear console message naming why
+   (no silent partial-state corruption). Alternative: any edit triggers a
+   full scene reload — simpler to implement and reason about, but the
+   classic "tweak a number, lose five minutes of manual repositioning to
+   see it in context" cycle that makes hot reload feel pointless.
+4. **Type-safe scene/prefab authoring: hand-written TS, or a schema the IDE
+   generates types from?** The IDE's visual editors (Scene, Tilemap, UI
+   Placement) already produce serialized JSON today. **Recommended:** scene
+   and prefab files are JSON (or a JSON-like format) with a generated
+   `.d.ts` alongside them — so `scene.spawn(EnemyPrefab, ...)` autocompletes
+   the _actual_ props that prefab's components expose, regenerated
+   automatically whenever the IDE saves the file, whether or not the
+   developer ever opens the IDE (the toolchain's own build step does the
+   generation too, so a purely code-first, IDE-free workflow gets the same
+   types). Alternative: prefabs/scenes defined directly in TS as plain
+   objects/functions, no separate file format or generation step — one
+   fewer moving part, but then the IDE's visual editors have nothing to
+   read or write, which cuts against having visual editors at all.
