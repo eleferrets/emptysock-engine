@@ -316,20 +316,112 @@ onUpdate` as a type error); JS users lose the compile-time check but get a
    a straight platformer/arcade template — a reasonable default is: on for
    the VN and RPG templates, off (but one import away) for 2D/3D/empty.
 
-## 11. Open questions — round 2
+## 11. Decisions locked from review round 2
 
-1. **Top-level entry point naming.** §4 calls it `Game` (`Game.loadScene`,
-   `game.services`). v1 doesn't have an equivalent — `SceneManager` is the
-   closest thing but isn't the thing a beginner's `main.ts` touches first.
-   Is `Game` right, or do you want something else (`App`, `EmptySock`,
-   plain `createGame()` with no class at all)?
-2. **Scene nesting / composition.** Godot's packed-scene instancing (drop one
-   scene inside another) is genuinely useful for prefabs, but its "override
-   an inherited scene" feature is one of its messier corners. Do we want
-   nested/composable scenes in v2 at all, or is a flat scene + a plain
-   "spawn a prefab (a plain data/function template, not a nested scene)"
-   mechanism enough?
-3. **Is the raw ECS query surface (§3's "power path") a good idea to expose
+1. **Naming stays plain: `Game`, `Scene`, `Entity`, `Component`.** These
+   aren't actually Unity-specific — Godot (Node/Scene), Bevy (Entity/
+   Component/System), and Unity (GameObject/Component/Scene) all converge on
+   the same vocabulary, because it's what transfers from tutorials, Stack
+   Overflow, and every other engine a beginner might have touched. Renaming
+   the nouns for personality would cost real searchability for a stylistic
+   win. Personality goes where `CLAUDE.md`'s existing IDE-personality section
+   already puts it: runtime warnings, error messages, CLI output — e.g. the
+   JS `onUpdate`-returns-a-Promise warning reads `"onUpdate returned a
+Promise. That's not a thing here — use entity.startCoroutine() instead."`,
+   not dry compiler-speak. Same dry, self-aware voice as the IDE, extended
+   into the engine's own console output.
+2. **Flat scenes, composable prefabs (prefabs can contain prefabs).** No live
+   nested scene graph, so nothing to override-resolve. A prefab is a named
+   template — components plus optionally other prefabs — spawned as a unit
+   (`scene.spawn(EnemyPrefab, { x, y })`). This is the same pattern Bevy
+   calls "Bundles": Godot's composition benefit, without a runtime
+   parent/child scene tree to get tangled.
+3. **`scene.query(...)` becomes `scene.each(...)`, same object, no separate
+   import.** The friction was never the module boundary, it was the name —
+   "query" reads like a specialized/scary database operation; "each" reads
+   like `Array.forEach`, which every JS/TS developer already knows isn't
+   scary. `scene.each(Transform, PhysicsBody, (t, b) => {...})` sits right
+   next to `entity.get(...)` on the same object; the doc comment does the
+   only "this is for many-at-once" signaling needed — no advanced-only
+   import path, per your call.
+4. **Networking: an official `@emptysock/network` companion package
+   wrapping Colyseus, not bundled into core.** Writing real rollback/
+   reconciliation netcode ourselves would be a multi-month project outside
+   this redesign's scope, and directly against §1's "don't reinvent solved
+   problems." Colyseus is TypeScript-native, actively maintained, and its
+   schema-based sync model maps cleanly onto marking specific component
+   fields as networked. Staying a separate package (not merged into
+   `@emptysock/engine`) preserves the original bundle-size reasoning behind
+   "Transport is an interface" — a single-player game imports zero
+   networking code, but multiplayer is an official, zero-glue-code `npm
+install` away, not a from-scratch integration.
+
+## 12. Open questions — round 3
+
+Same format, with my actual recommendation stated up front this time rather
+than left neutral.
+
+1. **Save/serialization.** SaveSystem needs to turn "everything on this
+   entity" into JSON and back without hand-written per-component logic for
+   the common case. **Recommended:** components are constrained to plain,
+   JSON-serializable fields (numbers, strings, booleans, arrays/objects of
+   the same, or references to other entities via their typed handle) by a
+   `Serializable` type constraint components must satisfy, plus a dev-mode
+   runtime check that warns if a function sneaks into a component's fields.
+   SaveSystem then serializes any component generically, with zero custom
+   code required — a component only writes custom `serialize`/`deserialize`
+   hooks for a genuine edge case (e.g. resolving a reference that must be
+   re-linked after load). Alternative: no structural constraint at all,
+   every component free to hold anything, and save/load is opt-in per
+   component from day one — more flexible, but "beginner saves their game"
+   stops being a zero-effort default and becomes something every component
+   author has to remember to implement.
+2. **Visual scripting's relationship to the code API.** `VisualScriptComponent`
+   and the Story Graph are real, load-bearing parts of this engine, not an
+   afterthought. **Recommended:** visual-script nodes compile to calls
+   against the exact same public API a code-first developer uses — a node
+   that spawns an enemy generates literal `scene.spawn(...)` calls, not a
+   call into some separate internal-only visual-scripting runtime. This
+   makes §1.2 ("one clean path to power") true for no-code users too: pop
+   open the generated code from a graph and it reads like the tutorial code,
+   and someone graduating from nodes to code isn't learning a second API.
+   Alternative: visual scripting gets its own optimized internal execution
+   path (faster for large graphs, more implementation freedom), at the cost
+   of the generated/inspectable code no longer being "just" calls to the API
+   a beginner would otherwise be taught.
+3. **Multiple simultaneously-active scenes (distinct from nesting — this is
+   about a HUD/pause-menu scene running _alongside_ the game world, not one
+   scene living inside another).** v1 is implicitly one-active-scene-at-a-
+   time. **Recommended:** `Game.loadScene(x)` still replaces the active
+   scene exclusively, but a new `Game.loadOverlay(y)` stacks an additional
+   always-on-top scene with its own lifecycle (own `ActorSystem`, no
+   `PhysicsSystem` by default since a HUD doesn't need one) — solves HUD/
+   pause-menu/minimap without the classic hack of cramming UI entities into
+   the gameplay scene. Alternative: skip this entirely for v2 and treat
+   HUD as UI-layer concerns handled by `UISystem` directly on the main
+   scene (simpler engine, but every HUD becomes coupled to gameplay-scene
+   lifecycle — it unloads/reloads whenever the game scene does, even if
+   the HUD chrome shouldn't).
+4. **Object pooling vs. "the engine owns destruction."** §4's guarantee is
+   "if the engine created it, the engine destroys it" — but bullet-hell/
+   particle-heavy games rely on pooling (reuse, don't destroy) for
+   performance, which looks like it fights that guarantee. **Recommended:**
+   pooling is a `spawn` option, not a separate mechanism —
+   `scene.spawn(BulletPrefab, props, { pool: true })` — and
+   `scene.destroy(entity)` is the same call either way; the engine decides
+   whether that call actually tears the entity down or returns it to a pool,
+   based on how it was spawned. Game code never has to know which happened.
+   This keeps §4's guarantee intact (the engine still owns the real
+   destroy/reuse decision) while giving pooling for free instead of a
+   hand-rolled `ObjectPool.ts`-style pattern layered on top by whoever needs
+   it (v1 has `ObjectPool.ts` today as a manual utility — this would absorb
+   it into the spawn/destroy API itself rather than a parallel class to
+   learn). Alternative: keep pooling as an explicit opt-in utility class
+   (closer to v1's `ObjectPool.ts`), which is more transparent about what's
+   happening but is exactly the kind of "remember to use the right API for
+   performance" split §1.2 says we're trying to avoid.
+
+5. **Is the raw ECS query surface (§3's "power path") a good idea to expose
    at all, or does it undermine "foolproof by default"?** A beginner poking
    around autocomplete will find `scene.query(...)` sitting right next to
    `entity.get(...)` with no signal that one is the 95%-of-the-time path and
@@ -337,7 +429,7 @@ onUpdate` as a type error); JS users lose the compile-time check but get a
    it visible by default, tucked under a separate import
    (`from "@emptysock/engine/advanced"`) so it doesn't show up until someone
    goes looking, or something else?
-4. **Networking ambition.** v1's `NetworkActor`/`Transport` is a thin
+6. **Networking ambition.** v1's `NetworkActor`/`Transport` is a thin
    interface — the engine ships zero concrete transport and zero netcode
    (no state sync, no rollback, no reconciliation). Does "the engine cares
    for everything out of the box" extend to multiplayer at all in v2, or
