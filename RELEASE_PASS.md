@@ -74,10 +74,20 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       escape hatch (§15.3); Howler-backed audio wrapper (confirmed still
       correct, §18). Wire the input snapshot into `Game.update()`'s step 1
       (currently a no-op placeholder).
-- [ ] **Services + Save system.** Typed `game.services` registry (§5);
+- [x] **Services + Save system.** Typed `game.services` registry (§5);
       `SaveSystem` with automatic per-runtime-target backend (IndexedDB/Tauri
       fs) and the per-component `migrate()` hook (§19.3) — build on the
       `Serializable` constraint already landed at `v2/Serializable.ts`.
+      Landed: `v2/Services.ts` (`Game.services`, a `ServiceRegistry`
+      instance for the `Game`'s lifetime) and `v2/systems/SaveSystem.ts` +
+      `StorageAdapter.ts`. Deviation: storage backend selection is an
+      injectable `StorageAdapter` interface (mirrors `Transport`), not a
+      `window`/Tauri runtime check inside the engine — IndexedDB/Tauri-fs
+      adapters get built and injected by the host, per-component
+      `version`/`migrate()` added as an optional 3rd arg to
+      `defineComponent` (defaults to version 1, non-breaking). See
+      CLAUDE.md's new "SaveSystem storage backend is an injected adapter,
+      not a runtime check" entry.
 - [ ] **Scene/prefab file format.** JSON scene/prefab files + generated
       `.d.ts` types (§13.4), flat-scene-plus-nestable-prefabs spawning
       (§11.2), pooling folded into `spawn`/`destroy` (§12.4).
@@ -90,9 +100,21 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       tilemap/navmesh into their own `@emptysock/<module>` packages (§13.1).
       Each of these can itself be a further-parallel sub-track once rendering
       (VN, tilemap) and core (battle) have landed.
-- [ ] **`@emptysock/network`.** Colyseus integration, bridged through the
+- [x] **`@emptysock/network`.** Colyseus integration, bridged through the
       same `.get()` Proxy layer (§23.2) — only needs Track 0's core API
       (done), does **not** need physics/rendering, so this can start now.
+      Landed: new `packages/network` workspace package wrapping
+      `colyseus.js` 0.16 (`getStateCallbacks`/`$(instance).listen`, verified
+      against current Colyseus docs). `networked(componentDef, fields)`
+      marks fields by the same `componentName` string `ComponentRegistry`
+      keys on; `NetworkSystem` binds a room's `MapSchema` collection,
+      mapping Colyseus network ids to local `Entity` handles via
+      `entity.rawId` (never touches bitECS internals — all reads/writes go
+      through `entity.get(Component)`). Outbound sync is a per-`sync()`-call
+      dirty-check poll, not a proxy-set intercept, matching §23.2's "not the
+      thousands-of-entities-at-60fps case" cost model. Tests mock the
+      client-side schema-callback shape (no official client-side Colyseus
+      test harness exists, only server-side room helpers).
 - [ ] **MCP live bridge.** Engine-side query/command channel (§8, extends
       `core/IDEBridge.ts`) — the engine side needs Track 0 (done) and
       benefits from Track 1's physics landing (for raycast/overlap queries);

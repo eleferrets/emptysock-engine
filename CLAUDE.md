@@ -25,7 +25,7 @@ The docs follow a Unity/Unreal-style layout — four sections that match differe
 
 ## Repo layout
 
-Four top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. All editor state lives in `apps/ide/src/store/ideStore.ts` (Zustand). Build logic lives in `apps/ide/src/services/`.
+Five top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. All editor state lives in `apps/ide/src/store/ideStore.ts` (Zustand). Build logic lives in `apps/ide/src/services/`.
 
 ---
 
@@ -118,6 +118,45 @@ Learned by testing the importer once, end to end, against a real full GameMaker 
 ### Monaco resolves `@emptysock/engine` via one ambient module block, not per-file extra libs
 
 The bundled Monaco TypeScript worker only supports `ModuleResolutionKind.Classic | NodeJs`, which cannot resolve the bare specifier `@emptysock/engine` from a pile of per-file `addExtraLib` entries at `file:///node_modules/@emptysock/engine/**` (this produced `TS2792: Cannot find module`, cascading into false "Property X does not exist" errors on every inherited method). `engineTypesPlugin` in `apps/ide/vite.config.ts` instead flattens `packages/engine/dist-types/**/*.d.ts` into synthetic ambient modules (`declare module "@emptysock/engine/__internal/<path>" { ... }`, with every relative specifier rewritten to the matching synthetic name) and re-exports them all through one `declare module "@emptysock/engine" { export * from "@emptysock/engine/__internal/index"; }` block. Ambient declarations for a bare specifier are looked up by name directly, bypassing module resolution entirely. If `packages/engine`'s public type surface changes shape (e.g. new subpath exports), this flattening logic in `engineTypesPlugin` needs to know about the new entry points, not just the dist-types glob.
+
+### SaveSystem storage backend is an injected adapter, not a runtime check
+
+`v2/systems/SaveSystem.ts` needs one save/load API that ends up on IndexedDB
+in the browser preview and Tauri's fs plugin on desktop (§19.3), but unlike
+the "Tauri detection at runtime" pattern elsewhere in this file, `SaveSystem`
+does **not** check `'__TAURI_INTERNALS__' in window` itself. Doing so would
+still require importing (even dynamically) an IndexedDB or
+`@tauri-apps/plugin-fs` code path from inside `@emptysock/engine`, which is
+exactly what "Engine environment boundary" forbids — the same compiled
+engine bundle has to keep running under plain Node/Vitest with zero DOM or
+Tauri surface touched. Instead `SaveSystem` takes a `StorageAdapter`
+interface (`get`/`set`/`delete`/`listKeys`), the same shape as
+`NetworkActor`'s `Transport`: the engine defines and depends on the
+interface, never a concrete implementation. The IndexedDB and Tauri-fs
+adapters are built and runtime-selected by the host (`apps/ide`'s preview
+shell, the Tauri desktop shell) and injected into `SaveSystem`'s
+constructor. With no adapter given, `SaveSystem` defaults to
+`MemoryStorageAdapter` (an in-process `Map`, nothing persisted across
+restarts) — this is what makes it usable out of the box under the headless
+testing harness and any other Node context.
+
+Separately, `ComponentDef` now carries a `version: number` (default `1`,
+set via `defineComponent(name, defaults, { version })`'s optional third
+argument — purely additive, every existing two-argument call site is
+unaffected). `SaveSystem` stamps every saved component instance with its
+def's version; on load, a stamped version that doesn't match the
+currently-registered def's version runs a migration registered via
+`SaveSystem.registerMigration(componentName, migrate)`, or — if none is
+registered — logs a warning and drops just that one component's data for
+that one entity. Everything else in the save still loads; a schema
+mismatch on one component type never aborts or corrupts the rest of the
+load.
+
+### @emptysock/network's field-marking and entity-mapping scheme
+
+`packages/network` (`@emptysock/network`) marks which component fields are replicated with `networked(componentDef, ["field", ...])`, called next to `defineComponent`, not a `defineNetworkedComponent` wrapper — this composes with `ComponentRegistry`'s existing name-keyed identity instead of parallelling it. The mark is stored in a module-level `Map<componentName, Set<fieldName>>` keyed on the same `componentName` string `ComponentRegistry` uses, not on the `ComponentDef` object's identity, because client and server are two separately-loaded copies of the game's component definitions (and a hot-reloaded module produces a new `ComponentDef` reference for "the same" component per §23.1 anyway) — object identity was never going to survive either trip.
+
+Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the v2 `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
 
 ### MCP server has no 3D physics tool
 
