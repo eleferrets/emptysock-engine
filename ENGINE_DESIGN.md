@@ -559,7 +559,7 @@ all three accepted as recommended.
    8's now-stable (1.0, May 2026) default bundler, and `apps/ide` is
    already on Vite 8.
 
-## 17. Open questions — round 8: one bundler for everything (correcting §16.3)
+## 17. Decision locked from review round 8: one bundler for everything
 
 You asked specifically to check whether one tool can cover all three build
 contexts, because round 7 assumed it couldn't. It was wrong to assume — a
@@ -579,25 +579,19 @@ already uses (CLAUDE.md's "virtualFiles must include all open files"
 decision) — this is a straight port of hook names, not a redesign of how
 the IDE feeds open files into a build.
 
-1. **Should the IDE's live-preview build (`GameBuildService`, currently
-   `esbuild-wasm`) also move to `@rolldown/browser`, giving one bundler
-   (Rolldown/Oxc) across all three build contexts — the IDE's own
-   dev/build, the toolchain CLI's export (§16.3), and the in-browser game
-   preview?** **Recommended: yes, migrate all three.** Concretely: (a) one
-   Rust toolchain to reason about everywhere instead of "Rolldown for two
-   things, esbuild for the third"; (b) the in-browser build itself gets
-   faster, not just neutral, per the benchmark above; (c) the virtual-fs
-   plugin that maps IDE open files to build inputs ports directly, since
-   both esbuild and Rolldown use the same `resolveId`/`load`-style plugin
-   shape. The one honest cost: `@rolldown/browser` is newer and less
-   battle-tested _specifically for in-browser use_ than Rolldown's Node-
-   side path (which is what's backing Vite 8 for millions of projects) —
-   it's a smaller, newer surface, worth a real spike/prototype against
-   the actual `GameBuildService` virtual-fs plugin before committing,
-   not just taking the benchmark's word for it. Alternative: keep
-   `esbuild-wasm` for the in-browser path specifically (round 7's original,
-   now-corrected claim that it "has to" stay was false, but "it currently
-   works and migrating is real effort for one more browser-specific
-   integration to validate" is still a legitimate, more conservative
-   reason to hold off, separate from the false "can't run in a browser"
-   reason it was given last round).
+**One bundler for all three build contexts, accepted as recommended (you
+deferred to the recommendation, given it directly serves the "one thing
+used for everything" goal you stated).** The IDE's own dev/build, the
+toolchain CLI's export (§16.3), and `GameBuildService`'s in-browser
+live-preview build (currently `esbuild-wasm`) all move to Rolldown/Oxc —
+the last one via `@rolldown/browser`, whose plugin API supports the same
+`resolveId`/`load` virtual-module shape the current esbuild plugin already
+uses, so the port is a hook-name change, not a redesign. **Sequencing
+caveat carried forward, not dropped because the recommendation won:**
+`@rolldown/browser` is newer and less proven specifically for in-browser
+use than Rolldown's Node-side path. When this reaches the implementation
+pass (§9), migrate the toolchain CLI first (lower risk, same environment
+Rolldown is already proven in), and treat the `GameBuildService` migration
+as its own spike — validate the virtual-fs plugin port and real bundle
+times against actual project files before cutting the IDE over, rather
+than assuming the benchmark holds for this specific integration.
