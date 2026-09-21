@@ -1,19 +1,30 @@
 import type { Scene } from "./Scene.js";
-export type TransitionEffect =
-  | "fade"
-  | "wipe"
-  | "iris"
-  | "slide"
-  | "zoom"
-  | "dissolve"
-  | "flash"
-  | "none";
+/**
+ * Visual style for a scene transition. Actual pixels are drawn by
+ * `RenderPipeline.renderTransitionOverlay()`, driven by the
+ * `PostProcessSystem` state this class updates each frame — SceneManager
+ * itself stays render-agnostic (no pixi/DOM imports), per the engine
+ * environment boundary.
+ */
+export type TransitionEffect = "none" | "fade" | "wipe" | "slide";
 export interface TransitionOptions {
-  effect?: TransitionEffect;
   duration?: number;
   colour?: number;
+  /** Visual style for the transition. Defaults to "none" (instant cut). */
+  effect?: TransitionEffect;
 }
 export type SceneFactory = () => Scene;
+/**
+ * The slice of PostProcessSystem SceneManager needs to drive a transition's
+ * visuals. Kept minimal so SceneManager doesn't depend on the full
+ * PostProcessSystem class shape, only the transition fields/methods it
+ * actually writes to.
+ */
+export interface TransitionEffectSink {
+  beginTransition(effect: TransitionEffect, colour?: number): void;
+  endTransition(): void;
+  transitionProgress: number;
+}
 declare class SceneManager {
   private readonly _registry;
   private _active;
@@ -23,6 +34,17 @@ declare class SceneManager {
   private _transitioning;
   private _elapsed;
   private _isLoading;
+  private _fixedAccum;
+  /** Fixed physics timestep in seconds. Default 1/60. */
+  fixedTimeStep: number;
+  private _postProcess;
+  /**
+   * Attach the PostProcessSystem instance whose transitionEffect/
+   * transitionProgress/transitionColour drive `RenderPipeline`'s transition
+   * overlay. Optional — without it, transitions still time and switch
+   * scenes correctly, they just render as an instant cut.
+   */
+  attachPostProcess(sink: TransitionEffectSink | null): void;
   /** Register a factory so the scene can be loaded by name. */
   register(name: string, factory: SceneFactory): void;
   get current(): Scene | null;
@@ -53,7 +75,6 @@ declare class SceneManager {
    * call when duration has elapsed.
    */
   transition(name: string, options?: TransitionOptions): void;
-  queue(name: string): void;
   update(deltaTime: number): void;
   private _completeTransition;
 }

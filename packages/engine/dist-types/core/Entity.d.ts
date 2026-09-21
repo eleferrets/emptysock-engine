@@ -1,4 +1,4 @@
-import type { Component } from "./Component.js";
+import type { Component, ComponentType } from "./Component.js";
 import { type CoroutineGen } from "../systems/CoroutineSystem.js";
 /** Minimal shape Entity expects from attached behaviors. */
 interface BehaviorLike {
@@ -50,10 +50,12 @@ export declare class Entity {
   /** Angle in radians from this entity toward `other`. */
   angleTo(other: Entity | Vec2): number;
   addComponent<T extends Component>(component: T): T;
-  getComponent<T extends Component>(type: string): T | undefined;
-  requireComponent<T extends Component>(type: string): T;
-  hasComponent(type: string): boolean;
-  removeComponent(type: string): boolean;
+  getComponent<T extends Component>(
+    type: ComponentType<T> | string,
+  ): T | undefined;
+  requireComponent<T extends Component>(type: ComponentType<T> | string): T;
+  hasComponent(type: ComponentType | string): boolean;
+  removeComponent(type: ComponentType | string): boolean;
   getComponents(): ReadonlyMap<string, Component>;
   /**
    * Attach a behavior to this entity. `onAttach()` is called immediately.

@@ -7,20 +7,28 @@ export interface PhysicsWorldOptions {
     x: number;
     y: number;
   };
-  timestep?: number;
 }
 export declare class PhysicsSystem {
   private _RAPIER;
   private _world;
-  private _timestep;
-  private _accumulator;
+  private _eventQueue;
+  /** Maps entity id → Rapier handles. Keeps Rapier internals off PhysicsBody. */
+  private readonly _entityHandles;
+  /** Maps collider handle → entity for O(1) lookup during collision drain. */
+  private readonly _colliderToEntity;
+  /**
+   * Active sensor pairs — key is `min(h1,h2):max(h1,h2)` — used to fire
+   * sensorStay events on each step.
+   */
+  private readonly _activeSensorPairs;
   init(options?: PhysicsWorldOptions): Promise<void>;
   get world(): World;
   get RAPIER(): RapierModule;
   /**
    * Register an entity's PhysicsBody component with the Rapier world.
    * Reads position from a Transform component on the same entity.
-   * Stores body/collider handles back on the PhysicsBody for later sync.
+   * Body and collider handles are stored internally; they are not written back
+   * to PhysicsBody.
    */
   registerEntity(entity: Entity): void;
   /**
@@ -28,8 +36,15 @@ export declare class PhysicsSystem {
    * Call after step() each frame.
    */
   syncToTransforms(entities: Iterable<Entity>): void;
-  /** Fixed-timestep step with accumulator. */
-  step(deltaTime: number): void;
+  /**
+   * Advance the physics world by exactly one step of `fixedDt` seconds and
+   * fire collision/sensor callbacks. Accumulation is handled externally by
+   * `SceneManager` — call this from `onFixedUpdate(dt)` (which is already
+   * driven by the scene manager's accumulator loop) rather than from
+   * `onUpdate(dt)`.
+   */
+  step(fixedDt: number): void;
+  private _drainCollisionEvents;
   destroy(): void;
 }
 export {};

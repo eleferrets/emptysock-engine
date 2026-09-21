@@ -13,6 +13,8 @@ export declare class ActorSystem {
   register(actor: Actor): void;
   unregister(id: string): void;
   get(id: string): Actor | undefined;
+  /** Returns every registered actor in registration order. */
+  getAll(): Actor[];
   /** Send a message to a specific actor by id. No-op if the id is unknown. */
   send(actorId: string, msg: Message): void;
   /** Broadcast a message to every registered actor. */

@@ -1,4 +1,4 @@
-import { Component } from "../core/Component.js";
+import { Component, type ComponentType } from "../core/Component.js";
 export type JointType = "fixed" | "revolute" | "prismatic" | "spring";
 export interface RevoluteOptions {
   /** Anchor point on body A in local space */
@@ -45,6 +45,7 @@ export interface SpringOptions {
   damping?: number;
 }
 export declare class RigidJoint extends Component {
+  static readonly TYPE: ComponentType<RigidJoint>;
   readonly jointType: JointType;
   /** ID of the Entity that holds the second PhysicsBody in this joint. */
   bodyBEntityId: number | null;

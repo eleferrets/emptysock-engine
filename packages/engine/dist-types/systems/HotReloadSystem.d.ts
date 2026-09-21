@@ -1,7 +1,11 @@
 /**
- * HotReloadSystem — registers window-level hooks that the IDE iframe message
- * handler calls during hot reload. Game code calls install() once (e.g. in
- * onLoad) and destroy() in onDestroy to clean up.
+ * HotReloadSystem — registers per-reload hooks that the IDE layer calls during
+ * hot reload. Game code calls the on* registration methods (e.g. in onLoad) to
+ * receive reload events.
+ *
+ * The IDE / host layer is responsible for wiring window.__es_before_reload__ and
+ * the other window-level globals to this system's runBefore/runAfter/etc helpers.
+ * The engine does not write to window directly.
  */
 export declare class HotReloadSystem {
   private beforeHooks;
@@ -16,6 +20,11 @@ export declare class HotReloadSystem {
     fn: (name: string, vert: string, frag: string) => void,
   ): () => void;
   onRoomReload(fn: (name: string, roomJson: string) => void): () => void;
-  install(): void;
+  runBeforeReload(): void;
+  runAfterReload(): void;
+  runSpriteReload(name: string, dataUrl: string): void;
+  runShaderReload(name: string, vert: string, frag: string): void;
+  runRoomReload(name: string, roomJson: string): void;
+  /** Clear all registered hooks (call when the scene is destroyed). */
   destroy(): void;
 }

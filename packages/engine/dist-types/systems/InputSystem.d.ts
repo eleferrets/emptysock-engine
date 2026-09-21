@@ -42,7 +42,7 @@ export declare class InputSystem {
   get touchCount(): number;
   /** All currently active touch points. */
   get touches(): ReadonlyArray<TouchPoint>;
-  /** Get a specific touch point by its identifier. */
+  /** Returns the active touch with the given pointer id, or `undefined` if no touch with that id is currently down. */
   getTouch(id: number): TouchPoint | undefined;
   /** Primary touch (lowest id, or undefined if no touches). */
   get primaryTouch(): TouchPoint | undefined;

@@ -108,3 +108,21 @@ export declare function draw_line(
 export declare function show_message(msg: string): void;
 /** GML game_end — no-op in EmptySock; close/stop your scene manually */
 export declare function game_end(): void;
+/** GML object_exists — checks whether an object asset name/index is valid. */
+export declare function object_exists(_objectName: string): boolean;
+/** GML asset_get_index — resolves an asset name to an index. No-op stub: EmptySock references assets by name/path directly. */
+export declare function asset_get_index(name: string): string;
+/** GML array_length_1d — length of a 1D array (JS arrays are always 1D). */
+export declare function array_length_1d(arr: unknown[]): number;
+/** GML string_char_at — 1-based index. */
+export declare function string_char_at(str: string, index: number): string;
+/** GML keyboard_wait — blocks until a key is pressed. No-op stub: use onKeyPress instead. */
+export declare function keyboard_wait(): void;
+/** GML mouse_button_down (legacy GM8-style action) — no-op stub; use InputSystem. */
+export declare function mouse_button_down(_button: number): boolean;
+/** GML mouse_button_released (legacy GM8-style action) — no-op stub; use InputSystem. */
+export declare function mouse_button_released(_button: number): boolean;
+/** GML place_free(x, y) — legacy collision-check action. No-op stub: always reports free. */
+export declare function place_free(_x: number, _y: number): boolean;
+/** GML place_empty(x, y) — legacy collision-check action. No-op stub: always reports empty. */
+export declare function place_empty(_x: number, _y: number): boolean;

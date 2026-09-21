@@ -1,3 +1,5 @@
+import { type VariableStore, type VariableCondition } from "./VariableStore.js";
+export type { VariableCondition } from "./VariableStore.js";
 export type EventTriggerType =
   | "autorun"
   | "player-touch"
@@ -41,6 +43,14 @@ export interface MapEvent {
   tileY: number;
   trigger: EventTriggerType;
   commands: EventCommand[];
+  /**
+   * Optional gate evaluated against the `VariableStore` before the event is
+   * allowed to run. When present and false, `update()` skips the event
+   * entirely — it never triggers, autoruns, or fires as a parallel process,
+   * and it is re-checked every frame so it can start once the condition
+   * becomes true.
+   */
+  when?: VariableCondition;
 }
 export type EventCommandHandler = (cmd: EventCommand) => void | Promise<void>;
 export declare class MapEventSystem {
@@ -50,6 +60,14 @@ export declare class MapEventSystem {
   private _triggered;
   private _parallelRunning;
   private _destroyed;
+  private readonly _store;
+  /**
+   * @param store The `VariableStore` used to gate `when`-conditioned events
+   * and to apply `set-variable` / `set-switch` commands. Defaults to the
+   * shared `variableStore` singleton; pass a different instance for isolated
+   * testing or a per-save-slot store.
+   */
+  constructor(store?: VariableStore);
   /** Register the handler that executes each command */
   setHandler(handler: EventCommandHandler): void;
   addEvent(event: MapEvent): void;

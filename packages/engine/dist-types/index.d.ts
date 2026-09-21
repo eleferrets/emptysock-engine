@@ -1,6 +1,7 @@
-export { Component } from "./core/Component.js";
+export { Component, componentType } from "./core/Component.js";
+export type { ComponentType } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
-export type { Vec2 as EntityVec2, CoroutineHandle } from "./core/Entity.js";
+export type { Vec2, CoroutineHandle } from "./core/Entity.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
 export { Engine } from "./core/EngineAPI.js";
@@ -13,6 +14,11 @@ export { PluginSystem, pluginSystem } from "./core/PluginSystem.js";
 export type { Plugin, PluginContext } from "./core/PluginSystem.js";
 export { RenderSystem } from "./systems/RenderSystem.js";
 export type { RenderSystemOptions } from "./systems/RenderSystem.js";
+export { RenderPipeline } from "./systems/RenderPipeline.js";
+export type {
+  RenderPipelineOptions,
+  TextureLoader,
+} from "./systems/RenderPipeline.js";
 export { PhysicsSystem } from "./systems/PhysicsSystem.js";
 export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
 export { PhysicsSystem3D } from "./systems/PhysicsSystem3D.js";
@@ -34,6 +40,40 @@ export type {
 } from "./systems/InputSystem.js";
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
+export { AssetManifest } from "./systems/AssetManifest.js";
+export type {
+  AssetType,
+  AssetDescriptor,
+  AssetLoadFailure,
+  AssetLoadResult,
+  AssetProgressListener,
+  AssetManifestOptions,
+} from "./systems/AssetManifest.js";
+export {
+  InputBindings,
+  createBindingsSaveSystem,
+  BindingsSaveSlotSchema,
+} from "./systems/InputBindings.js";
+export type {
+  Binding,
+  BindingKind,
+  ActionMap,
+  KeyBinding,
+  MouseButtonBinding,
+  GamepadButtonBinding,
+  GamepadAxisBinding,
+  BindingsSaveSlot,
+} from "./systems/InputBindings.js";
+export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
+export type {
+  DebugLogEntry,
+  DebugCommandHandler,
+  LogLevel,
+} from "./systems/DebugOverlaySystem.js";
+export {
+  accessibilitySettings,
+  AccessibilitySettings,
+} from "./ui/AccessibilitySettings.js";
 export { CameraSystem } from "./systems/CameraSystem.js";
 export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 export { Transform } from "./components/Transform.js";
@@ -43,8 +83,39 @@ export type { RigidBodyType, ColliderShape } from "./components/PhysicsBody.js";
 export { CharacterController } from "./components/CharacterController.js";
 export { Animator } from "./components/Animator.js";
 export type { AnimationClip } from "./components/Animator.js";
+export { AnimatorController } from "./components/AnimatorController.js";
+export type {
+  AnimParamValue,
+  AnimTransitionContext,
+  AnimTransitionOptions,
+  ActiveClipFrame,
+} from "./components/AnimatorController.js";
+export {
+  VisualScriptComponent,
+  VisualScriptGraphBuilder,
+} from "./components/VisualScriptComponent.js";
+export type {
+  VSNode,
+  VSNodeKind,
+  VSConnection,
+  VisualScriptGraph,
+  OnUpdateNode,
+  OnEventNode,
+  SequenceNode,
+  BranchNode,
+  GetVariableNode,
+  SetVariableNode,
+  GetSwitchNode,
+  SetSwitchNode,
+  SendMessageNode,
+} from "./components/VisualScriptComponent.js";
 export { VNSystem } from "./systems/VNSystem.js";
-export type { DialogueNode, DialogueTree } from "./systems/VNSystem.js";
+export type {
+  IVNListener,
+  DialogueNode,
+  DialogueTree,
+  ChoiceOption,
+} from "./systems/VNSystem.js";
 export {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
@@ -58,6 +129,25 @@ export { VNTextbox } from "./systems/VNTextbox.js";
 export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
+export {
+  CustomShaderFilter,
+  createCustomShaderFilter,
+  DEFAULT_CUSTOM_SHADER_VERTEX,
+  DEFAULT_CUSTOM_SHADER_FRAGMENT,
+} from "./systems/CustomShaderFilter.js";
+export type { CustomShaderOptions } from "./systems/CustomShaderFilter.js";
+export { SequenceSystem, evaluateTrackAt } from "./systems/SequenceSystem.js";
+export type {
+  SequenceDefinition,
+  SequenceTrackDef,
+  SequenceKeyframe,
+} from "./systems/SequenceSystem.js";
+export { AStarSearch } from "./core/AStarSearch.js";
+export type {
+  AStarEdge,
+  AStarSearchOptions,
+  AStarSearchResult,
+} from "./core/AStarSearch.js";
 export { PathfindingSystem } from "./systems/PathfindingSystem.js";
 export type {
   GridCell,
@@ -65,9 +155,9 @@ export type {
   PathResult,
 } from "./systems/PathfindingSystem.js";
 export { NavMeshSystem } from "./systems/NavMeshSystem.js";
-export type { NavMeshData, NavPolygon, Vec2 } from "./systems/NavMeshSystem.js";
+export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
-export type { SaveSlot } from "./systems/SaveSystem.js";
+export type { SaveSlot, GameSaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
 export type { Locale, TranslationMap } from "./systems/LocalisationSystem.js";
 export {
@@ -85,13 +175,39 @@ export type {
   GamepadState,
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
-export { VariableStore, variableStore } from "./systems/VariableStore.js";
-export type { VariableStoreData } from "./systems/VariableStore.js";
+export {
+  VariableStore,
+  variableStore,
+  evaluateCondition,
+} from "./systems/VariableStore.js";
+export type {
+  VariableStoreData,
+  VariableCondition,
+} from "./systems/VariableStore.js";
+export {
+  PointerSystem,
+  MIN_TOUCH_TARGET_SIZE,
+} from "./systems/PointerSystem.js";
+export type {
+  PointerState,
+  GestureType,
+  Gesture,
+  TapGesture,
+  LongPressGesture,
+  SwipeGesture,
+  SwipeDirection,
+  PinchGesture,
+  WheelEventInfo,
+  PointerDownHandler,
+  PointerMoveHandler,
+  PointerUpHandler,
+  GestureHandler,
+  WheelHandler,
+} from "./systems/PointerSystem.js";
 export { SystemManager } from "./core/SystemManager.js";
 export type { UpdatableSystem } from "./core/SystemManager.js";
 export { SceneManagerInstance as SceneManager } from "./core/SceneManager.js";
 export type {
-  TransitionEffect,
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
@@ -112,7 +228,13 @@ export type {
 export { TweenManager } from "./systems/TweenSystem.js";
 export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
 export { UISystem } from "./systems/UISystem.js";
-export type { IUIRenderer } from "@emptysock/types";
+export type {
+  IUIRenderer,
+  HostAdapter,
+  HostMessage,
+  HostMessageHandler,
+} from "@emptysock/types";
+export { NullHostAdapter } from "@emptysock/types";
 export { ease } from "./core/easing.js";
 export type { EasingName } from "./core/easing.js";
 export {
@@ -124,8 +246,6 @@ export {
   ProgressBarWidget,
   SliderWidget,
   CheckboxWidget,
-  widgetRoundRect,
-  applyEasing,
 } from "./ui/Widget.js";
 export type {
   WidgetAnchor,
@@ -143,6 +263,12 @@ export type {
   CheckboxWidgetOpts,
 } from "./ui/Widget.js";
 export { PostProcessSystem } from "./systems/PostProcessSystem.js";
+export {
+  COLOURBLIND_MATRICES,
+  colourblindFilterId,
+  colourblindFilterDefsSVG,
+} from "./systems/PostProcessSystem.js";
+export type { ColourblindMode } from "./systems/PostProcessSystem.js";
 export type {
   PostEffectType,
   PostEffectOptions,
@@ -167,8 +293,30 @@ export type {
 } from "./components/PhysicsBody.js";
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
-export { windowSystem, WindowSystem } from "./systems/WindowSystem.js";
+export { HotReloadSystem } from "./systems/HotReloadSystem.js";
+export { ideBridge } from "./core/IDEBridge.js";
+export type {
+  EntitySnapshot,
+  ComponentPatchHandler,
+  SelectHandler,
+} from "./core/IDEBridge.js";
+export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
+export type { GPUTier } from "./core/GPUTier.js";
+export { windowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
+export {
+  ViewportSystem,
+  viewportSystem,
+  computeViewportSize,
+  gpuTierRenderDefaults,
+} from "./systems/ViewportSystem.js";
+export type {
+  ScaleMode,
+  ViewportConfig,
+  ViewportSize,
+  SafeAreaInsets,
+  ResizableRenderTarget,
+} from "./systems/ViewportSystem.js";
 export * from "./behaviors/index.js";
 export { CGGallery } from "./systems/CGGallery.js";
 export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
@@ -198,6 +346,8 @@ export { BattleSystem } from "./systems/BattleSystem.js";
 export type {
   BattlePhase,
   BattleStats,
+  BattleStatMap,
+  DamageContext,
   StatusEffect,
   Combatant,
   SkillTargetType,

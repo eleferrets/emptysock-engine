@@ -22,8 +22,6 @@ export declare class CGGallery {
   load(): void;
   /** Mark a CG as unlocked and persist */
   unlock(id: string): void;
-  /** Unlock a CG by viewing a Story Graph node tagged with that CG id */
-  unlockFromNode(cgId: string): void;
   isUnlocked(id: string): boolean;
   get entries(): ReadonlyArray<CGEntry>;
   get unlockedEntries(): CGEntry[];

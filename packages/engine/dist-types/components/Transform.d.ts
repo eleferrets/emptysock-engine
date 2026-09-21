@@ -1,5 +1,6 @@
-import { Component } from "../core/Component.js";
+import { Component, type ComponentType } from "../core/Component.js";
 export declare class Transform extends Component {
+  static readonly TYPE: ComponentType<Transform>;
   x: number;
   y: number;
   rotation: number;

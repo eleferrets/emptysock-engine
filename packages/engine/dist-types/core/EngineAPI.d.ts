@@ -1,6 +1,12 @@
-import type { Scene } from "./Scene.js";
+import type { HostAdapter } from "@emptysock/types";
 type ErrorHandler = (msg: string) => void;
 export declare const Engine: {
+  /**
+   * Attach a HostAdapter so the debugger message listener and postMessage
+   * calls route through the correct host environment. Call once at startup
+   * from the IDE layer or PlayRunner; game code should not call this.
+   */
+  init(adapter: HostAdapter): void;
   /** Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function. */
   onError(handler: ErrorHandler): () => void;
   /**
@@ -28,8 +34,8 @@ export declare const Engine: {
   setBreakpoints(labels: string[]): void;
   /**
    * Trigger a labelled breakpoint from game code. If `label` is in the active
-   * breakpoint set, pauses the game loop and posts a debug:break message with
-   * the current variable snapshot to the IDE window.
+   * breakpoint set, pauses the game loop and posts a debug:break message to
+   * the host frame via the registered HostAdapter.
    *
    * Example:
    *   Engine.debugBreak('player-hit', { hp: player.hp, x: player.x });
@@ -42,14 +48,8 @@ export declare const Engine: {
    * Push a new scene on top of the active scene (e.g. a pause menu over the game).
    * The scene underneath is paused but stays in memory. Call popScene() to return.
    */
-  pushScene(scene: Scene): void;
+  pushScene: (scene: import("./Scene.js").Scene) => void;
   /** Pop the top scene off the stack and resume the scene underneath. */
-  popScene(): void;
-  /**
-   * Load a named scene, replacing the active scene.
-   * Uses SceneManager.transition() with no animation so onDestroy/onLoad
-   * lifecycle hooks are honoured. The scene must be registered first.
-   */
-  loadScene(name: string): void;
+  popScene: () => void;
 };
 export {};

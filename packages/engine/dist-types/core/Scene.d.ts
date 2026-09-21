@@ -1,7 +1,8 @@
 import { Entity } from "./Entity.js";
 import { Engine } from "./EngineAPI.js";
 import { UISystem } from "../systems/UISystem.js";
-import type { Component } from "./Component.js";
+import { SystemManager } from "./SystemManager.js";
+import type { ComponentType } from "./Component.js";
 export type SystemFn = (scene: Scene, deltaTime: number) => void;
 export declare class Scene {
   readonly name: string;
@@ -9,7 +10,13 @@ export declare class Scene {
   /** Per-scene UI system. Add widgets here; cleared automatically on destroy. */
   readonly ui: UISystem;
   private readonly _entities;
-  private readonly _systems;
+  /**
+   * The scene's system registry. `addSystem()`/`removeSystem()` are sugar
+   * over this — there is one system-collection concept in the engine
+   * (`SystemManager`), and every scene owns one. Reach for `this.systems`
+   * directly only if you need `SystemManager`'s `get()` lookup.
+   */
+  readonly systems: SystemManager;
   private _running;
   constructor(name: string);
   /** Access engine-level operations (scene stack, error logging, debug API). */
@@ -51,15 +58,18 @@ export declare class Scene {
   onResume(): void;
   createEntity(name?: string): Entity;
   addEntity(entity: Entity): Entity;
+  private _track;
   removeEntity(entity: Entity): boolean;
   getEntity(id: number): Entity | undefined;
   /** Find an entity by name. Returns the first match, or undefined. */
   getEntityByName(name: string): Entity | undefined;
   getEntitiesByTag(tag: string): Entity[];
-  /** Return all entities that have the given component type string attached. */
-  getEntitiesWithComponent(
-    type: string | (new (...args: unknown[]) => Component),
-  ): Entity[];
+  /**
+   * Return all entities that have the given component type string attached.
+   * The type string must match the `Component.type` field exactly — it is not
+   * derived from a constructor name (which is unsafe under minification).
+   */
+  getEntitiesWithComponent(type: ComponentType | string): Entity[];
   getEntities(): ReadonlyMap<number, Entity>;
   addSystem(name: string, fn: SystemFn): void;
   removeSystem(name: string): boolean;

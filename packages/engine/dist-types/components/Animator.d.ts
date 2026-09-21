@@ -1,4 +1,4 @@
-import { Component } from "../core/Component.js";
+import { Component, type ComponentType } from "../core/Component.js";
 export interface AnimationClip {
   name: string;
   frameStart: number;
@@ -7,6 +7,7 @@ export interface AnimationClip {
   loop: boolean;
 }
 export declare class Animator extends Component {
+  static readonly TYPE: ComponentType<Animator>;
   clips: Map<string, AnimationClip>;
   currentClip: string | null;
   currentFrame: number;

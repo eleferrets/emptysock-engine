@@ -1,3 +1,5 @@
+import { type VariableStore, type VariableCondition } from "./VariableStore.js";
+export type { VariableCondition } from "./VariableStore.js";
 export type DialogueNode =
   | {
       type: "dialogue";
@@ -13,6 +15,7 @@ export type DialogueNode =
       options: Array<{
         label: string;
         next: string;
+        when?: VariableCondition;
       }>;
       cgPath?: string;
     }
@@ -34,42 +37,52 @@ export type DialogueNode =
       variableValue: unknown;
       next?: string;
       cgPath?: string;
+    }
+  | {
+      type: "condition";
+      condition: VariableCondition;
+      ifTrue: string;
+      ifFalse?: string;
+      cgPath?: string;
     };
+export interface ChoiceOption {
+  label: string;
+  next: string;
+  when?: VariableCondition;
+}
 export interface DialogueTree {
   readonly nodes: Record<string, DialogueNode>;
   readonly startNode: string;
 }
+export interface IVNListener {
+  onEvent?: (eventName: string, ...args: unknown[]) => void;
+  onChoice?: (options: ChoiceOption[]) => void;
+  onNode?: (node: DialogueNode) => void;
+  onEnd?: () => void;
+  onCGNode?: (cgPath: string) => void;
+}
 export declare class VNSystem {
   private _tree;
   private _currentNodeId;
-  private readonly _eventHandlers;
-  private readonly _choiceHandlers;
-  private readonly _nodeHandlers;
-  private readonly _endHandlers;
-  private readonly _cgNodeHandlers;
-  onEvent(
-    handler: (eventName: string, data: Record<string, unknown>) => void,
-  ): () => void;
-  onChoice(
-    handler: (
-      options: Array<{
-        label: string;
-        next: string;
-      }>,
-    ) => void,
-  ): () => void;
-  onNode(handler: (node: DialogueNode) => void): () => void;
-  onEnd(handler: () => void): () => void;
-  onCGNode(handler: (cgPath: string) => void): () => void;
+  private _listener;
+  /** Runtime variable store — populated automatically by variable-set nodes. */
+  readonly variables: Map<string, unknown>;
+  /**
+   * The persistent `VariableStore` backing `"condition"` nodes and
+   * conditional (`when`) choice options. Defaults to the shared
+   * `variableStore` singleton; pass a different instance for isolated
+   * testing or a per-save-slot store.
+   */
+  private readonly _store;
+  constructor(store?: VariableStore);
+  setListener(listener: IVNListener): void;
+  removeListener(): void;
   load(tree: DialogueTree): void;
   get currentNode(): DialogueNode | null;
   advance(): void;
   selectOption(next: string): void;
+  /** Read a runtime variable set by variable-set nodes. Returns undefined if not set. */
+  getVariable(key: string): unknown;
   private _goto;
   private _processCurrentNode;
-  /**
-   * Clear all event subscriptions. Call in `onDestroy()` if you subscribed
-   * and did not store the unsubscriber functions.
-   */
-  destroy(): void;
 }

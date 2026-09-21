@@ -1,5 +1,6 @@
-import { Component } from "../core/Component.js";
+import { Component, type ComponentType } from "../core/Component.js";
 export declare class CharacterController extends Component {
+  static readonly TYPE: ComponentType<CharacterController>;
   speed: number;
   jumpForce: number;
   isGrounded: boolean;

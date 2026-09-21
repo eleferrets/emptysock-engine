@@ -1,3 +1,4 @@
+import type { HostAdapter } from "@emptysock/types";
 export interface EntitySnapshot {
   id: string;
   name: string;
@@ -21,7 +22,11 @@ declare class IDEBridgeService {
   private _provider;
   private _onPatch;
   private _onSelect;
+  private readonly _adapterSlot;
+  /** Captured from the first incoming message's origin; used for replies. */
+  private _targetOrigin;
   install(
+    adapter: HostAdapter,
     getSnapshot: SnapshotProvider,
     opts?: {
       onPatch?: ComponentPatchHandler;
@@ -29,14 +34,12 @@ declare class IDEBridgeService {
       tickMs?: number;
     },
   ): void;
-  autoInstall(): void;
   send(
     entityId: string,
     component: string,
     fields: Record<string, unknown>,
   ): void;
   destroy(): void;
-  private _hookEngine;
   private _broadcast;
   private _onMessage;
 }

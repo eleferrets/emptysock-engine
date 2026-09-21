@@ -1,3 +1,4 @@
+import type { EasingName } from "../core/easing.js";
 export type { EasingName } from "../core/easing.js";
 export interface TweenOptions {
   duration: number;

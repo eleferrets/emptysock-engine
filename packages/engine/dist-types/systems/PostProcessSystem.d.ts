@@ -8,7 +8,20 @@ export type LayerFilterType =
   | "saturate"
   | "hue-rotate"
   | "invert"
+  | "colourblind"
   | "none";
+/**
+ * Colour-vision-deficiency modes. The matrices shipped here (see
+ * `COLOURBLIND_MATRICES`) are the standard Brettel/Viénot/Machado
+ * *simulation* matrices — they show a non-colourblind player what a
+ * colourblind player sees. They are not a correction/daltonisation filter
+ * that increases discriminability for a colourblind player; a full
+ * correction algorithm needs per-scene palette analysis and is out of scope
+ * for this pass. Ship this honestly as a simulation tool for
+ * designers/QA checking their palette, and pair it with palette choices
+ * (avoid red/green as the only distinguishing signal) for real accessibility.
+ */
+export type ColourblindMode = "protanopia" | "deuteranopia" | "tritanopia";
 export interface LayerFilterOptions {
   type: LayerFilterType;
   /** blur: radius in px */
@@ -25,8 +38,32 @@ export interface LayerFilterOptions {
   colour?: number;
   /** outline: thickness px */
   thickness?: number;
+  /** colourblind: which deficiency to simulate */
+  mode?: ColourblindMode;
   enabled?: boolean;
 }
+/**
+ * Standard colour-vision-deficiency *simulation* matrices (row-major 3x3,
+ * applied to linear-ish sRGB). Source: Viénot, Brettel & Mollon /
+ * Machado-Oliveira-Fernandes (2009), the commonly cited coefficients used
+ * by browser devtools' own CVD emulation. These simulate the deficiency —
+ * they do not correct for it.
+ */
+export declare const COLOURBLIND_MATRICES: Record<
+  ColourblindMode,
+  readonly number[]
+>;
+/** Element id used for the injected SVG `<filter>` for a given CVD mode. */
+export declare function colourblindFilterId(mode: ColourblindMode): string;
+/**
+ * Builds an inert `<svg>` fragment (as markup) containing one `<filter>` per
+ * CVD mode via `feColorMatrix`. The host page/renderer injects this once
+ * (hidden, zero-size) and references a filter with
+ * `cssFilterForLayer()`'s `url(#es-cvd-<mode>)` output. This module never
+ * touches the DOM itself — it only returns markup — so it stays inside the
+ * engine's environment boundary (no DOM APIs are called here).
+ */
+export declare function colourblindFilterDefsSVG(): string;
 export interface LayerFilter {
   layerId: string;
   filter: LayerFilterOptions;
@@ -133,6 +170,8 @@ export declare class PostProcessSystem {
   get flashIntensity(): number;
   get flashColour(): number;
   beginTransition(effect: TransitionEffect, colour?: number): void;
+  /** Whether a transition overlay should currently be rendered. */
+  get transitionActive(): boolean;
   endTransition(): void;
   update(deltaTime: number): void;
   clear(): void;

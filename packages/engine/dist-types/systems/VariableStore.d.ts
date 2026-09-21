@@ -29,3 +29,28 @@ export declare class VariableStore {
   restore(data: Partial<VariableStoreData>): void;
 }
 export declare const variableStore: VariableStore;
+/**
+ * A condition evaluated against a `VariableStore`, used to gate branches in
+ * `VNSystem` (condition nodes, conditional choice options) and triggers in
+ * `MapEventSystem` (the `when` field on a `MapEvent`).
+ *
+ * - `"switch"` compares a boolean switch to an expected value.
+ * - `"variable"` compares an integer variable to a value with a comparison operator.
+ */
+export type VariableCondition =
+  | {
+      kind: "switch";
+      index: number;
+      equals: boolean;
+    }
+  | {
+      kind: "variable";
+      index: number;
+      op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+      value: number;
+    };
+/** Evaluate a `VariableCondition` against a `VariableStore`'s current values. */
+export declare function evaluateCondition(
+  store: VariableStore,
+  condition: VariableCondition,
+): boolean;

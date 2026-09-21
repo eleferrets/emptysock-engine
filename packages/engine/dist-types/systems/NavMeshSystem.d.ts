@@ -1,7 +1,5 @@
-export interface Vec2 {
-  x: number;
-  y: number;
-}
+import type { Vec2 } from "../core/Entity.js";
+export type { Vec2 };
 export interface NavPolygon {
   readonly id: number;
   /** Convex polygon vertices in order. */
@@ -27,7 +25,7 @@ export declare class NavMeshSystem {
    * Returns [] if no path exists.
    */
   findPath(from: Vec2, to: Vec2): Vec2[];
-  private _reconstructPath;
+  private _toWaypoints;
   private _nearestPolygon;
   private _pointInPolygon;
   private _dist;
