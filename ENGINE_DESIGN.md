@@ -595,3 +595,70 @@ Rolldown is already proven in), and treat the `GameBuildService` migration
 as its own spike — validate the virtual-fs plugin port and real bundle
 times against actual project files before cutting the IDE over, rather
 than assuming the benchmark holds for this specific integration.
+
+## 18. Audit: are the library picks still current?
+
+You asked for a full sweep, not just the bundler. Checked each load-bearing
+external-library decision against current state rather than assuming
+rounds 1–7 are still right six-plus rounds later.
+
+**Confirmed unchanged, no action needed:**
+
+- **bitECS** (§16.1) — still the actively-maintained, general-purpose pick.
+  [Koota](https://npmtrends.com/@javelin/ecs-vs-bitecs-vs-miniplex-vs-piecs-vs-wolf-ecs)
+  exists as a newer alternative but is purpose-built for React Three Fiber
+  (maintained by Poimandres) — irrelevant here, we're not on R3F. bitECS
+  remains the larger, more established, general-purpose library.
+- **Howler** (§1.4, §6) — still current (v2.2.3), still the right tool for
+  asset-based sound effect/music playback specifically; the ecosystem's own
+  guidance is Howler for game audio, [Tone.js only if you need synthesis/
+  generative audio](https://www.pkgpulse.com/guides/howler-vs-tone-js-vs-wavesurfer-web-audio-javascript-2026)
+  on top, which nothing in this design calls for.
+- **Rapier2D/3D** — no credible displacement found; remains the dominant
+  WASM 2D+3D physics choice for JS/TS, which is why §17's deterministic-
+  build finding (round 6) was worth having in the first place.
+
+**One gap this audit closed, locked without needing a question — low-stakes,
+obvious answer:**
+
+- **Pixi.js renderer default: WebGL, not WebGPU, for now.** Never
+  explicitly decided anywhere above. Pixi 8's WebGPU renderer is feature-
+  complete, but [Pixi's own guidance is still to prefer WebGL for
+  production](https://appscale.blog/en/blog/pixijs-vs-threejs-web-graphics-engine-comparison-2026)
+  due to cross-browser WebGPU implementation inconsistencies. `RenderPipeline`
+  should default to WebGL (Pixi already auto-detects/falls back), with
+  WebGPU available as an explicit opt-in for anyone who wants to test
+  against it — revisit the default once browser support matures.
+
+**One real new option, worth an actual question — not a re-confirmation:**
+
+- **Networking (§11.4 locked Colyseus): [PartyKit](https://www.partykit.io/)
+  didn't exist as a comparison point when that round ran, and it's a
+  legitimately different tradeoff, not a worse Colyseus.** Colyseus needs a
+  Node process you run/host yourself (or pay for Colyseus Cloud); PartyKit
+  deploys your server logic to Cloudflare's edge with, per its own
+  positioning, no separate server to run at all. For "starter friendly,"
+  never having to think about hosting a server is a real argument in
+  PartyKit's favor that wasn't on the table in round 2. Counter-argument:
+  Colyseus ships game-specific primitives (rooms, matchmaking, schema-based
+  state sync) out of the box; PartyKit is a more general realtime/collab
+  primitive you'd build those same game concepts on top of yourself —
+  which is exactly the "don't reinvent" tradeoff §1.4 cares about, just
+  pointing the other way this time.
+
+1. **Keep Colyseus as the sole `@emptysock/network` backend, or support
+   both — Colyseus for self-hosted/full-control, PartyKit for zero-ops
+   edge deployment?** **Recommended: keep Colyseus only, for now.**
+   Supporting both means designing `@emptysock/network`'s API to abstract
+   over two genuinely different backends (a persistent Node room-server
+   model vs. an edge-deployed Worker model) before either integration has
+   even been built once — real design risk of an abstraction that fits
+   neither well. Ship Colyseus first (it's the more game-purpose-built of
+   the two, per §1.4), and treat a PartyKit backend as a candidate for a
+   _second_ `@emptysock/network` transport once the first one is real and
+   the abstraction boundary is known from experience rather than guessed
+   at up front. Alternative: design for both from day one — genuinely
+   better if "no server to host" turns out to matter a lot to the target
+   beginner audience, but speculative multi-backend design before either
+   backend is proven is a real historical source of over-engineered
+   abstractions that fit their first use case badly.
