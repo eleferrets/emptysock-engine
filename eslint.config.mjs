@@ -58,6 +58,10 @@ export default [
       'packages/engine/src/__tests__/RenderPipeline.test.ts',
       'packages/engine/src/__tests__/ViewportSystem.test.ts',
       'packages/engine/src/__tests__/AssetManifest.test.ts',
+      'packages/engine/src/v2/systems/RenderPipeline.ts',
+      'packages/engine/src/__tests__/v2/RenderPipeline.test.ts',
+      'packages/engine/src/v2/systems/PhysicsSystem.ts',
+      'packages/engine/src/v2/systems/PhysicsSystem3D.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,

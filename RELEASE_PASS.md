@@ -72,10 +72,22 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       auto-wired into `Game`'s lifecycle (`SceneLifecycle` only has one
       physics slot) — a 3D game constructs/owns it directly. Tests in
       `src/__tests__/v2/physics.test.ts`.
-- [ ] **Rendering.** `Sprite`/render components wrapping Pixi, `RenderPipeline`
-      defaulting to the WebGL renderer (§18 audit finding), overlay scenes
-      (`Game.loadOverlay`, §12.3). Wire the real render step into
-      `Game.update()`'s step 7 (currently a no-op placeholder).
+- [x] **Rendering.** Done — `v2/components/Transform.ts`/`Sprite.ts` (ported
+      1:1 onto `defineComponent`; all-numeric plus two `string` fields, no
+      side-table needed for the component itself) and
+      `v2/systems/RenderPipeline.ts` (reuses v1's `RenderSystem`/`LayerSystem`
+      unchanged, syncs via `scene.each` per §21, WebGL-default per §18).
+      `Game.loadOverlay`/`unloadOverlay` (§12.3, stack in call order, own
+      `ActorSystem`, inert `PhysicsSystem` by default) plus
+      `Game.attachRenderer`/`detachRenderer` wire the real render step into
+      `Game.update()`'s step 7 — main scene then overlays, on top, in call
+      order; a no-op with no renderer attached or under `headless: true`.
+      Deviation: `RenderPipeline` keeps sprite tracking in a
+      `Map<Scene, ...>` (not the raw entity-id map v1 used), since overlay
+      scenes' bitECS worlds independently reuse the same `eid`s as the main
+      scene — see the `Sprite.ts`/`RenderPipeline.ts` doc comments for the
+      full rationale. Tests in `src/__tests__/v2/RenderPipeline.test.ts` and
+      `src/__tests__/v2/overlay.test.ts`.
 - [x] **Input + Audio.** `v2/Input.ts`'s `InputManager` (game-owned, not
       scene-owned) gives `input.isDown("action")` action-mapping over
       `input.keyboard`/`input.gamepad(n)`/`input.touches` raw escape hatches

@@ -279,6 +279,43 @@ defeats the point of it being `optionalDependencies` (§15.2 — most games
 never install it and shouldn't pay for it, including at install/bundle
 time). Keep this non-literal if the deterministic swap logic ever moves.
 
+### v2 RenderPipeline tracks sprites per-`Scene`, not by raw entity id
+
+v1's `RenderPipeline` kept one flat `Map<number, PixiSprite>` because it only
+ever rendered a single `Scene`. v2's `Game` can have several live scenes at
+once — the main scene plus any `loadOverlay()`-ed overlays (§12.3) — and each
+one owns its own bitECS `World`, whose entity ids independently start from 0
+(see `v2/Scene.ts`). That means the main scene's entity `eid 3` and an
+overlay's entity `eid 3` are two different entities that happen to share a
+number. `v2/systems/RenderPipeline.ts` keys its sprite/texture-path tracking
+per `Scene` (`Map<Scene, { sprites: Map<number, PixiSprite>, ... }>`) to avoid
+aliasing them — the same "never index by a raw entity id without first
+scoping by which world it belongs to" rule `ComponentRegistry` and
+`PhysicsBody`'s callback side-table already follow (see the "v2 physics:
+collision callbacks" entry above), just scoped by `Scene` instead of `World`
+since `RenderPipeline` is an external system reaching in, not a component
+module. Overlay sprites also skip v1's named `LayerSystem` entirely (it's
+keyed by raw entity id with no scene scoping, so feeding it overlay eids
+would reproduce the exact collision this exists to avoid) — each overlay
+instead gets one flat, self-sorting `Container` appended to the stage after
+the main scene's layer containers, which is enough for draw-order-within-an-
+overlay without needing cross-container named layers there.
+
+### `Game.attachRenderer` takes a structural interface, not the concrete `RenderPipeline`
+
+`v2/Game.ts` defines `SceneRenderer` (`renderFrame(main, overlays)`) as a
+plain interface and never imports `v2/systems/RenderPipeline.ts`, which in
+turn imports `pixi.js` and returns `HTMLCanvasElement`. This is the same
+pattern as v1's `SceneManager`/`TransitionEffectSink` (see "Scene
+transitions: SceneManager times them, RenderPipeline paints them" above):
+`Game.ts` has to keep running under the headless testing harness in plain
+Node with zero DOM/Pixi involvement (the engine-environment-boundary rule),
+so it can only depend on the shape a renderer has, never a concrete
+Pixi-backed one. `Game.update()`'s render step (7) is gated on both "a
+renderer is attached" and "this scene wasn't loaded with `headless: true`" —
+belt-and-suspenders, since a `HeadlessGame` never calls `attachRenderer` at
+all, but the second check means it stays safe even if something did.
+
 ### MCP server has no 3D physics tool
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
