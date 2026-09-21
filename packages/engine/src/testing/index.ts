@@ -20,6 +20,7 @@
  */
 import {
   Game,
+  type LoadOverlayOptions,
   type LoadSceneOptions,
   type SceneDefinition,
 } from "../v2/Game.js";
@@ -31,14 +32,23 @@ export { defineComponent } from "../v2/Component.js";
 export type { ComponentDef } from "../v2/Component.js";
 export { defineScene } from "../v2/Game.js";
 export type { SceneDefinition, SceneLifecycle, UpdateFn } from "../v2/Game.js";
+export { ServiceRegistry } from "../v2/Services.js";
+export type { ServiceConstructor } from "../v2/Services.js";
+export { SaveSystem } from "../v2/systems/SaveSystem.js";
+export type { MigrateFn, SaveSystemOptions } from "../v2/systems/SaveSystem.js";
+export { MemoryStorageAdapter } from "../v2/systems/StorageAdapter.js";
+export type { StorageAdapter } from "../v2/systems/StorageAdapter.js";
 
 /**
- * A `Game` whose `loadScene` always runs headless — the physics/actor
- * lifecycle the real engine creates and tears down (ENGINE_DESIGN.md §4)
- * still runs exactly as it would in a real game; only the render step
- * (which Track 1 wires up) is forced to a no-op via `headless: true`,
- * satisfying §15.1's "render system swapped for a no-op" even before a
- * real render system is plumbed into `Game` at all.
+ * A `Game` whose `loadScene`/`loadOverlay` always run headless — the
+ * physics/actor lifecycle the real engine creates and tears down
+ * (ENGINE_DESIGN.md §4) still runs exactly as it would in a real game; only
+ * the render step is forced to a no-op via `headless: true`, satisfying
+ * §15.1's "render system swapped for a no-op" regardless of whether a real
+ * renderer happens to be attached (`Game.attachRenderer` — see
+ * `v2/systems/RenderPipeline.ts`). Tests that exercise overlay scenes
+ * (§12.3) get the same guarantee `loadScene` already gave: no Pixi
+ * construction, no canvas, ever, from either call.
  */
 export class HeadlessGame extends Game {
   override loadScene(
@@ -46,6 +56,13 @@ export class HeadlessGame extends Game {
     options: LoadSceneOptions = {},
   ): ReturnType<Game["loadScene"]> {
     return super.loadScene(definition, { ...options, headless: true });
+  }
+
+  override loadOverlay(
+    definition: SceneDefinition,
+    options: LoadOverlayOptions = {},
+  ): ReturnType<Game["loadOverlay"]> {
+    return super.loadOverlay(definition, { ...options, headless: true });
   }
 }
 

@@ -14,6 +14,21 @@ export interface ComponentDef<
   readonly componentName: string;
   /** Produces a fresh defaults object for a newly-added component instance. */
   readonly createDefaults: () => T;
+  /**
+   * Schema version for this component's shape, defaulting to `1` when not
+   * given to `defineComponent`. `SaveSystem` (`v2/systems/SaveSystem.ts`)
+   * stamps every saved component instance with this number; on load, a
+   * mismatch against the currently-registered def's version triggers that
+   * component's registered `migrate()` hook, or a warn+drop of just that
+   * component's data if none is registered (ENGINE_DESIGN.md §19.3).
+   */
+  readonly version: number;
+}
+
+/** Optional extra config for `defineComponent`. */
+export interface DefineComponentOptions {
+  /** See `ComponentDef.version`. Defaults to `1`. */
+  readonly version?: number;
 }
 
 /**
@@ -34,6 +49,7 @@ export interface ComponentDef<
 export function defineComponent<T extends SerializableRecord>(
   componentName: string,
   createDefaults: () => T,
+  options?: DefineComponentOptions,
 ): ComponentDef<T> {
-  return { componentName, createDefaults };
+  return { componentName, createDefaults, version: options?.version ?? 1 };
 }

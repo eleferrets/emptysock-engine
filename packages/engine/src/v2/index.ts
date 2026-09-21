@@ -14,6 +14,22 @@ export type { ComponentDef } from "./Component.js";
 export { componentRegistry } from "./ComponentRegistry.js";
 export { Entity } from "./Entity.js";
 export { Scene } from "./Scene.js";
+export type { SpawnOptions } from "./Scene.js";
+export { definePrefab, flattenPrefab, prefabComponentDefs } from "./Prefab.js";
+export type { PrefabDef, PrefabComponentEntry } from "./Prefab.js";
+export {
+  parsePrefabFile,
+  parsePrefabFiles,
+  loadSceneFile,
+} from "./SceneFile.js";
+export type {
+  PrefabFile,
+  PrefabFileComponentEntry,
+  SceneFile,
+  SceneFileEntity,
+  SceneFilePrefabInstance,
+  ComponentLookup,
+} from "./SceneFile.js";
 export { Game, defineScene } from "./Game.js";
 export type {
   UpdateFn,
@@ -21,4 +37,47 @@ export type {
   SceneLifecycle,
   LoadSceneOptions,
 } from "./Game.js";
+export { InputManager } from "./Input.js";
+export type {
+  Binding,
+  ActionMap,
+  KeyboardSnapshot,
+  GamepadSnapshot,
+} from "./Input.js";
 export type { Serializable, SerializableRecord } from "./Serializable.js";
+export { Transform } from "./components/Transform.js";
+export { Sprite } from "./components/Sprite.js";
+export { RenderPipeline } from "./systems/RenderPipeline.js";
+export type {
+  RenderPipelineOptions,
+  TextureLoader,
+} from "./systems/RenderPipeline.js";
+export { ServiceRegistry } from "./Services.js";
+export type { ServiceConstructor } from "./Services.js";
+export { SaveSystem } from "./systems/SaveSystem.js";
+export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
+export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
+export type { StorageAdapter } from "./systems/StorageAdapter.js";
+export { PhysicsSystem } from "./systems/PhysicsSystem.js";
+export type { PhysicsSystemOptions } from "./systems/PhysicsSystem.js";
+export { PhysicsSystem3D } from "./systems/PhysicsSystem3D.js";
+export type {
+  PhysicsSystem3DOptions,
+  PhysicsBody3DOptions,
+  Physics3DHandle,
+  BodyType3D,
+  Shape3D,
+  Vec3,
+  Quat,
+  RaycastHit,
+  CollisionEvent,
+} from "./systems/PhysicsSystem3D.js";
+export { PhysicsBody, getPhysicsBody } from "./components/PhysicsBody.js";
+export type {
+  PhysicsBodyHandle,
+  PhysicsBodyType,
+  PhysicsBodyShape,
+  ContactInfo,
+  CollisionCallback,
+  SensorCallback,
+} from "./components/PhysicsBody.js";
