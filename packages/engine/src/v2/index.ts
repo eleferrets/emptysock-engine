@@ -36,6 +36,8 @@ export type {
   SceneDefinition,
   SceneLifecycle,
   LoadSceneOptions,
+  LoadOverlayOptions,
+  SceneRenderer,
 } from "./Game.js";
 export { InputManager } from "./Input.js";
 export type {

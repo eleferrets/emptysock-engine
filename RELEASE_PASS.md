@@ -88,9 +88,20 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       `defineComponent` (defaults to version 1, non-breaking). See
       CLAUDE.md's new "SaveSystem storage backend is an injected adapter,
       not a runtime check" entry.
-- [ ] **Scene/prefab file format.** JSON scene/prefab files + generated
-      `.d.ts` types (§13.4), flat-scene-plus-nestable-prefabs spawning
-      (§11.2), pooling folded into `spawn`/`destroy` (§12.4).
+- [x] **Scene/prefab file format.** `PrefabDef`/`definePrefab`/`flattenPrefab` + pooling folded into `Scene.spawn`/`.destroy` (`{ pool: true }`) land
+      in `packages/engine/src/v2/{Prefab,Scene}.ts`; JSON parsing
+      (`PrefabFile`/`SceneFile`/`parsePrefabFiles`/`loadSceneFile`) lands in
+      `packages/engine/src/v2/SceneFile.ts` — runtime spawn-from-JSON is
+      engine scope. The `.d.ts` codegen (`generatePrefabTypes`) is
+      `packages/toolchain/src/prefabCodegen.ts` — pure offline codegen, no
+      `Scene`/`World` involved, so it's toolchain scope; it reads real
+      `ComponentDef`s (for field types JSON can't carry) via the same
+      `ComponentLookup` type `SceneFile.ts` uses, and only needs an
+      explicit `PrefabDef<T>` type param at the codegen boundary (a
+      `__props` phantom field) to give `scene.spawn(prefab, props)` real
+      inference. Follow-up, not done here: wiring `generatePrefabTypes`
+      into an actual IDE auto-save hook or a `cli.ts` build command — the
+      function is real/tested/exported, the two call sites aren't wired.
 
 ### Track 2 — depends on Track 1 substantially landing (mainly rendering + the frozen core API)
 

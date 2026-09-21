@@ -50,3 +50,6 @@ export {
   gmlObjectToTypeScript,
   gmlObjectDirToTypeScript,
 } from "./gms2/gmlStubConverter.js";
+
+export { generatePrefabTypes } from "./prefabCodegen.js";
+export type { PrefabCodegenOptions } from "./prefabCodegen.js";

@@ -158,6 +158,95 @@ load.
 
 Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the v2 `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
 
+### Prefab pooling keeps a pooled entity bitECS-alive between destroy and reuse
+
+`Scene.spawn(prefab, props, { pool: true })`/`Scene.destroy(entity)`
+(`packages/engine/src/v2/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold
+pooling into the ordinary spawn/destroy calls, but a pooled entity's bitECS
+id is deliberately **not** released back to bitECS's own id-recycling on
+destroy — only its components are stripped. If it were released, bitECS's
+own "next `addEntity()` gets the freed id" recycling (§23) could hand that
+id to a completely unrelated `spawn()` elsewhere before this prefab's pool
+claims it back, which would break "this pool only reuses slots this prefab
+previously owned." The consequence: `entity.isAlive` on a pooled-and-
+destroyed entity's old handle reads `true`, not `false` — unlike a normal
+(non-pooled) `destroy()`, where the handle goes properly stale. Game code
+holding that old handle sees the practical equivalent of "destroyed"
+anyway (`.get()` returns `undefined` for every component, since none are
+attached), but do not write code that branches on `isAlive` to detect
+"was this entity destroyed" for a pooled entity — check `.has()`/`.get()`
+against the components you actually care about instead.
+
+### Prefab `.d.ts` codegen lives in toolchain, not the engine
+
+`generatePrefabTypes` (`packages/toolchain/src/prefabCodegen.ts`,
+ENGINE_DESIGN.md §13.4) reads a project's `.prefab.json` files plus the
+project's real, registered `ComponentDef`s and emits a `.d.ts` string
+declaring one `PrefabDef<{...}>`-typed `declare const` per prefab. It lives
+in `packages/toolchain`, not `packages/engine/src/v2`, because it never
+touches a `Scene`/`World` — it's pure offline codegen, the same "reads
+source files, emits a sibling file" shape as the GMS2 importer, not a
+runtime capability. The engine side (`packages/engine/src/v2/SceneFile.ts`)
+owns the complementary runtime half — parsing that same prefab/scene JSON
+into a `PrefabDef` a live `Scene` can actually `spawn()` — and both sides
+import the same `ComponentLookup`/`PrefabFile` shapes from
+`@emptysock/engine/v2` so the two halves can't drift apart on what a field
+means. `PrefabDef<T>` itself carries an unused, `@internal` `__props?: T`
+phantom field purely so `Scene.spawn<T>(prefab: PrefabDef<T>, props?:
+Partial<T>)` can infer `T` from whichever prefab value is passed —
+`definePrefab` leaves `T` at its `SerializableRecord` default for
+hand-authored prefabs, and `generatePrefabTypes`'s emitted `declare const`
+is what actually pins `T` to a concrete shape for a JSON-authored one.
+Wiring `generatePrefabTypes` into an actual IDE auto-save hook or a
+`packages/toolchain/src/cli.ts` build command is a noted follow-up in
+`RELEASE_PASS.md`, not done yet — the function itself is real and tested.
+
+### Input snapshot: frozen by copy, not by timing
+
+ENGINE_DESIGN.md §4 step 1 requires input "polled once, frozen for the
+frame". `v2/Input.ts`'s `InputManager.snapshot()` (called once, first, by
+`Game.update()`) does this by making an actual copy — `keys:
+input.snapshotKeys()` (a fresh `Map`), a fresh `Map` of every gamepad's
+state, and the current `touches` array — into a private `_frozen` object.
+`isDown()`/`keyboard`/`gamepad()`/`touches` all read only `_frozen`, never
+the live `InputSystem`/`GamepadSystem` underneath. This matters because
+`InputSystem`'s own `_keys` map is mutated live by DOM event listeners
+between synchronous ticks of the event loop — relying on "JS is
+single-threaded, so nothing can mutate it mid-`update()`" would happen to
+work for real device events, but it would silently break the instant
+anything called `InputSystem`'s internals directly instead of through the
+frozen copy (and does not hold at all for the headless test-injection path
+below, which calls into `InputSystem` synchronously, same tick, deliberately
+mid-"frame" to prove the freeze holds). Copy-based freezing makes the
+guarantee independent of *how* something tries to change input mid-frame,
+not just "how fast the OS can deliver an event".
+
+Headless/testing input injection is non-DOM on purpose:
+`InputSystem.simulateKeyDown(code)`/`simulateKeyUp(code)` write directly to
+the internal key map — no `KeyboardEvent`, no `window`, no jsdom dependency
+— so `@emptysock/engine`'s Node/Vitest path (CLAUDE.md's "Engine environment
+boundary") can exercise real action-mapping and freeze-per-frame behavior
+without a DOM. `Game` never calls `InputManager.attach()` itself; only
+host bootstrap code (browser preview shell, Tauri WebView entry point) does,
+which is what keeps a headless `Game` from touching `window` at all.
+
+### Audio stays a Game-owned singleton, not a per-entity component
+
+`v1`'s `AudioSystem` (Howler-backed) has no per-entity audio-emitter
+component anywhere — games hold a reference to one `AudioSystem` instance
+and call `.play(id)` on it directly. There was therefore nothing ECS-shaped
+to migrate onto v2's `defineComponent`/bitECS storage for Track 1's
+Input+Audio pass; `v2/Game.ts` simply constructs one `AudioSystem` in its
+constructor (`game.audio`, also handed through `SceneLifecycle.audio` for
+convenience) and never recreates or destroys it on `loadScene`/`unloadScene`
+— the same "game-owned, not scene-owned" treatment as `game.input`, since
+music commonly needs to keep playing across a scene transition and v1 never
+had automatic per-scene audio teardown to preserve. A game that wants
+scene-scoped sound (stop this scene's sfx/music on unload) does it
+explicitly from that scene's own `onUnload` (e.g. `audio.stop(id)` or
+`audio.unloadAll()`) — the engine does not guess at which sounds "belong"
+to which scene.
+
 ### MCP server has no 3D physics tool
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.

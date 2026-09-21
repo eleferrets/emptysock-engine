@@ -21,6 +21,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@emptysock/engine": "workspace:*",
     "commander": "^12.1.0",
     "esbuild": "^0.28.2",
     "zod": "catalog:"
