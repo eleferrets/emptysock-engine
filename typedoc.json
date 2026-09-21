@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "expand",
+  "entryPoints": ["packages/*/src/index.ts"],
+  "exclude": ["**/*.test.ts", "**/__tests__/**", "**/node_modules/**"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "docs/reference-generated",
+  "readme": "none",
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "skipErrorChecking": true,
+  "githubPages": false
+}

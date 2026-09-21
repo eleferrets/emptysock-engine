@@ -9,9 +9,14 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean",
-    "prepare": "husky"
+    "docs:generate": "typedoc",
+    "prepare": "husky",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "@commitlint/cli": "^19.5.0",
     "@commitlint/config-conventional": "^19.5.0",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
@@ -20,6 +25,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "turbo": "^2.3.3",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.1",
     "typescript": "~6.0.3"
   },
   "packageManager": "pnpm@9.15.0",

@@ -164,15 +164,80 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       not deep theme/extension import (§20); component-shape-change hot
       reload messaging in `HotReloadSystem` (§13.3).
 - [ ] Toolchain: move the CLI's real export/build to Rolldown (§16.3/§17,
-      migrate this one before the IDE's in-browser path); GMS2 importer
-      audit — confirm every documented 2.3+ import path is wired end-to-end,
-      not stubbed anywhere in the chain (§9 — no scope change, just an
-      audit).
+      migrate this one before the IDE's in-browser path).
+- [x] Toolchain: GMS2 importer audit — confirm every documented 2.3+ import
+      path is wired end-to-end, not stubbed anywhere in the chain (§9 — no
+      scope change, just an audit). **Done.** Traced every quirk in
+      CLAUDE.md's GMS2 section through `packages/toolchain/src/gms2-import.ts`
+      (+ `gms2-sprite-import.ts`, `gms2-room-import.ts`) and confirmed each
+      is implemented and covered by
+      `packages/toolchain/src/__tests__/gms2-import.test.ts`: trailing-comma
+      stripping (`parseGmsJson`), `.yyp` root `"%Name"`, `Collision_<obj>`/
+      `KeyPress_<vk>`/`KeyRelease_<vk>` event files emitting
+      `onCollideWith<Other>`/`onKeyPress<Name>`/`onKeyRelease<Name>` (37-40
+      correctly map to Left/Up/Right/Down), room layers keyed by
+      `resourceType` not `layerType`, sprite frames resolved to their own
+      UUID-named PNG (never `<sprite>.png`, with a clear throw when the PNG
+      is missing on disk), and `defaultScriptType: 1` correctly _not_
+      producing a warning on its own (confirmed via a new test — see below).
+      All four §9-named chains (events, room layers, sprites, action-list
+      transpilation) are wired end-to-end: parse → transform → an actual
+      written `.ts`/`.sprite.ts`/room-scene file, not stubbed partway
+      through. No bugs found in already-implemented logic (the vk-code
+      arrow-key map is correct as documented). - **New follow-up flagged, not fixed (out of this audit's scope):**
+      `packages/toolchain/src/gms2-gml-stub.ts` (`generateObjectStub`) and
+      `packages/toolchain/src/gms2/gmlStubConverter.ts`
+      (`gmlObjectToTypeScript`/`gmlObjectDirToTypeScript`) are a second,
+      unwired GMS2-object-to-TypeScript implementation — exported from
+      `packages/toolchain/src/index.ts` but never called by `cli.ts`'s
+      actual `import --from gms2` path (which only calls
+      `importGMS2Project` from `gms2-import.ts`) and never referenced by
+      any test. Same shape as the already-documented "export-utils has no
+      desktop packaging path" situation. See new Track X bullet below. - **Test coverage strengthened:** added two regression tests to
+      `gms2-import.test.ts` — one asserting `defaultScriptType: 1` alone
+      produces no "GML Visual" warning on a project whose events are all
+      real text `.gml` files, and one asserting legacy GameMaker 8.1
+      DnD-compat symbols (`action_move`, `gml_pragma`) pass through the
+      transpiler untranspiled/verbatim rather than being faked. Existing
+      tests already used realistic trailing-comma fixtures, so no change
+      was needed there.
 - [ ] Repo-wide: adopt changesets (§20) before the module-package split
       (Track 2) creates more packages to version by hand.
-- [ ] Docs: scaffold the TypeDoc + typedoc-plugin-markdown pipeline (§19.1)
+- [ ] **Newly discovered follow-up (GMS2 importer audit, not fixed here —
+      needs its own dedicated pass):** remove or wire up the second, unwired
+      GMS2-object-to-TypeScript implementation in
+      `packages/toolchain/src/gms2-gml-stub.ts` (`generateObjectStub`) and
+      `packages/toolchain/src/gms2/gmlStubConverter.ts`
+      (`gmlObjectToTypeScript`/`gmlObjectDirToTypeScript`). Neither is called
+      by `cli.ts`'s real `import --from gms2` path (only
+      `gms2-import.ts`'s `importGMS2Project` is), and neither has a test —
+      they're dead/duplicate code still publicly exported from
+      `packages/toolchain/src/index.ts`. Decide whether to delete them
+      (matching the precedent set by the export-utils desktop-packaging
+      cleanup) or actually wire one of them in; don't leave a public export
+      that silently does nothing in the real CLI flow.
+- [x] Docs: scaffold the TypeDoc + typedoc-plugin-markdown pipeline (§19.1)
       — can start against v1 code now and simply point at v2 code once it
-      exists, rather than waiting.
+      exists, rather than waiting. Done: `typedoc` +
+      `typedoc-plugin-markdown` installed at the repo root; root
+      `typedoc.json` uses `entryPointStrategy: "expand"` with entry points
+      globbed as `packages/*/src/index.ts` so new workspace packages (e.g.
+      the VN/battle/tilemap split) are picked up automatically; `pnpm run
+    docs:generate` runs it. Verified: it runs clean (no errors) against
+      today's real packages (engine, types, toolchain, network, battle,
+      tilemap, vn, export-utils) and produces correct Markdown pages with
+      real class/method signatures, falling back sensibly on exports that
+      have no TSDoc yet.
+      **Reconciliation with the "don't touch docs/reference/ yet" rule
+      below:** the pipeline is real and runs today, but `typedoc.json`'s
+      `out` points at `docs/reference-generated/` (gitignored, nothing
+      generated is committed), not `docs/reference/` — see
+      `docs/reference-generated.README.md` for the full reasoning. **To go
+      live** once the §9 docs pass actually starts: change `"out"` in
+      `typedoc.json` from `"docs/reference-generated"` to
+      `"docs/reference"`, remove the `docs/reference-generated/` line from
+      `.gitignore`, regenerate, and commit — no other config changes
+      needed.
 - [ ] **Do not touch** `docs/reference/`, `docs/manual/`, `ai/CLAUDE.md`,
       `ai/api-reference.json`, or any `emptysock-ai-skills` skill file to
       describe v2 shapes yet — §9 is explicit that docs/skills are the last

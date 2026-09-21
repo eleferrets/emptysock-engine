@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Scratch TypeDoc output — see typedoc.json for why this isn't docs/reference/ yet.
+docs/reference-generated/
 .turbo/
 coverage/
 *.local
