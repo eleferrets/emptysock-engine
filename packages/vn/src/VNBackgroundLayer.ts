@@ -4,7 +4,7 @@ export interface VNBackgroundLayerOptions {
   fadeDuration?: number;
 }
 
-type FitMode = 'cover' | 'contain' | 'stretch';
+type FitMode = "cover" | "contain" | "stretch";
 
 interface LayerState {
   image: HTMLImageElement | null;
@@ -16,12 +16,30 @@ interface LayerState {
   fit: FitMode;
 }
 
-function makeState(imagePath: string, fadeDuration: number, fit: FitMode): LayerState {
-  return { image: null, imagePath, opacity: 0, fadeDir: 1, fadeDuration, fadeElapsed: 0, fit };
+function makeState(
+  imagePath: string,
+  fadeDuration: number,
+  fit: FitMode,
+): LayerState {
+  return {
+    image: null,
+    imagePath,
+    opacity: 0,
+    fadeDir: 1,
+    fadeDuration,
+    fadeElapsed: 0,
+    fit,
+  };
 }
 
-function drawFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number, fit: FitMode): void {
-  if (fit === 'stretch') {
+function drawFit(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  w: number,
+  h: number,
+  fit: FitMode,
+): void {
+  if (fit === "stretch") {
     ctx.drawImage(img, 0, 0, w, h);
     return;
   }
@@ -30,10 +48,22 @@ function drawFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number
   const ir = iw / ih;
   const cr = w / h;
   let sw: number, sh: number, sx: number, sy: number;
-  if (fit === 'cover') {
-    if (ir > cr) { sh = h; sw = h * ir; } else { sw = w; sh = w / ir; }
+  if (fit === "cover") {
+    if (ir > cr) {
+      sh = h;
+      sw = h * ir;
+    } else {
+      sw = w;
+      sh = w / ir;
+    }
   } else {
-    if (ir > cr) { sw = w; sh = w / ir; } else { sh = h; sw = h * ir; }
+    if (ir > cr) {
+      sw = w;
+      sh = w / ir;
+    } else {
+      sh = h;
+      sw = h * ir;
+    }
   }
   sx = (w - sw) / 2;
   sy = (h - sh) / 2;
@@ -53,12 +83,17 @@ export class VNBackgroundLayer {
     this._defaultFade = opts.fadeDuration ?? 0.5;
   }
 
-  setBackground(imagePath: string, opts: { fadeDuration?: number; fit?: FitMode } = {}): void {
+  setBackground(
+    imagePath: string,
+    opts: { fadeDuration?: number; fit?: FitMode } = {},
+  ): void {
     const fd = opts.fadeDuration ?? this._defaultFade;
-    const state = makeState(imagePath, fd, opts.fit ?? 'cover');
-    if (typeof document !== 'undefined') {
+    const state = makeState(imagePath, fd, opts.fit ?? "cover");
+    if (typeof document !== "undefined") {
       const img = new Image();
-      img.onload = () => { state.image = img; };
+      img.onload = () => {
+        state.image = img;
+      };
       img.src = imagePath;
     }
     this._bg = state;
@@ -71,12 +106,17 @@ export class VNBackgroundLayer {
     this._bg.fadeElapsed = this._bg.fadeDuration * (1 - this._bg.opacity);
   }
 
-  showCG(imagePath: string, opts: { fadeDuration?: number; fit?: FitMode } = {}): void {
+  showCG(
+    imagePath: string,
+    opts: { fadeDuration?: number; fit?: FitMode } = {},
+  ): void {
     const fd = opts.fadeDuration ?? this._defaultFade;
-    const state = makeState(imagePath, fd, opts.fit ?? 'contain');
-    if (typeof document !== 'undefined') {
+    const state = makeState(imagePath, fd, opts.fit ?? "contain");
+    if (typeof document !== "undefined") {
       const img = new Image();
-      img.onload = () => { state.image = img; };
+      img.onload = () => {
+        state.image = img;
+      };
       img.src = imagePath;
     }
     this._cg = state;
@@ -90,11 +130,19 @@ export class VNBackgroundLayer {
   }
 
   update(dt: number): void {
-    this._tickState(this._bg, dt, () => { this._bg = null; });
-    this._tickState(this._cg, dt, () => { this._cg = null; });
+    this._tickState(this._bg, dt, () => {
+      this._bg = null;
+    });
+    this._tickState(this._cg, dt, () => {
+      this._cg = null;
+    });
   }
 
-  private _tickState(s: LayerState | null, dt: number, onDone: () => void): void {
+  private _tickState(
+    s: LayerState | null,
+    dt: number,
+    onDone: () => void,
+  ): void {
     if (!s || s.fadeDir === 0) return;
     s.fadeElapsed += dt;
     const t = Math.min(s.fadeElapsed / s.fadeDuration, 1);

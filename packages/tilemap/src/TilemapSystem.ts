@@ -1,6 +1,5 @@
-import type { Scene } from "../core/Scene.js";
-import { Entity } from "../core/Entity.js";
-import { Transform } from "../components/Transform.js";
+import type { Scene } from "@emptysock/engine";
+import { Entity, Transform } from "@emptysock/engine";
 
 // ─── Tilemap data model ───────────────────────────────────────────────────────
 

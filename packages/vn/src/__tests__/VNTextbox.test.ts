@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { VNTextbox } from "../systems/VNTextbox.js";
-import { UISystem } from "../systems/UISystem.js";
-import { PanelWidget } from "../ui/widgets/panel.js";
+import { VNTextbox } from "../VNTextbox.js";
+import { UISystem, PanelWidget } from "@emptysock/engine";
 
 describe("VNTextbox", () => {
   it("applies namePlateColor to the name plate background panel", () => {

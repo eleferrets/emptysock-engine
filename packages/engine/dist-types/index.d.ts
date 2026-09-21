@@ -18,6 +18,7 @@ export { RenderPipeline } from "./systems/RenderPipeline.js";
 export type {
   RenderPipelineOptions,
   TextureLoader,
+  TileLayerSource,
 } from "./systems/RenderPipeline.js";
 export { PhysicsSystem } from "./systems/PhysicsSystem.js";
 export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
@@ -109,24 +110,6 @@ export type {
   SetSwitchNode,
   SendMessageNode,
 } from "./components/VisualScriptComponent.js";
-export { VNSystem } from "./systems/VNSystem.js";
-export type {
-  IVNListener,
-  DialogueNode,
-  DialogueTree,
-  ChoiceOption,
-} from "./systems/VNSystem.js";
-export {
-  storyGraphToDialogueTree,
-  dialogueTreeToStoryGraph,
-} from "./systems/VNScriptConvert.js";
-export type {
-  StoryGraphNode,
-  StoryGraphEdge,
-  StoryGraph,
-} from "./systems/VNScriptConvert.js";
-export { VNTextbox } from "./systems/VNTextbox.js";
-export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
 export {
@@ -154,8 +137,6 @@ export type {
   PathRequest,
   PathResult,
 } from "./systems/PathfindingSystem.js";
-export { NavMeshSystem } from "./systems/NavMeshSystem.js";
-export type { NavMeshData, NavPolygon } from "./systems/NavMeshSystem.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
 export type { SaveSlot, GameSaveSlot } from "./systems/SaveSystem.js";
 export { LocalisationSystem } from "./systems/LocalisationSystem.js";
@@ -213,13 +194,6 @@ export type {
 } from "./core/SceneManager.js";
 export { ObjectPool } from "./core/ObjectPool.js";
 export type { Poolable, PoolFactory } from "./core/ObjectPool.js";
-export { TilemapSystem, Tilemap } from "./systems/TilemapSystem.js";
-export type {
-  TilemapData,
-  TilemapLayer,
-  TileCell,
-  TilesetConfig,
-} from "./systems/TilemapSystem.js";
 export { ParticleSystem, ParticleEmitter } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
@@ -331,8 +305,6 @@ export type {
   CharacterStageOptions,
   CharacterShowOptions,
 } from "./systems/CharacterStage.js";
-export { VNBackgroundLayer } from "./systems/VNBackgroundLayer.js";
-export type { VNBackgroundLayerOptions } from "./systems/VNBackgroundLayer.js";
 export { MapEventSystem } from "./systems/MapEventSystem.js";
 export type {
   MapEvent,
@@ -342,20 +314,3 @@ export type {
 } from "./systems/MapEventSystem.js";
 export type { GameStage } from "./types/aliases.js";
 export declare const COMPONENT_REGISTRY: readonly string[];
-export { BattleSystem } from "./systems/BattleSystem.js";
-export type {
-  BattlePhase,
-  BattleStats,
-  BattleStatMap,
-  DamageContext,
-  StatusEffect,
-  Combatant,
-  SkillTargetType,
-  DamageFormulaId,
-  SkillDef,
-  StatusEffectDef,
-  BattleDatabase,
-  BattleAction,
-  BattleEvent,
-  BattleSystemOptions,
-} from "./systems/BattleSystem.js";

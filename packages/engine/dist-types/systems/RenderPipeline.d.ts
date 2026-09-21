@@ -4,8 +4,37 @@ import type { Scene } from "../core/Scene.js";
 import { type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { AutoTileSystem } from "./AutoTileSystem.js";
-import type { Tilemap } from "./TilemapSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+/**
+ * The subset of `@emptysock/tilemap`'s `Tilemap` shape that RenderPipeline
+ * actually reads. RenderPipeline lives in the core engine and must not
+ * depend on the optional `@emptysock/tilemap` module package (§13.1), so it
+ * depends on this structural interface instead — `Tilemap` satisfies it
+ * without either package importing the other.
+ */
+export interface TileLayerSource {
+  readonly data: {
+    readonly tileWidth: number;
+    readonly tileHeight: number;
+    readonly rows: number;
+    readonly cols: number;
+    readonly tileset: {
+      readonly imagePath: string;
+      readonly tileWidth: number;
+      readonly tileHeight: number;
+      readonly columns: number;
+      readonly spacing?: number;
+      readonly margin?: number;
+    };
+    readonly layers: ReadonlyArray<{
+      readonly visible: boolean;
+      readonly opacity: number;
+      readonly cells: ReadonlyArray<
+        ReadonlyArray<{ readonly tileIndex: number } | undefined>
+      >;
+    }>;
+  };
+}
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
 export interface RenderPipelineOptions extends Omit<
@@ -92,11 +121,11 @@ export declare class RenderPipeline {
    * once per tilemap; call `unmountTilemap()` first to rebuild after edits.
    */
   mountTilemap(
-    tilemap: Tilemap,
+    tilemap: TileLayerSource,
     renderLayer?: string,
     autoTile?: AutoTileSystem,
   ): void;
-  unmountTilemap(tilemap: Tilemap): void;
+  unmountTilemap(tilemap: TileLayerSource): void;
   private _buildTilemapSprites;
   destroy(): void;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { NavMeshSystem } from "../systems/NavMeshSystem.js";
-import type { NavMeshData } from "../systems/NavMeshSystem.js";
+import { NavMeshSystem } from "../NavMeshSystem.js";
+import type { NavMeshData } from "../NavMeshSystem.js";
 
 // Three squares in a row, each 1x1, sharing edges: [0,0]-[1,1], [1,0]-[2,1], [2,0]-[3,1].
 const THREE_SQUARES: NavMeshData = {

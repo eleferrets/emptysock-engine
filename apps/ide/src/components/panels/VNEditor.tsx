@@ -2,7 +2,7 @@ import React from "react";
 import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
-} from "@emptysock/engine";
+} from "@emptysock/vn";
 import { useIDEStore } from "../../store/ideStore";
 import { useVNStore, type VnNode } from "../../store/vnStore";
 import { useHistory } from "../../hooks/useHistory";

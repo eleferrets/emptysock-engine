@@ -1,5 +1,5 @@
-import type { Vec2 } from "../core/Entity.js";
-import { AStarSearch } from "../core/AStarSearch.js";
+import type { Vec2 } from "@emptysock/engine";
+import { AStarSearch } from "@emptysock/engine";
 export type { Vec2 };
 
 export interface NavPolygon {

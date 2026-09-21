@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { VNSystem } from "../systems/VNSystem.js";
-import type { DialogueTree } from "../systems/VNSystem.js";
-import { VariableStore } from "../systems/VariableStore.js";
+import { VNSystem } from "../VNSystem.js";
+import type { DialogueTree } from "../VNSystem.js";
+import { VariableStore } from "@emptysock/engine";
 
 const tree: DialogueTree = {
   startNode: "start",

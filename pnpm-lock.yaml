@@ -84,6 +84,9 @@ importers:
       '@emptysock/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@emptysock/vn':
+        specifier: workspace:*
+        version: link:../../packages/vn
       '@monaco-editor/react':
         specifier: ^4.6.0
         version: 4.7.0(monaco-editor@0.56.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -206,6 +209,22 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@26.3.0)(@vitest/ui@5.0.0)(jsdom@30.1.0)(vite@8.2.2(@types/node@26.3.0)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.51.2)(yaml@2.9.0))
 
+  packages/battle:
+    dependencies:
+      '@emptysock/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^26.3.0
+        version: 26.3.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@26.3.0)(@vitest/ui@5.0.0)(jsdom@30.1.0)(vite@8.2.2(@types/node@26.3.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.0))
+
   packages/engine:
     dependencies:
       '@dimforge/rapier2d-compat':
@@ -283,6 +302,25 @@ importers:
       '@types/node':
         specifier: ^26.3.0
         version: 26.3.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@26.3.0)(@vitest/ui@5.0.0)(jsdom@30.1.0)(vite@8.2.2(@types/node@26.3.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.0))
+
+  packages/tilemap:
+    dependencies:
+      '@emptysock/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^26.3.0
+        version: 26.3.0
+      pixi.js:
+        specifier: 'catalog:'
+        version: 8.20.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

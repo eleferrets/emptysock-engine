@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   storyGraphToDialogueTree,
   dialogueTreeToStoryGraph,
-} from "../systems/VNScriptConvert.js";
-import type { DialogueTree } from "../systems/VNSystem.js";
+} from "../VNScriptConvert.js";
+import type { DialogueTree } from "../VNSystem.js";
 
 describe("VNScriptConvert", () => {
   it("round-trips dialogue, choice, and jump nodes losslessly", () => {

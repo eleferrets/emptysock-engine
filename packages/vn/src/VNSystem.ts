@@ -3,9 +3,9 @@ import {
   variableStore,
   evaluateCondition,
   type VariableCondition,
-} from "./VariableStore.js";
+} from "@emptysock/engine";
 
-export type { VariableCondition } from "./VariableStore.js";
+export type { VariableCondition } from "@emptysock/engine";
 
 export type DialogueNode =
   | {

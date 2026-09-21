@@ -145,10 +145,36 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       identical `VariableStore`/`ActorSystem` side effects to the interpreter
       for the same graph. IDE wiring (an "Export Compiled JS" button next to
       the existing "Export Code" one) is a noted follow-up, not done here.
-- [ ] **Module packages.** Split VN/Story Graph, battle system,
+- [x] **Module packages.** Split VN/Story Graph, battle system, and
       tilemap/navmesh into their own `@emptysock/<module>` packages (§13.1).
-      Each of these can itself be a further-parallel sub-track once rendering
-      (VN, tilemap) and core (battle) have landed.
+      Landed: `packages/vn` (`VNSystem`, `VNScriptConvert`'s
+      `storyGraphToDialogueTree`/`dialogueTreeToStoryGraph`, `VNTextbox`,
+      `VNBackgroundLayer`), `packages/battle` (`BattleSystem`), and
+      `packages/tilemap` (`TilemapSystem`/`Tilemap`, `NavMeshSystem`) —
+      each a `workspace:*` dependant of `@emptysock/engine`, never the other
+      way around. `@emptysock/engine`'s `index.ts` no longer exports any of
+      these; `RenderPipeline` (which still needs to mount a tilemap) depends
+      on a new structural `TileLayerSource` interface it exports instead of
+      importing `Tilemap` from `packages/tilemap`, keeping the engine ->
+      module-package dependency arrow one-directional. `apps/ide`'s
+      `VNEditor.tsx` now imports `storyGraphToDialogueTree`/
+      `dialogueTreeToStoryGraph` from `@emptysock/vn`. Tests that exercised
+      two of these systems together moved to whichever package already
+      depended on both: the BattleSystem half of `GameE2E.test.ts` moved to
+      `packages/battle/src/__tests__/BattleGameLoop.test.ts`; the
+      RenderPipeline+Tilemap mounting tests moved to
+      `packages/tilemap/src/__tests__/RenderPipelineIntegration.test.ts`.
+      Visual scripting's package split is a **deliberate remaining
+      follow-up**, not an oversight — scoped out of this pass per its own
+      note above (needs to be sequenced after visual scripting's compilation
+      work lands). Per-template package declaration (a scaffolded game
+      project's `package.json` listing only the module packages its
+      `--template` needs) is future toolchain work, since template
+      scaffolding itself isn't built yet. `docs/reference/`,
+      `docs/manual/`, and the `emptysock-ai-skills` skill files still
+      describe VN/Battle/Tilemap/NavMesh as part of `@emptysock/engine` —
+      updating them is deferred to the docs pass per that pass's own
+      instructions, not done here.
 - [x] **`@emptysock/network`.** Colyseus integration, bridged through the
       same `.get()` Proxy layer (§23.2) — only needs Track 0's core API
       (done), does **not** need physics/rendering, so this can start now.
@@ -168,7 +194,7 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       is the v2-aware query/command channel §8 calls for — a separate, narrower
       thing from `core/IDEBridge.ts` (that stays a v1 `postMessage` broadcast;
       `QueryChannel` is a synchronous request/response call, `handle(query):
-    EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
+  EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
       transport-agnostic by design (same pattern as `Transport`/
       `StorageAdapter`): `@emptysock/engine` never touches a socket, only
       `attach(scene, physics)`/`detach()`/`handle(query)`. Supported query

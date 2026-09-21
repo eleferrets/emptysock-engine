@@ -4,7 +4,7 @@ import {
   type BattleEvent,
   type Combatant,
   type BattleDatabase,
-} from "../systems/BattleSystem.js";
+} from "../BattleSystem.js";
 
 function makeCombatant(
   id: string,

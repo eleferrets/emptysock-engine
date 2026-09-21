@@ -1,6 +1,5 @@
-import { PanelWidget } from "../ui/widgets/panel.js";
-import { LabelWidget } from "../ui/widgets/label.js";
-import type { UISystem } from "./UISystem.js";
+import { PanelWidget, LabelWidget } from "@emptysock/engine";
+import type { UISystem } from "@emptysock/engine";
 import type { VNSystem } from "./VNSystem.js";
 
 export interface VNTextboxOptions {

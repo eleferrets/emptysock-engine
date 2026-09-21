@@ -21,8 +21,6 @@ const { RenderPipeline } = await import("../systems/RenderPipeline.js");
 const { Scene } = await import("../core/Scene.js");
 const { Transform } = await import("../components/Transform.js");
 const { Sprite } = await import("../components/Sprite.js");
-const { Tilemap, TilemapSystem } = await import("../systems/TilemapSystem.js");
-const { AutoTileSystem } = await import("../systems/AutoTileSystem.js");
 
 function makeTestTexture(): Texture {
   return Texture.WHITE;
@@ -105,85 +103,9 @@ describe("RenderPipeline", () => {
     expect(pipeline.layers.getEntityLayer(entity.id)).toBeNull();
   });
 
-  it("mounts a tilemap and builds one tile sprite per non-empty cell", async () => {
-    const tilemap = new Tilemap(
-      {
-        name: "test-map",
-        tileWidth: 16,
-        tileHeight: 16,
-        cols: 2,
-        rows: 1,
-        tileset: {
-          imagePath: "tileset.png",
-          tileWidth: 16,
-          tileHeight: 16,
-          columns: 4,
-          rows: 4,
-        },
-        layers: [
-          {
-            name: "ground",
-            visible: true,
-            opacity: 1,
-            cells: [[{ tileIndex: 0, solid: false }, { tileIndex: -1 }]],
-          },
-        ],
-      },
-      scene.createEntity("map"),
-    );
-
-    pipeline.mountTilemap(tilemap);
-    // texture loading is async; flush microtasks
-    await Promise.resolve();
-    await Promise.resolve();
-
-    const container = pipeline.layers.getLayerIndex("default");
-    expect(container).toBeDefined();
-    TilemapSystem.remove("test-map");
-  });
-
-  it("resolves tile variants through AutoTileSystem when provided", async () => {
-    const autoTile = new AutoTileSystem();
-    autoTile.addRuleSet({
-      id: "grass",
-      baseTileIndex: 0,
-      rules: [],
-      defaultTileIndex: 9,
-    });
-
-    const tilemap = new Tilemap(
-      {
-        name: "auto-map",
-        tileWidth: 16,
-        tileHeight: 16,
-        cols: 1,
-        rows: 1,
-        tileset: {
-          imagePath: "tileset.png",
-          tileWidth: 16,
-          tileHeight: 16,
-          columns: 4,
-          rows: 4,
-        },
-        layers: [
-          {
-            name: "ground",
-            visible: true,
-            opacity: 1,
-            cells: [[{ tileIndex: 0 }]],
-          },
-        ],
-      },
-      scene.createEntity("auto-entity"),
-    );
-
-    const resolveSpy = vi.spyOn(autoTile, "resolve");
-    pipeline.mountTilemap(tilemap, "default", autoTile);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(resolveSpy).toHaveBeenCalledWith(0, 0, 0, expect.any(Function));
-  });
+  // Tilemap-mounting tests (RenderPipeline + a real Tilemap/AutoTileSystem)
+  // moved to packages/tilemap/src/__tests__/RenderPipelineIntegration.test.ts
+  // now that Tilemap/NavMeshSystem are @emptysock/tilemap, not engine-owned.
 });
 
 describe("RenderPipeline transition overlay", () => {

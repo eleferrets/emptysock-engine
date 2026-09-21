@@ -25,7 +25,7 @@ The docs follow a Unity/Unreal-style layout — four sections that match differe
 
 ## Repo layout
 
-Five top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. All editor state lives in `apps/ide/src/store/ideStore.ts` (Zustand). Build logic lives in `apps/ide/src/services/`.
+Top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), `packages/vn` (@emptysock/vn, VNSystem/Story Graph — §13.1), `packages/battle` (@emptysock/battle, BattleSystem — §13.1), `packages/tilemap` (@emptysock/tilemap, TilemapSystem/NavMeshSystem — §13.1; each an optional module package, a `workspace:*` dependant of @emptysock/engine, never the other way around), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. All editor state lives in `apps/ide/src/store/ideStore.ts` (Zustand). Build logic lives in `apps/ide/src/services/`.
 
 ---
 
@@ -343,6 +343,10 @@ default runtime path; `CompiledVisualScriptComponent` is an opt-in, same-
 shape drop-in for games that want to ship compiled logic instead. Both are
 tested against each other node-by-node so they can never silently diverge
 in behaviour.
+
+### RenderPipeline mounts a tilemap through a structural interface, not `@emptysock/tilemap`'s `Tilemap`
+
+`RenderPipeline.mountTilemap()`/`unmountTilemap()` used to take the concrete `Tilemap` class from `packages/engine/src/systems/TilemapSystem.ts`. Once `TilemapSystem`/`NavMeshSystem` moved out to `@emptysock/tilemap` (§13.1), `RenderPipeline` — which stays in the core engine, since every game needs to render, not just ones with tile levels — could no longer import `Tilemap` without making `@emptysock/engine` depend on the very module package that's supposed to depend on it. `RenderPipeline.ts` now declares `TileLayerSource`, a plain structural interface covering only the `{ data: { tileWidth, tileHeight, rows, cols, tileset, layers } }` shape `mountTilemap()` actually reads; `@emptysock/tilemap`'s `Tilemap` satisfies it without either package importing the other, the same "engine depends on the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter`. A consequence: tests that need both a real `RenderPipeline` and a real `Tilemap` together (verifying tiles actually get mounted) can't live in the engine's own test suite any more — they moved to `packages/tilemap/src/__tests__/RenderPipelineIntegration.test.ts`, since `@emptysock/tilemap` is the package that already depends on both.
 
 ### MCP server has no 3D physics tool
 
