@@ -10,13 +10,53 @@ const __dirname = import.meta.dirname;
 
 // Collects all .d.ts files from dist-types/ and exposes them as virtual:engine-types
 // so Monaco's TypeScript service can provide inline type errors for game code.
+//
+// The bundled Monaco TypeScript worker (monaco-editor@0.56) only supports
+// ModuleResolutionKind.Classic | NodeJs and cannot resolve the bare specifier
+// "@emptysock/engine" from a pile of file:///node_modules/@emptysock/engine/**
+// extra libs alone — it reports TS2792 on the import line, which then makes
+// every inherited method on Scene/Entity/etc. report as "Property does not
+// exist" (see RELEASE_PASS.md). Per-relative-file resolution and a synthetic
+// package.json extra lib were both tried and did not clear TS2792.
+//
+// The fix: flatten dist-types into a single ambient module block —
+// `declare module "@emptysock/engine" { ... }` — fed to addExtraLib. Ambient
+// module declarations for a bare specifier are looked up by name directly,
+// bypassing module resolution entirely. Internal relative imports between
+// engine source files are rewritten to synthetic ambient module names
+// (`@emptysock/engine/__internal/<path>`) so nothing inside the block needs
+// further resolution either.
 function engineTypesPlugin(): Plugin {
   const VIRTUAL_ID = "virtual:engine-types";
   const RESOLVED_ID = "\0" + VIRTUAL_ID;
+  const INTERNAL_PREFIX = "@emptysock/engine/__internal/";
 
-  function collectDts(dir: string): Record<string, string> {
-    const libs: Record<string, string> = {};
-    if (!existsSync(dir)) return libs;
+  // Relative specifiers inside dist-types, e.g. `from "./core/Component.js"`
+  // or `import("../systems/RenderSystem.js")`. Captures the quote char so it
+  // can rewrite the exact original text (including quotes).
+  const RELATIVE_SPECIFIER_RE = /(from\s+|import\()(['"])(\.[^'"]+)\2/g;
+
+  function posixJoin(...parts: string[]): string {
+    const joined = parts.join("/");
+    const segs: string[] = [];
+    for (const seg of joined.split("/")) {
+      if (seg === "" || seg === ".") continue;
+      if (seg === "..") segs.pop();
+      else segs.push(seg);
+    }
+    return segs.join("/");
+  }
+
+  function dirnameOf(key: string): string {
+    const idx = key.lastIndexOf("/");
+    return idx === -1 ? "" : key.slice(0, idx);
+  }
+
+  // Turns dist-types into a map of "module key" (relative path, no
+  // extension, e.g. "core/Component" or "index") -> raw .d.ts source.
+  function collectModuleSources(dir: string): Record<string, string> {
+    const sources: Record<string, string> = {};
+    if (!existsSync(dir)) return sources;
     function scan(d: string): void {
       for (const entry of readdirSync(d)) {
         const full = join(d, entry);
@@ -24,15 +64,43 @@ function engineTypesPlugin(): Plugin {
           scan(full);
         } else if (entry.endsWith(".d.ts")) {
           const rel = relative(dir, full).replace(/\\/g, "/");
-          libs[`file:///node_modules/@emptysock/engine/${rel}`] = readFileSync(
-            full,
-            "utf-8",
-          );
+          const key = rel.replace(/\.d\.ts$/, "");
+          sources[key] = readFileSync(full, "utf-8");
         }
       }
     }
     scan(dir);
-    return libs;
+    return sources;
+  }
+
+  // Builds the single ambient-module-block string for @emptysock/engine.
+  function buildAmbientEngineModule(dir: string): string {
+    const sources = collectModuleSources(dir);
+    const parts: string[] = [];
+
+    for (const [key, content] of Object.entries(sources)) {
+      const rewritten = content.replace(
+        RELATIVE_SPECIFIER_RE,
+        (_match, prefix: string, quote: string, specifier: string) => {
+          const withoutJs = specifier.replace(/\.js$/, "");
+          const resolved = posixJoin(dirnameOf(key), withoutJs);
+          return `${prefix}${quote}${INTERNAL_PREFIX}${resolved}${quote}`;
+        },
+      );
+      parts.push(
+        `declare module "${INTERNAL_PREFIX}${key}" {\n${rewritten}\n}`,
+      );
+    }
+
+    // The public surface is whatever index.d.ts re-exports, now resolvable
+    // purely by ambient module name (no file-based resolution involved).
+    parts.push(
+      `declare module "@emptysock/engine" {\n` +
+        `  export * from "${INTERNAL_PREFIX}index";\n` +
+        `}`,
+    );
+
+    return parts.join("\n\n");
   }
 
   return {
@@ -43,7 +111,10 @@ function engineTypesPlugin(): Plugin {
     load(id) {
       if (id !== RESOLVED_ID) return;
       const dtDir = resolve(__dirname, "../../packages/engine/dist-types");
-      const libs = collectDts(dtDir);
+      const libs: Record<string, string> = {
+        "file:///node_modules/@emptysock/engine/__ambient__.d.ts":
+          buildAmbientEngineModule(dtDir),
+      };
       const builtinsPath = resolve(
         __dirname,
         "../../packages/engine/src/builtins.d.ts",
