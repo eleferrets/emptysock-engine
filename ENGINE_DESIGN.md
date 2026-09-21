@@ -397,66 +397,98 @@ All four recommendations accepted as stated in round 3's questions:
    did into the spawn/destroy API itself rather than a parallel class to
    learn.
 
-## 13. Open questions — round 4: buildout, tooling, feature depth
+## 13. Decisions locked from review round 4
 
-Twelve decisions in, the object model and lifecycle are settled. Round 4
-turns to something rounds 1–3 mostly skipped: what does actually building
-and running a project _feel_ like — the toolchain, the dependency story, and
-how much depth is available under the "brain-dead simple" surface before you
-hit a wall and have to reach for something outside the engine. "We can gut
-this entire thing" stays the operating assumption — nothing below is
-constrained by what v1 already does.
+Three of four went with the recommendation; one (item 2) explicitly didn't —
+noted below, not silently overridden.
 
-1. **Package boundary: one `@emptysock/engine`, or split by concern?** v1 is
-   one package with everything in it (core + every system). A beginner
-   never has to think about packages either way — the question is what the
-   dependency tree and bundle actually look like. **Recommended:** keep
-   ECS core + the systems every game plausibly needs (render, physics,
-   audio, input) in `@emptysock/engine`, but split genuinely optional heavy
-   modules — VN/Story Graph, battle system, tilemap/navmesh, visual
-   scripting — into their own `@emptysock/<module>` packages that the
-   project templates (§10.4) pull in by default so a beginner never runs an
-   install command themselves, but a 2D-platformer game never ships a
-   VN dialogue-box renderer in its bundle. Alternative: one package, always
-   everything — simpler mental model (there's only ever one thing to
-   install), but every game pays the bundle-size cost of every module
-   whether it uses it or not, in tension with §1.3 ("performance is not for
-   sale").
-2. **First build after `npm install`: how much is already working?**
-   **Recommended:** every template (§10.4) is a complete, runnable game the
-   moment it's scaffolded — hit run and something is genuinely on screen
-   (a moving player in the 2D/3D templates, a rendered dialogue box in VN, a
-   battle screen in RPG), not a blank canvas with comments explaining what
-   you'd add. This is the actual "brain-dead simple" test: does the very
-   first thing a beginner does (create project, hit run) produce something,
-   or a blank screen with homework. Alternative: scaffold structure and
-   wiring but leave the screen blank until the developer adds their first
-   entity — teaches the API faster since there's no scaffolded code to
-   read past, but the very first `npm run dev` shows nothing, which is a
-   worse first five minutes for exactly the audience this redesign is for.
-3. **Hot reload: how much state survives an edit?** v1 has a
-   `HotReloadSystem` already; worth deciding what it guarantees in v2 rather
-   than inheriting whatever it currently does. **Recommended:** component
-   _code_ (behavior, systems) hot-swaps without resetting the scene —
-   entity/component _data_ (positions, health, inventory) survives a reload
-   by default, so tweaking a jump-height constant or a collision handler
-   doesn't kick you back to the start of the level. A change to a
-   component's _shape_ (added/removed field) forces a full scene reload
-   for just the affected entities, with a clear console message naming why
-   (no silent partial-state corruption). Alternative: any edit triggers a
-   full scene reload — simpler to implement and reason about, but the
-   classic "tweak a number, lose five minutes of manual repositioning to
-   see it in context" cycle that makes hot reload feel pointless.
-4. **Type-safe scene/prefab authoring: hand-written TS, or a schema the IDE
-   generates types from?** The IDE's visual editors (Scene, Tilemap, UI
-   Placement) already produce serialized JSON today. **Recommended:** scene
-   and prefab files are JSON (or a JSON-like format) with a generated
-   `.d.ts` alongside them — so `scene.spawn(EnemyPrefab, ...)` autocompletes
-   the _actual_ props that prefab's components expose, regenerated
-   automatically whenever the IDE saves the file, whether or not the
-   developer ever opens the IDE (the toolchain's own build step does the
-   generation too, so a purely code-first, IDE-free workflow gets the same
-   types). Alternative: prefabs/scenes defined directly in TS as plain
-   objects/functions, no separate file format or generation step — one
-   fewer moving part, but then the IDE's visual editors have nothing to
-   read or write, which cuts against having visual editors at all.
+1. **Package boundary: core + optional module packages.** ECS core, render,
+   physics, audio, and input stay in `@emptysock/engine`. VN/Story Graph,
+   battle system, tilemap/navmesh, and visual scripting each become their
+   own `@emptysock/<module>` package. Project templates (§10.4) declare
+   whichever ones they need in the scaffolded `package.json` — a beginner
+   never runs an install command by hand — but a 2D platformer's bundle
+   never carries a dialogue-box renderer it doesn't use. Direct consequence
+   for §9's later-pass ordering: the toolchain's template scaffolding needs
+   to know, per template, which module packages to declare.
+2. **First run: blank canvas with wiring, not a pre-built running game —
+   your call, against my recommendation.** Templates scaffold structure and
+   systems (the right modules enabled, `Game`/`Scene` wired per §10.4's
+   template list) but leave the screen empty until the developer places
+   their first entity. I'd flagged the risk: the very first `npm run dev`
+   shows nothing, which is a rougher first five minutes for a total
+   beginner than seeing something move immediately. Your call stands as
+   written — if this creates a "why is my screen blank" support/docs burden
+   once real beginners hit it, the getting-started docs (§9, later pass)
+   need to open with "your screen is blank, here's why, here's your first
+   entity" as the very first page, not an afterthought.
+3. **Hot reload: code hot-swaps, entity/component data survives by
+   default.** Editing a behavior or system swaps the code without resetting
+   the running scene; positions, health, inventory, etc. persist across the
+   edit. A component _shape_ change (field added/removed) forces a full
+   reload of just the affected entities, with a console message naming
+   which component and why — no silent partial-state corruption. Tweaking
+   a jump-height constant doesn't cost you your position in the level.
+4. **Scene/prefab files: JSON with generated `.d.ts` types alongside.**
+   `scene.spawn(EnemyPrefab, ...)` autocompletes that prefab's actual
+   component props, regenerated on every IDE save and by the toolchain's
+   own build step (so a code-only, IDE-free workflow gets identical types).
+   This is also what makes the IDE's visual Scene/Tilemap/UI editors
+   possible at all — they need a file format to read and write, which plain
+   TS objects wouldn't give them.
+
+## 14. Open questions — round 5: assets, errors, extensibility
+
+Buildout/tooling is locked. Round 5 covers three things every "feature rich
+but foolproof" engine eventually gets judged on: how assets get from disk
+into the game, what a runtime error actually looks like to the person who
+hit it, and how someone builds and shares something the core engine doesn't
+ship — again with a recommendation stated up front on each.
+
+1. **Asset loading: implicit (import a path, engine handles it) or explicit
+   (a manifest/loader you call before use)?** v1 has `AssetManifest.ts`
+   already; worth deciding the actual developer-facing contract.
+   **Recommended:** `Sprite`'s `texture` prop (and the audio/model
+   equivalents) accepts a plain project-relative path and the engine loads
+   and caches it transparently the first time it's used — no manifest to
+   maintain by hand, no explicit "preload" step for the common case.
+   Power path: `assets.preload([...])` exists for a real loading-screen use
+   case (you want everything in memory before showing a level), returning
+   a promise you can show progress against — the same asset reference
+   either way, preloaded or not. Alternative: everything goes through an
+   explicit manifest/loader up front, always — more predictable memory
+   behavior and easier to reason about for a shipping game, but means even
+   a beginner's first sprite requires learning the loader before anything
+   shows up on screen, which is exactly the kind of upfront ceremony §1
+   is trying to eliminate.
+2. **Runtime errors: raw stack trace, or something engine-aware?** A
+   beginner's uncaught exception today is whatever V8/JSC prints — frames
+   through engine internals mixed in with their own code, `at Scene.update
+(Scene.ts:142)` noise between the two lines they actually wrote.
+   **Recommended:** an in-game/in-preview error overlay (the IDE already
+   has the surface for this — `ConsolePanel`/`DebugOverlaySystem`) that
+   shows the error message, the _game code_ frame that threw (filtered out
+   of engine-internal frames, not just top-of-stack), and which entity/
+   scene it happened in — with a raw "show full stack trace" toggle for
+   when the filtered view isn't enough. Matches §1's foolproof bar: the
+   default view answers "what broke and where in _my_ code," not "here is
+   every function call between the game loop and your bug." Alternative:
+   just let errors surface as normal JS exceptions in the console, same as
+   any other JS/TS project — zero engine-side work, but every beginner's
+   first real error is an intimidating wall of framework internals.
+3. **Third-party extensibility: what can a community package actually hook
+   into, safely?** `PluginSystem`/`pluginSystem.inject()` exists in v1 for
+   analytics/ads/achievements-style integrations, but nothing defines what
+   a plugin can and can't touch. **Recommended:** plugins register against
+   named extension points the engine explicitly exposes (a new component
+   type, a new system, a lifecycle hook like "before physics step" or
+   "on scene load") rather than getting a raw reference to internal engine
+   state — the same mechanism `@emptysock/vn`/`@emptysock/battle` (§13.1)
+   use to plug into core, so there's exactly one extension mechanism for
+   both "official module" and "community plugin," not two. Alternative:
+   plugins get direct access to engine internals (scene's raw entity
+   storage, the systems list) for maximum flexibility — more powerful for
+   an expert plugin author, but nothing stops a plugin from corrupting
+   state in ways that are exactly the kind of foolproof-by-default
+   violation §1 exists to prevent, and "which internals are safe to touch"
+   becomes tribal knowledge instead of a documented contract.
