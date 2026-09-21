@@ -111,6 +111,14 @@ Learned by testing the importer once, end to end, against a real full GameMaker 
 - `defaultScriptType: 1` does **not** reliably mean "uses GML Visual" — do not warn on it alone.
 - Real projects carry legacy GameMaker 8.1 DnD-compatibility symbols (`action_move`, `gml_pragma`, etc.) in compiled action lists — leave these untranspiled (surface as unresolved identifiers) rather than faking them.
 
+### rc-dock: newly enabled modules must be docked by anchor tab, not floated
+
+`openPanelInLayout` in `apps/ide/src/App.tsx` used to add a not-yet-present module tab with `layout.dockMove(factory(), null, "float")`, which always spawns rc-dock's floating-window fallback regardless of which tab group the module belongs to. The fix looks up an existing anchor tab for the module's group ("canvas" for main-panel modules, "assets" for bottom-panel modules) via `layout.find(anchorId)` and calls `layout.dockMove(factory(), anchorId, "middle")` to dock into that pane, falling back to float only if the anchor tab is missing. `closePanelInLayout` (`dockMove(tab, null, "remove")`) removes a module's tab when it's disabled — toggling a module off used to leave its tab dangling. Any future "enable an optional panel at runtime" feature must dock against an anchor tab this way, never call `dockMove` with a `null` target and `"float"` direction for a tab that has a real home.
+
+### Monaco resolves `@emptysock/engine` via one ambient module block, not per-file extra libs
+
+The bundled Monaco TypeScript worker only supports `ModuleResolutionKind.Classic | NodeJs`, which cannot resolve the bare specifier `@emptysock/engine` from a pile of per-file `addExtraLib` entries at `file:///node_modules/@emptysock/engine/**` (this produced `TS2792: Cannot find module`, cascading into false "Property X does not exist" errors on every inherited method). `engineTypesPlugin` in `apps/ide/vite.config.ts` instead flattens `packages/engine/dist-types/**/*.d.ts` into synthetic ambient modules (`declare module "@emptysock/engine/__internal/<path>" { ... }`, with every relative specifier rewritten to the matching synthetic name) and re-exports them all through one `declare module "@emptysock/engine" { export * from "@emptysock/engine/__internal/index"; }` block. Ambient declarations for a bare specifier are looked up by name directly, bypassing module resolution entirely. If `packages/engine`'s public type surface changes shape (e.g. new subpath exports), this flattening logic in `engineTypesPlugin` needs to know about the new entry points, not just the dist-types glob.
+
 ### MCP server has no 3D physics tool
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
