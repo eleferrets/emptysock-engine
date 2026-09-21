@@ -194,7 +194,7 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       is the v2-aware query/command channel §8 calls for — a separate, narrower
       thing from `core/IDEBridge.ts` (that stays a v1 `postMessage` broadcast;
       `QueryChannel` is a synchronous request/response call, `handle(query):
-  EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
+EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
       transport-agnostic by design (same pattern as `Transport`/
       `StorageAdapter`): `@emptysock/engine` never touches a socket, only
       `attach(scene, physics)`/`detach()`/`handle(query)`. Supported query
@@ -268,8 +268,15 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       transpiler untranspiled/verbatim rather than being faked. Existing
       tests already used realistic trailing-comma fixtures, so no change
       was needed there.
-- [ ] Repo-wide: adopt changesets (§20) before the module-package split
-      (Track 2) creates more packages to version by hand.
+- [x] Repo-wide: adopt changesets (§20) before the module-package split
+      (Track 2) creates more packages to version by hand. Done:
+      `access: restricted` (every package, including the new
+      `@emptysock/{vn,battle,tilemap}` split from Track 2, is still
+      `private: true` with no npm publish config found anywhere), `ignore:
+    ["@emptysock/ide"]` (it's the Tauri app, not a published package —
+      the workspace glob `packages/*` already auto-discovers every other
+      package, split or not, with no extra config needed). No version
+      bumps were made; root scripts `changeset`/`version`/`release` added.
 - [ ] **Newly discovered follow-up (GMS2 importer audit, not fixed here —
       needs its own dedicated pass):** remove or wire up the second, unwired
       GMS2-object-to-TypeScript implementation in
