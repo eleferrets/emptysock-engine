@@ -210,39 +210,30 @@ The `public/manifest.webmanifest` file contains the app name, theme color (`#7c6
 
 ## 7.14 Visual Script Editor
 
-A node graph panel for wiring component logic without writing TypeScript. Nodes represent entities, components, events, and operations; edges represent data or control flow between them.
+The panel has two modes, switched with the tabs at the top of the panel:
+
+- **Scene Scaffold** — a node graph for sketching a scene's entity/component tree (Scene → Entity → Component nodes). "Export Code" generates a starter `Scene` subclass from the graph; it is a code-scaffolding aid, not a runtime graph.
+- **Logic Script** — authors a real `VisualScriptGraph`, the exact shape `VisualScriptComponent` (`packages/engine/src/components/VisualScriptComponent.ts`) interprets at runtime. Anything built here can be dropped straight into `new VisualScriptComponent({ graph })` with zero translation — the panel's save path (`toVisualScriptGraph()` in `visual-script/logicHelpers.ts`) is proven equal to the code-first `VisualScriptGraphBuilder` output by test (`apps/ide/src/__tests__/logicScriptGraph.test.ts`).
 
 **Opening the panel:** Drag the Visual Script Editor tab from the tab bar into a docked pane, or open it via View → Panels → Visual Script Editor.
 
-**Canvas controls:**
+**Logic Script canvas controls:**
 
-| Action          | Input                                     |
-| --------------- | ----------------------------------------- |
-| Pan             | Middle-click drag, or Space + drag        |
-| Zoom            | Scroll wheel                              |
-| Select node     | Click                                     |
-| Multi-select    | Shift-click or drag a selection box       |
-| Move nodes      | Drag selected nodes                       |
-| Delete selected | `Delete` or `Backspace`                   |
-| Connect ports   | Drag from an output port to an input port |
-| Disconnect      | Click a connected port and drag off       |
+| Action          | Input                                                |
+| --------------- | ---------------------------------------------------- |
+| Zoom            | Ctrl/Cmd + scroll wheel                              |
+| Select node     | Click                                                |
+| Move node       | Drag                                                 |
+| Delete selected | `Delete` or `Backspace` (when not editing a field)   |
+| Connect ports   | Click an output port, then click a target input port |
+| Disconnect      | Click the connection line                            |
+| Undo / redo     | `Ctrl+Z` / `Ctrl+Shift+Z`                            |
 
-**Adding nodes:**
+**Node palette:** `On Update`, `On Event`, `Sequence`, `Branch`, `Get Variable`, `Set Variable`, `Get Switch`, `Set Switch`, `Send Message` — added from the "+ Node" picker in the toolbar. `Branch` nodes expose two output ports (`true`/`false`). Selecting a node opens its property panel on the right for kind-specific fields (comparator, variable/switch index, target actor id, and so on).
 
-Right-click the canvas (or press `Tab`) to open the node picker. Categories:
+**Saving:** The graph and each node's canvas position are kept in `logicScriptStore.ts` (Zustand) as the source of truth, synced on every edit. Canvas position is editor-only state — the graph handed to `VisualScriptComponent` never carries `x`/`y`.
 
-- **Entity** — `Get Entity`, `Create Entity`, `Destroy Entity`
-- **Component** — `Add Component`, `Get Component`, `Set Property`, `Get Property`
-- **Events** — `On Update`, `On Collision Enter`, `On Message`
-- **Flow** — `Branch` (if/else), `Sequence`, `For Each`
-- **Math** — `Add`, `Subtract`, `Multiply`, `Compare`, `Lerp`
-- **Output** — `Log`, `Play Audio`, `Load Scene`
-
-**Edges:** A yellow edge carries a control-flow signal (execution order). A white edge carries a data value. Ports are colour-coded by type — connecting incompatible types shows a red error indicator on the edge.
-
-**Saving:** The graph is saved as a `.esvs` JSON file. Use the **Save** button in the toolbar or `Ctrl+S`. The saved file can be referenced by the engine as a component behaviour via `VisualScriptComponent`.
-
-**Limitations:** Visual scripts run through a graph interpreter at runtime — expect ~10× slower execution than native TypeScript for hot paths (e.g., heavy per-frame computation). Use TypeScript for performance-critical logic; use visual scripts for event-driven, low-frequency logic (cutscenes, dialogue triggers, UI flows).
+**Limitations:** Visual scripts run through a graph interpreter at runtime — expect slower execution than native TypeScript for hot paths (e.g., heavy per-frame computation). Use TypeScript for performance-critical logic; use Logic Script for event-driven, low-frequency logic (cutscenes, dialogue triggers, UI flows).
 
 ---
 

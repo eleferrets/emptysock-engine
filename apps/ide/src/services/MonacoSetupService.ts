@@ -12,6 +12,11 @@
  */
 
 import type * as Monaco from "monaco-editor";
+// monaco-editor@0.56 restructured its package: the root `monaco.d.ts` no
+// longer carries the TypeScript-language-service namespace (`languages.typescript`
+// there is now a `{ deprecated: true }` stub). The real types live in this
+// subpath instead — see the "Monaco typings" note in RELEASE_PASS.md.
+import type * as MonacoTS from "monaco-editor/languages/features/typescript/register.js";
 
 // Property key → short description, shown in hover tooltips on resource files.
 const RESOURCE_KEY_DOCS: Record<string, string> = {
@@ -76,13 +81,22 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
   if (_setupDone) return;
   _setupDone = true;
 
+  // Runtime object is unchanged by the 0.56 restructuring — only its type
+  // position moved. Cast once, here, to the real subpath types instead of
+  // scattering `as any`/`@ts-expect-error` at every call site.
+  const ts = monaco.languages.typescript as unknown as typeof MonacoTS;
+
   // --- TypeScript / JavaScript compiler options for game developers ----------
   // Strict but not overwhelming — no noUncheckedIndexedAccess etc.
-  const tsOpts: Monaco.languages.typescript.CompilerOptions = {
+  // Note: this register.d.ts's ScriptTarget enum tops out at ESNext (no ES2024
+  // member exists here) — this only affects the editor's live diagnostics,
+  // not the real build target, which stays ES2024 in GameBuildService per
+  // RELEASE_PASS.md's "ES target is es2024 everywhere" decision.
+  const tsOpts: MonacoTS.CompilerOptions = {
     strict: true,
-    target: monaco.languages.typescript.ScriptTarget.ES2024,
-    module: monaco.languages.typescript.ModuleKind.ESNext,
-    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    target: ts.ScriptTarget.ESNext,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeJs,
     allowJs: true,
     checkJs: false,
     allowSyntheticDefaultImports: true,
@@ -90,15 +104,15 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
     experimentalDecorators: true,
   };
 
-  monaco.languages.typescript.typescriptDefaults.setCompilerOptions(tsOpts);
-  monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+  ts.typescriptDefaults.setCompilerOptions(tsOpts);
+  ts.javascriptDefaults.setCompilerOptions({
     ...tsOpts,
     checkJs: true,
     strict: false, // JS files get lighter checking — devs new to types deserve a break
   });
 
-  monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
-  monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
+  ts.typescriptDefaults.setEagerModelSync(true);
+  ts.javascriptDefaults.setEagerModelSync(true);
 
   // --- Engine type declarations (game-developer-facing only) ----------------
   // virtual:engine-types is generated at build time from packages/engine/dist-types/
@@ -108,8 +122,8 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
   };
 
   for (const [uri, content] of Object.entries(libs)) {
-    monaco.languages.typescript.typescriptDefaults.addExtraLib(content, uri);
-    monaco.languages.typescript.javascriptDefaults.addExtraLib(content, uri);
+    ts.typescriptDefaults.addExtraLib(content, uri);
+    ts.javascriptDefaults.addExtraLib(content, uri);
   }
 
   // --- EmptySock resource file language -------------------------------------
