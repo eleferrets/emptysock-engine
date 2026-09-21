@@ -60,20 +60,33 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
 
 ### Track 1 — parallel, independent of each other, depends only on Track 0 (done)
 
-- [ ] **Physics.** `PhysicsBody` component, `PhysicsSystem`/`PhysicsSystem3D`
-      wrapping Rapier2D/3D, `onCollide` as a plain property (§6), fixed
-      timestep + interpolation (§10.3), the opt-in deterministic build swap
-      via `@dimforge/rapier{2,3}d-deterministic-compat` (§15.2/§23 audit).
-      Wire the real physics step + collision dispatch into `Game.update()`'s
-      steps 3/4 (currently no-op placeholders, see `v2/Game.ts`).
+- [x] **Physics.** Done — `v2/components/PhysicsBody.ts` (data component +
+      `getPhysicsBody()` callback-handle wrapper), `v2/systems/PhysicsSystem.ts`
+      (2D, wired into `Game.update()` steps 3/4 and `loadScene`/`unloadScene`
+      lifecycle) and `v2/systems/PhysicsSystem3D.ts` (3D, ported from v1's
+      handle-based API, not ECS-wired — see its file doc for why). Fixed
+      timestep + `interpolationAlpha`/`getInterpolatedTransform` per §10.3;
+      `Game.create({ deterministic: true })` swaps in
+      `@dimforge/rapier{2,3}d-deterministic-compat` (added as
+      `optionalDependencies`) per §15.2. Deviation: PhysicsSystem3D is not
+      auto-wired into `Game`'s lifecycle (`SceneLifecycle` only has one
+      physics slot) — a 3D game constructs/owns it directly. Tests in
+      `src/__tests__/v2/physics.test.ts`.
 - [ ] **Rendering.** `Sprite`/render components wrapping Pixi, `RenderPipeline`
       defaulting to the WebGL renderer (§18 audit finding), overlay scenes
       (`Game.loadOverlay`, §12.3). Wire the real render step into
       `Game.update()`'s step 7 (currently a no-op placeholder).
-- [ ] **Input + Audio.** Action-mapping input layer with raw per-device
-      escape hatch (§15.3); Howler-backed audio wrapper (confirmed still
-      correct, §18). Wire the input snapshot into `Game.update()`'s step 1
-      (currently a no-op placeholder).
+- [x] **Input + Audio.** `v2/Input.ts`'s `InputManager` (game-owned, not
+      scene-owned) gives `input.isDown("action")` action-mapping over
+      `input.keyboard`/`input.gamepad(n)`/`input.touches` raw escape hatches
+      (§15.3); `Game.update()` step 1 now calls `input.snapshot()` first,
+      unconditionally, freezing device state for the rest of that frame.
+      `game.audio`/`SceneLifecycle.audio` wires v1's `AudioSystem`
+      (Howler-backed, unchanged) onto `Game` as a persistent singleton — no
+      per-entity audio component exists in v1 to migrate, so no
+      `defineComponent` work was needed here. See CLAUDE.md's "Input
+      snapshot: frozen by copy, not by timing" and "Audio stays a
+      Game-owned singleton" entries for the durable rationale.
 - [x] **Services + Save system.** Typed `game.services` registry (§5);
       `SaveSystem` with automatic per-runtime-target backend (IndexedDB/Tauri
       fs) and the per-component `migrate()` hook (§19.3) — build on the

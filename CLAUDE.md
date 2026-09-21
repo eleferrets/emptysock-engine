@@ -218,7 +218,7 @@ anything called `InputSystem`'s internals directly instead of through the
 frozen copy (and does not hold at all for the headless test-injection path
 below, which calls into `InputSystem` synchronously, same tick, deliberately
 mid-"frame" to prove the freeze holds). Copy-based freezing makes the
-guarantee independent of *how* something tries to change input mid-frame,
+guarantee independent of _how_ something tries to change input mid-frame,
 not just "how fast the OS can deliver an event".
 
 Headless/testing input injection is non-DOM on purpose:
@@ -246,6 +246,38 @@ scene-scoped sound (stop this scene's sfx/music on unload) does it
 explicitly from that scene's own `onUnload` (e.g. `audio.stop(id)` or
 `audio.unloadAll()`) — the engine does not guess at which sounds "belong"
 to which scene.
+
+### v2 PhysicsBody callbacks live in a side-table, not the component's fields
+
+`v2/defineComponent<T extends SerializableRecord>` rejects a shape with a
+function field at the type level (`v2/Serializable.ts`) — deliberately, so a
+component made only of `Serializable` fields can be saved/loaded generically
+later. `PhysicsBody`'s `onCollisionEnter`/`onSensorEnter`/etc. are exactly
+the kind of field that constraint exists to keep out, so they cannot live in
+`PhysicsBody`'s own defaults object. `v2/components/PhysicsBody.ts` instead
+keeps a `WeakMap<World, Map<eid, callbacks>>` side-table (the same per-world
+scoping pattern `ComponentRegistry` already uses) and hands out a `Proxy` via
+`getPhysicsBody(entity)` that reads/writes the real component for ordinary
+fields and the side-table for the five callback properties — so
+`getPhysicsBody(entity).onCollisionEnter = fn` still reads as "assigning is
+the registration" (CLAUDE.md's "Collision/sensor callbacks" decision,
+carried into v2) even though the callback and the data never share storage.
+`PhysicsSystem` dispatches by reading the side-table directly
+(`getPhysicsCallbacks`), not through the proxy. A future component that
+wants a callback-shaped property should use the same pattern rather than
+loosening `SerializableRecord`.
+
+### v2 physics: deterministic Rapier build is imported via a non-literal specifier
+
+`PhysicsSystem.init()`/`PhysicsSystem3D.init()` choose between
+`@dimforge/rapier{2,3}d-compat` and the `-deterministic-compat` build with
+`await import(moduleName)` where `moduleName` is a runtime string, not a
+literal. A literal `import("@dimforge/rapier2d-deterministic-compat")` would
+make TypeScript (and any bundler resolving imports at build time) treat the
+deterministic build as a hard dependency of `@emptysock/engine`, which
+defeats the point of it being `optionalDependencies` (§15.2 — most games
+never install it and shouldn't pay for it, including at install/bundle
+time). Keep this non-literal if the deterministic swap logic ever moves.
 
 ### MCP server has no 3D physics tool
 
