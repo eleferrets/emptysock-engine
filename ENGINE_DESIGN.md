@@ -437,58 +437,51 @@ noted below, not silently overridden.
    possible at all — they need a file format to read and write, which plain
    TS objects wouldn't give them.
 
-## 14. Open questions — round 5: assets, errors, extensibility
+## 14. Decisions locked from review round 5
 
-Buildout/tooling is locked. Round 5 covers three things every "feature rich
-but foolproof" engine eventually gets judged on: how assets get from disk
-into the game, what a runtime error actually looks like to the person who
-hit it, and how someone builds and shares something the core engine doesn't
-ship — again with a recommendation stated up front on each.
+1. **Asset loading: two tiers, not one — build-time assets auto-preload
+   from the scene file, runtime-external assets are explicit and
+   explicitly not batched.** My original framing conflated two different
+   things; splitting them is the actual answer:
+   - **Build-time assets** (the beginner/common case — everything your game
+     ships with) are referenced by plain project-relative path
+     (`sprite: "hero.png"`). Because scene/prefab files are JSON (§13.4),
+     the engine can read a scene's full asset list _before_ activating it
+     and preload everything that scene references automatically — no
+     manifest to hand-maintain, no pop-in, no explicit preload call for the
+     common case, because the "manifest" is just whatever the scene file
+     already says it uses. These assets get packed into build-time texture
+     atlases by the toolchain (real batching, like Pixi's spritesheet
+     packing) — this is also where multi-frame sprites' PNGs get packed
+     together, same idea as v1's GMS2-importer sprite handling.
+   - **Runtime-external assets** — content not known at build time: mods,
+     user uploads, a downloaded skin pack — load through an explicit
+     `assets.loadExternal(pathOrUrl)` call, same shape as GameMaker's
+     `sprite_add()`. This is the honest, named escape hatch for exactly the
+     case you flagged: an externally-loaded sprite cannot be packed into
+     the build-time atlas (it didn't exist at build time), so it gets its
+     own texture page and its own draw call — real batching cost, same
+     tradeoff GameMaker's own docs warn about for `sprite_add`. We don't
+     pretend this is free; the API name (`loadExternal`, not just `load`)
+     and its docs say plainly "this can't be batched with your bundled
+     assets" rather than hiding the cost.
+   - Net effect: the zero-effort default has no pop-in (it's preloaded
+     because the engine already knows what a scene needs), and the
+     "GameMaker `sprite_add`"-shaped need is still there, named
+     accurately, with its real performance cost documented instead of
+     silently eaten or silently hidden.
 
-1. **Asset loading: implicit (import a path, engine handles it) or explicit
-   (a manifest/loader you call before use)?** v1 has `AssetManifest.ts`
-   already; worth deciding the actual developer-facing contract.
-   **Recommended:** `Sprite`'s `texture` prop (and the audio/model
-   equivalents) accepts a plain project-relative path and the engine loads
-   and caches it transparently the first time it's used — no manifest to
-   maintain by hand, no explicit "preload" step for the common case.
-   Power path: `assets.preload([...])` exists for a real loading-screen use
-   case (you want everything in memory before showing a level), returning
-   a promise you can show progress against — the same asset reference
-   either way, preloaded or not. Alternative: everything goes through an
-   explicit manifest/loader up front, always — more predictable memory
-   behavior and easier to reason about for a shipping game, but means even
-   a beginner's first sprite requires learning the loader before anything
-   shows up on screen, which is exactly the kind of upfront ceremony §1
-   is trying to eliminate.
-2. **Runtime errors: raw stack trace, or something engine-aware?** A
-   beginner's uncaught exception today is whatever V8/JSC prints — frames
-   through engine internals mixed in with their own code, `at Scene.update
-(Scene.ts:142)` noise between the two lines they actually wrote.
-   **Recommended:** an in-game/in-preview error overlay (the IDE already
-   has the surface for this — `ConsolePanel`/`DebugOverlaySystem`) that
-   shows the error message, the _game code_ frame that threw (filtered out
-   of engine-internal frames, not just top-of-stack), and which entity/
-   scene it happened in — with a raw "show full stack trace" toggle for
-   when the filtered view isn't enough. Matches §1's foolproof bar: the
-   default view answers "what broke and where in _my_ code," not "here is
-   every function call between the game loop and your bug." Alternative:
-   just let errors surface as normal JS exceptions in the console, same as
-   any other JS/TS project — zero engine-side work, but every beginner's
-   first real error is an intimidating wall of framework internals.
-3. **Third-party extensibility: what can a community package actually hook
-   into, safely?** `PluginSystem`/`pluginSystem.inject()` exists in v1 for
-   analytics/ads/achievements-style integrations, but nothing defines what
-   a plugin can and can't touch. **Recommended:** plugins register against
-   named extension points the engine explicitly exposes (a new component
-   type, a new system, a lifecycle hook like "before physics step" or
-   "on scene load") rather than getting a raw reference to internal engine
-   state — the same mechanism `@emptysock/vn`/`@emptysock/battle` (§13.1)
-   use to plug into core, so there's exactly one extension mechanism for
-   both "official module" and "community plugin," not two. Alternative:
-   plugins get direct access to engine internals (scene's raw entity
-   storage, the systems list) for maximum flexibility — more powerful for
-   an expert plugin author, but nothing stops a plugin from corrupting
-   state in ways that are exactly the kind of foolproof-by-default
-   violation §1 exists to prevent, and "which internals are safe to touch"
-   becomes tribal knowledge instead of a documented contract.
+2. **Runtime errors: engine-aware overlay, accepted as recommended.** An
+   in-preview/in-game error overlay shows the message, the game-code frame
+   that threw (engine-internal frames filtered out, not just top-of-stack),
+   and which entity/scene it happened in, with a raw "show full stack
+   trace" toggle underneath for when the filtered view isn't enough. Built
+   on the IDE's existing `ConsolePanel`/`DebugOverlaySystem` surface.
+3. **Third-party plugins: named extension points, accepted as
+   recommended.** Plugins register against explicit hooks the engine
+   exposes (a new component type, a new system, a lifecycle hook like
+   "before physics step" or "on scene load") — never a raw reference to
+   internal engine state. This is the same mechanism official modules
+   (`@emptysock/vn`, `@emptysock/battle`, §13.1) use to plug into core, so
+   there's exactly one extension mechanism total, not a separate "official"
+   path and "community" path.
