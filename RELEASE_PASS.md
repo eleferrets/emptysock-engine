@@ -130,8 +130,21 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
 
 ### Track 2 — depends on Track 1 substantially landing (mainly rendering + the frozen core API)
 
-- [ ] **Visual scripting.** Nodes compile to literal calls against the same
-      public API Track 0/1 produced (§12.2) — needs that API stable first.
+- [x] **Visual scripting.** `packages/engine/src/systems/VisualScriptCompiler.ts`
+      compiles a `VisualScriptGraph` (the existing v1 shape the Visual Script
+      Editor's Logic Script tab authors — `VariableStore`/`ActorSystem` calls,
+      not entity/component ones, since that's what the graph format actually
+      models) into literal JS calling `VariableStore`/`ActorSystem` directly
+      (`ctx.variables.setVar(1, 5)`, `ctx.actorSystem.send("target", {...})`),
+      not a generic node interpreter re-implementation. `VisualScriptComponent`
+      (the interpreter) is kept, not replaced — it's still the default,
+      compiling is opt-in via the new `CompiledVisualScriptComponent`, a
+      drop-in with the same public shape. Tests compile a representative
+      graph slice, check `ts.transpileModule` diagnostics, and — the one that
+      actually proves §12.2 — eval the emitted code and assert it produces
+      identical `VariableStore`/`ActorSystem` side effects to the interpreter
+      for the same graph. IDE wiring (an "Export Compiled JS" button next to
+      the existing "Export Code" one) is a noted follow-up, not done here.
 - [ ] **Module packages.** Split VN/Story Graph, battle system,
       tilemap/navmesh into their own `@emptysock/<module>` packages (§13.1).
       Each of these can itself be a further-parallel sub-track once rendering
@@ -223,7 +236,7 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       `typedoc.json` uses `entryPointStrategy: "expand"` with entry points
       globbed as `packages/*/src/index.ts` so new workspace packages (e.g.
       the VN/battle/tilemap split) are picked up automatically; `pnpm run
-    docs:generate` runs it. Verified: it runs clean (no errors) against
+  docs:generate` runs it. Verified: it runs clean (no errors) against
       today's real packages (engine, types, toolchain, network, battle,
       tilemap, vn, export-utils) and produces correct Markdown pages with
       real class/method signatures, falling back sensibly on exports that

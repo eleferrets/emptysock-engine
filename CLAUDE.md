@@ -203,7 +203,7 @@ Wiring `generatePrefabTypes` into an actual IDE auto-save hook or a
 
 ### Input snapshot: frozen by copy, not by timing
 
-ENGINE_DESIGN.md §4 step 1 requires input "polled once, frozen for the
+ENGINE*DESIGN.md §4 step 1 requires input "polled once, frozen for the
 frame". `v2/Input.ts`'s `InputManager.snapshot()` (called once, first, by
 `Game.update()`) does this by making an actual copy — `keys:
 input.snapshotKeys()` (a fresh `Map`), a fresh `Map` of every gamepad's
@@ -218,7 +218,7 @@ anything called `InputSystem`'s internals directly instead of through the
 frozen copy (and does not hold at all for the headless test-injection path
 below, which calls into `InputSystem` synchronously, same tick, deliberately
 mid-"frame" to prove the freeze holds). Copy-based freezing makes the
-guarantee independent of _how_ something tries to change input mid-frame,
+guarantee independent of \_how* something tries to change input mid-frame,
 not just "how fast the OS can deliver an event".
 
 Headless/testing input injection is non-DOM on purpose:
@@ -316,6 +316,34 @@ renderer is attached" and "this scene wasn't loaded with `headless: true`" —
 belt-and-suspenders, since a `HeadlessGame` never calls `attachRenderer` at
 all, but the second check means it stays safe even if something did.
 
+### Visual script compilation: per-node cases, not a re-implemented interpreter
+
+`VisualScriptCompiler.compileVisualScriptGraph` turns a `VisualScriptGraph`
+into a JS module string via `new Function("module", "exports", "console",
+source)`, not a bundler/transpile step, so it can compile and load in one
+call inside the engine package with zero new build tooling. The graph format
+it targets is the _existing_ v1 shape (`VariableStore` get/set var/switch,
+`ActorSystem.send`) because that is genuinely what the Visual Script
+Editor's Logic Script tab authors today — the graph has no entity/component
+or `scene.spawn` node kinds at all, so there was no "v1 vs v2 API" choice to
+make for this pass; compiling to v2 calls would mean inventing new node
+kinds, which is out of scope for a compiler over the existing format.
+
+The emitted code is a `switch` inside a `while (__next !== undefined)` loop
+keyed on node id, not straight-line code, because a `VisualScriptGraph` can
+legally contain a cycle (see `VisualScriptComponent.test.ts`'s "does not
+loop forever" case) and straight-line generated code cannot represent one.
+This is still compiled output, not an interpreter: each `case` is the one
+specific statement for that one node with its field values baked in as
+literals at compile time (`ctx.variables.setVar(1, 5)`, never a generic
+`execute(node)` call reading `node.kind` at runtime) — only the _dispatch
+shape_, not the per-node logic, is shared with the interpreter's loop.
+`VisualScriptComponent` (the interpreter) is unchanged and stays the
+default runtime path; `CompiledVisualScriptComponent` is an opt-in, same-
+shape drop-in for games that want to ship compiled logic instead. Both are
+tested against each other node-by-node so they can never silently diverge
+in behaviour.
+
 ### MCP server has no 3D physics tool
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
@@ -358,6 +386,8 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 **Undo / redo is mandatory in every panel that mutates editor data.** Use a shared `useHistory<T>` hook that snapshots state before each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Wire `Ctrl+Z` / `Ctrl+Shift+Z` globally. Cap history at 50 steps per panel (session-only, never persisted). Monaco has its own per-file undo stack — do not replace it. Every panel added going forward must ship with undo/redo on day one, not as a follow-up.
 
 **Naming:** TypeScript files use PascalCase for classes and camelCase for modules. Tauri commands in lib.rs use snake_case. CSS variables use the `--es-` prefix to avoid collisions with third-party stylesheets.
+
+**Versioning:** the monorepo uses [changesets](https://github.com/changesets/changesets) (`.changeset/`) to track package version bumps. Run `pnpm changeset` when your PR changes a published package's public behavior, following the prompts to pick a bump type and write a summary. `apps/ide` is excluded (it's an app, not a published package). All packages are currently `private: true`, so `access: restricted` is the default in `.changeset/config.json` until one is actually published to npm.
 
 ---
 
