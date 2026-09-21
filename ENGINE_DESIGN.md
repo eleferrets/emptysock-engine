@@ -646,19 +646,13 @@ obvious answer:**
   which is exactly the "don't reinvent" tradeoff §1.4 cares about, just
   pointing the other way this time.
 
-1. **Keep Colyseus as the sole `@emptysock/network` backend, or support
-   both — Colyseus for self-hosted/full-control, PartyKit for zero-ops
-   edge deployment?** **Recommended: keep Colyseus only, for now.**
-   Supporting both means designing `@emptysock/network`'s API to abstract
-   over two genuinely different backends (a persistent Node room-server
-   model vs. an edge-deployed Worker model) before either integration has
-   even been built once — real design risk of an abstraction that fits
-   neither well. Ship Colyseus first (it's the more game-purpose-built of
-   the two, per §1.4), and treat a PartyKit backend as a candidate for a
-   _second_ `@emptysock/network` transport once the first one is real and
-   the abstraction boundary is known from experience rather than guessed
-   at up front. Alternative: design for both from day one — genuinely
-   better if "no server to host" turns out to matter a lot to the target
-   beginner audience, but speculative multi-backend design before either
-   backend is proven is a real historical source of over-engineered
-   abstractions that fit their first use case badly.
+**Decision, accepted as recommended: Colyseus stays the sole
+`@emptysock/network` backend for now.** Designing the package's API to
+abstract over two genuinely different backend models (Colyseus's
+persistent Node room-server vs. PartyKit's edge-deployed Worker) before
+either has been built once would be real design risk of an abstraction
+that fits neither well. Ship Colyseus first — it remains the more
+game-purpose-built of the two (rooms, matchmaking, schema sync out of the
+box, per §1.4) — and treat a PartyKit backend as a candidate _second_
+`@emptysock/network` transport once the first is real and the abstraction
+boundary is known from experience rather than guessed at up front.
