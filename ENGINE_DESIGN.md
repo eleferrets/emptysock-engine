@@ -269,7 +269,54 @@ for this pass is an audit: confirm every documented GMS2 2.3+ import path
 (events, room layers, sprites, action-list transpilation) is actually wired
 end-to-end, not stubbed anywhere in the chain.
 
-## 10. Open questions — need your call before I write code
+## 10. Decisions locked from review round 1
+
+1. **Component inspector metadata: co-located optional schema, not
+   decorators.** `Health.schema = { hp: "number" }` sits next to the plain
+   class, read by the IDE's Inspector if present; a component with no schema
+   still works everywhere, it just gets a raw-JSON fallback editor instead of
+   a generated one. Decorators were rejected because they add required
+   ceremony to every component and don't work in plain JS without a build
+   step — both contradict §1/§3 and the JS decision below. No component ever
+   _needs_ a schema to function; it's a docs/tooling nicety a schema turns on.
+2. **JavaScript stays first-class, TypeScript is recommended, not required.**
+   Both compile/run against the same API — no separate "simple" surface for
+   JS. TS users get the full compile-time guarantees in §4 (e.g. `async
+onUpdate` as a type error); JS users lose the compile-time check but get a
+   dev-mode runtime warning instead (the engine checks whether `onUpdate`'s
+   return value has a `.then` and logs a loud console warning naming the
+   entity/scene) — degraded, not silent. A JS-authored library imported into
+   a TS project (or vice versa) must work via standard `allowJs`/`checkJs`
+   interop; this is a hard constraint on every public engine type, not an
+   afterthought.
+3. **Fixed-timestep physics + interpolated rendering, for both 2D and 3D.**
+   Deterministic, no low-framerate tunneling, matches what Rapier expects.
+   3D is not held to the same "hide everything" bar as 2D (3D game
+   programming has an inherent floor of complexity no engine API removes),
+   but it gets the same treatment as 2D otherwise: plain-language wrapper
+   types over Rapier's own — verbose where verbose aids clarity, never
+   verbose in a way that leaks Rapier handles/descriptors into game code.
+4. **No single scaffold — the "new project" flow offers templates.** At
+   minimum: empty scene, base 2D, base 3D, base VN (Story Graph module
+   enabled), base RPG (BattleSystem + TilemapSystem + presumably ActorSystem
+   enabled for NPC/dialogue message-passing — see below). "Cares for
+   everything out of the box" is split cleanly: the _engine's_ defaults are
+   good regardless of template (no template can turn off automatic
+   lifecycle ownership), and the _template_ decides how much starter content
+   a new project sees. This also means `emptysock-toolchain new` needs a
+   `--template` flag / interactive picker, which is new toolchain scope, not
+   just an engine-package concern.
+
+   **What `ActorSystem` is, since it came up:** message-passing between
+   entities that shouldn't hold direct references to each other —
+   `actor.send(otherId, { type: "damage", amount: 10 })` instead of one
+   entity reaching into another's fields directly. It's a scene-scoped event
+   bus, most relevant to RPG/VN-shaped games (NPC dialogue triggers, quest
+   state changes, turn-based battle messaging) and less obviously needed in
+   a straight platformer/arcade template — a reasonable default is: on for
+   the VN and RPG templates, off (but one import away) for 2D/3D/empty.
+
+## 11. Open questions — round 2
 
 1. **Top-level entry point naming.** §4 calls it `Game` (`Game.loadScene`,
    `game.services`). v1 doesn't have an equivalent — `SceneManager` is the
@@ -282,14 +329,20 @@ end-to-end, not stubbed anywhere in the chain.
    nested/composable scenes in v2 at all, or is a flat scene + a plain
    "spawn a prefab (a plain data/function template, not a nested scene)"
    mechanism enough?
-3. **Fixed vs variable physics timestep.** v1 doesn't document which Rapier
-   uses today. v2 should pick deliberately: fixed-timestep physics with
-   interpolated rendering (smoother, more standard, slightly more complex to
-   implement) vs. variable-timestep tied to the render loop (simpler,
-   more prone to the classic tunneling/jitter issues at low framerate).
-4. **How opinionated should the default project template be?** i.e. does
-   `emptysock-toolchain new` scaffold a fuller starter (player controller,
-   camera follow, a sample scene already wired) so a total beginner has
-   something running in one command, or a minimal empty scene so there's
-   nothing to un-learn? This affects how much of "cares for everything out
-   of the box" is engine-level defaults vs. project-template-level scaffolding.
+3. **Is the raw ECS query surface (§3's "power path") a good idea to expose
+   at all, or does it undermine "foolproof by default"?** A beginner poking
+   around autocomplete will find `scene.query(...)` sitting right next to
+   `entity.get(...)` with no signal that one is the 95%-of-the-time path and
+   the other is an optimization for thousands-of-entities cases. Do we want
+   it visible by default, tucked under a separate import
+   (`from "@emptysock/engine/advanced"`) so it doesn't show up until someone
+   goes looking, or something else?
+4. **Networking ambition.** v1's `NetworkActor`/`Transport` is a thin
+   interface — the engine ships zero concrete transport and zero netcode
+   (no state sync, no rollback, no reconciliation). Does "the engine cares
+   for everything out of the box" extend to multiplayer at all in v2, or
+   does networking stay explicitly "bring your own transport and your own
+   sync strategy," same as v1, with the interface just cleaned up? Real
+   netcode (rollback, interpolation, authority) is a massive scope increase
+   if you want it — worth saying no to explicitly if the answer is no,
+   rather than leaving it ambiguous.
