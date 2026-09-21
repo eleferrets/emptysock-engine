@@ -485,3 +485,65 @@ noted below, not silently overridden.
    (`@emptysock/vn`, `@emptysock/battle`, §13.1) use to plug into core, so
    there's exactly one extension mechanism total, not a separate "official"
    path and "community" path.
+
+## 15. Open questions — round 6: testing, determinism, input
+
+Twenty decisions locked across five rounds. Round 6 covers three areas that
+separate a hobby engine from one professionals would actually ship with:
+how a game gets tested without a real renderer, whether "same inputs, same
+outputs" is a promise or an accident, and how unified input handling is
+across keyboard/gamepad/touch. Recommendation stated up front on each, as
+requested.
+
+1. **Testing story: does the engine ship a headless test harness, or is
+   testing left to whatever the developer wires up themselves?** v1 has
+   Vitest at the _engine's own_ repo level, but nothing for testing a
+   _game_ built on the engine. **Recommended:** `@emptysock/engine/testing`
+   exports a headless `Game`/`Scene` that runs the exact same ECS/lifecycle
+   code with `RenderSystem` swapped for a no-op (no Pixi context, no
+   canvas) — so `scene.spawn(...)`, `scene.each(...)`, physics, and actor
+   messaging all behave identically to a real running game, just without
+   drawing anything. A beginner never has to touch it, but "write a test
+   that this enemy takes damage correctly" becomes possible without
+   mocking half the engine by hand. Alternative: no engine-provided testing
+   story — anyone who wants to test their game code sets up their own
+   mocks. Zero engine maintenance cost, but "how do I even test a Scene"
+   becomes a FAQ/support burden with no good answer, and it's exactly the
+   kind of gap that pushes intermediate developers toward engines that do
+   provide this.
+2. **Determinism: an explicit guarantee, or explicitly not promised?** The
+   fixed-timestep decision (§10.3) buys most of what determinism needs, but
+   "same inputs produce the same simulation" is a much stronger claim that
+   also depends on floating-point consistency, iteration order, and RNG
+   seeding — none of which have been decided yet. **Recommended:** don't
+   promise full determinism in v2. State plainly in the docs that fixed-
+   timestep physics gives frame-rate-independent _behavior_ (no
+   tunneling/jitter — already decided), not bit-for-bit reproducible
+   simulation across machines/browsers — and ship one concrete building
+   block toward it that's cheap to build now and expensive to bolt on
+   later: a seedable, engine-provided RNG (`scene.random`, seeded per-scene)
+   so at least "randomness" isn't a source of accidental nondeterminism for
+   anyone who does want to build lockstep netcode or replays on top later.
+   Full determinism (fixed-point math, deterministic physics substep order
+   across platforms) is a real, multi-week feature in its own right —
+   worth naming as explicitly out of scope rather than silently implied by
+   the fixed-timestep decision. Alternative: commit to full determinism now
+   — valuable for RTS/fighting-game genres and replay/spectator features,
+   but Rapier itself doesn't guarantee bit-for-bit cross-platform
+   determinism out of the box, so this would mean either forking physics
+   behavior or accepting a determinism claim the engine can't actually keep.
+3. **Input: one action-mapping layer over all devices, or raw per-device
+   APIs?** v1 has `InputSystem`/`InputBindings`/`GamepadSystem` as separate
+   pieces. **Recommended:** one `input.isDown("jump")`-style action-mapping
+   API is the default and the _only_ thing most games touch — "jump" maps
+   to space/gamepad-A/tap-anywhere depending on what's connected, defined
+   once per project, not per-device. Raw per-device state
+   (`input.keyboard`, `input.gamepad(0)`, `input.touches`) stays available
+   for the minority of games that need it (a fighting game reading exact
+   button-press frames, a game needing analog stick values directly) — same
+   "one clean path to power" pattern as §3's `each`/`get`. Alternative:
+   keep device-specific systems as separate, equally-first-class APIs with
+   no unifying action layer — more explicit about what's actually
+   happening, but means every game reimplements "which key means jump" for
+   itself, and supporting a new input method (Steam Deck, a new gamepad
+   layout) means updating every game instead of updating one mapping.
