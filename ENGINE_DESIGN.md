@@ -551,10 +551,53 @@ all three accepted as recommended.
    (`@emptysock/modding`?), not folded into this pass.
 3. **Toolchain build pipeline: the CLI's export/build moves to
    [Rolldown](https://www.alexcloudstar.com/blog/vite-8-rolldown-oxc-2026/).**
-   This only affects `packages/toolchain`'s real Node-side project export —
-   the IDE's in-browser `esbuild-wasm` live-preview path
+   ~~This only affects `packages/toolchain`'s real Node-side project
+   export — the IDE's in-browser `esbuild-wasm` live-preview path
    (`GameBuildService`) is untouched, since Rolldown's native Rust binary
-   can't run inside a browser tab. Rolldown is Vite 8's now-stable (1.0,
-   May 2026) default bundler, `apps/ide` is already on Vite 8, and one
-   Rust toolchain (Oxc) now covers both the IDE's own build and the CLI's
-   game export instead of two different bundlers to maintain.
+   can't run inside a browser tab.~~ **Corrected in §17 — that claim was
+   wrong, checked and fixed rather than left standing.** Rolldown is Vite
+   8's now-stable (1.0, May 2026) default bundler, and `apps/ide` is
+   already on Vite 8.
+
+## 17. Open questions — round 8: one bundler for everything (correcting §16.3)
+
+You asked specifically to check whether one tool can cover all three build
+contexts, because round 7 assumed it couldn't. It was wrong to assume — a
+real browser-WASM Rolldown build exists and changes the answer.
+
+**What actually exists, checked, not assumed:**
+[`@rolldown/browser`](https://github.com/rolldown/rolldown/discussions/6218)
+is an official browser-compatible WASM distribution of Rolldown. Per its
+own maintainer (Evan You/VoidZero), [recent optimization work made it "the
+fastest possible bundler you can run in the
+browser"](https://x.com/evanyou/status/1869608132386922720) — a 2.5k-module
+benchmark bundled in 613ms, versus esbuild's 22.19s and Rollup/Vite's
+4.52s in the same in-browser test. Its plugin API supports the exact
+`resolveId`/`load` virtual-module pattern
+`GameBuildService`'s current esbuild-wasm virtual filesystem plugin
+already uses (CLAUDE.md's "virtualFiles must include all open files"
+decision) — this is a straight port of hook names, not a redesign of how
+the IDE feeds open files into a build.
+
+1. **Should the IDE's live-preview build (`GameBuildService`, currently
+   `esbuild-wasm`) also move to `@rolldown/browser`, giving one bundler
+   (Rolldown/Oxc) across all three build contexts — the IDE's own
+   dev/build, the toolchain CLI's export (§16.3), and the in-browser game
+   preview?** **Recommended: yes, migrate all three.** Concretely: (a) one
+   Rust toolchain to reason about everywhere instead of "Rolldown for two
+   things, esbuild for the third"; (b) the in-browser build itself gets
+   faster, not just neutral, per the benchmark above; (c) the virtual-fs
+   plugin that maps IDE open files to build inputs ports directly, since
+   both esbuild and Rolldown use the same `resolveId`/`load`-style plugin
+   shape. The one honest cost: `@rolldown/browser` is newer and less
+   battle-tested _specifically for in-browser use_ than Rolldown's Node-
+   side path (which is what's backing Vite 8 for millions of projects) —
+   it's a smaller, newer surface, worth a real spike/prototype against
+   the actual `GameBuildService` virtual-fs plugin before committing,
+   not just taking the benchmark's word for it. Alternative: keep
+   `esbuild-wasm` for the in-browser path specifically (round 7's original,
+   now-corrected claim that it "has to" stay was false, but "it currently
+   works and migrating is real effort for one more browser-specific
+   integration to validate" is still a legitimate, more conservative
+   reason to hold off, separate from the false "can't run in a browser"
+   reason it was given last round).
