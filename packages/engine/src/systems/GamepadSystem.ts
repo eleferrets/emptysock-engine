@@ -26,6 +26,11 @@ export class GamepadSystem {
 
   update(): void {
     if (typeof navigator === "undefined") return;
+    // Some Node-with-a-`navigator`-global environments (and jsdom, unless a
+    // test stubs it — see GamepadSystem.test.ts) expose `navigator` without
+    // `getGamepads` at all. Guard the same way the `navigator === undefined`
+    // check above already does, so calling `update()` headless never throws.
+    if (typeof navigator.getGamepads !== "function") return;
     const pads = navigator.getGamepads();
     for (let i = 0; i < pads.length; i++) {
       const pad = pads[i];
