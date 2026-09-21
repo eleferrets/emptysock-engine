@@ -5,21 +5,14 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import {
-  Monitor,
-  Wifi,
-  RefreshCw,
-  Grid3X3,
-  Ruler,
-  Magnet,
-  AlignCenter,
-} from "lucide-react";
+import { Monitor, Wifi, RefreshCw, AlignCenter } from "lucide-react";
 import { BouncingBallsDemo } from "../../demo/BouncingBalls";
 import { useIDEStore, debugCommandBus } from "../../store/ideStore";
 import { playRunner } from "../../services/PlayRunner";
 import { gameBuildService } from "../../services/GameBuildService";
 import { drawGrid, drawRulers, drawGuides } from "../../lib/editorGrid";
 import { useEngineChannel } from "../../hooks/useEngineChannel";
+import { ViewControls } from "./shared/ViewControls";
 
 export function CanvasPreview(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,9 +46,6 @@ export function CanvasPreview(): React.ReactElement {
     editorSnapToGrid,
     editorShowGuides,
     setEditorGridSize,
-    setEditorShowGrid,
-    setEditorShowRuler,
-    setEditorSnapToGrid,
     setEditorShowGuides,
     debugBreakpoints,
     setDebuggerPaused,
@@ -330,6 +320,7 @@ export function CanvasPreview(): React.ReactElement {
       className="relative flex-1 flex flex-col overflow-hidden"
       ref={containerRef}
     >
+      <ViewControls />
       {/* Toolbar strip */}
       <div
         style={{
@@ -343,33 +334,6 @@ export function CanvasPreview(): React.ReactElement {
           overflowX: "auto",
         }}
       >
-        <button
-          type="button"
-          title="Toggle grid"
-          style={toolbarButtonStyle(editorShowGrid)}
-          onClick={() => setEditorShowGrid(!editorShowGrid)}
-        >
-          <Grid3X3 size={12} />
-          Grid
-        </button>
-        <button
-          type="button"
-          title="Toggle rulers"
-          style={toolbarButtonStyle(editorShowRuler)}
-          onClick={() => setEditorShowRuler(!editorShowRuler)}
-        >
-          <Ruler size={12} />
-          Rulers
-        </button>
-        <button
-          type="button"
-          title="Toggle snap to grid"
-          style={toolbarButtonStyle(editorSnapToGrid)}
-          onClick={() => setEditorSnapToGrid(!editorSnapToGrid)}
-        >
-          <Magnet size={12} />
-          Snap
-        </button>
         <button
           type="button"
           title="Toggle alignment guides"

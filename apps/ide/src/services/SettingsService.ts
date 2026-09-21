@@ -23,6 +23,16 @@ export const IDESettingsSchema = z.object({
   editorWordWrap: z.boolean().default(false),
   editorMinimap: z.boolean().default(true),
   editorLineNumbers: z.boolean().default(true),
+  /**
+   * Explicit Monaco theme the user picked through Settings. `null` means
+   * "never touched" — Monaco should keep following the IDE's light/dark
+   * mode automatically. Once set, it sticks until the user picks
+   * "Follow IDE theme" again.
+   */
+  editorMonacoThemeOverride: z
+    .enum(["vs", "vs-dark", "hc-black", "hc-light"])
+    .nullable()
+    .default(null),
   /** Power / battery mode. 'saver' caps idle frame rate and disables non-essential effects. */
   powerMode: z.enum(["performance", "balanced", "saver"]).default("balanced"),
   /** Number of CPU cores to use when compiling (1–16). Default: half of available cores. */

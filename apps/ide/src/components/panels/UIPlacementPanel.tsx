@@ -2,6 +2,7 @@ import React from "react";
 import { UISystem, type IUIRenderer } from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
+import { ViewControls } from "./shared/ViewControls";
 import {
   drawGrid,
   drawRulers,
@@ -48,9 +49,6 @@ export function UIPlacementPanel(): React.ReactElement {
   const editorShowGuides = useIDEStore((s) => s.editorShowGuides);
 
   const setEditorGridSize = useIDEStore((s) => s.setEditorGridSize);
-  const setEditorShowGrid = useIDEStore((s) => s.setEditorShowGrid);
-  const setEditorShowRuler = useIDEStore((s) => s.setEditorShowRuler);
-  const setEditorSnapToGrid = useIDEStore((s) => s.setEditorSnapToGrid);
 
   const quipRef = React.useRef(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
 
@@ -482,38 +480,6 @@ export function UIPlacementPanel(): React.ReactElement {
             }}
           />
         </label>
-        {(["Grid", "Ruler", "Snap"] as const).map((label) => {
-          const checked =
-            label === "Grid"
-              ? editorShowGrid
-              : label === "Ruler"
-                ? editorShowRuler
-                : editorSnapToGrid;
-          const setter =
-            label === "Grid"
-              ? setEditorShowGrid
-              : label === "Ruler"
-                ? setEditorShowRuler
-                : setEditorSnapToGrid;
-          return (
-            <label
-              key={label}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => setter(e.target.checked)}
-              />
-              {label}
-            </label>
-          );
-        })}
         <div style={{ flex: 1 }} />
         <button
           onClick={insertAllSnippets}
@@ -641,8 +607,10 @@ export function UIPlacementPanel(): React.ReactElement {
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
+            position: "relative",
           }}
         >
+          <ViewControls />
           <div
             style={{
               padding: "5px 8px",

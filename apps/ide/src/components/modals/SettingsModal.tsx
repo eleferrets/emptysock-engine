@@ -532,6 +532,25 @@ export function SettingsModal({ open, onClose }: Props): React.ReactElement {
               value={settings.editorLineNumbers}
               onChange={(v) => patch("editorLineNumbers", v)}
             />
+            <SelectRow
+              label="Monaco theme"
+              value={settings.editorMonacoThemeOverride ?? "follow"}
+              options={[
+                { value: "follow", label: "Follow IDE theme" },
+                { value: "vs", label: "Light" },
+                { value: "vs-dark", label: "Dark" },
+                { value: "hc-light", label: "High Contrast Light" },
+                { value: "hc-black", label: "High Contrast Dark" },
+              ]}
+              onChange={(v) =>
+                patch(
+                  "editorMonacoThemeOverride",
+                  v === "follow"
+                    ? null
+                    : (v as IDESettings["editorMonacoThemeOverride"]),
+                )
+              }
+            />
 
             {/* VS Code Import */}
             <div style={{ marginTop: 20 }}>

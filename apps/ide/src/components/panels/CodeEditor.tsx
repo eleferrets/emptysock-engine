@@ -213,7 +213,8 @@ export function CodeEditor(): React.ReactElement {
     return () => mq.removeEventListener("change", handler);
   }, []);
   const isDark = theme === "dark" || (theme === "system" && systemDark);
-  const monacoTheme = isDark ? "vs-dark" : "vs";
+  const monacoTheme =
+    settings.editorMonacoThemeOverride ?? (isDark ? "vs-dark" : "vs");
 
   const tabPaths = Object.keys(openFiles);
 
@@ -392,7 +393,7 @@ export function CodeEditor(): React.ReactElement {
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex flex-col overflow-hidden"
+      className="flex h-full flex-col overflow-hidden"
       onKeyDown={handleKeyDown}
       style={
         keyboardPadding > 0 ? { paddingBottom: keyboardPadding } : undefined
@@ -638,6 +639,7 @@ export function CodeEditor(): React.ReactElement {
             onChange={handleChange}
             onMount={handleEditorMount}
             options={{
+              automaticLayout: true,
               fontSize: settings.editorFontSize,
               tabSize: settings.editorTabSize,
               fontFamily: '"JetBrains Mono", ui-monospace, monospace',

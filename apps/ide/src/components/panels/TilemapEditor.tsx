@@ -4,6 +4,7 @@ import { useTilemapStore } from "../../store/tilemapStore";
 import { drawRulers, getRulerMetrics } from "../../lib/editorGrid";
 import { useHistory } from "../../hooks/useHistory";
 import { AutoTileRulesModal } from "../AutoTileRulesModal";
+import { ViewControls } from "./shared/ViewControls";
 
 type Tool = "paint" | "erase" | "fill";
 
@@ -51,7 +52,8 @@ export function TilemapEditor(): React.ReactElement {
   const tileSize = useIDEStore((s) => s.editorGridSize);
   const setTileSize = useIDEStore((s) => s.setEditorGridSize);
   const showRuler = useIDEStore((s) => s.editorShowRuler);
-  const setShowRuler = useIDEStore((s) => s.setEditorShowRuler);
+  const showGrid = useIDEStore((s) => s.editorShowGrid);
+  const snapToGrid = useIDEStore((s) => s.editorSnapToGrid);
 
   // History tracks committed layer states (one entry per stroke/fill/layer-op).
   // liveLayers is the fast-update state used during painting; it bypasses history
@@ -248,13 +250,22 @@ export function TilemapEditor(): React.ReactElement {
 
     drawRulers(ctx, lw, lh, {
       gridSize: tileSize,
-      showGrid: true,
+      showGrid,
       showRuler,
-      snapToGrid: true,
+      snapToGrid,
       showGuides: false,
       zoom,
     });
-  }, [layers, tileSize, zoom, showRuler, rulerOffset, canvasSize]);
+  }, [
+    layers,
+    tileSize,
+    zoom,
+    showGrid,
+    showRuler,
+    snapToGrid,
+    rulerOffset,
+    canvasSize,
+  ]);
 
   const handleWheel = (e: React.WheelEvent): void => {
     e.preventDefault();
@@ -330,7 +341,9 @@ export function TilemapEditor(): React.ReactElement {
           </button>
         </div>
         <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>Tool</div>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+            Tool
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {tools.map((t) => (
               <button
@@ -353,7 +366,9 @@ export function TilemapEditor(): React.ReactElement {
           </div>
         </div>
         <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>Grid Size (px)</div>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+            Grid Size (px)
+          </div>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <input
               type="number"
@@ -380,23 +395,6 @@ export function TilemapEditor(): React.ReactElement {
             onChange={(e) => setTileSize(Number(e.target.value))}
             style={{ width: "100%", marginTop: 4 }}
           />
-        </div>
-        <div>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showRuler}
-              onChange={(e) => setShowRuler(e.target.checked)}
-            />
-            <span>Show Ruler</span>
-          </label>
         </div>
         <button
           onClick={() => setShowAutoTileRules(true)}
@@ -427,7 +425,9 @@ export function TilemapEditor(): React.ReactElement {
           />
         </div>
         <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>Palette</div>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+            Palette
+          </div>
           <div
             style={{
               display: "grid",
@@ -455,7 +455,9 @@ export function TilemapEditor(): React.ReactElement {
           </div>
         </div>
         <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>Layers</div>
+          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
+            Layers
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {layers.map((l) => (
               <div
@@ -508,6 +510,7 @@ export function TilemapEditor(): React.ReactElement {
         ref={containerRef}
         style={{ flex: 1, overflow: "hidden", position: "relative" }}
       >
+        <ViewControls />
         <canvas
           ref={canvasRef}
           style={{
