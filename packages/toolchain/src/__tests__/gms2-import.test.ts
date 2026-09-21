@@ -121,6 +121,68 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     expect(content).toContain("onKeyPressLeft");
     expect(content).toContain("onKeyReleaseLeft");
   });
+
+  it("does not warn about defaultScriptType: 1 alone (it is not a reliable GML Visual signal)", async () => {
+    // The fixture project above carries "defaultScriptType":1 while every
+    // event it declares (Create_0.gml, Collision_obj_wall.gml, etc.) is
+    // ordinary text GML on disk — exactly the real-project shape that used
+    // to produce a false-positive "uses GML Visual" warning.
+    const result = await importGMS2Project(
+      path.join(projectDir, "test.yyp"),
+      outDir,
+      { verbose: false },
+    );
+    expect(
+      result.warnings.some((w) => /GML Visual|defaultScriptType/i.test(w)),
+    ).toBe(false);
+  });
+
+  it("leaves legacy GameMaker 8.1 DnD-compat symbols untranspiled rather than faking them", async () => {
+    // Real GMS2 2.3+ projects can still carry legacy DnD-compatibility
+    // symbols (e.g. from ported GM8.1 content) in compiled action lists.
+    // The transpiler has no rule for these and must not silently invent
+    // a fake implementation — they should surface verbatim as unresolved
+    // identifiers for the developer to migrate by hand.
+    const dndDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-"),
+    );
+    const dndOutDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dndDir, "dnd.yyp"),
+        `{
+          "%Name":"DnD Legacy Test",
+          "defaultScriptType":1,
+          "resources":[
+            {"id":{"name":"obj_legacy","path":"objects/obj_legacy/obj_legacy.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dndDir, "objects", "obj_legacy");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Create_0.gml"),
+        "action_move(direction, 4);\ngml_pragma('forceinline');",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dndDir, "dnd.yyp"), dndOutDir, {
+        verbose: false,
+      });
+      const content = await fs.readFile(
+        path.join(dndOutDir, "obj_legacy.ts"),
+        "utf-8",
+      );
+      expect(content).toContain("action_move(direction, 4);");
+      expect(content).toContain("gml_pragma('forceinline');");
+    } finally {
+      await fs.rm(dndDir, { recursive: true, force: true });
+      await fs.rm(dndOutDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("convertGms2Sprite (synthetic per-frame PNGs)", () => {

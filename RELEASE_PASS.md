@@ -164,11 +164,39 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       thousands-of-entities-at-60fps case" cost model. Tests mock the
       client-side schema-callback shape (no official client-side Colyseus
       test harness exists, only server-side room helpers).
-- [ ] **MCP live bridge.** Engine-side query/command channel (§8, extends
-      `core/IDEBridge.ts`) — the engine side needs Track 0 (done) and
-      benefits from Track 1's physics landing (for raycast/overlap queries);
-      the `emptysock-mcp`-side relay implementation can be built against a
-      mocked channel in parallel and wired up once the real one exists.
+- [x] **MCP live bridge — engine side.** `packages/engine/src/v2/bridge/QueryChannel.ts`
+      is the v2-aware query/command channel §8 calls for — a separate, narrower
+      thing from `core/IDEBridge.ts` (that stays a v1 `postMessage` broadcast;
+      `QueryChannel` is a synchronous request/response call, `handle(query):
+    EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
+      transport-agnostic by design (same pattern as `Transport`/
+      `StorageAdapter`): `@emptysock/engine` never touches a socket, only
+      `attach(scene, physics)`/`detach()`/`handle(query)`. Supported query
+      `kind`s: `listEntities`, `entityInfo`, `getComponent` (against component
+      defs registered via `registerComponents(...)`), `raycast2d`,
+      `overlapCircle2d`, `bodyState2d` — the shapes the three previously-stubbed
+      `emptysock-mcp` tools (`physics_raycast_2d`, `physics_overlap_circle`,
+      `physics_body_state`) plus entity/component reads and scene listing need.
+      `PhysicsSystem` gained the underlying `raycast`/`overlapCircle`/
+      `getBodyState` primitives it wraps, plus a `PhysicsNotInitializedError`
+      thrown when there's no world at all. Every query result is
+      `{ ok: true, data }` or `{ ok: false, error: { code, message } }` with
+      three distinct error codes — `"no-live-instance"` (nothing attached),
+      `"no-physics-world"` (scene attached, no initialized `PhysicsSystem`),
+      `"not-found"`/`"unknown-component"` — kept deliberately distinct from a
+      real empty/`null` result (§8: "no fabricated answer"). See the TSDoc on
+      `QueryChannel` for the full contract. Tests:
+      `packages/engine/src/__tests__/v2/query-channel.test.ts`.
+      **Still open, separate repo/pass:** the `emptysock-mcp`-side relay —
+      wiring an actual transport (WebSocket or the IDE's own bridge) that
+      turns `EngineQueryRequest`/`EngineQueryResponse` traffic into calls
+      against `QueryChannel.handle`, and rewriting the three stubbed tools
+      plus adding entity/component-read and scene-listing tools to call it —
+      was out of scope here (no `emptysock-mcp` checkout in this pass); build
+      it against the shapes exported from `@emptysock/engine/v2`
+      (`EngineQuery`, `EngineQueryRequest`, `EngineQueryResponse`,
+      `EngineQueryResult`, `EngineQueryError`) rather than a mocked channel,
+      since the real one now exists.
 
 ### Track X — fully independent of `packages/engine`, can run anytime, in parallel with everything above
 
@@ -236,7 +264,7 @@ on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
       `typedoc.json` uses `entryPointStrategy: "expand"` with entry points
       globbed as `packages/*/src/index.ts` so new workspace packages (e.g.
       the VN/battle/tilemap split) are picked up automatically; `pnpm run
-  docs:generate` runs it. Verified: it runs clean (no errors) against
+docs:generate` runs it. Verified: it runs clean (no errors) against
       today's real packages (engine, types, toolchain, network, battle,
       tilemap, vn, export-utils) and produces correct Markdown pages with
       real class/method signatures, falling back sensibly on exports that
