@@ -144,6 +144,19 @@ export { VNTextbox } from "./systems/VNTextbox.js";
 export type { VNTextboxOptions } from "./systems/VNTextbox.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
+export {
+  CustomShaderFilter,
+  createCustomShaderFilter,
+  DEFAULT_CUSTOM_SHADER_VERTEX,
+  DEFAULT_CUSTOM_SHADER_FRAGMENT,
+} from "./systems/CustomShaderFilter.js";
+export type { CustomShaderOptions } from "./systems/CustomShaderFilter.js";
+export { SequenceSystem, evaluateTrackAt } from "./systems/SequenceSystem.js";
+export type {
+  SequenceDefinition,
+  SequenceTrackDef,
+  SequenceKeyframe,
+} from "./systems/SequenceSystem.js";
 export { AStarSearch } from "./core/AStarSearch.js";
 export type {
   AStarEdge,

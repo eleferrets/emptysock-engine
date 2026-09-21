@@ -25,28 +25,30 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 ## Systems
 
-| System                                                  | Description                                                                                         |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [AnimatorController](./systems/animator-controller.md)  | Code-first animation state machine: named states, parameter-gated transitions, cross-fade blending  |
-| [AssetManifest](./systems/asset-manifest.md)            | Declarative asset preloading with progress reporting and per-asset failure handling                 |
-| [AudioSystem](./systems/audio-system.md)                | Sound-effect and music playback, group volume control, ducking and snapshots                        |
-| [BattleSystem](./systems/battle-system.md)              | Turn-based RPG combat engine with skill resolution and status effects                               |
-| [DebugOverlaySystem](./systems/debug-overlay-system.md) | Shippable in-game FPS/entity overlay and dev console                                                |
-| [InputBindings](./systems/input-bindings.md)            | Named-action control remapping over InputSystem/GamepadSystem, persisted via SaveSystem             |
-| [InputSystem](./systems/input-system.md)                | Keyboard, mouse, touch, and axis input                                                              |
-| [LocalisationSystem](./systems/localisation-system.md)  | i18n: loads locale JSON files and looks up translated strings                                       |
-| [MapEventSystem](./systems/map-event-system.md)         | Tile-aligned map events with `VariableStore`-gated triggers                                         |
-| [NavMeshSystem](./systems/nav-mesh-system.md)           | Polygon-based 2D pathfinding using A\*                                                              |
-| [PhysicsSystem2D](./systems/physics-2d.md)              | 2D physics — PhysicsBody, CharacterController, collision events                                     |
-| [PhysicsSystem3D](./systems/physics-3d.md)              | 3D physics wrapping Rapier3D — must be destroyed on scene unload                                    |
-| [PluginSystem](./systems/plugin-system.md)              | Module-level singleton service locator for optional capabilities                                    |
-| [PointerSystem](./systems/pointer-system.md)            | Unified mouse/touch/pen pointer stream, gestures (tap/long-press/swipe/pinch), wheel classification |
-| [SaveSystem](./systems/save-system.md)                  | Generic persistence for save slots, schema-configurable per game                                    |
-| [UISystem / Widgets](./systems/ui-system.md)            | Retained-mode screen-space UI widgets (buttons, labels, panels, etc.)                               |
-| [VisualScriptComponent](./systems/visual-script-component.md) | ECS component that interprets a node graph authored in the Visual Script Editor               |
-| [VNSystem](./systems/vn-system.md)                      | Plays back branching dialogue trees, with `VariableStore`-gated conditionals                        |
-| [VariableStore](./systems/variable-store.md)            | Indexed persistent variables/switches backing conditional VN and map logic                          |
-| [ViewportSystem](./systems/viewport-system.md)          | Design-resolution scaling, resize/orientation listening, safe-area insets                           |
+| System                                                        | Description                                                                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [AnimatorController](./systems/animator-controller.md)        | Code-first animation state machine: named states, parameter-gated transitions, cross-fade blending                        |
+| [AssetManifest](./systems/asset-manifest.md)                  | Declarative asset preloading with progress reporting and per-asset failure handling                                       |
+| [AudioSystem](./systems/audio-system.md)                      | Sound-effect and music playback, group volume control, ducking and snapshots                                              |
+| [BattleSystem](./systems/battle-system.md)                    | Turn-based RPG combat engine with skill resolution and status effects                                                     |
+| [CustomShaderFilter](./systems/custom-shader-filter.md)       | User-authored GLSL post-process filter — the runtime behind the ShaderEditor panel                                        |
+| [DebugOverlaySystem](./systems/debug-overlay-system.md)       | Shippable in-game FPS/entity overlay and dev console                                                                      |
+| [InputBindings](./systems/input-bindings.md)                  | Named-action control remapping over InputSystem/GamepadSystem, persisted via SaveSystem                                   |
+| [InputSystem](./systems/input-system.md)                      | Keyboard, mouse, touch, and axis input                                                                                    |
+| [LocalisationSystem](./systems/localisation-system.md)        | i18n: loads locale JSON files and looks up translated strings                                                             |
+| [MapEventSystem](./systems/map-event-system.md)               | Tile-aligned map events with `VariableStore`-gated triggers                                                               |
+| [NavMeshSystem](./systems/nav-mesh-system.md)                 | Polygon-based 2D pathfinding using A\*                                                                                    |
+| [PhysicsSystem2D](./systems/physics-2d.md)                    | 2D physics — PhysicsBody, CharacterController, collision events                                                           |
+| [PhysicsSystem3D](./systems/physics-3d.md)                    | 3D physics wrapping Rapier3D — must be destroyed on scene unload                                                          |
+| [PluginSystem](./systems/plugin-system.md)                    | Module-level singleton service locator for optional capabilities                                                          |
+| [PointerSystem](./systems/pointer-system.md)                  | Unified mouse/touch/pen pointer stream, gestures (tap/long-press/swipe/pinch), wheel classification                       |
+| [SaveSystem](./systems/save-system.md)                        | Generic persistence for save slots, schema-configurable per game                                                          |
+| [SequenceSystem](./systems/sequence-system.md)                | Plays a keyframe SequenceDefinition by scheduling real TweenManager tweens — the runtime behind the Sequence Editor panel |
+| [UISystem / Widgets](./systems/ui-system.md)                  | Retained-mode screen-space UI widgets (buttons, labels, panels, etc.)                                                     |
+| [VisualScriptComponent](./systems/visual-script-component.md) | ECS component that interprets a node graph authored in the Visual Script Editor                                           |
+| [VNSystem](./systems/vn-system.md)                            | Plays back branching dialogue trees, with `VariableStore`-gated conditionals                                              |
+| [VariableStore](./systems/variable-store.md)                  | Indexed persistent variables/switches backing conditional VN and map logic                                                |
+| [ViewportSystem](./systems/viewport-system.md)                | Design-resolution scaling, resize/orientation listening, safe-area insets                                                 |
 
 ---
 

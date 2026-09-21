@@ -49,6 +49,7 @@ export default [
       'packages/engine/src/systems/RenderPipeline.ts',
       'packages/engine/src/systems/AssetManifest.ts',
       'packages/engine/src/systems/LightingSystem.ts',
+      'packages/engine/src/systems/CustomShaderFilter.ts',
       'packages/engine/src/systems/PhysicsSystem.ts',
       'packages/engine/src/systems/CameraSystem.ts',
       'packages/engine/src/core/IDEBridge.ts',

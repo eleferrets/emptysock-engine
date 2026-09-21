@@ -1,4 +1,9 @@
-import { autoDetectRenderer, Container, type Renderer } from "pixi.js";
+import {
+  autoDetectRenderer,
+  Container,
+  type Filter,
+  type Renderer,
+} from "pixi.js";
 import type { LayerSystem } from "./LayerSystem.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
 import type { GPUTier } from "../core/GPUTier.js";
@@ -154,6 +159,23 @@ export class RenderSystem {
     for (const [name, container] of this._layerContainers) {
       container.visible = this._layerSystem.isVisible(name);
     }
+  }
+
+  /**
+   * Attach a custom shader filter (e.g. from `createCustomShaderFilter()`)
+   * to a layer's container. This is the real counterpart to the ShaderEditor
+   * IDE panel's live preview — the same Filter instance a shader authored
+   * there produces is what gets attached here.
+   */
+  addLayerShaderFilter(layerName: string, filter: Filter): void {
+    const container = this.getLayerContainer(layerName);
+    container.filters = [...container.filters, filter];
+  }
+
+  /** Detach a previously attached shader filter from a layer's container. */
+  removeLayerShaderFilter(layerName: string, filter: Filter): void {
+    const container = this.getLayerContainer(layerName);
+    container.filters = container.filters.filter((f) => f !== filter);
   }
 
   get renderer(): Renderer {

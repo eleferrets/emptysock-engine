@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { EasingName } from "@emptysock/engine";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,11 +18,29 @@ export interface SequenceKeyframe {
   textValue?: string; // string payload for dialogue, expression, and audio lane types
 }
 
+/**
+ * The property key on a plain numeric target object each track type
+ * animates — this is exactly `SequenceTrackDef.property` from
+ * `packages/engine/src/systems/SequenceSystem.ts`. A track named
+ * "Position X" therefore animates `target.x`, matching what a developer
+ * would target with `tweens.to(target, { x: ... }, { ... })`.
+ */
+export const TRACK_TYPE_TO_PROPERTY: Record<SequenceTrackType, string> = {
+  "Position X": "x",
+  "Position Y": "y",
+  Rotation: "rotation",
+  Scale: "scale",
+  Opacity: "opacity",
+  Custom: "custom",
+};
+
 export interface SequenceTrack {
   id: string;
   name: string;
   type: SequenceTrackType;
   keyframes: SequenceKeyframe[];
+  /** Easing applied to every segment of this track. Defaults to "linear". */
+  ease?: EasingName;
 }
 
 // ── Initial data ─────────────────────────────────────────────────────────────
@@ -87,6 +106,5 @@ export const useSequenceStore = create<SequenceStoreState>((set) => ({
   setSequenceTracks: (tracks) => set({ sequenceTracks: tracks }),
   setSequenceDuration: (duration) => set({ sequenceDuration: duration }),
 
-  resetSequenceStore: () =>
-    set({ sequenceTracks: [], sequenceDuration: 10 }),
+  resetSequenceStore: () => set({ sequenceTracks: [], sequenceDuration: 10 }),
 }));

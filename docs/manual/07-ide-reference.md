@@ -248,44 +248,90 @@ Right-click the canvas (or press `Tab`) to open the node picker. Categories:
 
 ## 7.15 Sequence Editor
 
-A keyframe timeline panel for authoring animation sequences, cutscenes, and timed events. Each sequence drives properties on entities and components over time without per-frame code.
+A keyframe timeline panel for authoring numeric property animations (position, rotation, scale, opacity) plus marker lanes for dialogue, expression, audio, and wait events. Playback drives a real `TweenManager`/`SequenceSystem` pair from `@emptysock/engine` — the same classes a developer would call from code — so what plays in the panel is what plays in the game, not a separate simulation.
 
 **Opening the panel:** View → Panels → Sequence Editor.
 
 **Layout:**
 
-- **Playhead** (red vertical line): current time cursor. Drag it or click the timeline ruler to seek.
-- **Track list** (left column): one row per animated property. Click **+ Track** to add a track and pick an entity, component, and property to animate.
-- **Keyframe area** (right): the timeline canvas. Each diamond marker is a keyframe.
-- **Toolbar:** Play, Stop, Loop toggle, duration input, snapping controls.
+- **Playhead** (red vertical line): current time cursor. Drag the ruler to seek.
+- **Track list** (left column): one row per track. Use the **Add Track** dropdown to add "Position X", "Position Y", "Rotation", "Scale", "Opacity", or "Custom". Each track's lane-type selector switches it between `keyframe` (numeric, tween-driven) and `dialogue`/`expression`/`audio`/`wait` (marker lanes with a text/duration payload, not animated).
+- Each `keyframe`-lane track also has an **ease** selector (`linear`, `sineIn/Out/InOut`, `quadIn/Out/InOut`, `cubicIn/Out/InOut`, `bounceOut`, `elasticOut` — the exact `EasingName` union from `packages/engine/src/core/easing.ts`).
+- **Keyframe area** (right): the timeline canvas. Each diamond marker is a keyframe; click a row to add one at that time, drag a diamond to retime it, select it to edit its value (or Delete/Backspace to remove).
+- **Toolbar:** Play/Pause, Stop, duration input, undo/redo.
 
-**Adding keyframes:**
+**Playback:** clicking **Play** converts the panel's `keyframe`-lane tracks into a `SequenceDefinition` (via `tracksToSequenceDefinition()`) and calls `SequenceSystem.play()` against a live `TweenManager` instance, resuming from the current playhead position. Each animation frame calls `tweens.update(dt)`; the numeric badge shown next to a playing track is read straight off the tween-driven target object, not a separately computed formula. Scrubbing while paused uses the engine's own `evaluateTrackAt()` for the same reason — one evaluation path, not two.
 
-1. Move the playhead to the desired time.
-2. In the track list, click the keyframe button (◆) next to a track — this records the property's current value at that time.
-3. Repeat at other times to create a curve.
-
-**Editing keyframes:**
-
-- Click a diamond to select it; its value and easing appear in the property panel below.
-- Drag a diamond horizontally to shift its time.
-- Right-click a diamond → Easing to choose `linear`, `sineIn/Out`, `cubicIn/Out`, `step`.
-
-**Exporting:** Click **Export** to save the sequence as a `.esseq` JSON file. Load it at runtime:
+**Using a sequence in code**, matching the panel's saved shape exactly:
 
 ```typescript
-import { SequencePlayer } from "@emptysock/engine";
+import {
+  TweenManager,
+  SequenceSystem,
+  type SequenceDefinition,
+} from "@emptysock/engine";
 
-const seq = await SequencePlayer.load("assets/cutscene-intro.esseq");
-seq.bind("Player", playerEntity);
-seq.bind("Camera", cameraEntity);
-seq.play(); // plays once
-seq.play({ loop: true }); // loops
-seq.onComplete(() => SceneManager.load("GameScene"));
-seq.stop(); // stops and rewinds
+const def: SequenceDefinition = {
+  duration: 2,
+  tracks: [
+    {
+      property: "x",
+      ease: "quadOut",
+      keyframes: [
+        { time: 0, value: 0 },
+        { time: 1, value: 120 },
+      ],
+    },
+    {
+      property: "opacity",
+      keyframes: [
+        { time: 0, value: 0 },
+        { time: 0.5, value: 1 },
+      ],
+    },
+  ],
+};
+
+const tweens = new TweenManager();
+const seq = new SequenceSystem();
+seq.play(tweens, myEntitySprite, def); // properties are set directly on the target object
+
+// per frame:
+tweens.update(deltaTime);
 ```
 
-**GMS2 note:** Sequences in GameMaker Studio 2 map directly to this panel — see section 11 for the migration guide.
+`property` is the key `SequenceSystem` sets on the target object — "Position X"/"Position Y"/"Rotation"/"Scale"/"Opacity" map to `x`/`y`/`rotation`/`scale`/`opacity` respectively (see `TRACK_TYPE_TO_PROPERTY` in `apps/ide/src/store/sequenceStore.ts`).
+
+---
+
+## 7.16 Shader Editor
+
+A Monaco-based GLSL editor with a live WebGL preview, for authoring custom post-process shaders. The preview compiles and renders through `CustomShaderFilter` (`@emptysock/engine`) — the exact class `RenderSystem.addLayerShaderFilter()` attaches at runtime — so there is one shader-compile path, not a separate "preview" implementation that could drift from production behaviour.
+
+**Opening the panel:** View → Panels → Shader Editor.
+
+**Layout:**
+
+- **Vertex / Fragment tabs:** switch which shader the Monaco editor shows. Both are kept in state (`useShaderStore` + `useHistory`) so switching tabs doesn't lose edits.
+- **Compile & Run:** compiles both shaders through `createCustomShaderFilter()` and renders a full-screen quad with the result. Compile/link errors are PixiJS's own diagnostics, captured from the console during the real compile — not a separately maintained error checker.
+- **Undo/redo:** `Ctrl+Z` / `Ctrl+Shift+Z`, disabled while a Monaco editor has focus (Monaco keeps its own per-file undo stack).
+
+**Uniform/attribute contract** (must match exactly — see the [CustomShaderFilter reference](../reference/systems/custom-shader-filter.md)):
+
+- Attributes: `aPosition`, `aUV`
+- Vertex uniforms: `uProjectionMatrix`, `uWorldTransformMatrix`, `uTransformMatrix`
+- Fragment: `uTexture` (input texture), `uTime` (seconds)
+- GLSL ES 3.00 style: `in`/`out`, `texture()` — not `attribute`/`varying`/`texture2D()`
+
+**Using a shader in code:**
+
+```typescript
+import { createCustomShaderFilter } from "@emptysock/engine";
+
+const filter = createCustomShaderFilter({ vertexSrc, fragmentSrc });
+renderSystem.addLayerShaderFilter("default", filter);
+filter.setTime(elapsedSeconds); // once per frame, if the shader reads uTime
+```
 
 ---
 

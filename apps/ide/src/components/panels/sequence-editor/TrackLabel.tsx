@@ -1,6 +1,11 @@
 import React from "react";
-import { ROW_HEIGHT, TYPE_COLORS, LANE_TYPE_OPTIONS } from "./types";
-import type { Track, LaneType } from "./types";
+import {
+  ROW_HEIGHT,
+  TYPE_COLORS,
+  LANE_TYPE_OPTIONS,
+  EASE_OPTIONS,
+} from "./types";
+import type { Track, LaneType, EasingName } from "./types";
 import { interpolate } from "./helpers";
 
 // ── Track label with interpolated value badge ─────────────────────────────────
@@ -9,10 +14,25 @@ export const TrackLabel: React.FC<{
   track: Track;
   playing: boolean;
   currentTime: number;
+  /** Value read straight off the live TweenManager target while playing. */
+  liveValue?: number | null;
   onChangeLaneType: (lt: LaneType) => void;
-}> = ({ track, playing, currentTime, onChangeLaneType }) => {
+  onChangeEase?: (ease: EasingName) => void;
+}> = ({
+  track,
+  playing,
+  currentTime,
+  liveValue,
+  onChangeLaneType,
+  onChangeEase,
+}) => {
   const laneType = track.laneType ?? "keyframe";
-  const interp = playing ? interpolate(track.keyframes, currentTime) : null;
+  const interp =
+    liveValue !== undefined && liveValue !== null
+      ? liveValue
+      : playing
+        ? interpolate(track.keyframes, currentTime)
+        : null;
   return (
     <div
       style={{
@@ -104,6 +124,31 @@ export const TrackLabel: React.FC<{
           </option>
         ))}
       </select>
+      {laneType === "keyframe" && onChangeEase && (
+        <select
+          value={track.ease ?? "linear"}
+          onChange={(e) => onChangeEase(e.target.value as EasingName)}
+          onClick={(e) => e.stopPropagation()}
+          title="Easing (applied by SequenceSystem/TweenManager on playback)"
+          style={{
+            fontSize: 9,
+            padding: "1px 2px",
+            borderRadius: 3,
+            border: "1px solid var(--es-border, #444)",
+            background: "var(--es-surface, #16213e)",
+            color: "var(--es-text-muted, #888)",
+            cursor: "pointer",
+            flexShrink: 0,
+            maxWidth: 60,
+          }}
+        >
+          {EASE_OPTIONS.map((e) => (
+            <option key={e} value={e}>
+              {e}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 };

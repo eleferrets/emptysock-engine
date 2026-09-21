@@ -1,3 +1,9 @@
+import {
+  evaluateTrackAt,
+  type SequenceDefinition,
+  type SequenceTrackDef,
+} from "@emptysock/engine";
+import { TRACK_TYPE_TO_PROPERTY } from "../../../store/sequenceStore";
 import type { TrackType, Keyframe, Track } from "./types";
 
 // ── Counter ───────────────────────────────────────────────────────────────────
@@ -23,25 +29,39 @@ export function makeTrack(
 }
 
 // ── Keyframe interpolation ────────────────────────────────────────────────────
+//
+// Delegates to the engine's own `evaluateTrackAt()` (SequenceSystem.ts) so a
+// value shown here — while scrubbing or reading a track's badge — always
+// matches what `SequenceSystem.play()` produces by driving a real
+// `TweenManager`, not a separately maintained linear-only formula.
 
 export function interpolate(keyframes: Keyframe[], time: number): number {
-  if (keyframes.length === 0) return 0;
-  const sorted = [...keyframes].sort((a, b) => a.time - b.time);
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
-  if (first === undefined || last === undefined) return 0;
-  if (time <= first.time) return first.value;
-  if (time >= last.time) return last.value;
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-    if (a === undefined || b === undefined) continue;
-    if (time >= a.time && time <= b.time) {
-      const t = (time - a.time) / (b.time - a.time);
-      return a.value + (b.value - a.value) * t;
-    }
-  }
-  return 0;
+  const track: SequenceTrackDef = {
+    property: "value",
+    keyframes: keyframes.map((k) => ({ time: k.time, value: k.value })),
+  };
+  return evaluateTrackAt(track, time);
+}
+
+// ── Panel Track[] → engine SequenceDefinition ──────────────────────────────────
+//
+// Only numeric "keyframe"-lane tracks feed playback — dialogue/expression/
+// audio/wait lanes are timeline markers, not tween targets. The saved shape
+// (property + keyframes + ease) is exactly `SequenceTrackDef`; no lossy
+// translation happens here.
+
+export function tracksToSequenceDefinition(
+  tracks: Track[],
+  duration: number,
+): SequenceDefinition {
+  const seqTracks: SequenceTrackDef[] = tracks
+    .filter((t) => (t.laneType ?? "keyframe") === "keyframe")
+    .map((t) => ({
+      property: TRACK_TYPE_TO_PROPERTY[t.type],
+      keyframes: t.keyframes.map((k) => ({ time: k.time, value: k.value })),
+      ...(t.ease !== undefined ? { ease: t.ease } : {}),
+    }));
+  return { duration, tracks: seqTracks };
 }
 
 // ── Ruler label generator ─────────────────────────────────────────────────────

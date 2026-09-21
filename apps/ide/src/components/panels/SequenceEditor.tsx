@@ -1,5 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { useSequenceStore } from "../../store/sequenceStore";
+import { TweenManager, SequenceSystem } from "@emptysock/engine";
+import {
+  useSequenceStore,
+  TRACK_TYPE_TO_PROPERTY,
+} from "../../store/sequenceStore";
 import { useHistory } from "../../hooks/useHistory";
 import {
   LABEL_WIDTH,
@@ -9,8 +13,18 @@ import {
   TRACK_OPTIONS,
   TYPE_COLORS,
 } from "./sequence-editor/types";
-import type { Track, LaneType, TrackType } from "./sequence-editor/types";
-import { uid, makeTrack, rulerTicks } from "./sequence-editor/helpers";
+import type {
+  Track,
+  LaneType,
+  TrackType,
+  EasingName,
+} from "./sequence-editor/types";
+import {
+  uid,
+  makeTrack,
+  rulerTicks,
+  tracksToSequenceDefinition,
+} from "./sequence-editor/helpers";
 import { TrackLabel } from "./sequence-editor/TrackLabel";
 import { KfValueEditor } from "./sequence-editor/KfValueEditor";
 
@@ -86,6 +100,15 @@ export function SequenceEditor(): React.ReactElement {
   const currentTimeRef = useRef<number>(0); // stays in sync for RAF
   const playingRef = useRef<boolean>(false);
 
+  // Real playback runtime — the same TweenManager/SequenceSystem classes a
+  // developer would drive from game code. Play() schedules real tweens;
+  // each RAF tick calls tweens.update(dt), and the resulting target values
+  // are what the track badges show while playing (see liveValues below).
+  const tweensRef = useRef<TweenManager>(new TweenManager());
+  const sequenceSystemRef = useRef<SequenceSystem>(new SequenceSystem());
+  const previewTargetRef = useRef<Record<string, number>>({});
+  const [liveValues, setLiveValues] = useState<Record<string, number>>({});
+
   const [draggingKf, setDraggingKf] = useState<{
     trackId: string;
     kfId: string;
@@ -135,15 +158,21 @@ export function SequenceEditor(): React.ReactElement {
       lastTimestampRef.current = ts;
       currentTimeRef.current = Math.min(currentTimeRef.current + dt, duration);
 
+      // Drive the real TweenManager — this is what actually produces the
+      // per-property values during playback, not a separate formula.
+      tweensRef.current.update(dt);
+
       // Throttle React state updates to ~30fps
       if (ts - lastUIUpdateRef.current >= RAF_UI_INTERVAL) {
         lastUIUpdateRef.current = ts;
         setCurrentTime(currentTimeRef.current);
+        setLiveValues({ ...previewTargetRef.current });
       }
 
       if (currentTimeRef.current >= duration) {
         setPlaying(false);
         setCurrentTime(duration);
+        setLiveValues({ ...previewTargetRef.current });
         return;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -168,10 +197,19 @@ export function SequenceEditor(): React.ReactElement {
         currentTimeRef.current = 0;
         setCurrentTime(0);
       }
+      // (Re)schedule real tweens from the current playhead's keyframe data.
+      previewTargetRef.current = {};
+      sequenceSystemRef.current.play(
+        tweensRef.current,
+        previewTargetRef.current,
+        tracksToSequenceDefinition(tracks, duration),
+        currentTimeRef.current,
+      );
+      setLiveValues({ ...previewTargetRef.current });
       setPlaying(true);
       // startRAF is called via the effect below
     }
-  }, [playing, duration, stopRAF]);
+  }, [playing, duration, stopRAF, tracks]);
 
   // When playing flips to true, start RAF
   useEffect(() => {
@@ -185,10 +223,19 @@ export function SequenceEditor(): React.ReactElement {
 
   const stop = useCallback(() => {
     stopRAF();
+    sequenceSystemRef.current.stop();
     setPlaying(false);
     setCurrentTime(0);
     currentTimeRef.current = 0;
+    setLiveValues({});
   }, [stopRAF]);
+
+  // Stop scheduled tweens on unmount so they don't keep firing after the
+  // panel is gone.
+  useEffect(() => {
+    const seq = sequenceSystemRef.current;
+    return () => seq.stop();
+  }, []);
 
   // ── Ruler click → scrub ──────────────────────────────────────────────────
 
@@ -239,6 +286,13 @@ export function SequenceEditor(): React.ReactElement {
       setTracks(
         tracks.map((t) => (t.id === trackId ? { ...t, laneType: lt } : t)),
       );
+    },
+    [tracks, setTracks],
+  );
+
+  const changeTrackEase = useCallback(
+    (trackId: string, ease: EasingName): void => {
+      setTracks(tracks.map((t) => (t.id === trackId ? { ...t, ease } : t)));
     },
     [tracks, setTracks],
   );
@@ -667,7 +721,13 @@ export function SequenceEditor(): React.ReactElement {
               track={t}
               playing={playing}
               currentTime={currentTime}
+              liveValue={
+                playing
+                  ? (liveValues[TRACK_TYPE_TO_PROPERTY[t.type]] ?? null)
+                  : null
+              }
               onChangeLaneType={(lt) => changeTrackLaneType(t.id, lt)}
+              onChangeEase={(ease) => changeTrackEase(t.id, ease)}
             />
           ))}
         </div>

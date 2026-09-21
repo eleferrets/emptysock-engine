@@ -1,7 +1,10 @@
+import type { EasingName } from "@emptysock/engine";
 import type {
   SequenceTrack,
   SequenceTrackType,
 } from "../../../store/sequenceStore";
+
+export type { EasingName };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,22 @@ export const LANE_TYPE_OPTIONS: LaneType[] = [
   "expression",
   "audio",
   "wait",
+];
+
+/** Matches `EasingName` in packages/engine/src/core/easing.ts. */
+export const EASE_OPTIONS: EasingName[] = [
+  "linear",
+  "sineIn",
+  "sineOut",
+  "sineInOut",
+  "quadIn",
+  "quadOut",
+  "quadInOut",
+  "cubicIn",
+  "cubicOut",
+  "cubicInOut",
+  "bounceOut",
+  "elasticOut",
 ];
 
 export const TYPE_COLORS: Record<TrackType, string> = {

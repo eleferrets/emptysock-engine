@@ -1,40 +1,16 @@
 import React from "react";
 import MonacoEditor, { useMonaco, type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
+import { autoDetectRenderer, Sprite, Texture, type Renderer } from "pixi.js";
+import {
+  createCustomShaderFilter,
+  type CustomShaderFilter,
+} from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
-
-const VERTEX_PLACEHOLDER = `attribute vec2 aVertexPosition;
-attribute vec2 aTextureCoord;
-uniform mat3 projectionMatrix;
-varying vec2 vTextureCoord;
-
-void main(void) {
-  gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-  vTextureCoord = aTextureCoord;
-}`;
-
-const FRAGMENT_PLACEHOLDER = `precision mediump float;
-varying vec2 vTextureCoord;
-uniform sampler2D uSampler;
-uniform float uTime;
-
-void main(void) {
-  vec2 uv = vTextureCoord;
-  // Example: chromatic aberration
-  float offset = 0.003 * sin(uTime * 2.0);
-  float r = texture2D(uSampler, uv + vec2(offset, 0.0)).r;
-  float g = texture2D(uSampler, uv).g;
-  float b = texture2D(uSampler, uv - vec2(offset, 0.0)).b;
-  gl_FragColor = vec4(r, g, b, 1.0);
-}`;
+import { useShaderStore, type ShaderState } from "../../store/shaderStore";
 
 type ShaderType = "vertex" | "fragment";
-
-interface ShaderState {
-  vertSrc: string;
-  fragSrc: string;
-}
 
 const GLSL_KEYWORDS = [
   "void",
@@ -209,17 +185,38 @@ function registerGlsl(monaco: typeof Monaco): void {
 export function ShaderEditor(): React.ReactElement {
   const [activeShader, setActiveShader] =
     React.useState<ShaderType>("fragment");
+
+  const storeShader = useShaderStore((s) => s.shader);
+  const storeSetShader = useShaderStore((s) => s.setShader);
+
   const {
     state: shaderState,
-    set: setShaderState,
+    set: setHistoryShader,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useHistory<ShaderState>({
-    vertSrc: VERTEX_PLACEHOLDER,
-    fragSrc: FRAGMENT_PLACEHOLDER,
-  });
+  } = useHistory<ShaderState>(storeShader);
+
+  // Sync history → store, mirroring ParticleEditor's pattern so shader
+  // edits survive the panel unmounting/remounting.
+  const prevHistShaderRef = React.useRef(shaderState);
+  React.useEffect(() => {
+    if (shaderState !== prevHistShaderRef.current) {
+      prevHistShaderRef.current = shaderState;
+      storeSetShader(shaderState);
+    }
+  }, [shaderState, storeSetShader]);
+
+  const setShaderState = React.useCallback(
+    (next: ShaderState): void => {
+      prevHistShaderRef.current = next;
+      setHistoryShader(next);
+      storeSetShader(next);
+    },
+    [setHistoryShader, storeSetShader],
+  );
+
   const vertSrc = shaderState.vertSrc;
   const fragSrc = shaderState.fragSrc;
   const [compileError, setCompileError] = React.useState<string | null>(null);
@@ -258,9 +255,12 @@ export function ShaderEditor(): React.ReactElement {
   }, [undo, redo]);
 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const glRef = React.useRef<WebGLRenderingContext | null>(null);
+  const rendererRef = React.useRef<Renderer | null>(null);
+  const spriteRef = React.useRef<Sprite | null>(null);
+  const filterRef = React.useRef<CustomShaderFilter | null>(null);
   const rafRef = React.useRef<number | null>(null);
   const startRef = React.useRef<number>(Date.now());
+  const runTokenRef = React.useRef(0);
 
   const addLog = useIDEStore((s) => s.addLog);
 
@@ -295,100 +295,106 @@ export function ShaderEditor(): React.ReactElement {
     });
   };
 
-  const compileShader = (
-    gl: WebGLRenderingContext,
-    type: number,
-    source: string,
-  ): WebGLShader | null => {
-    const shader = gl.createShader(type);
-    if (!shader) return null;
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const info = gl.getShaderInfoLog(shader) ?? "Unknown compile error";
-      gl.deleteShader(shader);
-      setCompileError(info);
-      return null;
-    }
-    return shader;
-  };
-
+  // Preview renders through the exact same `CustomShaderFilter` class
+  // `RenderSystem.addLayerShaderFilter()` attaches in real game code (see
+  // packages/engine/src/systems/CustomShaderFilter.ts). There is no separate
+  // "preview" shader path that could drift from production behaviour —
+  // errors shown here are PixiJS's own compile/link diagnostics, captured
+  // from the console during the real compile.
   const runPreview = React.useCallback(
     (vSrc: string, fSrc: string): void => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-
-      const gl = canvas.getContext("webgl");
-      if (!gl) {
-        setCompileError("WebGL not available in this environment.");
-        return;
-      }
-      glRef.current = gl;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      const token = ++runTokenRef.current;
 
-      const vert = compileShader(gl, gl.VERTEX_SHADER, vSrc);
-      const frag = compileShader(gl, gl.FRAGMENT_SHADER, fSrc);
-      if (!vert || !frag) return;
-
-      const prog = gl.createProgram();
-      gl.attachShader(prog, vert);
-      gl.attachShader(prog, frag);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-        setCompileError(gl.getProgramInfoLog(prog) ?? "Link failed");
+      let filter: CustomShaderFilter;
+      try {
+        filter = createCustomShaderFilter({
+          vertexSrc: vSrc,
+          fragmentSrc: fSrc,
+        });
+      } catch (err) {
+        setCompileError(err instanceof Error ? err.message : String(err));
         return;
       }
 
-      setCompileError(null);
-      setCompiled(true);
-      addLog("info", "[ShaderEditor] Shader compiled OK");
-
-      // Full-screen quad
-      const buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]),
-        gl.STATIC_DRAW,
-      );
-
-      const posLoc = gl.getAttribLocation(prog, "aVertexPosition");
-      const uvLoc = gl.getAttribLocation(prog, "aTextureCoord");
-      const projLoc = gl.getUniformLocation(prog, "projectionMatrix");
-      const timeLoc = gl.getUniformLocation(prog, "uTime");
-
-      gl.useProgram(prog);
-      if (projLoc !== null) {
-        gl.uniformMatrix3fv(projLoc, false, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-      }
-
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 16, 0);
-      if (uvLoc >= 0) {
-        gl.enableVertexAttribArray(uvLoc);
-        gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, 16, 8);
-      }
-
-      const tick = (): void => {
-        if (!glRef.current) return;
-        const t = (Date.now() - startRef.current) / 1000;
-        if (timeLoc !== null) gl.uniform1f(timeLoc, t);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        rafRef.current = requestAnimationFrame(tick);
+      const captured: string[] = [];
+      const origError = console.error;
+      const origWarn = console.warn;
+      console.error = (...args: unknown[]): void => {
+        captured.push(args.map(String).join(" "));
       };
-      startRef.current = Date.now();
-      tick();
+      console.warn = (...args: unknown[]): void => {
+        captured.push(args.map(String).join(" "));
+      };
+
+      void (async () => {
+        try {
+          if (!rendererRef.current) {
+            rendererRef.current = await autoDetectRenderer({
+              canvas,
+              width: canvas.width,
+              height: canvas.height,
+              backgroundColor: 0x000000,
+              preference: "webgl",
+            });
+          }
+          if (token !== runTokenRef.current) return; // superseded by a newer run
+          const renderer = rendererRef.current;
+
+          if (!spriteRef.current) {
+            const sprite = new Sprite(Texture.WHITE);
+            sprite.width = canvas.width;
+            sprite.height = canvas.height;
+            spriteRef.current = sprite;
+          }
+          spriteRef.current.filters = [filter];
+          filterRef.current = filter;
+
+          // First render triggers the real GL compile/link.
+          renderer.render(spriteRef.current);
+
+          console.error = origError;
+          console.warn = origWarn;
+
+          if (captured.length > 0) {
+            setCompileError(captured.join("\n"));
+            setCompiled(false);
+            return;
+          }
+
+          setCompileError(null);
+          setCompiled(true);
+          addLog("info", "[ShaderEditor] Shader compiled OK");
+
+          startRef.current = Date.now();
+          const sprite = spriteRef.current;
+          const tick = (): void => {
+            if (token !== runTokenRef.current) return;
+            const t = (Date.now() - startRef.current) / 1000;
+            filter.setTime(t);
+            renderer.render(sprite);
+            rafRef.current = requestAnimationFrame(tick);
+          };
+          tick();
+        } catch (err) {
+          console.error = origError;
+          console.warn = origWarn;
+          setCompileError(err instanceof Error ? err.message : String(err));
+          setCompiled(false);
+        }
+      })();
     },
     [addLog],
   );
 
   React.useEffect(() => {
     return () => {
+      runTokenRef.current++;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      glRef.current = null;
+      rendererRef.current?.destroy();
+      rendererRef.current = null;
     };
   }, []);
 
@@ -619,13 +625,20 @@ export function ShaderEditor(): React.ReactElement {
             to see a live preview on the quad above.
           </p>
           <p style={{ marginTop: 6 }}>
-            Available uniforms: <code>uTime</code> (seconds),{" "}
-            <code>uSampler</code> (texture), <code>projectionMatrix</code>.
+            Available: <code>uTime</code> (seconds), <code>uTexture</code>{" "}
+            (input texture), <code>aPosition</code>/<code>aUV</code> attributes,{" "}
+            <code>uProjectionMatrix</code>/<code>uWorldTransformMatrix</code>/
+            <code>uTransformMatrix</code>.
           </p>
           <p style={{ marginTop: 6 }}>
-            To use in-game, pass the GLSL source to{" "}
-            <code>RenderSystem.addShaderFilter()</code> and attach it to an
-            entity.
+            To use in-game:{" "}
+            <code>
+              createCustomShaderFilter(&#123; vertexSrc, fragmentSrc &#125;)
+            </code>
+            , then{" "}
+            <code>renderSystem.addLayerShaderFilter(layerName, filter)</code>.
+            Call <code>filter.setTime(seconds)</code> once per frame if the
+            shader reads <code>uTime</code>.
           </p>
         </div>
       </div>

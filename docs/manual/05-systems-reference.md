@@ -1710,7 +1710,10 @@ Supports multiple simultaneous pointers, keyed by `pointerId`, for multi-touch. 
 Node-graph interpreter component. Holds a serialized `VisualScriptGraph` (nodes + `next` edges) and walks it each frame (`onUpdate` nodes) or when fired (`onEvent` nodes via `fireEvent()`). Backs the Visual Script Editor panel; graphs can equally be hand-written with `VisualScriptGraphBuilder`.
 
 ```typescript
-import { VisualScriptGraphBuilder, VisualScriptComponent } from "@emptysock/engine";
+import {
+  VisualScriptGraphBuilder,
+  VisualScriptComponent,
+} from "@emptysock/engine";
 
 const b = new VisualScriptGraphBuilder();
 const start = b.onUpdate();
@@ -1722,3 +1725,32 @@ entity.addComponent(vs);
 ```
 
 Node kinds: `onUpdate`, `onEvent`, `sequence`, `branch` (compares a `VariableStore` variable), `getVariable`/`setVariable`, `getSwitch`/`setSwitch`, `sendMessage` (dispatches through `ActorSystem.send()`). `VisualScriptComponent.TYPE` is `"VisualScript"`. See the [VisualScriptComponent reference](../reference/systems/visual-script-component.md) for the full node table and execution semantics, including the step cap that guards against a self-cycling graph.
+
+---
+
+## 5.36 CustomShaderFilter
+
+User-authored GLSL post-process filter — the runtime the ShaderEditor IDE panel previews and compiles against. Attributes `aPosition`/`aUV`; vertex uniforms `uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix`; fragment `uTexture`/`uTime`. See the [CustomShaderFilter reference](../reference/systems/custom-shader-filter.md).
+
+```typescript
+import { createCustomShaderFilter } from "@emptysock/engine";
+
+const filter = createCustomShaderFilter({ fragmentSrc, vertexSrc });
+renderSystem.addLayerShaderFilter("default", filter);
+filter.setTime(elapsedSeconds);
+```
+
+---
+
+## 5.37 SequenceSystem
+
+Plays a keyframe `SequenceDefinition` (property + keyframes + optional easing, per track) against a plain numeric target by scheduling real `TweenManager.to()` calls — the runtime the Sequence Editor IDE panel drives. See the [SequenceSystem reference](../reference/systems/sequence-system.md).
+
+```typescript
+import { TweenManager, SequenceSystem } from "@emptysock/engine";
+
+const tweens = new TweenManager();
+const seq = new SequenceSystem();
+seq.play(tweens, target, def);
+tweens.update(deltaTime); // per frame
+```
