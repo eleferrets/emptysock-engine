@@ -523,3 +523,66 @@ accident, and how unified input handling is across keyboard/gamepad/touch.
    recommended.** `input.isDown("jump")` is the default and the only thing
    most games touch; `input.keyboard`/`input.gamepad(0)`/`input.touches`
    stay available for games that need exact device-level state.
+
+## 16. Open questions — round 7: build on existing libraries, don't rebuild them
+
+Researched before asking, per your instruction — three places where §1.4
+("don't reinvent solved problems") plausibly extends further than rounds
+1–6 took it. Sources are linked; these aren't guesses.
+
+1. **ECS storage: hand-write the structure-of-arrays engine, or build the
+   OOP facade on top of an existing high-performance ECS library?** §7
+   commits to "real ECS storage, not `Map<string, Component>`" but doesn't
+   say who writes that storage layer. **Recommended:** use
+   [bitECS](https://github.com/NateTheGreatt/bitECS) as the actual storage
+   engine underneath `entity.get`/`add`/`scene.each` — it's TypeScript-
+   native, structure-of-arrays, described as "ultra-high performance," and
+   solves exactly the cache-friendly-iteration problem §7 argues for
+   building ourselves. The OOP-shaped facade (`player.get(PhysicsBody)`,
+   `scene.each(...)`) becomes a thin, friendly layer over bitECS's raw
+   query/component API — beginners never see bitECS directly, but we're
+   not maintaining our own component-storage engine's correctness and
+   performance characteristics from scratch. Alternative: write our own
+   SoA storage — full control over exactly how it integrates with the
+   rest of the engine (no adapting our API shape to someone else's
+   primitives), but this is real, ongoing systems-level work (cache
+   layout, archetype/query indexing) that a purpose-built library has
+   already solved and battle-tested.
+2. **Modding: is "third-party extension" in §14.3 the same thing as
+   letting a _player_ (not a developer) load untrusted mod content?**
+   §14.3 locked named extension points for _developer-installed_ plugins —
+   those are trusted the same way any npm dependency is trusted (the
+   developer chose to `npm install` it). That's a different, easier
+   problem than a shipped game letting its own _players_ load community
+   mods/scripts at runtime, which is genuinely untrusted code. **Recommended:**
+   treat these as two separate features, and scope only the first
+   (developer plugins, already decided) into core v2 — but name the second
+   explicitly rather than silently ignoring it: if/when player-facing
+   modding is wanted, [WASM sandboxing is the modern, correct
+   answer](https://dev.to/mohameddiallo/4-ways-to-sandbox-untrusted-code-in-2026-1ffb)
+   (memory-isolated by construction, no filesystem/network access unless
+   explicitly granted, near-native speed) — not a hand-rolled JS
+   interpreter subset or `eval` with a blocklist. This would ship as its
+   own later module (`@emptysock/modding`?), not something core v2 needs
+   to solve now. Alternative: fold player-modding scope into this pass
+   too — bigger scope increase than this redesign has taken on anywhere
+   else so far, for a feature most templates (§10.4) won't need.
+3. **Toolchain build pipeline: keep plain esbuild for the CLI's real
+   export/build step, or move it onto Rolldown/Oxc?** Two different
+   bundling problems exist today and it's worth being precise about which
+   one this affects: `esbuild-wasm` in the IDE's live-preview build path
+   (`GameBuildService`) runs _inside the browser tab_ — it has to stay
+   WASM-based, Rolldown's native Rust binary can't run there, so that path
+   is unaffected. The _CLI's_ actual project export/build
+   (`packages/toolchain`, real Node process, no browser) is a different
+   question. **Recommended:** move the toolchain's export build onto
+   [Rolldown](https://www.alexcloudstar.com/blog/vite-8-rolldown-oxc-2026/)
+   (already Vite 8's default bundler, and `apps/ide` is already on Vite 8)
+   — real production numbers from other projects show 10–30x faster
+   builds switching from esbuild/Rollup to Rolldown, and using the same
+   Rust toolchain (Oxc) for both the IDE's own build and the CLI's game
+   export means one bundler to reason about instead of two. Alternative:
+   keep plain esbuild in the toolchain — it already works, esbuild is
+   still fast in absolute terms, and Rolldown is young enough (1.0 as of
+   May 2026) that some teams are deliberately waiting before depending on
+   it for a shipping product's build pipeline.
