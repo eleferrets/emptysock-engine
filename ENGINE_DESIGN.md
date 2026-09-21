@@ -793,6 +793,9 @@ is that lock: every major area, its status, and where its decision lives.
 | Area                                                                  | Status                                                                                                                                                                                                                                | Where                                                                           |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Object model / ECS storage                                            | **Locked**                                                                                                                                                                                                                            | §3, §7, §16.1, §21                                                              |
+| Entity ID versioning (stale-handle safety)                            | **Locked**                                                                                                                                                                                                                            | §23                                                                             |
+| Component identity across hot-reload                                  | **Locked**                                                                                                                                                                                                                            | §23                                                                             |
+| Network/ECS bridge (how @emptysock/network touches components)        | **Locked**                                                                                                                                                                                                                            | §23                                                                             |
 | Lifecycle (scene/physics/actor ownership)                             | **Locked**                                                                                                                                                                                                                            | §4                                                                              |
 | Shared state (services)                                               | **Locked**                                                                                                                                                                                                                            | §5                                                                              |
 | Physics & collision ergonomics                                        | **Locked**                                                                                                                                                                                                                            | §6                                                                              |
@@ -846,7 +849,7 @@ forks that would send the design back to the drawing board.
    a stated, reasoned answer. Say the word and pass 1 of §9 (core engine
    implementation) starts.
 
-## 23. Round 12: one more real gap, then two open questions
+## 23. Round 12: one more real gap, both follow-on questions locked
 
 **Found and locked without needing a vote — the same "don't reinvent, the
 library already solved it" pattern as Rapier's deterministic build:**
@@ -869,48 +872,29 @@ entity happens to reuse that slot — `entity.get(...)` on a stale handle
 throws or returns `undefined` explicitly, matching §2's actual promise
 instead of almost matching it.
 
-**Two real forks this surfaced, genuinely open:**
-
-1. **Hot reload (§13.3) vs. bitECS component identity.** bitECS component
-   definitions are plain JS object references (`const Position = {x:[],
-y:[]}`) — component _identity_ for storage purposes is that object's
-   own reference, not a string name. §13.3 promises component _code_
-   hot-swaps without resetting scene data. If a hot-swapped module
-   re-evaluates and creates a _new_ `Position` object literal, does the
-   engine need to explicitly re-bind the new definition to the old
-   component's storage (matching by name/schema), or does something about
-   how components get defined avoid this by construction? This wasn't
-   visible as a question until bitECS's real identity model was checked
-   just now.
-2. **Networking (§11.4, Colyseus) vs. bitECS storage.** Colyseus's schema-
-   sync model (`@colyseus/schema`) expects to walk plain class instances
-   with decorated fields to diff and replicate state; bitECS stores data
-   in flat typed arrays with no per-entity object by default (only our
-   own `.get()` Proxy, §21, manufactures one on demand). Does
-   `@emptysock/network` mark specific _components_ as networked (and
-   read/write through the same `.get()` Proxy layer to bridge into
-   Colyseus's schema format), or does it need its own direct bitECS-array
-   access path for performance, bypassing the Proxy for synced state?
-
-Recommendations, since you've been asking for them stated up front:
+**Two forks this surfaced, both locked, accepted as recommended:**
 
 1. **Component identity survives hot-reload via a name-keyed registry, not
-   raw object identity.** Every component is registered once under a
-   stable string name (already needed for schema files anyway, §13.4) —
-   the engine's component registry is keyed by that name, and a hot-
-   swapped module's re-evaluated `Position` object _replaces_ the
-   registry's entry for `"Position"` rather than becoming an unrelated
-   second component. bitECS still sees a single stable definition from
-   the registry's point of view; the engine layer is what makes "the code
-   changed, the data didn't" (§13.3's actual promise) true underneath a
-   library that identifies components by object reference.
+   bitECS's raw object identity.** bitECS component definitions are plain
+   JS object references (`const Position = {x: [], y: []}`) — component
+   _identity_ for its storage purposes is that object's own reference, not
+   a string name, which would otherwise mean a hot-swapped module's
+   re-evaluated `Position` object silently becomes an unrelated second
+   component instead of replacing the old one. Every component is
+   registered once under a stable string name (already needed for schema
+   files anyway, §13.4); the engine's component registry is keyed by that
+   name, and a hot-swap _replaces_ the registry's entry for `"Position"`.
+   bitECS still sees one stable definition from the registry's point of
+   view; the engine layer is what makes §13.3's "the code changed, the
+   data didn't" promise actually true underneath a library that
+   identifies components by reference.
 2. **`@emptysock/network` reads/writes through the same `.get()` Proxy
-   layer, not a separate bitECS-array fast path.** Networked state is, by
-   construition, not the hot inner-loop case `scene.each()` exists for
-   (§21) — it's replicated a handful of times a second to a handful of
-   clients, not iterated for thousands of entities at 60fps. Paying proxy
-   overhead there buys one bridge implementation instead of two, and
-   keeps `@emptysock/network` from needing to know bitECS exists at all
-   (it only ever sees the same `Component` classes/`.get()` shape every
-   other part of the engine sees) — consistent with §1.2's "one clean
-   path," not a special case for the networking module.
+   layer (§21), not a separate bitECS-array fast path.** Networked state
+   is replicated a handful of times a second to a handful of clients, not
+   the thousands-of-entities-at-60fps case `scene.each()` exists for —
+   proxy overhead there isn't the thing worth optimizing against.
+   `@emptysock/network` never needs to know bitECS exists; it only ever
+   sees the same `Component` classes and `.get()` shape every other part
+   of the engine sees. One bridge implementation, not two, and no
+   bitECS-internals dependency leaking into what's supposed to be an
+   optional add-on package.
