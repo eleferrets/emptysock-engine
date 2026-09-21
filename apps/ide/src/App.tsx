@@ -112,26 +112,35 @@ function getModuleTabs(ids: string[]): TabData[] {
   });
 }
 
+const MAIN_GATED_MODULES = [
+  "tilemap",
+  "particle",
+  "vn",
+  "vn-preview",
+  "visual-script",
+  "sequence",
+  "cg-gallery",
+];
+const BOTTOM_GATED_MODULES = [
+  "profiler",
+  "git",
+  "i18n",
+  "audio",
+  "variables",
+  "ui-placement",
+  "database",
+];
+
+// Anchor tab id used to dock a gated module's tab into the correct group
+// (rather than letting rc-dock fall back to floating it).
+function anchorTabIdForModule(id: string): string {
+  return MAIN_GATED_MODULES.includes(id) ? "canvas" : "assets";
+}
+
 function buildDefaultLayout(): LayoutData {
   const enabledModules = useIDEStore.getState().enabledModules;
-  const mainGated = [
-    "tilemap",
-    "particle",
-    "vn",
-    "vn-preview",
-    "visual-script",
-    "sequence",
-    "cg-gallery",
-  ];
-  const bottomGated = [
-    "profiler",
-    "git",
-    "i18n",
-    "audio",
-    "variables",
-    "ui-placement",
-    "database",
-  ];
+  const mainGated = MAIN_GATED_MODULES;
+  const bottomGated = BOTTOM_GATED_MODULES;
   return {
     dockbox: {
       mode: "horizontal",
@@ -304,7 +313,23 @@ export function App(): React.ReactElement {
     }
     const factory = ALL_PANEL_TABS[tabId];
     if (!factory) return;
+    // Dock gated module tabs into their group's existing tab set (the
+    // anchor tab) instead of letting rc-dock fall back to floating them.
+    const anchorId = anchorTabIdForModule(tabId);
+    const anchor = layout.find(anchorId);
+    if (anchor) {
+      layout.dockMove(factory(), anchorId, "middle");
+      return;
+    }
     layout.dockMove(factory(), null, "float");
+  }, []);
+
+  const closePanelInLayout = React.useCallback((tabId: string): void => {
+    const layout = layoutRef.current;
+    if (!layout) return;
+    const existing = layout.find(tabId);
+    if (!existing || !("id" in existing)) return;
+    layout.dockMove(existing as TabData, null, "remove");
   }, []);
 
   useApplyTheme();
@@ -332,17 +357,21 @@ export function App(): React.ReactElement {
     layout.dockMove(makeImageEditorTab(req.assetId), null, "float");
   }, [openImageEditorRequest]);
 
-  // Auto-open a module's panel when the module is enabled
+  // Auto-open a module's panel when enabled, and close its tab when disabled
   const enabledModules = useIDEStore((s) => s.enabledModules);
   const prevModulesRef = React.useRef<string[]>(enabledModules);
   React.useEffect(() => {
     const prev = prevModulesRef.current;
     const added = enabledModules.filter((id) => !prev.includes(id));
+    const removed = prev.filter((id) => !enabledModules.includes(id));
     for (const id of added) {
       openPanelInLayout(id);
     }
+    for (const id of removed) {
+      closePanelInLayout(id);
+    }
     prevModulesRef.current = enabledModules;
-  }, [enabledModules, openPanelInLayout]);
+  }, [enabledModules, openPanelInLayout, closePanelInLayout]);
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
