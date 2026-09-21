@@ -7,8 +7,10 @@ uses the current engine, so there is no migration constraint: every idea here is
 free to break the current shape of `Scene`/`Entity`/`Component`.
 
 Sections 1–2 are the argument. Sections 3–8 are the actual design. Section 9 is
-what's explicitly _not_ in this pass. Section 10 is the open questions I need
-answered before writing code.
+what's explicitly _not_ in this pass. Sections 10–12 are the review log: each
+is a round of open questions followed by the decisions locked from the round
+before it — read them in order to see how the design got here, or jump to the
+end for the current open questions.
 
 ---
 
@@ -98,10 +100,12 @@ trick Bevy/Flecs use to give ECS performance an OOP-shaped front door.
 **Power path, same objects:**
 
 ```ts
-// Same components, no per-entity handles — the power-user path is a query
-// over the raw storage, for when you're updating thousands of entities and
-// player.get(PhysicsBody) per-entity dispatch is the wrong tool.
-scene.query(Transform, PhysicsBody).forEach((transform, body, entity) => {
+// Same components, no per-entity handles — this is the path for when
+// you're updating thousands of entities and player.get(PhysicsBody)
+// per-entity dispatch is the wrong tool. Same object as spawn/get, no
+// separate import — see §12 (round 3) for why it's called `each`, not
+// `query`.
+scene.each(Transform, PhysicsBody, (transform, body, entity) => {
   transform.x += body.velocity.x * dt;
 });
 ```
