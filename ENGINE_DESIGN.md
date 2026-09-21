@@ -688,3 +688,70 @@ oldVersion)` hook or logs a warning and drops just that component's
    data, never corrupting the whole save or crashing. A developer never
    thinks about save compatibility until they actually ship an update that
    needs it.
+
+## 20. Round 11: auditing the existing IDE, not just the engine
+
+Round 11 turned to `apps/ide`'s actual current code instead of more
+greenfield brainstorming, prompted directly by "look at the existing
+features to rearchitect." Findings and decisions below are grounded in
+what the code does today, not assumed.
+
+**Confirmed already correct — carry forward into v2, no change needed:**
+
+- **Asset import already copies into the project.** `AssetBrowser.tsx`'s
+  drop/select handlers call `store.write(file.name, file)`, writing bytes
+  into the project's own asset store (a real directory the browser's File
+  System Access API granted permission to, or Tauri's filesystem on
+  desktop) — not a reference to wherever the source file lives on the
+  user's OS. Nothing in rounds 1–10 changes this; it needs to be stated
+  explicitly in v2's spec rather than left as an unstated existing
+  behavior, since a redesign this large could otherwise regress it by
+  omission.
+- **GMS2 import is real, tested, and already correctly scoped.** Confirmed
+  end-to-end against a real exported project (`CLAUDE.md`'s documented
+  quirks, synthetic regression tests in `gms2-import.test.ts`), targeting
+  2.3+ `.yyp`/`.yy` only — matches §9's already-locked scope exactly.
+- **The IDE's own Netlify deployment is a pure static SPA and stays that
+  way.** `apps/ide/netlify.toml` confirms no backend — the COOP/COEP
+  headers exist solely for `esbuild-wasm`'s `SharedArrayBuffer`
+  requirement (moot once §17 lands and that path moves to
+  `@rolldown/browser`, which needs checking against the same header
+  requirement when that migration happens). **Boundary worth stating
+  plainly in the eventual docs pass (§9):** Colyseus (§11.4) and the MCP
+  live-bridge (§8) are never part of this deployment. Colyseus is
+  infrastructure a _shipped game's own developer_ hosts separately
+  (Colyseus Cloud, a VPS, Railway); MCP is a separate local/self-hosted
+  process. Neither needs the free Netlify site to do anything different.
+
+**Confirmed real but not yet usability-audited — separate task, not
+guessed at here:** `ImageEditor` (797 lines), `VNEditor` (952),
+`TilemapEditor` (582), `UIPlacementPanel` (934), `SequenceEditor` (953),
+and `ShaderEditor` (647) are all substantial, real implementations, not
+stubs. Whether each one actually satisfies `CLAUDE.md`'s own IDE UI
+checklist (empty states, action-hint copy, conditional UI, etc.) is a
+real, separate screenshot-driven audit — worth doing before v2 ships, not
+worth guessing at in a design doc.
+
+**Decisions, both accepted as recommended:**
+
+1. **VS Code integration: add "open in VS Code," don't build real theme/
+   extension import.** A button opens the current project folder in the
+   user's own installed VS Code (`vscode://` URI scheme, or `code .` on
+   desktop/Tauri) — anyone who wants their real extensions, themes, and
+   keybindings just uses their real VS Code, no conversion layer needed.
+   The IDE's own Monaco stays simple: a handful of built-in themes plus
+   the existing settings-subset import. Rejected: parsing real VS Code
+   theme JSON into Monaco theme definitions and loading VS Code
+   extensions directly — Monaco doesn't support the full VS Code
+   extension API at all (many extensions simply couldn't run even if
+   imported), making this a partial, maintenance-heavy feature no matter
+   how well built.
+2. **Adopt changesets for the monorepo now, before the v2 rewrite lands.**
+   Every package (`apps/ide`, `packages/engine`, `packages/types`,
+   `packages/toolchain`, and the future `@emptysock/vn`/`battle`/
+   `network`/etc. module packages from §16.1) is currently hand-pinned at
+   `0.1.0` with no changelog/bump automation. Setting up
+   [changesets](https://github.com/changesets/changesets) now means the
+   first real v2 release already has a real process, instead of
+   retrofitting one onto several already-shipped 0.1.0 tags once the
+   module-package split makes there be more packages to keep straight.
