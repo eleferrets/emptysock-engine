@@ -70,19 +70,67 @@ identity (§23.1), and entity ID versioning (§23) all touch the same core
 files, and `Game`/`Scene` lifecycle ownership (§4) is the thing every other
 track spawns/destroys through.
 
-- [ ] `Entity`/`Component` core: wrap bitECS (§16.1, §21), enable versioned
+- [x] `Entity`/`Component` core: wrap bitECS (§16.1, §21), enable versioned
       entity IDs by default (§23), build the name-keyed component registry
       (§23.1), implement `scene.spawn`/`entity.get`/`entity.add`/`scene.each`
-      (§3, §11.3).
-- [ ] `Game`/`Scene` lifecycle: automatic `ActorSystem`/`PhysicsSystem`
+      (§3, §11.3). Landed at `packages/engine/src/v2/` (`Entity.ts`,
+      `Component.ts`, `ComponentRegistry.ts`, `Scene.ts`), built directly on
+      the real `bitecs` npm package with `createEntityIndex(withVersioning())`
+      — versioning is on unconditionally, not exposed as an option. `.get()`
+      returns a cached-per-(entity,component) `Proxy`; `.each()` uses a
+      separate no-Proxy accessor-based cursor over the raw arrays instead
+      (faster than `.get()`, matching §21's stated reason `each` exists).
+      Deviation: `defineComponent(name, defaults)` (a name-keyed factory)
+      replaces the class-based `Component` sketched in §3's prose examples —
+      chosen because it makes the §23.1 stable-name requirement the only way
+      to define a component, rather than an easy-to-forget convention on top
+      of a class declaration; runtime behaviour is unchanged either way.
+      Deviation: this v2 core lives at a new `@emptysock/engine/v2` subpath
+      export, not the package root — replacing `core/Entity.ts`/`Scene.ts`/
+      `Component.ts` in place would have broken every other system
+      (`PhysicsSystem`, `RenderPipeline`, `TilemapSystem`, `NavMeshSystem`,
+      `PostProcessSystem`, ...) that Track 1/2 haven't migrated yet; v1 keeps
+      running unmodified at the package root in the meantime.
+- [x] `Game`/`Scene` lifecycle: automatic `ActorSystem`/`PhysicsSystem`
       creation and teardown (§4), the fixed one-phase-per-frame update order
       (§4), the `manageLifecycle: false` escape hatch, `onUpdate` as a
       compile-time-only-in-TS type error with a JS runtime warning fallback
-      (§10.2).
-- [ ] `Serializable` type constraint on components (§14.1, needed by both
-      save durability and scene/prefab files below).
-- [ ] Headless testing harness (§15.1) — land this _early_, not last; every
+      (§10.2). Landed at `packages/engine/src/v2/Game.ts`. `loadScene()`
+      constructs a `Scene`, a v1 `ActorSystem`, and a v1 `PhysicsSystem`
+      (`.init()`ed) together and hands back all three; `unloadScene()`
+      destroys the actor/physics systems unconditionally in a `finally`
+      after `onUnload` runs, `manageLifecycle: false` skips that teardown
+      and hands the raw instances back for the caller to own. `update(dt)`
+      runs actor mailbox-flush-then-update, then `onUpdate(dt)`, matching
+      steps 2 and 5 of §4's 7-step order; steps 1/3/4/6/7 (input snapshot,
+      physics step + collision dispatch, camera resolve, render) are no-ops
+      for now since they depend on systems Track 1 hasn't migrated onto the
+      v2 core yet — the ordering and the hooks for them exist, wiring the
+      real systems in is Track 1 work, called out in code comments.
+      `defineScene(...)` is a typed constructor whose generic inference
+      rejects a literal `async onUpdate` at compile time (a bare
+      `SceneDefinition` object typed as `(dt: number) => void` would _not_
+      actually catch this — TS's void-return contextual typing accepts any
+      return type there, the same leniency that lets `array.forEach(async
+    fn)` compile silently); `Game.update()` also runs the JS-facing
+      runtime `.then` check independent of how the scene was defined.
+- [x] `Serializable` type constraint on components (§14.1, needed by both
+      save durability and scene/prefab files below). Landed at
+      `packages/engine/src/v2/Serializable.ts` — `defineComponent`'s
+      defaults factory is constrained to return a `SerializableRecord`
+      (string/number/boolean/null/array/plain-object fields only, no
+      functions, no class instances), so a component with a non-serializable
+      field fails to compile at the `defineComponent` call site. Only the
+      type constraint landed, as scoped — `SaveSystem` itself is Track 1.
+- [x] Headless testing harness (§15.1) — land this _early_, not last; every
       other track should be able to write tests against it from day one.
+      Landed at `packages/engine/src/testing/index.ts`, exported as
+      `@emptysock/engine/testing`. `createHeadlessScene()` gives a bare v2
+      `Scene` with no lifecycle wrapper; `createHeadlessGame()` gives a
+      `Game` subclass that forces `headless: true` on every `loadScene` call
+      so the render step is always a no-op, while `ActorSystem`/
+      `PhysicsSystem` still run for real — spawn/get/add/each/actor
+      messaging behave identically to a non-headless game, nothing draws.
 
 ### Track 1 — parallel once Track 0 lands, independent of each other
 
