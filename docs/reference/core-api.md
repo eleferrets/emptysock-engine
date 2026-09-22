@@ -1,13 +1,13 @@
 # Core API: Scene, Entity, Component, Prefab, Services
 
-This page covers the `@emptysock/engine/v2` entry point's core primitives — the ECS core. It's a different API shape from the classic `Scene`/`Entity`/`Component` described on the other reference pages, built on [bitECS](https://github.com/NateTheGreatt/bitECS) underneath. See `docs/architecture.md` §3.9 for why it's built this way, and `docs/guides/entities-and-components.md` for a walkthrough with real examples.
+This page covers the `@emptysock/engine/ecs` entry point's core primitives — the ECS core. It's a different API shape from the classic `Scene`/`Entity`/`Component` described on the other reference pages, built on [bitECS](https://github.com/NateTheGreatt/bitECS) underneath. See `docs/architecture.md` §3.9 for why it's built this way, and `docs/guides/entities-and-components.md` for a walkthrough with real examples.
 
 ---
 
 ## `defineComponent`
 
 ```ts
-import { defineComponent } from "@emptysock/engine/v2";
+import { defineComponent } from "@emptysock/engine/ecs";
 
 const Position = defineComponent("Position", { x: 0, y: 0 });
 const Health = defineComponent(
@@ -59,7 +59,7 @@ A `Scene` owns exactly one bitECS `World`. `spawn(name?)` creates an empty entit
 ## Prefabs
 
 ```ts
-import { definePrefab } from "@emptysock/engine/v2";
+import { definePrefab } from "@emptysock/engine/ecs";
 
 const Physical = definePrefab("Physical", [
   { def: Transform },

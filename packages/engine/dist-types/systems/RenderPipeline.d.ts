@@ -10,7 +10,9 @@ import type { PostProcessSystem } from "./PostProcessSystem.js";
  * actually reads. RenderPipeline lives in the core engine and must not
  * depend on the optional `@emptysock/tilemap` module package (§13.1), so it
  * depends on this structural interface instead — `Tilemap` satisfies it
- * without either package importing the other.
+ * without either package importing the other. Only `mountTilemap()`'s
+ * caller (game code that already imports `@emptysock/tilemap`) needs both
+ * types in scope at once.
  */
 export interface TileLayerSource {
   readonly data: {
@@ -30,7 +32,12 @@ export interface TileLayerSource {
       readonly visible: boolean;
       readonly opacity: number;
       readonly cells: ReadonlyArray<
-        ReadonlyArray<{ readonly tileIndex: number } | undefined>
+        ReadonlyArray<
+          | {
+              readonly tileIndex: number;
+            }
+          | undefined
+        >
       >;
     }>;
   };

@@ -175,7 +175,7 @@ The engine itself is pre-bundled as a UMD global in the iframe's context. User c
 
 ## 3.9 The ECS core: what's actually under the hood
 
-Everything above describes the classic, class-based engine, and none of it stopped being true. `@emptysock/engine/v2` is a second entry point living next to it, built on a genuinely different data model for games that need it, and this section is for anyone who wants to know why it's built the way it is rather than just how to call it (that part's in the guides).
+Everything above describes the classic, class-based engine, and none of it stopped being true. `@emptysock/engine/ecs` is a second entry point living next to it, built on a genuinely different data model for games that need it, and this section is for anyone who wants to know why it's built the way it is rather than just how to call it (that part's in the guides).
 
 ### bitECS is the real data store, `Entity` is a nice way to talk to it
 
@@ -195,4 +195,4 @@ Instead, `ComponentRegistry` keys everything by the component's _name_ (`"Positi
 
 ### Why a headless `Game` is possible at all
 
-`v2/Game.ts` never imports Pixi, never imports a DOM type, and never assumes a renderer exists. Rendering is handed in after the fact through `attachRenderer()`, which takes a `SceneRenderer` interface (`renderFrame(main, overlays)`) rather than the concrete `RenderPipeline` class. A `Game` constructed with no renderer attached, or explicitly flagged `headless: true`, runs its full frame (actor mailbox flush, physics step, `onUpdate`) with the render step skipped entirely. That's what lets `packages/engine/src/testing/index.ts` exist as a real, fast, DOM-free test harness instead of something that needs a headless browser spun up just to prove a component's logic works.
+`ecs/Game.ts` never imports Pixi, never imports a DOM type, and never assumes a renderer exists. Rendering is handed in after the fact through `attachRenderer()`, which takes a `SceneRenderer` interface (`renderFrame(main, overlays)`) rather than the concrete `RenderPipeline` class. A `Game` constructed with no renderer attached, or explicitly flagged `headless: true`, runs its full frame (actor mailbox flush, physics step, `onUpdate`) with the render step skipped entirely. That's what lets `packages/engine/src/testing/index.ts` exist as a real, fast, DOM-free test harness instead of something that needs a headless browser spun up just to prove a component's logic works.

@@ -4,7 +4,7 @@ The **PluginSystem** is a lightweight service locator for optional capabilities:
 
 For the complete API, see [PluginSystem reference](../reference/systems/plugin-system.md).
 
-> **Heads up:** `PluginSystem` stays a bare module-level singleton on purpose, it's for things that are genuinely global to the whole running app. If what you actually want is shared state scoped to one `Game` instance (score, settings, that kind of thing), `@emptysock/engine/v2` has a typed, class-keyed `ServiceRegistry` (`game.services`) for that instead. See the [Core API reference](../reference/core-api.md).
+> **Heads up:** `PluginSystem` stays a bare module-level singleton on purpose, it's for things that are genuinely global to the whole running app. If what you actually want is shared state scoped to one `Game` instance (score, settings, that kind of thing), `@emptysock/engine/ecs` has a typed, class-keyed `ServiceRegistry` (`game.services`) for that instead. See the [Core API reference](../reference/core-api.md).
 
 ---
 

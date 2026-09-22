@@ -4,7 +4,7 @@ An `Entity` is a named container for components. It carries a unique auto-genera
 
 Entities are created via `scene.createEntity(name)` and destroyed via `entity.destroy()`. You never construct an `Entity` directly.
 
-> **Heads up:** this is the classic, class-based `Entity`. `@emptysock/engine/v2` has its own `Entity` handle backed by bitECS's array storage, with `entity.get(Component)`/`entity.add(Component, overrides?)` instead of `getComponent`/`addComponent`. See the [Core API reference](./core-api.md).
+> **Heads up:** this is the classic, class-based `Entity`. `@emptysock/engine/ecs` has its own `Entity` handle backed by bitECS's array storage, with `entity.get(Component)`/`entity.add(Component, overrides?)` instead of `getComponent`/`addComponent`. See the [Core API reference](./core-api.md).
 
 ---
 

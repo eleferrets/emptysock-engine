@@ -1,4 +1,4 @@
-import type { ComponentDef, Entity, Scene } from "@emptysock/engine/v2";
+import type { ComponentDef, Entity, Scene } from "@emptysock/engine/ecs";
 import { getNetworkedFields } from "./NetworkedFields.js";
 import { NetworkEntityMap } from "./NetworkEntityMap.js";
 import {

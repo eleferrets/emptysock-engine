@@ -4,7 +4,7 @@ EmptySock ships two physics systems: a 2D system and a 3D system. They're indepe
 
 For the complete method-level API, see [PhysicsSystem2D reference](../reference/systems/physics-2d.md) and [PhysicsSystem3D reference](../reference/systems/physics-3d.md).
 
-> **Heads up:** everything on this page is the classic, class-based API, and it's not going anywhere. If you're building on `@emptysock/engine/v2`, there's a bitECS-backed `PhysicsBody` component with the same collision/sensor callback pattern described here, just wired through `entity.get()` instead of `getComponent`. See the [Core API reference](../reference/core-api.md) and [Entities and Components](../guides/entities-and-components.md).
+> **Heads up:** everything on this page is the classic, class-based API, and it's not going anywhere. If you're building on `@emptysock/engine/ecs`, there's a bitECS-backed `PhysicsBody` component with the same collision/sensor callback pattern described here, just wired through `entity.get()` instead of `getComponent`. See the [Core API reference](../reference/core-api.md) and [Entities and Components](../guides/entities-and-components.md).
 
 ---
 

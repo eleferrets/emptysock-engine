@@ -2,14 +2,14 @@
 
 A map of the engine's moving parts, not a tutorial — each linked guide has the actual walkthrough.
 
-`Scene`, `Entity`, `Component`, `PhysicsSystem2D`, `ActorSystem` and friends are the classic, object-oriented core: components are objects you attach to an entity, and a scene owns a flat list of them. Alongside that, `@emptysock/engine/v2` is an entity-component-system core built on [bitECS](https://github.com/NateTheGreatt/bitECS): components there are defined shapes whose data lives in flat arrays, and an `Entity` handle is a friendly way of reaching into those arrays. Both are real, current, supported parts of the engine — pick whichever model fits the game you're building, per scene if you like.
+`Scene`, `Entity`, `Component`, `PhysicsSystem2D`, `ActorSystem` and friends are the classic, object-oriented core: components are objects you attach to an entity, and a scene owns a flat list of them. Alongside that, `@emptysock/engine/ecs` is an entity-component-system core built on [bitECS](https://github.com/NateTheGreatt/bitECS): components there are defined shapes whose data lives in flat arrays, and an `Entity` handle is a friendly way of reaching into those arrays. Both are real, current, supported parts of the engine — pick whichever model fits the game you're building, per scene if you like.
 
 ---
 
-## The ECS core: `@emptysock/engine/v2`
+## The ECS core: `@emptysock/engine/ecs`
 
 ```ts
-import { defineComponent } from "@emptysock/engine/v2";
+import { defineComponent } from "@emptysock/engine/ecs";
 
 const Position = defineComponent("Position", { x: 0, y: 0 });
 

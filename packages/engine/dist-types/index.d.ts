@@ -110,6 +110,11 @@ export type {
   SetSwitchNode,
   SendMessageNode,
 } from "./components/VisualScriptComponent.js";
+export {
+  compileVisualScriptGraph,
+  CompiledVisualScriptComponent,
+} from "./systems/VisualScriptCompiler.js";
+export type { VSCompiledContext } from "./systems/VisualScriptCompiler.js";
 export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
 export type { Light, LightType } from "./systems/LightingSystem.js";
 export {

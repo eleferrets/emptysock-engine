@@ -10,15 +10,18 @@ import {
   Transform as V2Transform,
   Sprite as V2Sprite,
   PhysicsBody as V2PhysicsBody,
-} from "@emptysock/engine/v2";
-import type { ComponentSchema, SerializableRecord } from "@emptysock/engine/v2";
+} from "@emptysock/engine/ecs";
+import type {
+  ComponentSchema,
+  SerializableRecord,
+} from "@emptysock/engine/ecs";
 import { engineChannel } from "../../services/EngineChannel";
 
 /**
  * ENGINE_DESIGN.md §10.1: "co-located optional schema, not decorators" —
  * `defineComponent`'s optional `.schema` describes each field's inspector
  * control. `ComponentDef` itself has no inspector-color field (that would
- * touch `packages/engine/src/v2/Component.ts`, which is out of scope for
+ * touch `packages/engine/src/ecs/Component.ts`, which is out of scope for
  * this pass), so schema and color are kept as ONE co-located metadata map
  * here instead of two separate hand-maintained `Record`s — every
  * schema-bearing component gets a single `V2_COMPONENT_METADATA` entry

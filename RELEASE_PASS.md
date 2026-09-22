@@ -28,16 +28,21 @@ newer bitECS-backed core, referred to by that shorthand throughout several
 passes' worth of notes below. There was never a shipped, released version
 this superseded; that was always internal shorthand for two things that
 coexist in the same current engine for real architectural reasons (the
-ECS-backed entity/component core under `packages/engine/src/v2/` — the
-literal directory name and `@emptysock/engine/v2` subpath export are staying
-as-is, since renaming them is a breaking-API-surface change out of scope
-here — alongside older singleton-style systems such as `PluginSystem`,
-`AudioSystem`, and the original `core/Entity.ts`/`Scene.ts`). The historical
-entries below (largely completed work, kept for the record) still use the
-old "v1"/"v2" shorthand in places; read it as "the ECS core" vs. "the
-existing singleton-style systems," not as two versions of the engine. New
-entries going forward should describe systems by what they are, not by a
-version label.
+ECS-backed entity/component core, alongside older singleton-style systems
+such as `PluginSystem`, `AudioSystem`, and the original
+`core/Entity.ts`/`Scene.ts`). The historical entries below (largely
+completed work, kept for the record) still use the old "v1"/"v2" shorthand
+in places; read it as "the ECS core" vs. "the existing singleton-style
+systems," not as two versions of the engine. New entries going forward
+should describe systems by what they are, not by a version label.
+
+**Rename note (2026-09-22):** the ECS-backed core's literal directory,
+`packages/engine/src/v2/`, and its `@emptysock/engine/v2` subpath export,
+have since been renamed to `packages/engine/src/ecs/` and
+`@emptysock/engine/ecs` respectively — the "staying as-is" call in the
+previous paragraph no longer holds; every `.../v2/...` path and
+`@emptysock/engine/v2` specifier below is a historical reference to the
+pre-rename layout, not the current one.
 
 The IDE bug fixes and Track 0 of the `ENGINE_DESIGN.md` implementation plan are
 done and merged to this branch (`claude/adoring-dirac-4tiv8c`). Durable decisions

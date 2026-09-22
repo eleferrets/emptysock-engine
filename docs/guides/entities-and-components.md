@@ -1,6 +1,6 @@
 # Entities and Components (ECS core)
 
-This is the bitECS-backed take on entities, components and scenes, available from `@emptysock/engine/v2`. If you haven't read [Entities and Scenes](./entities-and-scenes.md) or the [Engine Overview](../getting-started/engine-overview.md) yet, either is a good warm-up, this guide assumes you already know why a game engine needs an entity/component split at all and jumps straight to the ECS API.
+This is the bitECS-backed take on entities, components and scenes, available from `@emptysock/engine/ecs`. If you haven't read [Entities and Scenes](./entities-and-scenes.md) or the [Engine Overview](../getting-started/engine-overview.md) yet, either is a good warm-up, this guide assumes you already know why a game engine needs an entity/component split at all and jumps straight to the ECS API.
 
 ---
 
@@ -9,7 +9,7 @@ This is the bitECS-backed take on entities, components and scenes, available fro
 A component here is a name plus a shape, declared with `defineComponent`:
 
 ```ts
-import { defineComponent } from "@emptysock/engine/v2";
+import { defineComponent } from "@emptysock/engine/ecs";
 
 const Transform = defineComponent("Transform", { x: 0, y: 0, rotation: 0 });
 const Health = defineComponent("Health", { current: 10, max: 10 });
@@ -60,7 +60,7 @@ Entity handles are versioned. Once an entity is destroyed, its old handle fails 
 Writing out `entity.add(Transform, ...)` three separate times for every enemy you spawn gets old fast. A `Prefab` bundles a set of components (with overrides) into a template you spawn from directly:
 
 ```ts
-import { definePrefab } from "@emptysock/engine/v2";
+import { definePrefab } from "@emptysock/engine/ecs";
 
 const Physical = definePrefab("Physical", [
   { def: Transform },

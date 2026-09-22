@@ -121,7 +121,7 @@ The bundled Monaco TypeScript worker only supports `ModuleResolutionKind.Classic
 
 ### SaveSystem storage backend is an injected adapter, not a runtime check
 
-`v2/systems/SaveSystem.ts` needs one save/load API that ends up on IndexedDB
+`ecs/systems/SaveSystem.ts` needs one save/load API that ends up on IndexedDB
 in the browser preview and Tauri's fs plugin on desktop (§19.3), but unlike
 the "Tauri detection at runtime" pattern elsewhere in this file, `SaveSystem`
 does **not** check `'__TAURI_INTERNALS__' in window` itself. Doing so would
@@ -203,7 +203,7 @@ registered. Entities that never had the component are never queried or
 touched.
 
 `Scene.spawn(prefab, props, { pool: true })`/`Scene.destroy(entity)`
-(`packages/engine/src/v2/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold
+(`packages/engine/src/ecs/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold
 pooling into the ordinary spawn/destroy calls, but a pooled entity's bitECS
 id is deliberately **not** released back to bitECS's own id-recycling on
 destroy — only its components are stripped. If it were released, bitECS's
@@ -225,14 +225,14 @@ against the components you actually care about instead.
 ENGINE_DESIGN.md §13.4) reads a project's `.prefab.json` files plus the
 project's real, registered `ComponentDef`s and emits a `.d.ts` string
 declaring one `PrefabDef<{...}>`-typed `declare const` per prefab. It lives
-in `packages/toolchain`, not `packages/engine/src/v2`, because it never
+in `packages/toolchain`, not `packages/engine/src/ecs`, because it never
 touches a `Scene`/`World` — it's pure offline codegen, the same "reads
 source files, emits a sibling file" shape as the GMS2 importer, not a
-runtime capability. The engine side (`packages/engine/src/v2/SceneFile.ts`)
+runtime capability. The engine side (`packages/engine/src/ecs/SceneFile.ts`)
 owns the complementary runtime half — parsing that same prefab/scene JSON
 into a `PrefabDef` a live `Scene` can actually `spawn()` — and both sides
 import the same `ComponentLookup`/`PrefabFile` shapes from
-`@emptysock/engine/v2` so the two halves can't drift apart on what a field
+`@emptysock/engine/ecs` so the two halves can't drift apart on what a field
 means. `PrefabDef<T>` itself carries an unused, `@internal` `__props?: T`
 phantom field purely so `Scene.spawn<T>(prefab: PrefabDef<T>, props?:
 Partial<T>)` can infer `T` from whichever prefab value is passed —
@@ -246,7 +246,7 @@ Wiring `generatePrefabTypes` into an actual IDE auto-save hook or a
 ### Input snapshot: frozen by copy, not by timing
 
 ENGINE*DESIGN.md §4 step 1 requires input "polled once, frozen for the
-frame". `v2/Input.ts`'s `InputManager.snapshot()` (called once, first, by
+frame". `ecs/Input.ts`'s `InputManager.snapshot()` (called once, first, by
 `Game.update()`) does this by making an actual copy — `keys:
 input.snapshotKeys()` (a fresh `Map`), a fresh `Map` of every gamepad's
 state, and the current `touches` array — into a private `_frozen` object.
@@ -406,7 +406,7 @@ two separate hand-maintained `Record`s (`V2_COMPONENT_SCHEMAS` plus a
 needed this file edited in two places with no compile error if either was
 forgotten; they're now one map with one entry per component, so there's
 only one place to update. (The schema and color were not folded into
-`ComponentDef` itself in `packages/engine/src/v2/Component.ts` — that
+`ComponentDef` itself in `packages/engine/src/ecs/Component.ts` — that
 would be the architecturally cleaner home for the color too, but is a
 larger change than this fix warranted; a future pass can move it there
 without changing how `EntityProperties.tsx` reads either.) This matters
@@ -433,7 +433,7 @@ defs per world) rather than growing this file's import list indefinitely.
 
 ### QueryChannel: transport-agnostic, and errors instead of fabricated empty results
 
-`v2/bridge/QueryChannel.ts` (ENGINE_DESIGN.md §8) is the engine-side half of the MCP live bridge — the one place `emptysock-mcp`'s physics/scene tools get a real answer instead of a stub. Two rules matter here that aren't obvious from the query shapes alone. First, `QueryChannel` never imports a transport: `handle(query)` is a plain synchronous function, same "engine defines the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter` — whoever owns a live instance (IDE preview host, a dev build's bootstrap code) wires an actual socket/postMessage pipe around it. Second, a query that finds genuinely nothing (`raycast2d` hits nothing, `overlapCircle2d` finds nothing) returns `{ ok: true, data: null }`/`{ ok: true, data: [] }`, which is a different shape from every "there's nothing to even ask" case: `"no-live-instance"` (nothing `attach()`-ed) and `"no-physics-world"` (a `Scene` is attached but its `PhysicsSystem` was never `.init()`-ed) are both explicit `ok: false` errors. Do not collapse any of these three into one "empty" result — an agent consuming a raycast result that reads `hit: null` needs to know whether that means "clear line of sight" or "nothing was actually queried."
+`ecs/bridge/QueryChannel.ts` (ENGINE_DESIGN.md §8) is the engine-side half of the MCP live bridge — the one place `emptysock-mcp`'s physics/scene tools get a real answer instead of a stub. Two rules matter here that aren't obvious from the query shapes alone. First, `QueryChannel` never imports a transport: `handle(query)` is a plain synchronous function, same "engine defines the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter` — whoever owns a live instance (IDE preview host, a dev build's bootstrap code) wires an actual socket/postMessage pipe around it. Second, a query that finds genuinely nothing (`raycast2d` hits nothing, `overlapCircle2d` finds nothing) returns `{ ok: true, data: null }`/`{ ok: true, data: [] }`, which is a different shape from every "there's nothing to even ask" case: `"no-live-instance"` (nothing `attach()`-ed) and `"no-physics-world"` (a `Scene` is attached but its `PhysicsSystem` was never `.init()`-ed) are both explicit `ok: false` errors. Do not collapse any of these three into one "empty" result — an agent consuming a raycast result that reads `hit: null` needs to know whether that means "clear line of sight" or "nothing was actually queried."
 
 ### Toolchain CLI export bundles with Rolldown, not esbuild
 
@@ -441,9 +441,9 @@ defs per world) rather than growing this file's import list indefinitely.
 
 Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
-### Shared internal helpers — `v2/internal/scoped.ts` and `v2/internal/fields.ts`
+### Shared internal helpers — `ecs/internal/scoped.ts` and `ecs/internal/fields.ts`
 
-Two tiny cross-cutting helpers live in `packages/engine/src/v2/internal/`
+Two tiny cross-cutting helpers live in `packages/engine/src/ecs/internal/`
 specifically so a recurring pattern doesn't get hand-rolled a fifth time.
 Check here before writing a new per-world/per-scene side-table or a new
 "write this field into this component's store" loop.

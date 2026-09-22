@@ -4,7 +4,7 @@ EmptySock provides two systems for reading player input: `InputSystem` (keyboard
 
 For the complete API, see [InputSystem reference](../reference/systems/input-system.md).
 
-> **Heads up:** `@emptysock/engine/v2` builds on top of the same `InputSystem`/`GamepadSystem` underneath, but wraps them in `InputManager.snapshot()`, which freezes a full copy of input state once per frame so nothing mid-frame can change it out from under your `onUpdate`. See the [Engine Overview](../getting-started/engine-overview.md) for the summary.
+> **Heads up:** `@emptysock/engine/ecs` builds on top of the same `InputSystem`/`GamepadSystem` underneath, but wraps them in `InputManager.snapshot()`, which freezes a full copy of input state once per frame so nothing mid-frame can change it out from under your `onUpdate`. See the [Engine Overview](../getting-started/engine-overview.md) for the summary.
 
 ---
 

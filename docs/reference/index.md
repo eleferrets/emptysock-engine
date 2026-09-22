@@ -6,7 +6,7 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 ---
 
-## v2 engine (`@emptysock/engine/v2`)
+## ECS engine (`@emptysock/engine/ecs`)
 
 | Page                      | What it covers                                                                         |
 | ------------------------- | -------------------------------------------------------------------------------------- |

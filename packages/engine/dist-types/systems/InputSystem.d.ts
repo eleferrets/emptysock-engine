@@ -31,6 +31,25 @@ export declare class InputSystem {
   isKeyDown(code: string): boolean;
   isKeyPressed(code: string): boolean;
   isKeyReleased(code: string): boolean;
+  /**
+   * A point-in-time copy of every key currently tracked. Used by
+   * `ecs/Input.ts`'s `InputManager.snapshot()` to freeze keyboard state for
+   * a frame (ENGINE_DESIGN.md §4 step 1) — reading this once and caching
+   * the result, rather than reading `isKeyDown` live, is what makes
+   * "polled once, frozen for the frame" true even though this class itself
+   * updates `_keys` continuously as DOM events arrive.
+   */
+  snapshotKeys(): ReadonlyMap<string, boolean>;
+  /**
+   * Test-only, non-DOM input injection. Drives the same internal state a
+   * real `keydown`/`keyup` event would, without constructing a
+   * `KeyboardEvent` or touching `window` — this is what keeps input testable
+   * under a headless Node harness (CLAUDE.md's engine-environment-boundary
+   * rule: no DOM dependency on this path).
+   */
+  simulateKeyDown(code: string): void;
+  /** See `simulateKeyDown`. */
+  simulateKeyUp(code: string): void;
   get mouseX(): number;
   get mouseY(): number;
   get mouseDX(): number;

@@ -2,7 +2,7 @@
 
 Components are the data and behavior objects that give entities their capabilities. A `Sprite` component draws the entity, a `PhysicsBody` makes it collide, a custom `Health` component tracks hit points.
 
-> **Heads up:** this describes the classic, class-based components. `@emptysock/engine/v2` defines components very differently, as flat, array-backed shapes via `defineComponent(name, defaults, options?)`, with no functions allowed in the data itself. See the [Core API reference](./core-api.md) for that shape.
+> **Heads up:** this describes the classic, class-based components. `@emptysock/engine/ecs` defines components very differently, as flat, array-backed shapes via `defineComponent(name, defaults, options?)`, with no functions allowed in the data itself. See the [Core API reference](./core-api.md) for that shape.
 
 ---
 

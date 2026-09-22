@@ -2,7 +2,7 @@
 
 By the end of this page you'll have the IDE running and a square moving across the screen, a complete, working mini-game. Every step is a single action.
 
-> **Heads up:** this page uses the classic, class-based API (`Scene`, `Entity`, `addComponent`), and that's exactly right for a first project. There's also a faster `@emptysock/engine/v2` ECS core built for games with a lot of entities, it's optional and doesn't replace anything here. See the [Engine Overview](./engine-overview.md) once you're comfortable with the basics.
+> **Heads up:** this page uses the classic, class-based API (`Scene`, `Entity`, `addComponent`), and that's exactly right for a first project. There's also a faster `@emptysock/engine/ecs` ECS core built for games with a lot of entities, it's optional and doesn't replace anything here. See the [Engine Overview](./engine-overview.md) once you're comfortable with the basics.
 
 ---
 

@@ -1,4 +1,4 @@
-import type { ComponentDef, SerializableRecord } from "@emptysock/engine/v2";
+import type { ComponentDef, SerializableRecord } from "@emptysock/engine/ecs";
 
 /**
  * Which fields of a given component name are replicated over the network.

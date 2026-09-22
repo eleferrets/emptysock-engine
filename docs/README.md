@@ -8,13 +8,13 @@ This is the restructured documentation for EmptySock Engine. Content is divided 
 
 New to EmptySock? Start here. These pages get you from zero to a running game in the shortest possible path.
 
-| Page                                                    | What it covers                                                      |
-| ------------------------------------------------------- | ------------------------------------------------------------------- |
-| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries                      |
-| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene                 |
-| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts                       |
-| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table                  |
-| [Engine Overview](./getting-started/engine-overview.md) | The ECS core (`@emptysock/engine/v2`), prefabs, the module packages |
+| Page                                                    | What it covers                                                       |
+| ------------------------------------------------------- | -------------------------------------------------------------------- |
+| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries                       |
+| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene                  |
+| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts                        |
+| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table                   |
+| [Engine Overview](./getting-started/engine-overview.md) | The ECS core (`@emptysock/engine/ecs`), prefabs, the module packages |
 
 ---
 

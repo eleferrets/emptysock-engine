@@ -4,7 +4,7 @@
 
 Import: `import { Scene, type SceneConfig } from '@emptysock/engine';`
 
-> **Heads up:** this is the classic, class-based `Scene`. `@emptysock/engine/v2` has its own `Scene` built on bitECS, with a different shape (`scene.spawn()`, `scene.each()`, prefabs with built-in pooling). See the [Core API reference](./core-api.md) and [Entities and Components](../guides/entities-and-components.md).
+> **Heads up:** this is the classic, class-based `Scene`. `@emptysock/engine/ecs` has its own `Scene` built on bitECS, with a different shape (`scene.spawn()`, `scene.each()`, prefabs with built-in pooling). See the [Core API reference](./core-api.md) and [Entities and Components](../guides/entities-and-components.md).
 
 ---
 
