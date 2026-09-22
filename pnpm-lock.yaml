@@ -10,8 +10,8 @@ catalogs:
       specifier: ^9.3.14
       version: 9.3.22
     pixi.js:
-      specifier: ^8.6.1
-      version: 8.20.0
+      specifier: ^8.21.0
+      version: 8.21.0
     react-konva:
       specifier: ^19.2.0
       version: 19.2.6
@@ -143,7 +143,7 @@ importers:
         version: 0.56.0
       pixi.js:
         specifier: 'catalog:'
-        version: 8.20.0
+        version: 8.21.0
       rc-dock:
         specifier: ^3.3.2
         version: 3.3.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -228,11 +228,11 @@ importers:
   packages/engine:
     dependencies:
       '@dimforge/rapier2d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+        specifier: ^0.20.0
+        version: 0.20.0
       '@dimforge/rapier3d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+        specifier: ^0.20.0
+        version: 0.20.0
       '@emptysock/types':
         specifier: workspace:*
         version: link:../types
@@ -244,7 +244,7 @@ importers:
         version: 2.2.4
       pixi.js:
         specifier: 'catalog:'
-        version: 8.20.0
+        version: 8.21.0
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -320,7 +320,7 @@ importers:
         version: 26.3.0
       pixi.js:
         specifier: 'catalog:'
-        version: 8.20.0
+        version: 8.21.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -1111,11 +1111,11 @@ packages:
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
 
-  '@dimforge/rapier2d-compat@0.14.0':
-    resolution: {integrity: sha512-sljQVPstRS63hVLnVNphsZUjH51TZoptVM0XlglKAdZ8CT+kWnmA6olwjkF7omPWYrlKMd/nHORxOUdJDOSoAQ==}
+  '@dimforge/rapier2d-compat@0.20.0':
+    resolution: {integrity: sha512-FFYwGrfJov7d5kn4fxblG/ip5C+sYQL+Jl/hqLvDvu4BcMD/Mhrz7cTvnZTtuIRDXY8CLuraObqB/prip4wdWQ==}
 
-  '@dimforge/rapier3d-compat@0.14.0':
-    resolution: {integrity: sha512-/uHrUzS+CRQ+NQrrJCEDUkhwHlNsAAexbNXgbN9sHY+GwR+SFFAFrxRr8Llf5/AJZzqiLANdQIfJ63Cw4gJVqw==}
+  '@dimforge/rapier3d-compat@0.20.0':
+    resolution: {integrity: sha512-X4W9pJBdGRX5CO3c/gUNjBFEFG2fn4nYxp9k8STdBDaLa0/w5XTW2ArpayS+9jGFojTi3uFSOWAElCd4rkpekA==}
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -4140,8 +4140,8 @@ packages:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
 
-  pixi.js@8.20.0:
-    resolution: {integrity: sha512-WL7+yhxgNnI87AbucMR2X7yXmi/XhhYA25w2wV1QaNv6WMByM02kSX2ryreSq38OavHytFD0zY0bX6Nqgj/WAA==}
+  pixi.js@8.21.0:
+    resolution: {integrity: sha512-GJ/KqBtUuWDBPMQu2D0ZHsRCYOcWRjjKrpyC+3jPQI5JTqHMC5dH8l9sSyvoUT4qJidvRzs1fwFWRWceno2Ltw==}
 
   pngjs@7.0.0:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
@@ -6190,9 +6190,9 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
-  '@dimforge/rapier2d-compat@0.14.0': {}
+  '@dimforge/rapier2d-compat@0.20.0': {}
 
-  '@dimforge/rapier3d-compat@0.14.0': {}
+  '@dimforge/rapier3d-compat@0.20.0': {}
 
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
@@ -9045,7 +9045,7 @@ snapshots:
 
   pirates@4.0.7: {}
 
-  pixi.js@8.20.0:
+  pixi.js@8.21.0:
     dependencies:
       '@pixi/colord': 2.9.6
       '@types/earcut': 3.0.0

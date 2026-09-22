@@ -28,8 +28,8 @@
     "build:types": "tsc -p tsconfig.types.json --emitDeclarationOnly --outDir dist-types --declaration --declarationMap false --skipLibCheck"
   },
   "dependencies": {
-    "@dimforge/rapier2d-compat": "^0.14.0",
-    "@dimforge/rapier3d-compat": "^0.14.0",
+    "@dimforge/rapier2d-compat": "^0.20.0",
+    "@dimforge/rapier3d-compat": "^0.20.0",
     "@emptysock/types": "workspace:*",
     "bitecs": "^0.4.0",
     "howler": "^2.2.4",

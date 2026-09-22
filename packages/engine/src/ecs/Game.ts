@@ -1,6 +1,7 @@
 import { ActorSystem } from "../core/ActorSystem.js";
 import { PluginSystem } from "../core/PluginSystem.js";
 import { AudioSystem } from "../systems/AudioSystem.js";
+import { LocalisationSystem } from "../systems/LocalisationSystem.js";
 import { VariableStore } from "../systems/VariableStore.js";
 import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
@@ -60,6 +61,13 @@ export interface SceneLifecycle {
    * code doesn't need a separate reference to the owning `Game`.
    */
   readonly plugins: PluginSystem;
+  /**
+   * Game-owned, same reasoning as `plugins`/`variables` — one
+   * `LocalisationSystem` for the lifetime of this `Game`, so a locale change
+   * made from a settings menu in one scene is visible to every other scene's
+   * UI text without threading a reference through scene boundaries.
+   */
+  readonly localisation: LocalisationSystem;
 }
 
 export interface LoadSceneOptions {
@@ -279,6 +287,7 @@ export class Game {
     this._deterministic = options.deterministic ?? false;
     this.services.register(PluginSystem);
     this.services.register(VariableStore);
+    this.services.register(LocalisationSystem);
   }
 
   /** Equivalent to `new Game(options)` — reads better at a call site than `new`. */
@@ -354,6 +363,7 @@ export class Game {
       audio: this._audio,
       variables: this.services.get(VariableStore),
       plugins: this.services.get(PluginSystem),
+      localisation: this.services.get(LocalisationSystem),
     };
     this._current = {
       definition,
@@ -430,6 +440,7 @@ export class Game {
       audio: this._audio,
       variables: this.services.get(VariableStore),
       plugins: this.services.get(PluginSystem),
+      localisation: this.services.get(LocalisationSystem),
     };
     const loaded: LoadedScene = {
       definition,
