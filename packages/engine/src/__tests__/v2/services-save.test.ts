@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "../../v2/Component.js";
 import { Scene } from "../../v2/Scene.js";
 import { ServiceRegistry } from "../../v2/Services.js";
@@ -199,6 +199,60 @@ describe("SaveSystem (ENGINE_DESIGN.md §12.1/§19.3)", () => {
       sawStats = true;
     });
     expect(sawStats).toBe(false);
+  });
+
+  it("drops unrecognized fields injected into a saved component's data, with a warning, loading the rest fine", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const adapter = new MemoryStorageAdapter();
+      const sceneA = new Scene();
+      const saveA = new SaveSystem(sceneA, [Position], { adapter });
+      sceneA.spawn().add(Position, { x: 5, y: 6 });
+      await saveA.save("corrupt-field-slot");
+
+      // Simulate a hand-edited/corrupted save: inject an extra field into
+      // the stored component's data that isn't part of Position's shape.
+      const raw = await adapter.get("emptysock_save_corrupt-field-slot");
+      expect(raw).not.toBeNull();
+      const blob = JSON.parse(raw as string) as {
+        entities: Array<{
+          components: Record<
+            string,
+            { version: number; data: Record<string, unknown> }
+          >;
+        }>;
+      };
+      const positionData =
+        blob.entities[0]?.components["SaveTestPosition"]?.data;
+      expect(positionData).toBeDefined();
+      if (positionData !== undefined) {
+        positionData["evilField"] = "injected";
+      }
+      await adapter.set(
+        "emptysock_save_corrupt-field-slot",
+        JSON.stringify(blob),
+      );
+
+      const sceneB = new Scene();
+      const saveB = new SaveSystem(sceneB, [Position], { adapter });
+      const loaded = await saveB.load("corrupt-field-slot");
+      expect(loaded).toBe(true);
+
+      let seen: { x: number; y: number; evilField?: unknown } | null = null;
+      sceneB.each(Position, (pos) => {
+        seen = { x: pos.x, y: pos.y };
+      });
+      expect(seen).toEqual({ x: 5, y: 6 });
+      expect(
+        (seen as unknown as Record<string, unknown> | null)?.["evilField"],
+      ).toBeUndefined();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("evilField"),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("an unrecognized component name in a save is dropped with a warning, not a crash", async () => {

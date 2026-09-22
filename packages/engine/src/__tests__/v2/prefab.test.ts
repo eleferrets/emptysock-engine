@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "../../v2/Component.js";
 import { definePrefab, flattenPrefab } from "../../v2/Prefab.js";
 import { loadSceneFile, parsePrefabFiles } from "../../v2/SceneFile.js";
@@ -37,6 +37,22 @@ describe("v2 Prefab: definition + spawning", () => {
 
     expect(entity.get(Transform)?.x).toBe(100);
     expect(entity.get(Transform)?.y).toBe(200);
+  });
+
+  it("warns on an unmatched prop key (typo) but still applies the rest of a valid spawn", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const scene = new Scene();
+      const Enemy = definePrefab("Enemy", [{ def: Health }]);
+
+      const entity = scene.spawn(Enemy, { max: 30, helth: 10 } as never);
+
+      expect(entity.get(Health)?.max).toBe(30);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("helth"));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Enemy"));
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("rejects a non-serializable prop override", () => {

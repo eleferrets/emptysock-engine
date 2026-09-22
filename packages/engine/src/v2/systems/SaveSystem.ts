@@ -169,6 +169,19 @@ export class SaveSystem {
           }
         }
 
+        const knownFields = new Set(Object.keys(def.createDefaults()));
+        const unknownFields = Object.keys(data).filter(
+          (field) => !knownFields.has(field),
+        );
+        if (unknownFields.length > 0) {
+          console.warn(
+            `[SaveSystem] Component "${componentName}" saved data has unrecognized field(s) [${unknownFields.join(", ")}] not in the current def's shape — dropped, rest of the component loaded.`,
+          );
+          data = Object.fromEntries(
+            Object.entries(data).filter(([field]) => knownFields.has(field)),
+          ) as SerializableRecord;
+        }
+
         entity.add(def, data);
       }
     }

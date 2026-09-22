@@ -59,3 +59,28 @@ export type CallbackProxyFn = <T>(instance: T) => StateCallbacksProxy<T>;
  * collection (`const $ = getStateCallbacks(room); $(room.state).players.onAdd(...)`).
  */
 export type GetStateCallbacksFn = (room: RoomLike) => CallbackProxyFn;
+
+/**
+ * Typed accessor for "get the `SchemaCollectionLike` at this key of a
+ * `StateCallbacksProxy`" — the one shape-cast every call site that binds a
+ * room-state collection (e.g. `$(room.state).players`) needs. Centralising
+ * it here means the `as unknown as {...}` double-cast for that shape is
+ * written once, not re-derived ad hoc at each call site.
+ */
+export function getCollection<T>(
+  proxy: StateCallbacksProxy<unknown>,
+  key: string,
+): SchemaCollectionLike<T> {
+  return proxy[key] as unknown as SchemaCollectionLike<T>;
+}
+
+/**
+ * Typed accessor for "get the `SchemaProxyLike` for this schema instance" —
+ * the shape-cast every call site that does `$(schema).listen(...)` needs.
+ */
+export function getSchemaProxy<T>(
+  proxy: CallbackProxyFn,
+  schema: unknown,
+): SchemaProxyLike<T> {
+  return proxy(schema) as unknown as SchemaProxyLike<T>;
+}

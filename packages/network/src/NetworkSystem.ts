@@ -1,10 +1,12 @@
 import type { ComponentDef, Entity, Scene } from "@emptysock/engine/v2";
 import { getNetworkedFields } from "./NetworkedFields.js";
 import { NetworkEntityMap } from "./NetworkEntityMap.js";
-import type {
-  CallbackProxyFn,
-  GetStateCallbacksFn,
-  RoomLike,
+import {
+  getCollection,
+  getSchemaProxy,
+  type CallbackProxyFn,
+  type GetStateCallbacksFn,
+  type RoomLike,
 } from "./colyseusTypes.js";
 
 /** Outbound sync message shape sent via `room.send(messageType, payload)`. */
@@ -79,14 +81,8 @@ export class NetworkSystem {
   }
 
   private _bindCollection(collection: string): void {
-    const stateProxy = this._$(this._room.state) as unknown as Record<
-      string,
-      unknown
-    >;
-    const collectionProxy = stateProxy[collection] as {
-      onAdd(cb: (item: unknown, key: string) => void): () => void;
-      onRemove(cb: (item: unknown, key: string) => void): () => void;
-    };
+    const stateProxy = this._$(this._room.state);
+    const collectionProxy = getCollection<unknown>(stateProxy, collection);
 
     const unsubAdd = collectionProxy.onAdd((schema, networkId) => {
       this._spawnFromSchema(networkId, schema);
@@ -124,12 +120,10 @@ export class NetworkSystem {
       // entity is authoritative here and must not be overwritten by an
       // echo of the state it just pushed outbound.
       if (!isLocal && networkedFields !== undefined) {
-        const schemaProxy = this._$(schema) as unknown as {
-          listen<K extends string>(
-            field: K,
-            cb: (value: unknown, previous: unknown) => void,
-          ): () => void;
-        };
+        const schemaProxy = getSchemaProxy<Record<string, unknown>>(
+          this._$,
+          schema,
+        );
         for (const field of networkedFields) {
           schemaProxy.listen(field, (value) => {
             const component = entity.get(def) as
@@ -150,6 +144,7 @@ export class NetworkSystem {
    * `room.send` for anything that changed.
    */
   sync(): void {
+    this.reconcile();
     if (this._localId === undefined) return;
     const entity = this.entities.getEntity(this._localId);
     if (entity === undefined || !entity.isAlive) return;
@@ -174,6 +169,38 @@ export class NetworkSystem {
           this._room.send(this._messageType, payload);
         }
       }
+    }
+  }
+
+  /**
+   * Drop the mapping for any tracked entity that was destroyed *locally*
+   * (`scene.destroy(entity)` called directly by gameplay code, not via the
+   * Colyseus `onRemove` path this class already handles in `_bindCollection`).
+   *
+   * `@emptysock/network` must never import bitECS internals or require a
+   * new hook on `@emptysock/engine`'s core `Scene`/`Entity` (CLAUDE.md's
+   * "engine never imports network" / "network only ever sees `.get()`"
+   * boundary), so there is no push notification available for "an entity
+   * this map knows about just died". Instead this polls: every tracked
+   * `Entity`'s already-public `.isAlive` is checked, and any that are no
+   * longer alive get `deleteByEntity`-ed. Without this, a destroyed
+   * entity's `rawId` can be recycled by bitECS onto a completely unrelated
+   * `spawn()` elsewhere in the same scene, and the stale mapping would
+   * silently alias the wrong entity on the next `sync()`/inbound `listen()`
+   * callback.
+   *
+   * Called automatically at the top of `sync()` (so it runs at the same
+   * low, fixed cadence networking already polls at) — call it directly
+   * only if something needs the mapping reconciled off that cadence.
+   */
+  reconcile(): void {
+    // Snapshot entries first: `deleteByEntity` mutates the map we'd
+    // otherwise still be iterating.
+    const stale = [...this.entities.entries()].filter(
+      ([, entity]) => !entity.isAlive,
+    );
+    for (const [, entity] of stale) {
+      this.entities.deleteByEntity(entity);
     }
   }
 

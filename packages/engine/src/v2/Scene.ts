@@ -17,6 +17,7 @@ import {
   type PrefabDef,
 } from "./Prefab.js";
 import type { SerializableRecord } from "./Serializable.js";
+import { clearPhysicsBody } from "./components/PhysicsBody.js";
 
 /**
  * A `scene.each(...)` callback receives one live component object per
@@ -117,16 +118,31 @@ export class Scene {
     const entity = new Entity(this.world, eid, this._proxyCache);
     if (pool) this._pooledOrigin.set(eid, prefab);
 
+    const matchedPropFields = new Set<string>();
     for (const { def, overrides } of flattenPrefab(prefab)) {
       assertSerializableOverrides(def.componentName, overrides);
       const defaults = def.createDefaults();
       const propsForComponent: Record<string, unknown> = {};
       if (props !== undefined) {
         for (const [field, value] of Object.entries(props)) {
-          if (field in defaults) propsForComponent[field] = value;
+          if (field in defaults) {
+            propsForComponent[field] = value;
+            matchedPropFields.add(field);
+          }
         }
       }
       entity.add(def, { ...overrides, ...propsForComponent } as never);
+    }
+
+    if (props !== undefined) {
+      const unmatchedFields = Object.keys(props).filter(
+        (field) => !matchedPropFields.has(field),
+      );
+      if (unmatchedFields.length > 0) {
+        console.warn(
+          `[Scene] spawn("${prefab.prefabName}"): prop(s) [${unmatchedFields.join(", ")}] did not match any field on this prefab's components — ignored. Check for a typo.`,
+        );
+      }
     }
 
     return entity;
@@ -154,6 +170,15 @@ export class Scene {
     const pooledFrom = this._pooledOrigin.get(entity.eid);
     this._liveEntities.delete(entity.eid);
     this._proxyCache.delete(entity.eid);
+    // This is the one place that actually knows "this entity's component
+    // data is being reset/removed", regardless of which component types
+    // were attached — so it's also the right call site to clear
+    // `PhysicsBody`'s side-table for this (world, eid) pair. Without this,
+    // a pooled entity's stale collision callbacks and cached handle Proxy
+    // would silently leak onto whatever new entity later reuses this same
+    // bitECS id (pooled ids are deliberately never released back to
+    // bitECS's own recycling — see `SpawnOptions.pool`'s doc comment).
+    clearPhysicsBody(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {

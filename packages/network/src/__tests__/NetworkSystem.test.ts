@@ -272,4 +272,67 @@ describe("NetworkSystem", () => {
     expect(net.getEntity("remote-session")).toBeUndefined();
     expect(entity?.isAlive).toBe(false);
   });
+
+  it("reconcile() drops the mapping for an entity destroyed locally (not via onRemove)", () => {
+    const scene = new Scene();
+    const room = new FakeRoom("local-session");
+    const getStateCallbacks = makeGetStateCallbacks();
+
+    const net = new NetworkSystem({
+      scene,
+      room,
+      collection: "players",
+      components: [Position],
+      getStateCallbacks,
+    });
+
+    room.state.players.add("remote-session", { x: 1, y: 1 });
+    const entity = net.getEntity("remote-session");
+    expect(entity).toBeDefined();
+    if (entity === undefined) throw new Error("unreachable");
+
+    // Local gameplay code destroys the entity directly — no onRemove fires.
+    scene.destroy(entity);
+    expect(entity.isAlive).toBe(false);
+    // Mapping is still stale until reconciled.
+    expect(net.entities.size).toBe(1);
+
+    net.reconcile();
+
+    expect(net.entities.size).toBe(0);
+    expect(net.getEntity("remote-session")).toBeUndefined();
+    expect(net.getNetworkId(entity)).toBeUndefined();
+  });
+
+  it("sync() reconciles a locally-destroyed entity before its dirty-check poll, preventing a stale alias", () => {
+    const scene = new Scene();
+    const room = new FakeRoom("local-session");
+    const getStateCallbacks = makeGetStateCallbacks();
+
+    const net = new NetworkSystem({
+      scene,
+      room,
+      collection: "players",
+      components: [Position],
+      localId: room.sessionId,
+      getStateCallbacks,
+    });
+
+    room.state.players.add("remote-session", { x: 1, y: 1 });
+    const remoteEntity = net.getEntity("remote-session");
+    expect(remoteEntity).toBeDefined();
+    if (remoteEntity === undefined) throw new Error("unreachable");
+
+    scene.destroy(remoteEntity);
+    expect(net.entities.size).toBe(1);
+
+    // A new spawn elsewhere in the same scene can now recycle the freed
+    // rawId. Without reconciliation, the stale map entry would alias it.
+    const unrelated = scene.spawn();
+    unrelated.add(Position, { x: 0, y: 0 });
+
+    net.sync();
+
+    expect(net.getEntity("remote-session")).toBeUndefined();
+  });
 });

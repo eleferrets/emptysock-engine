@@ -444,6 +444,10 @@ defs per world) rather than growing this file's import list indefinitely.
 
 Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
+### VNSystem defaults to the engine's global `variableStore` singleton
+
+`packages/vn/src/VNSystem.ts`'s constructor is `constructor(store: VariableStore = variableStore)`, importing the concrete module-level `variableStore` singleton from `@emptysock/engine` (not just the `VariableStore` type) as its default parameter. This is different in kind from the rest of the VN/battle/tilemap extraction's clean structural-interface boundaries (`Transport`, `StorageAdapter`, `TileLayerSource`, …), where the engine or the module package only ever depends on an interface. A game using `@emptysock/vn` for dialogue AND using engine-level switches/variables directly elsewhere gets implicit, undocumented sharing: a VN choice gated on switch 12 can be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the game, and vice versa. The constructor parameter is kept (so explicit injection — an isolated store per save slot, or a test double — still works, and this default is a documented behaviour, not a bug to fix) rather than removed, since removing it would be a breaking change for any existing caller relying on the implicit shared store. See the doc comment directly on `VNSystem`'s constructor for the same explanation at the point of use.
+
 ---
 
 ## Canonical terms

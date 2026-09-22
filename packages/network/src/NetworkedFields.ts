@@ -32,6 +32,22 @@ const networkedFieldsByComponentName = new Map<string, ReadonlySet<string>>();
  *   ["x", "y"],
  * );
  * ```
+ *
+ * **Constraint: networked fields must be primitive-typed, or reassigned as
+ * a whole new value on every change — never mutated in place.**
+ * `NetworkSystem.sync()`'s outbound dirty-check (see its doc comment) uses
+ * strict equality (`this._lastSent.get(key) !== value`) against the last
+ * value it sent. For a primitive field this is exactly "did the value
+ * change". For an object- or array-shaped field, mutating it in place
+ * (`component.inventory.push(item)`, `component.pos.x = 5`) does not change
+ * which reference is stored in the component, so the strict-equality check
+ * never sees a difference and the mutation is silently never replicated.
+ * If a networked field must hold an object/array, always assign a new one
+ * (`component.inventory = [...component.inventory, item]`) so the
+ * reference itself changes. This is a deliberate, documented limitation,
+ * not a bug to work around locally — fixing it would mean deep-equality or
+ * a different change-detection strategy entirely, a bigger design decision
+ * than a single field-marking helper should make unilaterally.
  */
 export function networked<T extends SerializableRecord>(
   def: ComponentDef<T>,
