@@ -20,6 +20,43 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## START HERE — handoff to the next session, 2026-09-22
+
+**Read this section first, then the "Process decisions" and ground rules sections below, before touching any code.** This pass spans multiple sessions; the previous session ended here deliberately (user asked to pause, write a handoff, and merge to `main`) — this is not a stopping point due to a blocker, just a natural checkpoint.
+
+### Where things actually stand
+
+- **Merged to `main`** as of this handoff (9 commits, `claude/charming-pasteur-b1zahe` → `main`, fast-forward, no conflicts). Start the next session's branch from `main` fresh — don't branch from the old `claude/charming-pasteur-b1zahe`, it's now identical to `main` at merge time and will just be deleted/reused.
+- **Track 0 (Audit + foundational services): done.** `PluginSystem`/`VariableStore`/`LocalisationSystem`/`ViewportSystem`/`WindowSystem` are all `Game` services now (no more module-level singletons anywhere in the engine — if you find another one, it's a real bug, not a style choice). `CoroutineSystem` is ECS-native (`entity.startCoroutine()`). `NetworkActor`/`Transport`/`ObjectPool` deleted. One item intentionally still open: unifying `IDEBridge` into `QueryChannel` — real audit done, real reason to defer (see Track 0's checklist entry), needs an ECS-native "entity name/tags/active" design decision from whichever track picks it up (likely Track 3 or 8).
+- **Track 1 (Input): done.** `InputSystem` is keyboard-only now (its old mouse/touch tracking was confirmed dead and removed). `InputBindings.ts` deleted — its real behavior lives on `InputManager` directly. `PointerSystem` is now actually wired into `InputManager`'s frozen snapshot (`input.pointers`/`.gestures`/`.wheelEvents`) — it existed before but nothing fed it in. Safari native pinch gesture support added. `apps/ide` touch/pointer support audited and fixed across all 8 relevant panels.
+- **Track 2 (Rendering): mostly done, one item open.** `LayerSystem`'s planned PixiJS Render Layers migration was reversed after auditing the actual code (see the track's checklist for the full reasoning — don't re-litigate it, the finding is real and specific to this renderer's flat sprite-parenting architecture). `CameraSystem` needed no changes. `ViewportSystem`/`WindowSystem` are now `Game` services. `AutoTileSystem` moved to `@emptysock/tilemap`. **Open: `PostProcessSystem`/`CustomShaderFilter`/`LightingSystem`** — the library decision is already made (Track 0's scope-hardening section: `BlurFilter`/`ColorMatrixFilter` from pixi.js core for `blur`/`brightness`/`contrast`/`saturate`/`hue-rotate`/`invert`, `pixi-filters`' `OutlineFilter` for `outline`, `LightingSystem` stays hand-rolled as genuine custom multi-light shader logic) — **just not implemented yet.** Start here.
+- **Tracks 3–9: not started.**
+
+### Two things that will bite you if you skip them
+
+1. **Re-verify library versions before trusting any number in this file.** `pixi.js`, Rapier, and `pixi-filters` versions recorded here were current as of 2026-09-22 — run `npm view <pkg> version` again at the start of your session. This file has already had to correct itself once this same day when a version drifted mid-session (see the "Scope addition" section's pixi.js note).
+2. **If you delete any source file, manually check for an orphaned `.d.ts` in `packages/engine/dist-types/`.** `tsc --emitDeclarationOnly` (non-`--build` mode, what `npm run build:types` runs) does not clean up stale output for a removed input file. Run something like:
+   ```bash
+   find packages/engine/dist-types -name "*.d.ts" | while read -r f; do
+     src="${f/dist-types/src}"; src="${src%.d.ts}.ts"
+     [ -f "$src" ] || echo "STALE: $f"
+   done
+   ```
+   after regenerating, and delete anything it prints. Also run `npx prettier --write "packages/engine/dist-types/**/*.d.ts"` after any regen — raw `tsc` output doesn't match this repo's committed (prettier-formatted) style, and skipping this makes every regen look like a ~100-file diff of pure whitespace noise. `dist-types` is genuinely committed on purpose (`apps/ide`'s Monaco integration reads it directly — see CLAUDE.md's "Monaco resolves `@emptysock/engine`" entry), it's not an accident to clean up by deleting the whole directory.
+
+### Baseline health at handoff time
+
+`pnpm install` / `pnpm run typecheck` (12/12 packages) / `pnpm run lint` (11/11 packages) / `pnpm run test` (466/466 engine tests; full monorepo `pnpm run test` exits 0) all verified clean as the very last thing this session did, after every real change — not just at the end. Re-run all four again at the start of your session before writing any code, to confirm nothing regressed between sessions (per the "no CI exists" process decision below — this manual check is the actual safety net).
+
+### Process reminders (see "Process decisions" section below for the full rationale)
+
+- Sequential execution, one track at a time, in this same continuous style of session — no parallel sub-agents per track (revisit only if this pace becomes the real bottleneck).
+- Everything lands as commits on one working branch for the whole pass, not a PR per track — this session's branch was merged directly to `main` per an explicit user instruction to do so now, which is the same pattern to repeat at the next natural pause point, not a one-off.
+- No changesets, no version bump, until ground rule 17's final 1.0.0 bump at the very end of the entire pass.
+- Read a file before recommending a library replace it, or before assuming a "fold into X" finding from an earlier session is correct — this pass has now caught two grep false-positives (`WindowSystem`/`ViewportSystem` in Track 2, plus three wrong library picks in Track 0) by re-auditing instead of trusting the previous session's notes at face value. Trust this file's specific, dated findings; re-verify anything that reads like a guess.
+
+---
+
 ## Process decisions — 2026-09-22 (how this pass is actually run, not what it builds)
 
 Settled with the project owner, alongside everything else in this file. Re-read before starting a new track or a new session on this pass.
