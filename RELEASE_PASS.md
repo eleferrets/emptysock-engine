@@ -43,6 +43,13 @@ Explicitly settled, don't re-litigate these:
 
 Start the next session by auditing real usage of the 27 systems (per the settled decision above), then scope the port order — likely load-bearing-and-widely-used systems first (input, UI, particles), narrow/legacy ones last or deleted outright if the audit shows nobody calls them.
 
+**Four more structural decisions, settled 2026-09-22, same session — also don't re-litigate:**
+
+- **Rollout: system by system, not a big-bang cutover.** Port one system at a time, update its real consumers, verify it, move to the next. The old `Scene`/`Entity` stays alive and working for whatever hasn't been ported yet — `apps/ide` and the toolchain must never be broken mid-pass. Only delete a piece of the old code once nothing depends on it anymore.
+- **Not everything becomes a component.** Only genuinely per-entity data (something an individual entity _has_) becomes an ECS component. `PluginSystem`, `VariableStore`, and `ActorSystem`'s message-passing are process- or scene-global state, not per-entity data — they become typed `Game` services (same pattern as `game.audio`/`game.services` already established this pass), not entities with components. `UISystem`'s widget tree likely gets a root anchored to a `Transform` component, but the tree itself stays a tree — don't flatten it into one entity per widget just for uniformity.
+- **Parity required before deletion.** For each ported system, write tests exercising the same real scenarios the old system's own tests cover (43 old test files to draw from) and confirm the new one behaves the same way, before removing the old implementation. Don't delete on faith.
+- **Final layout: flatten `ecs/` back to the package root once the old code is gone.** `packages/engine/src/ecs/Entity.ts` → `packages/engine/src/core/Entity.ts` (matching this repo's own "core primitives go in `core/`" convention) or the package root, once there's no second implementation left to segregate it from. `@emptysock/engine/ecs` as a subpath retires in favor of plain `@emptysock/engine` once that happens — this is the very last step, only once every system is ported and parity-checked and the old code is actually deleted, not something to do partway through.
+
 ---
 
 ## Context for whoever picks this up next
