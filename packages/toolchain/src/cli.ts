@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import path from "node:path";
+import fs from "node:fs";
 import { program } from "commander";
 import { detectToolchain, formatToolchainReport } from "./ToolchainDetector.js";
 import {
@@ -7,6 +11,8 @@ import {
 } from "./ToolchainSettings.js";
 import { importGMS2Project } from "./gms2-import.js";
 import { buildDesktopApp } from "./desktopBuild.js";
+
+const exec = promisify(execFile);
 
 program
   .name("emptysock-toolchain")
@@ -196,7 +202,6 @@ program
         process.exit(1);
       }
 
-      const path = await import("path");
       const yypPath = path.resolve(opts.project);
 
       // Derive default project name for output directory
@@ -269,12 +274,6 @@ async function exportZip(opts: {
   arch: string;
   out: string;
 }): Promise<void> {
-  const { execFile } = await import("child_process");
-  const { promisify } = await import("util");
-  const path = await import("path");
-  const fs = await import("fs");
-  const exec = promisify(execFile);
-
   if (!fs.existsSync(opts.out)) fs.mkdirSync(opts.out, { recursive: true });
 
   const zipName = `game-web-${opts.arch}-portable.zip`;
@@ -298,11 +297,6 @@ async function exportZip(opts: {
  * merely hope has a prebuilt binary sitting in it.
  */
 async function zipDirectory(dir: string, zipName: string): Promise<void> {
-  const { execFile } = await import("child_process");
-  const { promisify } = await import("util");
-  const path = await import("path");
-  const exec = promisify(execFile);
-
   const zipOut = path.join(dir, zipName);
   console.log(`Zipping build output → ${zipName}`);
   try {

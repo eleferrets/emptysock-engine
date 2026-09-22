@@ -428,6 +428,54 @@ docs:generate` runs it. Verified: it runs clean (no errors) against
 
 ---
 
+## Code quality pass — `packages/toolchain/src/` review findings
+
+- **Finding 1 (module split):** `gms2-import.ts` (was 780 lines doing four
+  jobs) split into `gms2-parse.ts` (JSON pre-parsing/`YYProject` types),
+  `gms2-transpile.ts` (GML→TS pattern transpiler), `gms2-codegen.ts`
+  (per-asset-kind object/sprite/room/script stub codegen), and
+  `gms2-report.ts` (migration-report formatting). `gms2-import.ts` is now a
+  thin orchestrator that imports from all four. `parseGmsJson` is
+  re-exported from `gms2-import.ts` for backward compatibility with the
+  existing test import. No behavioural change — all pre-existing
+  `gms2-import.test.ts` tests pass unchanged.
+- **Finding 2 (pure report function):** `migrationReport` moved to
+  `gms2-report.ts` and rewritten as a pure function over a plain
+  `MigrationReportEntry[]` (`{kind, name, status, note?}`) built by
+  `importGMS2Project` from the actual import results, instead of being
+  interleaved with the per-asset-kind I/O loops. Added
+  `packages/toolchain/src/__tests__/gms2-report.test.ts` — four tests
+  exercising `migrationReport` with hand-built fixtures, no filesystem
+  touched.
+- **Finding 3 (static imports):** `cli.ts`'s three ad hoc
+  `await import("child_process")`/`await import("util")`/`await
+import("path")`/`await import("fs")` blocks (in the `import` action,
+  `exportZip`, and `zipDirectory`) hoisted to static top-of-file imports
+  (`node:child_process`, `node:util`, `node:path`, `node:fs`), matching the
+  rest of the file. No behavioural change.
+- **Finding 4 (Rolldown minify option shape — verified correct, no fix
+  needed):** checked `desktopBuild.ts`'s `bundleGameEntry` minify options
+  directly against `node_modules/.pnpm/rolldown@1.2.7/.../dist/shared/binding-DZuNHVw4.d.mts`.
+  `OutputOptions.minify?: boolean | "dce-only" | MinifyOptions`;
+  `MinifyOptions.compress?: boolean | CompressOptions` where
+  `CompressOptions` has `target?: string | Array<string>` and
+  `dropConsole?: boolean`; `MinifyOptions.mangleProps?:
+ManglePropertiesOptions` is a **sibling** of `compress` (not nested
+  inside it) and `ManglePropertiesOptions.include` is a required `RegExp`.
+  The existing code's shape — `{ compress: { target, dropConsole },
+mangleProps: { include: /regex/ } }` — matches this exactly. Verdict:
+  correct as written, left unchanged.
+- Ran `tsc --noEmit`, `eslint`, and the full `packages/toolchain` vitest
+  suite (35/35 passing, including `desktopBuild.test.ts`) after all
+  changes above. The monorepo-wide `turbo run test` could not be run to
+  completion in this pass: `@emptysock/engine`'s build step currently fails
+  (`RenderPipeline.test.ts` type errors on a `destroyed`/`parent` property)
+  due to a concurrent sibling session's in-progress, uncommitted changes to
+  `packages/engine` in this same shared working directory — unrelated to
+  `packages/toolchain` and outside this pass's scope.
+
+---
+
 ## Starting a new pass
 
 All prior work is on `main` in each repo. Create a new branch from `main` in each repo at the start of the next pass.
