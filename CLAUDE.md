@@ -158,7 +158,43 @@ load.
 
 Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the v2 `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
 
-### Prefab pooling keeps a pooled entity bitECS-alive between destroy and reuse
+### Component shape-change detection diffs declared defaults, not live entity data, and resets are world-scoped
+
+`ComponentRegistry.ensure()` (§13.3 — "a component _shape_ change forces a
+full reload of just the affected entities, with a console message naming
+which component and why") detects a shape change by comparing the
+`typeof` of every field in a re-registered `ComponentDef`'s _declared_
+defaults (`def.createDefaults()`) against a snapshot taken the last time
+that `componentName` was registered — never against the actual values
+currently sitting in the component's live arrays. This matters because
+`ensure()` runs on every ordinary access (`entity.get()`, `entity.add()`,
+`scene.each()`, …), not only after a hot-swap, and a field's runtime value
+routinely diverges in type from its initial default during normal
+gameplay — `PhysicsBody.bodyHandle` starts `null` and is later assigned a
+real numeric handle by `PhysicsSystem`, for one. Diffing against live data
+would misfire a "shape changed" reset on that kind of ordinary mutation.
+Diffing against the previous _declared_ defaults reacts only to an actual
+field add/remove/type change in the component's own shape. As a fast path,
+`ensure()` also skips diffing altogether when the exact same `ComponentDef`
+object comes back (the overwhelmingly common case — a module-level `const`
+read every frame): diffing only ever runs when a _different_ object shows
+up under the same `componentName`, which only happens via a re-evaluated
+`defineComponent(...)` call, i.e. a hot-swap (§23.1).
+
+"Affected entities" is scoped exactly the way `ComponentRegistry` already
+scopes everything else: per `World` (one per `Scene`), keyed by
+`componentName`, per the class's existing per-world `WeakMap`. A shape
+change to a component reloads only the entities on the _one world_ that
+registration call is for, found via a bitECS `query` against that world's
+still-stable store object before its field arrays are touched — an
+unrelated `Scene`'s entities (even ones using a component of the same
+name) are a different `World` and are untouched. The reset itself does not
+destroy and respawn the entity (which would also wipe its _other_,
+unrelated components) — it strips and rewrites only the changed
+component's own field arrays for those entities to the new shape's
+defaults, in place, on the same store object bitECS already has
+registered. Entities that never had the component are never queried or
+touched.
 
 `Scene.spawn(prefab, props, { pool: true })`/`Scene.destroy(entity)`
 (`packages/engine/src/v2/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold
@@ -352,6 +388,31 @@ in behaviour.
 
 `VsCodeService.openInVsCode()` (`apps/ide/src/services/VsCodeService.ts`) shells out to `code <path>` via a Tauri command (`open_in_vscode` in `lib.rs`, plain `std::process::Command`, not the shell plugin's scoped execute API) on desktop. In the browser preview there is no equivalent: the File System Access API's `FileSystemDirectoryHandle` (what `ProjectService.openDirectoryBrowser` gets from `showDirectoryPicker()`) exposes only a `name`, never a real OS path, and there is no browser API that recovers one. That means the `vscode://file/<absolute-path>` URI scheme — which really can hand off to an installed VS Code Desktop, but only given a real absolute path — has nothing to open in browser-preview mode. `openInVsCodeBrowser()` still checks for a real absolute path (so a future browser API or host wrapper isn't silently ignored) but in the browser-preview mode this repo ships today that check always fails, and the button says so plainly rather than pretending the click did something.
 
+### Inspector schema lookup is keyed by componentName string, mirroring the field mismatch it has to tolerate
+
+`defineComponent`'s optional `schema` (ENGINE_DESIGN.md §10.1) is a plain
+object attached to the returned `ComponentDef`, keyed by field name — no
+decorators, no separate registry. `apps/ide`'s `EntityProperties.tsx` reads
+it via a small `componentName -> ComponentSchema` lookup map built once from
+the v2 component modules it imports (`Transform`, `Sprite`, `PhysicsBody`),
+not by importing every v2 component module the IDE might ever encounter.
+This matters because the Inspector's `component.type` string (editor state,
+sourced from the live engine bridge or the editor's own entity list) is not
+guaranteed to line up 1:1 with a schema entry: a v1-only component
+(`CharacterController`, `Animator`, …) has no v2 `ComponentDef` at all yet,
+and even a schema'd v2 component may have fields the schema doesn't cover
+(`PhysicsBody`'s `position`/`velocity`/handle fields are deliberately
+unlisted). Both cases — component not in the map, or field not in that
+component's schema object — must resolve to the same fallback: the
+pre-existing raw per-field text editor, not an error or a blank control.
+`ComponentSection` checks `schema?.[key]` per field, so a schema doesn't
+need to be all-or-nothing for a component to render correctly. If a future
+pass wants the Inspector to reflect _every_ registered v2 component's
+schema instead of a hardcoded few, don't hand-import each one here — that's
+the moment to add a `componentRegistry`-driven lookup (`v2/ComponentRegistry.ts`
+already tracks defs per world) rather than growing this file's import list
+indefinitely.
+
 ### MCP server has no 3D physics tool
 
 `physics_raycast_3d` is listed in the emptysock-mcp tool registry but explicitly throws "not implemented", and its test asserts that behaviour. Do not implement it without a Rapier3D WASM build available server-side — the engine's 3D physics runs in the browser WASM context, not in Node.
@@ -359,6 +420,12 @@ in behaviour.
 ### QueryChannel: transport-agnostic, and errors instead of fabricated empty results
 
 `v2/bridge/QueryChannel.ts` (ENGINE_DESIGN.md §8) is the engine-side half of the MCP live bridge — the one place `emptysock-mcp`'s physics/scene tools get a real answer instead of a stub. Two rules matter here that aren't obvious from the query shapes alone. First, `QueryChannel` never imports a transport: `handle(query)` is a plain synchronous function, same "engine defines the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter` — whoever owns a live instance (IDE preview host, a dev build's bootstrap code) wires an actual socket/postMessage pipe around it. Second, a query that finds genuinely nothing (`raycast2d` hits nothing, `overlapCircle2d` finds nothing) returns `{ ok: true, data: null }`/`{ ok: true, data: [] }`, which is a different shape from every "there's nothing to even ask" case: `"no-live-instance"` (nothing `attach()`-ed) and `"no-physics-world"` (a `Scene` is attached but its `PhysicsSystem` was never `.init()`-ed) are both explicit `ok: false` errors. Do not collapse any of these three into one "empty" result — an agent consuming a raycast result that reads `hit: null` needs to know whether that means "clear line of sight" or "nothing was actually queried."
+
+### Toolchain CLI export bundles with Rolldown, not esbuild
+
+`packages/toolchain/src/desktopBuild.ts`'s desktop export step (`emptysock-toolchain export --platform windows|mac|linux`) bundles the game's entry point with the real `rolldown` npm package, not `esbuild` and not `@rolldown/browser` (that one is the browser-WASM build; it's what `apps/ide`'s in-browser live-preview build would use if that separate, not-yet-started migration ever happens — ENGINE_DESIGN.md §17 sequences the CLI first specifically so the two don't get conflated). The bundling call is factored out as its own `bundleGameEntry()` export so it's testable (`packages/toolchain/src/__tests__/desktopBuild.test.ts`) without a Rust/`cargo tauri` toolchain installed, which the rest of `buildDesktopApp` requires. `apps/ide/src/services/` (`GameBuildService`, the esbuild-wasm virtual-fs plugin) was not touched by this change.
+
+Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
 ---
 

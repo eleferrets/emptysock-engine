@@ -226,9 +226,27 @@ EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
 
 ### Track X — fully independent of `packages/engine`, can run anytime, in parallel with everything above
 
-- [ ] IDE: schema-driven Inspector property panels reading each component's
-      optional co-located schema (§10.1); component-shape-change hot
-      reload messaging in `HotReloadSystem` (§13.3).
+- [x] IDE: schema-driven Inspector property panels reading each component's
+      optional co-located schema (§10.1). **Done.** `defineComponent`'s new
+      optional `schema` option (`packages/engine/src/v2/Component.ts`)
+      attaches a `ComponentSchema<T>` to the returned `ComponentDef`, dogfooded
+      on `Transform`/`Sprite`/`PhysicsBody`'s plain-data fields; a component
+      with no schema is unaffected. `EntityProperties.tsx`'s `ComponentSection`
+      looks a component's schema up by `componentName` and renders real typed
+      controls (number/text input, checkbox, enum `<select>`) bound to the
+      live entity's field, falling back to the pre-existing raw per-field text
+      editor for any component or field with no schema entry.
+- [x] Engine: component-shape-change hot reload messaging (§13.3). **Done.**
+      `ComponentRegistry.ensure()` (`packages/engine/src/v2/ComponentRegistry.ts`)
+      now detects a hot-swapped `defineComponent` re-registration whose field
+      set or a field's default type changed (diffed against the _declared_
+      defaults snapshotted at last registration, not live entity data — see
+      the new CLAUDE.md entry), resets every entity on that world currently
+      carrying the component to the new shape's defaults, and
+      `console.warn`s a message naming the component, what changed, and how
+      many entities were reloaded. Entities without the component, and
+      same-shape hot-swaps, are unaffected. Tests:
+      `packages/engine/src/__tests__/v2/component-shape-change.test.ts`.
 - [x] IDE: "open in VS Code" launch button, not deep theme/extension import
       (§20). **Done.** Toolbar button (`apps/ide/src/components/panels/Toolbar.tsx`)
       calls `VsCodeService.openInVsCode()`
@@ -243,8 +261,22 @@ EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
       `apps/ide/src/__tests__/VsCodeService.test.ts` (Tauri success/failure,
       browser-with-real-path building the URI, browser-without-real-path
       showing the message).
-- [ ] Toolchain: move the CLI's real export/build to Rolldown (§16.3/§17,
-      migrate this one before the IDE's in-browser path).
+- [x] Toolchain: move the CLI's real export/build to Rolldown (§16.3/§17,
+      migrate this one before the IDE's in-browser path). **Done.** The
+      only real Node-side bundling call site was
+      `packages/toolchain/src/desktopBuild.ts`'s desktop export step
+      (`emptysock-toolchain export --platform windows|mac|linux`); it now
+      calls the real `rolldown` npm package instead of `esbuild`, extracted
+      into a standalone `bundleGameEntry()` for testing without a
+      Rust/`cargo tauri` toolchain (`packages/toolchain/src/__tests__/desktopBuild.test.ts`).
+      Rolldown has no `esbuild`-style `drop: ["console"]`/`target` build
+      options; the equivalent (`minify.compress.dropConsole`,
+      `minify.compress.target`) lives under its Oxc-backed `minify` option
+      instead — same behaviour, different option shape, not a regression.
+      `apps/ide`'s in-browser `esbuild-wasm`/`GameBuildService` live-preview
+      build path was deliberately left untouched per §17's sequencing (a
+      separate future spike) — nothing under `apps/ide/src/services/` was
+      touched by this change.
 - [x] Toolchain: GMS2 importer audit — confirm every documented 2.3+ import
       path is wired end-to-end, not stubbed anywhere in the chain (§9 — no
       scope change, just an audit). **Done.** Traced every quirk in
@@ -286,7 +318,7 @@ EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
       `access: restricted` (every package, including the new
       `@emptysock/{vn,battle,tilemap}` split from Track 2, is still
       `private: true` with no npm publish config found anywhere), `ignore:
-  ["@emptysock/ide"]` (it's the Tauri app, not a published package —
+["@emptysock/ide"]` (it's the Tauri app, not a published package —
       the workspace glob `packages/*` already auto-discovers every other
       package, split or not, with no extra config needed). No version
       bumps were made; root scripts `changeset`/`version`/`release` added.
