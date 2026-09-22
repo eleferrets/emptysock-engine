@@ -476,6 +476,138 @@ mangleProps: { include: /regex/ } }` — matches this exactly. Verdict:
 
 ---
 
+## Code quality pass — `packages/vn`/`packages/battle`/`packages/tilemap` review findings
+
+- **Finding 1 (VNSystem's `variableStore` default, documented not removed):**
+  Added a doc comment directly on `VNSystem`'s constructor in
+  `packages/vn/src/VNSystem.ts` explaining that the default parameter
+  shares the engine's process-global `variableStore` singleton across
+  every caller that doesn't pass an explicit store, and a matching
+  "Non-obvious decisions" entry in `CLAUDE.md`. No behaviour change — the
+  default itself is kept for backward compatibility.
+- **Finding 2 (config drift across `packages/{vn,battle,tilemap}`):**
+  Added `tsconfig.module-package.json` (repo root) with the shared
+  module-package compiler options; `battle`/`tilemap`/`vn`'s own
+  `tsconfig.json` now extend it and keep only their genuinely
+  package-relative options (`outDir`/`rootDir`/`typeRoots`/`include`).
+  Added `vitest.config.module-package.mts` (repo root, `.mts` so Vite's
+  native config loader doesn't warn about ESM-in-CJS given the root
+  `package.json` has no `"type": "module"`) exporting
+  `moduleTestPackageDefaults()`/`withModulePackageDefaults()`; all three
+  packages' `vitest.config.ts` now call the former instead of duplicating
+  the same `defineConfig({...})` block. Investigated the `vn`/tilemap
+  `lib` array discrepancy specifically: `vn`'s `VNTextbox.ts` genuinely
+  calls `document.createElement("canvas")`, so its `["ES2024", "DOM",
+"DOM.Iterable"]` override is real and was kept (now as a documented,
+  commented override on top of the shared `["ES2024"]` base) — it was not
+  copied unnecessarily. `packages/network` was left untouched (same shape,
+  but out of this pass's scope) and its full suite (`tsc`/`eslint`/vitest)
+  was re-verified passing against the new shared vitest config file it
+  does _not_ use, to confirm no regression. Package.json script-field
+  templating was judged not worth doing in this pass (the four packages'
+  `build`/`typecheck`/`lint`/`test`/`clean` scripts are already identical
+  one-liners; a `packages/_template/` would add more indirection than it
+  saves right now) — noted here as the deferred option per the review.
+- **Finding 3 (`BattleSystem.ts` decomposition):** Split
+  `packages/battle/src/BattleSystem.ts` (798 lines) into `CombatantState.ts`
+  (the shared internal record type), `TurnOrder.ts` (`computeTurnOrder`),
+  `StatusEffects.ts` (`applyStatusEffects`, `effectiveStats`), and
+  `DamageResolution.ts` (`DEFAULT_PHYSICAL`, `resolveTargets`,
+  `executeAction`, `executeSkill`). `BattleSystem.ts` itself is now the
+  thin orchestrator — round/phase state machine, combatant maps, event
+  subscription — composing the four modules; its public API
+  (`start`/`submitAction`/`subscribe`/`getPhase`/`getRound`/`getCombatant`/
+  everything exported from `packages/battle/src/index.ts`) is byte-for-byte
+  unchanged. Split `BattleSystem.test.ts` the same way: added
+  `TurnOrder.test.ts`, `StatusEffects.test.ts`, and
+  `DamageResolution.test.ts` as focused unit tests exercising the new
+  modules directly; the original `BattleSystem.test.ts` (767 lines,
+  entirely orchestration/public-API level already) was left as-is since it
+  was already scoped correctly. All 25 pre-existing `BattleSystem.test.ts`
+  assertions pass unchanged against the refactored orchestrator.
+- No other pre-existing bugs (beyond style) were found in
+  `packages/vn`/`packages/battle`/`packages/tilemap` while doing this pass.
+- Ran `tsc --noEmit`, `eslint`, and the full vitest suite for
+  `packages/vn` (18/18), `packages/battle` (54/54, up from 29 pre-split),
+  `packages/tilemap` (11/11), and `packages/network` (7/7) — all passing
+  after every change above.
+
+---
+
+## Code quality pass — engine v2 core fixes
+
+Architecture + thermo-nuclear code review of `packages/engine/src/v2/`
+(physics/rendering/lifecycle files) surfaced two confirmed correctness bugs
+plus several structural-duplication findings. All fixed in one pass:
+
+- **Bug 1 (stale `PhysicsBody` callbacks/handles leak onto reused pooled
+  entities):** Merged `PhysicsBody.ts`'s two side-tables
+  (`callbacksByWorld`/`handleCache`) into one
+  `WeakMap<World, Map<eid, { callbacks, handle }>>`, and added
+  `clearPhysicsBody(world, eid)`, called from `Scene.destroy()` for both the
+  pooled-reset and real-destroy paths — the one place that already knows
+  "this entity's component data is being reset/removed" regardless of which
+  components were attached. Regression test:
+  `src/__tests__/v2/physics.test.ts` — spawn pooled entity A with a
+  collision callback, destroy it, spawn pooled entity B reusing the same
+  slot, assert B gets no callback and a fresh handle.
+- **Bug 2 (`RenderPipeline`'s main-scene sprite tracking wasn't scoped
+  per-`Scene`, unlike overlay tracking):** Folded `_mainTracking` into the
+  same `Map<Scene, SceneTracking>` overlays already use; `_syncMain` now
+  tracks which `Scene` it currently belongs to and fully disposes the
+  previous one's sprites (reusing the same per-sprite teardown
+  `releaseOverlay` uses) the moment a different `Scene` is passed in.
+  Regression test: `src/__tests__/v2/RenderPipeline.test.ts` — "Bug 2
+  regression" — load scene A with a sprite at a given eid, swap to scene B
+  with a different sprite at the same eid, assert B's sprite is shown, A's
+  tracking is gone, and A's Pixi sprite is actually destroyed/detached.
+- **Finding 3 (duplicated fixed-timestep accumulator/interpolation):**
+  Extracted `v2/systems/FixedTimestepAccumulator.ts`
+  (`FixedTimestepAccumulator` + `lerpSnapshot`), used by both
+  `PhysicsSystem.ts` (2D) and `PhysicsSystem3D.ts`. `lerpSnapshot` takes a
+  caller-supplied `lerpFn` so 2D (lerps x/y/rotation) and 3D (lerps x/y/z,
+  passes rotation through unlerped) both fit without forcing one shape.
+- **Finding 4 (copy-pasted WeakMap-per-World get-or-create):** Added
+  `v2/internal/scoped.ts` (`getOrCreate`/`getOrCreateMapEntry`), used by
+  `ComponentRegistry.ts`, `PhysicsBody.ts`'s merged side-table, and
+  `RenderPipeline.ts`'s scene tracking/overlay containers.
+- **Finding 5 (`Game.update()`'s overlay loop hand-duplicating the main
+  scene's per-frame logic) + Finding 7 (`LoadOverlayOptions.physics`
+  constructed a world nothing ever stepped):** Added a `physicsEnabled` flag
+  to `Game.ts`'s internal `LoadedScene` and a shared `runFrame(loaded, dt)`
+  function (flush actor mailbox, step physics if `physicsEnabled`, call
+  `onUpdate` with the async-Promise check) used by both the main scene and
+  every overlay in `update()`. This is a real behavior change for Finding 7:
+  an overlay loaded with `loadOverlay(def, { physics })` now actually has
+  its physics stepped every frame, not just constructed-and-initialized and
+  left for the caller to drive manually. Regression test:
+  `src/__tests__/v2/overlay.test.ts` — "Finding 7" — a body on an overlay
+  loaded with `physics` falls under gravity across `game.update()` calls
+  with no manual `physics.update()` call from the test.
+- **Finding 6 (`Entity.add()`/`createComponentProxy`/`ComponentRegistry`
+  each reimplementing "write field at index, growing the array"):** Added
+  `v2/internal/fields.ts` (`setField`/`setFields`), used by all three sites.
+- **Finding 8 (`QueryChannel`'s throwaway per-query proxy cache had no
+  doc):** Added a doc comment on `QueryChannel._entityHandle` explaining the
+  per-call scratch cache is intentionally never shared with the live game's
+  own proxy identity — no structural change, per the review's own
+  instruction not to "fix" this, just document it.
+- New tests: `src/__tests__/v2/shared-helpers.test.ts` covers
+  `FixedTimestepAccumulator`/`lerpSnapshot`/`getOrCreate`/
+  `getOrCreateMapEntry`/`setField`/`setFields` directly. All pre-existing
+  `PhysicsSystem`/`RenderPipeline`/`Game`/overlay tests pass unchanged
+  (internals-reaching assertions in `RenderPipeline.test.ts` were updated
+  to read the renamed `_tracking` map, not `_mainTracking`/
+  `_overlayTracking` — same observable behavior, different internal field
+  names).
+- No other pre-existing behavioral bugs were found while in these files
+  beyond the two named above.
+- Ran `tsc --noEmit`, `eslint`, and the full vitest suite for
+  `packages/engine`: 57 test files, 462 tests, all passing. No flaky
+  failures observed (none needed a rerun-in-isolation).
+
+---
+
 ## Starting a new pass
 
 All prior work is on `main` in each repo. Create a new branch from `main` in each repo at the start of the next pass.

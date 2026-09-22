@@ -80,6 +80,23 @@ export class VNSystem {
    */
   private readonly _store: VariableStore;
 
+  /**
+   * @param store The store backing `"condition"` nodes and conditional
+   * `when` choice options. Defaults to `@emptysock/engine`'s shared,
+   * process-global `variableStore` singleton — the SAME instance every
+   * other caller in the game gets unless they too pass an explicit store.
+   * That default is convenient (dialogue "just works" against the switches
+   * your game logic already sets) but it is implicit, undocumented sharing:
+   * a game using `@emptysock/vn` for dialogue AND reading/writing
+   * `variableStore` directly elsewhere gets cross-talk for free — a VN
+   * choice gated on switch 12 can be silently affected by an unrelated
+   * `variableStore.setSwitch(12, ...)` call anywhere else in the game, and
+   * vice versa. Pass an explicit `VariableStore` instance here (isolated
+   * per-save-slot, or a plain test double) whenever that sharing is not
+   * what you want. See CLAUDE.md's "Non-obvious decisions" for the
+   * rationale (matches how `SaveSystem`'s `MemoryStorageAdapter` default is
+   * documented there).
+   */
   constructor(store: VariableStore = variableStore) {
     this._store = store;
   }

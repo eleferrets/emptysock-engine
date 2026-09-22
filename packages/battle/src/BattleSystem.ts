@@ -1,3 +1,12 @@
+import type { CombatantState } from "./CombatantState.js";
+import { computeTurnOrder } from "./TurnOrder.js";
+import { applyStatusEffects } from "./StatusEffects.js";
+import {
+  DEFAULT_PHYSICAL,
+  executeAction,
+  type DamageResolutionContext,
+} from "./DamageResolution.js";
+
 // --- Public types ---
 
 export type BattlePhase = "idle" | "input" | "resolving" | "victory" | "defeat";
@@ -147,35 +156,6 @@ export interface BattleSystemOptions {
    */
   statMap?: BattleStatMap;
 }
-
-// --- Internal ---
-
-interface CombatantState {
-  id: string;
-  name: string;
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  attack: number; // resolved from statMap
-  defense: number;
-  speed: number;
-  luck: number;
-  rawStats: Record<string, number>; // original stats for snapshot reconstruction
-  statusEffects: StatusEffect[];
-  isParty: boolean;
-  insertionOrder: number;
-}
-
-const DEFAULT_PHYSICAL = (ctx: DamageContext): number =>
-  Math.max(
-    1,
-    Math.floor(
-      (ctx.effectiveAttack - ctx.effectiveDefense / 2) *
-        ctx.power *
-        (ctx.isCrit ? ctx.critMultiplier : 1),
-    ),
-  );
 
 // --- BattleSystem ---
 
@@ -419,18 +399,10 @@ export class BattleSystem {
   }
 
   private _computeTurnOrder(): void {
-    const states: CombatantState[] = [
-      ...this._party.values(),
-      ...this._enemies.values(),
-    ].filter((s) => s.hp > 0);
-
-    states.sort((a, b) => {
-      if (b.speed !== a.speed) return b.speed - a.speed;
-      if (b.luck !== a.luck) return b.luck - a.luck;
-      return a.insertionOrder - b.insertionOrder;
-    });
-
-    this._turnOrder = states.map((s) => s.id);
+    this._turnOrder = computeTurnOrder(
+      this._party.values(),
+      this._enemies.values(),
+    );
   }
 
   private _beginInputPhase(): void {
@@ -481,7 +453,7 @@ export class BattleSystem {
       if (state === undefined || state.hp <= 0) continue;
 
       // Apply status effects before this combatant acts
-      this._applyStatusEffects(state);
+      applyStatusEffects(state, this._statusEffectIndex, (e) => this._emit(e));
       if (this._checkEndConditions()) break;
       if (state.hp <= 0) continue;
 
@@ -505,273 +477,24 @@ export class BattleSystem {
     }
   }
 
-  private _applyStatusEffects(state: CombatantState): void {
-    const toExpire: string[] = [];
-
-    // Iterate over a copy so removal mid-loop is safe
-    for (const se of [...state.statusEffects]) {
-      const def = this._statusEffectIndex.get(se.id);
-
-      // HP drain
-      if (
-        state.hp > 0 &&
-        def !== undefined &&
-        def.hpDrainPercentPerTurn !== undefined &&
-        def.hpDrainPercentPerTurn > 0
-      ) {
-        const drain = Math.floor(state.maxHp * def.hpDrainPercentPerTurn);
-        state.hp = Math.max(0, state.hp - drain);
-        this._emit({
-          kind: "damage",
-          sourceId: se.id,
-          targetId: state.id,
-          amount: drain,
-          isCrit: false,
-        });
-        if (state.hp <= 0) {
-          this._emit({ kind: "combatant-defeated", combatantId: state.id });
-        }
-      }
-
-      // Decrement duration
-      if (se.turnsRemaining !== -1) {
-        se.turnsRemaining--;
-        if (se.turnsRemaining <= 0) {
-          toExpire.push(se.id);
-        }
-      }
-    }
-
-    for (const effectId of toExpire) {
-      state.statusEffects = state.statusEffects.filter(
-        (se) => se.id !== effectId,
-      );
-      this._emit({ kind: "status-expired", combatantId: state.id, effectId });
-    }
-  }
-
-  private _effectiveStats(state: CombatantState): {
-    attack: number;
-    defense: number;
-  } {
-    let atkMult = 1;
-    let defMult = 1;
-
-    for (const se of state.statusEffects) {
-      const def = this._statusEffectIndex.get(se.id);
-      if (def === undefined) continue;
-      if (def.attackMultiplier !== undefined) atkMult *= def.attackMultiplier;
-      if (def.defenseMultiplier !== undefined) defMult *= def.defenseMultiplier;
-    }
-
+  private _damageResolutionContext(): DamageResolutionContext {
     return {
-      attack: state.attack * atkMult,
-      defense: state.defense * defMult,
+      party: this._party,
+      enemies: this._enemies,
+      statusEffectIndex: this._statusEffectIndex,
+      skillIndex: this._skillIndex,
+      toSnapshot: (state) => this._toSnapshot(state),
+      emit: (event) => this._emit(event),
+      critChance: this._critChance,
+      critMultiplier: this._critMultiplier,
+      fleeChance: this._fleeChance,
+      physicalFormula: this._physicalFormula,
+      onFlee: () => this._setPhase("victory"),
     };
   }
 
-  private _rollCrit(luck: number): boolean {
-    return Math.random() < this._critChance + luck / 100;
-  }
-
-  private _applyDamage(
-    sourceId: string,
-    target: CombatantState,
-    amount: number,
-    isCrit: boolean,
-  ): void {
-    target.hp = Math.max(0, target.hp - amount);
-    this._emit({
-      kind: "damage",
-      sourceId,
-      targetId: target.id,
-      amount,
-      isCrit,
-    });
-    if (target.hp <= 0) {
-      this._emit({ kind: "combatant-defeated", combatantId: target.id });
-    }
-  }
-
-  private _applyHeal(
-    sourceId: string,
-    target: CombatantState,
-    amount: number,
-  ): void {
-    target.hp = Math.min(target.maxHp, target.hp + amount);
-    this._emit({ kind: "heal", sourceId, targetId: target.id, amount });
-  }
-
   private _executeAction(actor: CombatantState, action: BattleAction): void {
-    if (action.type === "flee") {
-      if (Math.random() < this._fleeChance) {
-        this._emit({ kind: "fled" });
-        this._setPhase("victory");
-      }
-      return;
-    }
-
-    if (action.type === "attack") {
-      const target =
-        this._party.get(action.targetId) ?? this._enemies.get(action.targetId);
-      if (target === undefined || target.hp <= 0) return;
-
-      const actEff = this._effectiveStats(actor);
-      const tgtEff = this._effectiveStats(target);
-      const isCrit = this._rollCrit(actor.luck);
-      const dmg = this._physicalFormula({
-        attacker: this._toSnapshot(actor),
-        target: this._toSnapshot(target),
-        effectiveAttack: actEff.attack,
-        effectiveDefense: tgtEff.defense,
-        power: 1.0,
-        isCrit,
-        critMultiplier: this._critMultiplier,
-      });
-      this._applyDamage(actor.id, target, dmg, isCrit);
-      return;
-    }
-
-    // action.type === 'skill'
-    this._executeSkill(actor, action.skillId, action.targetId);
-  }
-
-  private _resolveTargets(
-    actor: CombatantState,
-    targetType: SkillTargetType,
-    primaryTargetId: string,
-  ): CombatantState[] {
-    switch (targetType) {
-      case "single-enemy": {
-        const map = actor.isParty ? this._enemies : this._party;
-        const t = map.get(primaryTargetId);
-        return t !== undefined && t.hp > 0 ? [t] : [];
-      }
-      case "all-enemies": {
-        const map = actor.isParty ? this._enemies : this._party;
-        return Array.from(map.values()).filter((s) => s.hp > 0);
-      }
-      case "single-ally": {
-        const map = actor.isParty ? this._party : this._enemies;
-        const t = map.get(primaryTargetId);
-        return t !== undefined && t.hp > 0 ? [t] : [];
-      }
-      case "all-allies": {
-        const map = actor.isParty ? this._party : this._enemies;
-        return Array.from(map.values()).filter((s) => s.hp > 0);
-      }
-      case "self": {
-        return actor.hp > 0 ? [actor] : [];
-      }
-    }
-  }
-
-  private _executeSkill(
-    actor: CombatantState,
-    skillId: string,
-    primaryTargetId: string,
-  ): void {
-    const skill = this._skillIndex.get(skillId);
-    if (skill === undefined) return;
-
-    // Insufficient MP — fail silently, no event
-    if (actor.mp < skill.mpCost) return;
-
-    actor.mp -= skill.mpCost;
-    this._emit({
-      kind: "mp-cost",
-      combatantId: actor.id,
-      amount: skill.mpCost,
-    });
-
-    const targets = this._resolveTargets(
-      actor,
-      skill.targetType,
-      primaryTargetId,
-    );
-    const actEff = this._effectiveStats(actor);
-
-    for (const target of targets) {
-      if (target.hp <= 0) continue;
-
-      let amount = 0;
-      let isCrit = false;
-
-      switch (skill.formula) {
-        case "physical": {
-          isCrit = this._rollCrit(actor.luck);
-          const tgtEff = this._effectiveStats(target);
-          amount = this._physicalFormula({
-            attacker: this._toSnapshot(actor),
-            target: this._toSnapshot(target),
-            effectiveAttack: actEff.attack,
-            effectiveDefense: tgtEff.defense,
-            power: skill.power,
-            isCrit,
-            critMultiplier: this._critMultiplier,
-          });
-          break;
-        }
-        case "magical": {
-          isCrit = this._rollCrit(actor.luck);
-          const tgtEff = this._effectiveStats(target);
-          amount = Math.max(
-            1,
-            Math.floor(
-              (actEff.attack * 1.5 - tgtEff.defense * 0.5) *
-                skill.power *
-                (isCrit ? this._critMultiplier : 1),
-            ),
-          );
-          break;
-        }
-        case "fixed": {
-          amount = Math.floor(skill.power);
-          break;
-        }
-        case "percent-max-hp": {
-          amount = Math.floor(target.maxHp * skill.power);
-          break;
-        }
-        default: {
-          amount = 0;
-        }
-      }
-
-      if (skill.isHeal === true) {
-        this._applyHeal(actor.id, target, amount);
-      } else {
-        this._applyDamage(actor.id, target, amount, isCrit);
-      }
-
-      // Apply status effect if the target is still standing
-      const seSpec = skill.statusEffect;
-      if (
-        seSpec !== undefined &&
-        target.hp > 0 &&
-        Math.random() < seSpec.chance
-      ) {
-        const seDef = this._statusEffectIndex.get(seSpec.effectId);
-        if (seDef !== undefined) {
-          const alreadyActive = target.statusEffects.some(
-            (se) => se.id === seDef.id,
-          );
-          if (!alreadyActive) {
-            target.statusEffects.push({
-              id: seDef.id,
-              name: seDef.name,
-              turnsRemaining: -1,
-            });
-          }
-          this._emit({
-            kind: "status-applied",
-            combatantId: target.id,
-            effectId: seDef.id,
-            name: seDef.name,
-          });
-        }
-      }
-    }
+    executeAction(this._damageResolutionContext(), actor, action);
   }
 
   private _checkEndConditions(): boolean {
