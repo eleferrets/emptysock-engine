@@ -33,6 +33,21 @@ export type {
   SceneFilePrefabInstance,
   ComponentLookup,
 } from "./SceneFile.js";
+export {
+  startCoroutine,
+  stopCoroutine,
+  updateCoroutines,
+  clearCoroutines,
+  waitFrames,
+  waitSeconds,
+  waitUntil,
+} from "./Coroutines.js";
+export type {
+  CoroutineHandle,
+  CoroutineFactory,
+  CoroutineGen,
+  CoroutineYield,
+} from "./Coroutines.js";
 export { Game, defineScene } from "./Game.js";
 export type {
   UpdateFn,

@@ -1,5 +1,8 @@
 import { ActorSystem } from "../core/ActorSystem.js";
+import { PluginSystem } from "../core/PluginSystem.js";
 import { AudioSystem } from "../systems/AudioSystem.js";
+import { VariableStore } from "../systems/VariableStore.js";
+import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
@@ -40,6 +43,23 @@ export interface SceneLifecycle {
   readonly input: InputManager;
   /** Game-owned, same reasoning as `input` — music/sfx commonly outlive a scene transition. */
   readonly audio: AudioSystem;
+  /**
+   * Game-owned, same reasoning as `audio`/`input` — the one canonical
+   * `VariableStore` for the lifetime of this `Game`, shared across every
+   * scene unless a system is deliberately constructed with its own isolated
+   * instance instead (e.g. `new VNSystem(new VariableStore())` for a
+   * self-contained minigame). Pass this to `VNSystem`/`MapEventSystem`
+   * constructors that need the shared switches/variables a save-gated
+   * dialogue tree or map trigger expects.
+   */
+  readonly variables: VariableStore;
+  /**
+   * Game-owned, same reasoning as `audio`/`input`/`variables` — one
+   * `PluginSystem` for the lifetime of this `Game`. Equivalent to
+   * `game.services.get(PluginSystem)`, handed here for convenience so scene
+   * code doesn't need a separate reference to the owning `Game`.
+   */
+  readonly plugins: PluginSystem;
 }
 
 export interface LoadSceneOptions {
@@ -193,6 +213,12 @@ function runFrame(loaded: LoadedScene, dt: number): void {
     loaded.lifecycle.physics.update(loaded.lifecycle.scene, dt);
   }
 
+  // After physics settles, before onUpdate — a coroutine resuming this
+  // frame sees this frame's post-physics state, and onUpdate sees whatever
+  // the resumed coroutine just did, same "engine-driven state settles
+  // before user code runs" ordering as actors/physics above.
+  updateCoroutines(loaded.lifecycle.scene.world, dt);
+
   const onUpdate = loaded.definition.onUpdate;
   if (onUpdate !== undefined) {
     warnIfPromiseReturned(onUpdate(dt) as unknown);
@@ -235,8 +261,8 @@ export class Game {
    * ENGINE_DESIGN.md §5 — process-global for the lifetime of this `Game`
    * instance, constructed once here (not per-scene, unlike `actors`/
    * `physics` in `SceneLifecycle`) and never reset by `loadScene`/
-   * `unloadScene`. Same underlying idea as the `pluginSystem` singleton,
-   * generalized past just plugins — see `Services.ts`.
+   * `unloadScene`. `PluginSystem` and `VariableStore` are registered here in
+   * the constructor as the first two real services — see `Services.ts`.
    */
   readonly services = new ServiceRegistry();
   /**
@@ -251,6 +277,8 @@ export class Game {
 
   constructor(options: GameOptions = {}) {
     this._deterministic = options.deterministic ?? false;
+    this.services.register(PluginSystem);
+    this.services.register(VariableStore);
   }
 
   /** Equivalent to `new Game(options)` — reads better at a call site than `new`. */
@@ -324,6 +352,8 @@ export class Game {
       physics,
       input: this._input,
       audio: this._audio,
+      variables: this.services.get(VariableStore),
+      plugins: this.services.get(PluginSystem),
     };
     this._current = {
       definition,
@@ -398,6 +428,8 @@ export class Game {
       physics,
       input: this._input,
       audio: this._audio,
+      variables: this.services.get(VariableStore),
+      plugins: this.services.get(PluginSystem),
     };
     const loaded: LoadedScene = {
       definition,

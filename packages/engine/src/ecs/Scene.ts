@@ -18,6 +18,7 @@ import {
 } from "./Prefab.js";
 import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
+import { clearCoroutines } from "./Coroutines.js";
 
 /**
  * A `scene.each(...)` callback receives one live component object per
@@ -179,6 +180,11 @@ export class Scene {
     // bitECS id (pooled ids are deliberately never released back to
     // bitECS's own recycling — see `SpawnOptions.pool`'s doc comment).
     clearPhysicsBody(this.world, entity.eid);
+    // Same reasoning as `clearPhysicsBody` above: a pooled entity's bitECS
+    // id is never released back to bitECS's own recycling, so without this
+    // a coroutine still scheduled against the previous occupant would keep
+    // running against whatever new entity later reuses this id.
+    clearCoroutines(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {

@@ -1,6 +1,5 @@
 import {
-  type VariableStore,
-  variableStore,
+  VariableStore,
   evaluateCondition,
   type VariableCondition,
 } from "@emptysock/engine";
@@ -74,30 +73,26 @@ export class VNSystem {
 
   /**
    * The persistent `VariableStore` backing `"condition"` nodes and
-   * conditional (`when`) choice options. Defaults to the shared
-   * `variableStore` singleton; pass a different instance for isolated
-   * testing or a per-save-slot store.
+   * conditional (`when`) choice options. Defaults to a fresh, isolated
+   * instance; pass `ctx.variables` (the `Game`-owned instance handed to
+   * every scene's `SceneLifecycle`) to share variables/switches with the
+   * rest of the game, or a different instance for isolated testing or a
+   * per-save-slot store.
    */
   private readonly _store: VariableStore;
 
   /**
    * @param store The store backing `"condition"` nodes and conditional
-   * `when` choice options. Defaults to `@emptysock/engine`'s shared,
-   * process-global `variableStore` singleton — the SAME instance every
-   * other caller in the game gets unless they too pass an explicit store.
-   * That default is convenient (dialogue "just works" against the switches
-   * your game logic already sets) but it is implicit, undocumented sharing:
-   * a game using `@emptysock/vn` for dialogue AND reading/writing
-   * `variableStore` directly elsewhere gets cross-talk for free — a VN
-   * choice gated on switch 12 can be silently affected by an unrelated
-   * `variableStore.setSwitch(12, ...)` call anywhere else in the game, and
-   * vice versa. Pass an explicit `VariableStore` instance here (isolated
-   * per-save-slot, or a plain test double) whenever that sharing is not
-   * what you want. See CLAUDE.md's "Non-obvious decisions" for the
-   * rationale (matches how `SaveSystem`'s `MemoryStorageAdapter` default is
-   * documented there).
+   * `when` choice options. Defaults to a fresh, isolated `VariableStore` —
+   * dialogue gated on switches/variables stays local to this `VNSystem`
+   * instance unless you explicitly opt into sharing. Pass `ctx.variables`
+   * (the same `Game`-owned instance every scene's `onLoad` receives via
+   * `SceneLifecycle`, per `@emptysock/engine`'s `Game` service registry) to
+   * make dialogue "just work" against the switches your game logic already
+   * sets — that's an explicit choice at the call site now, not an implicit
+   * process-global default.
    */
-  constructor(store: VariableStore = variableStore) {
+  constructor(store: VariableStore = new VariableStore()) {
     this._store = store;
   }
 

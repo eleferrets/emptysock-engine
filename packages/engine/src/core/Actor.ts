@@ -9,7 +9,10 @@ export interface Message {
  * Base class for the Actor Model. Each actor owns a private mailbox;
  * no actor may read another's fields directly — all interaction is via send().
  *
- * Network-capable actors should extend NetworkActor instead.
+ * A networked variant, if one is ever needed, belongs in `@emptysock/network`
+ * — the engine's own `core/NetworkActor.ts`/`Transport.ts` were deleted
+ * (ground rule 10, RELEASE_PASS.md) as a second, unused networking primitive
+ * alongside the real one in that package.
  */
 const INBOX_LIMIT = 1000;
 

@@ -2,7 +2,8 @@
 export { Component, componentType } from "./core/Component.js";
 export type { ComponentType } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
-export type { Vec2, CoroutineHandle } from "./core/Entity.js";
+export type { Vec2 } from "./core/Entity.js";
+export type { CoroutineHandle, CoroutineFactory } from "./ecs/Coroutines.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
 
@@ -12,12 +13,10 @@ export { Engine } from "./core/EngineAPI.js";
 // Actor Model
 export { Actor } from "./core/Actor.js";
 export type { Message, ActorId } from "./core/Actor.js";
-export { NetworkActor } from "./core/NetworkActor.js";
-export type { Transport, TransportMessage } from "./core/Transport.js";
 export { ActorSystem } from "./core/ActorSystem.js";
 
 // Plugin System
-export { PluginSystem, pluginSystem } from "./core/PluginSystem.js";
+export { PluginSystem } from "./core/PluginSystem.js";
 export type { Plugin, PluginContext } from "./core/PluginSystem.js";
 
 // Systems
@@ -175,11 +174,7 @@ export type {
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
 
-export {
-  VariableStore,
-  variableStore,
-  evaluateCondition,
-} from "./systems/VariableStore.js";
+export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export type {
   VariableStoreData,
   VariableCondition,
@@ -216,10 +211,6 @@ export type {
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
-
-// ObjectPool
-export { ObjectPool } from "./core/ObjectPool.js";
-export type { Poolable, PoolFactory } from "./core/ObjectPool.js";
 
 // Particles
 export { ParticleSystem, ParticleEmitter } from "./systems/ParticleSystem.js";

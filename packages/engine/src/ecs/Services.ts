@@ -1,16 +1,18 @@
 /**
  * ENGINE_DESIGN.md §5 — the typed, explicit replacement for Godot-style
- * autoloads. Same underlying idea as the `PluginSystem` singleton
- * (documented in `CLAUDE.md` under "PluginSystem singleton": process-global,
- * not per-scene, so a consumer never has to thread a reference through
- * scene boundaries), generalized so save data, audio mixing state, input
- * remapping, and third-party plugins are all "services", one mechanism
- * instead of several ad hoc singletons.
+ * autoloads: `PluginSystem` and `VariableStore` are registered here (see
+ * `Game`'s constructor), rather than either shipping as a bare module-level
+ * singleton, so a consumer never has to thread a reference through scene
+ * boundaries while still avoiding the cross-test/cross-instance state leaks
+ * a real module singleton causes. Generalized so save data, audio mixing
+ * state, input remapping, and third-party plugins are all "services", one
+ * mechanism instead of several ad hoc singletons.
  *
- * Unlike `pluginSystem`, this is not a module-level singleton — it is one
- * instance per `Game` (`game.services`), constructed once in `Game`'s
- * constructor and never recreated by `loadScene`/`unloadScene`, so it
- * survives scene transitions for the lifetime of that `Game` instance.
+ * This is one instance per `Game` (`game.services`), constructed once in
+ * `Game`'s constructor and never recreated by `loadScene`/`unloadScene`, so
+ * it survives scene transitions for the lifetime of that `Game` instance —
+ * process-global in practice (there is normally one `Game` per process),
+ * without the actual global mutable state a module-level singleton is.
  */
 
 /** Any zero-argument constructible class — what `register`/`get` key on. */

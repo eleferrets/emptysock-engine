@@ -141,8 +141,6 @@ export class VariableStore {
   }
 }
 
-export const variableStore = new VariableStore();
-
 /**
  * A condition evaluated against a `VariableStore`, used to gate branches in
  * `VNSystem` (condition nodes, conditional choice options) and triggers in

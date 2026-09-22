@@ -19,13 +19,18 @@ export class PluginSystem {
   private readonly _services: Map<string, unknown> = new Map();
 
   private readonly _ctx: PluginContext = {
-    provide: <T>(key: string, value: T) => { this._services.set(key, value); },
-    inject: <T>(key: string): T | undefined => this._services.get(key) as T | undefined,
+    provide: <T>(key: string, value: T) => {
+      this._services.set(key, value);
+    },
+    inject: <T>(key: string): T | undefined =>
+      this._services.get(key) as T | undefined,
   };
 
   async register(plugin: Plugin): Promise<void> {
     if (this._plugins.has(plugin.name)) {
-      console.warn(`[PluginSystem] "${plugin.name}" already registered — skipping.`);
+      console.warn(
+        `[PluginSystem] "${plugin.name}" already registered — skipping.`,
+      );
       return;
     }
     this._plugins.set(plugin.name, plugin);
@@ -47,6 +52,3 @@ export class PluginSystem {
     return [...this._plugins.keys()];
   }
 }
-
-/** Global singleton — import and use directly in game code. */
-export const pluginSystem = new PluginSystem();

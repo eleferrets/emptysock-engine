@@ -135,12 +135,6 @@ try { ${engineBundle} } catch(e) {
   window.parent.postMessage({ type: 'error', level: 'error', message: 'Engine load failed: ' + String(e), source: 'Engine' }, '*');
 }
 </script>
-<script>
-try {
-  var _esb = window.EmptySockEngine;
-  if (_esb && _esb.ideBridge) { _esb.ideBridge.autoInstall(); }
-} catch(e) {}
-</script>
 <script type="module" src="${userModuleUrl}"></script>
 </body>
 </html>`;

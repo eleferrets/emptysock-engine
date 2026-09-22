@@ -1,8 +1,8 @@
 // AccessibilitySettings — accessibility primitive #3: a global text-scale
 // multiplier that UI text widgets read at render time.
 //
-// This is intentionally a tiny module-level singleton (like pluginSystem)
-// rather than something threaded through every widget's constructor: a
+// This is intentionally a tiny module-level singleton rather than something
+// threaded through every widget's constructor: a
 // settings-menu slider needs to affect every LabelWidget already on screen,
 // in every scene, without each panel wiring a prop down through its tree.
 

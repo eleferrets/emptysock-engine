@@ -43,9 +43,11 @@ ActorSystem drains every actor's inbox before calling update() on any actor. Thi
 
 NetworkActor accepts a Transport interface. The engine never ships a concrete WebSocket or WebRTC implementation. The reason is bundle size: games that have no multiplayer should not pay for the weight of a WebSocket client or WebRTC negotiation stack. The concrete implementation lives in game code and is injected at runtime. Do not add a concrete transport to the engine package.
 
-### PluginSystem singleton
+### PluginSystem and VariableStore are Game services, not module-level singletons
 
-The pluginSystem export is a module-level singleton, not something that gets constructed in each scene. The reason is that plugins are process-global — an analytics SDK, an ads library, or a platform achievement system exists once for the lifetime of the app, not per-scene. Constructing a new PluginSystem per scene would require all consumers to hold a reference to the right instance. The singleton makes inject() callable from anywhere without dependency injection.
+Superseded 2026-09-22 (ECS-core consolidation pass): `PluginSystem` and `VariableStore` used to ship as bare module-level singletons (`pluginSystem`, `variableStore`) precisely because plugins and switches/variables are process-global — an analytics SDK, an ads library, or a save-gated dialogue switch exists once for the lifetime of the app, not per-scene, and a module singleton makes that reachable from anywhere without threading a reference through scene boundaries. The problem: a real module-level singleton is _actually_ global mutable state shared across every test file in the same process, which is a correctness hazard, not just an implementation detail — two unrelated test files touching `variableStore.setSwitch()` would silently interfere with each other via shared Node module caching.
+
+Both are now registered as `Game` services instead (`Game`'s constructor calls `this.services.register(PluginSystem)`/`this.services.register(VariableStore)`, per `ecs/Services.ts`'s `ServiceRegistry` — ENGINE_DESIGN.md §5's "typed, explicit replacement for Godot-style autoloads"), and handed to scene code via `SceneLifecycle.plugins`/`SceneLifecycle.variables`, the same convenience pattern already established for `SceneLifecycle.audio`/`SceneLifecycle.input`. This keeps the "reachable from anywhere without dependency injection" property (one instance per `Game`, which in practice means one per running process) while making the instance's lifetime and scope explicit and test-isolable — a `new Game()` in one test never shares state with a `new Game()` in another. Game code that needs a shared, process-wide instance should read it from `ctx.plugins`/`ctx.variables` (inside a scene's `onLoad`/`onUpdate`) or `game.services.get(PluginSystem)`/`game.services.get(VariableStore)` directly, never construct or expect a bare importable singleton value.
 
 ### Tauri detection at runtime
 
@@ -491,9 +493,9 @@ currently belongs to and fully disposes the previous one's sprites the
 moment a different `Scene` is passed in, reusing `releaseOverlay`'s
 per-sprite teardown rather than a second copy of it.
 
-### VNSystem defaults to the engine's global `variableStore` singleton
+### VNSystem and MapEventSystem default to an isolated VariableStore, not an implicit shared one
 
-`packages/vn/src/VNSystem.ts`'s constructor is `constructor(store: VariableStore = variableStore)`, importing the concrete module-level `variableStore` singleton from `@emptysock/engine` (not just the `VariableStore` type) as its default parameter. This is different in kind from the rest of the VN/battle/tilemap extraction's clean structural-interface boundaries (`Transport`, `StorageAdapter`, `TileLayerSource`, …), where the engine or the module package only ever depends on an interface. A game using `@emptysock/vn` for dialogue AND using engine-level switches/variables directly elsewhere gets implicit, undocumented sharing: a VN choice gated on switch 12 can be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the game, and vice versa. The constructor parameter is kept (so explicit injection — an isolated store per save slot, or a test double — still works, and this default is a documented behaviour, not a bug to fix) rather than removed, since removing it would be a breaking change for any existing caller relying on the implicit shared store. See the doc comment directly on `VNSystem`'s constructor for the same explanation at the point of use.
+Superseded 2026-09-22, alongside "PluginSystem and VariableStore are Game services" above. `packages/vn/src/VNSystem.ts` and `packages/engine/src/systems/MapEventSystem.ts` used to default their `store: VariableStore` constructor parameter to `@emptysock/engine`'s module-level `variableStore` singleton — real, implicit, undocumented-at-the-call-site sharing: a VN choice gated on switch 12 could be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the same game, and vice versa. Now that `VariableStore` is a `Game` service rather than a module singleton (no bare importable instance exists to default to), both constructors instead default to `store: VariableStore = new VariableStore()` — a fresh, isolated instance, matching the pattern `VisualScriptComponent`/`VisualScriptCompiler` already used. Sharing state across systems is still fully supported and just as easy, but now explicit at the call site: pass `ctx.variables` (the same `Game`-owned instance every scene's `onLoad` receives via `SceneLifecycle`) to `new VNSystem(ctx.variables)`/`new MapEventSystem(ctx.variables)` when you want dialogue/map-trigger switches to share state with the rest of the game. See the doc comments directly on each constructor for the same explanation at the point of use.
 
 ---
 
@@ -503,7 +505,7 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 - `ActorSystem` — one word, never "Actor System"
 - `NavMeshSystem` / `NavMesh` — capital M, never "navmesh" or "Navmesh"
-- `PluginSystem` — one word; the singleton instance is `pluginSystem` (lowercase p)
+- `PluginSystem` — one word; a `Game` service (`game.services.get(PluginSystem)` / `ctx.plugins`), not a module-level singleton
 - `Story Graph` — two words with spaces; the runtime is `VNSystem` (not "VN System"); the deprecated panel name "VN Graph" must not appear in new docs
 - `VisualScriptComponent` — one word; the panel label "Visual Script Editor" uses spaces only in prose, not in class names
 - `Tilemap` — one word, capital T; not "TileMap" or "tile map"

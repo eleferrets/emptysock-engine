@@ -9,6 +9,12 @@ import {
 import type { World } from "bitecs";
 import type { ComponentDef } from "./Component.js";
 import { componentRegistry } from "./ComponentRegistry.js";
+import {
+  startCoroutine,
+  stopCoroutine,
+  type CoroutineFactory,
+  type CoroutineHandle,
+} from "./Coroutines.js";
 import { setField, setFields } from "./internal/fields.js";
 import type { SerializableRecord } from "./Serializable.js";
 
@@ -167,5 +173,29 @@ export class Entity {
     if (!bitecsHasComponent(this.world, this.eid, store)) return;
     bitecsRemoveComponent(this.world, this.eid, store);
     this._proxyCache.get(this.eid)?.delete(def.componentName);
+  }
+
+  /**
+   * Start a coroutine on this entity for work that spans multiple frames —
+   * the required escape hatch for anything `onUpdate` can't do directly,
+   * since `onUpdate` must not be `async` (CLAUDE.md's "onUpdate must not be
+   * async"). The coroutine stops automatically the instant this entity is
+   * no longer alive; see `ecs/Coroutines.ts` for the full cancellation
+   * story (liveness check plus an opt-in `AbortSignal` for real async work).
+   *
+   * ```typescript
+   * entity.startCoroutine(function* () {
+   *   yield waitSeconds(1.0);
+   *   doSomething();
+   * });
+   * ```
+   */
+  startCoroutine(factory: CoroutineFactory, id?: string): CoroutineHandle {
+    return startCoroutine(this, factory, id);
+  }
+
+  /** Stop a coroutine by its id (the one returned from `startCoroutine`). */
+  stopCoroutine(id: string): void {
+    stopCoroutine(this, id);
   }
 }

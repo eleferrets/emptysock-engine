@@ -1,6 +1,5 @@
 import {
-  type VariableStore,
-  variableStore,
+  VariableStore,
   evaluateCondition,
   type VariableCondition,
 } from "./VariableStore.js";
@@ -56,11 +55,13 @@ export class MapEventSystem {
 
   /**
    * @param store The `VariableStore` used to gate `when`-conditioned events
-   * and to apply `set-variable` / `set-switch` commands. Defaults to the
-   * shared `variableStore` singleton; pass a different instance for isolated
-   * testing or a per-save-slot store.
+   * and to apply `set-variable` / `set-switch` commands. Defaults to a fresh,
+   * isolated instance — pass `ctx.variables` (the `Game`-owned instance
+   * handed to every scene's `SceneLifecycle`) to share variables/switches
+   * with the rest of the game, or a different instance for isolated testing
+   * or a per-save-slot store.
    */
-  constructor(store: VariableStore = variableStore) {
+  constructor(store: VariableStore = new VariableStore()) {
     this._store = store;
   }
 
