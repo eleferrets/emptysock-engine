@@ -23,7 +23,7 @@
   "dependencies": {
     "@emptysock/engine": "workspace:*",
     "commander": "^12.1.0",
-    "esbuild": "^0.28.2",
+    "rolldown": "^1.2.7",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -62,7 +62,8 @@ program
 
       if (opts.platform === "web") {
         // Web export has no native binary to compile — it's just the
-        // esbuild output plus an index.html, optionally zipped.
+        // pre-built dist/ output plus an index.html, optionally zipped
+        // (it doesn't invoke a bundler itself; see exportZip below).
         if (opts.format === "zip") {
           await exportZip({ platform: "web", arch: opts.arch, out: opts.out });
           return;
@@ -79,7 +80,7 @@ program
         opts.platform === "mac" ||
         opts.platform === "linux"
       ) {
-        // Real desktop builds: bundles the entry with esbuild, scaffolds a
+        // Real desktop builds: bundles the entry with Rolldown, scaffolds a
         // minimal Tauri v2 shell around it, and runs `cargo tauri build`.
         // See desktopBuild.ts for exactly what this can and can't do
         // (notably: no cross-compiling a different OS's installer).

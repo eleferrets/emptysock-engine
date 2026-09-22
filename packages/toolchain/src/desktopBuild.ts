@@ -1,11 +1,21 @@
 /**
- * Real desktop export: bundles the game's entry point with esbuild, drops
+ * Real desktop export: bundles the game's entry point with Rolldown, drops
  * the result into a scaffolded Tauri v2 "game shell" project (see
  * gameShellTemplates.ts), and runs `cargo tauri build` against it — the
  * same thing the IDE's `export_game` Tauri command does
  * (apps/ide/src-tauri/src/lib.rs), so the CLI and the IDE produce build
  * output the same way instead of two divergent implementations.
  *
+ * The bundler here is Rolldown (the real Node package `rolldown`), not
+ * `@rolldown/browser` — this is the toolchain CLI's Node-side build, which
+ * ENGINE_DESIGN.md §16.3/§17 migrates first and separately from the IDE's
+ * in-browser `esbuild-wasm`/`GameBuildService` path (apps/ide's live
+ * preview build). That path is untouched: it needs a WASM-compiled bundler
+ * that runs inside the browser preview iframe, which is exactly what
+ * `@rolldown/browser` would be for if/when that migration happens — a
+ * separate spike per §17, not part of this one.
+ *
+
  * What this does NOT do, and cannot do from one machine:
  *   - Cross-compile a macOS .dmg from Windows/Linux, or a Windows installer
  *     from macOS/Linux. Tauri needs the target OS's own toolchain, and a
@@ -24,7 +34,7 @@ import { promisify } from "node:util";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import { build as esbuildBuild } from "esbuild";
+import { rolldown } from "rolldown";
 import {
   CARGO_TOML_TEMPLATE,
   TAURI_CONF_TEMPLATE,
@@ -96,6 +106,65 @@ function walk(dir: string): string[] {
   return out;
 }
 
+export interface BundleGameEntryOptions {
+  entry: string;
+  minify?: boolean | undefined;
+  dropConsole?: boolean | undefined;
+  sourcemap?: boolean | undefined;
+  aggressive?: boolean | undefined;
+}
+
+export type BundleGameEntryResult =
+  | { success: true; code: string }
+  | { success: false; error: string };
+
+/**
+ * Bundles a single game entry point into one IIFE string, in memory — the
+ * Rolldown equivalent of esbuild's old `{ bundle: true, write: false,
+ * format: "iife" }` call. Exported standalone (not just inlined in
+ * `buildDesktopApp`) so it's testable without a Rust/`cargo tauri`
+ * toolchain, which the rest of `buildDesktopApp` requires.
+ */
+export async function bundleGameEntry(
+  opts: BundleGameEntryOptions,
+): Promise<BundleGameEntryResult> {
+  try {
+    const bundle = await rolldown({
+      input: path.resolve(opts.entry),
+    });
+    const minifyEnabled = opts.minify ?? true;
+    const result = await bundle.generate({
+      format: "iife",
+      name: "EmptySockGame",
+      sourcemap: opts.sourcemap === true ? "inline" : false,
+      minify: minifyEnabled
+        ? {
+            compress: {
+              // Rolldown/Oxc's minifier lowers syntax for a target itself
+              // (unlike esbuild's separate `target` build option) — same
+              // `es2020` ceiling as before.
+              target: ["es2020"],
+              dropConsole: opts.dropConsole === true,
+            },
+            ...(opts.aggressive === true
+              ? { mangleProps: { include: /^_/ } }
+              : {}),
+          }
+        : false,
+    });
+    await bundle.close();
+    // Rolldown's own type ([OutputChunk, ...(OutputChunk | OutputAsset)[]])
+    // guarantees output[0] exists and is a chunk — a single, un-code-split
+    // entry always produces exactly that.
+    return { success: true, code: result.output[0].code };
+  } catch (e) {
+    return {
+      success: false,
+      error: `Failed to bundle ${opts.entry}: ${String(e)}`,
+    };
+  }
+}
+
 export async function buildDesktopApp(
   opts: DesktopBuildOptions,
 ): Promise<DesktopBuildResult> {
@@ -130,35 +199,18 @@ export async function buildDesktopApp(
     };
   }
 
-  // 1. Bundle the game's entry point (esbuild is already a workspace
-  //    dependency via @emptysock/export-utils; used directly here rather
-  //    than that package's exportGame(), which expects a full project
-  //    manifest we don't have when invoked from a bare --entry flag).
-  let gameJs: string;
-  try {
-    const result = await esbuildBuild({
-      entryPoints: [path.resolve(opts.entry)],
-      bundle: true,
-      write: false,
-      format: "iife",
-      globalName: "EmptySockGame",
-      minify: opts.minify ?? true,
-      sourcemap: opts.sourcemap === true ? "inline" : false,
-      target: ["es2020"],
-      ...(opts.dropConsole === true ? { drop: ["console"] as const } : {}),
-      ...(opts.aggressive === true ? { mangleProps: /^_/ } : {}),
-    });
-    const out = result.outputFiles[0];
-    if (out === undefined) {
-      return { success: false, error: "esbuild produced no output" };
-    }
-    gameJs = out.text;
-  } catch (e) {
-    return {
-      success: false,
-      error: `Failed to bundle ${opts.entry}: ${String(e)}`,
-    };
+  // 1. Bundle the game's entry point with Rolldown, in memory.
+  const bundled = await bundleGameEntry({
+    entry: opts.entry,
+    minify: opts.minify,
+    dropConsole: opts.dropConsole,
+    sourcemap: opts.sourcemap,
+    aggressive: opts.aggressive,
+  });
+  if (!bundled.success) {
+    return { success: false, error: bundled.error };
   }
+  const gameJs = bundled.code;
 
   const projectName =
     opts.projectName ?? path.basename(opts.entry, path.extname(opts.entry));

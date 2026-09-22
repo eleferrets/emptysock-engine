@@ -336,9 +336,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
-      esbuild:
-        specifier: ^0.28.2
-        version: 0.28.2
+      rolldown:
+        specifier: ^1.2.7
+        version: 1.2.7
       zod:
         specifier: 'catalog:'
         version: 3.25.76
