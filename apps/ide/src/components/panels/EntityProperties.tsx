@@ -6,7 +6,133 @@ import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
 import { COMPONENT_REGISTRY } from "@emptysock/engine";
+import {
+  Transform as V2Transform,
+  Sprite as V2Sprite,
+  PhysicsBody as V2PhysicsBody,
+} from "@emptysock/engine/v2";
+import type { ComponentSchema, SerializableRecord } from "@emptysock/engine/v2";
 import { engineChannel } from "../../services/EngineChannel";
+
+/**
+ * ENGINE_DESIGN.md §10.1: "co-located optional schema, not decorators" —
+ * `defineComponent`'s optional `.schema` describes each field's inspector
+ * control. This maps a v2 component's `componentName` (the same string key
+ * `component.type` already uses in editor state — see CLAUDE.md's
+ * "Component types as identity keys") to that schema so
+ * `ComponentSection` can look one up by name without importing every v2
+ * component module individually. A component with no entry here (or no
+ * `.schema` on its def) falls back to the raw per-field editor below —
+ * that's the intended, non-error path for schema-less components.
+ */
+const V2_COMPONENT_SCHEMAS: Readonly<
+  Record<string, ComponentSchema<SerializableRecord> | undefined>
+> = {
+  [V2Transform.componentName]: V2Transform.schema,
+  [V2Sprite.componentName]: V2Sprite.schema,
+  [V2PhysicsBody.componentName]: V2PhysicsBody.schema,
+};
+
+function SchemaFieldControl({
+  fieldKey,
+  fieldSchema,
+  rawValue,
+  onCommit,
+}: {
+  fieldKey: string;
+  fieldSchema: NonNullable<ComponentSchema<SerializableRecord>[string]>;
+  rawValue: unknown;
+  onCommit: (newValue: unknown) => void;
+}): React.ReactElement | null {
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    color: "var(--es-text-muted)",
+    fontWeight: 500,
+  };
+  const controlStyle: React.CSSProperties = {
+    width: "100%",
+    background: "var(--es-bg)",
+    border: "1px solid var(--es-border)",
+    borderRadius: 4,
+    color: "var(--es-text)",
+    fontSize: 11,
+    padding: "3px 6px",
+    boxSizing: "border-box",
+  };
+
+  if (fieldSchema.kind === "number") {
+    const numValue =
+      typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0);
+    return (
+      <div className="flex flex-col gap-1">
+        <label style={labelStyle}>{fieldKey}</label>
+        <input
+          type="number"
+          value={Number.isNaN(numValue) ? 0 : numValue}
+          onChange={(e) => onCommit(Number(e.target.value))}
+          style={{ ...controlStyle, fontFamily: "monospace" }}
+        />
+      </div>
+    );
+  }
+
+  if (fieldSchema.kind === "boolean") {
+    const boolValue =
+      typeof rawValue === "boolean" ? rawValue : rawValue === "true";
+    return (
+      <label
+        className="flex items-center gap-2"
+        style={{ fontSize: 11, color: "var(--es-text)" }}
+      >
+        <input
+          type="checkbox"
+          checked={boolValue}
+          onChange={(e) => onCommit(e.target.checked)}
+        />
+        <span style={labelStyle}>{fieldKey}</span>
+      </label>
+    );
+  }
+
+  if (fieldSchema.kind === "enum") {
+    // Conditional UI: a <select> with no options must not render at all —
+    // it would show as a broken/empty picker.
+    if (fieldSchema.options.length === 0) return null;
+    const strValue = typeof rawValue === "string" ? rawValue : "";
+    return (
+      <div className="flex flex-col gap-1">
+        <label style={labelStyle}>{fieldKey}</label>
+        <select
+          value={strValue}
+          onChange={(e) => onCommit(e.target.value)}
+          style={controlStyle}
+        >
+          {fieldSchema.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // "string"
+  const strValue =
+    typeof rawValue === "string" ? rawValue : String(rawValue ?? "");
+  return (
+    <Input
+      label={fieldKey}
+      defaultValue={strValue}
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+        onCommit(e.target.value)
+      }
+      style={{ width: "100%" }}
+    />
+  );
+}
 
 function ComponentSection({
   entityId,
@@ -25,6 +151,7 @@ function ComponentSection({
   onRemove: (entityId: string, type: string) => void;
   onPatch?: (fieldKey: string, newValue: unknown) => void;
 }): React.ReactElement {
+  const schema = V2_COMPONENT_SCHEMAS[component.type];
   const [open, setOpen] = React.useState(true);
 
   const componentColor: Record<string, string> = {
@@ -131,6 +258,25 @@ function ComponentSection({
         >
           {Object.entries(component.properties).map(([key, value]) => {
             const liveVal = liveFields?.[key];
+            const fieldSchema = schema?.[key];
+
+            // Schema-driven path: a real typed control bound to the live
+            // (or last-known) value for this field.
+            if (fieldSchema !== undefined) {
+              const rawValue = liveVal !== undefined ? liveVal : value;
+              return (
+                <SchemaFieldControl
+                  key={key}
+                  fieldKey={key}
+                  fieldSchema={fieldSchema}
+                  rawValue={rawValue}
+                  onCommit={(newValue) => onPatch?.(key, newValue)}
+                />
+              );
+            }
+
+            // No schema for this field (or this component) — fall back to
+            // the raw string editor, unchanged.
             const displayValue =
               liveVal !== undefined ? String(liveVal) : value;
             return (
@@ -240,6 +386,11 @@ export function EntityProperties(): React.ReactElement {
     newValue: unknown,
   ): void => {
     if (entityId === null) return;
+    // Property edits mutate editor-visible entity data, so they go through
+    // the same history stack as transform/add/remove-component edits
+    // (CLAUDE.md: "Undo/redo is mandatory in every panel that mutates
+    // editor data").
+    setSnap(makeSnapshot());
     engineChannel.postToEngine({
       type: "es:set-component",
       id: entityId,

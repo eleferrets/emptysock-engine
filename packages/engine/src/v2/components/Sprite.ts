@@ -32,15 +32,30 @@ import { defineComponent } from "../Component.js";
  * system that actually needs the non-serializable handle — never smuggle it
  * into the component's field bag.
  */
-export const Sprite = defineComponent("Sprite", () => ({
-  texturePath: "",
-  tint: 0xffffff,
-  alpha: 1,
-  anchorX: 0.5,
-  anchorY: 0.5,
-  /** Named render layer (see LayerSystem, ported unchanged from v1). */
-  layer: "default",
-  /** Draw order within `layer` — lower draws first (behind). */
-  depth: 0,
-  visible: true,
-}));
+export const Sprite = defineComponent(
+  "Sprite",
+  () => ({
+    texturePath: "",
+    tint: 0xffffff,
+    alpha: 1,
+    anchorX: 0.5,
+    anchorY: 0.5,
+    /** Named render layer (see LayerSystem, ported unchanged from v1). */
+    layer: "default",
+    /** Draw order within `layer` — lower draws first (behind). */
+    depth: 0,
+    visible: true,
+  }),
+  {
+    schema: {
+      texturePath: { kind: "string" },
+      tint: { kind: "number" },
+      alpha: { kind: "number" },
+      anchorX: { kind: "number" },
+      anchorY: { kind: "number" },
+      layer: { kind: "string" },
+      depth: { kind: "number" },
+      visible: { kind: "boolean" },
+    },
+  },
+);

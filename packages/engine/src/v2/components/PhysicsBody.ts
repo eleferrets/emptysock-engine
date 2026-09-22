@@ -22,26 +22,47 @@ export type SensorCallback = (other: Entity) => void;
  * this shape; see the module doc comment below for why, and `getPhysicsBody`
  * for how they're still exposed as plain assignable properties.
  */
-export const PhysicsBody = defineComponent("PhysicsBody", () => ({
-  type: "dynamic" as PhysicsBodyType,
-  shape: "box" as PhysicsBodyShape,
-  width: 32,
-  height: 32,
-  radius: 16,
-  density: 1,
-  friction: 0.5,
-  restitution: 0.2,
-  isSensor: false as boolean,
-  position: { x: 0, y: 0 },
-  rotation: 0,
-  velocity: { x: 0, y: 0 },
-  // Rapier handles, set by PhysicsSystem.registerEntity(); null until
-  // registered. Kept on the component (rather than an internal-only map)
-  // because v1 did the same and game code occasionally wants to know
-  // whether a body has been registered yet.
-  bodyHandle: null as number | null,
-  colliderHandle: null as number | null,
-}));
+export const PhysicsBody = defineComponent(
+  "PhysicsBody",
+  () => ({
+    type: "dynamic" as PhysicsBodyType,
+    shape: "box" as PhysicsBodyShape,
+    width: 32,
+    height: 32,
+    radius: 16,
+    density: 1,
+    friction: 0.5,
+    restitution: 0.2,
+    isSensor: false as boolean,
+    position: { x: 0, y: 0 },
+    rotation: 0,
+    velocity: { x: 0, y: 0 },
+    // Rapier handles, set by PhysicsSystem.registerEntity(); null until
+    // registered. Kept on the component (rather than an internal-only map)
+    // because v1 did the same and game code occasionally wants to know
+    // whether a body has been registered yet.
+    bodyHandle: null as number | null,
+    colliderHandle: null as number | null,
+  }),
+  {
+    // Only the plain-data fields a designer would actually want to tweak
+    // from the Inspector get a schema entry — `position`/`velocity` (nested
+    // objects) and the engine-managed Rapier handles are left unlisted, so
+    // they fall back to the raw editor per `ComponentSchema`'s doc comment.
+    schema: {
+      type: { kind: "enum", options: ["dynamic", "static", "kinematic"] },
+      shape: { kind: "enum", options: ["box", "circle", "capsule"] },
+      width: { kind: "number" },
+      height: { kind: "number" },
+      radius: { kind: "number" },
+      density: { kind: "number" },
+      friction: { kind: "number" },
+      restitution: { kind: "number" },
+      isSensor: { kind: "boolean" },
+      rotation: { kind: "number" },
+    },
+  },
+);
 
 /**
  * Non-obvious storage decision: collision/sensor callbacks (`onCollide`,

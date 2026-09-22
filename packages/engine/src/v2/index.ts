@@ -10,7 +10,12 @@
  * the package root and the v1 exports retire.
  */
 export { defineComponent } from "./Component.js";
-export type { ComponentDef } from "./Component.js";
+export type {
+  ComponentDef,
+  ComponentSchema,
+  ComponentFieldSchema,
+  DefineComponentOptions,
+} from "./Component.js";
 export { componentRegistry } from "./ComponentRegistry.js";
 export { Entity } from "./Entity.js";
 export { Scene } from "./Scene.js";
