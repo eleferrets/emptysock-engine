@@ -115,6 +115,50 @@ async fn save_file(app: tauri::AppHandle, path: Option<String>, content: String)
 }
 
 // ---------------------------------------------------------------------------
+// "Open in VS Code" command (ENGINE_DESIGN.md §20)
+// ---------------------------------------------------------------------------
+//
+// Deliberately not a theme/extension import — this shells out to the user's
+// own installed VS Code CLI (`code`) against the project folder, same as
+// running it from a terminal. On Windows `code` is a `.cmd` shim that
+// `Command::new` cannot exec directly, so that platform is retried through
+// `cmd /C`. This is a plain `std::process::Command` spawn (the same pattern
+// `export_game` already uses to shell out to `cargo tauri build`), not the
+// `tauri-plugin-shell` JS API, so no shell-execute scope config is needed.
+
+#[derive(Serialize)]
+pub struct OpenVsCodeResult {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+fn open_in_vscode(path: String) -> OpenVsCodeResult {
+    let spawn_result = if cfg!(target_os = "windows") {
+        std::process::Command::new("cmd")
+            .args(["/C", "code", &path])
+            .spawn()
+    } else {
+        std::process::Command::new("code").arg(&path).spawn()
+    };
+
+    match spawn_result {
+        Ok(_) => OpenVsCodeResult {
+            success: true,
+            error: None,
+        },
+        Err(e) => OpenVsCodeResult {
+            success: false,
+            error: Some(format!(
+                "Could not launch the `code` command ({e}). Is VS Code's \
+                 command-line launcher installed? (VS Code → Command Palette → \
+                 \"Shell Command: Install 'code' command in PATH\")."
+            )),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Logging command
 // ---------------------------------------------------------------------------
 
@@ -383,6 +427,7 @@ pub fn run() {
             open_file,
             save_file,
             export_game,
+            open_in_vscode,
             log_error
         ])
         .run(tauri::generate_context!())

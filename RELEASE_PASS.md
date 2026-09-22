@@ -227,9 +227,22 @@ EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
 ### Track X — fully independent of `packages/engine`, can run anytime, in parallel with everything above
 
 - [ ] IDE: schema-driven Inspector property panels reading each component's
-      optional co-located schema (§10.1); "open in VS Code" launch button,
-      not deep theme/extension import (§20); component-shape-change hot
+      optional co-located schema (§10.1); component-shape-change hot
       reload messaging in `HotReloadSystem` (§13.3).
+- [x] IDE: "open in VS Code" launch button, not deep theme/extension import
+      (§20). **Done.** Toolbar button (`apps/ide/src/components/panels/Toolbar.tsx`)
+      calls `VsCodeService.openInVsCode()`
+      (`apps/ide/src/services/VsCodeService.ts`). Tauri desktop: a new
+      `open_in_vscode` command in `lib.rs` shells out to `code <path>` via
+      plain `std::process::Command` (no shell-plugin scope needed). Browser
+      preview: honest about the real limitation — the File System Access
+      API only exposes a directory handle's `name`, never a real OS path,
+      so there's nothing for a `vscode://file/<path>` URI to point at in
+      that mode; the button surfaces that explanation and points at the
+      desktop app instead of silently no-oping. Tests:
+      `apps/ide/src/__tests__/VsCodeService.test.ts` (Tauri success/failure,
+      browser-with-real-path building the URI, browser-without-real-path
+      showing the message).
 - [ ] Toolchain: move the CLI's real export/build to Rolldown (§16.3/§17,
       migrate this one before the IDE's in-browser path).
 - [x] Toolchain: GMS2 importer audit — confirm every documented 2.3+ import
@@ -273,7 +286,7 @@ EngineQueryResult`, against a live v2 `Scene`/`PhysicsSystem`). It is
       `access: restricted` (every package, including the new
       `@emptysock/{vn,battle,tilemap}` split from Track 2, is still
       `private: true` with no npm publish config found anywhere), `ignore:
-    ["@emptysock/ide"]` (it's the Tauri app, not a published package —
+  ["@emptysock/ide"]` (it's the Tauri app, not a published package —
       the workspace glob `packages/*` already auto-discovers every other
       package, split or not, with no extra config needed). No version
       bumps were made; root scripts `changeset`/`version`/`release` added.
@@ -302,21 +315,27 @@ docs:generate` runs it. Verified: it runs clean (no errors) against
       tilemap, vn, export-utils) and produces correct Markdown pages with
       real class/method signatures, falling back sensibly on exports that
       have no TSDoc yet.
-      **Reconciliation with the "don't touch docs/reference/ yet" rule
-      below:** the pipeline is real and runs today, but `typedoc.json`'s
-      `out` points at `docs/reference-generated/` (gitignored, nothing
-      generated is committed), not `docs/reference/` — see
-      `docs/reference-generated.README.md` for the full reasoning. **To go
-      live** once the §9 docs pass actually starts: change `"out"` in
-      `typedoc.json` from `"docs/reference-generated"` to
-      `"docs/reference"`, remove the `docs/reference-generated/` line from
-      `.gitignore`, regenerate, and commit — no other config changes
-      needed.
-- [ ] **Do not touch** `docs/reference/`, `docs/manual/`, `ai/CLAUDE.md`,
+      **Update — now live:** per explicit user authorization to generate
+      and commit the mechanical, auto-generated TypeDoc pages specifically
+      (everything else about the docs/skills pass remains deferred, see
+      below), `typedoc.json`'s `out` now points at `docs/reference/api/` —
+      a distinctly-named subdirectory, not `docs/reference/` directly,
+      because several hand-written pages there (`scene.md`, `entity.md`,
+      `component.md`, …) would otherwise collide on filename with
+      TypeDoc's own output. The `docs/reference-generated/` gitignore
+      entry and scratch README are removed; `docs/reference/index.md`
+      gained one link pointing into `docs/reference/api/README.md`, with
+      no other hand-written content touched. `docs/reference/api/` is
+      excluded from Prettier (`.prettierignore`) so regeneration doesn't
+      produce reformatting noise. `pnpm run docs:generate` is confirmed
+      idempotent (re-running produces a byte-identical tree).
+- [ ] **Do not touch** `docs/manual/`, `ai/CLAUDE.md`,
       `ai/api-reference.json`, or any `emptysock-ai-skills` skill file to
-      describe v2 shapes yet — §9 is explicit that docs/skills are the last
-      pass, after the API in Tracks 0–2 is real, or they'll describe a shape
-      that doesn't exist.
+      describe v2 shapes yet, and do not hand-edit the hand-written pages
+      under `docs/reference/` (only `docs/reference/api/` is generated/
+      live) — §9 is explicit that the rest of the docs/skills pass is the
+      last pass, after the API in Tracks 0–2 is real, or they'll describe a
+      shape that doesn't exist.
 
 ---
 

@@ -10,10 +10,12 @@ import {
   Sun,
   Moon,
   Monitor,
+  Code2,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useIDEStore } from "../../store/ideStore";
 import type { Theme } from "../../store/ideStore";
+import { VsCodeService } from "../../services/VsCodeService";
 
 function BuildStatusPill(): React.ReactElement | null {
   const buildStatus = useIDEStore((s) => s.buildStatus);
@@ -267,6 +269,13 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
       ? "Debug: physics overlays visible, console kept. Click for Release."
       : "Release: stripped, minified. Click for Debug.";
 
+  const handleOpenInVsCode = async (): Promise<void> => {
+    const result = await VsCodeService.openInVsCode();
+    useIDEStore
+      .getState()
+      .addLog(result.ok ? "info" : "error", result.message, "VsCodeService");
+  };
+
   return (
     <>
       <style>{`
@@ -406,6 +415,16 @@ export function Toolbar({ onExport }: ToolbarProps): React.ReactElement {
         <Button variant="accent" size="sm" onClick={onExport}>
           <Download size={11} />
           Export
+        </Button>
+
+        {/* Open in VS Code */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Open in VS Code"
+          onClick={() => void handleOpenInVsCode()}
+        >
+          <Code2 size={13} />
         </Button>
 
         {/* Theme toggle */}
