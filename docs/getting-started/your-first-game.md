@@ -1,6 +1,8 @@
 # Your First Game
 
-By the end of this page you will have the IDE running and a square moving across the screen — a complete, working mini-game. Every step is a single action.
+By the end of this page you'll have the IDE running and a square moving across the screen, a complete, working mini-game. Every step is a single action.
+
+> **Heads up:** this page uses the classic v1 API (`Scene`, `Entity`, `addComponent`), and that's exactly right for a first project. There's also a newer, faster `@emptysock/engine/v2` core built for games with a lot of entities, it's optional and doesn't replace anything here. See [What's New in v2](./whats-new-v2.md) once you're comfortable with the basics.
 
 ---
 
@@ -92,7 +94,7 @@ export class GameScene extends Scene {
 }
 ```
 
-Press the **Play** button (or `Ctrl+Enter`). The square will appear and slide back and forth. That is a complete game loop.
+Press the **Play** button (or `Ctrl+Enter`). The square appears and slides back and forth. That's a complete game loop, and yes, it really is that short.
 
 ---
 

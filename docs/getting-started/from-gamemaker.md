@@ -1,8 +1,8 @@
 # From GameMaker
 
-This guide is for developers who have an existing **GameMaker Studio 2 (GMS2)** project and want to move it to EmptySock Engine.
+This guide is for developers who already have a **GameMaker Studio 2 (GMS2)** project and want to bring it over to EmptySock.
 
-Read this guide if you have a `.yyp` GMS2 project file and want to bring it over, you want to understand how GML maps to TypeScript, or you want to know what is automated versus what needs manual work.
+Read this if you have a `.yyp` GMS2 project file you want to migrate, you want to understand how GML maps to TypeScript, or you just want to know what's automated and what still needs your hands on it.
 
 If you are starting a new project from scratch, go to [Your First Game](./your-first-game.md) instead.
 

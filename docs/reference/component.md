@@ -1,6 +1,8 @@
 # Component
 
-Components are the data and behavior objects that give entities their capabilities. A `Sprite` component draws the entity; a `PhysicsBody` makes it collide; a custom `Health` component tracks hit points.
+Components are the data and behavior objects that give entities their capabilities. A `Sprite` component draws the entity, a `PhysicsBody` makes it collide, a custom `Health` component tracks hit points.
+
+> **Heads up:** this describes v1's class-based components. `@emptysock/engine/v2` defines components very differently, as flat, array-backed shapes via `defineComponent(name, defaults, options?)`, with no functions allowed in the data itself. See [v2 Core reference](./v2-core.md) for the new shape.
 
 ---
 
@@ -45,9 +47,9 @@ if (health.isDead) {
 
 ## Key rules
 
-**One component type per entity slot.** The engine's internal component map is keyed on the component constructor. Adding the same type twice replaces the first one (or throws, depending on configuration). Never assume two components with different classes but the same underlying logic are distinct slots — check via `hasComponent` before adding.
+**One component type per entity slot.** The engine's internal component map is keyed on the component constructor. Adding the same type twice replaces the first one (or throws, depending on configuration). Don't assume two components with different classes but similar logic are distinct slots, check with `hasComponent` before adding.
 
-**No `update()` on components.** Components do not have their own game-loop callback. Game logic that reads and writes component data lives in the scene's `onUpdate()`, not inside the component class. This keeps update order explicit and the Inspector panel able to display component data at any time.
+**No `update()` on components.** Components don't get their own game-loop callback. Game logic that reads and writes component data lives in the scene's `onUpdate()`, not inside the component class itself. That keeps update order explicit and lets the Inspector panel display component data at any time.
 
 **Lookup by exact constructor.** `getComponent(BaseHealth)` will not find a `SpecializedHealth` component even if `SpecializedHealth extends BaseHealth`. Use the exact constructor you passed to `addComponent`. If you need polymorphic access, store a reference to the component when you attach it.
 

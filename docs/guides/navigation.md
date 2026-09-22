@@ -4,13 +4,15 @@ EmptySock's `NavMeshSystem` provides polygon-based 2D pathfinding using A\* on a
 
 For the complete API, see [NavMeshSystem reference](../reference/systems/nav-mesh-system.md).
 
+> **Heads up:** `NavMeshSystem` (along with `Tilemap`) now lives in its own optional package, `@emptysock/tilemap`, rather than inside `@emptysock/engine` itself. The class and its API are unchanged, just the import path, so add the package as a dependency and update your import. See [What's New in v2](../getting-started/whats-new-v2.md).
+
 ---
 
 ## How it works
 
 `NavMeshSystem` accepts a pre-built polygon graph — a `NavMeshData` object describing convex polygons and their neighbours. It finds the shortest walkable path between two points by traversing this graph.
 
-The NavMesh data must be built offline (in the Tilemap Editor or a preprocessing step). There is no API to generate a NavMesh from a Tilemap at runtime. Building a polygon graph from raw tile data requires triangulation and polygon merging, which would block the main thread for hundreds of milliseconds on a large level.
+The NavMesh data has to be built offline (in the Tilemap Editor or a preprocessing step) — there's no API to generate a NavMesh from a Tilemap at runtime. Building a polygon graph from raw tile data means triangulation and polygon merging, and that's not something you want blocking the main thread for hundreds of milliseconds on a large level.
 
 ---
 

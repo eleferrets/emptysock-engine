@@ -1,8 +1,10 @@
 # Physics
 
-EmptySock ships two physics systems: a 2D system and a 3D system. They are independent — you can use one, the other, or both in the same scene.
+EmptySock ships two physics systems: a 2D system and a 3D system. They're independent, so you can use one, the other, or both in the same scene.
 
 For the complete method-level API, see [PhysicsSystem2D reference](../reference/systems/physics-2d.md) and [PhysicsSystem3D reference](../reference/systems/physics-3d.md).
+
+> **Heads up:** everything on this page is the v1 API, and it's not going anywhere. If you're building on `@emptysock/engine/v2`, there's a bitECS-backed `PhysicsBody` component with the same collision/sensor callback pattern described here, just wired through `entity.get()` instead of `getComponent`. See [v2 Core reference](../reference/v2-core.md) and [Entities and Scenes (v2)](../guides/entities-and-scenes-v2.md).
 
 ---
 
@@ -70,10 +72,10 @@ body.onCollisionExit((other) => {
 
 ## 3D Physics
 
-The 3D physics system wraps Rapier3D. It allocates its world in WASM memory, so there are two critical rules:
+The 3D physics system wraps Rapier3D. It allocates its world in WASM memory, which comes with two rules you really don't want to skip:
 
 1. **Always `await physics.init()`** before adding bodies. Rapier's WASM module loads asynchronously.
-2. **Always call `physics.destroy()` in `onDestroy()`**. The garbage collector cannot see WASM memory — if you skip this, the WASM heap grows permanently for the process lifetime, eventually causing out-of-memory crashes on games that transition between scenes frequently.
+2. **Always call `physics.destroy()` in `onDestroy()`**. The garbage collector can't see WASM memory, so skipping this means the WASM heap just keeps growing for the life of the process. Games that hop between scenes a lot will eventually run out of memory and crash.
 
 ### Setup
 

@@ -371,6 +371,20 @@ docs:generate` runs it. Verified: it runs clean (no errors) against
       `docs/guides/entities-and-scenes-v2.md`, `docs/reference/v2-core.md`.
       `docs/manual/`, `ai/CLAUDE.md`, `ai/api-reference.json`, and
       `emptysock-ai-skills` are a separate sibling pass, not covered here.
+- [x] **Voice pass extended to the rest of `docs/`.** The friendlier tone from
+      the v2 docs pass above now also covers the pages that pass deliberately
+      left untouched because their systems didn't change: `docs/guides/physics.md`,
+      `input-and-gamepad.md`, `saving-and-localisation.md`, `navigation.md`,
+      `actors-and-networking.md`, `plugins.md`, `building-and-exporting.md`,
+      `hot-reload.md`, `docs/language-reference.md`,
+      `docs/getting-started/{your-first-game,ide-tour,installation,from-gamemaker}.md`,
+      and `docs/reference/{scene,entity,component}.md`. Each page with a real
+      v2 alternative or moved package now has a short "Heads up" callout near
+      the top pointing at the right new page (`v2-core.md`,
+      `entities-and-scenes-v2.md`, or `whats-new-v2.md`) — content and API
+      descriptions themselves are untouched, this was prose-and-cross-reference
+      only. `docs/reference/api/` and `docs/manual/` still untouched, same as
+      before.
 
 ---
 

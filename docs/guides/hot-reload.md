@@ -31,7 +31,7 @@ Hot Module Replacement would preserve game state across code changes and reload 
 const { default: GameScene } = await import(`./game.js?v=${Date.now()}`);
 ```
 
-Each cache-busting import creates a new module namespace object. Old top-level side effects (event listener registrations, singleton mutations) are not automatically undone. This is the core unsolved problem of browser HMR.
+Each cache-busting import creates a new module namespace object. Old top-level side effects, event listener registrations, singleton mutations, don't get undone automatically. That's the core unsolved problem of browser HMR, and no amount of clever bundling makes it go away.
 
 ---
 
@@ -103,7 +103,7 @@ WASM modules are binary blobs; the browser does not support incremental WASM com
 2. Re-linking the Tauri binary.
 3. Restarting the Tauri process.
 
-This is an OS-level constraint, not an EmptySock limitation.
+This is an OS-level constraint, not something EmptySock is choosing to be difficult about.
 
 ---
 

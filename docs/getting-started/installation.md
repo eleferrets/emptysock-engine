@@ -1,6 +1,6 @@
 # Installation
 
-This page lists every tool you need installed before the IDE or any game project will build. Install them in the order shown.
+This page lists every tool you need before the IDE or any game project will build. Install them in the order shown, it saves you backtracking.
 
 **Total estimated install time:** about 10–15 minutes on a fast connection (longer if you add Android or iOS targets).
 

@@ -1,6 +1,6 @@
 # 10 — TypeScript & JavaScript Language Reference
 
-This section is a self-contained offline reference for TypeScript and JavaScript as used in EmptySock Engine. It covers the language features you will reach for most often when writing game logic, and explains how each feature interacts with the engine's build pipeline. No internet connection is required to use it.
+This section is a self-contained offline reference for TypeScript and JavaScript as used in EmptySock Engine. It covers the language features you'll reach for most often when writing game logic, and explains how each one interacts with the engine's build pipeline. No internet connection required.
 
 ---
 

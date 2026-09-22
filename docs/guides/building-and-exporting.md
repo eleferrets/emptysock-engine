@@ -32,9 +32,9 @@ Run `pnpm emptysock-toolchain detect` to check what's already installed.
 
 ## How desktop export actually builds
 
-Both the CLI and the IDE's Export dialog do the same thing under the hood:
+The CLI's desktop export step and the IDE's Export dialog aren't the exact same pipeline: the CLI (`emptysock-toolchain export --platform windows|mac|linux`) bundles your game's entry point with Rolldown, not esbuild — esbuild is what the IDE's in-browser build uses, and the two are kept separate on purpose. Broadly, the desktop path looks like:
 
-1. Bundle your game's entry point with esbuild into a single IIFE `game.js`.
+1. Bundle your game's entry point (via Rolldown, for the CLI's desktop export) into a single IIFE `game.js`.
 2. Scaffold a minimal, disposable Tauri v2 project (a plain HTML/JS "shell" with no custom native code) in a temp directory, with your `game.js` as its frontend.
 3. Run `cargo tauri build` against that scaffold.
 4. Copy whatever Tauri's bundler wrote into `src-tauri/target/release/bundle/<type>/` — its standard output location — into your requested `--out` directory.

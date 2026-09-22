@@ -4,11 +4,13 @@ The **PluginSystem** is a lightweight service locator for optional capabilities:
 
 For the complete API, see [PluginSystem reference](../reference/systems/plugin-system.md).
 
+> **Heads up:** `PluginSystem` is unchanged in v2, and stays a bare module-level singleton on purpose, it's for things that are genuinely global to the whole running app. If what you actually want is shared state scoped to one `Game` instance (score, settings, that kind of thing), v2 has a typed, class-keyed `ServiceRegistry` (`game.services`) for that instead. See [v2 Core reference](../reference/v2-core.md).
+
 ---
 
 ## Why plugins?
 
-Plugins solve an import-time coupling problem. If your game conditionally includes an analytics SDK, you do not want to import it from every scene that might use it. The `PluginSystem` lets you register an implementation once and retrieve it by name from anywhere, without any direct import.
+Plugins solve an import-time coupling problem. If your game conditionally includes an analytics SDK, you don't want to import it from every scene that might use it. `PluginSystem` lets you register an implementation once and retrieve it by name from anywhere, with no direct import required.
 
 The `pluginSystem` export is a **module-level singleton**. Plugins are registered once for the lifetime of the process, not per-scene. This is intentional: an analytics SDK, an ads library, or a platform achievement system exists once for the lifetime of the app. Do not construct a new `PluginSystem` per scene.
 

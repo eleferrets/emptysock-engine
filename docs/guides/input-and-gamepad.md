@@ -1,8 +1,10 @@
 # Input and Gamepad
 
-EmptySock provides two systems for reading player input: `InputSystem` (keyboard, mouse, touch) and `GamepadSystem` (gamepads and rumble). In most games you use both together.
+EmptySock provides two systems for reading player input: `InputSystem` (keyboard, mouse, touch) and `GamepadSystem` (gamepads and rumble). In most games you'll use both together.
 
 For the complete API, see [InputSystem reference](../reference/systems/input-system.md).
+
+> **Heads up:** `@emptysock/engine/v2` builds on top of the same `InputSystem`/`GamepadSystem` underneath, but wraps them in `InputManager.snapshot()`, which freezes a full copy of input state once per frame so nothing mid-frame can change it out from under your `onUpdate`. See [What's New in v2](../getting-started/whats-new-v2.md) for the summary.
 
 ---
 
@@ -135,7 +137,7 @@ export class GameScene extends Scene {
 }
 ```
 
-`pads.update()` calls `navigator.getGamepads()` — this is a snapshot, not event-driven. Always call it at the top of `onUpdate` before reading pad state.
+`pads.update()` calls `navigator.getGamepads()` — it's a snapshot, not event-driven, so always call it at the top of `onUpdate` before reading pad state.
 
 ### Per-frame button events
 

@@ -1,8 +1,8 @@
 # IDE Tour
 
-The IDE is a dockable, rearrangeable panel environment. All panels are tabs inside a `DockLayout`. Drag a tab's header to move it, drag to a panel edge to split, or drag to the desktop area to float it.
+The IDE is a dockable, rearrangeable panel environment. Every panel is a tab inside a `DockLayout`. Drag a tab's header to move it, drag to a panel edge to split, or drag it out to the desktop area to float it.
 
-This page is an orientation — it covers what each panel does. For the full panel reference, see [Building and Exporting](../guides/building-and-exporting.md) and the detailed sections below.
+This page is an orientation, it covers what each panel does. For the full panel reference, see [Building and Exporting](../guides/building-and-exporting.md) and the detailed sections below.
 
 ---
 
@@ -137,7 +137,7 @@ A node graph panel for wiring component logic without writing TypeScript. Open v
 
 Saved as `.esvs` files. Referenced at runtime via `VisualScriptComponent`.
 
-> **Note:** Visual scripts run through a graph interpreter — expect roughly 10× slower execution than native TypeScript for heavy per-frame computation. Use TypeScript for performance-critical logic.
+> **Note:** Visual scripts run through a graph interpreter, so expect roughly 10× slower execution than native TypeScript for heavy per-frame computation. Reach for TypeScript when performance actually matters.
 
 ---
 
