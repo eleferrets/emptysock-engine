@@ -361,13 +361,16 @@ docs:generate` runs it. Verified: it runs clean (no errors) against
       excluded from Prettier (`.prettierignore`) so regeneration doesn't
       produce reformatting noise. `pnpm run docs:generate` is confirmed
       idempotent (re-running produces a byte-identical tree).
-- [ ] **Do not touch** `docs/manual/`, `ai/CLAUDE.md`,
-      `ai/api-reference.json`, or any `emptysock-ai-skills` skill file to
-      describe v2 shapes yet, and do not hand-edit the hand-written pages
-      under `docs/reference/` (only `docs/reference/api/` is generated/
-      live) — §9 is explicit that the rest of the docs/skills pass is the
-      last pass, after the API in Tracks 0–2 is real, or they'll describe a
-      shape that doesn't exist.
+- [x] **Docs pass for `emptysock-engine`, deferred above, is now done.**
+      `docs/getting-started/`, `docs/guides/`, `docs/reference/` (hand-written
+      pages only, `docs/reference/api/` untouched), `docs/architecture.md`,
+      `docs/troubleshooting.md`, and `docs/glossary.md` now describe the real
+      v2 API surface (`@emptysock/engine/v2`, `@emptysock/engine/testing`) and
+      the four new module packages, alongside the unchanged v1 content. New
+      pages: `docs/getting-started/whats-new-v2.md`,
+      `docs/guides/entities-and-scenes-v2.md`, `docs/reference/v2-core.md`.
+      `docs/manual/`, `ai/CLAUDE.md`, `ai/api-reference.json`, and
+      `emptysock-ai-skills` are a separate sibling pass, not covered here.
 
 ---
 

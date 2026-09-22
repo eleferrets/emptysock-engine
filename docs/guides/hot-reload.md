@@ -104,3 +104,16 @@ WASM modules are binary blobs; the browser does not support incremental WASM com
 3. Restarting the Tauri process.
 
 This is an OS-level constraint, not an EmptySock limitation.
+
+---
+
+## Hot reload in v2: shape changes reset just the affected component
+
+If you're using `@emptysock/engine/v2`'s `defineComponent`, hot reload behaves a little more precisely than the "existing physics bodies will be orphaned" note above suggests for v1. `ComponentRegistry` tracks each component by its name and compares the _declared default shape_ every time a re-evaluated `ComponentDef` shows up under a name it already knows.
+
+- **Same shape** (you tweaked a method or a default value, but every field name and type is unchanged): nothing resets. Existing entities keep their current data.
+- **Different shape** (you added, removed, or retyped a field): the engine resets that one component's data, on every entity that has it, back to the new shape's defaults, on the one scene whose world actually had it registered. It prints a console message naming the component and why. Every other component on those same entities is untouched.
+
+This only ever fires when a genuinely different `ComponentDef` object shows up under the same name, which only happens from a re-evaluated `defineComponent(...)` call, i.e. an actual hot-reload. It's also based on the component's _declared_ defaults, not on what's currently sitting in a live entity's fields, so a field that legitimately changes type during normal play (a physics handle starting `null` and later becoming a number, say) never triggers a false "shape changed" reset.
+
+If you're relying on some in-memory value surviving a reshape, it won't, treat that as "this needs to go through `SaveSystem` instead of hot-reload survival."

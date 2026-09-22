@@ -170,3 +170,29 @@ TypeScript sources (virtualFiles map)
 The engine itself is pre-bundled as a UMD global in the iframe's context. User code is compiled separately and imports the engine via that global, keeping rebuild times under 200 ms even for large projects.
 
 > **Tip:** If esbuild reports a missing import, check that the file with the broken import is in the IDE's open-files panel. Files that exist on disk but are not open in the IDE are not included in the virtual filesystem at build time.
+
+---
+
+## 3.9 The v2 engine: what's actually under the hood
+
+Everything above describes the original engine, and none of it stopped being true. `@emptysock/engine/v2` is a second entry point living next to the original, not a replacement for it, and this section is for anyone who wants to know why it's built the way it is rather than just how to call it (that part's in the guides).
+
+### bitECS is the real data store, `Entity` is a nice way to talk to it
+
+Under `v2`, a `Scene` doesn't keep a tree of objects with components hanging off them. It owns one [bitECS](https://github.com/NateTheGreatt/bitECS) `World`, which stores component data as flat, packed arrays indexed by entity id. That's the part that makes `scene.each()` fast: iterating a query is walking arrays in a tight loop, not chasing object references around the heap.
+
+The catch is that raw bitECS is not a pleasant thing to write game code against directly (`Position.x[eid] = 5` is correct and also not how anyone wants to spend their afternoon). `Entity` is the layer that makes it feel normal again: `entity.get(Position).x = 5` reads and writes the exact same array bitECS owns, just through a `Proxy` that translates property access into indexed array access behind the scenes. `entity.add(Position, { x: 5 })` and `entity.get(Position)` are the two calls you'll use constantly; `scene.each(Position, Sprite, (pos, sprite, entity) => ...)` skips the Proxy entirely and hands you the live arrays' values directly for the one frame, which is why it's the fast path for anything running over a lot of entities every frame.
+
+### The component registry is what makes hot reload not a disaster
+
+`defineComponent("Position", { x: 0, y: 0 })` returns a `ComponentDef`, and `ComponentDef`s get re-evaluated every time you save a file the IDE hot-reloads. Naively, that would mean every save produces a brand new, unrelated component type, and everything that already used the old one falls off a cliff.
+
+Instead, `ComponentRegistry` keys everything by the component's _name_ (`"Position"`, the string, not the object) rather than by which particular `ComponentDef` object happens to be floating around. When a re-evaluated module hands back a new `ComponentDef` under a name the registry has already seen, the registry treats it as "the same component, maybe a new shape" instead of "a completely new component." If the shape (the field names and their types) hasn't changed, nothing happens, existing entities keep working, this is the overwhelmingly common case. If the shape _has_ changed, the registry resets the affected entities' data for that one component to the new shape's defaults and prints a message telling you which component and why, rather than silently corrupting whatever bytes used to be sitting in that array slot. It does this by diffing the declared defaults, not by watching live gameplay values (a body's collision handle turning into a number instead of `null` isn't a "shape change" and shouldn't be treated like one, see CLAUDE.md's "Component shape-change detection" entry for the mechanical reasoning).
+
+### The module-package boundary: engine depends on shapes, never on the packages that fill them
+
+`@emptysock/network`, `@emptysock/vn`, `@emptysock/battle`, and `@emptysock/tilemap` all follow the same rule: they depend on `@emptysock/engine`, and `@emptysock/engine` never depends on them back. Where the engine needs to hand something off to one of these packages, it defines a plain structural interface, not an import of the package's real class. `RenderPipeline.mountTilemap()` takes a `TileLayerSource` interface that `@emptysock/tilemap`'s real `Tilemap` class happens to satisfy; neither package needs to know the other exists at the type level for that to work. This is the same shape as the older `Transport`/`StorageAdapter` pattern (a `NetworkActor` never imports a concrete WebSocket client, a `SaveSystem` never imports IndexedDB) applied one level up, at the package boundary instead of the class boundary. If you're extracting a new optional module package from the core engine, this is the pattern to copy: define the interface on the engine side, implement the real thing on the module-package side, and never let an import arrow point from `packages/engine` toward the module package.
+
+### Why a headless `Game` is possible at all
+
+`v2/Game.ts` never imports Pixi, never imports a DOM type, and never assumes a renderer exists. Rendering is handed in after the fact through `attachRenderer()`, which takes a `SceneRenderer` interface (`renderFrame(main, overlays)`) rather than the concrete `RenderPipeline` class. A `Game` constructed with no renderer attached, or explicitly flagged `headless: true`, runs its full frame (actor mailbox flush, physics step, `onUpdate`) with the render step skipped entirely. That's what lets `packages/engine/src/testing/index.ts` exist as a real, fast, DOM-free test harness instead of something that needs a headless browser spun up just to prove a component's logic works.

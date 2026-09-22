@@ -6,6 +6,23 @@ Alphabetical list of all engine systems and classes with one-line descriptions. 
 
 ---
 
+## v2 engine (`@emptysock/engine/v2`)
+
+| Page                    | What it covers                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| [v2 Core](./v2-core.md) | `defineComponent`, `Entity`, `Scene`, `scene.each`, Prefabs, `ServiceRegistry`, `Game` |
+
+Module packages built on top of `@emptysock/engine` (each an optional, separately-installed dependant, never the other way around):
+
+| Package              | What it covers                                                       |
+| -------------------- | -------------------------------------------------------------------- |
+| `@emptysock/network` | `networked()` field marking, `NetworkEntityMap`, `NetworkSystem`     |
+| `@emptysock/vn`      | `VNSystem`, the Story Graph runtime                                  |
+| `@emptysock/battle`  | `BattleSystem`, turn-based combat                                    |
+| `@emptysock/tilemap` | `Tilemap`, `NavMeshSystem` (this is where `NavMeshSystem` now lives) |
+
+---
+
 ## Core
 
 | Class / System                           | Description                                                                                       |

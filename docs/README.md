@@ -8,12 +8,13 @@ This is the restructured documentation for EmptySock Engine. Content is divided 
 
 New to EmptySock? Start here. These pages get you from zero to a running game in the shortest possible path.
 
-| Page                                                    | What it covers                                      |
-| ------------------------------------------------------- | --------------------------------------------------- |
-| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries      |
-| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene |
-| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts       |
-| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table  |
+| Page                                                    | What it covers                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries                         |
+| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene                    |
+| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts                          |
+| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table                     |
+| [What's New in v2](./getting-started/whats-new-v2.md)   | bitECS-backed `@emptysock/engine/v2`, prefabs, the new module packages |
 
 ---
 
@@ -21,19 +22,20 @@ New to EmptySock? Start here. These pages get you from zero to a running game in
 
 Task-oriented answers to "how do I X?" Each guide explains the concept, shows you how to use it, and links to the full API reference for exhaustive details.
 
-| Guide                                                          | What it covers                                                    |
-| -------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Entities and Scenes](./guides/entities-and-scenes.md)         | Scene lifecycle, Entity, Component, Coroutine, SceneManager       |
-| [Physics](./guides/physics.md)                                 | 2D and 3D physics, bodies, collision events, CharacterController  |
-| [Input and Gamepad](./guides/input-and-gamepad.md)             | Keyboard, mouse, touch, gamepad                                   |
-| [Saving and Localisation](./guides/saving-and-localisation.md) | SaveSystem, LocalisationSystem                                    |
-| [Navigation](./guides/navigation.md)                           | NavMeshSystem, pathfinding, offline NavMesh data                  |
-| [Actors and Networking](./guides/actors-and-networking.md)     | Actor Model, ActorSystem, NetworkActor, Transport                 |
-| [Plugins](./guides/plugins.md)                                 | PluginSystem, writing and registering plugins                     |
-| [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap               |
-| [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                      |
-| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale           |
-| [Building UI: visual vs code](./guides/ui-visual-vs-code.md)   | Widget/UISystem layouts — panel and hand-written code, round-trip |
+| Guide                                                          | What it covers                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Entities and Scenes](./guides/entities-and-scenes.md)         | Scene lifecycle, Entity, Component, Coroutine, SceneManager                       |
+| [Entities and Scenes (v2)](./guides/entities-and-scenes-v2.md) | bitECS-backed `Entity`/`Scene`, `defineComponent`, prefabs, pooling, `scene.each` |
+| [Physics](./guides/physics.md)                                 | 2D and 3D physics, bodies, collision events, CharacterController                  |
+| [Input and Gamepad](./guides/input-and-gamepad.md)             | Keyboard, mouse, touch, gamepad                                                   |
+| [Saving and Localisation](./guides/saving-and-localisation.md) | SaveSystem, LocalisationSystem                                                    |
+| [Navigation](./guides/navigation.md)                           | NavMeshSystem, pathfinding, offline NavMesh data                                  |
+| [Actors and Networking](./guides/actors-and-networking.md)     | Actor Model, ActorSystem, NetworkActor, Transport                                 |
+| [Plugins](./guides/plugins.md)                                 | PluginSystem, writing and registering plugins                                     |
+| [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap                               |
+| [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                                      |
+| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale                           |
+| [Building UI: visual vs code](./guides/ui-visual-vs-code.md)   | Widget/UISystem layouts — panel and hand-written code, round-trip                 |
 
 ---
 
@@ -41,25 +43,26 @@ Task-oriented answers to "how do I X?" Each guide explains the concept, shows yo
 
 Indexed by class and system. Ctrl+F for a method name or type. Not meant to be read sequentially.
 
-| Page                                                             | What it covers                                              |
-| ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| [Index](./reference/index.md)                                    | Alphabetical list of all systems with one-line descriptions |
-| [Scene](./reference/scene.md)                                    | Scene, SceneConfig, SceneManager                            |
-| [Entity](./reference/entity.md)                                  | Entity — full method list                                   |
-| [Component](./reference/component.md)                            | Component base class conventions                            |
-| [Timer and Coroutine](./reference/timer-and-coroutine.md)        | Timer, TimerHandle, Coroutine, yield helpers                |
-| [Camera](./reference/camera.md)                                  | Camera — follow, shake, zoom, fade                          |
-| [ActorSystem](./reference/actor-system.md)                       | Actor, ActorSystem, NetworkActor, Transport                 |
-| **Systems**                                                      |                                                             |
-| [PhysicsSystem2D](./reference/systems/physics-2d.md)             | Full 2D physics API                                         |
-| [PhysicsSystem3D](./reference/systems/physics-3d.md)             | Full 3D physics API                                         |
-| [InputSystem](./reference/systems/input-system.md)               | Keyboard, mouse, touch, axis API                            |
-| [NavMeshSystem](./reference/systems/nav-mesh-system.md)          | NavMeshSystem full API                                      |
-| [SaveSystem](./reference/systems/save-system.md)                 | SaveSystem full API                                         |
-| [LocalisationSystem](./reference/systems/localisation-system.md) | LocalisationSystem full API                                 |
-| [PluginSystem](./reference/systems/plugin-system.md)             | PluginSystem full API                                       |
-| [AudioSystem](./reference/systems/audio-system.md)               | Audio playback, music, groups                               |
-| [VNSystem](./reference/systems/vn-system.md)                     | VNSystem, DialogueNode, Story Graph integration             |
+| Page                                                             | What it covers                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Index](./reference/index.md)                                    | Alphabetical list of all systems with one-line descriptions              |
+| [v2 Core](./reference/v2-core.md)                                | `defineComponent`, `Entity`, `Scene`, Prefabs, `ServiceRegistry`, `Game` |
+| [Scene](./reference/scene.md)                                    | Scene, SceneConfig, SceneManager                                         |
+| [Entity](./reference/entity.md)                                  | Entity — full method list                                                |
+| [Component](./reference/component.md)                            | Component base class conventions                                         |
+| [Timer and Coroutine](./reference/timer-and-coroutine.md)        | Timer, TimerHandle, Coroutine, yield helpers                             |
+| [Camera](./reference/camera.md)                                  | Camera — follow, shake, zoom, fade                                       |
+| [ActorSystem](./reference/actor-system.md)                       | Actor, ActorSystem, NetworkActor, Transport                              |
+| **Systems**                                                      |                                                                          |
+| [PhysicsSystem2D](./reference/systems/physics-2d.md)             | Full 2D physics API                                                      |
+| [PhysicsSystem3D](./reference/systems/physics-3d.md)             | Full 3D physics API                                                      |
+| [InputSystem](./reference/systems/input-system.md)               | Keyboard, mouse, touch, axis API                                         |
+| [NavMeshSystem](./reference/systems/nav-mesh-system.md)          | NavMeshSystem full API                                                   |
+| [SaveSystem](./reference/systems/save-system.md)                 | SaveSystem full API                                                      |
+| [LocalisationSystem](./reference/systems/localisation-system.md) | LocalisationSystem full API                                              |
+| [PluginSystem](./reference/systems/plugin-system.md)             | PluginSystem full API                                                    |
+| [AudioSystem](./reference/systems/audio-system.md)               | Audio playback, music, groups                                            |
+| [VNSystem](./reference/systems/vn-system.md)                     | VNSystem, DialogueNode, Story Graph integration                          |
 
 ---
 
