@@ -42,11 +42,7 @@ export type {
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
 export { InputSystem } from "./systems/InputSystem.js";
-export type {
-  KeyState,
-  MouseState,
-  TouchPoint,
-} from "./systems/InputSystem.js";
+export type { KeyState } from "./systems/InputSystem.js";
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
 export { AssetManifest } from "./systems/AssetManifest.js";
@@ -58,21 +54,6 @@ export type {
   AssetProgressListener,
   AssetManifestOptions,
 } from "./systems/AssetManifest.js";
-export {
-  InputBindings,
-  createBindingsSaveSystem,
-  BindingsSaveSlotSchema,
-} from "./systems/InputBindings.js";
-export type {
-  Binding,
-  BindingKind,
-  ActionMap,
-  KeyBinding,
-  MouseButtonBinding,
-  GamepadButtonBinding,
-  GamepadAxisBinding,
-  BindingsSaveSlot,
-} from "./systems/InputBindings.js";
 export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
 export type {
   DebugLogEntry,

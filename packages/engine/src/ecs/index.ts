@@ -64,6 +64,15 @@ export type {
   KeyboardSnapshot,
   GamepadSnapshot,
 } from "./Input.js";
+export type {
+  PointerState,
+  Gesture,
+  TapGesture,
+  LongPressGesture,
+  SwipeGesture,
+  PinchGesture,
+  WheelEventInfo,
+} from "../systems/PointerSystem.js";
 export type { Serializable, SerializableRecord } from "./Serializable.js";
 export { Transform } from "./components/Transform.js";
 export { Sprite } from "./components/Sprite.js";

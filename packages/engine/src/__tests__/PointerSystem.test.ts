@@ -290,6 +290,46 @@ describe("PointerSystem", () => {
     expect(events[0]?.isPinchZoom).toBe(true);
   });
 
+  // ─── Safari GestureEvent: trackpad pinch, defense-in-depth signal ────────
+
+  it("emits a pinch gesture from a Safari gesturechange with scale > 1 for spreading", () => {
+    const gestures: Array<{ type: string }> = [];
+    ps.onGesture((g) => gestures.push(g));
+    ps.dispatchSafariGestureStart();
+    ps.dispatchSafariGestureChange({ scale: 1.5, clientX: 10, clientY: 20 });
+    const pinches = gestures.filter((g) => g.type === "pinch");
+    expect(pinches.length).toBe(1);
+    expect(pinches[0]).toMatchObject({
+      type: "pinch",
+      x: 10,
+      y: 20,
+      scale: 1.5,
+      deltaScale: 0.5,
+    });
+  });
+
+  it("deltaScale accumulates relative to the previous gesturechange, not gesture start", () => {
+    const gestures: Array<{ type: string; deltaScale?: number }> = [];
+    ps.onGesture((g) => gestures.push(g));
+    ps.dispatchSafariGestureStart();
+    ps.dispatchSafariGestureChange({ scale: 1.2, clientX: 0, clientY: 0 });
+    ps.dispatchSafariGestureChange({ scale: 1.5, clientX: 0, clientY: 0 });
+    const pinches = gestures.filter((g) => g.type === "pinch");
+    expect(pinches[0]?.deltaScale).toBeCloseTo(0.2);
+    expect(pinches[1]?.deltaScale).toBeCloseTo(0.3);
+  });
+
+  it("gestureend resets tracking so a later gesturechange starts fresh from scale 1", () => {
+    const gestures: Array<{ type: string; deltaScale?: number }> = [];
+    ps.onGesture((g) => gestures.push(g));
+    ps.dispatchSafariGestureStart();
+    ps.dispatchSafariGestureChange({ scale: 1.5, clientX: 0, clientY: 0 });
+    ps.dispatchSafariGestureEnd();
+    ps.dispatchSafariGestureChange({ scale: 1.1, clientX: 0, clientY: 0 });
+    const pinches = gestures.filter((g) => g.type === "pinch");
+    expect(pinches[1]?.deltaScale).toBeCloseTo(0.1);
+  });
+
   // ─── attach/detach guard for Node/no-DOM environment ─────────────────────
 
   it("attach is a no-op when passed an undefined-like target (Node/no-DOM guard)", () => {

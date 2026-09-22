@@ -137,10 +137,28 @@ interface PinchTracker {
   lastScale: number;
 }
 
+/**
+ * Safari's proprietary `GestureEvent` (`gesturestart`/`gesturechange`/
+ * `gestureend`) — not in the standard DOM lib TypeScript ships (it's
+ * WebKit-only), so it's shimmed here rather than pulled in as a dependency.
+ * Fires for a trackpad pinch on Safari specifically; Chrome/Firefox/Edge
+ * never fire it and instead synthesize `ctrlKey`+`wheel` for the same
+ * gesture (already handled by `dispatchWheel`'s `isPinchZoom`). This is a
+ * defense-in-depth second signal, not a replacement for the wheel path —
+ * see `_onGestureChange`'s doc comment.
+ */
+interface SafariGestureEvent extends Event {
+  readonly scale: number;
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
 export class PointerSystem {
   private readonly _pointers: Map<number, InternalPointer> = new Map();
   private _boundTarget: EventTarget | null = null;
   private _pinch: PinchTracker | null = null;
+  /** Last `scale` seen from a Safari `GestureEvent`, for `deltaScale`. `null` when no gesture is in progress. */
+  private _safariGestureLastScale: number | null = null;
 
   private readonly _downHandlers: PointerDownHandler[] = [];
   private readonly _moveHandlers: PointerMoveHandler[] = [];
@@ -177,6 +195,22 @@ export class PointerSystem {
     resolved.addEventListener("wheel", this._onWheel as EventListener, {
       passive: true,
     });
+    // Safari-only, no-op everywhere else — these events simply never fire
+    // on browsers that don't dispatch them, so no feature-detection guard
+    // is needed beyond addEventListener itself being a no-op for an event
+    // name nothing ever emits.
+    resolved.addEventListener(
+      "gesturestart",
+      this._onGestureStart as EventListener,
+    );
+    resolved.addEventListener(
+      "gesturechange",
+      this._onGestureChange as EventListener,
+    );
+    resolved.addEventListener(
+      "gestureend",
+      this._onGestureEnd as EventListener,
+    );
   }
 
   detach(): void {
@@ -190,9 +224,19 @@ export class PointerSystem {
       this._onPointerCancel as EventListener,
     );
     t.removeEventListener("wheel", this._onWheel as EventListener);
+    t.removeEventListener(
+      "gesturestart",
+      this._onGestureStart as EventListener,
+    );
+    t.removeEventListener(
+      "gesturechange",
+      this._onGestureChange as EventListener,
+    );
+    t.removeEventListener("gestureend", this._onGestureEnd as EventListener);
     this._boundTarget = null;
     this._pointers.clear();
     this._pinch = null;
+    this._safariGestureLastScale = null;
   }
 
   /** Alias for detach() — compatible with SystemManager teardown. */
@@ -420,6 +464,41 @@ export class PointerSystem {
     for (const h of this._wheelHandlers) h(info);
   }
 
+  /**
+   * Public, DOM-free entry point for Safari's `gesturestart` (see
+   * `SafariGestureEvent`'s doc comment) — test-injectable the same way
+   * `dispatchPointerDown`/`dispatchWheel` are, since jsdom (this repo's test
+   * environment) doesn't implement WebKit's proprietary `GestureEvent`.
+   */
+  dispatchSafariGestureStart(): void {
+    this._safariGestureLastScale = 1;
+  }
+
+  /** Public, DOM-free entry point for Safari's `gesturechange` — see `dispatchSafariGestureStart`. */
+  dispatchSafariGestureChange(evt: {
+    scale: number;
+    clientX: number;
+    clientY: number;
+  }): void {
+    const lastScale = this._safariGestureLastScale ?? 1;
+    this._emitGesture({
+      type: "pinch",
+      x: evt.clientX,
+      y: evt.clientY,
+      // See `_onGestureChange`'s doc comment on why `distance` is set equal
+      // to `scale` here — a trackpad gesture has no real pixel distance.
+      distance: evt.scale,
+      scale: evt.scale,
+      deltaScale: evt.scale - lastScale,
+    });
+    this._safariGestureLastScale = evt.scale;
+  }
+
+  /** Public, DOM-free entry point for Safari's `gestureend` — see `dispatchSafariGestureStart`. */
+  dispatchSafariGestureEnd(): void {
+    this._safariGestureLastScale = null;
+  }
+
   // ─── Native event handlers (guarded — DOM types only referenced here) ─────
 
   private readonly _onPointerDown = (e: Event): void => {
@@ -465,6 +544,39 @@ export class PointerSystem {
       deltaMode: we.deltaMode,
       ctrlKey: we.ctrlKey,
     });
+  };
+
+  /**
+   * Safari's `GestureEvent` reports an absolute `scale` from the start of
+   * the gesture, not a delta — start of gesture is scale 1 by definition.
+   * Emits the same `PinchGesture` shape a real two-pointer touch pinch does
+   * (`_updatePinch`), so game code handling `onGesture` for pinch doesn't
+   * need a separate Safari-specific code path — this is purely a second
+   * *signal* for the same gesture, not a different gesture type. Chrome/
+   * Firefox/Edge never fire this event at all (they only ever fire
+   * `ctrlKey`+`wheel`, handled by `dispatchWheel`), so there's no double-
+   * counting risk between the two paths on any one browser. Logic lives in
+   * the public `dispatchSafariGesture*` methods (test-injectable, jsdom has
+   * no native `GestureEvent`); these handlers just unwrap the real event.
+   */
+  private readonly _onGestureStart = (e: Event): void => {
+    e.preventDefault();
+    this.dispatchSafariGestureStart();
+  };
+
+  private readonly _onGestureChange = (e: Event): void => {
+    e.preventDefault();
+    const ge = e as unknown as SafariGestureEvent;
+    this.dispatchSafariGestureChange({
+      scale: ge.scale,
+      clientX: ge.clientX,
+      clientY: ge.clientY,
+    });
+  };
+
+  private readonly _onGestureEnd = (e: Event): void => {
+    e.preventDefault();
+    this.dispatchSafariGestureEnd();
   };
 
   // ─── Internal helpers ──────────────────────────────────────────────────────

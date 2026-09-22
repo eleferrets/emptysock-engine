@@ -93,18 +93,20 @@ function Dropdown({
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent): void => {
+    // pointerdown, not mousedown/click — fires for mouse, touch, and pen
+    // alike, so a tap outside the menu on a touch device closes it too.
+    const handler = (e: PointerEvent): void => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
   }, [open, onClose]);
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           e.preventDefault();
           open ? onClose() : onOpen();
         }}
@@ -171,7 +173,7 @@ function Dropdown({
                 key={i}
                 type="button"
                 disabled={item.disabled === true}
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
                   e.preventDefault();
                   if (item.disabled !== true) {
                     item.action();

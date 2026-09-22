@@ -1,12 +1,20 @@
 import { GamepadSystem, type GamepadState } from "../systems/GamepadSystem.js";
-import { InputSystem, type TouchPoint } from "../systems/InputSystem.js";
+import { InputSystem } from "../systems/InputSystem.js";
+import {
+  PointerSystem,
+  type Gesture,
+  type PointerState,
+  type WheelEventInfo,
+} from "../systems/PointerSystem.js";
+import type { StorageAdapter } from "./systems/StorageAdapter.js";
 
 /**
- * One physical source an action can bind to. Deliberately a subset of the
- * classic `InputBindings.Binding` (no mouse-button binding — §15.3 only names
- * keyboard/gamepad/touch as the action-mapped devices; mouse stays a raw-only
- * device via `input.mouse` equivalents on the escape hatch, same as the
- * classic API).
+ * One physical source an action can bind to. Deliberately narrower than a
+ * pointer/gesture binding — §15.3 only names keyboard/gamepad as the
+ * action-mapped devices; pointer/touch/gesture input stays a raw-only
+ * device via `input.pointers`/`input.gestures`/`input.wheelEvents` on the
+ * escape hatch, since "was action X pressed" doesn't map cleanly onto "is a
+ * pinch gesture active" the way it does onto a key or a gamepad button.
  */
 export type Binding =
   | { readonly kind: "key"; readonly code: string }
@@ -46,47 +54,80 @@ const DISCONNECTED_GAMEPAD: GamepadSnapshot = {
 interface FrozenInputState {
   readonly keys: ReadonlyMap<string, boolean>;
   readonly gamepads: ReadonlyMap<number, GamepadState>;
-  readonly touches: ReadonlyArray<TouchPoint>;
+  readonly pointers: ReadonlyArray<PointerState>;
+  /**
+   * Gestures/wheel events are momentary, not continuous state like a key or
+   * gamepad axis — there is no "currently active" pinch the way there's a
+   * "currently held" key. What gets frozen each frame is the list of
+   * gesture/wheel events that occurred *since the previous snapshot()*,
+   * buffered by listeners registered once in the constructor. A gesture
+   * that fires between two `snapshot()` calls is never silently dropped or
+   * silently merged into the next frame's list — it belongs to exactly the
+   * frame whose `snapshot()` call collects it.
+   */
+  readonly gestures: ReadonlyArray<Gesture>;
+  readonly wheelEvents: ReadonlyArray<WheelEventInfo>;
 }
 
 const EMPTY_FROZEN_STATE: FrozenInputState = {
   keys: new Map(),
   gamepads: new Map(),
-  touches: [],
+  pointers: [],
+  gestures: [],
+  wheelEvents: [],
 };
 
 /**
  * ENGINE_DESIGN.md §4 step 1 / §15.3 — the action-mapping input layer.
  *
  * `input.isDown("jump")` is the default and only thing most games touch;
- * `input.keyboard`/`input.gamepad(0)`/`input.touches` stay available for
- * games that need exact device-level state. Both paths read off the same
- * frozen snapshot, taken once per frame by `Game.update()` calling
- * `snapshot()` as step 1 — no `isDown`/`keyboard`/`gamepad`/`touches` call
- * changes value mid-frame, no matter how many real input events the OS
- * delivers while that frame's `update()` is still running (see the
- * "Input snapshot: frozen by copy, not by timing" entry in CLAUDE.md).
+ * `input.keyboard`/`input.gamepad(0)`/`input.pointers`/`input.gestures`/
+ * `input.wheelEvents` stay available for games that need exact device-level
+ * state. Both paths read off the same frozen snapshot, taken once per frame
+ * by `Game.update()` calling `snapshot()` as step 1 — no `isDown`/
+ * `keyboard`/`gamepad`/`pointers`/`gestures`/`wheelEvents` call changes
+ * value mid-frame, no matter how many real input events the OS delivers
+ * while that frame's `update()` is still running (see the "Input snapshot:
+ * frozen by copy, not by timing" entry in CLAUDE.md).
  *
  * Raw device polling (`InputSystem`'s DOM listeners, `GamepadSystem`'s
- * `navigator.getGamepads()`) is unaffected by and independent of this
- * class's environment: in Node/headless (no `attach()` call, no
- * `navigator.getGamepads`), every snapshot is simply "nothing is down",
- * matching CLAUDE.md's engine-environment-boundary rule.
+ * `navigator.getGamepads()`, `PointerSystem`'s Pointer Events) is
+ * unaffected by and independent of this class's environment: in Node/
+ * headless (no `attach()` call, no `navigator.getGamepads`), every snapshot
+ * is simply "nothing is down", matching CLAUDE.md's engine-environment-
+ * boundary rule.
  */
 export class InputManager {
   private readonly _input: InputSystem;
   private readonly _gamepadSystem: GamepadSystem;
+  private readonly _pointerSystem: PointerSystem;
   private _actions: ActionMap;
+  /**
+   * The `actions` map this instance was constructed with, kept verbatim so
+   * `resetToDefaults()` has something real to restore to — the classic
+   * `InputBindings.resetToDefaults()`'s exact behaviour (ENGINE_DESIGN.md
+   * §15.3's accessibility primitive #1: a player can always get back to the
+   * shipped control scheme after rebinding).
+   */
+  private readonly _defaultActions: ActionMap;
   private _frozen: FrozenInputState = EMPTY_FROZEN_STATE;
+  /** Gestures/wheel events accumulated since the last `snapshot()` call — see `FrozenInputState`'s doc comment. */
+  private _pendingGestures: Gesture[] = [];
+  private _pendingWheelEvents: WheelEventInfo[] = [];
 
   constructor(
     actions: ActionMap = {},
     input: InputSystem = new InputSystem(),
     gamepadSystem: GamepadSystem = new GamepadSystem(),
+    pointerSystem: PointerSystem = new PointerSystem(),
   ) {
     this._actions = actions;
+    this._defaultActions = actions;
     this._input = input;
     this._gamepadSystem = gamepadSystem;
+    this._pointerSystem = pointerSystem;
+    this._pointerSystem.onGesture((g) => this._pendingGestures.push(g));
+    this._pointerSystem.onWheel((w) => this._pendingWheelEvents.push(w));
   }
 
   /**
@@ -98,14 +139,17 @@ export class InputManager {
   attach(target?: EventTarget): void {
     if (target === undefined) {
       this._input.attach();
+      this._pointerSystem.attach();
     } else {
       this._input.attach(target);
+      this._pointerSystem.attach(target);
     }
   }
 
   /** Stop listening to real device events. Safe to call even if never attached. */
   detach(): void {
     this._input.detach();
+    this._pointerSystem.detach();
   }
 
   /** Replace the whole action map (rebind everything at once). */
@@ -127,6 +171,55 @@ export class InputManager {
   }
 
   /**
+   * Restore every action's bindings to the `actions` map this `InputManager`
+   * was constructed with, discarding any `bindAction`/`setActions` rebinds
+   * made since — the "reset to defaults" button a settings menu needs.
+   */
+  resetToDefaults(): void {
+    this._actions = this._defaultActions;
+  }
+
+  /**
+   * Persist the current action map through a `StorageAdapter` — the same
+   * interface `SaveSystem` takes (CLAUDE.md's "SaveSystem storage backend
+   * is an injected adapter" decision), not `SaveSystem` itself: an
+   * `ActionMap` is a `Game`-level settings blob, not per-entity component
+   * data, so `SaveSystem`'s `Scene`/`ComponentDef`-bound API is the wrong
+   * shape for it. Pass the same adapter a game's `SaveSystem` uses (or any
+   * other `StorageAdapter`) to keep control rebinds in the same storage
+   * backend as save data, or a separate one for settings that should
+   * survive a save being deleted.
+   */
+  async saveBindings(
+    adapter: StorageAdapter,
+    key = "emptysock_input_bindings",
+  ): Promise<void> {
+    await adapter.set(key, JSON.stringify(this._actions));
+  }
+
+  /**
+   * Load a previously `saveBindings()`-persisted action map. Returns `true`
+   * if a saved map was found and applied, `false` (leaving the current
+   * bindings untouched) if nothing was stored under `key` or the stored
+   * value couldn't be parsed as an `ActionMap`.
+   */
+  async loadBindings(
+    adapter: StorageAdapter,
+    key = "emptysock_input_bindings",
+  ): Promise<boolean> {
+    const raw = await adapter.get(key);
+    if (raw === null) return false;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed === null || typeof parsed !== "object") return false;
+      this._actions = parsed as ActionMap;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * ENGINE_DESIGN.md §4 step 1. Copies the current live device state into
    * this frame's frozen snapshot. `Game.update()` calls this exactly once,
    * before anything else runs. Calling it again mid-frame (nothing in the
@@ -144,11 +237,17 @@ export class InputManager {
     this._frozen = {
       keys: this._input.snapshotKeys(),
       gamepads,
-      touches: this._input.touches,
+      pointers: this._pointerSystem.pointers,
+      gestures: this._pendingGestures,
+      wheelEvents: this._pendingWheelEvents,
     };
     // Advance press/release edge tracking for the *next* snapshot, now that
     // this frame's edges have already been captured into `_frozen`/above.
     this._input.flush();
+    // Start a fresh buffer for the *next* frame's gestures/wheel events —
+    // this frame's list is already captured into `_frozen` above.
+    this._pendingGestures = [];
+    this._pendingWheelEvents = [];
   }
 
   /** True if any binding for `action` is active in the current frozen snapshot. */
@@ -175,9 +274,32 @@ export class InputManager {
     };
   }
 
-  /** Raw touch escape hatch (§15.3) — reads the frozen snapshot, not live state. */
-  get touches(): ReadonlyArray<TouchPoint> {
-    return this._frozen.touches;
+  /**
+   * Raw pointer escape hatch (§15.3) — unified mouse/touch/pen state, one
+   * entry per currently-down pointer, reading the frozen snapshot, not
+   * live state.
+   */
+  get pointers(): ReadonlyArray<PointerState> {
+    return this._frozen.pointers;
+  }
+
+  /**
+   * Tap/longpress/swipe/pinch gestures that occurred since the previous
+   * `snapshot()` call (this frame's gestures) — see `FrozenInputState`'s
+   * doc comment on why this is a per-frame list, not continuous state.
+   */
+  get gestures(): ReadonlyArray<Gesture> {
+    return this._frozen.gestures;
+  }
+
+  /**
+   * Raw wheel/trackpad events since the previous `snapshot()` call,
+   * including `isPinchZoom`-flagged trackpad-pinch-via-`ctrlKey` events —
+   * see `PointerSystem`'s `dispatchWheel` doc comment for the trackpad vs.
+   * mouse-wheel classification heuristic.
+   */
+  get wheelEvents(): ReadonlyArray<WheelEventInfo> {
+    return this._frozen.wheelEvents;
   }
 
   /**

@@ -509,8 +509,9 @@ export class Game {
    * 1. Input snapshot (§15.3) — `this._input.snapshot()`, unconditional and
    *    first, even if no scene is loaded. Copies live device state into a
    *    frozen snapshot that every `input.isDown()`/`input.keyboard`/
-   *    `input.gamepad()`/`input.touches` read for the rest of this frame,
-   *    including everything steps 2–7 below do — see `InputManager.snapshot`.
+   *    `input.gamepad()`/`input.pointers`/`input.gestures`/
+   *    `input.wheelEvents` read for the rest of this frame, including
+   *    everything steps 2–7 below do — see `InputManager.snapshot`.
    * 2. Actor mailbox flush + actor `update()` (unchanged actor-mailbox semantics —
    *    drain every inbox before any actor's `update()` runs).
    * 3–4. Physics step + collision/sensor dispatch — delegated to

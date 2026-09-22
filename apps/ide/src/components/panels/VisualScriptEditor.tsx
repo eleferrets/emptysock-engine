@@ -288,7 +288,9 @@ function SceneScaffoldEditor(): React.ReactElement {
   // ── Canvas coordinate from mouse event ────────────────────────────────────
 
   const toCanvas = useCallback(
-    (e: React.MouseEvent | MouseEvent): { x: number; y: number } => {
+    (
+      e: React.MouseEvent | MouseEvent | React.PointerEvent,
+    ): { x: number; y: number } => {
       if (!canvasRef.current) return { x: 0, y: 0 };
       const rect = canvasRef.current.getBoundingClientRect();
       return {
@@ -299,10 +301,11 @@ function SceneScaffoldEditor(): React.ReactElement {
     [vsScale],
   );
 
-  // ── Mouse move on canvas: update mouse pos for pending edge preview ────────
+  // ── Pointer move on canvas: update pointer pos for pending edge preview,
+  // and drag a node under mouse, touch, or pen alike ────────────────────────
 
-  const onCanvasMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const onCanvasPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (pendingEdge || dragging.current) {
         const pos = toCanvas(e);
         setMousePos(pos);
@@ -322,7 +325,7 @@ function SceneScaffoldEditor(): React.ReactElement {
     [pendingEdge, toCanvas, setGraph],
   );
 
-  const onCanvasMouseUp = useCallback(() => {
+  const onCanvasPointerUp = useCallback(() => {
     dragging.current = null;
   }, []);
 
@@ -336,9 +339,13 @@ function SceneScaffoldEditor(): React.ReactElement {
 
   // ── Node mouse down: start drag or port click ──────────────────────────────
 
-  const onNodeMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>, node: NodeData) => {
+  const onNodePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, node: NodeData) => {
       e.stopPropagation();
+      // Pointer capture keeps drag tracking working even if a fast touch
+      // drag briefly moves outside the node's own bounds mid-gesture — the
+      // same reliability `onOuterPointerDown` already relies on for panning.
+      e.currentTarget.setPointerCapture(e.pointerId);
       const pos = toCanvas(e);
 
       // Check output port hit
@@ -599,8 +606,8 @@ function SceneScaffoldEditor(): React.ReactElement {
       >
         <div
           ref={canvasRef}
-          onMouseMove={onCanvasMouseMove}
-          onMouseUp={onCanvasMouseUp}
+          onPointerMove={onCanvasPointerMove}
+          onPointerUp={onCanvasPointerUp}
           onClick={onCanvasClick}
           style={{
             position: "relative",
@@ -708,7 +715,7 @@ function SceneScaffoldEditor(): React.ReactElement {
               <div
                 key={node.id}
                 data-node={node.id}
-                onMouseDown={(e) => onNodeMouseDown(e, node)}
+                onPointerDown={(e) => onNodePointerDown(e, node)}
                 style={{
                   position: "absolute",
                   left: node.x,

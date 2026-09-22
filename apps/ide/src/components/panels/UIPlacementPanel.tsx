@@ -252,22 +252,18 @@ export function UIPlacementPanel(): React.ReactElement {
     (
       e:
         | React.MouseEvent<HTMLCanvasElement>
-        | React.TouchEvent<HTMLCanvasElement>,
+        | React.PointerEvent<HTMLCanvasElement>,
     ): { x: number; y: number } | null => {
       const canvas = canvasRef.current;
       if (canvas === null) return null;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const point =
-        "touches" in e
-          ? e.type === "touchend"
-            ? e.changedTouches[0]
-            : e.touches[0]
-          : e;
-      if (point === undefined) return null;
-      const px = (point.clientX - rect.left) * scaleX;
-      const py = (point.clientY - rect.top) * scaleY;
+      // PointerEvent (mouse, touch, and pen alike) and MouseEvent both carry
+      // clientX/clientY directly — no separate touches-array branch needed
+      // the way a raw TouchEvent would require.
+      const px = (e.clientX - rect.left) * scaleX;
+      const py = (e.clientY - rect.top) * scaleY;
       const raw = { x: Math.round(px - R), y: Math.round(py - R) };
       if (raw.x < 0 || raw.y < 0 || raw.x > CANVAS_W || raw.y > CANVAS_H)
         return null;
@@ -299,11 +295,19 @@ export function UIPlacementPanel(): React.ReactElement {
     return null;
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
+  /**
+   * Ghost-preview tracking for mouse, touch, and pen alike — Pointer Events
+   * fire uniformly for all three, replacing what used to be a separate
+   * mouse-move handler and touch-move handler each calling the same
+   * `resolveWorldPos`.
+   */
+  const handlePointerMove = (
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ): void => {
     if (dragType === null) return;
     setGhostPos(resolveWorldPos(e));
   };
-  const handleMouseLeave = (): void => setGhostPos(null);
+  const handlePointerLeave = (): void => setGhostPos(null);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     const pos = resolveWorldPos(e);
@@ -316,7 +320,18 @@ export function UIPlacementPanel(): React.ReactElement {
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>): void => {
+  /**
+   * Touch/pen place immediately on press (no separate "up" step, matching
+   * how the classic `onTouchStart` behaved) — mouse instead waits for
+   * `onClick` (`handleCanvasClick`, fired on press+release) so a mouse drag
+   * that leaves and re-enters the canvas doesn't place a widget partway
+   * through. `pointerType === "mouse"` is excluded here for exactly that
+   * reason; `onClick` still fires for mouse and is unaffected.
+   */
+  const handlePointerDown = (
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ): void => {
+    if (e.pointerType === "mouse") return;
     const pos = resolveWorldPos(e);
     if (pos === null) {
       setGhostPos(null);
@@ -325,9 +340,6 @@ export function UIPlacementPanel(): React.ReactElement {
     setGhostPos(pos);
     if (dragType !== null) placeWidget(pos, dragType);
   };
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>): void =>
-    setGhostPos(resolveWorldPos(e));
-  const handleTouchEnd = (): void => setGhostPos(null);
 
   const handleDragOver = (e: React.DragEvent<HTMLCanvasElement>): void => {
     e.preventDefault();
@@ -639,12 +651,11 @@ export function UIPlacementPanel(): React.ReactElement {
                 imageRendering: "pixelated",
                 touchAction: "none",
               }}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
+              onPointerMove={handlePointerMove}
+              onPointerLeave={handlePointerLeave}
               onClick={handleCanvasClick}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onDragLeave={handleDragLeave}

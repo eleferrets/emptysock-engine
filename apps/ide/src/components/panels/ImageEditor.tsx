@@ -251,7 +251,7 @@ export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
     img.src = dataUrl;
   }, [historySet]);
 
-  const handleMouseDown = (e: KonvaEventObject<MouseEvent>): void => {
+  const handlePointerDown = (e: KonvaEventObject<PointerEvent>): void => {
     const pos = e.target.getStage()?.getPointerPosition();
     if (pos === undefined || pos === null) return;
     const imgX = (pos.x - stageX) / stageScale;
@@ -318,7 +318,7 @@ export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
     ]);
   };
 
-  const handleMouseMove = (e: KonvaEventObject<MouseEvent>): void => {
+  const handlePointerMove = (e: KonvaEventObject<PointerEvent>): void => {
     const pos = e.target.getStage()?.getPointerPosition();
     if (pos === undefined || pos === null) return;
     const imgX = (pos.x - stageX) / stageScale;
@@ -345,7 +345,7 @@ export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
     });
   };
 
-  const handleMouseUp = (): void => {
+  const handlePointerUp = (): void => {
     if (tool === "pointer") {
       setIsPanning(false);
       panStartRef.current = null;
@@ -661,9 +661,9 @@ export function ImageEditor({ assetId }: ImageEditorProps): React.ReactElement {
               y={stageY}
               scaleX={stageScale}
               scaleY={stageScale}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
               onWheel={handleWheel}
             >
               <Layer>
