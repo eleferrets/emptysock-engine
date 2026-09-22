@@ -4,7 +4,7 @@
   "entryPoints": ["packages/*/src/index.ts"],
   "exclude": ["**/*.test.ts", "**/__tests__/**", "**/node_modules/**"],
   "plugin": ["typedoc-plugin-markdown"],
-  "out": "docs/reference-generated",
+  "out": "docs/reference/api",
   "readme": "none",
   "excludeExternals": true,
   "excludePrivate": true,

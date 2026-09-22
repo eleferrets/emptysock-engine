@@ -1,0 +1,41 @@
+[**emptysock-engine**](../../../README.md)
+
+***
+
+[emptysock-engine](../../../README.md) / [toolchain/src](../README.md) / VMRunResult
+
+# Interface: VMRunResult
+
+Defined in: [toolchain/src/VMRunner.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L20)
+
+## Properties
+
+### exitCode
+
+> **exitCode**: `number`
+
+Defined in: [toolchain/src/VMRunner.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L24)
+
+***
+
+### stderr
+
+> **stderr**: `string`
+
+Defined in: [toolchain/src/VMRunner.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L23)
+
+***
+
+### stdout
+
+> **stdout**: `string`
+
+Defined in: [toolchain/src/VMRunner.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L22)
+
+***
+
+### success
+
+> **success**: `boolean`
+
+Defined in: [toolchain/src/VMRunner.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L21)
