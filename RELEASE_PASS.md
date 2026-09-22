@@ -50,6 +50,13 @@ Start the next session by auditing real usage of the 27 systems (per the settled
 - **Parity required before deletion.** For each ported system, write tests exercising the same real scenarios the old system's own tests cover (43 old test files to draw from) and confirm the new one behaves the same way, before removing the old implementation. Don't delete on faith.
 - **Final layout: flatten `ecs/` back to the package root once the old code is gone.** `packages/engine/src/ecs/Entity.ts` → `packages/engine/src/core/Entity.ts` (matching this repo's own "core primitives go in `core/`" convention) or the package root, once there's no second implementation left to segregate it from. `@emptysock/engine/ecs` as a subpath retires in favor of plain `@emptysock/engine` once that happens — this is the very last step, only once every system is ported and parity-checked and the old code is actually deleted, not something to do partway through.
 
+**Four more, settled 2026-09-22, same session:**
+
+- **Unify `IDEBridge` and `QueryChannel` into one bridge, as part of this port, not a follow-up.** `IDEBridge`'s whole reason to exist is talking to the old `Scene`/`Entity`; once that's gone, fold its push-style live-snapshot behavior into (or replace it with) `QueryChannel` rather than leaving the IDE with two overlapping live-connection code paths.
+- **Delete `core/ObjectPool.ts`.** `Scene.spawn`/`.destroy`'s built-in `{ pool: true }` pooling already covers what it was for. Before deleting, confirm nothing non-entity-shaped (raw Pixi textures, particle-system buffers) is quietly relying on it for something `Scene`-level pooling doesn't cover — if something like that turns up, keep a narrower pooling utility for that specific non-entity case, don't keep `ObjectPool` wholesale just in case.
+- **`@emptysock/vn`/`battle`/`tilemap` are in scope, not frozen.** `VNTextbox`/`CharacterStage` call into the old `UISystem` today; when `UISystem` gets ported, their calls need to move with it. Treat the module packages as real consumers of whatever's being ported, same as `apps/ide` and the toolchain — they were split out of the engine this pass, that doesn't mean their internals stop changing.
+- **Fix the Inspector's schema lookup to be `ComponentRegistry`-driven, once everything's ported.** It currently reads from a small hand-maintained map of hardcoded components (a known, already-documented limitation from this pass). Once every system's components are real registered `ComponentDef`s, the Inspector can enumerate what's actually registered instead of needing a hand-maintained import list — do this once the precondition (everything's ECS-native) is actually true, not before.
+
 ---
 
 ## Context for whoever picks this up next
