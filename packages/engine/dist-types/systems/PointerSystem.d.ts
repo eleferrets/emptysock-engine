@@ -78,6 +78,8 @@ export declare class PointerSystem {
   private readonly _pointers;
   private _boundTarget;
   private _pinch;
+  /** Last `scale` seen from a Safari `GestureEvent`, for `deltaScale`. `null` when no gesture is in progress. */
+  private _safariGestureLastScale;
   private readonly _downHandlers;
   private readonly _moveHandlers;
   private readonly _upHandlers;
@@ -138,11 +140,42 @@ export declare class PointerSystem {
     deltaMode: number;
     ctrlKey?: boolean;
   }): void;
+  /**
+   * Public, DOM-free entry point for Safari's `gesturestart` (see
+   * `SafariGestureEvent`'s doc comment) — test-injectable the same way
+   * `dispatchPointerDown`/`dispatchWheel` are, since jsdom (this repo's test
+   * environment) doesn't implement WebKit's proprietary `GestureEvent`.
+   */
+  dispatchSafariGestureStart(): void;
+  /** Public, DOM-free entry point for Safari's `gesturechange` — see `dispatchSafariGestureStart`. */
+  dispatchSafariGestureChange(evt: {
+    scale: number;
+    clientX: number;
+    clientY: number;
+  }): void;
+  /** Public, DOM-free entry point for Safari's `gestureend` — see `dispatchSafariGestureStart`. */
+  dispatchSafariGestureEnd(): void;
   private readonly _onPointerDown;
   private readonly _onPointerMove;
   private readonly _onPointerUp;
   private readonly _onPointerCancel;
   private readonly _onWheel;
+  /**
+   * Safari's `GestureEvent` reports an absolute `scale` from the start of
+   * the gesture, not a delta — start of gesture is scale 1 by definition.
+   * Emits the same `PinchGesture` shape a real two-pointer touch pinch does
+   * (`_updatePinch`), so game code handling `onGesture` for pinch doesn't
+   * need a separate Safari-specific code path — this is purely a second
+   * *signal* for the same gesture, not a different gesture type. Chrome/
+   * Firefox/Edge never fire this event at all (they only ever fire
+   * `ctrlKey`+`wheel`, handled by `dispatchWheel`), so there's no double-
+   * counting risk between the two paths on any one browser. Logic lives in
+   * the public `dispatchSafariGesture*` methods (test-injectable, jsdom has
+   * no native `GestureEvent`); these handlers just unwrap the real event.
+   */
+  private readonly _onGestureStart;
+  private readonly _onGestureChange;
+  private readonly _onGestureEnd;
   private _normalizePointerType;
   private _swipeDirection;
   private _emitGesture;

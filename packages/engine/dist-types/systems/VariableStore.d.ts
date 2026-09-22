@@ -28,7 +28,6 @@ export declare class VariableStore {
   snapshot(): VariableStoreData;
   restore(data: Partial<VariableStoreData>): void;
 }
-export declare const variableStore: VariableStore;
 /**
  * A condition evaluated against a `VariableStore`, used to gate branches in
  * `VNSystem` (condition nodes, conditional choice options) and triggers in

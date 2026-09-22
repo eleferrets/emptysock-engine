@@ -1,4 +1,5 @@
 import type { ComponentDef } from "./Component.js";
+import { type CoroutineFactory, type CoroutineHandle } from "./Coroutines.js";
 import type { SerializableRecord } from "./Serializable.js";
 /** Per-scene proxy cache: full versioned eid -> componentName -> proxy. */
 export type ProxyCache = Map<number, Map<string, unknown>>;
@@ -44,4 +45,22 @@ export declare class Entity {
   get<T extends SerializableRecord>(def: ComponentDef<T>): T | undefined;
   /** Remove a component. No-op if the entity is stale or lacks it. */
   remove<T extends SerializableRecord>(def: ComponentDef<T>): void;
+  /**
+   * Start a coroutine on this entity for work that spans multiple frames —
+   * the required escape hatch for anything `onUpdate` can't do directly,
+   * since `onUpdate` must not be `async` (CLAUDE.md's "onUpdate must not be
+   * async"). The coroutine stops automatically the instant this entity is
+   * no longer alive; see `ecs/Coroutines.ts` for the full cancellation
+   * story (liveness check plus an opt-in `AbortSignal` for real async work).
+   *
+   * ```typescript
+   * entity.startCoroutine(function* () {
+   *   yield waitSeconds(1.0);
+   *   doSomething();
+   * });
+   * ```
+   */
+  startCoroutine(factory: CoroutineFactory, id?: string): CoroutineHandle;
+  /** Stop a coroutine by its id (the one returned from `startCoroutine`). */
+  stopCoroutine(id: string): void;
 }

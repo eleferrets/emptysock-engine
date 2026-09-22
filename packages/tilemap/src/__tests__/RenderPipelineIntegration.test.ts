@@ -9,6 +9,9 @@
  * `RenderPipeline.ts`'s `TileLayerSource` doc comment), so this test — which
  * needs both a real `RenderPipeline` and a real `Tilemap` — lives here, in
  * the package that already depends on both, rather than in the engine.
+ * `AutoTileSystem` itself moved here too (RELEASE_PASS.md Track 2) — it's
+ * imported from `../AutoTileSystem.js` now, not `@emptysock/engine`, which
+ * only knows its structural `AutoTileResolver` shape.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type * as PixiJS from "pixi.js";
@@ -29,9 +32,9 @@ vi.mock("pixi.js", async () => {
   };
 });
 
-const { RenderPipeline, Scene, AutoTileSystem } =
-  await import("@emptysock/engine");
+const { RenderPipeline, Scene } = await import("@emptysock/engine");
 const { Tilemap, TilemapSystem } = await import("../TilemapSystem.js");
+const { AutoTileSystem } = await import("../AutoTileSystem.js");
 
 function makeTestTexture(): Texture {
   return Texture.WHITE;

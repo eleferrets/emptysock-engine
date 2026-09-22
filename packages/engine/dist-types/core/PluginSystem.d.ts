@@ -21,5 +21,3 @@ export declare class PluginSystem {
   inject<T>(key: string): T | undefined;
   get registeredPlugins(): ReadonlyArray<string>;
 }
-/** Global singleton — import and use directly in game code. */
-export declare const pluginSystem: PluginSystem;

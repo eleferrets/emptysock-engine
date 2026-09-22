@@ -19,8 +19,37 @@ export interface RenderPipelineOptions extends Omit<
  * ECS-core equivalent of `../../systems/RenderPipeline.ts`, built on the `defineComponent`/
  * `Scene.each` object model, and `Game`'s `SceneRenderer` shape (ENGINE_DESIGN.md
  * §4 step 7 / §12.3). Reuses the classic `RenderSystem` (the raw PixiJS wrapper) and
- * `LayerSystem` (draw order) unchanged — neither imports the classic `core/Entity.ts`/
- * `Scene.ts`, so there was nothing incompatible about them to begin with.
+ * `LayerSystem` (layer-level ordering/visibility, via `RenderSystem`'s
+ * `getLayerContainer`/`syncLayerVisibility`) unchanged — neither imports the
+ * classic `core/Entity.ts`/`Scene.ts`, so there was nothing incompatible
+ * about them to begin with.
+ *
+ * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
+ * after auditing the actual code:** the original plan called for rebuilding
+ * `LayerSystem` on PixiJS v8.7+'s `RenderLayer` API instead of the current
+ * per-layer-`Container` approach. Auditing `RenderSystem.ts` first shows why
+ * that doesn't help here: `RenderLayer.attach()` requires the attached
+ * object to already have a real `Container` parent elsewhere for
+ * transforms, and throws on `addChild()` itself — but this renderer already
+ * writes sprites' `x`/`y` in absolute coordinates directly onto the sprite
+ * (no nested world-transform hierarchy `RenderLayer` would decouple draw
+ * order from), and `getLayerContainer(name)`'s callers (this class *and*
+ * the classic `RenderPipeline`, both real, both staying) already do
+ * `container.addChild(pixiSprite)` directly. Swapping to `RenderLayer`
+ * would mean reworking `RenderSystem`'s shared public API (used by both
+ * pipelines) for a decoupling this flat architecture has no actual use
+ * for. The one real bug the original plan was chasing — `LayerSystem`'s
+ * per-entity placement map (`addEntity`/`removeEntity`/`getEntityLayer`/
+ * `getEntityDepth`) being raw-eid-keyed with no scene scoping — turned out
+ * to have zero real readers anywhere in the codebase (confirmed by grep:
+ * `getEntityLayer`/`getEntityDepth`/`getEntitiesOnLayer` are called
+ * nowhere, not even by the classic pipeline that also writes to them) —
+ * it was writing per-frame bookkeeping data that got read by nothing, not
+ * a scoping bug actively corrupting real behavior. This class no longer
+ * calls `addEntity`/`removeEntity` at all (dead write removed); the layer-
+ * *level* concepts `LayerSystem` still provides (name → index/visibility)
+ * remain real and unchanged, since `RenderSystem` genuinely needs those for
+ * stage ordering and `syncLayerVisibility()`.
  *
  * On `renderFrame(main, overlays)` it:
  *
@@ -111,8 +140,6 @@ export declare class RenderPipeline implements SceneRenderer {
   private _overlayContainer;
   private _applyTexture;
   private _removeSprite;
-  /** Same as `_removeSprite`, plus the `LayerSystem` bookkeeping only the main scene uses. */
-  private _removeMainSprite;
   /**
    * Drop tracking (and destroy sprites) for any overlay scene not present in
    * `active` — called every `renderFrame()` with the caller's current

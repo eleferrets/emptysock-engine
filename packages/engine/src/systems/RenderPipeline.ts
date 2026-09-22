@@ -12,8 +12,26 @@ import { Sprite } from "../components/Sprite.js";
 import { Transform } from "../components/Transform.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
-import type { AutoTileSystem } from "./AutoTileSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+
+/**
+ * The minimal shape `mountTilemap()` needs from an auto-tile resolver —
+ * just the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
+ * `AutoTileSystem` satisfies this without either package importing the
+ * other, the same "engine depends on the interface, never a concrete
+ * implementation" pattern as `TileLayerSource`/`Tilemap` (see CLAUDE.md).
+ * `AutoTileSystem` itself moved to `@emptysock/tilemap` (RELEASE_PASS.md
+ * Track 2) since it's pure tile-authoring logic with zero rendering/ECS
+ * coupling, matching the precedent that already put `NavMeshSystem` there.
+ */
+export interface AutoTileResolver {
+  resolve(
+    col: number,
+    row: number,
+    baseTileIndex: number,
+    tileAt: (col: number, row: number) => number,
+  ): number;
+}
 
 /**
  * The subset of `@emptysock/tilemap`'s `Tilemap` shape that RenderPipeline
@@ -79,7 +97,7 @@ interface MountedTilemap {
  *     once, and places it in the layer/depth the `Sprite` component asks
  *     for — no manual `layerSystem.addEntity()` call required.
  *  2. Draws any tilemap mounted via `mountTilemap()` as real textured tile
- *     sprites (optionally resolved through an `AutoTileSystem`), not just a
+ *     sprites (optionally resolved through an `AutoTileResolver`), not just a
  *     walkability grid.
  *  3. Renders the frame.
  *
@@ -314,14 +332,14 @@ export class RenderPipeline {
 
   /**
    * Build real tile sprites for `tilemap` and add them to `renderLayer`
-   * (defaults to `"default"`). Pass an `AutoTileSystem` to resolve neighbour-
+   * (defaults to `"default"`). Pass an `AutoTileResolver` to resolve neighbour-
    * aware tile variants instead of drawing the raw tile indices. Safe to call
    * once per tilemap; call `unmountTilemap()` first to rebuild after edits.
    */
   mountTilemap(
     tilemap: TileLayerSource,
     renderLayer = "default",
-    autoTile?: AutoTileSystem,
+    autoTile?: AutoTileResolver,
   ): void {
     if (this._mountedTilemaps.has(tilemap)) return;
     const container = new Container();
@@ -343,7 +361,7 @@ export class RenderPipeline {
     tilemap: TileLayerSource,
     container: Container,
     generation: number,
-    autoTile: AutoTileSystem | undefined,
+    autoTile: AutoTileResolver | undefined,
   ): Promise<void> {
     const { tileset, rows, cols, tileWidth, tileHeight } = tilemap.data;
     let baseTexture: Texture;

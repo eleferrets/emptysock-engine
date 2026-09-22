@@ -1,5 +1,10 @@
 import { ActorSystem } from "../core/ActorSystem.js";
+import { PluginSystem } from "../core/PluginSystem.js";
 import { AudioSystem } from "../systems/AudioSystem.js";
+import { LocalisationSystem } from "../systems/LocalisationSystem.js";
+import { VariableStore } from "../systems/VariableStore.js";
+import { ViewportSystem } from "../systems/ViewportSystem.js";
+import { WindowSystem } from "../systems/WindowSystem.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
@@ -37,6 +42,46 @@ export interface SceneLifecycle {
   readonly input: InputManager;
   /** Game-owned, same reasoning as `input` — music/sfx commonly outlive a scene transition. */
   readonly audio: AudioSystem;
+  /**
+   * Game-owned, same reasoning as `audio`/`input` — the one canonical
+   * `VariableStore` for the lifetime of this `Game`, shared across every
+   * scene unless a system is deliberately constructed with its own isolated
+   * instance instead (e.g. `new VNSystem(new VariableStore())` for a
+   * self-contained minigame). Pass this to `VNSystem`/`MapEventSystem`
+   * constructors that need the shared switches/variables a save-gated
+   * dialogue tree or map trigger expects.
+   */
+  readonly variables: VariableStore;
+  /**
+   * Game-owned, same reasoning as `audio`/`input`/`variables` — one
+   * `PluginSystem` for the lifetime of this `Game`. Equivalent to
+   * `game.services.get(PluginSystem)`, handed here for convenience so scene
+   * code doesn't need a separate reference to the owning `Game`.
+   */
+  readonly plugins: PluginSystem;
+  /**
+   * Game-owned, same reasoning as `plugins`/`variables` — one
+   * `LocalisationSystem` for the lifetime of this `Game`, so a locale change
+   * made from a settings menu in one scene is visible to every other scene's
+   * UI text without threading a reference through scene boundaries.
+   */
+  readonly localisation: LocalisationSystem;
+  /**
+   * Game-owned, same reasoning as `plugins`/`variables`/`localisation` —
+   * one `ViewportSystem` for the lifetime of this `Game`, since there is
+   * normally exactly one canvas/viewport for the whole running game,
+   * regardless of which scene happens to be loaded. Call
+   * `ctx.viewport.init({ designWidth, designHeight, scaleMode }, { renderTarget, cameraSystem })`
+   * once (typically from the `startScene`'s `onLoad`) to start automatic
+   * resize/scale handling.
+   */
+  readonly viewport: ViewportSystem;
+  /**
+   * Game-owned, same reasoning as `viewport` — one OS window for the whole
+   * running desktop app (a no-op on platforms without a Tauri window, per
+   * `WindowSystem`'s own runtime Tauri-detection guard).
+   */
+  readonly window: WindowSystem;
 }
 export interface LoadSceneOptions {
   /**
@@ -182,8 +227,8 @@ export declare class Game {
    * ENGINE_DESIGN.md §5 — process-global for the lifetime of this `Game`
    * instance, constructed once here (not per-scene, unlike `actors`/
    * `physics` in `SceneLifecycle`) and never reset by `loadScene`/
-   * `unloadScene`. Same underlying idea as the `pluginSystem` singleton,
-   * generalized past just plugins — see `Services.ts`.
+   * `unloadScene`. `PluginSystem` and `VariableStore` are registered here in
+   * the constructor as the first two real services — see `Services.ts`.
    */
   readonly services: ServiceRegistry;
   /**
@@ -283,8 +328,9 @@ export declare class Game {
    * 1. Input snapshot (§15.3) — `this._input.snapshot()`, unconditional and
    *    first, even if no scene is loaded. Copies live device state into a
    *    frozen snapshot that every `input.isDown()`/`input.keyboard`/
-   *    `input.gamepad()`/`input.touches` read for the rest of this frame,
-   *    including everything steps 2–7 below do — see `InputManager.snapshot`.
+   *    `input.gamepad()`/`input.pointers`/`input.gestures`/
+   *    `input.wheelEvents` read for the rest of this frame, including
+   *    everything steps 2–7 below do — see `InputManager.snapshot`.
    * 2. Actor mailbox flush + actor `update()` (unchanged actor-mailbox semantics —
    *    drain every inbox before any actor's `update()` runs).
    * 3–4. Physics step + collision/sensor dispatch — delegated to

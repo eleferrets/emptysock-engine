@@ -8,3 +8,6 @@ export type {
 
 export { NavMeshSystem } from "./NavMeshSystem.js";
 export type { NavMeshData, NavPolygon } from "./NavMeshSystem.js";
+
+export { AutoTileSystem } from "./AutoTileSystem.js";
+export type { AutoTileRule, AutoTileRuleSet } from "./AutoTileSystem.js";

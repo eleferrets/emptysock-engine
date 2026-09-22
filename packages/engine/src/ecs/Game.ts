@@ -3,6 +3,8 @@ import { PluginSystem } from "../core/PluginSystem.js";
 import { AudioSystem } from "../systems/AudioSystem.js";
 import { LocalisationSystem } from "../systems/LocalisationSystem.js";
 import { VariableStore } from "../systems/VariableStore.js";
+import { ViewportSystem } from "../systems/ViewportSystem.js";
+import { WindowSystem } from "../systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { InputManager } from "./Input.js";
@@ -68,6 +70,22 @@ export interface SceneLifecycle {
    * UI text without threading a reference through scene boundaries.
    */
   readonly localisation: LocalisationSystem;
+  /**
+   * Game-owned, same reasoning as `plugins`/`variables`/`localisation` —
+   * one `ViewportSystem` for the lifetime of this `Game`, since there is
+   * normally exactly one canvas/viewport for the whole running game,
+   * regardless of which scene happens to be loaded. Call
+   * `ctx.viewport.init({ designWidth, designHeight, scaleMode }, { renderTarget, cameraSystem })`
+   * once (typically from the `startScene`'s `onLoad`) to start automatic
+   * resize/scale handling.
+   */
+  readonly viewport: ViewportSystem;
+  /**
+   * Game-owned, same reasoning as `viewport` — one OS window for the whole
+   * running desktop app (a no-op on platforms without a Tauri window, per
+   * `WindowSystem`'s own runtime Tauri-detection guard).
+   */
+  readonly window: WindowSystem;
 }
 
 export interface LoadSceneOptions {
@@ -288,6 +306,8 @@ export class Game {
     this.services.register(PluginSystem);
     this.services.register(VariableStore);
     this.services.register(LocalisationSystem);
+    this.services.register(ViewportSystem);
+    this.services.register(WindowSystem);
   }
 
   /** Equivalent to `new Game(options)` — reads better at a call site than `new`. */
@@ -364,6 +384,8 @@ export class Game {
       variables: this.services.get(VariableStore),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
+      viewport: this.services.get(ViewportSystem),
+      window: this.services.get(WindowSystem),
     };
     this._current = {
       definition,
@@ -441,6 +463,8 @@ export class Game {
       variables: this.services.get(VariableStore),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
+      viewport: this.services.get(ViewportSystem),
+      window: this.services.get(WindowSystem),
     };
     const loaded: LoadedScene = {
       definition,

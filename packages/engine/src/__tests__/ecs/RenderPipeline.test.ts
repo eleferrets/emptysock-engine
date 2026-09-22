@@ -41,11 +41,32 @@ describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
     scene = new Scene();
   });
 
+  /** Read the real PixiJS sprite `RenderPipeline` is tracking for `eid` on `scene`, if any. */
+  function trackedSprite(
+    eid: number,
+  ): { parent: PixiJS.Container | null; zIndex: number } | undefined {
+    return (
+      pipeline as unknown as {
+        _tracking: Map<
+          unknown,
+          {
+            sprites: Map<
+              number,
+              { parent: PixiJS.Container | null; zIndex: number }
+            >;
+          }
+        >;
+      }
+    )._tracking
+      .get(scene)
+      ?.sprites.get(eid);
+  }
+
   it("ignores entities missing Transform or Sprite", () => {
     const entity = scene.spawn();
     entity.add(Sprite);
     pipeline.syncEntities(scene);
-    expect(pipeline.layers.getEntityLayer(entity.eid)).toBeNull();
+    expect(trackedSprite(entity.eid)).toBeUndefined();
   });
 
   it("places a Transform+Sprite entity on its configured layer and depth", () => {
@@ -55,8 +76,16 @@ describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
 
     pipeline.syncEntities(scene);
 
-    expect(pipeline.layers.getEntityLayer(entity.eid)).toBe("foreground");
-    expect(pipeline.layers.getEntityDepth(entity.eid)).toBe(5);
+    // Real, observable placement: the sprite is parented somewhere under
+    // the stage (one container per named layer, per RenderSystem's
+    // getLayerContainer) and carries the configured zIndex — not
+    // LayerSystem's removed per-entity bookkeeping, which had zero real
+    // readers (see ecs/systems/RenderPipeline.ts's "On PixiJS's native
+    // Render Layers" doc comment for the full audit).
+    const sprite = trackedSprite(entity.eid);
+    expect(sprite?.parent).not.toBeNull();
+    expect(pipeline.stage.children).toContain(sprite?.parent);
+    expect(sprite?.zIndex).toBe(5);
   });
 
   it("keeps sprite transform in sync across frames, via scene.each's raw arrays", () => {
@@ -88,12 +117,12 @@ describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
     entity.add(Transform);
     entity.add(Sprite);
     pipeline.syncEntities(scene);
-    expect(pipeline.layers.getEntityLayer(entity.eid)).toBe("default");
+    expect(trackedSprite(entity.eid)).toBeDefined();
 
     scene.destroy(entity);
     pipeline.syncEntities(scene);
 
-    expect(pipeline.layers.getEntityLayer(entity.eid)).toBeNull();
+    expect(trackedSprite(entity.eid)).toBeUndefined();
   });
 
   it("Sprite's texturePath field round-trips through add/get like any other field", () => {

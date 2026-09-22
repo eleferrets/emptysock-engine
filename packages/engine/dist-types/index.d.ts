@@ -1,16 +1,15 @@
 export { Component, componentType } from "./core/Component.js";
 export type { ComponentType } from "./core/Component.js";
 export { Entity } from "./core/Entity.js";
-export type { Vec2, CoroutineHandle } from "./core/Entity.js";
+export type { Vec2 } from "./core/Entity.js";
+export type { CoroutineHandle, CoroutineFactory } from "./ecs/Coroutines.js";
 export { Scene } from "./core/Scene.js";
 export type { SystemFn } from "./core/Scene.js";
 export { Engine } from "./core/EngineAPI.js";
 export { Actor } from "./core/Actor.js";
 export type { Message, ActorId } from "./core/Actor.js";
-export { NetworkActor } from "./core/NetworkActor.js";
-export type { Transport, TransportMessage } from "./core/Transport.js";
 export { ActorSystem } from "./core/ActorSystem.js";
-export { PluginSystem, pluginSystem } from "./core/PluginSystem.js";
+export { PluginSystem } from "./core/PluginSystem.js";
 export type { Plugin, PluginContext } from "./core/PluginSystem.js";
 export { RenderSystem } from "./systems/RenderSystem.js";
 export type { RenderSystemOptions } from "./systems/RenderSystem.js";
@@ -19,6 +18,7 @@ export type {
   RenderPipelineOptions,
   TextureLoader,
   TileLayerSource,
+  AutoTileResolver,
 } from "./systems/RenderPipeline.js";
 export { PhysicsSystem } from "./systems/PhysicsSystem.js";
 export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
@@ -34,11 +34,7 @@ export type {
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
 export { InputSystem } from "./systems/InputSystem.js";
-export type {
-  KeyState,
-  MouseState,
-  TouchPoint,
-} from "./systems/InputSystem.js";
+export type { KeyState } from "./systems/InputSystem.js";
 export { AudioSystem } from "./systems/AudioSystem.js";
 export type { SoundOptions } from "./systems/AudioSystem.js";
 export { AssetManifest } from "./systems/AssetManifest.js";
@@ -50,21 +46,6 @@ export type {
   AssetProgressListener,
   AssetManifestOptions,
 } from "./systems/AssetManifest.js";
-export {
-  InputBindings,
-  createBindingsSaveSystem,
-  BindingsSaveSlotSchema,
-} from "./systems/InputBindings.js";
-export type {
-  Binding,
-  BindingKind,
-  ActionMap,
-  KeyBinding,
-  MouseButtonBinding,
-  GamepadButtonBinding,
-  GamepadAxisBinding,
-  BindingsSaveSlot,
-} from "./systems/InputBindings.js";
 export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
 export type {
   DebugLogEntry,
@@ -161,11 +142,7 @@ export type {
   GamepadState,
   DualRumbleOptions,
 } from "./systems/GamepadSystem.js";
-export {
-  VariableStore,
-  variableStore,
-  evaluateCondition,
-} from "./systems/VariableStore.js";
+export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export type {
   VariableStoreData,
   VariableCondition,
@@ -197,8 +174,6 @@ export type {
   TransitionOptions as SceneTransitionOptions,
   SceneFactory,
 } from "./core/SceneManager.js";
-export { ObjectPool } from "./core/ObjectPool.js";
-export type { Poolable, PoolFactory } from "./core/ObjectPool.js";
 export { ParticleSystem, ParticleEmitter } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
@@ -281,11 +256,10 @@ export type {
 } from "./core/IDEBridge.js";
 export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
 export type { GPUTier } from "./core/GPUTier.js";
-export { windowSystem } from "./systems/WindowSystem.js";
+export { WindowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 export {
   ViewportSystem,
-  viewportSystem,
   computeViewportSize,
   gpuTierRenderDefaults,
 } from "./systems/ViewportSystem.js";
@@ -299,11 +273,6 @@ export type {
 export * from "./behaviors/index.js";
 export { CGGallery } from "./systems/CGGallery.js";
 export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
-export { AutoTileSystem } from "./systems/AutoTileSystem.js";
-export type {
-  AutoTileRule,
-  AutoTileRuleSet,
-} from "./systems/AutoTileSystem.js";
 export { CharacterStage } from "./systems/CharacterStage.js";
 export type {
   StageSlot,

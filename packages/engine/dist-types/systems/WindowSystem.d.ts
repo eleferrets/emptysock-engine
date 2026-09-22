@@ -32,4 +32,3 @@ export declare class WindowSystem {
   private _installBrowserF11;
   private _toggleBrowserFullscreen;
 }
-export declare const windowSystem: WindowSystem;

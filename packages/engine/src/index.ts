@@ -27,6 +27,7 @@ export type {
   RenderPipelineOptions,
   TextureLoader,
   TileLayerSource,
+  AutoTileResolver,
 } from "./systems/RenderPipeline.js";
 export { PhysicsSystem } from "./systems/PhysicsSystem.js";
 export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
@@ -300,13 +301,12 @@ export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
 export type { GPUTier } from "./core/GPUTier.js";
 
 // Window management
-export { windowSystem } from "./systems/WindowSystem.js";
+export { WindowSystem } from "./systems/WindowSystem.js";
 export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
 
 // Viewport management (design-resolution scaling, resize, safe-area insets)
 export {
   ViewportSystem,
-  viewportSystem,
   computeViewportSize,
   gpuTierRenderDefaults,
 } from "./systems/ViewportSystem.js";
@@ -324,13 +324,6 @@ export * from "./behaviors/index.js";
 // CG gallery
 export { CGGallery } from "./systems/CGGallery.js";
 export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
-
-// Auto-tile rule system
-export { AutoTileSystem } from "./systems/AutoTileSystem.js";
-export type {
-  AutoTileRule,
-  AutoTileRuleSet,
-} from "./systems/AutoTileSystem.js";
 
 // VN stage & background layers
 export { CharacterStage } from "./systems/CharacterStage.js";

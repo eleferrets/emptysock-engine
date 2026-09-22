@@ -278,5 +278,3 @@ export class WindowSystem {
     }
   }
 }
-
-export const windowSystem = new WindowSystem();

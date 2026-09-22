@@ -338,5 +338,3 @@ export class ViewportSystem {
     window.addEventListener("orientationchange", this._orientationHandler);
   }
 }
-
-export const viewportSystem = new ViewportSystem();
