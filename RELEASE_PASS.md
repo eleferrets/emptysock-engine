@@ -20,6 +20,31 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## Next pass — make the ECS core the one engine, port and delete the rest
+
+**Decided with the project owner on 2026-09-22, before any of this is implemented — read this whole section before touching code.**
+
+The engine currently has two real, different object models living side by side: the ECS core at `packages/engine/src/ecs/` (bitECS-backed, `entity.get(Component)`/`scene.each()`, versioned entity IDs, currently covers only physics, sprite/transform rendering, save, and a query bridge) and the original `Scene`/`Entity`/`Component` at `packages/engine/src/core/` and 32 systems under `packages/engine/src/systems/` (class-based, `entity.getComponent("Name")` keyed by a type string, no ECS presence at all for 27 of those 32 systems). This was a deliberate, incremental choice by the design spec that got this codebase to where it is — not a mistake — but it's not where the engine ends up.
+
+**The decision: the ECS core becomes the one real API. Every one of the 27 unported systems gets ported onto it or deleted. The old `Scene`/`Entity`/`Component` class-based model goes away entirely once nothing depends on it anymore.** This is not a rename or a cleanup pass — expect this to be a multi-session rewrite with a lot of deletion once it's done, not a quick pass.
+
+Explicitly settled, don't re-litigate these:
+
+- **Versioned entity IDs stay as a real guarantee.** A stale `Entity` handle to something destroyed must fail loudly, not silently alias onto a newly-spawned entity — this is native to the ECS core already, nothing extra to build for it.
+- **Audit before porting or deleting.** Before touching any of the 27 systems below, check real usage first — some of them (`AutoTileSystem`, `CGGallery`, `CharacterStage` are the suspected candidates, but verify, don't assume) may already be dead weight now that their real logic moved into `@emptysock/vn`/`battle`/`tilemap` this pass. Don't spend a session faithfully porting something nobody calls anymore.
+
+**The 27 systems under `packages/engine/src/systems/` with zero ECS presence today** (verified by directory listing on 2026-09-22 — re-verify, this list can go stale): `AssetManifest`, `AutoTileSystem`, `CGGallery`, `CameraSystem`, `CharacterStage`, `CoroutineSystem`, `CustomShaderFilter`, `DebugOverlaySystem`, `GamepadSystem`, `HotReloadSystem`, `InputBindings`, `InputSystem`, `LayerSystem`, `LightingSystem`, `LocalisationSystem`, `MapEventSystem`, `ParticleSystem`, `PathfindingSystem`, `PointerSystem`, `PostProcessSystem`, `RenderSystem`, `SequenceSystem`, `TweenSystem`, `UISystem`, `VariableStore`, `ViewportSystem`, `WindowSystem`. (`VisualScriptCompiler`, `AudioSystem`, `PhysicsSystem`, `PhysicsSystem3D`, `RenderPipeline`, `SaveSystem` already have ECS-side counterparts or wiring — check each individually before assuming full coverage, some ECS-side versions may only cover part of the old one's surface.)
+
+**Real consumers that assume the old API today, and need to move with it, not just be recompiled against a new one:**
+
+- `apps/ide` — 23 files import the old root `@emptysock/engine` API (Inspector, panels, preview bridge, `IDEBridge`). The live-preview/editing story needs re-validating end to end once the object model underneath changes, not just a recompile.
+- `packages/toolchain`'s GMS2 importer (`gms2-gml-stub.ts` and friends) generates `class X extends Scene` targeting the **old** `Scene` class directly. Its generated-code shape needs a real redesign, not a find-and-replace.
+- Everything in `emptysock-ai-skills` and this repo's own `docs/`/`ai/` content already describes the ECS core's `entity.get`/`scene.each` shape as _the_ API (from this session's docs pass) — so docs are already pointed the right direction; verify they don't quietly reference any of the 27 old-only systems' current (old) call shape once those get ported, since some skill files describe systems like `UISystem`/`ParticleSystem`/`TweenSystem` against their current, unported API.
+
+Start the next session by auditing real usage of the 27 systems (per the settled decision above), then scope the port order — likely load-bearing-and-widely-used systems first (input, UI, particles), narrow/legacy ones last or deleted outright if the audit shows nobody calls them.
+
+---
+
 ## Context for whoever picks this up next
 
 **Framing note (2026-09-22):** this file and `CLAUDE.md` used to describe the
