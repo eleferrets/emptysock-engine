@@ -80,6 +80,10 @@ export interface LoadOverlayOptions {
    * `Game.update()`, present only so `SceneLifecycle`'s shape stays uniform
    * between `loadScene` and `loadOverlay`. Pass this if an overlay genuinely
    * needs its own physics world (rare — most overlays are HUD/menu chrome).
+   * When passed, `Game.update()` now actually steps this overlay's physics
+   * world every frame alongside its actor/onUpdate treatment (Finding 7,
+   * engine v2 code-quality pass) — the caller no longer has to drive it
+   * manually from their own `onUpdate`.
    */
   physics?: Parameters<PhysicsSystem["init"]>[0];
   /** Same as `LoadSceneOptions.headless` — set only by the testing harness. */
@@ -159,6 +163,40 @@ interface LoadedScene {
   readonly lifecycle: SceneLifecycle;
   readonly manageLifecycle: boolean;
   readonly headless: boolean;
+  /**
+   * Whether `runFrame()` should step this scene's `PhysicsSystem`. `true`
+   * for every main scene (`loadScene` always inits physics when
+   * `manageLifecycle`). For an overlay this is `true` only when the caller
+   * passed `LoadOverlayOptions.physics` — the common HUD-only overlay has an
+   * uninitialized `PhysicsSystem` that must never be stepped (§12.3: "no
+   * PhysicsSystem by default").
+   */
+  readonly physicsEnabled: boolean;
+}
+
+/**
+ * Finding 5/7 (engine v2 code-quality pass) — "what a scene does per frame"
+ * defined once, used by both `Game.update()`'s main-scene branch and its
+ * overlay loop, instead of each hand-duplicating "flush actor mailbox, step
+ * physics if enabled, call onUpdate with the async-Promise warning check".
+ * This also directly wires `LoadOverlayOptions.physics` in: an overlay
+ * loaded with `options.physics` now actually gets stepped here (previously
+ * `Game.update()` never stepped *any* overlay's physics, silently leaving a
+ * constructed-and-initialized Rapier world for the caller to have to drive
+ * manually from their own `onUpdate` despite the option implying it "just
+ * works").
+ */
+function runFrame(loaded: LoadedScene, dt: number): void {
+  loaded.lifecycle.actors.update(dt);
+
+  if (loaded.physicsEnabled) {
+    loaded.lifecycle.physics.update(loaded.lifecycle.scene, dt);
+  }
+
+  const onUpdate = loaded.definition.onUpdate;
+  if (onUpdate !== undefined) {
+    warnIfPromiseReturned(onUpdate(dt) as unknown);
+  }
 }
 
 /**
@@ -292,6 +330,7 @@ export class Game {
       lifecycle,
       manageLifecycle,
       headless: options.headless ?? false,
+      physicsEnabled: manageLifecycle,
     };
 
     await definition.onLoad?.(scene, lifecycle);
@@ -348,7 +387,8 @@ export class Game {
     const scene = new Scene();
     const actors = new ActorSystem();
     const physics = new PhysicsSystem();
-    if (manageLifecycle && options.physics !== undefined) {
+    const physicsEnabled = manageLifecycle && options.physics !== undefined;
+    if (physicsEnabled) {
       await physics.init(options.physics);
     }
 
@@ -364,6 +404,7 @@ export class Game {
       lifecycle,
       manageLifecycle,
       headless: options.headless ?? false,
+      physicsEnabled,
     };
     this._overlays.push(loaded);
 
@@ -440,15 +481,15 @@ export class Game {
    *    loaded with `headless: true` — the headless testing harness relies on
    *    this to never construct or touch a real Pixi renderer.
    *
-   * Overlays run steps 2 and 5 too — their own `ActorSystem` mailbox flush
+   * Overlays run steps 2-5 too — their own `ActorSystem` mailbox flush, their
+   * own physics step (steps 3-4, only if `loadOverlay({ physics })` actually
+   * initialized one — the common HUD-only overlay's inert default
+   * `PhysicsSystem` stays unstepped, §12.3: "no PhysicsSystem by default"),
    * and their own `onUpdate(dt)` — right after the main scene's, in call
    * order, so HUD/menu logic keeps ticking every frame exactly like a normal
-   * scene's does. Overlays deliberately do **not** get a physics step here
-   * (§12.3: "no PhysicsSystem by default") even for the rare overlay loaded
-   * with an initialized one — an overlay opting into physics is expected to
-   * step it itself (or via `manageLifecycle: false` and its own driver),
-   * since the fixed frame order above has no slot reserved for a second,
-   * independent physics world.
+   * scene's does. Both the main scene and every overlay run this same
+   * per-frame sequence through the shared `runFrame()` helper below, gated
+   * only by each `LoadedScene`'s own `physicsEnabled` flag.
    */
   update(dt: number): void {
     // 1. Input snapshot — frozen for the rest of this frame.
@@ -457,30 +498,19 @@ export class Game {
     const current = this._current;
 
     if (current !== null) {
-      // 2. Actor mailbox flush, then actor update (v1 semantics, unchanged).
-      current.lifecycle.actors.update(dt);
-
-      // 3–4. Fixed-timestep physics step(s) + collision/sensor dispatch,
-      // both inside `PhysicsSystem.update()` (§10.3/§6). A scene with an
-      // uninitialized PhysicsSystem (manageLifecycle: false and never
-      // init()-ed, or an overlay's inert default) is a no-op here — see
-      // `PhysicsSystem.update`'s own guard.
-      current.lifecycle.physics.update(current.lifecycle.scene, dt);
-
-      // 5. Behavior/component update.
-      const onUpdate = current.definition.onUpdate;
-      if (onUpdate !== undefined) {
-        warnIfPromiseReturned(onUpdate(dt) as unknown);
-      }
+      // 2-5: actor mailbox flush, fixed-timestep physics step(s) +
+      // collision/sensor dispatch (§10.3/§6 — a no-op for an uninitialized
+      // PhysicsSystem, see `PhysicsSystem.update`'s own guard), then
+      // onUpdate(dt) — all via the shared `runFrame` helper (Finding 5).
+      runFrame(current, dt);
     }
 
-    // Overlays: same actor-flush + onUpdate treatment, in call order.
+    // Overlays: same per-frame treatment, in call order — each overlay's
+    // own PhysicsSystem is stepped too now, but only if it was actually
+    // initialized (`loadOverlay({ physics })`, Finding 7); the default,
+    // physics-less overlay stays exactly as before.
     for (const overlay of this._overlays) {
-      overlay.lifecycle.actors.update(dt);
-      const onOverlayUpdate = overlay.definition.onUpdate;
-      if (onOverlayUpdate !== undefined) {
-        warnIfPromiseReturned(onOverlayUpdate(dt) as unknown);
-      }
+      runFrame(overlay, dt);
     }
 
     // 7. Render.

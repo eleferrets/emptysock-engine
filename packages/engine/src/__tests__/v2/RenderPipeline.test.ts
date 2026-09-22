@@ -71,9 +71,14 @@ describe("v2 RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
 
     const sprite = (
       pipeline as unknown as {
-        _mainTracking: { sprites: Map<number, { x: number; y: number }> };
+        _tracking: Map<
+          unknown,
+          { sprites: Map<number, { x: number; y: number }> }
+        >;
       }
-    )._mainTracking.sprites.get(entity.eid);
+    )._tracking
+      .get(scene)
+      ?.sprites.get(entity.eid);
     expect(sprite?.x).toBe(42);
     expect(sprite?.y).toBe(7);
   });
@@ -123,13 +128,13 @@ describe("v2 RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
     pipeline.renderFrame(main, [overlay]);
 
     const internals = pipeline as unknown as {
-      _mainTracking: { sprites: Map<number, { x: number }> };
-      _overlayTracking: Map<unknown, { sprites: Map<number, { x: number }> }>;
+      _tracking: Map<unknown, { sprites: Map<number, { x: number }> }>;
     };
-    expect(internals._mainTracking.sprites.get(mainEntity.eid)?.x).toBe(1);
+    expect(internals._tracking.get(main)?.sprites.get(mainEntity.eid)?.x).toBe(
+      1,
+    );
     expect(
-      internals._overlayTracking.get(overlay)?.sprites.get(overlayEntity.eid)
-        ?.x,
+      internals._tracking.get(overlay)?.sprites.get(overlayEntity.eid)?.x,
     ).toBe(2);
   });
 
@@ -141,13 +146,64 @@ describe("v2 RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
 
     pipeline.renderFrame(main, [overlay]);
     const internals = pipeline as unknown as {
-      _overlayTracking: Map<unknown, unknown>;
+      _tracking: Map<unknown, unknown>;
       _overlayContainers: Map<unknown, unknown>;
     };
-    expect(internals._overlayTracking.has(overlay)).toBe(true);
+    expect(internals._tracking.has(overlay)).toBe(true);
 
     pipeline.renderFrame(main, []); // overlay no longer active
-    expect(internals._overlayTracking.has(overlay)).toBe(false);
+    expect(internals._tracking.has(overlay)).toBe(false);
     expect(internals._overlayContainers.has(overlay)).toBe(false);
+  });
+
+  it("Bug 2 regression: swapping the main scene disposes the old scene's sprites, not aliases them", () => {
+    const sceneA = new Scene();
+    const sceneB = new Scene();
+
+    const entityA = sceneA.spawn();
+    entityA.add(Transform, { x: 1, y: 1 });
+    entityA.add(Sprite, { texturePath: "a.png" });
+
+    const entityB = sceneB.spawn();
+    entityB.add(Transform, { x: 9, y: 9 });
+    entityB.add(Sprite, { texturePath: "b.png" });
+
+    // Two fresh worlds' first spawn share the same eid — the exact
+    // aliasing case this regression test exists to rule out.
+    expect(entityB.eid).toBe(entityA.eid);
+
+    pipeline.renderFrame(sceneA);
+    const internals = pipeline as unknown as {
+      _tracking: Map<
+        unknown,
+        {
+          sprites: Map<
+            number,
+            {
+              x: number;
+              texturePath?: string;
+              destroyed: boolean;
+              parent: unknown;
+            }
+          >;
+        }
+      >;
+    };
+    const spriteA = internals._tracking.get(sceneA)?.sprites.get(entityA.eid);
+    expect(spriteA?.x).toBe(1);
+
+    // Swap the main scene (as `Game.unloadScene()`/`loadScene()` would).
+    pipeline.renderFrame(sceneB);
+
+    // Scene A's tracking (and its sprite) must be gone entirely, not merged
+    // into or overwritten by scene B's same-numbered entity.
+    expect(internals._tracking.has(sceneA)).toBe(false);
+    expect(spriteA?.destroyed).toBe(true);
+
+    const spriteB = internals._tracking.get(sceneB)?.sprites.get(entityB.eid);
+    expect(spriteB?.x).toBe(9);
+
+    // No orphaned scene-A sprite left in the display tree.
+    expect(spriteA?.parent).toBeNull();
   });
 });

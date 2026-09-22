@@ -6,6 +6,8 @@ import {
   type PhysicsBodyHandle,
 } from "../../v2/components/PhysicsBody.js";
 import type { Entity } from "../../v2/Entity.js";
+import { Scene } from "../../v2/Scene.js";
+import { definePrefab } from "../../v2/Prefab.js";
 
 /** No-`!` narrowing helper — `getPhysicsBody` is only `undefined` for a dead/componentless entity, never for the freshly-spawned ones these tests use. */
 function mustGetPhysicsBody(entity: Entity): PhysicsBodyHandle {
@@ -199,5 +201,46 @@ describe("v2 PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
     expect(entity.get(PhysicsBody)?.velocity).toEqual({ x: 5, y: 0 });
 
     await game.unloadScene();
+  });
+
+  it("Bug 1 regression: a pooled entity reusing a destroyed slot does not inherit the old occupant's PhysicsBody callbacks or handle", () => {
+    const scene = new Scene();
+    const Bullet = definePrefab("Bullet", [
+      { def: PhysicsBody, overrides: { type: "dynamic" } },
+    ]);
+
+    const a = scene.spawn(Bullet, undefined, { pool: true });
+    const aRawId = a.rawId;
+
+    let aCallbackFired = false;
+    const aHandle = mustGetPhysicsBody(a);
+    aHandle.onCollisionEnter = () => {
+      aCallbackFired = true;
+    };
+    expect(aHandle.onCollisionEnter).toBeDefined();
+
+    scene.destroy(a);
+
+    // Reuse the same bitECS slot (pooled ids are deliberately not released —
+    // CLAUDE.md's "Prefab pooling keeps a pooled entity bitECS-alive").
+    const b = scene.spawn(Bullet, undefined, { pool: true });
+    expect(b.rawId).toBe(aRawId);
+
+    const bHandle = mustGetPhysicsBody(b);
+    // B must start with no registered callback — not A's stale one.
+    expect(bHandle.onCollisionEnter).toBeUndefined();
+
+    // And B's handle must be a fresh Proxy, not the one still closed over
+    // A's (now-stripped) component data.
+    expect(bHandle).not.toBe(aHandle);
+
+    // Firing A's old callback reference directly must not somehow still be
+    // "live" for B — it was never called by anything, since the side-table
+    // entry was cleared, not merely shadowed.
+    expect(aCallbackFired).toBe(false);
+
+    // B's handle correctly reads/writes B's own component data.
+    bHandle.velocity = { x: 3, y: 0 };
+    expect(b.get(PhysicsBody)?.velocity).toEqual({ x: 3, y: 0 });
   });
 });

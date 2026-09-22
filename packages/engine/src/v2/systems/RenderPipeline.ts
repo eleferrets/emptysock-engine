@@ -9,6 +9,7 @@ import {
   type RenderSystemOptions,
 } from "../../systems/RenderSystem.js";
 import { LayerSystem } from "../../systems/LayerSystem.js";
+import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
@@ -70,14 +71,28 @@ function createTracking(): SceneTracking {
  * and `PhysicsBody`'s per-`World` callback side-table (`v2/components/PhysicsBody.ts`),
  * but the same underlying idea: never index directly by a raw entity id
  * without first scoping by which scene's world it belongs to.
+ *
+ * That per-`Scene` scoping covers the *main* scene too, not just overlays:
+ * `Game.unloadScene()`/`loadScene()` swap in a brand new `Scene` (a new
+ * bitECS `World`, entity ids starting at 0 again), so a single flat
+ * `_mainTracking` object reused across that swap would alias the old
+ * scene's leftover Pixi sprites onto the new scene's same-numbered
+ * entities, and leave the old sprites themselves never destroyed. `_syncMain`
+ * tracks which `Scene` its tracking currently belongs to (`_mainScene`) and,
+ * the moment a *different* `Scene` object is passed in, fully disposes the
+ * previous one's tracking (`_releaseMain`, sharing the exact same per-sprite
+ * teardown `releaseOverlay`/`_pruneOverlays` already use for overlays)
+ * before starting fresh — main-scene tracking and overlay tracking now share
+ * one underlying `Map<Scene, SceneTracking>`.
  */
 export class RenderPipeline implements SceneRenderer {
   private readonly _render: RenderSystem = new RenderSystem();
   private readonly _layers: LayerSystem;
   private readonly _loadTexture: TextureLoader;
 
-  private readonly _mainTracking: SceneTracking = createTracking();
-  private readonly _overlayTracking = new Map<Scene, SceneTracking>();
+  /** Shared by the main scene and every overlay — see the class doc comment above. */
+  private readonly _tracking = new Map<Scene, SceneTracking>();
+  private _mainScene: Scene | null = null;
   private readonly _overlayContainers = new Map<Scene, Container>();
   private readonly _textureCache = new Map<string, Texture>();
   private readonly _sortedLayers = new Set<string>();
@@ -144,15 +159,21 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   private _syncMain(scene: Scene): void {
+    // A different `Scene` object than last call means `Game.loadScene()`
+    // swapped in a fresh scene/world — the previous one's tracked sprites
+    // must be fully torn down now, not merged into or overwritten by the
+    // new scene's same-numbered entities. See the class doc comment.
+    if (this._mainScene !== null && this._mainScene !== scene) {
+      this._releaseMain();
+    }
+    this._mainScene = scene;
+
+    const tracking = getOrCreateMapEntry(this._tracking, scene, createTracking);
     const seen = new Set<number>();
     scene.each(Transform, Sprite, (transform, sprite, entity) => {
       seen.add(entity.eid);
-      this._syncOne(
-        this._mainTracking,
-        entity.eid,
-        transform,
-        sprite,
-        (layer) => this._containerFor(layer),
+      this._syncOne(tracking, entity.eid, transform, sprite, (layer) =>
+        this._containerFor(layer),
       );
       // Main-scene sprites go through the named `LayerSystem` (v1 parity —
       // `layers.getEntityLayer()`/`getEntityDepth()` stay meaningful for
@@ -166,17 +187,27 @@ export class RenderPipeline implements SceneRenderer {
       // named cross-container layers, only draw order within itself.
       this._layers.addEntity(entity.eid, sprite.layer, sprite.depth);
     });
-    for (const id of this._mainTracking.sprites.keys()) {
-      if (!seen.has(id)) this._removeMainSprite(id);
+    for (const id of tracking.sprites.keys()) {
+      if (!seen.has(id)) this._removeMainSprite(tracking, id);
     }
   }
 
-  private _syncOverlay(scene: Scene): void {
-    let tracking = this._overlayTracking.get(scene);
-    if (tracking === undefined) {
-      tracking = createTracking();
-      this._overlayTracking.set(scene, tracking);
+  /** Fully tear down the current main scene's tracking — same per-sprite teardown `releaseOverlay` uses. */
+  private _releaseMain(): void {
+    const scene = this._mainScene;
+    if (scene === null) return;
+    const tracking = this._tracking.get(scene);
+    if (tracking !== undefined) {
+      for (const id of Array.from(tracking.sprites.keys())) {
+        this._removeMainSprite(tracking, id);
+      }
+      this._tracking.delete(scene);
     }
+    this._mainScene = null;
+  }
+
+  private _syncOverlay(scene: Scene): void {
+    const tracking = getOrCreateMapEntry(this._tracking, scene, createTracking);
     const container = this._overlayContainer(scene);
 
     const seen = new Set<number>();
@@ -301,8 +332,8 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   /** Same as `_removeSprite`, plus the `LayerSystem` bookkeeping only the main scene uses. */
-  private _removeMainSprite(eid: number): void {
-    this._removeSprite(this._mainTracking, eid);
+  private _removeMainSprite(tracking: SceneTracking, eid: number): void {
+    this._removeSprite(tracking, eid);
     this._layers.removeEntity(eid);
   }
 
@@ -324,12 +355,12 @@ export class RenderPipeline implements SceneRenderer {
 
   /** Explicitly release an overlay's tracking/container — safe to call even if `renderFrame` would have pruned it anyway. */
   releaseOverlay(scene: Scene): void {
-    const tracking = this._overlayTracking.get(scene);
+    const tracking = this._tracking.get(scene);
     if (tracking !== undefined) {
       for (const id of Array.from(tracking.sprites.keys())) {
         this._removeSprite(tracking, id);
       }
-      this._overlayTracking.delete(scene);
+      this._tracking.delete(scene);
     }
     const container = this._overlayContainers.get(scene);
     if (container !== undefined) {
@@ -340,9 +371,7 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   destroy(): void {
-    for (const id of Array.from(this._mainTracking.sprites.keys())) {
-      this._removeMainSprite(id);
-    }
+    this._releaseMain();
     for (const scene of Array.from(this._overlayContainers.keys())) {
       this.releaseOverlay(scene);
     }

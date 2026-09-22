@@ -7,6 +7,10 @@ import {
   getPhysicsCallbacks,
   type ContactInfo,
 } from "../components/PhysicsBody.js";
+import {
+  FixedTimestepAccumulator,
+  lerpSnapshot,
+} from "./FixedTimestepAccumulator.js";
 
 type RapierModule = typeof RAPIER_TYPE;
 type World = InstanceType<RapierModule["World"]>;
@@ -95,9 +99,7 @@ export class PhysicsSystem {
   private _RAPIER: RapierModule | null = null;
   private _world: World | null = null;
   private _eventQueue: EventQueue | null = null;
-  private _fixedTimestep = 1 / 60;
-  private _accumulator = 0;
-  private _alpha = 0;
+  private readonly _timestep = new FixedTimestepAccumulator();
 
   private readonly _records = new Map<number, BodyRecord>();
   private readonly _colliderToEid = new Map<number, number>();
@@ -119,7 +121,7 @@ export class PhysicsSystem {
     const RAPIER = (await import(moduleName)) as unknown as RapierModule;
     await RAPIER.init();
     this._RAPIER = RAPIER;
-    this._fixedTimestep = options.fixedTimestep ?? 1 / 60;
+    this._timestep.fixedTimestep = options.fixedTimestep ?? 1 / 60;
     const gravity = options.gravity ?? { x: 0, y: -9.81 };
     this._world = new RAPIER.World(gravity);
     this._eventQueue = new RAPIER.EventQueue(true);
@@ -132,20 +134,26 @@ export class PhysicsSystem {
 
   /** How far (0..1) the current render frame sits between the last two physics steps. */
   get interpolationAlpha(): number {
-    return this._alpha;
+    return this._timestep.alpha;
   }
 
   /** Linearly interpolated transform for a registered body, for rendering. */
-  getInterpolatedTransform(entity: Entity, alpha = this._alpha): Snapshot {
-    const record = this._records.get(entity.eid);
-    if (record === undefined) return { x: 0, y: 0, rotation: 0 };
-    const { previous, current } = record;
-    return {
-      x: previous.x + (current.x - previous.x) * alpha,
-      y: previous.y + (current.y - previous.y) * alpha,
-      rotation:
-        previous.rotation + (current.rotation - previous.rotation) * alpha,
-    };
+  getInterpolatedTransform(
+    entity: Entity,
+    alpha = this._timestep.alpha,
+  ): Snapshot {
+    return lerpSnapshot(
+      (eid) => this._records.get(eid),
+      entity.eid,
+      alpha,
+      () => ({ x: 0, y: 0, rotation: 0 }),
+      (previous, current, a) => ({
+        x: previous.x + (current.x - previous.x) * a,
+        y: previous.y + (current.y - previous.y) * a,
+        rotation:
+          previous.rotation + (current.rotation - previous.rotation) * a,
+      }),
+    );
   }
 
   /**
@@ -160,12 +168,7 @@ export class PhysicsSystem {
     this._registerNewBodies(scene);
     this._unregisterDeadBodies();
 
-    this._accumulator += dt;
-    while (this._accumulator >= this._fixedTimestep) {
-      this._step(this._fixedTimestep);
-      this._accumulator -= this._fixedTimestep;
-    }
-    this._alpha = this._accumulator / this._fixedTimestep;
+    this._timestep.advance(dt, (fixedDt) => this._step(fixedDt));
   }
 
   private _registerNewBodies(scene: Scene): void {
@@ -421,7 +424,6 @@ export class PhysicsSystem {
     this._records.clear();
     this._colliderToEid.clear();
     this._activeSensorPairs.clear();
-    this._accumulator = 0;
-    this._alpha = 0;
+    this._timestep.reset();
   }
 }

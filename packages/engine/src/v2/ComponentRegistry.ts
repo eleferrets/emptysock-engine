@@ -1,6 +1,8 @@
 import { query, registerComponent as bitecsRegisterComponent } from "bitecs";
 import type { World } from "bitecs";
 import type { ComponentDef } from "./Component.js";
+import { setField } from "./internal/fields.js";
+import { getOrCreate } from "./internal/scoped.js";
 import type { SerializableRecord } from "./Serializable.js";
 
 /**
@@ -73,11 +75,7 @@ class ComponentRegistry {
     world: World,
     def: ComponentDef<T>,
   ): Record<string, unknown[]> {
-    let byName = this._byWorld.get(world);
-    if (byName === undefined) {
-      byName = new Map();
-      this._byWorld.set(world, byName);
-    }
+    const byName = getOrCreate(this._byWorld, world, () => new Map());
 
     let entry = byName.get(def.componentName);
 
@@ -139,8 +137,7 @@ class ComponentRegistry {
         const defaultValues = newDefaults as Record<string, unknown>;
         for (const eid of affected) {
           for (const field of newFields) {
-            const arr = entry.store[field];
-            if (arr !== undefined) arr[eid] = defaultValues[field];
+            setField(entry.store, field, eid, defaultValues[field]);
           }
         }
       }

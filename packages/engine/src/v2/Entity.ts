@@ -9,6 +9,7 @@ import {
 import type { World } from "bitecs";
 import type { ComponentDef } from "./Component.js";
 import { componentRegistry } from "./ComponentRegistry.js";
+import { setField, setFields } from "./internal/fields.js";
 import type { SerializableRecord } from "./Serializable.js";
 
 /**
@@ -30,12 +31,7 @@ function createComponentProxy<T extends SerializableRecord>(
     },
     set(_target, prop: string | symbol, value: unknown) {
       if (typeof prop !== "string") return false;
-      let field = store[prop];
-      if (field === undefined) {
-        field = [];
-        store[prop] = field;
-      }
-      field[index] = value;
+      setField(store, prop, index, value);
       return true;
     },
     has(_target, prop: string | symbol) {
@@ -126,23 +122,9 @@ export class Entity {
     }
     bitecsAddComponent(this.world, this.eid, store);
     const defaults = def.createDefaults();
-    for (const [field, value] of Object.entries(defaults)) {
-      let arr = store[field];
-      if (arr === undefined) {
-        arr = [];
-        store[field] = arr;
-      }
-      arr[this.eid] = value;
-    }
+    setFields(store, this.eid, defaults);
     if (overrides !== undefined) {
-      for (const [field, value] of Object.entries(overrides)) {
-        let arr = store[field];
-        if (arr === undefined) {
-          arr = [];
-          store[field] = arr;
-        }
-        arr[this.eid] = value;
-      }
+      setFields(store, this.eid, overrides);
     }
     return this.get(def) as T;
   }

@@ -444,6 +444,56 @@ defs per world) rather than growing this file's import list indefinitely.
 
 Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
+### v2 shared internal helpers — `v2/internal/scoped.ts` and `v2/internal/fields.ts`
+
+Two tiny cross-cutting helpers live in `packages/engine/src/v2/internal/`
+specifically so a recurring pattern doesn't get hand-rolled a fifth time.
+Check here before writing a new per-world/per-scene side-table or a new
+"write this field into this component's store" loop.
+
+`scoped.ts` exports `getOrCreate(weakMap, key, create)` and
+`getOrCreateMapEntry(map, key, create)` — the "look up by key, or create and
+store a fresh value" check that `ComponentRegistry.ts`'s per-`World`
+registry, `components/PhysicsBody.ts`'s per-`World` callback/handle
+side-table, and `systems/RenderPipeline.ts`'s per-`Scene` sprite tracking
+and overlay containers all need. A future side-table scoped by `World` or
+`Scene` (or any other object key) should use one of these instead of
+re-writing the same four-line null check.
+
+`fields.ts` exports `setField(store, field, index, value)` and
+`setFields(store, index, values)` — "write field F at index I into a
+component's parallel-array store, growing the array if this is the first
+write to that field." `Entity.add()`'s defaults/overrides loops,
+`createComponentProxy`'s setter trap (also in `Entity.ts`), and
+`ComponentRegistry.ensure()`'s shape-change reset path all route through
+this now. Any new code that writes directly into a `Record<string,
+unknown[]>` component store (rather than going through `entity.get()`/
+`entity.add()`) should use `setField`/`setFields`, not reimplement the
+grow-on-first-write check inline.
+
+`components/PhysicsBody.ts`'s callback side-table and cached handle Proxy
+were also merged from two parallel `WeakMap<World, Map<eid, X>>`s into one
+`WeakMap<World, Map<eid, { callbacks, handle }>>`, with a new
+`clearPhysicsBody(world, eid)` export. `Scene.destroy()` calls it for every
+destroyed entity (pooled-reset and real-destroy paths both) — this is what
+stops a prefab-pooled entity's reused bitECS id from inheriting the
+previous occupant's stale collision callbacks and handle Proxy, since
+pooled ids are deliberately never released back to bitECS's own recycling
+(see "Prefab pooling keeps a pooled entity bitECS-alive" above). Any future
+per-entity side-table on a component needs the same treatment: give it an
+explicit `clear(world, eid)` and call it from `Scene.destroy()`, not just
+`WeakMap`'s eventual GC once the whole `World` is dropped — that GC never
+happens for a pooled entity's slot, since the `World` stays alive for the
+whole scene.
+
+`systems/RenderPipeline.ts`'s main-scene sprite tracking is likewise now
+scoped per-`Scene` in the exact same `Map<Scene, SceneTracking>` overlay
+tracking already used (previously it was one flat, un-scoped object reused
+across every `Game.loadScene()` swap) — `_syncMain` tracks which `Scene` it
+currently belongs to and fully disposes the previous one's sprites the
+moment a different `Scene` is passed in, reusing `releaseOverlay`'s
+per-sprite teardown rather than a second copy of it.
+
 ### VNSystem defaults to the engine's global `variableStore` singleton
 
 `packages/vn/src/VNSystem.ts`'s constructor is `constructor(store: VariableStore = variableStore)`, importing the concrete module-level `variableStore` singleton from `@emptysock/engine` (not just the `VariableStore` type) as its default parameter. This is different in kind from the rest of the VN/battle/tilemap extraction's clean structural-interface boundaries (`Transport`, `StorageAdapter`, `TileLayerSource`, …), where the engine or the module package only ever depends on an interface. A game using `@emptysock/vn` for dialogue AND using engine-level switches/variables directly elsewhere gets implicit, undocumented sharing: a VN choice gated on switch 12 can be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the game, and vice versa. The constructor parameter is kept (so explicit injection — an isolated store per save slot, or a test double — still works, and this default is a documented behaviour, not a bug to fix) rather than removed, since removing it would be a breaking change for any existing caller relying on the implicit shared store. See the doc comment directly on `VNSystem`'s constructor for the same explanation at the point of use.

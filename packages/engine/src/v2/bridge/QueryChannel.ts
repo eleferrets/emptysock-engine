@@ -270,6 +270,26 @@ export class QueryChannel {
     }
   }
 
+  /**
+   * Builds a throwaway `Entity` handle (and, via `.get()`, throwaway
+   * component proxies) for exactly one query call. This is *intentionally*
+   * scratch state, never shared with the live game's own proxy cache: each
+   * call passes its own fresh `Map()` as the proxy cache instead of reusing
+   * `Scene`'s (the one `scene.spawn()`/`entity.get()` actually populate), so
+   * a proxy this method hands back is never the *same* proxy object game
+   * code elsewhere holds a reference to, even for the same `(world, eid,
+   * component)` triple. That's fine today — every caller of `handle()`
+   * (the query bridge, `emptysock-mcp`) only ever reads plain data out of
+   * the result and never hands a query result's component object back into
+   * game code — but it is a real invariant, not an accident: if a future
+   * change ever needed proxy identity to round-trip (e.g. handing a
+   * `getComponent` query's result to something that later mutates it and
+   * expects the write to land), this per-call cache would silently break
+   * that, since a write through it never touches the live game's own
+   * cached proxy. Do not "fix" this by reaching into `Scene`'s private
+   * proxy cache — keep this scratch and document the constraint here
+   * instead.
+   */
   private _entityHandle(entityId: number): Entity | null {
     const live = this._live;
     if (live === null) return null;

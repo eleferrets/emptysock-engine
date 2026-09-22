@@ -97,6 +97,11 @@ export interface PhysicsSystem3DOptions {
 }
 
 import type * as _Rapier3DModule from "@dimforge/rapier3d-compat";
+import {
+  FixedTimestepAccumulator,
+  lerpSnapshot,
+} from "./FixedTimestepAccumulator.js";
+
 type Rapier3D = typeof _Rapier3DModule;
 type RapierEventQueue = InstanceType<Rapier3D["EventQueue"]>;
 
@@ -117,9 +122,7 @@ export class PhysicsSystem3D {
   private readonly _onEnterCallbacks: CollisionCallback[] = [];
   private readonly _onExitCallbacks: CollisionCallback[] = [];
 
-  private _fixedTimestep = 1 / 60;
-  private _accumulator = 0;
-  private _alpha = 0;
+  private readonly _timestep = new FixedTimestepAccumulator();
   private readonly _snapshots = new Map<
     number,
     { previous: Snapshot3D; current: Snapshot3D }
@@ -135,7 +138,7 @@ export class PhysicsSystem3D {
     const R = (await import(moduleName)) as unknown as Rapier3D;
     await R.init();
     this._rapier = R;
-    this._fixedTimestep = options.fixedTimestep ?? 1 / 60;
+    this._timestep.fixedTimestep = options.fixedTimestep ?? 1 / 60;
     const gravity = options.gravity ?? { x: 0, y: -9.81, z: 0 };
     this._world = new R.World(gravity);
     this._eventQueue = new R.EventQueue(true);
@@ -151,37 +154,41 @@ export class PhysicsSystem3D {
 
   /** How far (0..1) the current render frame sits between the last two physics steps. */
   get interpolationAlpha(): number {
-    return this._alpha;
+    return this._timestep.alpha;
   }
 
   /** Linearly interpolated transform for a body, for rendering. */
-  getInterpolatedTransform(bodyIndex: number, alpha = this._alpha): Snapshot3D {
-    const snap = this._snapshots.get(bodyIndex);
-    if (snap === undefined) {
-      return {
+  getInterpolatedTransform(
+    bodyIndex: number,
+    alpha = this._timestep.alpha,
+  ): Snapshot3D {
+    return lerpSnapshot(
+      (index) => this._snapshots.get(index),
+      bodyIndex,
+      alpha,
+      () => ({
         position: { x: 0, y: 0, z: 0 },
         rotation: { x: 0, y: 0, z: 0, w: 1 },
-      };
-    }
-    const { previous, current } = snap;
-    return {
-      position: {
-        x:
-          previous.position.x +
-          (current.position.x - previous.position.x) * alpha,
-        y:
-          previous.position.y +
-          (current.position.y - previous.position.y) * alpha,
-        z:
-          previous.position.z +
-          (current.position.z - previous.position.z) * alpha,
-      },
-      // Rotation interpolation is left linear-per-component (not slerp) —
-      // good enough for the alpha window between two fixed steps, which is
-      // never more than one step's worth of rotation; a renderer wanting a
-      // true slerp can do it itself from `previous`/`current` quats.
-      rotation: current.rotation,
-    };
+      }),
+      (previous, current, a) => ({
+        position: {
+          x:
+            previous.position.x +
+            (current.position.x - previous.position.x) * a,
+          y:
+            previous.position.y +
+            (current.position.y - previous.position.y) * a,
+          z:
+            previous.position.z +
+            (current.position.z - previous.position.z) * a,
+        },
+        // Rotation interpolation is left linear-per-component (not slerp) —
+        // good enough for the alpha window between two fixed steps, which is
+        // never more than one step's worth of rotation; a renderer wanting a
+        // true slerp can do it itself from `previous`/`current` quats.
+        rotation: current.rotation,
+      }),
+    );
   }
 
   addBody(options: PhysicsBody3DOptions = {}): Physics3DHandle {
@@ -375,12 +382,7 @@ export class PhysicsSystem3D {
    */
   update(dt: number): void {
     if (this._world === null || this._rapier === null) return;
-    this._accumulator += dt;
-    while (this._accumulator >= this._fixedTimestep) {
-      this._step(this._fixedTimestep);
-      this._accumulator -= this._fixedTimestep;
-    }
-    this._alpha = this._accumulator / this._fixedTimestep;
+    this._timestep.advance(dt, (fixedDt) => this._step(fixedDt));
   }
 
   private _step(fixedDt: number): void {
@@ -440,8 +442,7 @@ export class PhysicsSystem3D {
     this._handleToIndex.clear();
     this._colliderHandleToIndex.clear();
     this._snapshots.clear();
-    this._accumulator = 0;
-    this._alpha = 0;
+    this._timestep.reset();
   }
 
   [Symbol.dispose](): void {

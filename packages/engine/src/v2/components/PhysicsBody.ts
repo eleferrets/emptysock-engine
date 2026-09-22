@@ -1,6 +1,7 @@
 import type { World } from "bitecs";
 import { defineComponent } from "../Component.js";
 import type { Entity } from "../Entity.js";
+import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 
 export type PhysicsBodyType = "dynamic" | "static" | "kinematic";
 export type PhysicsBodyShape = "box" | "circle" | "capsule";
@@ -84,6 +85,19 @@ export const PhysicsBody = defineComponent(
  * registration" (§4) exactly like every other property on the component —
  * the split is invisible outside this file and `PhysicsSystem`, which reads
  * the side-table directly via `getPhysicsCallbacks` to dispatch events.
+ *
+ * The callbacks and the cached handle Proxy live in *one* merged
+ * `WeakMap<World, Map<eid, { callbacks, handle }>>` (not two parallel
+ * side-tables) — and critically, `clearPhysicsBody(world, eid)` lets
+ * whoever actually strips an entity's components (`Scene.destroy()`) clear
+ * both halves for that `(world, eid)` pair in one call. This matters for
+ * prefab pooling (`{ pool: true }`): a pooled entity's bitECS id is
+ * deliberately *not* released back to bitECS's own recycling on destroy
+ * (CLAUDE.md's "Prefab pooling keeps a pooled entity bitECS-alive"), so
+ * without an explicit clear, a later `spawn()` reusing that same eid would
+ * have `getPhysicsBody()` hand back the *previous* occupant's stale
+ * callbacks and a handle Proxy still closed over the old entity's data —
+ * neither side-table was ever pruned before this fix.
  */
 interface PhysicsCallbacks {
   onCollisionEnter?: CollisionCallback;
@@ -101,31 +115,43 @@ const CALLBACK_KEYS = new Set<string>([
   "onSensorStay",
 ]);
 
-const callbacksByWorld = new WeakMap<World, Map<number, PhysicsCallbacks>>();
+/** Data shape plus the five assignable callback properties. */
+export type PhysicsBodyHandle = ReturnType<typeof PhysicsBody.createDefaults> &
+  PhysicsCallbacks;
+
+interface PhysicsBodySideTable {
+  callbacks: PhysicsCallbacks;
+  handle?: PhysicsBodyHandle;
+}
+
+const sideTableByWorld = new WeakMap<
+  World,
+  Map<number, PhysicsBodySideTable>
+>();
+
+function ensureSideTable(world: World, eid: number): PhysicsBodySideTable {
+  const byEntity = getOrCreate(sideTableByWorld, world, () => new Map());
+  return getOrCreateMapEntry(byEntity, eid, () => ({ callbacks: {} }));
+}
 
 /** @internal — read by `PhysicsSystem` to dispatch a stored callback. */
 export function getPhysicsCallbacks(
   world: World,
   eid: number,
 ): PhysicsCallbacks {
-  let byEntity = callbacksByWorld.get(world);
-  if (byEntity === undefined) {
-    byEntity = new Map();
-    callbacksByWorld.set(world, byEntity);
-  }
-  let callbacks = byEntity.get(eid);
-  if (callbacks === undefined) {
-    callbacks = {};
-    byEntity.set(eid, callbacks);
-  }
-  return callbacks;
+  return ensureSideTable(world, eid).callbacks;
 }
 
-/** Data shape plus the five assignable callback properties. */
-export type PhysicsBodyHandle = ReturnType<typeof PhysicsBody.createDefaults> &
-  PhysicsCallbacks;
-
-const handleCache = new WeakMap<World, Map<number, PhysicsBodyHandle>>();
+/**
+ * Clear this `(world, eid)` pair's callbacks and cached handle Proxy. Called
+ * from `Scene.destroy()` for both the pooled-reset and real-destroy paths —
+ * see the module doc comment above for why a pooled entity's slot needs this
+ * before it can be safely handed to a new occupant. A no-op if nothing was
+ * ever registered for this pair.
+ */
+export function clearPhysicsBody(world: World, eid: number): void {
+  sideTableByWorld.get(world)?.delete(eid);
+}
 
 /**
  * The one intended way to read/write a `PhysicsBody`, including its
@@ -139,15 +165,10 @@ export function getPhysicsBody(entity: Entity): PhysicsBodyHandle | undefined {
   const data = entity.get(PhysicsBody);
   if (data === undefined) return undefined;
 
-  let byEntity = handleCache.get(entity.world);
-  if (byEntity === undefined) {
-    byEntity = new Map();
-    handleCache.set(entity.world, byEntity);
-  }
-  let handle = byEntity.get(entity.eid);
-  if (handle !== undefined) return handle;
+  const entry = ensureSideTable(entity.world, entity.eid);
+  if (entry.handle !== undefined) return entry.handle;
 
-  handle = new Proxy({} as PhysicsBodyHandle, {
+  const handle = new Proxy({} as PhysicsBodyHandle, {
     get(_target, prop) {
       if (typeof prop !== "string") return undefined;
       if (CALLBACK_KEYS.has(prop)) {
@@ -179,6 +200,6 @@ export function getPhysicsBody(entity: Entity): PhysicsBodyHandle | undefined {
       );
     },
   });
-  byEntity.set(entity.eid, handle);
+  entry.handle = handle;
   return handle;
 }

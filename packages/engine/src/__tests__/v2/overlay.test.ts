@@ -162,6 +162,35 @@ describe("v2 Game overlay scenes (ENGINE_DESIGN.md §12.3)", () => {
     await game.unloadScene();
   });
 
+  it("Finding 7: an overlay loaded with options.physics has its physics actually stepped by update()", async () => {
+    const { PhysicsBody } = await import("../../v2/components/PhysicsBody.js");
+    const game = new Game();
+    await game.loadScene(defineScene({}), NOOP_PHYSICS);
+    const overlay = await game.loadOverlay(defineScene({}), {
+      physics: { gravity: { x: 0, y: -50 } },
+    });
+
+    // The overlay's PhysicsSystem is now genuinely initialized...
+    expect(() => overlay.physics.world).not.toThrow();
+
+    const entity = overlay.scene.spawn();
+    entity.add(PhysicsBody, {
+      type: "dynamic",
+      shape: "circle",
+      radius: 0.5,
+      position: { x: 0, y: 10 },
+    });
+
+    // ...and update() steps it every frame without the caller manually
+    // driving `overlay.physics.update(...)` themselves.
+    for (let i = 0; i < 30; i++) game.update(1 / 60);
+
+    expect(entity.get(PhysicsBody)?.position.y).toBeLessThan(10);
+
+    await game.unloadScene();
+    await game.unloadOverlay();
+  });
+
   it("spawn/each/component access work identically on an overlay's own scene", async () => {
     const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
     const game = new Game();
