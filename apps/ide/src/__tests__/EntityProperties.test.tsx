@@ -198,3 +198,62 @@ describe("EntityProperties — schema-driven Inspector controls", () => {
     expect(undoButton.disabled).toBe(false);
   });
 });
+
+describe("EntityProperties — merged component inspector metadata", () => {
+  it("resolves both schema-driven controls and a non-default color for a known v2 component from one metadata source", () => {
+    makeEntity([
+      {
+        type: "PhysicsBody",
+        properties: {
+          type: "dynamic",
+          shape: "box",
+          width: "32",
+          height: "32",
+          radius: "16",
+          density: "1",
+          friction: "0.5",
+          restitution: "0.2",
+          isSensor: "false",
+          rotation: "0",
+        },
+      },
+    ]);
+
+    act(() => {
+      root.render(<EntityProperties />);
+    });
+
+    // Schema half: PhysicsBody has enum fields, so real <select> controls render.
+    expect(container.querySelectorAll("select").length).toBeGreaterThan(0);
+
+    // Color half: the section's dot should not fall back to the muted
+    // default color, confirming the color came from the same metadata
+    // entry as the schema rather than a missing second map.
+    const dot = container.querySelector(
+      'div[style*="border-radius: 50%"]',
+    ) as HTMLDivElement | null;
+    expect(dot).not.toBeNull();
+    expect(dot?.style.background).not.toBe("var(--es-text-muted)");
+  });
+
+  it("falls back to the raw editor and the default muted color for a component with no metadata entry at all", () => {
+    makeEntity([
+      {
+        type: "TotallyUnknownComponent",
+        properties: { foo: "bar" },
+      },
+    ]);
+
+    act(() => {
+      root.render(<EntityProperties />);
+    });
+
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector("select")).toBeNull();
+    const dot = container.querySelector(
+      'div[style*="border-radius: 50%"]',
+    ) as HTMLDivElement | null;
+    expect(dot).not.toBeNull();
+    expect(dot?.style.background).toBe("var(--es-text-muted)");
+  });
+});

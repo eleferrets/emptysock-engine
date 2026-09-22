@@ -25,7 +25,7 @@ The docs follow a Unity/Unreal-style layout — four sections that match differe
 
 ## Repo layout
 
-Top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), `packages/vn` (@emptysock/vn, VNSystem/Story Graph — §13.1), `packages/battle` (@emptysock/battle, BattleSystem — §13.1), `packages/tilemap` (@emptysock/tilemap, TilemapSystem/NavMeshSystem — §13.1; each an optional module package, a `workspace:*` dependant of @emptysock/engine, never the other way around), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. All editor state lives in `apps/ide/src/store/ideStore.ts` (Zustand). Build logic lives in `apps/ide/src/services/`.
+Top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), `packages/vn` (@emptysock/vn, VNSystem/Story Graph — §13.1), `packages/battle` (@emptysock/battle, BattleSystem — §13.1), `packages/tilemap` (@emptysock/tilemap, TilemapSystem/NavMeshSystem — §13.1; each an optional module package, a `workspace:*` dependant of @emptysock/engine, never the other way around), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. Editor state lives in one store _tree_ rooted at `apps/ide/src/store/ideStore.ts` (Zustand) plus named sibling stores for specific domains (DB, sequence, localisation, variable, audio, VN, VS, CG state, …) composed alongside it — not literally all inside that one file. Build logic lives in `apps/ide/src/services/`.
 
 ---
 
@@ -157,6 +157,12 @@ load.
 `packages/network` (`@emptysock/network`) marks which component fields are replicated with `networked(componentDef, ["field", ...])`, called next to `defineComponent`, not a `defineNetworkedComponent` wrapper — this composes with `ComponentRegistry`'s existing name-keyed identity instead of parallelling it. The mark is stored in a module-level `Map<componentName, Set<fieldName>>` keyed on the same `componentName` string `ComponentRegistry` uses, not on the `ComponentDef` object's identity, because client and server are two separately-loaded copies of the game's component definitions (and a hot-reloaded module produces a new `ComponentDef` reference for "the same" component per §23.1 anyway) — object identity was never going to survive either trip.
 
 Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the v2 `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
+
+`NetworkSystem` reconciles stale entity mappings by polling `.isAlive`, not by a push notification from the engine. `Scene.destroy(entity)` called directly by local gameplay code (as opposed to the Colyseus `onRemove` path `_bindCollection` already handles) has no way to tell `NetworkEntityMap` that the mapping it holds just went stale — `@emptysock/network` must never import bitECS internals, and `@emptysock/engine`'s core `Scene`/`Entity` must never grow a required hook just to serve this optional add-on package (the same boundary as "engine never imports network"). Instead, `NetworkSystem.reconcile()` (called automatically at the top of `sync()`, so it runs at the same cadence networking already polls at) walks every currently-tracked `Entity` and calls `deleteByEntity` for any whose already-public `.isAlive` reads `false`. Without this, a locally-destroyed entity's `rawId` can be recycled by bitECS onto an unrelated `spawn()` elsewhere in the same scene, and the stale map entry would silently alias the wrong entity on the next `sync()`/inbound `listen()` callback. If a lower-latency reconciliation cadence than `sync()`'s is ever needed, call `reconcile()` directly — it's a public method for exactly that.
+
+### Per-component metadata: on `ComponentDef` if the engine needs it, in the add-on package's own side-map if only that package needs it
+
+Two legitimate patterns exist for attaching metadata to a component, and this is the precedent for choosing between them for a future third kind. `SaveSystem`'s `version: number` lives directly ON `ComponentDef` (`defineComponent(name, defaults, { version })`) because `@emptysock/engine` itself needs it to function — `SaveSystem` is core engine code, and versioning save data is meaningless without knowing which def is "current". `@emptysock/network`'s `networked(componentDef, fields)` instead marks fields in an external side-map (`packages/network/src/NetworkedFields.ts`, a module-level `Map<componentName, Set<fieldName>>`) because only an _optional add-on package_ needs it — `@emptysock/engine` has no concept of "networked" and must not, per the engine/network boundary ("`@emptysock/network` never imported by `@emptysock/engine` itself"). Both key on the same `componentName` string `ComponentRegistry` uses (not `ComponentDef` object identity, which doesn't survive a hot-reloaded module producing a new reference for "the same" component). The rule for the next kind of per-component metadata: if `@emptysock/engine` itself consumes it to do its job, add it as a field on `ComponentDef`; if only an optional package consumes it, keep it in that package's own name-keyed side-map. Do not unify these two mechanisms — they have genuinely different lifecycles and consumers, and forcing them together would violate the engine/network boundary either way.
 
 ### Component shape-change detection diffs declared defaults, not live entity data, and resets are world-scoped
 
@@ -390,28 +396,39 @@ in behaviour.
 
 ### Inspector schema lookup is keyed by componentName string, mirroring the field mismatch it has to tolerate
 
-`defineComponent`'s optional `schema` (ENGINE_DESIGN.md §10.1) is a plain
+`defineComponent`'s optional `schema` (ENGINE*DESIGN.md §10.1) is a plain
 object attached to the returned `ComponentDef`, keyed by field name — no
 decorators, no separate registry. `apps/ide`'s `EntityProperties.tsx` reads
-it via a small `componentName -> ComponentSchema` lookup map built once from
-the v2 component modules it imports (`Transform`, `Sprite`, `PhysicsBody`),
-not by importing every v2 component module the IDE might ever encounter.
-This matters because the Inspector's `component.type` string (editor state,
-sourced from the live engine bridge or the editor's own entity list) is not
+it via a small `componentName -> ComponentInspectorMeta` lookup map
+(`V2_COMPONENT_METADATA`) built once from the v2 component modules it
+imports (`Transform`, `Sprite`, `PhysicsBody`), not by importing every v2
+component module the IDE might ever encounter. That one map covers both
+each component's `.schema` *and* its inspector dot color — these used to be
+two separate hand-maintained `Record`s (`V2_COMPONENT_SCHEMAS` plus a
+`componentColor` map), which meant every new schema-bearing component
+needed this file edited in two places with no compile error if either was
+forgotten; they're now one map with one entry per component, so there's
+only one place to update. (The schema and color were not folded into
+`ComponentDef` itself in `packages/engine/src/v2/Component.ts` — that
+would be the architecturally cleaner home for the color too, but is a
+larger change than this fix warranted; a future pass can move it there
+without changing how `EntityProperties.tsx` reads either.) This matters
+because the Inspector's `component.type` string (editor state, sourced
+from the live engine bridge or the editor's own entity list) is not
 guaranteed to line up 1:1 with a schema entry: a v1-only component
 (`CharacterController`, `Animator`, …) has no v2 `ComponentDef` at all yet,
 and even a schema'd v2 component may have fields the schema doesn't cover
 (`PhysicsBody`'s `position`/`velocity`/handle fields are deliberately
 unlisted). Both cases — component not in the map, or field not in that
 component's schema object — must resolve to the same fallback: the
-pre-existing raw per-field text editor, not an error or a blank control.
-`ComponentSection` checks `schema?.[key]` per field, so a schema doesn't
-need to be all-or-nothing for a component to render correctly. If a future
-pass wants the Inspector to reflect _every_ registered v2 component's
-schema instead of a hardcoded few, don't hand-import each one here — that's
-the moment to add a `componentRegistry`-driven lookup (`v2/ComponentRegistry.ts`
-already tracks defs per world) rather than growing this file's import list
-indefinitely.
+pre-existing raw per-field text editor and the default muted dot color,
+not an error or a blank control. `ComponentSection` checks `schema?.[key]`
+per field, so a schema doesn't need to be all-or-nothing for a component to
+render correctly. If a future pass wants the Inspector to reflect \_every*
+registered v2 component's schema instead of a hardcoded few, don't
+hand-import each one here — that's the moment to add a
+`componentRegistry`-driven lookup (`v2/ComponentRegistry.ts` already tracks
+defs per world) rather than growing this file's import list indefinitely.
 
 ### MCP server has no 3D physics tool
 

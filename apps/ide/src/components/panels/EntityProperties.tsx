@@ -17,21 +17,49 @@ import { engineChannel } from "../../services/EngineChannel";
 /**
  * ENGINE_DESIGN.md §10.1: "co-located optional schema, not decorators" —
  * `defineComponent`'s optional `.schema` describes each field's inspector
- * control. This maps a v2 component's `componentName` (the same string key
+ * control. `ComponentDef` itself has no inspector-color field (that would
+ * touch `packages/engine/src/v2/Component.ts`, which is out of scope for
+ * this pass), so schema and color are kept as ONE co-located metadata map
+ * here instead of two separate hand-maintained `Record`s — every
+ * schema-bearing v2 component gets a single `V2_COMPONENT_METADATA` entry
+ * covering both, rather than needing this file edited in two places. This
+ * maps a v2 component's `componentName` (the same string key
  * `component.type` already uses in editor state — see CLAUDE.md's
- * "Component types as identity keys") to that schema so
+ * "Component types as identity keys") to its schema+color so
  * `ComponentSection` can look one up by name without importing every v2
  * component module individually. A component with no entry here (or no
- * `.schema` on its def) falls back to the raw per-field editor below —
- * that's the intended, non-error path for schema-less components.
+ * `.schema` on its def) falls back to the raw per-field editor and the
+ * default muted color below — that's the intended, non-error path for
+ * schema-less components.
  */
-const V2_COMPONENT_SCHEMAS: Readonly<
-  Record<string, ComponentSchema<SerializableRecord> | undefined>
-> = {
-  [V2Transform.componentName]: V2Transform.schema,
-  [V2Sprite.componentName]: V2Sprite.schema,
-  [V2PhysicsBody.componentName]: V2PhysicsBody.schema,
-};
+interface ComponentInspectorMeta {
+  readonly schema?: ComponentSchema<SerializableRecord>;
+  readonly color: string;
+}
+
+const V2_COMPONENT_METADATA: Readonly<Record<string, ComponentInspectorMeta>> =
+  {
+    [V2Transform.componentName]: {
+      ...(V2Transform.schema !== undefined
+        ? { schema: V2Transform.schema }
+        : {}),
+      color: "var(--es-blue)",
+    },
+    [V2Sprite.componentName]: {
+      ...(V2Sprite.schema !== undefined ? { schema: V2Sprite.schema } : {}),
+      color: "var(--es-green)",
+    },
+    [V2PhysicsBody.componentName]: {
+      ...(V2PhysicsBody.schema !== undefined
+        ? { schema: V2PhysicsBody.schema }
+        : {}),
+      color: "var(--es-yellow)",
+    },
+    // v1-only components with no v2 schema yet still get an inspector color.
+    CharacterController: { color: "var(--es-accent)" },
+    Animator: { color: "var(--es-red)" },
+    CameraSystem: { color: "var(--es-blue)" },
+  };
 
 function SchemaFieldControl({
   fieldKey,
@@ -151,19 +179,11 @@ function ComponentSection({
   onRemove: (entityId: string, type: string) => void;
   onPatch?: (fieldKey: string, newValue: unknown) => void;
 }): React.ReactElement {
-  const schema = V2_COMPONENT_SCHEMAS[component.type];
+  const meta = V2_COMPONENT_METADATA[component.type];
+  const schema = meta?.schema;
   const [open, setOpen] = React.useState(true);
 
-  const componentColor: Record<string, string> = {
-    Transform: "var(--es-blue)",
-    Sprite: "var(--es-green)",
-    PhysicsBody: "var(--es-yellow)",
-    CharacterController: "var(--es-accent)",
-    Animator: "var(--es-red)",
-    CameraSystem: "var(--es-blue)",
-  };
-
-  const color = componentColor[component.type] ?? "var(--es-text-muted)";
+  const color = meta?.color ?? "var(--es-text-muted)";
 
   return (
     <div

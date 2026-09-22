@@ -371,6 +371,63 @@ docs:generate` runs it. Verified: it runs clean (no errors) against
 
 ---
 
+## Code quality pass (apps/ide/src review findings)
+
+- [x] Inspector component metadata (Finding 1): merged `EntityProperties.tsx`'s
+      two hand-maintained maps (`V2_COMPONENT_SCHEMAS` + `componentColor`)
+      into one `V2_COMPONENT_METADATA: Record<string, ComponentInspectorMeta>`
+      map, so a new component needs one entry, not two. Chose the
+      co-located-map-in-`apps/ide` alternative over extending `ComponentDef`
+      in `packages/engine/src/v2/Component.ts` because that file (and
+      `PhysicsBody.ts`) were being actively edited by a sibling agent in this
+      same shared working directory at the time.
+- [x] `EngineChannel.ts` dead code (Finding 2): removed the unused, duplicate
+      `sendToEngine(iframe, msg)` method (zero callers); `useEngineChannel.ts`'s
+      own `sendToEngine` wrapper now calls `engineChannel.postToEngine(msg)`.
+- [x] postMessage boundary validation (Finding 3): added `isEntitySnapshot`,
+      a hand-written runtime type guard validating every `EntitySnapshot`
+      field, plus stricter checks for `es:component-fields`; malformed
+      messages are dropped with a `console.warn` instead of passing through.
+- [x] `@emptysock/network`/`SaveSystem`/`Prefab` review findings:
+  - Stale entity mapping (real bug): `NetworkSystem.reconcile()` (called
+    automatically at the top of `sync()`) polls every tracked `Entity`'s
+    `.isAlive` and drops the mapping for any that were destroyed locally
+    (not via Colyseus `onRemove`), so a recycled `rawId` can no longer
+    silently alias a stale network mapping. See CLAUDE.md's new
+    "`@emptysock/network`'s field-marking and entity-mapping scheme"
+    addendum.
+  - Component metadata precedent (consistency, not a bug): added CLAUDE.md's
+    new "Per-component metadata: on `ComponentDef` if the engine needs it,
+    in the add-on package's own side-map if only that package needs it"
+    entry — no code changed, `SaveSystem.version` and `networked()`'s
+    side-map are both kept as-is.
+  - `SaveSystem.load()` unknown-field validation (real bug):
+    `packages/engine/src/v2/systems/SaveSystem.ts` now filters a saved
+    component's `data` keys against `Object.keys(def.createDefaults())`
+    before calling `entity.add()`, dropping and warning on any field not
+    part of the component's declared shape instead of injecting it
+    unchecked. Test: `services-save.test.ts`'s "drops unrecognized fields
+    injected into a saved component's data" case.
+  - `Scene.spawn()` unmatched prop-key validation (real bug):
+    `packages/engine/src/v2/Scene.ts` now warns (naming the prefab and the
+    unmatched field(s)) when a `props` key doesn't match any field on the
+    prefab's components, instead of silently dropping it — catches a typo
+    like `{ helth: 10 }` without failing the rest of the spawn. Test:
+    `prefab.test.ts`'s "warns on an unmatched prop key" case.
+  - Colyseus cast consolidation (refactor, no behaviour change): added
+    `getCollection`/`getSchemaProxy` typed accessors to
+    `packages/network/src/colyseusTypes.ts`; `NetworkSystem.ts`'s
+    `_bindCollection`/`_spawnFromSchema` call sites use them instead of
+    hand-rolling an `as unknown as {...}` cast inline each time.
+  - `networked()` in-place-mutation limitation (documentation only, not
+    fixed): added a doc comment on `networked()` in
+    `packages/network/src/NetworkedFields.ts` stating that a networked
+    field mutated in place (rather than reassigned) is never detected as
+    dirty by `NetworkSystem.sync()`'s strict-equality check — deep-equality
+    change detection was explicitly out of scope for this pass.
+
+---
+
 ## Starting a new pass
 
 All prior work is on `main` in each repo. Create a new branch from `main` in each repo at the start of the next pass.

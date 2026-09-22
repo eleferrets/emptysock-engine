@@ -45,14 +45,12 @@ export function useEngineChannel(
     });
   }, [setLiveComponentFields]);
 
-  const sendToEngine = useCallback(
-    (msg: OutboundMsg): void => {
-      const iframe = iframeRef.current;
-      if (iframe === null) return;
-      engineChannel.sendToEngine(iframe, msg);
-    },
-    [iframeRef],
-  );
+  const sendToEngine = useCallback((msg: OutboundMsg): void => {
+    // engineChannel's iframe ref is kept in sync above, so postToEngine()
+    // (the one real implementation — see EngineChannel.ts) already knows
+    // which iframe to post to without it being passed here again.
+    engineChannel.postToEngine(msg);
+  }, []);
 
   return { sendToEngine };
 }

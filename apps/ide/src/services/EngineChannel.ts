@@ -28,6 +28,30 @@ type FieldsHandler = (
   fields: Record<string, unknown>,
 ) => void;
 
+/**
+ * Runtime type guard for one inbound `EntitySnapshot`. The postMessage
+ * boundary between the IDE and the preview iframe is untyped at runtime —
+ * a malformed or stale engine build could send a payload that satisfies
+ * `Array.isArray` but not the actual shape, so every field is checked here
+ * rather than trusting a single `as EntitySnapshot[]` cast.
+ */
+function isEntitySnapshot(x: unknown): x is EntitySnapshot {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o["id"] === "string" &&
+    typeof o["name"] === "string" &&
+    typeof o["active"] === "boolean" &&
+    Array.isArray(o["components"]) &&
+    o["components"].every((c) => typeof c === "string") &&
+    Array.isArray(o["tags"]) &&
+    o["tags"].every((t) => typeof t === "string") &&
+    typeof o["x"] === "number" &&
+    typeof o["y"] === "number" &&
+    typeof o["rotation"] === "number"
+  );
+}
+
 class EngineChannelService {
   private readonly _entitiesHandlers = new Set<EntitiesHandler>();
   private readonly _fieldsHandlers = new Set<FieldsHandler>();
@@ -59,29 +83,40 @@ class EngineChannelService {
 
     if (t === "es:entities") {
       const payload = data["payload"];
-      if (Array.isArray(payload)) {
-        const snapshots = payload as EntitySnapshot[];
-        for (const h of this._entitiesHandlers) h(snapshots);
+      if (!Array.isArray(payload)) {
+        console.warn(
+          "EngineChannel: dropped es:entities message — payload is not an array",
+        );
+        return;
       }
+      if (!payload.every(isEntitySnapshot)) {
+        console.warn(
+          "EngineChannel: dropped es:entities message — one or more entities failed shape validation",
+        );
+        return;
+      }
+      const snapshots = payload;
+      for (const h of this._entitiesHandlers) h(snapshots);
     } else if (t === "es:component-fields") {
       const entityId = data["entityId"];
       const component = data["component"];
       const fields = data["fields"];
       if (
-        typeof entityId === "string" &&
-        typeof component === "string" &&
-        typeof fields === "object" &&
-        fields !== null
+        typeof entityId !== "string" ||
+        typeof component !== "string" ||
+        typeof fields !== "object" ||
+        fields === null ||
+        Array.isArray(fields)
       ) {
-        for (const h of this._fieldsHandlers) {
-          h(entityId, component, fields as Record<string, unknown>);
-        }
+        console.warn(
+          "EngineChannel: dropped es:component-fields message — malformed payload",
+        );
+        return;
+      }
+      for (const h of this._fieldsHandlers) {
+        h(entityId, component, fields as Record<string, unknown>);
       }
     }
-  }
-
-  sendToEngine(iframe: HTMLIFrameElement, msg: OutboundMsg): void {
-    iframe.contentWindow?.postMessage(msg, "*");
   }
 }
 
