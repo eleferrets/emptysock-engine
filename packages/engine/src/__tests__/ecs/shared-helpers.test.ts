@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   FixedTimestepAccumulator,
   lerpSnapshot,
-} from "../../v2/systems/FixedTimestepAccumulator.js";
-import { getOrCreate, getOrCreateMapEntry } from "../../v2/internal/scoped.js";
-import { setField, setFields } from "../../v2/internal/fields.js";
+} from "../../ecs/systems/FixedTimestepAccumulator.js";
+import { getOrCreate, getOrCreateMapEntry } from "../../ecs/internal/scoped.js";
+import { setField, setFields } from "../../ecs/internal/fields.js";
 
 describe("FixedTimestepAccumulator (Finding 3)", () => {
   it("steps stepFn exactly once per whole fixedTimestep covered by dt, leaving a fractional alpha", () => {

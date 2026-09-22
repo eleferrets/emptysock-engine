@@ -6,7 +6,7 @@
  *
  * ```ts
  * import { createHeadlessGame } from "@emptysock/engine/testing";
- * import { defineScene, defineComponent } from "@emptysock/engine/v2";
+ * import { defineScene, defineComponent } from "@emptysock/engine/ecs";
  *
  * const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
  * const game = createHeadlessGame();
@@ -23,21 +23,24 @@ import {
   type LoadOverlayOptions,
   type LoadSceneOptions,
   type SceneDefinition,
-} from "../v2/Game.js";
-import { Scene } from "../v2/Scene.js";
+} from "../ecs/Game.js";
+import { Scene } from "../ecs/Scene.js";
 
-export { Scene } from "../v2/Scene.js";
-export { Entity } from "../v2/Entity.js";
-export { defineComponent } from "../v2/Component.js";
-export type { ComponentDef } from "../v2/Component.js";
-export { defineScene } from "../v2/Game.js";
-export type { SceneDefinition, SceneLifecycle, UpdateFn } from "../v2/Game.js";
-export { ServiceRegistry } from "../v2/Services.js";
-export type { ServiceConstructor } from "../v2/Services.js";
-export { SaveSystem } from "../v2/systems/SaveSystem.js";
-export type { MigrateFn, SaveSystemOptions } from "../v2/systems/SaveSystem.js";
-export { MemoryStorageAdapter } from "../v2/systems/StorageAdapter.js";
-export type { StorageAdapter } from "../v2/systems/StorageAdapter.js";
+export { Scene } from "../ecs/Scene.js";
+export { Entity } from "../ecs/Entity.js";
+export { defineComponent } from "../ecs/Component.js";
+export type { ComponentDef } from "../ecs/Component.js";
+export { defineScene } from "../ecs/Game.js";
+export type { SceneDefinition, SceneLifecycle, UpdateFn } from "../ecs/Game.js";
+export { ServiceRegistry } from "../ecs/Services.js";
+export type { ServiceConstructor } from "../ecs/Services.js";
+export { SaveSystem } from "../ecs/systems/SaveSystem.js";
+export type {
+  MigrateFn,
+  SaveSystemOptions,
+} from "../ecs/systems/SaveSystem.js";
+export { MemoryStorageAdapter } from "../ecs/systems/StorageAdapter.js";
+export type { StorageAdapter } from "../ecs/systems/StorageAdapter.js";
 
 /**
  * A `Game` whose `loadScene`/`loadOverlay` always run headless — the
@@ -46,7 +49,7 @@ export type { StorageAdapter } from "../v2/systems/StorageAdapter.js";
  * the render step is forced to a no-op via `headless: true`, satisfying
  * §15.1's "render system swapped for a no-op" regardless of whether a real
  * renderer happens to be attached (`Game.attachRenderer` — see
- * `v2/systems/RenderPipeline.ts`). Tests that exercise overlay scenes
+ * `ecs/systems/RenderPipeline.ts`). Tests that exercise overlay scenes
  * (§12.3) get the same guarantee `loadScene` already gave: no Pixi
  * construction, no canvas, ever, from either call.
  */

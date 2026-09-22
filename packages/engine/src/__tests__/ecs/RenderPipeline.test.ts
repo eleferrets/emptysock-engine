@@ -20,16 +20,16 @@ vi.mock("pixi.js", async () => {
   };
 });
 
-const { RenderPipeline } = await import("../../v2/systems/RenderPipeline.js");
-const { Scene } = await import("../../v2/Scene.js");
-const { Transform } = await import("../../v2/components/Transform.js");
-const { Sprite } = await import("../../v2/components/Sprite.js");
+const { RenderPipeline } = await import("../../ecs/systems/RenderPipeline.js");
+const { Scene } = await import("../../ecs/Scene.js");
+const { Transform } = await import("../../ecs/components/Transform.js");
+const { Sprite } = await import("../../ecs/components/Sprite.js");
 
 function makeTestTexture(): Texture {
   return Texture.WHITE;
 }
 
-describe("v2 RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
+describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
   let pipeline: InstanceType<typeof RenderPipeline>;
   let scene: InstanceType<typeof Scene>;
 

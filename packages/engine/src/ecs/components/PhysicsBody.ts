@@ -69,7 +69,7 @@ export const PhysicsBody = defineComponent(
  * Non-obvious storage decision: collision/sensor callbacks (`onCollide`,
  * `onSensorEnter`, etc.) cannot live as fields of `PhysicsBody` itself.
  * `defineComponent<T extends SerializableRecord>` rejects any shape with a
- * function field at the type level (see `v2/Serializable.ts`) — that
+ * function field at the type level (see `ecs/Serializable.ts`) — that
  * constraint is intentional (Track 0: a component made only of
  * `Serializable` fields can be saved/loaded generically later) and physics
  * callbacks are exactly the kind of thing that constraint exists to keep out

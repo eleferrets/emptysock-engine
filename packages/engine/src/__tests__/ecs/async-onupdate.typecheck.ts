@@ -10,7 +10,7 @@
  * "Unused '@ts-expect-error' directive" — that failure is the point: it
  * means someone needs to look at why the guard in `defineScene` broke.
  */
-import { defineScene } from "../../v2/Game.js";
+import { defineScene } from "../../ecs/Game.js";
 
 defineScene({
   // @ts-expect-error — onUpdate must not be async (ENGINE_DESIGN.md §4).

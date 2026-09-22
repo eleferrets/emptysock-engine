@@ -8,7 +8,7 @@ import { defineComponent } from "../Component.js";
  *
  * **Non-numeric fields and component storage (read this before adding another
  * render component):** `texturePath` is a `string`, and `layer` is a
- * `string` — both satisfy `Serializable` (`v2/Serializable.ts`) just fine,
+ * `string` — both satisfy `Serializable` (`ecs/Serializable.ts`) just fine,
  * and `ComponentRegistry.ensure()` backs every field with a plain
  * `unknown[]` array, not a typed array (see `ComponentRegistry.ts`), so a
  * string field costs nothing extra here. There is no bitECS "SoA numbers

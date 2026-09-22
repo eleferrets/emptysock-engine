@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Scene } from "../../v2/Scene.js";
-import { ServiceRegistry } from "../../v2/Services.js";
-import { SaveSystem } from "../../v2/systems/SaveSystem.js";
-import { MemoryStorageAdapter } from "../../v2/systems/StorageAdapter.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Scene } from "../../ecs/Scene.js";
+import { ServiceRegistry } from "../../ecs/Services.js";
+import { SaveSystem } from "../../ecs/systems/SaveSystem.js";
+import { MemoryStorageAdapter } from "../../ecs/systems/StorageAdapter.js";
 
 describe("ServiceRegistry (ENGINE_DESIGN.md §5)", () => {
   class ScoreService {

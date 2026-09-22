@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Game, defineScene, type SceneRenderer } from "../../v2/Game.js";
-import type { Scene } from "../../v2/Scene.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Game, defineScene, type SceneRenderer } from "../../ecs/Game.js";
+import type { Scene } from "../../ecs/Scene.js";
 
 const NOOP_PHYSICS = { physics: { gravity: { x: 0, y: 0 } } } as const;
 
-describe("v2 Game overlay scenes (ENGINE_DESIGN.md §12.3)", () => {
+describe("ECS Game overlay scenes (ENGINE_DESIGN.md §12.3)", () => {
   it("loadOverlay stacks on top of the main scene without unloading it", async () => {
     const game = new Game();
     const main = await game.loadScene(defineScene({}), NOOP_PHYSICS);
@@ -163,7 +163,7 @@ describe("v2 Game overlay scenes (ENGINE_DESIGN.md §12.3)", () => {
   });
 
   it("Finding 7: an overlay loaded with options.physics has its physics actually stepped by update()", async () => {
-    const { PhysicsBody } = await import("../../v2/components/PhysicsBody.js");
+    const { PhysicsBody } = await import("../../ecs/components/PhysicsBody.js");
     const game = new Game();
     await game.loadScene(defineScene({}), NOOP_PHYSICS);
     const overlay = await game.loadOverlay(defineScene({}), {

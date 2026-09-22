@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { definePrefab, flattenPrefab } from "../../v2/Prefab.js";
-import { loadSceneFile, parsePrefabFiles } from "../../v2/SceneFile.js";
-import type { PrefabFile, SceneFile } from "../../v2/SceneFile.js";
-import { Scene } from "../../v2/Scene.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { definePrefab, flattenPrefab } from "../../ecs/Prefab.js";
+import { loadSceneFile, parsePrefabFiles } from "../../ecs/SceneFile.js";
+import type { PrefabFile, SceneFile } from "../../ecs/SceneFile.js";
+import { Scene } from "../../ecs/Scene.js";
 
 const Transform = defineComponent("Transform", () => ({ x: 0, y: 0 }));
 const Health = defineComponent("Health", () => ({ current: 10, max: 10 }));
 const PhysicsBody = defineComponent("PhysicsBody", () => ({ mass: 1 }));
 
-describe("v2 Prefab: definition + spawning", () => {
+describe("ECS Prefab: definition + spawning", () => {
   it("spawns every component a prefab declares, with default + override values", () => {
     const scene = new Scene();
     const Enemy = definePrefab("Enemy", [
@@ -62,7 +62,7 @@ describe("v2 Prefab: definition + spawning", () => {
   });
 });
 
-describe("v2 Prefab: nesting (prefabs containing prefabs)", () => {
+describe("ECS Prefab: nesting (prefabs containing prefabs)", () => {
   it("flattens a nested prefab's components onto the same entity", () => {
     const Physical = definePrefab("Physical", [
       { def: Transform },
@@ -101,7 +101,7 @@ describe("v2 Prefab: nesting (prefabs containing prefabs)", () => {
   });
 });
 
-describe("v2 Prefab: pooling folded into spawn/destroy", () => {
+describe("ECS Prefab: pooling folded into spawn/destroy", () => {
   it("reuses the same underlying entity slot across destroy + pool-spawn, reset to defaults", () => {
     const Bullet = definePrefab("Bullet", [
       { def: Transform, overrides: { x: 0 } },
@@ -150,7 +150,7 @@ describe("v2 Prefab: pooling folded into spawn/destroy", () => {
   });
 });
 
-describe("v2 Prefab: JSON scene/prefab file format", () => {
+describe("ECS Prefab: JSON scene/prefab file format", () => {
   const registry: Record<
     string,
     typeof Transform | typeof Health | typeof PhysicsBody

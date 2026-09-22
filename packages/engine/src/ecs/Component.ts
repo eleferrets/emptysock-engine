@@ -42,7 +42,7 @@ export interface ComponentDef<
   readonly createDefaults: () => T;
   /**
    * Schema version for this component's shape, defaulting to `1` when not
-   * given to `defineComponent`. `SaveSystem` (`v2/systems/SaveSystem.ts`)
+   * given to `defineComponent`. `SaveSystem` (`ecs/systems/SaveSystem.ts`)
    * stamps every saved component instance with this number; on load, a
    * mismatch against the currently-registered def's version triggers that
    * component's registered `migrate()` hook, or a warn+drop of just that

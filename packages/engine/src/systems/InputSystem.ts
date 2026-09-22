@@ -107,7 +107,7 @@ export class InputSystem {
 
   /**
    * A point-in-time copy of every key currently tracked. Used by
-   * `v2/Input.ts`'s `InputManager.snapshot()` to freeze keyboard state for
+   * `ecs/Input.ts`'s `InputManager.snapshot()` to freeze keyboard state for
    * a frame (ENGINE_DESIGN.md §4 step 1) — reading this once and caching
    * the result, rather than reading `isKeyDown` live, is what makes
    * "polled once, frozen for the frame" true even though this class itself

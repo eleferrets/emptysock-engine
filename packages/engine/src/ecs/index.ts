@@ -1,5 +1,5 @@
 /**
- * `@emptysock/engine/v2` — the bitECS-backed ECS core (see ENGINE_DESIGN.md
+ * `@emptysock/engine/ecs` — the bitECS-backed ECS core (see ENGINE_DESIGN.md
  * and `CLAUDE.md`). Lives at a separate subpath export, not re-exported from
  * the package root, so the classic engine (`Scene`/`Entity`/`Component`/
  * `ActorSystem`/`PhysicsSystem` from `../index.js`) keeps working unmodified

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Game, defineScene } from "../../v2/Game.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Game, defineScene } from "../../ecs/Game.js";
 
 const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
 
-describe("v2 Game/Scene lifecycle (ENGINE_DESIGN.md §4)", () => {
+describe("ECS Game/Scene lifecycle (ENGINE_DESIGN.md §4)", () => {
   it("loadScene creates a Scene plus an ActorSystem and PhysicsSystem", async () => {
     const game = new Game();
     const { scene, actors, physics } = await game.loadScene(defineScene({}), {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { Game, defineScene } from "../../v2/Game.js";
+import { Game, defineScene } from "../../ecs/Game.js";
 import {
   PhysicsBody,
   getPhysicsBody,
   type PhysicsBodyHandle,
-} from "../../v2/components/PhysicsBody.js";
-import type { Entity } from "../../v2/Entity.js";
-import { Scene } from "../../v2/Scene.js";
-import { definePrefab } from "../../v2/Prefab.js";
+} from "../../ecs/components/PhysicsBody.js";
+import type { Entity } from "../../ecs/Entity.js";
+import { Scene } from "../../ecs/Scene.js";
+import { definePrefab } from "../../ecs/Prefab.js";
 
 /** No-`!` narrowing helper — `getPhysicsBody` is only `undefined` for a dead/componentless entity, never for the freshly-spawned ones these tests use. */
 function mustGetPhysicsBody(entity: Entity): PhysicsBodyHandle {
@@ -18,7 +18,7 @@ function mustGetPhysicsBody(entity: Entity): PhysicsBodyHandle {
   return handle;
 }
 
-describe("v2 PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
+describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
   it("steps a dynamic body under gravity, syncing position back onto PhysicsBody", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}), {

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Scene } from "../../v2/Scene.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Scene } from "../../ecs/Scene.js";
 
-describe("v2 ComponentRegistry — hot-reload shape-change detection", () => {
+describe("ECS ComponentRegistry — hot-reload shape-change detection", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {

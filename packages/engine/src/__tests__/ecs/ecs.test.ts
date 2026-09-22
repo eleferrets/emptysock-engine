@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Scene } from "../../v2/Scene.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Scene } from "../../ecs/Scene.js";
 
 const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
 const Velocity = defineComponent("Velocity", () => ({ x: 0, y: 0 }));
 
-describe("v2 ECS core", () => {
+describe("ECS ECS core", () => {
   it("spawns an entity and adds/gets a component", () => {
     const scene = new Scene();
     const entity = scene.spawn();
@@ -130,7 +130,7 @@ describe("v2 ECS core", () => {
   });
 });
 
-describe("v2 entity versioning / stale handles (ENGINE_DESIGN.md §23)", () => {
+describe("ECS entity versioning / stale handles (ENGINE_DESIGN.md §23)", () => {
   it("marks a destroyed entity as not alive", () => {
     const scene = new Scene();
     const entity = scene.spawn();
@@ -184,7 +184,7 @@ describe("v2 entity versioning / stale handles (ENGINE_DESIGN.md §23)", () => {
   });
 });
 
-describe("v2 component registry — name-keyed identity survives hot-reload (§23.1)", () => {
+describe("ECS component registry — name-keyed identity survives hot-reload (§23.1)", () => {
   it("two separately-created ComponentDef objects with the same name share one storage backing", () => {
     const scene = new Scene();
     const PositionAgain = defineComponent("Position", () => ({ x: 0, y: 0 }));

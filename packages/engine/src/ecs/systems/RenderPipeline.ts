@@ -68,7 +68,7 @@ function createTracking(): SceneTracking {
  * alias an overlay's entity 3 onto the main scene's. This class instead keys
  * its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`)
  * — one level of scoping up from `ComponentRegistry`'s per-`World` scoping
- * and `PhysicsBody`'s per-`World` callback side-table (`v2/components/PhysicsBody.ts`),
+ * and `PhysicsBody`'s per-`World` callback side-table (`ecs/components/PhysicsBody.ts`),
  * but the same underlying idea: never index directly by a raw entity id
  * without first scoping by which scene's world it belongs to.
  *
@@ -111,7 +111,7 @@ export class RenderPipeline implements SceneRenderer {
    * opt-in on hosts that force it — nothing here changes that). Needs a real
    * DOM/canvas environment; never call this under the headless testing
    * harness (`createHeadlessGame()` never attaches a `RenderPipeline` at
-   * all — see `Game.attachRenderer`/`v2/Game.ts` step 7 — so game code
+   * all — see `Game.attachRenderer`/`ecs/Game.ts` step 7 — so game code
    * driven purely through `testing/index.ts` never reaches this call).
    */
   async init(options: RenderPipelineOptions = {}): Promise<void> {

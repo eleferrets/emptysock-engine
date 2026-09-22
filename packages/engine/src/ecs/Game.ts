@@ -93,7 +93,7 @@ export interface LoadOverlayOptions {
 /**
  * ENGINE_DESIGN.md §4 step 7 / §12.3 — the minimal shape `Game.attachRenderer()`
  * needs. Deliberately a plain structural interface, not an import of the
- * concrete Pixi-backed `v2/systems/RenderPipeline` — `Game.ts` must stay
+ * concrete Pixi-backed `ecs/systems/RenderPipeline` — `Game.ts` must stay
  * inside the engine environment boundary (CLAUDE.md: "the engine package
  * must not import anything from the DOM"; pixi.js's renderer construction
  * needs a canvas) so it keeps running under the headless testing harness
@@ -259,7 +259,7 @@ export class Game {
   }
 
   /**
-   * Wire a concrete renderer (the real `v2/systems/RenderPipeline`, or a
+   * Wire a concrete renderer (the real `ecs/systems/RenderPipeline`, or a
    * test double) into step 7 of `update()`. Never called by the headless
    * testing harness — a `Game`/`HeadlessGame` with no renderer attached (the
    * default) already makes step 7 a no-op with nothing extra to configure;

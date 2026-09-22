@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { Game, defineScene } from "../../v2/Game.js";
-import { QueryChannel } from "../../v2/bridge/QueryChannel.js";
-import { PhysicsBody } from "../../v2/components/PhysicsBody.js";
-import { Transform } from "../../v2/components/Transform.js";
+import { Game, defineScene } from "../../ecs/Game.js";
+import { QueryChannel } from "../../ecs/bridge/QueryChannel.js";
+import { PhysicsBody } from "../../ecs/components/PhysicsBody.js";
+import { Transform } from "../../ecs/components/Transform.js";
 
-describe("v2 QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge)", () => {
+describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge)", () => {
   it("answers entity/component queries against a live scene", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}));

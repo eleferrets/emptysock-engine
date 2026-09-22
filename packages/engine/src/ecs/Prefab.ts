@@ -11,7 +11,7 @@ import type { Serializable, SerializableRecord } from "./Serializable.js";
  * Bevy's "Bundle" pattern rather than Godot/Unity's nested-scene instancing.
  *
  * A prefab entry's `overrides` must satisfy the same `Serializable`
- * constraint every component field already does (`v2/Serializable.ts`) —
+ * constraint every component field already does (`ecs/Serializable.ts`) —
  * prefab/scene JSON files are exactly the data that constraint exists for
  * (ENGINE_DESIGN.md §12.1), so a prop override can never smuggle in a
  * function or class instance a JSON file could never have represented

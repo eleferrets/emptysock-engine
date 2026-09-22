@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { InputManager } from "../../v2/Input.js";
-import { Game, defineScene } from "../../v2/Game.js";
+import { InputManager } from "../../ecs/Input.js";
+import { Game, defineScene } from "../../ecs/Game.js";
 
-describe("v2 InputManager (ENGINE_DESIGN.md §4 step 1 / §15.3)", () => {
+describe("ECS InputManager (ENGINE_DESIGN.md §4 step 1 / §15.3)", () => {
   it("isDown reflects an action bound to a key that is simulated down", () => {
     const input = new InputManager({ jump: [{ kind: "key", code: "Space" }] });
     input.snapshot();

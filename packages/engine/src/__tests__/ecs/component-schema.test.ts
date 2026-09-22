@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { defineComponent } from "../../v2/Component.js";
-import { Transform } from "../../v2/components/Transform.js";
-import { Sprite } from "../../v2/components/Sprite.js";
-import { PhysicsBody } from "../../v2/components/PhysicsBody.js";
+import { defineComponent } from "../../ecs/Component.js";
+import { Transform } from "../../ecs/components/Transform.js";
+import { Sprite } from "../../ecs/components/Sprite.js";
+import { PhysicsBody } from "../../ecs/components/PhysicsBody.js";
 
 describe("defineComponent schema (ENGINE_DESIGN.md §10.1)", () => {
   it("is undefined when no schema option is passed — not an error", () => {

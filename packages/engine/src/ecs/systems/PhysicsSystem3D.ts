@@ -129,7 +129,7 @@ export class PhysicsSystem3D {
   >();
 
   async init(options: PhysicsSystem3DOptions = {}): Promise<void> {
-    // See the matching comment in v2/systems/PhysicsSystem.ts — a
+    // See the matching comment in ecs/systems/PhysicsSystem.ts — a
     // non-literal specifier keeps the deterministic build an optional,
     // opt-in dependency rather than a hard one.
     const moduleName = options.deterministic
