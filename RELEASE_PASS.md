@@ -22,41 +22,56 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ## Context for whoever picks this up next
 
-The two v1 IDE bugs and Track 0 of the `ENGINE_DESIGN.md` implementation plan are
+**Framing note (2026-09-22):** this file and `CLAUDE.md` used to describe the
+engine as having a "v1" and "v2" — an older pre-existing set of systems and a
+newer bitECS-backed core, referred to by that shorthand throughout several
+passes' worth of notes below. There was never a shipped, released version
+this superseded; that was always internal shorthand for two things that
+coexist in the same current engine for real architectural reasons (the
+ECS-backed entity/component core under `packages/engine/src/v2/` — the
+literal directory name and `@emptysock/engine/v2` subpath export are staying
+as-is, since renaming them is a breaking-API-surface change out of scope
+here — alongside older singleton-style systems such as `PluginSystem`,
+`AudioSystem`, and the original `core/Entity.ts`/`Scene.ts`). The historical
+entries below (largely completed work, kept for the record) still use the
+old "v1"/"v2" shorthand in places; read it as "the ECS core" vs. "the
+existing singleton-style systems," not as two versions of the engine. New
+entries going forward should describe systems by what they are, not by a
+version label.
+
+The IDE bug fixes and Track 0 of the `ENGINE_DESIGN.md` implementation plan are
 done and merged to this branch (`claude/adoring-dirac-4tiv8c`). Durable decisions
 from that work are migrated into `CLAUDE.md`'s "Non-obvious decisions" section
 (the rc-dock anchor-tab docking fix, the Monaco ambient-module-declaration fix).
 Read in this order:
 
-1. **`ENGINE_DESIGN.md`** (repo root) — the locked v2 engine spec. §22 is the
+1. **`ENGINE_DESIGN.md`** (repo root) — the locked engine spec. §22 is the
    readiness table; §23 is the most recent round. Track 0 (Entity/Component
    core wrapping bitECS, Game/Scene lifecycle, the Serializable constraint,
    the headless testing harness) is implemented at `packages/engine/src/v2/`
-   and `packages/engine/src/testing/` — a new subpath export, **not** a
-   replacement of the v1 code at the package root. v1 (`packages/engine/src/core/`
-   etc.) keeps running unmodified; every other system still runs on it.
+   and `packages/engine/src/testing/` — a subpath export, alongside the
+   existing systems at the package root (`packages/engine/src/core/` etc.),
+   which keep running unmodified; every other system still runs on them.
 2. **This file's open items below** — Tracks 1, 2, and X of the
    `ENGINE_DESIGN.md` implementation, now that Track 0 is real. Track 1 items
    are independent of each other and can run as separate parallel sessions.
    Track 2 depends on Track 1 substantially landing (mainly rendering + the
    frozen core API), except `@emptysock/network` which only needs Track 0.
    Track X is fully independent of `packages/engine` and can run anytime.
-3. **`CLAUDE.md`** — still accurate for the v1 engine and IDE (everything
-   except the new `v2`/`testing` subpaths). Do not edit its "Non-obvious
-   decisions" section to describe v2 engine shapes (Entity/Component/Scene/
-   Game internals) until a system actually migrates onto `v2` — it should
-   keep describing what's actually running under `import "@emptysock/engine"`
-   until that changes. (Non-engine-shape decisions, like the two IDE fixes
-   above, are fair game to add as they land, same as always.)
+3. **`CLAUDE.md`** — describes the engine as it actually is today, as one
+   current system (see the framing note above). Non-obvious decisions about
+   the ECS core under `v2/` are documented there directly, alongside every
+   other system, with no version label attached.
 
 ---
 
 ## Current pass — implementing `ENGINE_DESIGN.md`, Tracks 1/2/X
 
-**Read `ENGINE_DESIGN.md` §9 and §22 before starting anything**, plus the v2
-core itself at `packages/engine/src/v2/` — every Track 1/2 item below builds
-on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/`.each`,
-`Game.loadScene`/`.unloadScene`), not on v1's `core/Entity.ts`/`Scene.ts`.
+**Read `ENGINE_DESIGN.md` §9 and §22 before starting anything**, plus the
+ECS core itself at `packages/engine/src/v2/` — every Track 1/2 item below
+builds on that API (`defineComponent`, `entity.get`/`.add`, `scene.spawn`/
+`.each`, `Game.loadScene`/`.unloadScene`), not on the older `core/Entity.ts`/
+`Scene.ts`.
 
 ### Track 1 — parallel, independent of each other, depends only on Track 0 (done)
 
@@ -628,3 +643,21 @@ plus several structural-duplication findings. All fixed in one pass:
 ## Starting a new pass
 
 All prior work is on `main` in each repo. Create a new branch from `main` in each repo at the start of the next pass.
+
+---
+
+## Framing-correction pass (2026-09-22)
+
+- [x] Dropped "v1"/"v2" version framing from `CLAUDE.md`, `RELEASE_PASS.md`
+      (this file's context section above), `docs/`, and code/doc comments
+      across the monorepo — this was always internal shorthand for "the
+      ECS core" vs. "the older singleton-style systems," never a real
+      shipped version 1.0 that got superseded. The literal `packages/engine/src/v2/`
+      directory and `@emptysock/engine/v2` subpath export are unchanged
+      (a real breaking-API-surface rename, out of scope). Renamed
+      `docs/getting-started/whats-new-v2.md` → `docs/getting-started/engine-overview.md`,
+      `docs/guides/entities-and-scenes-v2.md` → `docs/guides/entities-and-components.md`,
+      `docs/reference/v2-core.md` → `docs/reference/core-api.md`, with every
+      cross-reference and the nav table in `docs/README.md` updated.
+      Bumped every package's `version` from `0.1.0` to `0.2.0` across the
+      monorepo, reflecting accumulated engine maturity, not a semver signal.

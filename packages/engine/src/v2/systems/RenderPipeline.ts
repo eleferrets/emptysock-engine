@@ -39,11 +39,11 @@ function createTracking(): SceneTracking {
 }
 
 /**
- * v2 port of `../../systems/RenderPipeline.ts` onto the `defineComponent`/
+ * ECS-core equivalent of `../../systems/RenderPipeline.ts`, built on the `defineComponent`/
  * `Scene.each` object model, and `Game`'s `SceneRenderer` shape (ENGINE_DESIGN.md
- * §4 step 7 / §12.3). Reuses v1's `RenderSystem` (the raw PixiJS wrapper) and
- * `LayerSystem` (draw order) unchanged — neither imports v1's `core/Entity.ts`/
- * `Scene.ts`, so there was nothing v2-incompatible about them to begin with.
+ * §4 step 7 / §12.3). Reuses the classic `RenderSystem` (the raw PixiJS wrapper) and
+ * `LayerSystem` (draw order) unchanged — neither imports the classic `core/Entity.ts`/
+ * `Scene.ts`, so there was nothing incompatible about them to begin with.
  *
  * On `renderFrame(main, overlays)` it:
  *
@@ -63,8 +63,8 @@ function createTracking(): SceneTracking {
  * own bitECS `World`, and each `World`'s entity ids independently start from
  * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
  * therefore has several *different* entities that all report `eid === 3`.
- * Tracking sprites in one flat `Map<number, PixiSprite>` (what v1's single-
- * scene `RenderPipeline` did, and all it ever needed to do) would silently
+ * Tracking sprites in one flat `Map<number, PixiSprite>` (what the classic
+ * single-scene `RenderPipeline` does, and all it ever needed to do) would silently
  * alias an overlay's entity 3 onto the main scene's. This class instead keys
  * its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`)
  * — one level of scoping up from `ComponentRegistry`'s per-`World` scoping
@@ -175,7 +175,7 @@ export class RenderPipeline implements SceneRenderer {
       this._syncOne(tracking, entity.eid, transform, sprite, (layer) =>
         this._containerFor(layer),
       );
-      // Main-scene sprites go through the named `LayerSystem` (v1 parity —
+      // Main-scene sprites go through the named `LayerSystem` (matching the classic behavior —
       // `layers.getEntityLayer()`/`getEntityDepth()` stay meaningful for
       // whatever else reads them, e.g. an IDE picking tool). Overlay sprites
       // deliberately skip this: `LayerSystem`'s placement map is keyed by

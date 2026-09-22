@@ -80,7 +80,7 @@ interface BodyRecord {
 }
 
 /**
- * v2 `PhysicsSystem` — wraps Rapier2D behind `PhysicsBody` (ENGINE_DESIGN.md
+ * `PhysicsSystem` (ECS core) — wraps Rapier2D behind `PhysicsBody` (ENGINE_DESIGN.md
  * §6). One instance per scene, created/destroyed by `Game.loadScene`/
  * `unloadScene` (§4) unless `manageLifecycle: false` is passed.
  *

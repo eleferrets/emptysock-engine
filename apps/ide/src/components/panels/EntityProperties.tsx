@@ -21,12 +21,12 @@ import { engineChannel } from "../../services/EngineChannel";
  * touch `packages/engine/src/v2/Component.ts`, which is out of scope for
  * this pass), so schema and color are kept as ONE co-located metadata map
  * here instead of two separate hand-maintained `Record`s — every
- * schema-bearing v2 component gets a single `V2_COMPONENT_METADATA` entry
+ * schema-bearing component gets a single `V2_COMPONENT_METADATA` entry
  * covering both, rather than needing this file edited in two places. This
- * maps a v2 component's `componentName` (the same string key
+ * maps a component's `componentName` (the same string key
  * `component.type` already uses in editor state — see CLAUDE.md's
  * "Component types as identity keys") to its schema+color so
- * `ComponentSection` can look one up by name without importing every v2
+ * `ComponentSection` can look one up by name without importing every
  * component module individually. A component with no entry here (or no
  * `.schema` on its def) falls back to the raw per-field editor and the
  * default muted color below — that's the intended, non-error path for
@@ -55,7 +55,7 @@ const V2_COMPONENT_METADATA: Readonly<Record<string, ComponentInspectorMeta>> =
         : {}),
       color: "var(--es-yellow)",
     },
-    // v1-only components with no v2 schema yet still get an inspector color.
+    // Older, singleton-style components with no schema yet still get an inspector color.
     CharacterController: { color: "var(--es-accent)" },
     Animator: { color: "var(--es-red)" },
     CameraSystem: { color: "var(--es-blue)" },

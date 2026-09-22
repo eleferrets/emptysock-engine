@@ -1,7 +1,7 @@
 import { defineComponent } from "../Component.js";
 
 /**
- * v2 port of `../../components/Transform.ts` onto `defineComponent`. All
+ * ECS-core equivalent of `../../components/Transform.ts`, built on `defineComponent`. All
  * fields are plain numbers, so this needs no special storage treatment
  * (ENGINE_DESIGN.md §7/§21) — `ComponentRegistry` gives it one parallel
  * array per field automatically.

@@ -1,12 +1,12 @@
-# Entities and Scenes (v2)
+# Entities and Components (ECS core)
 
-This is the v2, bitECS-backed take on entities, components and scenes. If you haven't read [Entities and Scenes](./entities-and-scenes.md) or [What's New in v2](../getting-started/whats-new-v2.md) yet, either is a good warm-up, this guide assumes you already know why a game engine needs an entity/component split at all and jumps straight to the v2 API.
+This is the bitECS-backed take on entities, components and scenes, available from `@emptysock/engine/v2`. If you haven't read [Entities and Scenes](./entities-and-scenes.md) or the [Engine Overview](../getting-started/engine-overview.md) yet, either is a good warm-up, this guide assumes you already know why a game engine needs an entity/component split at all and jumps straight to the ECS API.
 
 ---
 
 ## Defining a component
 
-A component in v2 is a name plus a shape, declared with `defineComponent`:
+A component here is a name plus a shape, declared with `defineComponent`:
 
 ```ts
 import { defineComponent } from "@emptysock/engine/v2";
@@ -107,12 +107,12 @@ body.onCollisionEnter = (other) => {
 };
 ```
 
-Assigning the property is the registration, same as the v1 pattern documented in `CLAUDE.md`, it just routes through a side-table under the hood instead of sharing storage with the rest of the component's fields.
+Assigning the property is the registration, the same "assigning is the registration" pattern documented in `CLAUDE.md`, it just routes through a side-table under the hood instead of sharing storage with the rest of the component's fields.
 
 ---
 
 ## Where to next
 
-- [v2 Core reference](../reference/v2-core.md) for the exhaustive method list.
+- [Core API reference](../reference/core-api.md) for the exhaustive method list.
 - [Physics](./physics.md) for `PhysicsBody`/`PhysicsSystem` details.
 - [Hot Reload](./hot-reload.md) for what happens to a `ComponentDef`'s data when you edit its shape mid-session.

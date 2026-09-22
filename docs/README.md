@@ -8,13 +8,13 @@ This is the restructured documentation for EmptySock Engine. Content is divided 
 
 New to EmptySock? Start here. These pages get you from zero to a running game in the shortest possible path.
 
-| Page                                                    | What it covers                                                         |
-| ------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries                         |
-| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene                    |
-| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts                          |
-| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table                     |
-| [What's New in v2](./getting-started/whats-new-v2.md)   | bitECS-backed `@emptysock/engine/v2`, prefabs, the new module packages |
+| Page                                                    | What it covers                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Installation](./getting-started/installation.md)       | Node, Rust, Android/iOS SDKs, system libraries                      |
+| [Your First Game](./getting-started/your-first-game.md) | Clone, install, run the IDE, write your first scene                 |
+| [IDE Tour](./getting-started/ide-tour.md)               | Overview of all panels and keyboard shortcuts                       |
+| [From GameMaker](./getting-started/from-gamemaker.md)   | GMS2 → EmptySock import tool and GML mapping table                  |
+| [Engine Overview](./getting-started/engine-overview.md) | The ECS core (`@emptysock/engine/v2`), prefabs, the module packages |
 
 ---
 
@@ -25,7 +25,7 @@ Task-oriented answers to "how do I X?" Each guide explains the concept, shows yo
 | Guide                                                          | What it covers                                                                    |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | [Entities and Scenes](./guides/entities-and-scenes.md)         | Scene lifecycle, Entity, Component, Coroutine, SceneManager                       |
-| [Entities and Scenes (v2)](./guides/entities-and-scenes-v2.md) | bitECS-backed `Entity`/`Scene`, `defineComponent`, prefabs, pooling, `scene.each` |
+| [Entities and Components](./guides/entities-and-components.md) | bitECS-backed `Entity`/`Scene`, `defineComponent`, prefabs, pooling, `scene.each` |
 | [Physics](./guides/physics.md)                                 | 2D and 3D physics, bodies, collision events, CharacterController                  |
 | [Input and Gamepad](./guides/input-and-gamepad.md)             | Keyboard, mouse, touch, gamepad                                                   |
 | [Saving and Localisation](./guides/saving-and-localisation.md) | SaveSystem, LocalisationSystem                                                    |
@@ -46,7 +46,7 @@ Indexed by class and system. Ctrl+F for a method name or type. Not meant to be r
 | Page                                                             | What it covers                                                           |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [Index](./reference/index.md)                                    | Alphabetical list of all systems with one-line descriptions              |
-| [v2 Core](./reference/v2-core.md)                                | `defineComponent`, `Entity`, `Scene`, Prefabs, `ServiceRegistry`, `Game` |
+| [Core API](./reference/core-api.md)                              | `defineComponent`, `Entity`, `Scene`, Prefabs, `ServiceRegistry`, `Game` |
 | [Scene](./reference/scene.md)                                    | Scene, SceneConfig, SceneManager                                         |
 | [Entity](./reference/entity.md)                                  | Entity — full method list                                                |
 | [Component](./reference/component.md)                            | Component base class conventions                                         |

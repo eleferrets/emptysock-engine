@@ -12,11 +12,11 @@ import {
  * (`physics_raycast_2d`, `physics_overlap_circle`, `physics_body_state`,
  * plus entity/component reads and scene entity listing) relay against.
  *
- * This is the v2-aware counterpart to `core/IDEBridge.ts`: `IDEBridge` is a
+ * This is the ECS-core counterpart to `core/IDEBridge.ts`: `IDEBridge` is a
  * `postMessage`-shaped, fire-and-forget broadcast (entity snapshots pushed
- * on a timer, component patches pushed back) built for the v1 object model
- * and the IDE's own iframe embedding. Raycasts and overlap tests need a
- * synchronous request/response round trip against a live v2 `Scene` and
+ * on a timer, component patches pushed back) built for the classic object
+ * model and the IDE's own iframe embedding. Raycasts and overlap tests need a
+ * synchronous request/response round trip against a live ECS-core `Scene` and
  * `PhysicsSystem` instead, so this is a separate, narrower thing — it does
  * not replace `IDEBridge` or share its wire format.
  *

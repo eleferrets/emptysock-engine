@@ -4,7 +4,7 @@ EmptySock's `NavMeshSystem` provides polygon-based 2D pathfinding using A\* on a
 
 For the complete API, see [NavMeshSystem reference](../reference/systems/nav-mesh-system.md).
 
-> **Heads up:** `NavMeshSystem` (along with `Tilemap`) now lives in its own optional package, `@emptysock/tilemap`, rather than inside `@emptysock/engine` itself. The class and its API are unchanged, just the import path, so add the package as a dependency and update your import. See [What's New in v2](../getting-started/whats-new-v2.md).
+> **Heads up:** `NavMeshSystem` (along with `Tilemap`) lives in its own optional package, `@emptysock/tilemap`, rather than inside `@emptysock/engine` itself. The class and its API are the same, just the import path, so add the package as a dependency and update your import. See the [Engine Overview](../getting-started/engine-overview.md).
 
 ---
 

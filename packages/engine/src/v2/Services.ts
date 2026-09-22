@@ -1,6 +1,6 @@
 /**
  * ENGINE_DESIGN.md §5 — the typed, explicit replacement for Godot-style
- * autoloads. Same underlying idea as v1's `PluginSystem` singleton
+ * autoloads. Same underlying idea as the `PluginSystem` singleton
  * (documented in `CLAUDE.md` under "PluginSystem singleton": process-global,
  * not per-scene, so a consumer never has to thread a reference through
  * scene boundaries), generalized so save data, audio mixing state, input

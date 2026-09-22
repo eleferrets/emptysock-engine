@@ -2,10 +2,11 @@ import { GamepadSystem, type GamepadState } from "../systems/GamepadSystem.js";
 import { InputSystem, type TouchPoint } from "../systems/InputSystem.js";
 
 /**
- * One physical source an action can bind to. Deliberately a subset of v1's
- * `InputBindings.Binding` (no mouse-button binding — §15.3 only names
+ * One physical source an action can bind to. Deliberately a subset of the
+ * classic `InputBindings.Binding` (no mouse-button binding — §15.3 only names
  * keyboard/gamepad/touch as the action-mapped devices; mouse stays a raw-only
- * device via `input.mouse` equivalents on the escape hatch, same as v1).
+ * device via `input.mouse` equivalents on the escape hatch, same as the
+ * classic API).
  */
 export type Binding =
   | { readonly kind: "key"; readonly code: string }

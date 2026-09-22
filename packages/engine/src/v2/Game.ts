@@ -82,7 +82,7 @@ export interface LoadOverlayOptions {
    * needs its own physics world (rare — most overlays are HUD/menu chrome).
    * When passed, `Game.update()` now actually steps this overlay's physics
    * world every frame alongside its actor/onUpdate treatment (Finding 7,
-   * engine v2 code-quality pass) — the caller no longer has to drive it
+   * engine code-quality pass) — the caller no longer has to drive it
    * manually from their own `onUpdate`.
    */
   physics?: Parameters<PhysicsSystem["init"]>[0];
@@ -97,7 +97,7 @@ export interface LoadOverlayOptions {
  * inside the engine environment boundary (CLAUDE.md: "the engine package
  * must not import anything from the DOM"; pixi.js's renderer construction
  * needs a canvas) so it keeps running under the headless testing harness
- * with zero Pixi involvement, import included. This mirrors the v1 pattern
+ * with zero Pixi involvement, import included. This mirrors the classic pattern
  * documented in CLAUDE.md under "Scene transitions: SceneManager times them,
  * RenderPipeline paints them" — `SceneManager` drove a `TransitionEffectSink`
  * interface that `PostProcessSystem` satisfied structurally, never importing
@@ -175,7 +175,7 @@ interface LoadedScene {
 }
 
 /**
- * Finding 5/7 (engine v2 code-quality pass) — "what a scene does per frame"
+ * Finding 5/7 (engine code-quality pass) — "what a scene does per frame"
  * defined once, used by both `Game.update()`'s main-scene branch and its
  * overlay loop, instead of each hand-duplicating "flush actor mailbox, step
  * physics if enabled, call onUpdate with the async-Promise warning check".
@@ -235,7 +235,7 @@ export class Game {
    * ENGINE_DESIGN.md §5 — process-global for the lifetime of this `Game`
    * instance, constructed once here (not per-scene, unlike `actors`/
    * `physics` in `SceneLifecycle`) and never reset by `loadScene`/
-   * `unloadScene`. Same underlying idea as v1's `pluginSystem` singleton,
+   * `unloadScene`. Same underlying idea as the `pluginSystem` singleton,
    * generalized past just plugins — see `Services.ts`.
    */
   readonly services = new ServiceRegistry();
@@ -287,7 +287,7 @@ export class Game {
     return this._input;
   }
 
-  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed, unchanged from v1). */
+  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed, unchanged from the classic engine). */
   get audio(): AudioSystem {
     return this._audio;
   }
@@ -372,8 +372,8 @@ export class Game {
    * only ever touches `this._current`, never `this._overlays`).
    *
    * Gets its own `ActorSystem` (same "one per scene" guarantee as the main
-   * scene, CLAUDE.md's "One ActorSystem per scene" decision, carried over to
-   * v2). Gets a `PhysicsSystem` too, for `SceneLifecycle`'s shape to stay
+   * scene, CLAUDE.md's "One ActorSystem per scene" decision, carried over
+   * here). Gets a `PhysicsSystem` too, for `SceneLifecycle`'s shape to stay
    * uniform with `loadScene`'s — but it is **not** `.init()`-ed unless the
    * caller passes `options.physics` explicitly, so it never steps and never
    * costs a WASM physics world for the common HUD-only case ("no
@@ -468,7 +468,7 @@ export class Game {
    *    frozen snapshot that every `input.isDown()`/`input.keyboard`/
    *    `input.gamepad()`/`input.touches` read for the rest of this frame,
    *    including everything steps 2–7 below do — see `InputManager.snapshot`.
-   * 2. Actor mailbox flush + actor `update()` (unchanged v1 semantics —
+   * 2. Actor mailbox flush + actor `update()` (unchanged actor-mailbox semantics —
    *    drain every inbox before any actor's `update()` runs).
    * 3–4. Physics step + collision/sensor dispatch — delegated to
    *    `PhysicsSystem.step()`, which is Track 1 scope; Track 0 only

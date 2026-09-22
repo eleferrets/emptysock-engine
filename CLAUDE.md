@@ -156,7 +156,7 @@ load.
 
 `packages/network` (`@emptysock/network`) marks which component fields are replicated with `networked(componentDef, ["field", ...])`, called next to `defineComponent`, not a `defineNetworkedComponent` wrapper — this composes with `ComponentRegistry`'s existing name-keyed identity instead of parallelling it. The mark is stored in a module-level `Map<componentName, Set<fieldName>>` keyed on the same `componentName` string `ComponentRegistry` uses, not on the `ComponentDef` object's identity, because client and server are two separately-loaded copies of the game's component definitions (and a hot-reloaded module produces a new `ComponentDef` reference for "the same" component per §23.1 anyway) — object identity was never going to survive either trip.
 
-Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the v2 `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
+Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS entity id, and entity ids are only unique within one process's `World`. `NetworkEntityMap` bridges the two by mapping a Colyseus network id (the schema collection's own key — typically `room.sessionId` for a player, or a synthetic key for server-spawned entities) to a local `Entity` handle, keyed internally on `entity.rawId` (the one entity-identifying field the `Entity` API exposes publicly — `eid` itself is `@internal` and does not survive into `dist-types`). `NetworkSystem` never reaches past `entity.get(Component)` to read or write a networked field, per §23.2's explicit constraint that this package must never need to know bitECS exists. Outbound replication is a per-call dirty-check poll (`NetworkSystem.sync()`, meant to be called at a low fixed cadence, not every frame) rather than intercepting the `.get()` proxy's setter — cheaper to reason about, and correct for §23.2's "replicated a handful of times a second to a handful of clients" cost model, which is not the case `scene.each()`'s no-proxy fast path exists for.
 
 `NetworkSystem` reconciles stale entity mappings by polling `.isAlive`, not by a push notification from the engine. `Scene.destroy(entity)` called directly by local gameplay code (as opposed to the Colyseus `onRemove` path `_bindCollection` already handles) has no way to tell `NetworkEntityMap` that the mapping it holds just went stale — `@emptysock/network` must never import bitECS internals, and `@emptysock/engine`'s core `Scene`/`Entity` must never grow a required hook just to serve this optional add-on package (the same boundary as "engine never imports network"). Instead, `NetworkSystem.reconcile()` (called automatically at the top of `sync()`, so it runs at the same cadence networking already polls at) walks every currently-tracked `Entity` and calls `deleteByEntity` for any whose already-public `.isAlive` reads `false`. Without this, a locally-destroyed entity's `rawId` can be recycled by bitECS onto an unrelated `spawn()` elsewhere in the same scene, and the stale map entry would silently alias the wrong entity on the next `sync()`/inbound `listen()` callback. If a lower-latency reconciliation cadence than `sync()`'s is ever needed, call `reconcile()` directly — it's a public method for exactly that.
 
@@ -185,7 +185,7 @@ field add/remove/type change in the component's own shape. As a fast path,
 object comes back (the overwhelmingly common case — a module-level `const`
 read every frame): diffing only ever runs when a _different_ object shows
 up under the same `componentName`, which only happens via a re-evaluated
-`defineComponent(...)` call, i.e. a hot-swap (§23.1).
+`defineComponent(...)` call, i.e. a hot-swap.
 
 "Affected entities" is scoped exactly the way `ComponentRegistry` already
 scopes everything else: per `World` (one per `Scene`), keyed by
@@ -274,42 +274,39 @@ which is what keeps a headless `Game` from touching `window` at all.
 
 ### Audio stays a Game-owned singleton, not a per-entity component
 
-`v1`'s `AudioSystem` (Howler-backed) has no per-entity audio-emitter
-component anywhere — games hold a reference to one `AudioSystem` instance
-and call `.play(id)` on it directly. There was therefore nothing ECS-shaped
-to migrate onto v2's `defineComponent`/bitECS storage for Track 1's
-Input+Audio pass; `v2/Game.ts` simply constructs one `AudioSystem` in its
-constructor (`game.audio`, also handed through `SceneLifecycle.audio` for
-convenience) and never recreates or destroys it on `loadScene`/`unloadScene`
-— the same "game-owned, not scene-owned" treatment as `game.input`, since
-music commonly needs to keep playing across a scene transition and v1 never
-had automatic per-scene audio teardown to preserve. A game that wants
-scene-scoped sound (stop this scene's sfx/music on unload) does it
-explicitly from that scene's own `onUnload` (e.g. `audio.stop(id)` or
-`audio.unloadAll()`) — the engine does not guess at which sounds "belong"
-to which scene.
+`AudioSystem` (Howler-backed) has no per-entity audio-emitter component
+anywhere — games hold a reference to one `AudioSystem` instance and call
+`.play(id)` on it directly. There is nothing ECS-shaped to model here, so
+`Game.ts` simply constructs one `AudioSystem` in its constructor
+(`game.audio`, also handed through `SceneLifecycle.audio` for convenience)
+and never recreates or destroys it on `loadScene`/`unloadScene` — the same
+"game-owned, not scene-owned" treatment as `game.input`, since music
+commonly needs to keep playing across a scene transition and the engine has
+no automatic per-scene audio teardown. A game that wants scene-scoped sound
+(stop this scene's sfx/music on unload) does it explicitly from that
+scene's own `onUnload` (e.g. `audio.stop(id)` or `audio.unloadAll()`) — the
+engine does not guess at which sounds "belong" to which scene.
 
-### v2 PhysicsBody callbacks live in a side-table, not the component's fields
+### PhysicsBody callbacks live in a side-table, not the component's fields
 
-`v2/defineComponent<T extends SerializableRecord>` rejects a shape with a
-function field at the type level (`v2/Serializable.ts`) — deliberately, so a
+`defineComponent<T extends SerializableRecord>` rejects a shape with a
+function field at the type level (`Serializable.ts`) — deliberately, so a
 component made only of `Serializable` fields can be saved/loaded generically
 later. `PhysicsBody`'s `onCollisionEnter`/`onSensorEnter`/etc. are exactly
 the kind of field that constraint exists to keep out, so they cannot live in
-`PhysicsBody`'s own defaults object. `v2/components/PhysicsBody.ts` instead
+`PhysicsBody`'s own defaults object. `components/PhysicsBody.ts` instead
 keeps a `WeakMap<World, Map<eid, callbacks>>` side-table (the same per-world
 scoping pattern `ComponentRegistry` already uses) and hands out a `Proxy` via
 `getPhysicsBody(entity)` that reads/writes the real component for ordinary
 fields and the side-table for the five callback properties — so
 `getPhysicsBody(entity).onCollisionEnter = fn` still reads as "assigning is
-the registration" (CLAUDE.md's "Collision/sensor callbacks" decision,
-carried into v2) even though the callback and the data never share storage.
-`PhysicsSystem` dispatches by reading the side-table directly
-(`getPhysicsCallbacks`), not through the proxy. A future component that
-wants a callback-shaped property should use the same pattern rather than
-loosening `SerializableRecord`.
+the registration" (CLAUDE.md's "Collision/sensor callbacks" decision) even
+though the callback and the data never share storage. `PhysicsSystem`
+dispatches by reading the side-table directly (`getPhysicsCallbacks`), not
+through the proxy. A future component that wants a callback-shaped property
+should use the same pattern rather than loosening `SerializableRecord`.
 
-### v2 physics: deterministic Rapier build is imported via a non-literal specifier
+### Deterministic Rapier build is imported via a non-literal specifier
 
 `PhysicsSystem.init()`/`PhysicsSystem3D.init()` choose between
 `@dimforge/rapier{2,3}d-compat` and the `-deterministic-compat` build with
@@ -321,34 +318,33 @@ defeats the point of it being `optionalDependencies` (§15.2 — most games
 never install it and shouldn't pay for it, including at install/bundle
 time). Keep this non-literal if the deterministic swap logic ever moves.
 
-### v2 RenderPipeline tracks sprites per-`Scene`, not by raw entity id
+### RenderPipeline tracks sprites per-`Scene`, not by raw entity id
 
-v1's `RenderPipeline` kept one flat `Map<number, PixiSprite>` because it only
-ever rendered a single `Scene`. v2's `Game` can have several live scenes at
-once — the main scene plus any `loadOverlay()`-ed overlays (§12.3) — and each
-one owns its own bitECS `World`, whose entity ids independently start from 0
-(see `v2/Scene.ts`). That means the main scene's entity `eid 3` and an
-overlay's entity `eid 3` are two different entities that happen to share a
-number. `v2/systems/RenderPipeline.ts` keys its sprite/texture-path tracking
-per `Scene` (`Map<Scene, { sprites: Map<number, PixiSprite>, ... }>`) to avoid
-aliasing them — the same "never index by a raw entity id without first
-scoping by which world it belongs to" rule `ComponentRegistry` and
-`PhysicsBody`'s callback side-table already follow (see the "v2 physics:
-collision callbacks" entry above), just scoped by `Scene` instead of `World`
-since `RenderPipeline` is an external system reaching in, not a component
-module. Overlay sprites also skip v1's named `LayerSystem` entirely (it's
-keyed by raw entity id with no scene scoping, so feeding it overlay eids
-would reproduce the exact collision this exists to avoid) — each overlay
-instead gets one flat, self-sorting `Container` appended to the stage after
-the main scene's layer containers, which is enough for draw-order-within-an-
-overlay without needing cross-container named layers there.
+`Game` can have several live scenes at once — the main scene plus any
+`loadOverlay()`-ed overlays (§12.3) — and each one owns its own bitECS
+`World`, whose entity ids independently start from 0 (see `Scene.ts`). That
+means the main scene's entity `eid 3` and an overlay's entity `eid 3` are
+two different entities that happen to share a number. `systems/RenderPipeline.ts`
+keys its sprite/texture-path tracking per `Scene`
+(`Map<Scene, { sprites: Map<number, PixiSprite>, ... }>`) to avoid aliasing
+them — the same "never index by a raw entity id without first scoping by
+which world it belongs to" rule `ComponentRegistry` and `PhysicsBody`'s
+callback side-table already follow (see the "PhysicsBody callbacks" entry
+above), just scoped by `Scene` instead of `World` since `RenderPipeline` is
+an external system reaching in, not a component module. Overlay sprites
+skip the older, singleton-style `LayerSystem` entirely (it's keyed by raw
+entity id with no scene scoping, so feeding it overlay eids would reproduce
+the exact collision this exists to avoid) — each overlay instead gets one
+flat, self-sorting `Container` appended to the stage after the main scene's
+layer containers, which is enough for draw-order-within-an-overlay without
+needing cross-container named layers there.
 
 ### `Game.attachRenderer` takes a structural interface, not the concrete `RenderPipeline`
 
-`v2/Game.ts` defines `SceneRenderer` (`renderFrame(main, overlays)`) as a
-plain interface and never imports `v2/systems/RenderPipeline.ts`, which in
+`Game.ts` defines `SceneRenderer` (`renderFrame(main, overlays)`) as a
+plain interface and never imports `systems/RenderPipeline.ts`, which in
 turn imports `pixi.js` and returns `HTMLCanvasElement`. This is the same
-pattern as v1's `SceneManager`/`TransitionEffectSink` (see "Scene
+pattern as `SceneManager`/`TransitionEffectSink` (see "Scene
 transitions: SceneManager times them, RenderPipeline paints them" above):
 `Game.ts` has to keep running under the headless testing harness in plain
 Node with zero DOM/Pixi involvement (the engine-environment-boundary rule),
@@ -364,12 +360,13 @@ all, but the second check means it stays safe even if something did.
 into a JS module string via `new Function("module", "exports", "console",
 source)`, not a bundler/transpile step, so it can compile and load in one
 call inside the engine package with zero new build tooling. The graph format
-it targets is the _existing_ v1 shape (`VariableStore` get/set var/switch,
-`ActorSystem.send`) because that is genuinely what the Visual Script
-Editor's Logic Script tab authors today — the graph has no entity/component
-or `scene.spawn` node kinds at all, so there was no "v1 vs v2 API" choice to
-make for this pass; compiling to v2 calls would mean inventing new node
-kinds, which is out of scope for a compiler over the existing format.
+it targets is the ActorSystem/VariableStore shape (`VariableStore` get/set
+var/switch, `ActorSystem.send`) because that is genuinely what the Visual
+Script Editor's Logic Script tab authors today — the graph has no
+entity/component or `scene.spawn` node kinds at all, so there is no
+alternate API to target; compiling to entity/component calls would mean
+inventing new node kinds, which is out of scope for a compiler over the
+existing format.
 
 The emitted code is a `switch` inside a `while (__next !== undefined)` loop
 keyed on node id, not straight-line code, because a `VisualScriptGraph` can
@@ -400,10 +397,10 @@ in behaviour.
 object attached to the returned `ComponentDef`, keyed by field name — no
 decorators, no separate registry. `apps/ide`'s `EntityProperties.tsx` reads
 it via a small `componentName -> ComponentInspectorMeta` lookup map
-(`V2_COMPONENT_METADATA`) built once from the v2 component modules it
-imports (`Transform`, `Sprite`, `PhysicsBody`), not by importing every v2
+(`V2_COMPONENT_METADATA`) built once from the component modules it
+imports (`Transform`, `Sprite`, `PhysicsBody`), not by importing every
 component module the IDE might ever encounter. That one map covers both
-each component's `.schema` *and* its inspector dot color — these used to be
+each component's `.schema` *and\* its inspector dot color — these used to be
 two separate hand-maintained `Record`s (`V2_COMPONENT_SCHEMAS` plus a
 `componentColor` map), which meant every new schema-bearing component
 needed this file edited in two places with no compile error if either was
@@ -415,19 +412,19 @@ larger change than this fix warranted; a future pass can move it there
 without changing how `EntityProperties.tsx` reads either.) This matters
 because the Inspector's `component.type` string (editor state, sourced
 from the live engine bridge or the editor's own entity list) is not
-guaranteed to line up 1:1 with a schema entry: a v1-only component
-(`CharacterController`, `Animator`, …) has no v2 `ComponentDef` at all yet,
-and even a schema'd v2 component may have fields the schema doesn't cover
+guaranteed to line up 1:1 with a schema entry: an older, singleton-style
+component (`CharacterController`, `Animator`, …) has no `ComponentDef` at
+all, and even a schema'd component may have fields the schema doesn't cover
 (`PhysicsBody`'s `position`/`velocity`/handle fields are deliberately
 unlisted). Both cases — component not in the map, or field not in that
 component's schema object — must resolve to the same fallback: the
 pre-existing raw per-field text editor and the default muted dot color,
 not an error or a blank control. `ComponentSection` checks `schema?.[key]`
 per field, so a schema doesn't need to be all-or-nothing for a component to
-render correctly. If a future pass wants the Inspector to reflect \_every*
-registered v2 component's schema instead of a hardcoded few, don't
+render correctly. If a future pass wants the Inspector to reflect _every_
+registered component's schema instead of a hardcoded few, don't
 hand-import each one here — that's the moment to add a
-`componentRegistry`-driven lookup (`v2/ComponentRegistry.ts` already tracks
+`componentRegistry`-driven lookup (`ComponentRegistry.ts` already tracks
 defs per world) rather than growing this file's import list indefinitely.
 
 ### MCP server has no 3D physics tool
@@ -444,7 +441,7 @@ defs per world) rather than growing this file's import list indefinitely.
 
 Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
-### v2 shared internal helpers — `v2/internal/scoped.ts` and `v2/internal/fields.ts`
+### Shared internal helpers — `v2/internal/scoped.ts` and `v2/internal/fields.ts`
 
 Two tiny cross-cutting helpers live in `packages/engine/src/v2/internal/`
 specifically so a recurring pattern doesn't get hand-rolled a fifth time.

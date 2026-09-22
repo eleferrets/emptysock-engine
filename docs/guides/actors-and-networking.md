@@ -4,7 +4,7 @@ The **Actor Model** is EmptySock's mechanism for decoupled, message-driven game 
 
 For the complete API, see [ActorSystem reference](../reference/actor-system.md).
 
-> **Heads up:** the `Transport` pattern below is the engine-level building block. If you're using `@emptysock/engine/v2` and want real state replication rather than hand-rolled message routing, the optional `@emptysock/network` package (Colyseus-based) now has a proper way to mark replicated fields with `networked(componentDef, ["field", ...])`. See [What's New in v2](../getting-started/whats-new-v2.md) and the troubleshooting entry on strict-equality dirty checking if a networked field ever seems to stop syncing.
+> **Heads up:** the `Transport` pattern below is the engine-level building block. If you're using `@emptysock/engine/v2` and want real state replication rather than hand-rolled message routing, the optional `@emptysock/network` package (Colyseus-based) has a proper way to mark replicated fields with `networked(componentDef, ["field", ...])`. See the [Engine Overview](../getting-started/engine-overview.md) and the troubleshooting entry on strict-equality dirty checking if a networked field ever seems to stop syncing.
 
 ---
 

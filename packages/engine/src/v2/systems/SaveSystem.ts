@@ -45,7 +45,7 @@ export interface SaveSystemOptions {
 }
 
 /**
- * ENGINE_DESIGN.md §12.1/§19.3 — generic save/load for any v2 component
+ * ENGINE_DESIGN.md §12.1/§19.3 — generic save/load for any ECS-core component
  * built on the `Serializable` constraint. No per-component save/load code
  * is required for the common case: `SaveSystem` reads every configured
  * component's fields straight off the entity via the name-keyed component

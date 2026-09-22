@@ -173,13 +173,13 @@ The engine itself is pre-bundled as a UMD global in the iframe's context. User c
 
 ---
 
-## 3.9 The v2 engine: what's actually under the hood
+## 3.9 The ECS core: what's actually under the hood
 
-Everything above describes the original engine, and none of it stopped being true. `@emptysock/engine/v2` is a second entry point living next to the original, not a replacement for it, and this section is for anyone who wants to know why it's built the way it is rather than just how to call it (that part's in the guides).
+Everything above describes the classic, class-based engine, and none of it stopped being true. `@emptysock/engine/v2` is a second entry point living next to it, built on a genuinely different data model for games that need it, and this section is for anyone who wants to know why it's built the way it is rather than just how to call it (that part's in the guides).
 
 ### bitECS is the real data store, `Entity` is a nice way to talk to it
 
-Under `v2`, a `Scene` doesn't keep a tree of objects with components hanging off them. It owns one [bitECS](https://github.com/NateTheGreatt/bitECS) `World`, which stores component data as flat, packed arrays indexed by entity id. That's the part that makes `scene.each()` fast: iterating a query is walking arrays in a tight loop, not chasing object references around the heap.
+Under this entry point, a `Scene` doesn't keep a tree of objects with components hanging off them. It owns one [bitECS](https://github.com/NateTheGreatt/bitECS) `World`, which stores component data as flat, packed arrays indexed by entity id. That's the part that makes `scene.each()` fast: iterating a query is walking arrays in a tight loop, not chasing object references around the heap.
 
 The catch is that raw bitECS is not a pleasant thing to write game code against directly (`Position.x[eid] = 5` is correct and also not how anyone wants to spend their afternoon). `Entity` is the layer that makes it feel normal again: `entity.get(Position).x = 5` reads and writes the exact same array bitECS owns, just through a `Proxy` that translates property access into indexed array access behind the scenes. `entity.add(Position, { x: 5 })` and `entity.get(Position)` are the two calls you'll use constantly; `scene.each(Position, Sprite, (pos, sprite, entity) => ...)` skips the Proxy entirely and hands you the live arrays' values directly for the one frame, which is why it's the fast path for anything running over a lot of entities every frame.
 

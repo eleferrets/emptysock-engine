@@ -4,7 +4,7 @@ This guide covers two systems that tend to get set up together: `SaveSystem` (pe
 
 For the complete API, see [SaveSystem reference](../reference/systems/save-system.md) and [LocalisationSystem reference](../reference/systems/localisation-system.md).
 
-> **Heads up:** this page describes v1's `SaveSystem`. `@emptysock/engine/v2` has its own `SaveSystem` that takes an injected `StorageAdapter` instead of guessing the platform, and adds per-component schema versioning with migrations, so a hot-reloaded component shape change doesn't corrupt old saves. See [What's New in v2](../getting-started/whats-new-v2.md) for the shape of it.
+> **Heads up:** this page describes the classic `SaveSystem`. `@emptysock/engine/v2` has its own `SaveSystem` that takes an injected `StorageAdapter` instead of guessing the platform, and adds per-component schema versioning with migrations, so a hot-reloaded component shape change doesn't corrupt old saves. See the [Engine Overview](../getting-started/engine-overview.md) for the shape of it.
 
 ---
 

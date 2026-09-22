@@ -107,9 +107,9 @@ This is an OS-level constraint, not something EmptySock is choosing to be diffic
 
 ---
 
-## Hot reload in v2: shape changes reset just the affected component
+## Hot reload with the ECS core: shape changes reset just the affected component
 
-If you're using `@emptysock/engine/v2`'s `defineComponent`, hot reload behaves a little more precisely than the "existing physics bodies will be orphaned" note above suggests for v1. `ComponentRegistry` tracks each component by its name and compares the _declared default shape_ every time a re-evaluated `ComponentDef` shows up under a name it already knows.
+If you're using `@emptysock/engine/v2`'s `defineComponent`, hot reload behaves a little more precisely than the "existing physics bodies will be orphaned" note above suggests for the classic, class-based components. `ComponentRegistry` tracks each component by its name and compares the _declared default shape_ every time a re-evaluated `ComponentDef` shows up under a name it already knows.
 
 - **Same shape** (you tweaked a method or a default value, but every field name and type is unchanged): nothing resets. Existing entities keep their current data.
 - **Different shape** (you added, removed, or retyped a field): the engine resets that one component's data, on every entity that has it, back to the new shape's defaults, on the one scene whose world actually had it registered. It prints a console message naming the component and why. Every other component on those same entities is untouched.

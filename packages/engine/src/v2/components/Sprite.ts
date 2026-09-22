@@ -1,7 +1,7 @@
 import { defineComponent } from "../Component.js";
 
 /**
- * v2 port of `../../components/Sprite.ts`. Attaching `Sprite` alongside
+ * ECS-core equivalent of `../../components/Sprite.ts`. Attaching `Sprite` alongside
  * `Transform` is the entire contract for "this entity shows up on screen" —
  * `RenderPipeline.renderFrame()` finds every `Transform`+`Sprite` entity each
  * frame and keeps a PixiJS sprite in sync with it.
@@ -21,9 +21,9 @@ import { defineComponent } from "../Component.js";
  * (game code never needs to reach into Pixi internals). `RenderPipeline`
  * keeps that association in its *own* side table instead —
  * `Map<Scene, Map<number, PixiSprite>>` keyed by the owning `Scene` and the
- * entity's `eid` — exactly the same shape v1's `RenderPipeline` already used
- * (`Map<number, PixiSprite>` keyed by entity id; v2 adds the outer `Scene`
- * key only because a `Game` can now have several live scenes — main plus
+ * entity's `eid` — exactly the same shape the classic `RenderPipeline` uses
+ * (`Map<number, PixiSprite>` keyed by entity id; this one adds the outer `Scene`
+ * key only because a `Game` can have several live scenes — main plus
  * overlays — whose `eid`s independently start from 0 and would otherwise
  * collide). If a later Track 1 system (physics collision callbacks, audio
  * playback handles) needs to associate a non-serializable runtime object
@@ -40,7 +40,7 @@ export const Sprite = defineComponent(
     alpha: 1,
     anchorX: 0.5,
     anchorY: 0.5,
-    /** Named render layer (see LayerSystem, ported unchanged from v1). */
+    /** Named render layer (see the shared `LayerSystem`, unchanged here). */
     layer: "default",
     /** Draw order within `layer` — lower draws first (behind). */
     depth: 0,
