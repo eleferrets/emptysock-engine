@@ -8,7 +8,7 @@
 
 > **VSNodeKind** = `"onUpdate"` \| `"onEvent"` \| `"sequence"` \| `"branch"` \| `"getVariable"` \| `"setVariable"` \| `"getSwitch"` \| `"setSwitch"` \| `"sendMessage"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L13)
+Defined in: [engine/src/components/VisualScriptComponent.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L13)
 
 Node graph shape produced by the Visual Script Editor panel, and equally
 constructible by hand in game code (see VisualScriptGraphBuilder below).

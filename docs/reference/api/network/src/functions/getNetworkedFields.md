@@ -8,7 +8,7 @@
 
 > **getNetworkedFields**(`componentName`): `ReadonlySet`\<`string`\> \| `undefined`
 
-Defined in: [network/src/NetworkedFields.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkedFields.ts#L45)
+Defined in: [network/src/NetworkedFields.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkedFields.ts#L61)
 
 The networked field names for `componentName`, or `undefined` if none were marked.
 

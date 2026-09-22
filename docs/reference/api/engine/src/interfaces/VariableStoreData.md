@@ -6,7 +6,7 @@
 
 # Interface: VariableStoreData
 
-Defined in: [engine/src/systems/VariableStore.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/VariableStore.ts#L5)
+Defined in: [engine/src/systems/VariableStore.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L5)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/VariableStore.ts:5](https://github.com/eleferret
 
 > **switches**: `Record`\<`number`, `boolean`\>
 
-Defined in: [engine/src/systems/VariableStore.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/VariableStore.ts#L7)
+Defined in: [engine/src/systems/VariableStore.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L7)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/VariableStore.ts:7](https://github.com/eleferret
 
 > **switchNames**: `Record`\<`number`, `string`\>
 
-Defined in: [engine/src/systems/VariableStore.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/VariableStore.ts#L9)
+Defined in: [engine/src/systems/VariableStore.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L9)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/VariableStore.ts:9](https://github.com/eleferret
 
 > **variableNames**: `Record`\<`number`, `string`\>
 
-Defined in: [engine/src/systems/VariableStore.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/VariableStore.ts#L8)
+Defined in: [engine/src/systems/VariableStore.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L8)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/VariableStore.ts:8](https://github.com/eleferret
 
 > **variables**: `Record`\<`number`, `number`\>
 
-Defined in: [engine/src/systems/VariableStore.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/VariableStore.ts#L6)
+Defined in: [engine/src/systems/VariableStore.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L6)

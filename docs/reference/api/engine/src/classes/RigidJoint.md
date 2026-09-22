@@ -6,7 +6,7 @@
 
 # Class: RigidJoint
 
-Defined in: [engine/src/components/RigidJoint.ts:35](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L35)
+Defined in: [engine/src/components/RigidJoint.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L35)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/RigidJoint.ts:35](https://github.com/eleferre
 
 > **new RigidJoint**(`options?`): `RigidJoint`
 
-Defined in: [engine/src/components/RigidJoint.ts:50](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L50)
+Defined in: [engine/src/components/RigidJoint.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L50)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/components/RigidJoint.ts:50](https://github.com/eleferre
 
 > **bodyBEntityId**: `number` \| `null`
 
-Defined in: [engine/src/components/RigidJoint.ts:41](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L41)
+Defined in: [engine/src/components/RigidJoint.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L41)
 
 ID of the Entity that holds the second PhysicsBody in this joint.
 
@@ -68,7 +68,7 @@ ID of the Entity that holds the second PhysicsBody in this joint.
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -80,7 +80,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **jointHandle**: `number` \| `null` = `null`
 
-Defined in: [engine/src/components/RigidJoint.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L48)
+Defined in: [engine/src/components/RigidJoint.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L48)
 
 Runtime Rapier joint handle — set by PhysicsSystem.
 
@@ -90,7 +90,7 @@ Runtime Rapier joint handle — set by PhysicsSystem.
 
 > `readonly` **jointType**: [`JointType`](../type-aliases/JointType.md)
 
-Defined in: [engine/src/components/RigidJoint.ts:39](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L39)
+Defined in: [engine/src/components/RigidJoint.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L39)
 
 ***
 
@@ -98,7 +98,7 @@ Defined in: [engine/src/components/RigidJoint.ts:39](https://github.com/eleferre
 
 > `readonly` **prismatic**: [`PrismaticOptions`](../interfaces/PrismaticOptions.md)
 
-Defined in: [engine/src/components/RigidJoint.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L44)
+Defined in: [engine/src/components/RigidJoint.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L44)
 
 ***
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/components/RigidJoint.ts:44](https://github.com/eleferre
 
 > `readonly` **revolute**: [`RevoluteOptions`](../interfaces/RevoluteOptions.md)
 
-Defined in: [engine/src/components/RigidJoint.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L43)
+Defined in: [engine/src/components/RigidJoint.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L43)
 
 ***
 
@@ -114,7 +114,7 @@ Defined in: [engine/src/components/RigidJoint.ts:43](https://github.com/eleferre
 
 > `readonly` **spring**: [`SpringOptions`](../interfaces/SpringOptions.md)
 
-Defined in: [engine/src/components/RigidJoint.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L45)
+Defined in: [engine/src/components/RigidJoint.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L45)
 
 ***
 
@@ -122,7 +122,7 @@ Defined in: [engine/src/components/RigidJoint.ts:45](https://github.com/eleferre
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -134,7 +134,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`RigidJoint`\>
 
-Defined in: [engine/src/components/RigidJoint.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L36)
+Defined in: [engine/src/components/RigidJoint.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L36)
 
 ## Methods
 
@@ -142,7 +142,7 @@ Defined in: [engine/src/components/RigidJoint.ts:36](https://github.com/eleferre
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -160,7 +160,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -178,7 +178,7 @@ Called once when component is detached from an entity
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/RigidJoint.ts:67](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L67)
+Defined in: [engine/src/components/RigidJoint.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L67)
 
 Serialize component data for saving
 
@@ -196,7 +196,7 @@ Serialize component data for saving
 
 > `optional` **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L36)
+Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L36)
 
 Called each frame during the update pass
 

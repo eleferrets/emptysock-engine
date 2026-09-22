@@ -6,7 +6,7 @@
 
 # Class: HotReloadSystem
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L10)
+Defined in: [engine/src/systems/HotReloadSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L10)
 
 HotReloadSystem — registers per-reload hooks that the IDE layer calls during
 hot reload. Game code calls the on* registration methods (e.g. in onLoad) to
@@ -32,7 +32,7 @@ The engine does not write to window directly.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:68](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L68)
+Defined in: [engine/src/systems/HotReloadSystem.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L68)
 
 Clear all registered hooks (call when the scene is destroyed).
 
@@ -46,7 +46,7 @@ Clear all registered hooks (call when the scene is destroyed).
 
 > **onAfterReload**(`fn`): () => `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L24)
+Defined in: [engine/src/systems/HotReloadSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L24)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:24](https://github.com/elefer
 
 > **onBeforeReload**(`fn`): () => `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L19)
+Defined in: [engine/src/systems/HotReloadSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L19)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:19](https://github.com/elefer
 
 > **onRoomReload**(`fn`): () => `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L39)
+Defined in: [engine/src/systems/HotReloadSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L39)
 
 #### Parameters
 
@@ -100,7 +100,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:39](https://github.com/elefer
 
 > **onShaderReload**(`fn`): () => `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L34)
+Defined in: [engine/src/systems/HotReloadSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L34)
 
 #### Parameters
 
@@ -118,7 +118,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:34](https://github.com/elefer
 
 > **onSpriteReload**(`fn`): () => `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L29)
+Defined in: [engine/src/systems/HotReloadSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L29)
 
 #### Parameters
 
@@ -136,7 +136,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:29](https://github.com/elefer
 
 > **runAfterReload**(): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L51)
+Defined in: [engine/src/systems/HotReloadSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L51)
 
 #### Returns
 
@@ -148,7 +148,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:51](https://github.com/elefer
 
 > **runBeforeReload**(): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L47)
+Defined in: [engine/src/systems/HotReloadSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L47)
 
 #### Returns
 
@@ -160,7 +160,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:47](https://github.com/elefer
 
 > **runRoomReload**(`name`, `roomJson`): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L63)
+Defined in: [engine/src/systems/HotReloadSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L63)
 
 #### Parameters
 
@@ -182,7 +182,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:63](https://github.com/elefer
 
 > **runShaderReload**(`name`, `vert`, `frag`): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L59)
+Defined in: [engine/src/systems/HotReloadSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L59)
 
 #### Parameters
 
@@ -208,7 +208,7 @@ Defined in: [engine/src/systems/HotReloadSystem.ts:59](https://github.com/elefer
 
 > **runSpriteReload**(`name`, `dataUrl`): `void`
 
-Defined in: [engine/src/systems/HotReloadSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/HotReloadSystem.ts#L55)
+Defined in: [engine/src/systems/HotReloadSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/HotReloadSystem.ts#L55)
 
 #### Parameters
 

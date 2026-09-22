@@ -6,7 +6,7 @@
 
 # Class: PanelWidget
 
-Defined in: [engine/src/ui/widgets/panel.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L12)
+Defined in: [engine/src/ui/widgets/panel.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L12)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:12](https://github.com/eleferrets/em
 
 > **new PanelWidget**(`opts?`): `PanelWidget`
 
-Defined in: [engine/src/ui/widgets/panel.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L18)
+Defined in: [engine/src/ui/widgets/panel.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L18)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:18](https://github.com/eleferrets/em
 
 > **\_anim**: `ActiveAnim` \| `null` = `null`
 
-Defined in: [engine/src/ui/widgets/base.ts:135](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L135)
+Defined in: [engine/src/ui/widgets/base.ts:135](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L135)
 
 #### Inherited from
 
@@ -52,7 +52,7 @@ Defined in: [engine/src/ui/widgets/base.ts:135](https://github.com/eleferrets/em
 
 > **\_animDx**: `number` = `0`
 
-Defined in: [engine/src/ui/widgets/base.ts:136](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L136)
+Defined in: [engine/src/ui/widgets/base.ts:136](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L136)
 
 #### Inherited from
 
@@ -64,7 +64,7 @@ Defined in: [engine/src/ui/widgets/base.ts:136](https://github.com/eleferrets/em
 
 > **\_animDy**: `number` = `0`
 
-Defined in: [engine/src/ui/widgets/base.ts:137](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L137)
+Defined in: [engine/src/ui/widgets/base.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L137)
 
 #### Inherited from
 
@@ -76,7 +76,7 @@ Defined in: [engine/src/ui/widgets/base.ts:137](https://github.com/eleferrets/em
 
 > **\_hovered**: `boolean` = `false`
 
-Defined in: [engine/src/ui/widgets/base.ts:140](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L140)
+Defined in: [engine/src/ui/widgets/base.ts:140](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L140)
 
 #### Inherited from
 
@@ -88,7 +88,7 @@ Defined in: [engine/src/ui/widgets/base.ts:140](https://github.com/eleferrets/em
 
 > **\_scaleX**: `number` = `1`
 
-Defined in: [engine/src/ui/widgets/base.ts:138](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L138)
+Defined in: [engine/src/ui/widgets/base.ts:138](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L138)
 
 #### Inherited from
 
@@ -100,7 +100,7 @@ Defined in: [engine/src/ui/widgets/base.ts:138](https://github.com/eleferrets/em
 
 > **\_scaleY**: `number` = `1`
 
-Defined in: [engine/src/ui/widgets/base.ts:139](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L139)
+Defined in: [engine/src/ui/widgets/base.ts:139](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L139)
 
 #### Inherited from
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/ui/widgets/base.ts:139](https://github.com/eleferrets/em
 
 > **alpha**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L132)
+Defined in: [engine/src/ui/widgets/base.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L132)
 
 #### Inherited from
 
@@ -124,7 +124,7 @@ Defined in: [engine/src/ui/widgets/base.ts:132](https://github.com/eleferrets/em
 
 > **anchor**: [`WidgetAnchor`](../type-aliases/WidgetAnchor.md)
 
-Defined in: [engine/src/ui/widgets/base.ts:130](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L130)
+Defined in: [engine/src/ui/widgets/base.ts:130](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L130)
 
 #### Inherited from
 
@@ -136,7 +136,7 @@ Defined in: [engine/src/ui/widgets/base.ts:130](https://github.com/eleferrets/em
 
 > **background**: `string`
 
-Defined in: [engine/src/ui/widgets/panel.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L13)
+Defined in: [engine/src/ui/widgets/panel.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L13)
 
 ***
 
@@ -144,7 +144,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:13](https://github.com/eleferrets/em
 
 > **border**: `string` \| `undefined`
 
-Defined in: [engine/src/ui/widgets/panel.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L14)
+Defined in: [engine/src/ui/widgets/panel.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L14)
 
 ***
 
@@ -152,7 +152,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:14](https://github.com/eleferrets/em
 
 > **borderWidth**: `number`
 
-Defined in: [engine/src/ui/widgets/panel.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L15)
+Defined in: [engine/src/ui/widgets/panel.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L15)
 
 ***
 
@@ -160,7 +160,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:15](https://github.com/eleferrets/em
 
 > `readonly` **children**: [`Widget`](Widget.md)[] = `[]`
 
-Defined in: [engine/src/ui/widgets/base.ts:133](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L133)
+Defined in: [engine/src/ui/widgets/base.ts:133](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L133)
 
 #### Inherited from
 
@@ -172,7 +172,7 @@ Defined in: [engine/src/ui/widgets/base.ts:133](https://github.com/eleferrets/em
 
 > **cornerRadius**: `number`
 
-Defined in: [engine/src/ui/widgets/panel.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L16)
+Defined in: [engine/src/ui/widgets/panel.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L16)
 
 ***
 
@@ -180,7 +180,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:16](https://github.com/eleferrets/em
 
 > **height**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:129](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L129)
+Defined in: [engine/src/ui/widgets/base.ts:129](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L129)
 
 #### Inherited from
 
@@ -192,7 +192,7 @@ Defined in: [engine/src/ui/widgets/base.ts:129](https://github.com/eleferrets/em
 
 > `readonly` **id**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:125](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L125)
+Defined in: [engine/src/ui/widgets/base.ts:125](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L125)
 
 #### Inherited from
 
@@ -204,7 +204,7 @@ Defined in: [engine/src/ui/widgets/base.ts:125](https://github.com/eleferrets/em
 
 > **uiScale**: `number` = `1`
 
-Defined in: [engine/src/ui/widgets/base.ts:148](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L148)
+Defined in: [engine/src/ui/widgets/base.ts:148](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L148)
 
 Uniform display scale applied on top of `width`/`height`/`x`/`y` when
 resolving screen-space position and hit-testing, intended to be driven
@@ -221,7 +221,7 @@ ViewportSystem, or `UISystem.setScale`). Defaults to 1 — unscaled.
 
 > **visible**: `boolean`
 
-Defined in: [engine/src/ui/widgets/base.ts:131](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L131)
+Defined in: [engine/src/ui/widgets/base.ts:131](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L131)
 
 #### Inherited from
 
@@ -233,7 +233,7 @@ Defined in: [engine/src/ui/widgets/base.ts:131](https://github.com/eleferrets/em
 
 > **width**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:128](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L128)
+Defined in: [engine/src/ui/widgets/base.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L128)
 
 #### Inherited from
 
@@ -245,7 +245,7 @@ Defined in: [engine/src/ui/widgets/base.ts:128](https://github.com/eleferrets/em
 
 > **x**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:126](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L126)
+Defined in: [engine/src/ui/widgets/base.ts:126](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L126)
 
 #### Inherited from
 
@@ -257,7 +257,7 @@ Defined in: [engine/src/ui/widgets/base.ts:126](https://github.com/eleferrets/em
 
 > **y**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:127](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L127)
+Defined in: [engine/src/ui/widgets/base.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L127)
 
 #### Inherited from
 
@@ -269,7 +269,7 @@ Defined in: [engine/src/ui/widgets/base.ts:127](https://github.com/eleferrets/em
 
 > **\_emit**(`event`, `value?`): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:183](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L183)
+Defined in: [engine/src/ui/widgets/base.ts:183](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L183)
 
 #### Parameters
 
@@ -295,7 +295,7 @@ Defined in: [engine/src/ui/widgets/base.ts:183](https://github.com/eleferrets/em
 
 > **\_scaledBounds**(`cw`, `ch`): `object`
 
-Defined in: [engine/src/ui/widgets/base.ts:320](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L320)
+Defined in: [engine/src/ui/widgets/base.ts:320](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L320)
 
 #### Parameters
 
@@ -337,7 +337,7 @@ Defined in: [engine/src/ui/widgets/base.ts:320](https://github.com/eleferrets/em
 
 > **\_setHovered**(`hovered`): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:348](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L348)
+Defined in: [engine/src/ui/widgets/base.ts:348](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L348)
 
 #### Parameters
 
@@ -359,7 +359,7 @@ Defined in: [engine/src/ui/widgets/base.ts:348](https://github.com/eleferrets/em
 
 > **\_tick**(`dt`): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:205](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L205)
+Defined in: [engine/src/ui/widgets/base.ts:205](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L205)
 
 #### Parameters
 
@@ -381,7 +381,7 @@ Defined in: [engine/src/ui/widgets/base.ts:205](https://github.com/eleferrets/em
 
 > **animate**(`name`, `opts?`): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:193](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L193)
+Defined in: [engine/src/ui/widgets/base.ts:193](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L193)
 
 Start an animation. `opts.duration` is in milliseconds (matching the
 rest of the widget event API); `_tick(dt)` receives `dt` in seconds
@@ -412,7 +412,7 @@ seconds once here rather than at every tick.
 
 > **contains**(`px`, `py`, `cw`, `ch`): `boolean`
 
-Defined in: [engine/src/ui/widgets/base.ts:337](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L337)
+Defined in: [engine/src/ui/widgets/base.ts:337](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L337)
 
 #### Parameters
 
@@ -446,7 +446,7 @@ Defined in: [engine/src/ui/widgets/base.ts:337](https://github.com/eleferrets/em
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:176](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L176)
+Defined in: [engine/src/ui/widgets/base.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L176)
 
 #### Parameters
 
@@ -472,7 +472,7 @@ Defined in: [engine/src/ui/widgets/base.ts:176](https://github.com/eleferrets/em
 
 > **on**(`event`, `handler`): () => `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:166](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L166)
+Defined in: [engine/src/ui/widgets/base.ts:166](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L166)
 
 #### Parameters
 
@@ -498,7 +498,7 @@ Defined in: [engine/src/ui/widgets/base.ts:166](https://github.com/eleferrets/em
 
 > **render**(`ctx`, `cw`, `ch`): `void`
 
-Defined in: [engine/src/ui/widgets/panel.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/panel.ts#L26)
+Defined in: [engine/src/ui/widgets/panel.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/panel.ts#L26)
 
 #### Parameters
 
@@ -528,7 +528,7 @@ Defined in: [engine/src/ui/widgets/panel.ts:26](https://github.com/eleferrets/em
 
 > **resolvedPosition**(`cw`, `ch`): `object`
 
-Defined in: [engine/src/ui/widgets/base.ts:281](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L281)
+Defined in: [engine/src/ui/widgets/base.ts:281](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L281)
 
 #### Parameters
 
@@ -562,7 +562,7 @@ Defined in: [engine/src/ui/widgets/base.ts:281](https://github.com/eleferrets/em
 
 > **triggerClick**(): `void`
 
-Defined in: [engine/src/ui/widgets/base.ts:343](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L343)
+Defined in: [engine/src/ui/widgets/base.ts:343](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L343)
 
 #### Returns
 

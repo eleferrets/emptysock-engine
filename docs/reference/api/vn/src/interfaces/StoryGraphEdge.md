@@ -6,7 +6,7 @@
 
 # Interface: StoryGraphEdge
 
-Defined in: [vn/src/VNScriptConvert.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L24)
+Defined in: [vn/src/VNScriptConvert.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L24)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNScriptConvert.ts:24](https://github.com/eleferrets/emptyso
 
 > **from**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L26)
+Defined in: [vn/src/VNScriptConvert.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L26)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [vn/src/VNScriptConvert.ts:26](https://github.com/eleferrets/emptyso
 
 > **fromPort**: `number`
 
-Defined in: [vn/src/VNScriptConvert.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L27)
+Defined in: [vn/src/VNScriptConvert.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L27)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [vn/src/VNScriptConvert.ts:27](https://github.com/eleferrets/emptyso
 
 > **id**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L25)
+Defined in: [vn/src/VNScriptConvert.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L25)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [vn/src/VNScriptConvert.ts:25](https://github.com/eleferrets/emptyso
 
 > **to**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L28)
+Defined in: [vn/src/VNScriptConvert.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L28)

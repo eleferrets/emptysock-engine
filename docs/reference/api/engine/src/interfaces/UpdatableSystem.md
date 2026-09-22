@@ -6,7 +6,7 @@
 
 # Interface: UpdatableSystem
 
-Defined in: [engine/src/core/SystemManager.ts:1](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L1)
+Defined in: [engine/src/core/SystemManager.ts:1](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L1)
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/SystemManager.ts:1](https://github.com/eleferrets/e
 
 > `optional` **destroy**(): `void`
 
-Defined in: [engine/src/core/SystemManager.ts:3](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L3)
+Defined in: [engine/src/core/SystemManager.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L3)
 
 #### Returns
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/core/SystemManager.ts:3](https://github.com/eleferrets/e
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/core/SystemManager.ts:2](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L2)
+Defined in: [engine/src/core/SystemManager.ts:2](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L2)
 
 #### Parameters
 

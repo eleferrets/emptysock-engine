@@ -8,7 +8,7 @@
 
 > **applyWindowConfigToTauri**(`tauriConfPath`, `config`): `void`
 
-Defined in: [toolchain/src/window-config.ts:58](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/window-config.ts#L58)
+Defined in: [toolchain/src/window-config.ts:58](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L58)
 
 Patch the first window entry in tauri.conf.json to match the given
 WindowConfig. Creates or overwrites only the keys EmptySock manages;

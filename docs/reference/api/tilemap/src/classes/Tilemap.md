@@ -6,7 +6,7 @@
 
 # Class: Tilemap
 
-Defined in: [tilemap/src/TilemapSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L43)
+Defined in: [tilemap/src/TilemapSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L43)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:43](https://github.com/eleferrets/empt
 
 > **new Tilemap**(`data`, `entity`): `Tilemap`
 
-Defined in: [tilemap/src/TilemapSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L48)
+Defined in: [tilemap/src/TilemapSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L48)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:48](https://github.com/eleferrets/empt
 
 > `readonly` **data**: [`TilemapData`](../interfaces/TilemapData.md)
 
-Defined in: [tilemap/src/TilemapSystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L44)
+Defined in: [tilemap/src/TilemapSystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L44)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:44](https://github.com/eleferrets/empt
 
 > `readonly` **entity**: `Entity`
 
-Defined in: [tilemap/src/TilemapSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L45)
+Defined in: [tilemap/src/TilemapSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L45)
 
 ## Accessors
 
@@ -54,7 +54,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:45](https://github.com/eleferrets/empt
 
 > **get** **height**(): `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:57](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L57)
+Defined in: [tilemap/src/TilemapSystem.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L57)
 
 ##### Returns
 
@@ -68,7 +68,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:57](https://github.com/eleferrets/empt
 
 > **get** **width**(): `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L54)
+Defined in: [tilemap/src/TilemapSystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L54)
 
 ##### Returns
 
@@ -80,7 +80,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:54](https://github.com/eleferrets/empt
 
 > **asGrid**(): `boolean`[][]
 
-Defined in: [tilemap/src/TilemapSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L66)
+Defined in: [tilemap/src/TilemapSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L66)
 
 Return all solid cells across all layers as a flat walkability grid (true = walkable).
 
@@ -94,7 +94,7 @@ Return all solid cells across all layers as a flat walkability grid (true = walk
 
 > **getLayer**(`name`): [`TilemapLayer`](../interfaces/TilemapLayer.md) \| `undefined`
 
-Defined in: [tilemap/src/TilemapSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L61)
+Defined in: [tilemap/src/TilemapSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L61)
 
 #### Parameters
 
@@ -112,7 +112,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:61](https://github.com/eleferrets/empt
 
 > **tileAt**(`worldX`, `worldY`, `layerName`): [`TileCell`](../interfaces/TileCell.md) \| `null`
 
-Defined in: [tilemap/src/TilemapSystem.ts:87](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L87)
+Defined in: [tilemap/src/TilemapSystem.ts:87](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L87)
 
 World-space tile at (x, y).
 

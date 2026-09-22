@@ -6,7 +6,7 @@
 
 # Class: GridMovementBehavior
 
-Defined in: [engine/src/behaviors/GridMovementBehavior.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/GridMovementBehavior.ts#L23)
+Defined in: [engine/src/behaviors/GridMovementBehavior.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/GridMovementBehavior.ts#L23)
 
 GridMovementBehavior — 4-directional tile-aligned movement.
 
@@ -24,7 +24,7 @@ before each move starts — return true to block a direction.
 
 > **new GridMovementBehavior**(`opts`): `GridMovementBehavior`
 
-Defined in: [engine/src/behaviors/GridMovementBehavior.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/GridMovementBehavior.ts#L37)
+Defined in: [engine/src/behaviors/GridMovementBehavior.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/GridMovementBehavior.ts#L37)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/behaviors/GridMovementBehavior.ts:37](https://github.com
 
 > **speed**: `number`
 
-Defined in: [engine/src/behaviors/GridMovementBehavior.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/GridMovementBehavior.ts#L25)
+Defined in: [engine/src/behaviors/GridMovementBehavior.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/GridMovementBehavior.ts#L25)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/behaviors/GridMovementBehavior.ts:25](https://github.com
 
 > **tileSize**: `number`
 
-Defined in: [engine/src/behaviors/GridMovementBehavior.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/GridMovementBehavior.ts#L24)
+Defined in: [engine/src/behaviors/GridMovementBehavior.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/GridMovementBehavior.ts#L24)
 
 ## Methods
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/behaviors/GridMovementBehavior.ts:24](https://github.com
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/GridMovementBehavior.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/GridMovementBehavior.ts#L45)
+Defined in: [engine/src/behaviors/GridMovementBehavior.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/GridMovementBehavior.ts#L45)
 
 #### Parameters
 

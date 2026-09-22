@@ -8,7 +8,7 @@
 
 > **gpuTierRenderDefaults**(`tier`, `devicePixelRatio?`): `object`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:124](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ViewportSystem.ts#L124)
+Defined in: [engine/src/systems/ViewportSystem.ts:124](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L124)
 
 Reads GPU-tier-appropriate default RenderSystem init options.
 "potato" and "low" tiers disable antialiasing and cap devicePixelRatio at 1

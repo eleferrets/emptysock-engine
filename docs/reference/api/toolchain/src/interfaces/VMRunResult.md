@@ -6,7 +6,7 @@
 
 # Interface: VMRunResult
 
-Defined in: [toolchain/src/VMRunner.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L20)
+Defined in: [toolchain/src/VMRunner.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L20)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/VMRunner.ts:20](https://github.com/eleferrets/emptyso
 
 > **exitCode**: `number`
 
-Defined in: [toolchain/src/VMRunner.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L24)
+Defined in: [toolchain/src/VMRunner.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L24)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/VMRunner.ts:24](https://github.com/eleferrets/emptyso
 
 > **stderr**: `string`
 
-Defined in: [toolchain/src/VMRunner.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L23)
+Defined in: [toolchain/src/VMRunner.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L23)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/VMRunner.ts:23](https://github.com/eleferrets/emptyso
 
 > **stdout**: `string`
 
-Defined in: [toolchain/src/VMRunner.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L22)
+Defined in: [toolchain/src/VMRunner.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L22)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [toolchain/src/VMRunner.ts:22](https://github.com/eleferrets/emptyso
 
 > **success**: `boolean`
 
-Defined in: [toolchain/src/VMRunner.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/VMRunner.ts#L21)
+Defined in: [toolchain/src/VMRunner.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L21)

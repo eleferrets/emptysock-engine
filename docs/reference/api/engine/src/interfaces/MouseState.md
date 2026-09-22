@@ -6,7 +6,7 @@
 
 # Interface: MouseState
 
-Defined in: [engine/src/systems/InputSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L3)
+Defined in: [engine/src/systems/InputSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L3)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/InputSystem.ts:3](https://github.com/eleferrets/
 
 > **buttons**: `Record`\<`number`, `boolean`\>
 
-Defined in: [engine/src/systems/InputSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L8)
+Defined in: [engine/src/systems/InputSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L8)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/InputSystem.ts:8](https://github.com/eleferrets/
 
 > **dx**: `number`
 
-Defined in: [engine/src/systems/InputSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L6)
+Defined in: [engine/src/systems/InputSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L6)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/InputSystem.ts:6](https://github.com/eleferrets/
 
 > **dy**: `number`
 
-Defined in: [engine/src/systems/InputSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L7)
+Defined in: [engine/src/systems/InputSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L7)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/InputSystem.ts:7](https://github.com/eleferrets/
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/InputSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L4)
+Defined in: [engine/src/systems/InputSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L4)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [engine/src/systems/InputSystem.ts:4](https://github.com/eleferrets/
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/InputSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputSystem.ts#L5)
+Defined in: [engine/src/systems/InputSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L5)

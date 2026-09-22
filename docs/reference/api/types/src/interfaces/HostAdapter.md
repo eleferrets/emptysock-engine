@@ -6,7 +6,7 @@
 
 # Interface: HostAdapter
 
-Defined in: [types/src/index.ts:241](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L241)
+Defined in: [types/src/index.ts:241](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L241)
 
 Abstraction layer between the engine and its host environment (browser
 iframe, Tauri WebView, or Node test harness). Inject a concrete
@@ -19,7 +19,7 @@ NullHostAdapter in contexts where no host integration is needed.
 
 > **addMessageListener**(`handler`): `void`
 
-Defined in: [types/src/index.ts:245](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L245)
+Defined in: [types/src/index.ts:245](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L245)
 
 Register a listener for messages arriving from the host.
 
@@ -39,7 +39,7 @@ Register a listener for messages arriving from the host.
 
 > **clearInterval**(`id`): `void`
 
-Defined in: [types/src/index.ts:251](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L251)
+Defined in: [types/src/index.ts:251](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L251)
 
 Cancel a handle returned by setInterval.
 
@@ -59,7 +59,7 @@ Cancel a handle returned by setInterval.
 
 > **detectGPUTier**(): `"potato"` \| `"low"` \| `"mid"` \| `"high"` \| `"ultra"`
 
-Defined in: [types/src/index.ts:256](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L256)
+Defined in: [types/src/index.ts:256](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L256)
 
 Detect GPU capability tier. Returns the best tier the host can determine;
 return 'mid' when information is unavailable.
@@ -74,7 +74,7 @@ return 'mid' when information is unavailable.
 
 > **postMessage**(`data`, `targetOrigin`): `void`
 
-Defined in: [types/src/index.ts:243](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L243)
+Defined in: [types/src/index.ts:243](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L243)
 
 Post a structured message to the parent / host frame.
 
@@ -98,7 +98,7 @@ Post a structured message to the parent / host frame.
 
 > **removeMessageListener**(`handler`): `void`
 
-Defined in: [types/src/index.ts:247](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L247)
+Defined in: [types/src/index.ts:247](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L247)
 
 Deregister a previously registered message listener.
 
@@ -118,7 +118,7 @@ Deregister a previously registered message listener.
 
 > **setInterval**(`fn`, `ms`): `unknown`
 
-Defined in: [types/src/index.ts:249](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L249)
+Defined in: [types/src/index.ts:249](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L249)
 
 Schedule a recurring callback. Returns an opaque handle.
 

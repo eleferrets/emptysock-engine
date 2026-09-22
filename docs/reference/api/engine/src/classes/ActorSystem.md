@@ -6,7 +6,7 @@
 
 # Class: ActorSystem
 
-Defined in: [engine/src/core/ActorSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L12)
+Defined in: [engine/src/core/ActorSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L12)
 
 Manages a registry of Actors. Wire this into your game loop:
 
@@ -33,7 +33,7 @@ Manages a registry of Actors. Wire this into your game loop:
 
 > **get** **size**(): `number`
 
-Defined in: [engine/src/core/ActorSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L72)
+Defined in: [engine/src/core/ActorSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L72)
 
 ##### Returns
 
@@ -45,7 +45,7 @@ Defined in: [engine/src/core/ActorSystem.ts:72](https://github.com/eleferrets/em
 
 > **broadcast**(`msg`): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L48)
+Defined in: [engine/src/core/ActorSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L48)
 
 Broadcast a message to every registered actor.
 
@@ -65,7 +65,7 @@ Broadcast a message to every registered actor.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:64](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L64)
+Defined in: [engine/src/core/ActorSystem.ts:64](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L64)
 
 #### Returns
 
@@ -77,7 +77,7 @@ Defined in: [engine/src/core/ActorSystem.ts:64](https://github.com/eleferrets/em
 
 > **get**(`id`): [`Actor`](Actor.md) \| `undefined`
 
-Defined in: [engine/src/core/ActorSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L33)
+Defined in: [engine/src/core/ActorSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L33)
 
 #### Parameters
 
@@ -95,7 +95,7 @@ Defined in: [engine/src/core/ActorSystem.ts:33](https://github.com/eleferrets/em
 
 > **getAll**(): [`Actor`](Actor.md)[]
 
-Defined in: [engine/src/core/ActorSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L38)
+Defined in: [engine/src/core/ActorSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L38)
 
 Returns every registered actor in registration order.
 
@@ -109,7 +109,7 @@ Returns every registered actor in registration order.
 
 > **register**(`actor`): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L15)
+Defined in: [engine/src/core/ActorSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L15)
 
 #### Parameters
 
@@ -127,7 +127,7 @@ Defined in: [engine/src/core/ActorSystem.ts:15](https://github.com/eleferrets/em
 
 > **send**(`actorId`, `msg`): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L43)
+Defined in: [engine/src/core/ActorSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L43)
 
 Send a message to a specific actor by id. No-op if the id is unknown.
 
@@ -151,7 +151,7 @@ Send a message to a specific actor by id. No-op if the id is unknown.
 
 > **unregister**(`id`): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L25)
+Defined in: [engine/src/core/ActorSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L25)
 
 #### Parameters
 
@@ -169,7 +169,7 @@ Defined in: [engine/src/core/ActorSystem.ts:25](https://github.com/eleferrets/em
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/core/ActorSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ActorSystem.ts#L55)
+Defined in: [engine/src/core/ActorSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ActorSystem.ts#L55)
 
 Flush mailboxes then call update on every actor. Call once per frame.
 

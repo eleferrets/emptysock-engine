@@ -6,7 +6,7 @@
 
 # Interface: PhysicsWorldOptions
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L10)
+Defined in: [engine/src/systems/PhysicsSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L10)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:10](https://github.com/eleferre
 
 > `optional` **gravity?**: `object`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L11)
+Defined in: [engine/src/systems/PhysicsSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L11)
 
 #### x
 

@@ -6,7 +6,7 @@
 
 # Class: SineBehavior
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L14)
+Defined in: [engine/src/behaviors/SineBehavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L14)
 
 SineBehavior — oscillates a Transform property on a sine wave.
 Saves the entity's origin values at attach time and applies an offset
@@ -23,7 +23,7 @@ each frame. Opacity requires a component named 'Sprite' with an
 
 > **new SineBehavior**(`options?`): `SineBehavior`
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L27)
+Defined in: [engine/src/behaviors/SineBehavior.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L27)
 
 #### Parameters
 
@@ -59,7 +59,7 @@ Defined in: [engine/src/behaviors/SineBehavior.ts:27](https://github.com/eleferr
 
 > **axis**: [`SineAxis`](../type-aliases/SineAxis.md)
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L16)
+Defined in: [engine/src/behaviors/SineBehavior.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L16)
 
 ***
 
@@ -67,7 +67,7 @@ Defined in: [engine/src/behaviors/SineBehavior.ts:16](https://github.com/eleferr
 
 > **magnitude**: `number`
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L17)
+Defined in: [engine/src/behaviors/SineBehavior.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L17)
 
 ***
 
@@ -75,7 +75,7 @@ Defined in: [engine/src/behaviors/SineBehavior.ts:17](https://github.com/eleferr
 
 > **period**: `number`
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L19)
+Defined in: [engine/src/behaviors/SineBehavior.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L19)
 
 Period in seconds (time for one full cycle).
 
@@ -85,7 +85,7 @@ Period in seconds (time for one full cycle).
 
 > **type**: [`SineType`](../type-aliases/SineType.md)
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L15)
+Defined in: [engine/src/behaviors/SineBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L15)
 
 ## Methods
 
@@ -93,7 +93,7 @@ Defined in: [engine/src/behaviors/SineBehavior.ts:15](https://github.com/eleferr
 
 > **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:42](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L42)
+Defined in: [engine/src/behaviors/SineBehavior.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L42)
 
 #### Returns
 
@@ -109,7 +109,7 @@ Defined in: [engine/src/behaviors/SineBehavior.ts:42](https://github.com/eleferr
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -125,7 +125,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/SineBehavior.ts:46](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/SineBehavior.ts#L46)
+Defined in: [engine/src/behaviors/SineBehavior.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/SineBehavior.ts#L46)
 
 #### Parameters
 

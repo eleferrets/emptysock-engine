@@ -6,7 +6,7 @@
 
 # Class: SaveSystem\<TSlot\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L49)
+Defined in: [engine/src/systems/SaveSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L49)
 
 Generic key-value persistence for save slots, backed by `localStorage`.
 
@@ -36,7 +36,7 @@ The *shape* of a slot is supplied as a Zod schema:
 
 > **new SaveSystem**\<`TSlot`\>(`prefix?`, `schema?`): `SaveSystem`\<`TSlot`\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L54)
+Defined in: [engine/src/systems/SaveSystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L54)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:54](https://github.com/eleferrets/
 
 > **delete**(`slotId`): `void`
 
-Defined in: [engine/src/systems/SaveSystem.ts:143](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L143)
+Defined in: [engine/src/systems/SaveSystem.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L143)
 
 #### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:143](https://github.com/eleferrets
 
 > **listSlots**(): `TSlot`[]
 
-Defined in: [engine/src/systems/SaveSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L121)
+Defined in: [engine/src/systems/SaveSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L121)
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:121](https://github.com/eleferrets
 
 > **load**(`slotId`): `TSlot` \| `null`
 
-Defined in: [engine/src/systems/SaveSystem.ts:109](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L109)
+Defined in: [engine/src/systems/SaveSystem.ts:109](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L109)
 
 #### Parameters
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:109](https://github.com/eleferrets
 
 > **save**(`slotId`, `entry`): `void`
 
-Defined in: [engine/src/systems/SaveSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L72)
+Defined in: [engine/src/systems/SaveSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L72)
 
 Persist a save slot.
 
@@ -138,7 +138,7 @@ is rejected and a warning is logged — nothing is written to storage.
 
 > **update**(`_dt`): `void`
 
-Defined in: [engine/src/systems/SaveSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L151)
+Defined in: [engine/src/systems/SaveSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L151)
 
 #### Parameters
 

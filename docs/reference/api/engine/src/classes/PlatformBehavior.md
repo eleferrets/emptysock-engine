@@ -6,7 +6,7 @@
 
 # Class: PlatformBehavior
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L10)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L10)
 
 PlatformBehavior — side-scrolling platformer movement driven by InputSystem.
 Moves the entity's Transform directly; does not integrate with PhysicsSystem.
@@ -22,7 +22,7 @@ Use PhysicsSystem for collision-accurate platformers.
 
 > **new PlatformBehavior**(`input`, `speed?`, `jumpStrength?`, `gravity?`): `PlatformBehavior`
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L18)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L18)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [engine/src/behaviors/PlatformBehavior.ts:18](https://github.com/ele
 
 > **gravity**: `number`
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L13)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L13)
 
 ***
 
@@ -64,7 +64,7 @@ Defined in: [engine/src/behaviors/PlatformBehavior.ts:13](https://github.com/ele
 
 > **jumpStrength**: `number`
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L12)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L12)
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: [engine/src/behaviors/PlatformBehavior.ts:12](https://github.com/ele
 
 > **speed**: `number`
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L11)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L11)
 
 ## Methods
 
@@ -80,7 +80,7 @@ Defined in: [engine/src/behaviors/PlatformBehavior.ts:11](https://github.com/ele
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -96,7 +96,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/PlatformBehavior.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/PlatformBehavior.ts#L31)
+Defined in: [engine/src/behaviors/PlatformBehavior.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/PlatformBehavior.ts#L31)
 
 #### Parameters
 

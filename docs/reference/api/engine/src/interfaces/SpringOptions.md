@@ -6,7 +6,7 @@
 
 # Interface: SpringOptions
 
-Defined in: [engine/src/components/RigidJoint.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L27)
+Defined in: [engine/src/components/RigidJoint.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L27)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/components/RigidJoint.ts:27](https://github.com/eleferre
 
 > `optional` **anchorA?**: `object`
 
-Defined in: [engine/src/components/RigidJoint.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L28)
+Defined in: [engine/src/components/RigidJoint.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L28)
 
 #### x
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/RigidJoint.ts:28](https://github.com/eleferre
 
 > `optional` **anchorB?**: `object`
 
-Defined in: [engine/src/components/RigidJoint.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L29)
+Defined in: [engine/src/components/RigidJoint.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L29)
 
 #### x
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/components/RigidJoint.ts:29](https://github.com/eleferre
 
 > `optional` **damping?**: `number`
 
-Defined in: [engine/src/components/RigidJoint.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L32)
+Defined in: [engine/src/components/RigidJoint.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L32)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/components/RigidJoint.ts:32](https://github.com/eleferre
 
 > `optional` **restLength?**: `number`
 
-Defined in: [engine/src/components/RigidJoint.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L30)
+Defined in: [engine/src/components/RigidJoint.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L30)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [engine/src/components/RigidJoint.ts:30](https://github.com/eleferre
 
 > `optional` **stiffness?**: `number`
 
-Defined in: [engine/src/components/RigidJoint.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L31)
+Defined in: [engine/src/components/RigidJoint.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L31)

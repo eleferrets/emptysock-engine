@@ -8,7 +8,7 @@
 
 > **syncWindowConfigToTauri**(`projectDir`, `tauriDir?`): `boolean`
 
-Defined in: [toolchain/src/window-config.ts:111](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/window-config.ts#L111)
+Defined in: [toolchain/src/window-config.ts:111](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L111)
 
 Convenience: read window config from a project directory and apply it to
 the tauri.conf.json in the same or a sibling location.

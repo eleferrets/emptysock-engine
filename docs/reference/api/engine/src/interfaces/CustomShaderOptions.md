@@ -6,7 +6,7 @@
 
 # Interface: CustomShaderOptions
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L47)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L47)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/CustomShaderFilter.ts:47](https://github.com/ele
 
 > **fragmentSrc**: `string`
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L49)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L49)
 
 Fragment shader source. Required — this is what the shader actually does.
 
@@ -24,7 +24,7 @@ Fragment shader source. Required — this is what the shader actually does.
 
 > `optional` **name?**: `string`
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:53](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L53)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L53)
 
 GlProgram name, useful for debugging in browser devtools.
 
@@ -34,6 +34,6 @@ GlProgram name, useful for debugging in browser devtools.
 
 > `optional` **vertexSrc?**: `string`
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L51)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L51)
 
 Vertex shader source. Defaults to DEFAULT_CUSTOM_SHADER_VERTEX.

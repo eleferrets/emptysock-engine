@@ -6,7 +6,7 @@
 
 # Class: Sprite
 
-Defined in: [engine/src/components/Sprite.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L14)
+Defined in: [engine/src/components/Sprite.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L14)
 
 Sprite — a visible, textured entity. Attaching Sprite alongside Transform
 is all a game needs to appear on screen: `RenderPipeline.renderFrame()`
@@ -24,7 +24,7 @@ separate manual step to register the entity with the renderer.
 
 > **new Sprite**(`options?`): `Sprite`
 
-Defined in: [engine/src/components/Sprite.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L28)
+Defined in: [engine/src/components/Sprite.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L28)
 
 #### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [engine/src/components/Sprite.ts:28](https://github.com/eleferrets/e
 
 > **alpha**: `number`
 
-Defined in: [engine/src/components/Sprite.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L19)
+Defined in: [engine/src/components/Sprite.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L19)
 
 ***
 
@@ -84,7 +84,7 @@ Defined in: [engine/src/components/Sprite.ts:19](https://github.com/eleferrets/e
 
 > **anchorX**: `number`
 
-Defined in: [engine/src/components/Sprite.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L20)
+Defined in: [engine/src/components/Sprite.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L20)
 
 ***
 
@@ -92,7 +92,7 @@ Defined in: [engine/src/components/Sprite.ts:20](https://github.com/eleferrets/e
 
 > **anchorY**: `number`
 
-Defined in: [engine/src/components/Sprite.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L21)
+Defined in: [engine/src/components/Sprite.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L21)
 
 ***
 
@@ -100,7 +100,7 @@ Defined in: [engine/src/components/Sprite.ts:21](https://github.com/eleferrets/e
 
 > **depth**: `number`
 
-Defined in: [engine/src/components/Sprite.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L25)
+Defined in: [engine/src/components/Sprite.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L25)
 
 Draw order within `layer` — lower draws first (behind). Defaults to 0.
 
@@ -110,7 +110,7 @@ Draw order within `layer` — lower draws first (behind). Defaults to 0.
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -122,7 +122,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **layer**: `string`
 
-Defined in: [engine/src/components/Sprite.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L23)
+Defined in: [engine/src/components/Sprite.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L23)
 
 Named render layer (see LayerSystem). Defaults to `"default"`.
 
@@ -132,7 +132,7 @@ Named render layer (see LayerSystem). Defaults to `"default"`.
 
 > **texturePath**: `string`
 
-Defined in: [engine/src/components/Sprite.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L17)
+Defined in: [engine/src/components/Sprite.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L17)
 
 ***
 
@@ -140,7 +140,7 @@ Defined in: [engine/src/components/Sprite.ts:17](https://github.com/eleferrets/e
 
 > **tint**: `number`
 
-Defined in: [engine/src/components/Sprite.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L18)
+Defined in: [engine/src/components/Sprite.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L18)
 
 ***
 
@@ -148,7 +148,7 @@ Defined in: [engine/src/components/Sprite.ts:18](https://github.com/eleferrets/e
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -160,7 +160,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > **visible**: `boolean`
 
-Defined in: [engine/src/components/Sprite.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L26)
+Defined in: [engine/src/components/Sprite.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L26)
 
 ***
 
@@ -168,7 +168,7 @@ Defined in: [engine/src/components/Sprite.ts:26](https://github.com/eleferrets/e
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`Sprite`\>
 
-Defined in: [engine/src/components/Sprite.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L15)
+Defined in: [engine/src/components/Sprite.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L15)
 
 ## Methods
 
@@ -176,7 +176,7 @@ Defined in: [engine/src/components/Sprite.ts:15](https://github.com/eleferrets/e
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -194,7 +194,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -212,7 +212,7 @@ Called once when component is detached from an entity
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/Sprite.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Sprite.ts#L51)
+Defined in: [engine/src/components/Sprite.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Sprite.ts#L51)
 
 Serialize component data for saving
 
@@ -230,7 +230,7 @@ Serialize component data for saving
 
 > `optional` **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L36)
+Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L36)
 
 Called each frame during the update pass
 

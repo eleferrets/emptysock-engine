@@ -6,7 +6,7 @@
 
 # Interface: SequenceKeyframe
 
-Defined in: [engine/src/systems/SequenceSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SequenceSystem.ts#L13)
+Defined in: [engine/src/systems/SequenceSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L13)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/SequenceSystem.ts:13](https://github.com/eleferr
 
 > **time**: `number`
 
-Defined in: [engine/src/systems/SequenceSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SequenceSystem.ts#L14)
+Defined in: [engine/src/systems/SequenceSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L14)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/systems/SequenceSystem.ts:14](https://github.com/eleferr
 
 > **value**: `number`
 
-Defined in: [engine/src/systems/SequenceSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SequenceSystem.ts#L15)
+Defined in: [engine/src/systems/SequenceSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L15)

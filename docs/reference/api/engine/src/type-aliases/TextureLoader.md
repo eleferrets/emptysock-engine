@@ -8,7 +8,7 @@
 
 > **TextureLoader** = (`path`) => `Promise`\<`Texture`\>
 
-Defined in: [engine/src/systems/RenderPipeline.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L52)
+Defined in: [engine/src/systems/RenderPipeline.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L52)
 
 Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts.
 

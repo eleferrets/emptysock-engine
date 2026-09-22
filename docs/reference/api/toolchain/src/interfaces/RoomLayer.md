@@ -6,7 +6,7 @@
 
 # Interface: RoomLayer
 
-Defined in: [toolchain/src/gms2-room-import.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L16)
+Defined in: [toolchain/src/gms2-room-import.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L16)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:16](https://github.com/eleferrets
 
 > **instances**: [`InstanceEntry`](InstanceEntry.md)[]
 
-Defined in: [toolchain/src/gms2-room-import.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L20)
+Defined in: [toolchain/src/gms2-room-import.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L20)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:20](https://github.com/eleferrets
 
 > **name**: `string`
 
-Defined in: [toolchain/src/gms2-room-import.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L17)
+Defined in: [toolchain/src/gms2-room-import.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L17)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:17](https://github.com/eleferrets
 
 > **tiles**: [`TileEntry`](TileEntry.md)[]
 
-Defined in: [toolchain/src/gms2-room-import.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L19)
+Defined in: [toolchain/src/gms2-room-import.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L19)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [toolchain/src/gms2-room-import.ts:19](https://github.com/eleferrets
 
 > **type**: `string`
 
-Defined in: [toolchain/src/gms2-room-import.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L18)
+Defined in: [toolchain/src/gms2-room-import.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L18)

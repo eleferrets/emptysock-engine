@@ -6,7 +6,7 @@
 
 # Class: ObjectPool\<T\>
 
-Defined in: [engine/src/core/ObjectPool.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L7)
+Defined in: [engine/src/core/ObjectPool.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L7)
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [engine/src/core/ObjectPool.ts:7](https://github.com/eleferrets/empt
 
 > **new ObjectPool**\<`T`\>(`factory`, `initialSize?`): `ObjectPool`\<`T`\>
 
-Defined in: [engine/src/core/ObjectPool.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L12)
+Defined in: [engine/src/core/ObjectPool.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L12)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [engine/src/core/ObjectPool.ts:12](https://github.com/eleferrets/emp
 
 > **get** **available**(): `number`
 
-Defined in: [engine/src/core/ObjectPool.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L34)
+Defined in: [engine/src/core/ObjectPool.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L34)
 
 ##### Returns
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/core/ObjectPool.ts:34](https://github.com/eleferrets/emp
 
 > **get** **created**(): `number`
 
-Defined in: [engine/src/core/ObjectPool.ts:38](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L38)
+Defined in: [engine/src/core/ObjectPool.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L38)
 
 ##### Returns
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/core/ObjectPool.ts:38](https://github.com/eleferrets/emp
 
 > **acquire**(): `T`
 
-Defined in: [engine/src/core/ObjectPool.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L20)
+Defined in: [engine/src/core/ObjectPool.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L20)
 
 #### Returns
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/core/ObjectPool.ts:20](https://github.com/eleferrets/emp
 
 > **clear**(): `void`
 
-Defined in: [engine/src/core/ObjectPool.ts:42](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L42)
+Defined in: [engine/src/core/ObjectPool.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L42)
 
 #### Returns
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/core/ObjectPool.ts:42](https://github.com/eleferrets/emp
 
 > **release**(`obj`): `void`
 
-Defined in: [engine/src/core/ObjectPool.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/ObjectPool.ts#L29)
+Defined in: [engine/src/core/ObjectPool.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/ObjectPool.ts#L29)
 
 #### Parameters
 

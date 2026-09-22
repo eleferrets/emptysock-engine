@@ -6,7 +6,7 @@
 
 # Interface: BehaviorContext
 
-Defined in: [engine/src/behaviors/Behavior.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L4)
+Defined in: [engine/src/behaviors/Behavior.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L4)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:4](https://github.com/eleferrets/e
 
 > **dt**: `number`
 
-Defined in: [engine/src/behaviors/Behavior.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L6)
+Defined in: [engine/src/behaviors/Behavior.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L6)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:6](https://github.com/eleferrets/e
 
 > **entity**: [`Entity`](../classes/Entity.md)
 
-Defined in: [engine/src/behaviors/Behavior.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L5)
+Defined in: [engine/src/behaviors/Behavior.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L5)
 
 ***
 
@@ -30,6 +30,6 @@ Defined in: [engine/src/behaviors/Behavior.ts:5](https://github.com/eleferrets/e
 
 > `optional` **scene?**: [`Scene`](../classes/Scene.md)
 
-Defined in: [engine/src/behaviors/Behavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L8)
+Defined in: [engine/src/behaviors/Behavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L8)
 
 The scene that owns this entity. Null when called outside a scene (e.g. unit tests).

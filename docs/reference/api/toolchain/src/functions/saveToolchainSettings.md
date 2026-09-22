@@ -8,7 +8,7 @@
 
 > **saveToolchainSettings**(`projectDir`, `settings`): `void`
 
-Defined in: [toolchain/src/ToolchainSettings.ts:85](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainSettings.ts#L85)
+Defined in: [toolchain/src/ToolchainSettings.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainSettings.ts#L85)
 
 ## Parameters
 

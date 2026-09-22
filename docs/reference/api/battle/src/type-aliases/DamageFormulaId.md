@@ -8,4 +8,4 @@
 
 > **DamageFormulaId** = `"physical"` \| `"magical"` \| `"fixed"` \| `"percent-max-hp"`
 
-Defined in: [battle/src/BattleSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L39)
+Defined in: [battle/src/BattleSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L48)

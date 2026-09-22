@@ -6,7 +6,7 @@
 
 # Class: LightingFilter
 
-Defined in: [engine/src/systems/LightingSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L121)
+Defined in: [engine/src/systems/LightingSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L121)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:121](https://github.com/elefer
 
 > **new LightingFilter**(): `LightingFilter`
 
-Defined in: [engine/src/systems/LightingSystem.ts:122](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L122)
+Defined in: [engine/src/systems/LightingSystem.ts:122](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L122)
 
 #### Returns
 

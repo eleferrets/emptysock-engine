@@ -6,7 +6,7 @@
 
 # Interface: AnimationOpts
 
-Defined in: [engine/src/ui/widgets/base.ts:61](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L61)
+Defined in: [engine/src/ui/widgets/base.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L61)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/ui/widgets/base.ts:61](https://github.com/eleferrets/emp
 
 > `optional` **direction?**: [`SlideDirection`](../type-aliases/SlideDirection.md)
 
-Defined in: [engine/src/ui/widgets/base.ts:64](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L64)
+Defined in: [engine/src/ui/widgets/base.ts:64](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L64)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/ui/widgets/base.ts:64](https://github.com/eleferrets/emp
 
 > `optional` **duration?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:62](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L62)
+Defined in: [engine/src/ui/widgets/base.ts:62](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L62)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [engine/src/ui/widgets/base.ts:62](https://github.com/eleferrets/emp
 
 > `optional` **easing?**: [`EasingName`](../type-aliases/EasingName.md)
 
-Defined in: [engine/src/ui/widgets/base.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L63)
+Defined in: [engine/src/ui/widgets/base.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L63)

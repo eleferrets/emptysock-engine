@@ -6,7 +6,7 @@
 
 # Class: GamepadSystem
 
-Defined in: [engine/src/systems/GamepadSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L24)
+Defined in: [engine/src/systems/GamepadSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L24)
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:24](https://github.com/eleferre
 
 > **getState**(`index`): [`GamepadState`](../interfaces/GamepadState.md) \| `null`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L49)
+Defined in: [engine/src/systems/GamepadSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L49)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:49](https://github.com/eleferre
 
 > **rumble**(`index`, `intensity`, `duration`): `void`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:53](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L53)
+Defined in: [engine/src/systems/GamepadSystem.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L53)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:53](https://github.com/eleferre
 
 > **rumbleDual**(`index`, `opts`): `void`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L66)
+Defined in: [engine/src/systems/GamepadSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L66)
 
 #### Parameters
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:66](https://github.com/eleferre
 
 > **update**(): `void`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L27)
+Defined in: [engine/src/systems/GamepadSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L27)
 
 #### Returns
 

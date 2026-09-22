@@ -6,7 +6,7 @@
 
 # Class: LocalisationSystem
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L4)
+Defined in: [engine/src/systems/LocalisationSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L4)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:4](https://github.com/elef
 
 > **get** **currentLocale**(): `string`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L9)
+Defined in: [engine/src/systems/LocalisationSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L9)
 
 ##### Returns
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:9](https://github.com/elef
 
 > **addTranslations**(`locale`, `map`): `void`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L20)
+Defined in: [engine/src/systems/LocalisationSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L20)
 
 #### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:20](https://github.com/ele
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L52)
+Defined in: [engine/src/systems/LocalisationSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L52)
 
 #### Returns
 
@@ -72,7 +72,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:52](https://github.com/ele
 
 > **onLocaleChange**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L29)
+Defined in: [engine/src/systems/LocalisationSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L29)
 
 Subscribe to locale changes. Returns an unsubscriber function.
 Useful for refreshing UI text after the player changes language.
@@ -93,7 +93,7 @@ Useful for refreshing UI text after the player changes language.
 
 > **setLocale**(`locale`): `void`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L13)
+Defined in: [engine/src/systems/LocalisationSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L13)
 
 #### Parameters
 
@@ -111,7 +111,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:13](https://github.com/ele
 
 > **t**(`key`, `vars?`): `string`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L37)
+Defined in: [engine/src/systems/LocalisationSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L37)
 
 #### Parameters
 
@@ -133,7 +133,7 @@ Defined in: [engine/src/systems/LocalisationSystem.ts:37](https://github.com/ele
 
 > **update**(`_dt`): `void`
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LocalisationSystem.ts#L50)
+Defined in: [engine/src/systems/LocalisationSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L50)
 
 #### Parameters
 

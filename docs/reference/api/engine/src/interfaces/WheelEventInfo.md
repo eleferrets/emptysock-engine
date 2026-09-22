@@ -6,7 +6,7 @@
 
 # Interface: WheelEventInfo
 
-Defined in: [engine/src/systems/PointerSystem.ts:74](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L74)
+Defined in: [engine/src/systems/PointerSystem.ts:74](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L74)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:74](https://github.com/eleferre
 
 > **deltaMode**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L80)
+Defined in: [engine/src/systems/PointerSystem.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L80)
 
 0 = pixel, 1 = line, 2 = page — WheelEvent.DOM_DELTA_*
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:80](https://github.com/eleferre
 
 > **deltaX**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L76)
+Defined in: [engine/src/systems/PointerSystem.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L76)
 
 Horizontal scroll amount, sign/units depend on deltaMode.
 
@@ -34,7 +34,7 @@ Horizontal scroll amount, sign/units depend on deltaMode.
 
 > **deltaY**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:78](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L78)
+Defined in: [engine/src/systems/PointerSystem.ts:78](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L78)
 
 Vertical scroll amount, sign/units depend on deltaMode.
 
@@ -44,7 +44,7 @@ Vertical scroll amount, sign/units depend on deltaMode.
 
 > **isPinchZoom**: `boolean`
 
-Defined in: [engine/src/systems/PointerSystem.ts:90](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L90)
+Defined in: [engine/src/systems/PointerSystem.ts:90](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L90)
 
 True when this event represents a pinch-to-zoom gesture on a trackpad.
 
@@ -54,7 +54,7 @@ True when this event represents a pinch-to-zoom gesture on a trackpad.
 
 > **source**: `"trackpad"` \| `"mouse-wheel"`
 
-Defined in: [engine/src/systems/PointerSystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L88)
+Defined in: [engine/src/systems/PointerSystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L88)
 
 Heuristic classification of the input device. Trackpads typically
 deliver small fractional pixel deltas on every frame of a gesture and

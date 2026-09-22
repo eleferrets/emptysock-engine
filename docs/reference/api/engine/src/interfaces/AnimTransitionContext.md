@@ -6,7 +6,7 @@
 
 # Interface: AnimTransitionContext
 
-Defined in: [engine/src/components/AnimatorController.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L12)
+Defined in: [engine/src/components/AnimatorController.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L12)
 
 Read-only view of parameters/triggers handed to a transition's condition function.
 
@@ -16,7 +16,7 @@ Read-only view of parameters/triggers handed to a transition's condition functio
 
 > **getParam**(`name`): [`AnimParamValue`](../type-aliases/AnimParamValue.md) \| `undefined`
 
-Defined in: [engine/src/components/AnimatorController.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L14)
+Defined in: [engine/src/components/AnimatorController.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L14)
 
 Current value of a parameter, or undefined if never set.
 
@@ -36,7 +36,7 @@ Current value of a parameter, or undefined if never set.
 
 > **isTriggered**(`name`): `boolean`
 
-Defined in: [engine/src/components/AnimatorController.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L16)
+Defined in: [engine/src/components/AnimatorController.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L16)
 
 Whether a trigger is currently armed (set since the last consumption).
 

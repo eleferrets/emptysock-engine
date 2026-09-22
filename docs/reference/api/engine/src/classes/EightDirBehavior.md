@@ -6,7 +6,7 @@
 
 # Class: EightDirBehavior
 
-Defined in: [engine/src/behaviors/EightDirBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/EightDirBehavior.ts#L9)
+Defined in: [engine/src/behaviors/EightDirBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/EightDirBehavior.ts#L9)
 
 EightDirBehavior — moves an entity in 8 directions using arrow keys or WASD.
 Requires a Transform component on the entity and an InputSystem instance.
@@ -21,7 +21,7 @@ Requires a Transform component on the entity and an InputSystem instance.
 
 > **new EightDirBehavior**(`input`, `speed?`): `EightDirBehavior`
 
-Defined in: [engine/src/behaviors/EightDirBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/EightDirBehavior.ts#L15)
+Defined in: [engine/src/behaviors/EightDirBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/EightDirBehavior.ts#L15)
 
 #### Parameters
 
@@ -47,7 +47,7 @@ Defined in: [engine/src/behaviors/EightDirBehavior.ts:15](https://github.com/ele
 
 > **diagonalSpeed**: `number`
 
-Defined in: [engine/src/behaviors/EightDirBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/EightDirBehavior.ts#L12)
+Defined in: [engine/src/behaviors/EightDirBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/EightDirBehavior.ts#L12)
 
 Speed multiplier when moving diagonally (default: 1/√2 ≈ 0.707).
 
@@ -57,7 +57,7 @@ Speed multiplier when moving diagonally (default: 1/√2 ≈ 0.707).
 
 > **speed**: `number`
 
-Defined in: [engine/src/behaviors/EightDirBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/EightDirBehavior.ts#L10)
+Defined in: [engine/src/behaviors/EightDirBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/EightDirBehavior.ts#L10)
 
 ## Methods
 
@@ -65,7 +65,7 @@ Defined in: [engine/src/behaviors/EightDirBehavior.ts:10](https://github.com/ele
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -81,7 +81,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -97,7 +97,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/EightDirBehavior.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/EightDirBehavior.ts#L22)
+Defined in: [engine/src/behaviors/EightDirBehavior.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/EightDirBehavior.ts#L22)
 
 #### Parameters
 

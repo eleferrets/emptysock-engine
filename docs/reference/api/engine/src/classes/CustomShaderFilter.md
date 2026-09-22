@@ -6,7 +6,7 @@
 
 # Class: CustomShaderFilter
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:62](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L62)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:62](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L62)
 
 A user-authored post-process filter. Construct it from the same GLSL
 source the ShaderEditor panel previews, attach it to a layer via
@@ -23,7 +23,7 @@ from the game loop if the shader reads uTime.
 
 > **new CustomShaderFilter**(`options`): `CustomShaderFilter`
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L63)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L63)
 
 #### Parameters
 
@@ -45,7 +45,7 @@ Defined in: [engine/src/systems/CustomShaderFilter.ts:63](https://github.com/ele
 
 > **setTime**(`seconds`): `void`
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CustomShaderFilter.ts#L76)
+Defined in: [engine/src/systems/CustomShaderFilter.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L76)
 
 Updates the uTime uniform. Call once per frame from the game loop.
 

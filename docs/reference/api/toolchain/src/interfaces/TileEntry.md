@@ -6,7 +6,7 @@
 
 # Interface: TileEntry
 
-Defined in: [toolchain/src/gms2-room-import.ts:3](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L3)
+Defined in: [toolchain/src/gms2-room-import.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L3)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:3](https://github.com/eleferrets/
 
 > **tileIndex**: `number`
 
-Defined in: [toolchain/src/gms2-room-import.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L7)
+Defined in: [toolchain/src/gms2-room-import.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L7)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:7](https://github.com/eleferrets/
 
 > **tilesetId**: `string`
 
-Defined in: [toolchain/src/gms2-room-import.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L4)
+Defined in: [toolchain/src/gms2-room-import.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L4)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/gms2-room-import.ts:4](https://github.com/eleferrets/
 
 > **x**: `number`
 
-Defined in: [toolchain/src/gms2-room-import.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L5)
+Defined in: [toolchain/src/gms2-room-import.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L5)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [toolchain/src/gms2-room-import.ts:5](https://github.com/eleferrets/
 
 > **y**: `number`
 
-Defined in: [toolchain/src/gms2-room-import.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-room-import.ts#L6)
+Defined in: [toolchain/src/gms2-room-import.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-room-import.ts#L6)

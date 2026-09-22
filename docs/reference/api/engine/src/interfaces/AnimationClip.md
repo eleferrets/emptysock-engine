@@ -6,7 +6,7 @@
 
 # Interface: AnimationClip
 
-Defined in: [engine/src/components/Animator.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L7)
+Defined in: [engine/src/components/Animator.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L7)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/components/Animator.ts:7](https://github.com/eleferrets/
 
 > **frameEnd**: `number`
 
-Defined in: [engine/src/components/Animator.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L10)
+Defined in: [engine/src/components/Animator.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L10)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/components/Animator.ts:10](https://github.com/eleferrets
 
 > **frameRate**: `number`
 
-Defined in: [engine/src/components/Animator.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L11)
+Defined in: [engine/src/components/Animator.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L11)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/Animator.ts:11](https://github.com/eleferrets
 
 > **frameStart**: `number`
 
-Defined in: [engine/src/components/Animator.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L9)
+Defined in: [engine/src/components/Animator.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L9)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/components/Animator.ts:9](https://github.com/eleferrets/
 
 > **loop**: `boolean`
 
-Defined in: [engine/src/components/Animator.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L12)
+Defined in: [engine/src/components/Animator.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L12)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [engine/src/components/Animator.ts:12](https://github.com/eleferrets
 
 > **name**: `string`
 
-Defined in: [engine/src/components/Animator.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L8)
+Defined in: [engine/src/components/Animator.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L8)

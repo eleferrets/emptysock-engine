@@ -6,7 +6,7 @@
 
 # Class: UISystem
 
-Defined in: [engine/src/systems/UISystem.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L22)
+Defined in: [engine/src/systems/UISystem.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L22)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/UISystem.ts:22](https://github.com/eleferrets/em
 
 > **get** **roots**(): readonly [`Widget`](Widget.md)[]
 
-Defined in: [engine/src/systems/UISystem.ts:98](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L98)
+Defined in: [engine/src/systems/UISystem.ts:98](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L98)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ readonly [`Widget`](Widget.md)[]
 
 > **get** **scale**(): `number`
 
-Defined in: [engine/src/systems/UISystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L54)
+Defined in: [engine/src/systems/UISystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L54)
 
 ##### Returns
 
@@ -52,7 +52,7 @@ Defined in: [engine/src/systems/UISystem.ts:54](https://github.com/eleferrets/em
 
 > **add**(`widget`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L88)
+Defined in: [engine/src/systems/UISystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L88)
 
 #### Parameters
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/systems/UISystem.ts:88](https://github.com/eleferrets/em
 
 > **cancelPointer**(`pointerId?`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:268](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L268)
+Defined in: [engine/src/systems/UISystem.ts:268](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L268)
 
 Abort an in-flight press without firing `click` (e.g. pointercancel).
 
@@ -90,7 +90,7 @@ Abort an in-flight press without firing `click` (e.g. pointercancel).
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:102](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L102)
+Defined in: [engine/src/systems/UISystem.ts:102](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L102)
 
 #### Returns
 
@@ -102,7 +102,7 @@ Defined in: [engine/src/systems/UISystem.ts:102](https://github.com/eleferrets/e
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:273](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L273)
+Defined in: [engine/src/systems/UISystem.ts:273](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L273)
 
 Release all ImageBitmap allocations and clear the widget tree.
 
@@ -116,7 +116,7 @@ Release all ImageBitmap allocations and clear the widget tree.
 
 > **dispatchPointerDown**(`x`, `y`, `canvasWidth`, `canvasHeight`, `pointerId?`): `boolean`
 
-Defined in: [engine/src/systems/UISystem.ts:179](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L179)
+Defined in: [engine/src/systems/UISystem.ts:179](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L179)
 
 Begin a press on the topmost widget under (x, y). Does not fire `click`
 immediately — the click fires on `dispatchPointerUp` only if the pointer
@@ -157,7 +157,7 @@ for a single mouse pointer).
 
 > **dispatchPointerDrag**(`x`, `y`, `pointerId?`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:203](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L203)
+Defined in: [engine/src/systems/UISystem.ts:203](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L203)
 
 Update an in-flight press's position. Once the pointer has moved past
 `CLICK_DRAG_THRESHOLD` from its start point, the press is marked as a
@@ -187,7 +187,7 @@ drag and will not fire `click` on release.
 
 > **dispatchPointerUp**(`x`, `y`, `canvasWidth`, `canvasHeight`, `pointerId?`): `boolean`
 
-Defined in: [engine/src/systems/UISystem.ts:251](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L251)
+Defined in: [engine/src/systems/UISystem.ts:251](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L251)
 
 Complete a press started with `dispatchPointerDown`. Fires `click` on the
 pressed widget only if it was not marked as a drag (see
@@ -227,7 +227,7 @@ cannot express, since it always fires unconditionally on down.
 
 > **getImage**(`src`): `ImageBitmap` \| `undefined`
 
-Defined in: [engine/src/systems/UISystem.ts:67](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L67)
+Defined in: [engine/src/systems/UISystem.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L67)
 
 Fetch a loaded image from the cache, kicking off a load if not present.
 
@@ -247,7 +247,7 @@ Fetch a loaded image from the cache, kicking off a load if not present.
 
 > **handleClick**(`x`, `y`, `canvasWidth`, `canvasHeight`): `boolean`
 
-Defined in: [engine/src/systems/UISystem.ts:141](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L141)
+Defined in: [engine/src/systems/UISystem.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L141)
 
 Legacy convenience: hit-test and immediately trigger a click on the
 topmost matching widget, with no press/drag distinction. Prefer
@@ -282,7 +282,7 @@ semantics; this remains for callers that only need a single-shot click.
 
 > **handlePointerMove**(`x`, `y`, `canvasWidth`, `canvasHeight`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:211](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L211)
+Defined in: [engine/src/systems/UISystem.ts:211](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L211)
 
 Update hover state given the current pointer position.
 
@@ -314,7 +314,7 @@ Update hover state given the current pointer position.
 
 > **remove**(`widget`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:93](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L93)
+Defined in: [engine/src/systems/UISystem.ts:93](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L93)
 
 #### Parameters
 
@@ -332,7 +332,7 @@ Defined in: [engine/src/systems/UISystem.ts:93](https://github.com/eleferrets/em
 
 > **render**(`ctx`, `canvasWidth`, `canvasHeight`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:221](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L221)
+Defined in: [engine/src/systems/UISystem.ts:221](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L221)
 
 Draw all root widgets to the given renderer.
 
@@ -360,7 +360,7 @@ Draw all root widgets to the given renderer.
 
 > **setImageLoader**(`loader`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:62](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L62)
+Defined in: [engine/src/systems/UISystem.ts:62](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L62)
 
 Inject an ImageLoader so that ImageWidget components resolve their source
 instead of rendering a grey placeholder. Call this once at game init.
@@ -381,7 +381,7 @@ instead of rendering a grey placeholder. Call this once at game init.
 
 > **setScale**(`scale`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L44)
+Defined in: [engine/src/systems/UISystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L44)
 
 Set the canvas-to-design-resolution scale factor used by widget
 positioning, sizing, and hit-testing. Intended to be fed by a
@@ -404,7 +404,7 @@ widget's tree immediately.
 
 > **update**(`dt`, `pointerX?`, `pointerY?`, `canvasWidth?`, `canvasHeight?`): `void`
 
-Defined in: [engine/src/systems/UISystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/UISystem.ts#L110)
+Defined in: [engine/src/systems/UISystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/UISystem.ts#L110)
 
 Advance all active animations and update hover state.
 Call once per frame before render(), passing delta-time in seconds.

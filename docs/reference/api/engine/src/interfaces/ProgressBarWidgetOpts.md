@@ -6,7 +6,7 @@
 
 # Interface: ProgressBarWidgetOpts
 
-Defined in: [engine/src/ui/widgets/progress.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L5)
+Defined in: [engine/src/ui/widgets/progress.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L5)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:5](https://github.com/eleferrets/
 
 > `optional` **alpha?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L121)
+Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L121)
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/em
 
 > `optional` **anchor?**: [`WidgetAnchor`](../type-aliases/WidgetAnchor.md)
 
-Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L119)
+Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L119)
 
 #### Inherited from
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/em
 
 > `optional` **direction?**: `"h"` \| `"v"`
 
-Defined in: [engine/src/ui/widgets/progress.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L11)
+Defined in: [engine/src/ui/widgets/progress.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L11)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:11](https://github.com/eleferrets
 
 > `optional` **fillColor?**: `string`
 
-Defined in: [engine/src/ui/widgets/progress.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L9)
+Defined in: [engine/src/ui/widgets/progress.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L9)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:9](https://github.com/eleferrets/
 
 > `optional` **height?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L118)
+Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L118)
 
 #### Inherited from
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/em
 
 > `optional` **max?**: `number`
 
-Defined in: [engine/src/ui/widgets/progress.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L8)
+Defined in: [engine/src/ui/widgets/progress.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L8)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:8](https://github.com/eleferrets/
 
 > `optional` **min?**: `number`
 
-Defined in: [engine/src/ui/widgets/progress.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L7)
+Defined in: [engine/src/ui/widgets/progress.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L7)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:7](https://github.com/eleferrets/
 
 > `optional` **trackColor?**: `string`
 
-Defined in: [engine/src/ui/widgets/progress.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L10)
+Defined in: [engine/src/ui/widgets/progress.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L10)
 
 ***
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:10](https://github.com/eleferrets
 
 > `optional` **value?**: `number`
 
-Defined in: [engine/src/ui/widgets/progress.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/progress.ts#L6)
+Defined in: [engine/src/ui/widgets/progress.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/progress.ts#L6)
 
 ***
 
@@ -102,7 +102,7 @@ Defined in: [engine/src/ui/widgets/progress.ts:6](https://github.com/eleferrets/
 
 > `optional` **visible?**: `boolean`
 
-Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L120)
+Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L120)
 
 #### Inherited from
 
@@ -114,7 +114,7 @@ Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/em
 
 > `optional` **width?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L117)
+Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L117)
 
 #### Inherited from
 
@@ -126,7 +126,7 @@ Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/em
 
 > `optional` **x?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L115)
+Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L115)
 
 #### Inherited from
 
@@ -138,7 +138,7 @@ Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/em
 
 > `optional` **y?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:116](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L116)
+Defined in: [engine/src/ui/widgets/base.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L116)
 
 #### Inherited from
 

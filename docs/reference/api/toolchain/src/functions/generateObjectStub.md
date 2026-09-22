@@ -8,7 +8,7 @@
 
 > **generateObjectStub**(`objectName`, `events`): `string`
 
-Defined in: [toolchain/src/gms2-gml-stub.ts:38](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-gml-stub.ts#L38)
+Defined in: [toolchain/src/gms2-gml-stub.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-gml-stub.ts#L38)
 
 Generates a TypeScript class stub for a GMS2 object.
 

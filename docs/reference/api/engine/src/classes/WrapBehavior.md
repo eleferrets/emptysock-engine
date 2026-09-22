@@ -6,7 +6,7 @@
 
 # Class: WrapBehavior
 
-Defined in: [engine/src/behaviors/WrapBehavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/WrapBehavior.ts#L8)
+Defined in: [engine/src/behaviors/WrapBehavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/WrapBehavior.ts#L8)
 
 WrapBehavior — wraps an entity's position around the viewport edges.
 Pass the canvas width and height to the constructor.
@@ -21,7 +21,7 @@ Pass the canvas width and height to the constructor.
 
 > **new WrapBehavior**(`width`, `height`, `margin?`): `WrapBehavior`
 
-Defined in: [engine/src/behaviors/WrapBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/WrapBehavior.ts#L13)
+Defined in: [engine/src/behaviors/WrapBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/WrapBehavior.ts#L13)
 
 #### Parameters
 
@@ -51,7 +51,7 @@ Defined in: [engine/src/behaviors/WrapBehavior.ts:13](https://github.com/eleferr
 
 > **margin**: `number`
 
-Defined in: [engine/src/behaviors/WrapBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/WrapBehavior.ts#L9)
+Defined in: [engine/src/behaviors/WrapBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/WrapBehavior.ts#L9)
 
 ## Methods
 
@@ -59,7 +59,7 @@ Defined in: [engine/src/behaviors/WrapBehavior.ts:9](https://github.com/eleferre
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -75,7 +75,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -91,7 +91,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/WrapBehavior.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/WrapBehavior.ts#L20)
+Defined in: [engine/src/behaviors/WrapBehavior.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/WrapBehavior.ts#L20)
 
 #### Parameters
 

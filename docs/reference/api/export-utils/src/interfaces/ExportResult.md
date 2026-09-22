@@ -6,7 +6,7 @@
 
 # Interface: ExportResult
 
-Defined in: [export-utils/src/index.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L76)
+Defined in: [export-utils/src/index.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L76)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [export-utils/src/index.ts:76](https://github.com/eleferrets/emptyso
 
 > **duration**: `number`
 
-Defined in: [export-utils/src/index.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L80)
+Defined in: [export-utils/src/index.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L80)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [export-utils/src/index.ts:80](https://github.com/eleferrets/emptyso
 
 > **errors**: `string`[]
 
-Defined in: [export-utils/src/index.ts:79](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L79)
+Defined in: [export-utils/src/index.ts:79](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L79)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [export-utils/src/index.ts:79](https://github.com/eleferrets/emptyso
 
 > **outputFiles**: `string`[]
 
-Defined in: [export-utils/src/index.ts:78](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L78)
+Defined in: [export-utils/src/index.ts:78](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L78)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [export-utils/src/index.ts:78](https://github.com/eleferrets/emptyso
 
 > **success**: `boolean`
 
-Defined in: [export-utils/src/index.ts:77](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L77)
+Defined in: [export-utils/src/index.ts:77](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L77)

@@ -6,7 +6,7 @@
 
 # Class: InputBindings
 
-Defined in: [engine/src/systems/InputBindings.ts:87](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L87)
+Defined in: [engine/src/systems/InputBindings.ts:87](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L87)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/InputBindings.ts:87](https://github.com/eleferre
 
 > **new InputBindings**(`input`, `defaults`, `gamepad?`): `InputBindings`
 
-Defined in: [engine/src/systems/InputBindings.ts:93](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L93)
+Defined in: [engine/src/systems/InputBindings.ts:93](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L93)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/systems/InputBindings.ts:93](https://github.com/eleferre
 
 > **get** **actions**(): readonly `string`[]
 
-Defined in: [engine/src/systems/InputBindings.ts:141](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L141)
+Defined in: [engine/src/systems/InputBindings.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L141)
 
 ##### Returns
 
@@ -54,7 +54,7 @@ readonly `string`[]
 
 > **addBinding**(`action`, `binding`): `void`
 
-Defined in: [engine/src/systems/InputBindings.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L132)
+Defined in: [engine/src/systems/InputBindings.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L132)
 
 Add a single binding to an action without clearing existing ones.
 
@@ -78,7 +78,7 @@ Add a single binding to an action without clearing existing ones.
 
 > **getBindings**(`action`): readonly [`Binding`](../type-aliases/Binding.md)[]
 
-Defined in: [engine/src/systems/InputBindings.ts:137](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L137)
+Defined in: [engine/src/systems/InputBindings.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L137)
 
 #### Parameters
 
@@ -96,7 +96,7 @@ readonly [`Binding`](../type-aliases/Binding.md)[]
 
 > **isActionActive**(`action`): `boolean`
 
-Defined in: [engine/src/systems/InputBindings.ts:105](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L105)
+Defined in: [engine/src/systems/InputBindings.ts:105](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L105)
 
 True if any binding for this action is currently active.
 
@@ -116,7 +116,7 @@ True if any binding for this action is currently active.
 
 > **isActionPressed**(`action`): `boolean`
 
-Defined in: [engine/src/systems/InputBindings.ts:115](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L115)
+Defined in: [engine/src/systems/InputBindings.ts:115](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L115)
 
 True the frame the action transitions from inactive to active.
 
@@ -136,7 +136,7 @@ True the frame the action transitions from inactive to active.
 
 > **load**(`save`, `slotId?`): `boolean`
 
-Defined in: [engine/src/systems/InputBindings.ts:162](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L162)
+Defined in: [engine/src/systems/InputBindings.ts:162](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L162)
 
 Load previously persisted bindings, if any. Returns true if applied.
 
@@ -160,7 +160,7 @@ Load previously persisted bindings, if any. Returns true if applied.
 
 > **rebind**(`action`, `bindings`): `void`
 
-Defined in: [engine/src/systems/InputBindings.ts:127](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L127)
+Defined in: [engine/src/systems/InputBindings.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L127)
 
 Replace all bindings for an action (rebind).
 
@@ -184,7 +184,7 @@ Replace all bindings for an action (rebind).
 
 > **resetToDefaults**(): `void`
 
-Defined in: [engine/src/systems/InputBindings.ts:145](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L145)
+Defined in: [engine/src/systems/InputBindings.ts:145](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L145)
 
 #### Returns
 
@@ -196,7 +196,7 @@ Defined in: [engine/src/systems/InputBindings.ts:145](https://github.com/eleferr
 
 > **save**(`save`, `slotId?`): `void`
 
-Defined in: [engine/src/systems/InputBindings.ts:154](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L154)
+Defined in: [engine/src/systems/InputBindings.ts:154](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L154)
 
 Persist the current bindings via SaveSystem's generic slot API. Pass a
 `SaveSystem<BindingsSaveSlot>` (e.g. from `createBindingsSaveSystem()`),

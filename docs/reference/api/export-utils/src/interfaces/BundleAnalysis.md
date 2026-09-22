@@ -6,7 +6,7 @@
 
 # Interface: BundleAnalysis
 
-Defined in: [export-utils/src/index.ts:164](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L164)
+Defined in: [export-utils/src/index.ts:164](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L164)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [export-utils/src/index.ts:164](https://github.com/eleferrets/emptys
 
 > **gzippedEstimate**: `number`
 
-Defined in: [export-utils/src/index.ts:166](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L166)
+Defined in: [export-utils/src/index.ts:166](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L166)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [export-utils/src/index.ts:166](https://github.com/eleferrets/emptys
 
 > **modules**: `object`[]
 
-Defined in: [export-utils/src/index.ts:167](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L167)
+Defined in: [export-utils/src/index.ts:167](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L167)
 
 #### bytes
 
@@ -38,4 +38,4 @@ Defined in: [export-utils/src/index.ts:167](https://github.com/eleferrets/emptys
 
 > **totalBytes**: `number`
 
-Defined in: [export-utils/src/index.ts:165](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/export-utils/src/index.ts#L165)
+Defined in: [export-utils/src/index.ts:165](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L165)

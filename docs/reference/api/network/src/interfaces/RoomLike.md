@@ -6,7 +6,7 @@
 
 # Interface: RoomLike
 
-Defined in: [network/src/colyseusTypes.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/colyseusTypes.ts#L19)
+Defined in: [network/src/colyseusTypes.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L19)
 
 Anything colyseus.js's `room.send(type, payload)` can be called on.
 
@@ -16,7 +16,7 @@ Anything colyseus.js's `room.send(type, payload)` can be called on.
 
 > `readonly` **sessionId**: `string`
 
-Defined in: [network/src/colyseusTypes.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/colyseusTypes.ts#L20)
+Defined in: [network/src/colyseusTypes.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L20)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [network/src/colyseusTypes.ts:20](https://github.com/eleferrets/empt
 
 > `readonly` **state**: `unknown`
 
-Defined in: [network/src/colyseusTypes.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/colyseusTypes.ts#L21)
+Defined in: [network/src/colyseusTypes.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L21)
 
 ## Methods
 
@@ -32,7 +32,7 @@ Defined in: [network/src/colyseusTypes.ts:21](https://github.com/eleferrets/empt
 
 > **send**(`type`, `payload`): `void`
 
-Defined in: [network/src/colyseusTypes.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/colyseusTypes.ts#L22)
+Defined in: [network/src/colyseusTypes.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L22)
 
 #### Parameters
 

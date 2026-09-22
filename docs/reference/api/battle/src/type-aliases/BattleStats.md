@@ -8,7 +8,7 @@
 
 > **BattleStats** = `object` & `Record`\<`string`, `number`\>
 
-Defined in: [battle/src/BattleSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L11)
+Defined in: [battle/src/BattleSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L20)
 
 Stat block for a combatant. `hp`, `maxHp`, `mp`, `maxMp` are required and
 drive battle lifecycle. Any additional numeric field is valid — define your

@@ -6,7 +6,7 @@
 
 # Interface: PrismaticOptions
 
-Defined in: [engine/src/components/RigidJoint.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L18)
+Defined in: [engine/src/components/RigidJoint.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L18)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/components/RigidJoint.ts:18](https://github.com/eleferre
 
 > `optional` **anchorA?**: `object`
 
-Defined in: [engine/src/components/RigidJoint.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L19)
+Defined in: [engine/src/components/RigidJoint.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L19)
 
 #### x
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/RigidJoint.ts:19](https://github.com/eleferre
 
 > `optional` **anchorB?**: `object`
 
-Defined in: [engine/src/components/RigidJoint.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L20)
+Defined in: [engine/src/components/RigidJoint.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L20)
 
 #### x
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/components/RigidJoint.ts:20](https://github.com/eleferre
 
 > `optional` **axis?**: `object`
 
-Defined in: [engine/src/components/RigidJoint.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L22)
+Defined in: [engine/src/components/RigidJoint.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L22)
 
 Slide axis in local space of body A
 
@@ -64,7 +64,7 @@ Slide axis in local space of body A
 
 > `optional` **maxDistance?**: `number`
 
-Defined in: [engine/src/components/RigidJoint.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L24)
+Defined in: [engine/src/components/RigidJoint.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L24)
 
 ***
 
@@ -72,4 +72,4 @@ Defined in: [engine/src/components/RigidJoint.ts:24](https://github.com/eleferre
 
 > `optional` **minDistance?**: `number`
 
-Defined in: [engine/src/components/RigidJoint.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/RigidJoint.ts#L23)
+Defined in: [engine/src/components/RigidJoint.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/RigidJoint.ts#L23)

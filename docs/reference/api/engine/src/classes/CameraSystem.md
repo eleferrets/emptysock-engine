@@ -6,7 +6,7 @@
 
 # Class: CameraSystem
 
-Defined in: [engine/src/systems/CameraSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L19)
+Defined in: [engine/src/systems/CameraSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L19)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:19](https://github.com/eleferret
 
 > **get** **state**(): [`CameraState`](../interfaces/CameraState.md)
 
-Defined in: [engine/src/systems/CameraSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L48)
+Defined in: [engine/src/systems/CameraSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L48)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:48](https://github.com/eleferret
 
 > **get** **viewHeight**(): `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:69](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L69)
+Defined in: [engine/src/systems/CameraSystem.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L69)
 
 ##### Returns
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:69](https://github.com/eleferret
 
 > **get** **viewWidth**(): `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L66)
+Defined in: [engine/src/systems/CameraSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L66)
 
 ##### Returns
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:66](https://github.com/eleferret
 
 > **get** **viewX**(): `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L60)
+Defined in: [engine/src/systems/CameraSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L60)
 
 ##### Returns
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:60](https://github.com/eleferret
 
 > **get** **viewY**(): `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L63)
+Defined in: [engine/src/systems/CameraSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L63)
 
 ##### Returns
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:63](https://github.com/eleferret
 
 > **attach**(`stage`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L38)
+Defined in: [engine/src/systems/CameraSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L38)
 
 Attach the PixiJS stage container that the camera will transform.
 
@@ -114,7 +114,7 @@ Attach the PixiJS stage container that the camera will transform.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L222)
+Defined in: [engine/src/systems/CameraSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L222)
 
 #### Returns
 
@@ -126,7 +126,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:222](https://github.com/eleferre
 
 > **moveTo**(`x`, `y`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:83](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L83)
+Defined in: [engine/src/systems/CameraSystem.ts:83](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L83)
 
 Smoothly move toward world position (x, y). Clears any active follow target.
 
@@ -150,7 +150,7 @@ Smoothly move toward world position (x, y). Clears any active follow target.
 
 > **screenToWorld**(`sx`, `sy`): `object`
 
-Defined in: [engine/src/systems/CameraSystem.ts:161](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L161)
+Defined in: [engine/src/systems/CameraSystem.ts:161](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L161)
 
 Convert a screen-space pixel position to world-space coordinates.
 Useful for click / touch hit detection against world objects.
@@ -183,7 +183,7 @@ Useful for click / touch hit detection against world objects.
 
 > **setBounds**(`bounds`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:136](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L136)
+Defined in: [engine/src/systems/CameraSystem.ts:136](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L136)
 
 Clamp the camera position to a world-space rectangle.
 Pass `null` to remove clamping.
@@ -206,7 +206,7 @@ shows outside the bounds when zoom is 1.
 
 > **setFollow**(`fn`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:97](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L97)
+Defined in: [engine/src/systems/CameraSystem.ts:97](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L97)
 
 Follow a moving target each frame.
 Provide a function that returns the current world {x, y} of the target.
@@ -231,7 +231,7 @@ The camera will smoothly track it using the current lerpFactor.
 
 > **setLerpFactor**(`factor`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:126](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L126)
+Defined in: [engine/src/systems/CameraSystem.ts:126](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L126)
 
 Set the lerp factor used for smooth follow / moveTo.
 This is expressed as a per-second fraction — the camera closes
@@ -254,7 +254,7 @@ Use 1.0 for instant tracking, 0.05 for very slow drift.
 
 > **setRotation**(`radians`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L110)
+Defined in: [engine/src/systems/CameraSystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L110)
 
 #### Parameters
 
@@ -272,7 +272,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:110](https://github.com/eleferre
 
 > **setViewSize**(`width`, `height`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L43)
+Defined in: [engine/src/systems/CameraSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L43)
 
 Set the logical viewport size (used by worldToScreen / screenToWorld).
 
@@ -296,7 +296,7 @@ Set the logical viewport size (used by worldToScreen / screenToWorld).
 
 > **shake**(`intensity`, `duration`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:114](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L114)
+Defined in: [engine/src/systems/CameraSystem.ts:114](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L114)
 
 #### Parameters
 
@@ -318,7 +318,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:114](https://github.com/eleferre
 
 > **snapTo**(`x`, `y`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:74](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L74)
+Defined in: [engine/src/systems/CameraSystem.ts:74](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L74)
 
 Pan immediately to world position (x, y). Clears any active follow target.
 
@@ -342,7 +342,7 @@ Pan immediately to world position (x, y). Clears any active follow target.
 
 > **snapZoom**(`zoom`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:105](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L105)
+Defined in: [engine/src/systems/CameraSystem.ts:105](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L105)
 
 #### Parameters
 
@@ -360,7 +360,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:105](https://github.com/eleferre
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:174](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L174)
+Defined in: [engine/src/systems/CameraSystem.ts:174](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L174)
 
 #### Parameters
 
@@ -378,7 +378,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:174](https://github.com/eleferre
 
 > **worldToScreen**(`wx`, `wy`): `object`
 
-Defined in: [engine/src/systems/CameraSystem.ts:144](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L144)
+Defined in: [engine/src/systems/CameraSystem.ts:144](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L144)
 
 Convert a world-space position to screen-space pixel coordinates.
 Useful for UI elements that must track world objects.
@@ -411,7 +411,7 @@ Useful for UI elements that must track world objects.
 
 > **zoomTo**(`zoom`): `void`
 
-Defined in: [engine/src/systems/CameraSystem.ts:101](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CameraSystem.ts#L101)
+Defined in: [engine/src/systems/CameraSystem.ts:101](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L101)
 
 #### Parameters
 

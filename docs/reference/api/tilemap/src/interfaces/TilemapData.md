@@ -6,7 +6,7 @@
 
 # Interface: TilemapData
 
-Defined in: [tilemap/src/TilemapSystem.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L31)
+Defined in: [tilemap/src/TilemapSystem.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L31)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:31](https://github.com/eleferrets/empt
 
 > **cols**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L35)
+Defined in: [tilemap/src/TilemapSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L35)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:35](https://github.com/eleferrets/empt
 
 > **layers**: [`TilemapLayer`](TilemapLayer.md)[]
 
-Defined in: [tilemap/src/TilemapSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L38)
+Defined in: [tilemap/src/TilemapSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L38)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:38](https://github.com/eleferrets/empt
 
 > **name**: `string`
 
-Defined in: [tilemap/src/TilemapSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L32)
+Defined in: [tilemap/src/TilemapSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L32)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:32](https://github.com/eleferrets/empt
 
 > **rows**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L36)
+Defined in: [tilemap/src/TilemapSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L36)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:36](https://github.com/eleferrets/empt
 
 > **tileHeight**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L34)
+Defined in: [tilemap/src/TilemapSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L34)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:34](https://github.com/eleferrets/empt
 
 > **tileset**: [`TilesetConfig`](TilesetConfig.md)
 
-Defined in: [tilemap/src/TilemapSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L37)
+Defined in: [tilemap/src/TilemapSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L37)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [tilemap/src/TilemapSystem.ts:37](https://github.com/eleferrets/empt
 
 > **tileWidth**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L33)
+Defined in: [tilemap/src/TilemapSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L33)

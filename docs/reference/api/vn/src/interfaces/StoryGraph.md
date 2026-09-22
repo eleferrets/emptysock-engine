@@ -6,7 +6,7 @@
 
 # Interface: StoryGraph
 
-Defined in: [vn/src/VNScriptConvert.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L31)
+Defined in: [vn/src/VNScriptConvert.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L31)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNScriptConvert.ts:31](https://github.com/eleferrets/emptyso
 
 > **edges**: [`StoryGraphEdge`](StoryGraphEdge.md)[]
 
-Defined in: [vn/src/VNScriptConvert.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L33)
+Defined in: [vn/src/VNScriptConvert.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L33)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [vn/src/VNScriptConvert.ts:33](https://github.com/eleferrets/emptyso
 
 > **nodes**: [`StoryGraphNode`](StoryGraphNode.md)[]
 
-Defined in: [vn/src/VNScriptConvert.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L32)
+Defined in: [vn/src/VNScriptConvert.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L32)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [vn/src/VNScriptConvert.ts:32](https://github.com/eleferrets/emptyso
 
 > **startNodeId**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNScriptConvert.ts#L34)
+Defined in: [vn/src/VNScriptConvert.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L34)

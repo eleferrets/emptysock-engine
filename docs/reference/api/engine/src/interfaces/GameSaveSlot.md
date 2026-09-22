@@ -6,7 +6,7 @@
 
 # Interface: GameSaveSlot
 
-Defined in: [engine/src/systems/SaveSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L11)
+Defined in: [engine/src/systems/SaveSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L11)
 
 Default shape of a save slot for a `startScene`-style game: one scene
 name, a free-form data bag, and bookkeeping fields. This is the schema
@@ -21,7 +21,7 @@ differently-shaped slot (see the class doc comment).
 
 > `readonly` **data**: `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L14)
+Defined in: [engine/src/systems/SaveSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L14)
 
 ***
 
@@ -29,7 +29,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:14](https://github.com/eleferrets/
 
 > `readonly` **id**: `string`
 
-Defined in: [engine/src/systems/SaveSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L12)
+Defined in: [engine/src/systems/SaveSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L12)
 
 ***
 
@@ -37,7 +37,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:12](https://github.com/eleferrets/
 
 > `readonly` **playtime**: `number`
 
-Defined in: [engine/src/systems/SaveSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L16)
+Defined in: [engine/src/systems/SaveSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L16)
 
 ***
 
@@ -45,7 +45,7 @@ Defined in: [engine/src/systems/SaveSystem.ts:16](https://github.com/eleferrets/
 
 > `readonly` **scene**: `string`
 
-Defined in: [engine/src/systems/SaveSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L13)
+Defined in: [engine/src/systems/SaveSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L13)
 
 ***
 
@@ -53,4 +53,4 @@ Defined in: [engine/src/systems/SaveSystem.ts:13](https://github.com/eleferrets/
 
 > `readonly` **timestamp**: `number`
 
-Defined in: [engine/src/systems/SaveSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/SaveSystem.ts#L15)
+Defined in: [engine/src/systems/SaveSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L15)

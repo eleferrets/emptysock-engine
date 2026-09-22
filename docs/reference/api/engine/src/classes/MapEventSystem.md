@@ -6,7 +6,7 @@
 
 # Class: MapEventSystem
 
-Defined in: [engine/src/systems/MapEventSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L48)
+Defined in: [engine/src/systems/MapEventSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L48)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:48](https://github.com/eleferr
 
 > **new MapEventSystem**(`store?`): `MapEventSystem`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L63)
+Defined in: [engine/src/systems/MapEventSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L63)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ testing or a per-save-slot store.
 
 > **addEvent**(`event`): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L72)
+Defined in: [engine/src/systems/MapEventSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L72)
 
 #### Parameters
 
@@ -55,7 +55,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:72](https://github.com/eleferr
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:196](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L196)
+Defined in: [engine/src/systems/MapEventSystem.ts:196](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L196)
 
 #### Returns
 
@@ -67,7 +67,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:196](https://github.com/elefer
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:203](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L203)
+Defined in: [engine/src/systems/MapEventSystem.ts:203](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L203)
 
 #### Returns
 
@@ -79,7 +79,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:203](https://github.com/elefer
 
 > **loadEvents**(`events`): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L80)
+Defined in: [engine/src/systems/MapEventSystem.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L80)
 
 #### Parameters
 
@@ -97,7 +97,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:80](https://github.com/eleferr
 
 > **removeEvent**(`id`): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L76)
+Defined in: [engine/src/systems/MapEventSystem.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L76)
 
 #### Parameters
 
@@ -115,7 +115,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:76](https://github.com/eleferr
 
 > **setHandler**(`handler`): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:68](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L68)
+Defined in: [engine/src/systems/MapEventSystem.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L68)
 
 Register the handler that executes each command
 
@@ -135,7 +135,7 @@ Register the handler that executes each command
 
 > **toJSON**(): [`MapEvent`](../interfaces/MapEvent.md)[]
 
-Defined in: [engine/src/systems/MapEventSystem.ts:210](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L210)
+Defined in: [engine/src/systems/MapEventSystem.ts:210](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L210)
 
 Serialize all events (for saving in emptysock.project.json)
 
@@ -149,7 +149,7 @@ Serialize all events (for saving in emptysock.project.json)
 
 > **update**(`playerTileX`, `playerTileY`, `actionPressed`): `void`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:86](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L86)
+Defined in: [engine/src/systems/MapEventSystem.ts:86](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L86)
 
 Call each frame; tileX/tileY = player tile position; actionPressed = action button was pressed this frame
 

@@ -6,7 +6,7 @@
 
 # Class: SystemManager
 
-Defined in: [engine/src/core/SystemManager.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L17)
+Defined in: [engine/src/core/SystemManager.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L17)
 
 The engine's single system registry: a named collection of systems,
 updated in registration order. `Scene.addSystem()` is a thin, scene-scoped
@@ -34,7 +34,7 @@ custom runner that doesn't use `Scene` at all).
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/core/SystemManager.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L44)
+Defined in: [engine/src/core/SystemManager.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L44)
 
 Destroys every registered system and clears the registry.
 
@@ -48,7 +48,7 @@ Destroys every registered system and clears the registry.
 
 > **get**\<`T`\>(`name`): `T` \| `undefined`
 
-Defined in: [engine/src/core/SystemManager.ts:39](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L39)
+Defined in: [engine/src/core/SystemManager.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L39)
 
 #### Type Parameters
 
@@ -72,7 +72,7 @@ Defined in: [engine/src/core/SystemManager.ts:39](https://github.com/eleferrets/
 
 > **register**(`name`, `system`): `void`
 
-Defined in: [engine/src/core/SystemManager.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L20)
+Defined in: [engine/src/core/SystemManager.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L20)
 
 #### Parameters
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/core/SystemManager.ts:20](https://github.com/eleferrets/
 
 > **unregister**(`name`): `boolean`
 
-Defined in: [engine/src/core/SystemManager.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L25)
+Defined in: [engine/src/core/SystemManager.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L25)
 
 Unregisters and destroys the system. Returns false if no system was registered under `name`.
 
@@ -114,7 +114,7 @@ Unregisters and destroys the system. Returns false if no system was registered u
 
 > **updateAll**(`dt`): `void`
 
-Defined in: [engine/src/core/SystemManager.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/SystemManager.ts#L33)
+Defined in: [engine/src/core/SystemManager.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/SystemManager.ts#L33)
 
 #### Parameters
 

@@ -6,7 +6,7 @@
 
 # Interface: SpriteAsset
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L13)
+Defined in: [toolchain/src/gms2-sprite-import.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L13)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/gms2-sprite-import.ts:13](https://github.com/eleferre
 
 > **frameCount**: `number`
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L16)
+Defined in: [toolchain/src/gms2-sprite-import.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L16)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/gms2-sprite-import.ts:16](https://github.com/eleferre
 
 > **frames**: `SpriteFrame`[]
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L15)
+Defined in: [toolchain/src/gms2-sprite-import.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L15)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/gms2-sprite-import.ts:15](https://github.com/eleferre
 
 > **height**: `number`
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L18)
+Defined in: [toolchain/src/gms2-sprite-import.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L18)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [toolchain/src/gms2-sprite-import.ts:18](https://github.com/eleferre
 
 > **imagePath**: `string`
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L24)
+Defined in: [toolchain/src/gms2-sprite-import.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L24)
 
 #### Deprecated
 
@@ -52,7 +52,7 @@ not one PNG per sprite, so this is simply the first frame's image.
 
 > **name**: `string`
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L14)
+Defined in: [toolchain/src/gms2-sprite-import.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L14)
 
 ***
 
@@ -60,4 +60,4 @@ Defined in: [toolchain/src/gms2-sprite-import.ts:14](https://github.com/eleferre
 
 > **width**: `number`
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L17)
+Defined in: [toolchain/src/gms2-sprite-import.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L17)

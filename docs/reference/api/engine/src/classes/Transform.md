@@ -6,7 +6,7 @@
 
 # Class: Transform
 
-Defined in: [engine/src/components/Transform.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L7)
+Defined in: [engine/src/components/Transform.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L7)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/Transform.ts:7](https://github.com/eleferrets
 
 > **new Transform**(`options?`): `Transform`
 
-Defined in: [engine/src/components/Transform.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L17)
+Defined in: [engine/src/components/Transform.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L17)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/components/Transform.ts:17](https://github.com/eleferret
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **rotation**: `number`
 
-Defined in: [engine/src/components/Transform.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L13)
+Defined in: [engine/src/components/Transform.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L13)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/components/Transform.ts:13](https://github.com/eleferret
 
 > **scaleX**: `number`
 
-Defined in: [engine/src/components/Transform.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L14)
+Defined in: [engine/src/components/Transform.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L14)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: [engine/src/components/Transform.ts:14](https://github.com/eleferret
 
 > **scaleY**: `number`
 
-Defined in: [engine/src/components/Transform.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L15)
+Defined in: [engine/src/components/Transform.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L15)
 
 ***
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/components/Transform.ts:15](https://github.com/eleferret
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > **x**: `number`
 
-Defined in: [engine/src/components/Transform.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L11)
+Defined in: [engine/src/components/Transform.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L11)
 
 ***
 
@@ -114,7 +114,7 @@ Defined in: [engine/src/components/Transform.ts:11](https://github.com/eleferret
 
 > **y**: `number`
 
-Defined in: [engine/src/components/Transform.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L12)
+Defined in: [engine/src/components/Transform.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L12)
 
 ***
 
@@ -122,7 +122,7 @@ Defined in: [engine/src/components/Transform.ts:12](https://github.com/eleferret
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`Transform`\>
 
-Defined in: [engine/src/components/Transform.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L8)
+Defined in: [engine/src/components/Transform.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L8)
 
 ## Methods
 
@@ -130,7 +130,7 @@ Defined in: [engine/src/components/Transform.ts:8](https://github.com/eleferrets
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -148,7 +148,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -166,7 +166,7 @@ Called once when component is detached from an entity
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/Transform.ts:46](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L46)
+Defined in: [engine/src/components/Transform.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L46)
 
 Serialize component data for saving
 
@@ -184,7 +184,7 @@ Serialize component data for saving
 
 > **setPosition**(`x`, `y`): `this`
 
-Defined in: [engine/src/components/Transform.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L34)
+Defined in: [engine/src/components/Transform.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L34)
 
 #### Parameters
 
@@ -206,7 +206,7 @@ Defined in: [engine/src/components/Transform.ts:34](https://github.com/eleferret
 
 > **translate**(`dx`, `dy`): `this`
 
-Defined in: [engine/src/components/Transform.ts:40](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Transform.ts#L40)
+Defined in: [engine/src/components/Transform.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Transform.ts#L40)
 
 #### Parameters
 
@@ -228,7 +228,7 @@ Defined in: [engine/src/components/Transform.ts:40](https://github.com/eleferret
 
 > `optional` **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L36)
+Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L36)
 
 Called each frame during the update pass
 

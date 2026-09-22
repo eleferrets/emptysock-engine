@@ -8,7 +8,7 @@
 
 > **ComponentType**\<`T`\> = `string` & `object`
 
-Defined in: [engine/src/core/Component.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L10)
+Defined in: [engine/src/core/Component.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L10)
 
 A branded component-type key. `ComponentType<T>` is a plain string at
 runtime — the brand exists only so `entity.getComponent(Sprite.TYPE)`

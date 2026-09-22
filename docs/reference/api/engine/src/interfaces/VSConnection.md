@@ -6,7 +6,7 @@
 
 # Interface: VSConnection
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:98](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L98)
+Defined in: [engine/src/components/VisualScriptComponent.ts:98](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L98)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:98](https://github.c
 
 > **from**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:100](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L100)
+Defined in: [engine/src/components/VisualScriptComponent.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L100)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:100](https://github.
 
 > `optional` **fromPort?**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:103](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L103)
+Defined in: [engine/src/components/VisualScriptComponent.ts:103](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L103)
 
 Output port index on `from` this connection carries (default 0).
 
@@ -32,7 +32,7 @@ Output port index on `from` this connection carries (default 0).
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:99](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L99)
+Defined in: [engine/src/components/VisualScriptComponent.ts:99](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L99)
 
 ***
 
@@ -40,4 +40,4 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:99](https://github.c
 
 > **to**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:101](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L101)
+Defined in: [engine/src/components/VisualScriptComponent.ts:101](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L101)

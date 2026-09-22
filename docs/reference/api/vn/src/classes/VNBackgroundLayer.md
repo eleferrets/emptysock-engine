@@ -6,7 +6,7 @@
 
 # Class: VNBackgroundLayer
 
-Defined in: [vn/src/VNBackgroundLayer.ts:73](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L73)
+Defined in: [vn/src/VNBackgroundLayer.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L73)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:73](https://github.com/eleferrets/empty
 
 > **new VNBackgroundLayer**(`opts`): `VNBackgroundLayer`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L80)
+Defined in: [vn/src/VNBackgroundLayer.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L80)
 
 #### Parameters
 
@@ -32,7 +32,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:80](https://github.com/eleferrets/empty
 
 > **clearBackground**(`fadeDuration?`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:102](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L102)
+Defined in: [vn/src/VNBackgroundLayer.ts:102](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L102)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:102](https://github.com/eleferrets/empt
 
 > **hideCG**(`fadeDuration?`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:125](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L125)
+Defined in: [vn/src/VNBackgroundLayer.ts:125](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L125)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:125](https://github.com/eleferrets/empt
 
 > **render**(`ctx`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:156](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L156)
+Defined in: [vn/src/VNBackgroundLayer.ts:156](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L156)
 
 #### Parameters
 
@@ -86,7 +86,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:156](https://github.com/eleferrets/empt
 
 > **setBackground**(`imagePath`, `opts?`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:86](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L86)
+Defined in: [vn/src/VNBackgroundLayer.ts:86](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L86)
 
 #### Parameters
 
@@ -114,7 +114,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:86](https://github.com/eleferrets/empty
 
 > **showCG**(`imagePath`, `opts?`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:109](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L109)
+Defined in: [vn/src/VNBackgroundLayer.ts:109](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L109)
 
 #### Parameters
 
@@ -142,7 +142,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:109](https://github.com/eleferrets/empt
 
 > **update**(`dt`): `void`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNBackgroundLayer.ts#L132)
+Defined in: [vn/src/VNBackgroundLayer.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L132)
 
 #### Parameters
 

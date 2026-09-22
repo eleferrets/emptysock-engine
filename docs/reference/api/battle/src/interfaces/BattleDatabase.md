@@ -6,7 +6,7 @@
 
 # Interface: BattleDatabase
 
-Defined in: [battle/src/BattleSystem.ts:64](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L64)
+Defined in: [battle/src/BattleSystem.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L73)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:64](https://github.com/eleferrets/emptys
 
 > **skills**: [`SkillDef`](SkillDef.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:65](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L65)
+Defined in: [battle/src/BattleSystem.ts:74](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L74)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [battle/src/BattleSystem.ts:65](https://github.com/eleferrets/emptys
 
 > **statusEffects**: [`StatusEffectDef`](StatusEffectDef.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L66)
+Defined in: [battle/src/BattleSystem.ts:75](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L75)

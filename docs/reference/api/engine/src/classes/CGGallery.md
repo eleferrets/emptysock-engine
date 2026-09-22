@@ -6,7 +6,7 @@
 
 # Class: CGGallery
 
-Defined in: [engine/src/systems/CGGallery.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L18)
+Defined in: [engine/src/systems/CGGallery.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L18)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/CGGallery.ts:18](https://github.com/eleferrets/e
 
 > **new CGGallery**(`opts`): `CGGallery`
 
-Defined in: [engine/src/systems/CGGallery.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L24)
+Defined in: [engine/src/systems/CGGallery.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L24)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [engine/src/systems/CGGallery.ts:24](https://github.com/eleferrets/e
 
 > **get** **entries**(): readonly [`CGEntry`](../interfaces/CGEntry.md)[]
 
-Defined in: [engine/src/systems/CGGallery.ts:53](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L53)
+Defined in: [engine/src/systems/CGGallery.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L53)
 
 ##### Returns
 
@@ -48,7 +48,7 @@ readonly [`CGEntry`](../interfaces/CGEntry.md)[]
 
 > **get** **totalCount**(): `number`
 
-Defined in: [engine/src/systems/CGGallery.ts:61](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L61)
+Defined in: [engine/src/systems/CGGallery.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L61)
 
 ##### Returns
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/systems/CGGallery.ts:61](https://github.com/eleferrets/e
 
 > **get** **unlockedCount**(): `number`
 
-Defined in: [engine/src/systems/CGGallery.ts:65](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L65)
+Defined in: [engine/src/systems/CGGallery.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L65)
 
 ##### Returns
 
@@ -76,7 +76,7 @@ Defined in: [engine/src/systems/CGGallery.ts:65](https://github.com/eleferrets/e
 
 > **get** **unlockedEntries**(): [`CGEntry`](../interfaces/CGEntry.md)[]
 
-Defined in: [engine/src/systems/CGGallery.ts:57](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L57)
+Defined in: [engine/src/systems/CGGallery.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L57)
 
 ##### Returns
 
@@ -88,7 +88,7 @@ Defined in: [engine/src/systems/CGGallery.ts:57](https://github.com/eleferrets/e
 
 > **isUnlocked**(`id`): `boolean`
 
-Defined in: [engine/src/systems/CGGallery.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L49)
+Defined in: [engine/src/systems/CGGallery.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L49)
 
 #### Parameters
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/systems/CGGallery.ts:49](https://github.com/eleferrets/e
 
 > **load**(): `void`
 
-Defined in: [engine/src/systems/CGGallery.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L31)
+Defined in: [engine/src/systems/CGGallery.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L31)
 
 Load unlocked flags from the save system
 
@@ -120,7 +120,7 @@ Load unlocked flags from the save system
 
 > **unlock**(`id`): `void`
 
-Defined in: [engine/src/systems/CGGallery.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CGGallery.ts#L43)
+Defined in: [engine/src/systems/CGGallery.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L43)
 
 Mark a CG as unlocked and persist
 

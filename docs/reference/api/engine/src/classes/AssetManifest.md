@@ -6,7 +6,7 @@
 
 # Class: AssetManifest
 
-Defined in: [engine/src/systems/AssetManifest.ts:70](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L70)
+Defined in: [engine/src/systems/AssetManifest.ts:70](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L70)
 
 A declarative list of assets (textures/audio/json/fonts) with progress
 reporting, so a game can build its own loading screen — the engine
@@ -21,7 +21,7 @@ afterwards does not trigger a redundant fetch.
 
 > **new AssetManifest**(`options?`): `AssetManifest`
 
-Defined in: [engine/src/systems/AssetManifest.ts:81](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L81)
+Defined in: [engine/src/systems/AssetManifest.ts:81](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L81)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:81](https://github.com/eleferre
 
 > **get** **failures**(): readonly [`AssetLoadFailure`](../interfaces/AssetLoadFailure.md)[]
 
-Defined in: [engine/src/systems/AssetManifest.ts:110](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L110)
+Defined in: [engine/src/systems/AssetManifest.ts:110](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L110)
 
 ##### Returns
 
@@ -55,7 +55,7 @@ readonly [`AssetLoadFailure`](../interfaces/AssetLoadFailure.md)[]
 
 > **get** **total**(): `number`
 
-Defined in: [engine/src/systems/AssetManifest.ts:100](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L100)
+Defined in: [engine/src/systems/AssetManifest.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L100)
 
 ##### Returns
 
@@ -67,7 +67,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:100](https://github.com/eleferr
 
 > **add**(`descriptor`): `this`
 
-Defined in: [engine/src/systems/AssetManifest.ts:90](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L90)
+Defined in: [engine/src/systems/AssetManifest.ts:90](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L90)
 
 #### Parameters
 
@@ -85,7 +85,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:90](https://github.com/eleferre
 
 > **addAll**(`descriptors`): `this`
 
-Defined in: [engine/src/systems/AssetManifest.ts:95](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L95)
+Defined in: [engine/src/systems/AssetManifest.ts:95](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L95)
 
 #### Parameters
 
@@ -103,7 +103,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:95](https://github.com/eleferre
 
 > **get**(`id`): `unknown`
 
-Defined in: [engine/src/systems/AssetManifest.ts:118](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L118)
+Defined in: [engine/src/systems/AssetManifest.ts:118](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L118)
 
 #### Parameters
 
@@ -121,7 +121,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:118](https://github.com/eleferr
 
 > **has**(`id`): `boolean`
 
-Defined in: [engine/src/systems/AssetManifest.ts:114](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L114)
+Defined in: [engine/src/systems/AssetManifest.ts:114](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L114)
 
 #### Parameters
 
@@ -139,7 +139,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:114](https://github.com/eleferr
 
 > **load**(): `Promise`\<[`AssetLoadResult`](../interfaces/AssetLoadResult.md)\>
 
-Defined in: [engine/src/systems/AssetManifest.ts:129](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L129)
+Defined in: [engine/src/systems/AssetManifest.ts:129](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L129)
 
 Loads every registered asset in order, reporting progress via
 onProgress() as each one settles. Per-asset failures are collected in
@@ -157,7 +157,7 @@ with the AssetLoadFailure for the first asset that fails.
 
 > **onProgress**(`listener`): () => `void`
 
-Defined in: [engine/src/systems/AssetManifest.ts:105](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L105)
+Defined in: [engine/src/systems/AssetManifest.ts:105](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L105)
 
 Subscribe to progress updates. Returns an unsubscribe function.
 

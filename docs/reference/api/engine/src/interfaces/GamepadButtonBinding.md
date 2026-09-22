@@ -6,7 +6,7 @@
 
 # Interface: GamepadButtonBinding
 
-Defined in: [engine/src/systems/InputBindings.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L27)
+Defined in: [engine/src/systems/InputBindings.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L27)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/InputBindings.ts:27](https://github.com/eleferre
 
 > `readonly` **index**: `number`
 
-Defined in: [engine/src/systems/InputBindings.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L29)
+Defined in: [engine/src/systems/InputBindings.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L29)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/InputBindings.ts:29](https://github.com/eleferre
 
 > `readonly` **kind**: `"gamepadButton"`
 
-Defined in: [engine/src/systems/InputBindings.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L28)
+Defined in: [engine/src/systems/InputBindings.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L28)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [engine/src/systems/InputBindings.ts:28](https://github.com/eleferre
 
 > `readonly` `optional` **padIndex?**: `number`
 
-Defined in: [engine/src/systems/InputBindings.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/InputBindings.ts#L30)
+Defined in: [engine/src/systems/InputBindings.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputBindings.ts#L30)

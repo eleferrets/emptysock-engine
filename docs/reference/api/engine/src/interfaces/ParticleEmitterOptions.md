@@ -6,7 +6,7 @@
 
 # Interface: ParticleEmitterOptions
 
-Defined in: [engine/src/systems/ParticleSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L32)
+Defined in: [engine/src/systems/ParticleSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L32)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:32](https://github.com/eleferr
 
 > `optional` **acceleration?**: `object`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:41](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L41)
+Defined in: [engine/src/systems/ParticleSystem.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L41)
 
 #### x?
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:41](https://github.com/eleferr
 
 > `optional` **colorGradient?**: `number`[]
 
-Defined in: [engine/src/systems/ParticleSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L46)
+Defined in: [engine/src/systems/ParticleSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L46)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:46](https://github.com/eleferr
 
 > `optional` **emissionRate?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L35)
+Defined in: [engine/src/systems/ParticleSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L35)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:35](https://github.com/eleferr
 
 > `optional` **endAlpha?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L45)
+Defined in: [engine/src/systems/ParticleSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L45)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:45](https://github.com/eleferr
 
 > `optional` **endScale?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L43)
+Defined in: [engine/src/systems/ParticleSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L43)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:43](https://github.com/eleferr
 
 > `optional` **lifetime?**: `object`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L36)
+Defined in: [engine/src/systems/ParticleSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L36)
 
 #### max
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:36](https://github.com/eleferr
 
 > `optional` **maxParticles?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L52)
+Defined in: [engine/src/systems/ParticleSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L52)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:52](https://github.com/eleferr
 
 > `optional` **rotationSpeed?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L51)
+Defined in: [engine/src/systems/ParticleSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L51)
 
 ***
 
@@ -94,7 +94,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:51](https://github.com/eleferr
 
 > `optional` **shape?**: [`EmitterShape`](../type-aliases/EmitterShape.md)
 
-Defined in: [engine/src/systems/ParticleSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L47)
+Defined in: [engine/src/systems/ParticleSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L47)
 
 ***
 
@@ -102,7 +102,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:47](https://github.com/eleferr
 
 > `optional` **shapeHeight?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L50)
+Defined in: [engine/src/systems/ParticleSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L50)
 
 ***
 
@@ -110,7 +110,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:50](https://github.com/eleferr
 
 > `optional` **shapeRadius?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L48)
+Defined in: [engine/src/systems/ParticleSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L48)
 
 ***
 
@@ -118,7 +118,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:48](https://github.com/eleferr
 
 > `optional` **shapeWidth?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L49)
+Defined in: [engine/src/systems/ParticleSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L49)
 
 ***
 
@@ -126,7 +126,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:49](https://github.com/eleferr
 
 > `optional` **startAlpha?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L44)
+Defined in: [engine/src/systems/ParticleSystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L44)
 
 ***
 
@@ -134,7 +134,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:44](https://github.com/eleferr
 
 > `optional` **startScale?**: `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L42)
+Defined in: [engine/src/systems/ParticleSystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L42)
 
 ***
 
@@ -142,7 +142,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:42](https://github.com/eleferr
 
 > `optional` **texture?**: `string`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L34)
+Defined in: [engine/src/systems/ParticleSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L34)
 
 Texture / sprite name for each particle (display layer handles actual rendering).
 
@@ -152,7 +152,7 @@ Texture / sprite name for each particle (display layer handles actual rendering)
 
 > `optional` **velocity?**: `object`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/ParticleSystem.ts#L37)
+Defined in: [engine/src/systems/ParticleSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L37)
 
 #### x?
 

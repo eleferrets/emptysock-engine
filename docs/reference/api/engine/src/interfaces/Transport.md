@@ -6,7 +6,7 @@
 
 # Interface: Transport
 
-Defined in: [engine/src/core/Transport.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Transport.ts#L6)
+Defined in: [engine/src/core/Transport.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Transport.ts#L6)
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/Transport.ts:6](https://github.com/eleferrets/empty
 
 > **connect**(): `Promise`\<`void`\>
 
-Defined in: [engine/src/core/Transport.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Transport.ts#L12)
+Defined in: [engine/src/core/Transport.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Transport.ts#L12)
 
 Open the connection (WebSocket handshake, WebRTC negotiation, etc.).
 
@@ -28,7 +28,7 @@ Open the connection (WebSocket handshake, WebRTC negotiation, etc.).
 
 > **disconnect**(): `void`
 
-Defined in: [engine/src/core/Transport.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Transport.ts#L14)
+Defined in: [engine/src/core/Transport.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Transport.ts#L14)
 
 Close the connection and release resources.
 
@@ -42,7 +42,7 @@ Close the connection and release resources.
 
 > **onReceive**(`handler`): `void`
 
-Defined in: [engine/src/core/Transport.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Transport.ts#L10)
+Defined in: [engine/src/core/Transport.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Transport.ts#L10)
 
 Register the handler that receives incoming messages from the network.
 
@@ -62,7 +62,7 @@ Register the handler that receives incoming messages from the network.
 
 > **send**(`actorId`, `msg`): `void`
 
-Defined in: [engine/src/core/Transport.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Transport.ts#L8)
+Defined in: [engine/src/core/Transport.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Transport.ts#L8)
 
 Send a message payload to a remote actor by id.
 

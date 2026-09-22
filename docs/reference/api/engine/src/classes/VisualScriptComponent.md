@@ -6,7 +6,7 @@
 
 # Class: VisualScriptComponent
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:259](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L259)
+Defined in: [engine/src/components/VisualScriptComponent.ts:259](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L259)
 
 Per-entity component that holds a serialized VisualScriptGraph and
 interprets it. Registered under ComponentType "VisualScript" like any
@@ -31,7 +31,7 @@ Execution model:
 
 > **new VisualScriptComponent**(`options`): `VisualScriptComponent`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:267](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L267)
+Defined in: [engine/src/components/VisualScriptComponent.ts:267](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L267)
 
 #### Parameters
 
@@ -63,7 +63,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:267](https://github.
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -75,7 +75,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -87,7 +87,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` `static` **TYPE**: `"VisualScript"` = `"VisualScript"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:260](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L260)
+Defined in: [engine/src/components/VisualScriptComponent.ts:260](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L260)
 
 ## Accessors
 
@@ -97,7 +97,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:260](https://github.
 
 > **get** **graph**(): [`VisualScriptGraph`](../interfaces/VisualScriptGraph.md)
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:278](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L278)
+Defined in: [engine/src/components/VisualScriptComponent.ts:278](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L278)
 
 ##### Returns
 
@@ -111,7 +111,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:278](https://github.
 
 > **get** **variableStore**(): [`VariableStore`](VariableStore.md)
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:290](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L290)
+Defined in: [engine/src/components/VisualScriptComponent.ts:290](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L290)
 
 ##### Returns
 
@@ -123,7 +123,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:290](https://github.
 
 > **fireEvent**(`eventType`): `void`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:304](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L304)
+Defined in: [engine/src/components/VisualScriptComponent.ts:304](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L304)
 
 Fire every onEvent node whose eventType matches.
 
@@ -143,7 +143,7 @@ Fire every onEvent node whose eventType matches.
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -161,7 +161,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -179,7 +179,7 @@ Called once when component is detached from an entity
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:391](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L391)
+Defined in: [engine/src/components/VisualScriptComponent.ts:391](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L391)
 
 Serialize component data for saving
 
@@ -197,7 +197,7 @@ Serialize component data for saving
 
 > **setActorSystem**(`actorSystem`): `void`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:286](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L286)
+Defined in: [engine/src/components/VisualScriptComponent.ts:286](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L286)
 
 #### Parameters
 
@@ -215,7 +215,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:286](https://github.
 
 > **setGraph**(`graph`): `void`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:282](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L282)
+Defined in: [engine/src/components/VisualScriptComponent.ts:282](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L282)
 
 #### Parameters
 
@@ -233,7 +233,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:282](https://github.
 
 > **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:294](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L294)
+Defined in: [engine/src/components/VisualScriptComponent.ts:294](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L294)
 
 Called each frame during the update pass
 

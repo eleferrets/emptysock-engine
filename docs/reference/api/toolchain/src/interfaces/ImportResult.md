@@ -6,7 +6,7 @@
 
 # Interface: ImportResult
 
-Defined in: [toolchain/src/gms2-import.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-import.ts#L21)
+Defined in: [toolchain/src/gms2-import.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-import.ts#L17)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/gms2-import.ts:21](https://github.com/eleferrets/empt
 
 > **converted**: `number`
 
-Defined in: [toolchain/src/gms2-import.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-import.ts#L22)
+Defined in: [toolchain/src/gms2-import.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-import.ts#L18)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/gms2-import.ts:22](https://github.com/eleferrets/empt
 
 > **skipped**: `string`[]
 
-Defined in: [toolchain/src/gms2-import.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-import.ts#L23)
+Defined in: [toolchain/src/gms2-import.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-import.ts#L19)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [toolchain/src/gms2-import.ts:23](https://github.com/eleferrets/empt
 
 > **warnings**: `string`[]
 
-Defined in: [toolchain/src/gms2-import.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-import.ts#L24)
+Defined in: [toolchain/src/gms2-import.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-import.ts#L20)

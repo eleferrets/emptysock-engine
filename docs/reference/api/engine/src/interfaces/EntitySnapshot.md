@@ -6,7 +6,7 @@
 
 # Interface: EntitySnapshot
 
-Defined in: [engine/src/core/IDEBridge.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L13)
+Defined in: [engine/src/core/IDEBridge.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L13)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/IDEBridge.ts:13](https://github.com/eleferrets/empt
 
 > **active**: `boolean`
 
-Defined in: [engine/src/core/IDEBridge.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L16)
+Defined in: [engine/src/core/IDEBridge.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L16)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/core/IDEBridge.ts:16](https://github.com/eleferrets/empt
 
 > **components**: `string`[]
 
-Defined in: [engine/src/core/IDEBridge.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L17)
+Defined in: [engine/src/core/IDEBridge.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L17)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/core/IDEBridge.ts:17](https://github.com/eleferrets/empt
 
 > **id**: `string`
 
-Defined in: [engine/src/core/IDEBridge.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L14)
+Defined in: [engine/src/core/IDEBridge.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L14)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/core/IDEBridge.ts:14](https://github.com/eleferrets/empt
 
 > **name**: `string`
 
-Defined in: [engine/src/core/IDEBridge.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L15)
+Defined in: [engine/src/core/IDEBridge.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L15)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/core/IDEBridge.ts:15](https://github.com/eleferrets/empt
 
 > **rotation**: `number`
 
-Defined in: [engine/src/core/IDEBridge.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L21)
+Defined in: [engine/src/core/IDEBridge.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L21)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/core/IDEBridge.ts:21](https://github.com/eleferrets/empt
 
 > **tags**: `string`[]
 
-Defined in: [engine/src/core/IDEBridge.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L18)
+Defined in: [engine/src/core/IDEBridge.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L18)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/core/IDEBridge.ts:18](https://github.com/eleferrets/empt
 
 > **x**: `number`
 
-Defined in: [engine/src/core/IDEBridge.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L19)
+Defined in: [engine/src/core/IDEBridge.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L19)
 
 ***
 
@@ -70,4 +70,4 @@ Defined in: [engine/src/core/IDEBridge.ts:19](https://github.com/eleferrets/empt
 
 > **y**: `number`
 
-Defined in: [engine/src/core/IDEBridge.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/IDEBridge.ts#L20)
+Defined in: [engine/src/core/IDEBridge.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L20)

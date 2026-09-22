@@ -6,7 +6,7 @@
 
 # Interface: SetSwitchNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:73](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L73)
+Defined in: [engine/src/components/VisualScriptComponent.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L73)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:73](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"setSwitch"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:74](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L74)
+Defined in: [engine/src/components/VisualScriptComponent.ts:74](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L74)
 
 #### Overrides
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:74](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
 
 Node ids wired to this node's execution output(s), in port order.
 
@@ -56,7 +56,7 @@ Node ids wired to this node's execution output(s), in port order.
 
 > **switchIndex**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:75](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L75)
+Defined in: [engine/src/components/VisualScriptComponent.ts:75](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L75)
 
 ***
 
@@ -64,4 +64,4 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:75](https://github.c
 
 > **value**: `boolean`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/VisualScriptComponent.ts#L76)
+Defined in: [engine/src/components/VisualScriptComponent.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L76)

@@ -6,7 +6,7 @@
 
 # Interface: AssetManifestOptions
 
-Defined in: [engine/src/systems/AssetManifest.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L33)
+Defined in: [engine/src/systems/AssetManifest.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L33)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:33](https://github.com/eleferre
 
 > `optional` **audioSystem?**: [`AudioSystem`](../classes/AudioSystem.md)
 
-Defined in: [engine/src/systems/AssetManifest.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L49)
+Defined in: [engine/src/systems/AssetManifest.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L49)
 
 AudioSystem to warm for "audio" assets. Calling AudioSystem.load() here
 registers the Howl under the descriptor's id in AudioSystem's own sound
@@ -27,7 +27,7 @@ loading a fresh one.
 
 > `optional` **continueOnError?**: `boolean`
 
-Defined in: [engine/src/systems/AssetManifest.ts:57](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L57)
+Defined in: [engine/src/systems/AssetManifest.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L57)
 
 When true (default), a failed asset is recorded and loading continues
 with the rest of the manifest. When false, load() rejects on the first
@@ -39,7 +39,7 @@ failure (still reporting which asset via the thrown AssetLoadFailure).
 
 > `optional` **fetchImpl?**: \{(`input`, `init?`): `Promise`\<`Response`\>; (`input`, `init?`): `Promise`\<`Response`\>; \}
 
-Defined in: [engine/src/systems/AssetManifest.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L51)
+Defined in: [engine/src/systems/AssetManifest.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L51)
 
 Injectable fetch implementation, e.g. for tests. Defaults to global fetch.
 
@@ -89,7 +89,7 @@ Injectable fetch implementation, e.g. for tests. Defaults to global fetch.
 
 > `optional` **textureLoader?**: [`TextureLoader`](../type-aliases/TextureLoader.md)
 
-Defined in: [engine/src/systems/AssetManifest.ts:42](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L42)
+Defined in: [engine/src/systems/AssetManifest.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L42)
 
 Loader used for "texture" assets. Uses the same `TextureLoader` shape as
 `RenderPipelineOptions.textureLoader` — pass the exact function you gave

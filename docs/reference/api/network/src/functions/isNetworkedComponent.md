@@ -8,7 +8,7 @@
 
 > **isNetworkedComponent**(`componentName`): `boolean`
 
-Defined in: [network/src/NetworkedFields.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkedFields.ts#L52)
+Defined in: [network/src/NetworkedFields.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkedFields.ts#L68)
 
 `true` if any field of `componentName` was marked networked.
 

@@ -6,7 +6,7 @@
 
 # Class: CharacterStage
 
-Defined in: [engine/src/systems/CharacterStage.ts:34](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L34)
+Defined in: [engine/src/systems/CharacterStage.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L34)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/CharacterStage.ts:34](https://github.com/eleferr
 
 > **new CharacterStage**(`opts`): `CharacterStage`
 
-Defined in: [engine/src/systems/CharacterStage.ts:41](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L41)
+Defined in: [engine/src/systems/CharacterStage.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L41)
 
 #### Parameters
 
@@ -32,7 +32,7 @@ Defined in: [engine/src/systems/CharacterStage.ts:41](https://github.com/eleferr
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/CharacterStage.ts:119](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L119)
+Defined in: [engine/src/systems/CharacterStage.ts:119](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L119)
 
 Remove all characters immediately
 
@@ -46,7 +46,7 @@ Remove all characters immediately
 
 > **hide**(`slot`, `fadeDuration?`): `void`
 
-Defined in: [engine/src/systems/CharacterStage.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L76)
+Defined in: [engine/src/systems/CharacterStage.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L76)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/systems/CharacterStage.ts:76](https://github.com/eleferr
 
 > **render**(`ctx`): `void`
 
-Defined in: [engine/src/systems/CharacterStage.ts:100](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L100)
+Defined in: [engine/src/systems/CharacterStage.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L100)
 
 #### Parameters
 
@@ -86,7 +86,7 @@ Defined in: [engine/src/systems/CharacterStage.ts:100](https://github.com/elefer
 
 > **show**(`slot`, `imagePath`, `opts?`): `void`
 
-Defined in: [engine/src/systems/CharacterStage.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L48)
+Defined in: [engine/src/systems/CharacterStage.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L48)
 
 #### Parameters
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/systems/CharacterStage.ts:48](https://github.com/eleferr
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/systems/CharacterStage.ts:84](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/CharacterStage.ts#L84)
+Defined in: [engine/src/systems/CharacterStage.ts:84](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CharacterStage.ts#L84)
 
 #### Parameters
 

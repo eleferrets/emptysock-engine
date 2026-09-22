@@ -6,7 +6,7 @@
 
 # Class: VNTextbox
 
-Defined in: [vn/src/VNTextbox.ts:71](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L71)
+Defined in: [vn/src/VNTextbox.ts:71](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L71)
 
 VNTextbox — a pre-built dialogue box rendered by UISystem.
 
@@ -41,7 +41,7 @@ scene.ui.render(ctx, 800, 600);
 
 > **new VNTextbox**(`opts`): `VNTextbox`
 
-Defined in: [vn/src/VNTextbox.ts:92](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L92)
+Defined in: [vn/src/VNTextbox.ts:92](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L92)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [vn/src/VNTextbox.ts:92](https://github.com/eleferrets/emptysock-eng
 
 > **get** **isTyping**(): `boolean`
 
-Defined in: [vn/src/VNTextbox.ts:216](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L216)
+Defined in: [vn/src/VNTextbox.ts:216](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L216)
 
 True while a typewriter reveal is in progress.
 
@@ -77,7 +77,7 @@ True while a typewriter reveal is in progress.
 
 > **get** **visible**(): `boolean`
 
-Defined in: [vn/src/VNTextbox.ts:211](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L211)
+Defined in: [vn/src/VNTextbox.ts:211](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L211)
 
 ##### Returns
 
@@ -87,7 +87,7 @@ Defined in: [vn/src/VNTextbox.ts:211](https://github.com/eleferrets/emptysock-en
 
 > **set** **visible**(`v`): `void`
 
-Defined in: [vn/src/VNTextbox.ts:207](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L207)
+Defined in: [vn/src/VNTextbox.ts:207](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L207)
 
 Show or hide the textbox.
 
@@ -107,7 +107,7 @@ Show or hide the textbox.
 
 > **bind**(`vn`): `void`
 
-Defined in: [vn/src/VNTextbox.ts:201](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L201)
+Defined in: [vn/src/VNTextbox.ts:201](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L201)
 
 Wire this textbox to a VNSystem instance. The textbox immediately reflects the current node.
 
@@ -127,7 +127,7 @@ Wire this textbox to a VNSystem instance. The textbox immediately reflects the c
 
 > **destroy**(): `void`
 
-Defined in: [vn/src/VNTextbox.ts:343](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L343)
+Defined in: [vn/src/VNTextbox.ts:343](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L343)
 
 Remove the textbox widgets from UISystem. Call when the scene unloads.
 
@@ -141,7 +141,7 @@ Remove the textbox widgets from UISystem. Call when the scene unloads.
 
 > **skipTypewriter**(): `void`
 
-Defined in: [vn/src/VNTextbox.ts:247](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L247)
+Defined in: [vn/src/VNTextbox.ts:247](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L247)
 
 Jump the current typewriter reveal to its end immediately.
 No-op if no reveal is in progress.
@@ -156,7 +156,7 @@ No-op if no reveal is in progress.
 
 > **update**(`dt`): `void`
 
-Defined in: [vn/src/VNTextbox.ts:226](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/vn/src/VNTextbox.ts#L226)
+Defined in: [vn/src/VNTextbox.ts:226](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L226)
 
 Advance the typewriter animation. Call once per frame from `onUpdate(dt)`.
 If the scene's UISystem.update() is called automatically (it is, via

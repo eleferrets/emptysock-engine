@@ -6,7 +6,7 @@
 
 # Class: Animator
 
-Defined in: [engine/src/components/Animator.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L15)
+Defined in: [engine/src/components/Animator.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L15)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/Animator.ts:15](https://github.com/eleferrets
 
 > **new Animator**(): `Animator`
 
-Defined in: [engine/src/components/Animator.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L27)
+Defined in: [engine/src/components/Animator.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L27)
 
 #### Returns
 
@@ -34,7 +34,7 @@ Defined in: [engine/src/components/Animator.ts:27](https://github.com/eleferrets
 
 > **clips**: `Map`\<`string`, [`AnimationClip`](../interfaces/AnimationClip.md)\>
 
-Defined in: [engine/src/components/Animator.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L19)
+Defined in: [engine/src/components/Animator.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L19)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/Animator.ts:19](https://github.com/eleferrets
 
 > **currentClip**: `string` \| `null` = `null`
 
-Defined in: [engine/src/components/Animator.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L20)
+Defined in: [engine/src/components/Animator.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L20)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/components/Animator.ts:20](https://github.com/eleferrets
 
 > **currentFrame**: `number` = `0`
 
-Defined in: [engine/src/components/Animator.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L21)
+Defined in: [engine/src/components/Animator.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L21)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/components/Animator.ts:21](https://github.com/eleferrets
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **speed**: `number` = `1`
 
-Defined in: [engine/src/components/Animator.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L22)
+Defined in: [engine/src/components/Animator.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L22)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/components/Animator.ts:22](https://github.com/eleferrets
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`Animator`\>
 
-Defined in: [engine/src/components/Animator.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L16)
+Defined in: [engine/src/components/Animator.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L16)
 
 ## Accessors
 
@@ -100,7 +100,7 @@ Defined in: [engine/src/components/Animator.ts:16](https://github.com/eleferrets
 
 > **get** **isPlaying**(): `boolean`
 
-Defined in: [engine/src/components/Animator.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L51)
+Defined in: [engine/src/components/Animator.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L51)
 
 ##### Returns
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/components/Animator.ts:51](https://github.com/eleferrets
 
 > **addClip**(`clip`): `void`
 
-Defined in: [engine/src/components/Animator.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L31)
+Defined in: [engine/src/components/Animator.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L31)
 
 #### Parameters
 
@@ -130,7 +130,7 @@ Defined in: [engine/src/components/Animator.ts:31](https://github.com/eleferrets
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -148,7 +148,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -166,7 +166,7 @@ Called once when component is detached from an entity
 
 > **play**(`name`): `void`
 
-Defined in: [engine/src/components/Animator.ts:35](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L35)
+Defined in: [engine/src/components/Animator.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L35)
 
 #### Parameters
 
@@ -184,7 +184,7 @@ Defined in: [engine/src/components/Animator.ts:35](https://github.com/eleferrets
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/Animator.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L80)
+Defined in: [engine/src/components/Animator.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L80)
 
 Serialize component data for saving
 
@@ -202,7 +202,7 @@ Serialize component data for saving
 
 > **stop**(): `void`
 
-Defined in: [engine/src/components/Animator.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L47)
+Defined in: [engine/src/components/Animator.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L47)
 
 #### Returns
 
@@ -214,7 +214,7 @@ Defined in: [engine/src/components/Animator.ts:47](https://github.com/eleferrets
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/components/Animator.ts:55](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/Animator.ts#L55)
+Defined in: [engine/src/components/Animator.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/Animator.ts#L55)
 
 Called each frame during the update pass
 

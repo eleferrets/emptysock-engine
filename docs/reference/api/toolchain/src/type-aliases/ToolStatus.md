@@ -8,4 +8,4 @@
 
 > **ToolStatus** = `"found"` \| `"missing"` \| `"misconfigured"`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L6)
+Defined in: [toolchain/src/ToolchainDetector.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L6)

@@ -6,7 +6,7 @@
 
 # Class: AnimatorController
 
-Defined in: [engine/src/components/AnimatorController.ts:59](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L59)
+Defined in: [engine/src/components/AnimatorController.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L59)
 
 Code-first animation state machine: named states (each wrapping an
 AnimationClip), named transitions gated by parameter/trigger conditions,
@@ -30,7 +30,7 @@ surface area never grows to accommodate it.
 
 > **new AnimatorController**(): `AnimatorController`
 
-Defined in: [engine/src/components/AnimatorController.ts:80](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L80)
+Defined in: [engine/src/components/AnimatorController.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L80)
 
 #### Returns
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/components/AnimatorController.ts:80](https://github.com/
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **speed**: `number` = `1`
 
-Defined in: [engine/src/components/AnimatorController.ts:78](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L78)
+Defined in: [engine/src/components/AnimatorController.ts:78](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L78)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/components/AnimatorController.ts:78](https://github.com/
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`AnimatorController`\>
 
-Defined in: [engine/src/components/AnimatorController.ts:60](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L60)
+Defined in: [engine/src/components/AnimatorController.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L60)
 
 ## Accessors
 
@@ -88,7 +88,7 @@ Defined in: [engine/src/components/AnimatorController.ts:60](https://github.com/
 
 > **get** **currentState**(): `string` \| `null`
 
-Defined in: [engine/src/components/AnimatorController.ts:115](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L115)
+Defined in: [engine/src/components/AnimatorController.ts:115](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L115)
 
 ##### Returns
 
@@ -102,7 +102,7 @@ Defined in: [engine/src/components/AnimatorController.ts:115](https://github.com
 
 > **get** **isBlending**(): `boolean`
 
-Defined in: [engine/src/components/AnimatorController.ts:119](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L119)
+Defined in: [engine/src/components/AnimatorController.ts:119](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L119)
 
 ##### Returns
 
@@ -114,7 +114,7 @@ Defined in: [engine/src/components/AnimatorController.ts:119](https://github.com
 
 > **addState**(`name`, `clip`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:85](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L85)
+Defined in: [engine/src/components/AnimatorController.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L85)
 
 Register a named state backed by a clip.
 
@@ -138,7 +138,7 @@ Register a named state backed by a clip.
 
 > **addTransition**(`from`, `options`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:90](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L90)
+Defined in: [engine/src/components/AnimatorController.ts:90](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L90)
 
 Register a transition from a state (or '*' to match from any state) to another.
 
@@ -162,7 +162,7 @@ Register a transition from a state (or '*' to match from any state) to another.
 
 > **getActiveClips**(): [`ActiveClipFrame`](../interfaces/ActiveClipFrame.md)[]
 
-Defined in: [engine/src/components/AnimatorController.ts:247](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L247)
+Defined in: [engine/src/components/AnimatorController.ts:247](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L247)
 
 Returns the clip(s)/frame(s)/weight(s) that should be composited this
 frame. Normally a single entry with weight 1; during a cross-fade,
@@ -179,7 +179,7 @@ transition's duration.
 
 > **getParam**(`name`): [`AnimParamValue`](../type-aliases/AnimParamValue.md) \| `undefined`
 
-Defined in: [engine/src/components/AnimatorController.ts:111](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L111)
+Defined in: [engine/src/components/AnimatorController.ts:111](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L111)
 
 #### Parameters
 
@@ -197,7 +197,7 @@ Defined in: [engine/src/components/AnimatorController.ts:111](https://github.com
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -215,7 +215,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -233,7 +233,7 @@ Called once when component is detached from an entity
 
 > **play**(`name`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:124](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L124)
+Defined in: [engine/src/components/AnimatorController.ts:124](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L124)
 
 Jump straight into a state with no transition/blend, e.g. on setup.
 
@@ -253,7 +253,7 @@ Jump straight into a state with no transition/blend, e.g. on setup.
 
 > **resetTrigger**(`name`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:107](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L107)
+Defined in: [engine/src/components/AnimatorController.ts:107](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L107)
 
 #### Parameters
 
@@ -271,7 +271,7 @@ Defined in: [engine/src/components/AnimatorController.ts:107](https://github.com
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/AnimatorController.ts:295](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L295)
+Defined in: [engine/src/components/AnimatorController.ts:295](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L295)
 
 Serialize component data for saving
 
@@ -289,7 +289,7 @@ Serialize component data for saving
 
 > **setBool**(`name`, `value`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:98](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L98)
+Defined in: [engine/src/components/AnimatorController.ts:98](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L98)
 
 #### Parameters
 
@@ -311,7 +311,7 @@ Defined in: [engine/src/components/AnimatorController.ts:98](https://github.com/
 
 > **setFloat**(`name`, `value`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:94](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L94)
+Defined in: [engine/src/components/AnimatorController.ts:94](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L94)
 
 #### Parameters
 
@@ -333,7 +333,7 @@ Defined in: [engine/src/components/AnimatorController.ts:94](https://github.com/
 
 > **setTrigger**(`name`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:103](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L103)
+Defined in: [engine/src/components/AnimatorController.ts:103](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L103)
 
 Arms a trigger. It stays armed until a transition condition consumes it or it is reset manually.
 
@@ -353,7 +353,7 @@ Arms a trigger. It stays armed until a transition condition consumes it or it is
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/components/AnimatorController.ts:138](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/AnimatorController.ts#L138)
+Defined in: [engine/src/components/AnimatorController.ts:138](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/AnimatorController.ts#L138)
 
 Called each frame during the update pass
 

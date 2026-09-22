@@ -6,7 +6,7 @@
 
 # Interface: Light
 
-Defined in: [engine/src/systems/LightingSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L9)
+Defined in: [engine/src/systems/LightingSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L9)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:9](https://github.com/eleferre
 
 > `optional` **angle?**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L15)
+Defined in: [engine/src/systems/LightingSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L15)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:15](https://github.com/eleferr
 
 > **castShadows**: `boolean`
 
-Defined in: [engine/src/systems/LightingSystem.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L17)
+Defined in: [engine/src/systems/LightingSystem.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L17)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:17](https://github.com/eleferr
 
 > **colour**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L12)
+Defined in: [engine/src/systems/LightingSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L12)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:12](https://github.com/eleferr
 
 > `optional` **direction?**: `object`
 
-Defined in: [engine/src/systems/LightingSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L16)
+Defined in: [engine/src/systems/LightingSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L16)
 
 #### x
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:16](https://github.com/eleferr
 
 > `readonly` **id**: `string`
 
-Defined in: [engine/src/systems/LightingSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L10)
+Defined in: [engine/src/systems/LightingSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L10)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:10](https://github.com/eleferr
 
 > **intensity**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L13)
+Defined in: [engine/src/systems/LightingSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L13)
 
 ***
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:13](https://github.com/eleferr
 
 > `optional` **radius?**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L14)
+Defined in: [engine/src/systems/LightingSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L14)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:14](https://github.com/eleferr
 
 > `readonly` **type**: [`LightType`](../type-aliases/LightType.md)
 
-Defined in: [engine/src/systems/LightingSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L11)
+Defined in: [engine/src/systems/LightingSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L11)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:11](https://github.com/eleferr
 
 > `optional` **x?**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L19)
+Defined in: [engine/src/systems/LightingSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L19)
 
 World-space position for point/spot lights (updated each frame)
 
@@ -96,4 +96,4 @@ World-space position for point/spot lights (updated each frame)
 
 > `optional` **y?**: `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L20)
+Defined in: [engine/src/systems/LightingSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L20)

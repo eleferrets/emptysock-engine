@@ -6,7 +6,7 @@
 
 # Class: DestroyOutsideBehavior
 
-Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L8)
+Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L8)
 
 DestroyOutsideBehavior — removes the entity from the scene when its
 Transform position leaves the layout bounds (plus optional margin).
@@ -21,7 +21,7 @@ Transform position leaves the layout bounds (plus optional margin).
 
 > **new DestroyOutsideBehavior**(`options?`): `DestroyOutsideBehavior`
 
-Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L15)
+Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L15)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:15](https://github.c
 
 > **margin**: `number`
 
-Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L9)
+Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L9)
 
 ## Methods
 
@@ -69,7 +69,7 @@ Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:9](https://github.co
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -85,7 +85,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -101,7 +101,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L32)
+Defined in: [engine/src/behaviors/DestroyOutsideBehavior.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/DestroyOutsideBehavior.ts#L32)
 
 #### Parameters
 

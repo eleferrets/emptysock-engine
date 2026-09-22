@@ -6,7 +6,7 @@
 
 # Interface: WindowConfig
 
-Defined in: [engine/src/systems/WindowSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L3)
+Defined in: [engine/src/systems/WindowSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L3)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:3](https://github.com/eleferrets
 
 > **height**: `number`
 
-Defined in: [engine/src/systems/WindowSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L6)
+Defined in: [engine/src/systems/WindowSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L6)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:6](https://github.com/eleferrets
 
 > **minHeight**: `number`
 
-Defined in: [engine/src/systems/WindowSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L10)
+Defined in: [engine/src/systems/WindowSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L10)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:10](https://github.com/eleferret
 
 > **minWidth**: `number`
 
-Defined in: [engine/src/systems/WindowSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L9)
+Defined in: [engine/src/systems/WindowSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L9)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:9](https://github.com/eleferrets
 
 > **mode**: [`WindowMode`](../type-aliases/WindowMode.md)
 
-Defined in: [engine/src/systems/WindowSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L4)
+Defined in: [engine/src/systems/WindowSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L4)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:4](https://github.com/eleferrets
 
 > **resizable**: `boolean`
 
-Defined in: [engine/src/systems/WindowSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L8)
+Defined in: [engine/src/systems/WindowSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L8)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/WindowSystem.ts:8](https://github.com/eleferrets
 
 > **title**: `string`
 
-Defined in: [engine/src/systems/WindowSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L7)
+Defined in: [engine/src/systems/WindowSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L7)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [engine/src/systems/WindowSystem.ts:7](https://github.com/eleferrets
 
 > **width**: `number`
 
-Defined in: [engine/src/systems/WindowSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/WindowSystem.ts#L5)
+Defined in: [engine/src/systems/WindowSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/WindowSystem.ts#L5)

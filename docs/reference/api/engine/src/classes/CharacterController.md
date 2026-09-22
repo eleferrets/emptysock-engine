@@ -6,7 +6,7 @@
 
 # Class: CharacterController
 
-Defined in: [engine/src/components/CharacterController.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L7)
+Defined in: [engine/src/components/CharacterController.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L7)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/CharacterController.ts:7](https://github.com/
 
 > **new CharacterController**(`options?`): `CharacterController`
 
-Defined in: [engine/src/components/CharacterController.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L17)
+Defined in: [engine/src/components/CharacterController.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L17)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/components/CharacterController.ts:17](https://github.com
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **isGrounded**: `boolean` = `false`
 
-Defined in: [engine/src/components/CharacterController.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L13)
+Defined in: [engine/src/components/CharacterController.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L13)
 
 ***
 
@@ -74,7 +74,7 @@ Defined in: [engine/src/components/CharacterController.ts:13](https://github.com
 
 > **jumpForce**: `number`
 
-Defined in: [engine/src/components/CharacterController.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L12)
+Defined in: [engine/src/components/CharacterController.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L12)
 
 ***
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/components/CharacterController.ts:12](https://github.com
 
 > **maxSlopeAngle**: `number`
 
-Defined in: [engine/src/components/CharacterController.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L15)
+Defined in: [engine/src/components/CharacterController.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L15)
 
 ***
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/components/CharacterController.ts:15](https://github.com
 
 > **snapToGround**: `number`
 
-Defined in: [engine/src/components/CharacterController.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L14)
+Defined in: [engine/src/components/CharacterController.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L14)
 
 ***
 
@@ -98,7 +98,7 @@ Defined in: [engine/src/components/CharacterController.ts:14](https://github.com
 
 > **speed**: `number`
 
-Defined in: [engine/src/components/CharacterController.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L11)
+Defined in: [engine/src/components/CharacterController.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L11)
 
 ***
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/components/CharacterController.ts:11](https://github.com
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -118,7 +118,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`CharacterController`\>
 
-Defined in: [engine/src/components/CharacterController.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L8)
+Defined in: [engine/src/components/CharacterController.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L8)
 
 ## Methods
 
@@ -126,7 +126,7 @@ Defined in: [engine/src/components/CharacterController.ts:8](https://github.com/
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -144,7 +144,7 @@ Called once when component is first attached to an entity
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -162,7 +162,7 @@ Called once when component is detached from an entity
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/CharacterController.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/CharacterController.ts#L32)
+Defined in: [engine/src/components/CharacterController.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/CharacterController.ts#L32)
 
 Serialize component data for saving
 
@@ -180,7 +180,7 @@ Serialize component data for saving
 
 > `optional` **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L36)
+Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L36)
 
 Called each frame during the update pass
 

@@ -6,7 +6,7 @@
 
 # Class: RenderPipeline
 
-Defined in: [engine/src/systems/RenderPipeline.ts:89](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L89)
+Defined in: [engine/src/systems/RenderPipeline.ts:89](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L89)
 
 RenderPipeline is the one piece of code a game needs to touch to see
 something on screen. It owns a RenderSystem (the raw PixiJS renderer) and a
@@ -31,7 +31,7 @@ Attaching `Transform` + `Sprite` to an entity is the entire contract for
 
 > **new RenderPipeline**(`options?`): `RenderPipeline`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:106](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L106)
+Defined in: [engine/src/systems/RenderPipeline.ts:106](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L106)
 
 #### Parameters
 
@@ -51,7 +51,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:106](https://github.com/elefer
 
 > **get** **canvas**(): `HTMLCanvasElement`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:128](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L128)
+Defined in: [engine/src/systems/RenderPipeline.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L128)
 
 ##### Returns
 
@@ -65,7 +65,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:128](https://github.com/elefer
 
 > **get** **layers**(): [`LayerSystem`](LayerSystem.md)
 
-Defined in: [engine/src/systems/RenderPipeline.ts:116](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L116)
+Defined in: [engine/src/systems/RenderPipeline.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L116)
 
 The engine's LayerSystem — call `defineLayer()` on it for custom draw order.
 
@@ -81,7 +81,7 @@ The engine's LayerSystem — call `defineLayer()` on it for custom draw order.
 
 > **get** **renderer**(): `Renderer`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:120](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L120)
+Defined in: [engine/src/systems/RenderPipeline.ts:120](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L120)
 
 ##### Returns
 
@@ -95,7 +95,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:120](https://github.com/elefer
 
 > **get** **stage**(): `Container`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:124](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L124)
+Defined in: [engine/src/systems/RenderPipeline.ts:124](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L124)
 
 ##### Returns
 
@@ -107,7 +107,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:124](https://github.com/elefer
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:410](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L410)
+Defined in: [engine/src/systems/RenderPipeline.ts:410](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L410)
 
 #### Returns
 
@@ -119,7 +119,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:410](https://github.com/elefer
 
 > **init**(`options?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/RenderPipeline.ts:111](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L111)
+Defined in: [engine/src/systems/RenderPipeline.ts:111](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L111)
 
 #### Parameters
 
@@ -137,7 +137,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:111](https://github.com/elefer
 
 > **mountTilemap**(`tilemap`, `renderLayer?`, `autoTile?`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:321](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L321)
+Defined in: [engine/src/systems/RenderPipeline.ts:321](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L321)
 
 Build real tile sprites for `tilemap` and add them to `renderLayer`
 (defaults to `"default"`). Pass an `AutoTileSystem` to resolve neighbour-
@@ -168,7 +168,7 @@ once per tilemap; call `unmountTilemap()` first to rebuild after edits.
 
 > **renderFrame**(`scene`, `postProcess?`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:143](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L143)
+Defined in: [engine/src/systems/RenderPipeline.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L143)
 
 Sync every Transform+Sprite entity in `scene` to its PixiJS sprite, then
 render the frame. Call this once per frame from the game loop, after
@@ -194,7 +194,7 @@ render the frame. Call this once per frame from the game loop, after
 
 > **renderTransitionOverlay**(`postProcess`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:166](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L166)
+Defined in: [engine/src/systems/RenderPipeline.ts:166](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L166)
 
 Paint the scene-transition overlay described by `postProcess`'s
 transitionEffect/transitionProgress/transitionColour on top of the
@@ -228,7 +228,7 @@ after `syncEntities()`.
 
 > **resize**(`width`, `height`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L132)
+Defined in: [engine/src/systems/RenderPipeline.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L132)
 
 #### Parameters
 
@@ -250,7 +250,7 @@ Defined in: [engine/src/systems/RenderPipeline.ts:132](https://github.com/elefer
 
 > **syncEntities**(`scene`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:221](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L221)
+Defined in: [engine/src/systems/RenderPipeline.ts:221](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L221)
 
 Sync PixiJS sprites from Transform+Sprite components without rendering. Exposed for tests and custom loops.
 
@@ -270,7 +270,7 @@ Sync PixiJS sprites from Transform+Sprite components without rendering. Exposed 
 
 > **unmountTilemap**(`tilemap`): `void`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:334](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderPipeline.ts#L334)
+Defined in: [engine/src/systems/RenderPipeline.ts:334](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L334)
 
 #### Parameters
 

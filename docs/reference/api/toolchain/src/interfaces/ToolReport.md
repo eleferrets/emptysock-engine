@@ -6,7 +6,7 @@
 
 # Interface: ToolReport
 
-Defined in: [toolchain/src/ToolchainDetector.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L8)
+Defined in: [toolchain/src/ToolchainDetector.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L8)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/ToolchainDetector.ts:8](https://github.com/eleferrets
 
 > **name**: `string`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L9)
+Defined in: [toolchain/src/ToolchainDetector.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L9)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/ToolchainDetector.ts:9](https://github.com/eleferrets
 
 > **note**: `string` \| `null`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L13)
+Defined in: [toolchain/src/ToolchainDetector.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L13)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/ToolchainDetector.ts:13](https://github.com/eleferret
 
 > **path**: `string` \| `null`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L11)
+Defined in: [toolchain/src/ToolchainDetector.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L11)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [toolchain/src/ToolchainDetector.ts:11](https://github.com/eleferret
 
 > **required**: `boolean`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L15)
+Defined in: [toolchain/src/ToolchainDetector.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L15)
 
 True means this tool is required to perform the stated action
 
@@ -48,7 +48,7 @@ True means this tool is required to perform the stated action
 
 > **status**: [`ToolStatus`](../type-aliases/ToolStatus.md)
 
-Defined in: [toolchain/src/ToolchainDetector.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L10)
+Defined in: [toolchain/src/ToolchainDetector.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L10)
 
 ***
 
@@ -56,4 +56,4 @@ Defined in: [toolchain/src/ToolchainDetector.ts:10](https://github.com/eleferret
 
 > **version**: `string` \| `null`
 
-Defined in: [toolchain/src/ToolchainDetector.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/ToolchainDetector.ts#L12)
+Defined in: [toolchain/src/ToolchainDetector.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L12)

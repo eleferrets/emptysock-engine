@@ -6,7 +6,7 @@
 
 # Class: RenderSystem
 
-Defined in: [engine/src/systems/RenderSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L27)
+Defined in: [engine/src/systems/RenderSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L27)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:27](https://github.com/eleferret
 
 > **get** **canvas**(): `HTMLCanvasElement`
 
-Defined in: [engine/src/systems/RenderSystem.ts:192](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L192)
+Defined in: [engine/src/systems/RenderSystem.ts:192](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L192)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:192](https://github.com/eleferre
 
 > **get** **renderer**(): `Renderer`
 
-Defined in: [engine/src/systems/RenderSystem.ts:181](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L181)
+Defined in: [engine/src/systems/RenderSystem.ts:181](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L181)
 
 ##### Returns
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:181](https://github.com/eleferre
 
 > **get** **stage**(): `Container`
 
-Defined in: [engine/src/systems/RenderSystem.ts:187](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L187)
+Defined in: [engine/src/systems/RenderSystem.ts:187](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L187)
 
 ##### Returns
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:187](https://github.com/eleferre
 
 > **addLayerShaderFilter**(`layerName`, `filter`): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:170](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L170)
+Defined in: [engine/src/systems/RenderSystem.ts:170](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L170)
 
 Attach a custom shader filter (e.g. from `createCustomShaderFilter()`)
 to a layer's container. This is the real counterpart to the ShaderEditor
@@ -93,7 +93,7 @@ there produces is what gets attached here.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:208](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L208)
+Defined in: [engine/src/systems/RenderSystem.ts:208](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L208)
 
 #### Returns
 
@@ -105,7 +105,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:208](https://github.com/eleferre
 
 > **getLayerContainer**(`layerName?`): `Container`
 
-Defined in: [engine/src/systems/RenderSystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L110)
+Defined in: [engine/src/systems/RenderSystem.ts:110](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L110)
 
 Return the PixiJS Container for a given layer name. Creates it if it does
 not yet exist (e.g. a layer was defined after init). Falls back to the
@@ -127,7 +127,7 @@ default container when no LayerSystem is active.
 
 > **init**(`options?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/RenderSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L37)
+Defined in: [engine/src/systems/RenderSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L37)
 
 #### Parameters
 
@@ -145,7 +145,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:37](https://github.com/eleferret
 
 > **removeLayerShaderFilter**(`layerName`, `filter`): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:176](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L176)
+Defined in: [engine/src/systems/RenderSystem.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L176)
 
 Detach a previously attached shader filter from a layer's container.
 
@@ -169,7 +169,7 @@ Detach a previously attached shader filter from a layer's container.
 
 > **render**(): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:197](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L197)
+Defined in: [engine/src/systems/RenderSystem.ts:197](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L197)
 
 #### Returns
 
@@ -181,7 +181,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:197](https://github.com/eleferre
 
 > **resize**(`width`, `height`): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:204](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L204)
+Defined in: [engine/src/systems/RenderSystem.ts:204](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L204)
 
 #### Parameters
 
@@ -203,7 +203,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:204](https://github.com/eleferre
 
 > **setLayerSystem**(`ls`): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:71](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L71)
+Defined in: [engine/src/systems/RenderSystem.ts:71](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L71)
 
 Attach a LayerSystem. May be called after init(). When set, entities
 should be added to the container returned by getLayerContainer() rather
@@ -225,7 +225,7 @@ than directly to stage.
 
 > **syncLayerVisibility**(): `void`
 
-Defined in: [engine/src/systems/RenderSystem.ts:157](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/RenderSystem.ts#L157)
+Defined in: [engine/src/systems/RenderSystem.ts:157](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L157)
 
 Synchronise layer container visibility from LayerSystem state. Call once
 per frame (or on demand) after setVisible() calls.

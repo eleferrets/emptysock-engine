@@ -6,7 +6,7 @@
 
 # Class: Scene
 
-Defined in: [engine/src/core/Scene.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L9)
+Defined in: [engine/src/core/Scene.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L9)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/Scene.ts:9](https://github.com/eleferrets/emptysock
 
 > **new Scene**(`name`): `Scene`
 
-Defined in: [engine/src/core/Scene.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L24)
+Defined in: [engine/src/core/Scene.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L24)
 
 #### Parameters
 
@@ -32,7 +32,7 @@ Defined in: [engine/src/core/Scene.ts:24](https://github.com/eleferrets/emptysoc
 
 > **backgroundColor**: `number` = `0x1a1a2e`
 
-Defined in: [engine/src/core/Scene.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L11)
+Defined in: [engine/src/core/Scene.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L11)
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/core/Scene.ts:11](https://github.com/eleferrets/emptysoc
 
 > `readonly` **name**: `string`
 
-Defined in: [engine/src/core/Scene.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L10)
+Defined in: [engine/src/core/Scene.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L10)
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: [engine/src/core/Scene.ts:10](https://github.com/eleferrets/emptysoc
 
 > `readonly` **systems**: [`SystemManager`](SystemManager.md)
 
-Defined in: [engine/src/core/Scene.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L21)
+Defined in: [engine/src/core/Scene.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L21)
 
 The scene's system registry. `addSystem()`/`removeSystem()` are sugar
 over this — there is one system-collection concept in the engine
@@ -61,7 +61,7 @@ directly only if you need `SystemManager`'s `get()` lookup.
 
 > `readonly` **ui**: [`UISystem`](UISystem.md)
 
-Defined in: [engine/src/core/Scene.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L13)
+Defined in: [engine/src/core/Scene.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L13)
 
 Per-scene UI system. Add widgets here; cleared automatically on destroy.
 
@@ -73,7 +73,7 @@ Per-scene UI system. Add widgets here; cleared automatically on destroy.
 
 > **get** **engine**(): `object`
 
-Defined in: [engine/src/core/Scene.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L29)
+Defined in: [engine/src/core/Scene.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L29)
 
 Access engine-level operations (scene stack, error logging, debug API).
 
@@ -279,7 +279,7 @@ method is available for use in tests or headless contexts.
 
 > **get** **isRunning**(): `boolean`
 
-Defined in: [engine/src/core/Scene.ts:157](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L157)
+Defined in: [engine/src/core/Scene.ts:157](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L157)
 
 ##### Returns
 
@@ -291,7 +291,7 @@ Defined in: [engine/src/core/Scene.ts:157](https://github.com/eleferrets/emptyso
 
 > **addEntity**(`entity`): [`Entity`](Entity.md)
 
-Defined in: [engine/src/core/Scene.ts:85](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L85)
+Defined in: [engine/src/core/Scene.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L85)
 
 #### Parameters
 
@@ -309,7 +309,7 @@ Defined in: [engine/src/core/Scene.ts:85](https://github.com/eleferrets/emptysoc
 
 > **addSystem**(`name`, `fn`): `void`
 
-Defined in: [engine/src/core/Scene.ts:137](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L137)
+Defined in: [engine/src/core/Scene.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L137)
 
 #### Parameters
 
@@ -331,7 +331,7 @@ Defined in: [engine/src/core/Scene.ts:137](https://github.com/eleferrets/emptyso
 
 > **createEntity**(`name?`): [`Entity`](Entity.md)
 
-Defined in: [engine/src/core/Scene.ts:79](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L79)
+Defined in: [engine/src/core/Scene.ts:79](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L79)
 
 #### Parameters
 
@@ -349,7 +349,7 @@ Defined in: [engine/src/core/Scene.ts:79](https://github.com/eleferrets/emptysoc
 
 > **getEntities**(): `ReadonlyMap`\<`number`, [`Entity`](Entity.md)\>
 
-Defined in: [engine/src/core/Scene.ts:131](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L131)
+Defined in: [engine/src/core/Scene.ts:131](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L131)
 
 #### Returns
 
@@ -361,7 +361,7 @@ Defined in: [engine/src/core/Scene.ts:131](https://github.com/eleferrets/emptyso
 
 > **getEntitiesByTag**(`tag`): [`Entity`](Entity.md)[]
 
-Defined in: [engine/src/core/Scene.ts:116](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L116)
+Defined in: [engine/src/core/Scene.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L116)
 
 #### Parameters
 
@@ -379,7 +379,7 @@ Defined in: [engine/src/core/Scene.ts:116](https://github.com/eleferrets/emptyso
 
 > **getEntitiesWithComponent**(`type`): [`Entity`](Entity.md)[]
 
-Defined in: [engine/src/core/Scene.ts:125](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L125)
+Defined in: [engine/src/core/Scene.ts:125](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L125)
 
 Return all entities that have the given component type string attached.
 The type string must match the `Component.type` field exactly — it is not
@@ -401,7 +401,7 @@ derived from a constructor name (which is unsafe under minification).
 
 > **getEntity**(`id`): [`Entity`](Entity.md) \| `undefined`
 
-Defined in: [engine/src/core/Scene.ts:104](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L104)
+Defined in: [engine/src/core/Scene.ts:104](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L104)
 
 #### Parameters
 
@@ -419,7 +419,7 @@ Defined in: [engine/src/core/Scene.ts:104](https://github.com/eleferrets/emptyso
 
 > **getEntityByName**(`name`): [`Entity`](Entity.md) \| `undefined`
 
-Defined in: [engine/src/core/Scene.ts:109](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L109)
+Defined in: [engine/src/core/Scene.ts:109](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L109)
 
 Find an entity by name. Returns the first match, or undefined.
 
@@ -439,7 +439,7 @@ Find an entity by name. Returns the first match, or undefined.
 
 > **onDestroy**(): `void`
 
-Defined in: [engine/src/core/Scene.ts:63](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L63)
+Defined in: [engine/src/core/Scene.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L63)
 
 Called when the scene is removed from the stack or replaced. Cancel timers,
 audio, and external subscriptions here.
@@ -454,7 +454,7 @@ audio, and external subscriptions here.
 
 > **onFixedUpdate**(`_dt`): `void`
 
-Defined in: [engine/src/core/Scene.ts:57](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L57)
+Defined in: [engine/src/core/Scene.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L57)
 
 Called every physics tick (fixed 1/60 s by default) while the scene is
 running. Use for velocity, force, and physics state reads.
@@ -475,7 +475,7 @@ running. Use for velocity, force, and physics state reads.
 
 > **onLoad**(): `Promise`\<`void`\>
 
-Defined in: [engine/src/core/Scene.ts:39](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L39)
+Defined in: [engine/src/core/Scene.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L39)
 
 Called once before the scene begins updating. May be async — awaited by
 SceneManager before the first update() tick.
@@ -490,7 +490,7 @@ SceneManager before the first update() tick.
 
 > **onPause**(): `void`
 
-Defined in: [engine/src/core/Scene.ts:69](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L69)
+Defined in: [engine/src/core/Scene.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L69)
 
 Called when another scene is pushed on top of this one (scene is now
 paused beneath an overlay). Stop movement / AI here.
@@ -505,7 +505,7 @@ paused beneath an overlay). Stop movement / AI here.
 
 > **onResume**(): `void`
 
-Defined in: [engine/src/core/Scene.ts:75](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L75)
+Defined in: [engine/src/core/Scene.ts:75](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L75)
 
 Called when the overlay above this scene is popped and this scene
 becomes active again.
@@ -520,7 +520,7 @@ becomes active again.
 
 > **onStart**(): `void`
 
-Defined in: [engine/src/core/Scene.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L45)
+Defined in: [engine/src/core/Scene.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L45)
 
 Called once after `onLoad` resolves, just before the first frame.
 Use for work that must run after all assets are ready but is synchronous.
@@ -535,7 +535,7 @@ Use for work that must run after all assets are ready but is synchronous.
 
 > **onUpdate**(`_dt`): `void`
 
-Defined in: [engine/src/core/Scene.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L51)
+Defined in: [engine/src/core/Scene.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L51)
 
 Called every frame while the scene is running. Must be synchronous.
 Use coroutines for multi-frame work.
@@ -556,7 +556,7 @@ Use coroutines for multi-frame work.
 
 > **removeEntity**(`entity`): `boolean`
 
-Defined in: [engine/src/core/Scene.ts:100](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L100)
+Defined in: [engine/src/core/Scene.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L100)
 
 #### Parameters
 
@@ -574,7 +574,7 @@ Defined in: [engine/src/core/Scene.ts:100](https://github.com/eleferrets/emptyso
 
 > **removeSystem**(`name`): `boolean`
 
-Defined in: [engine/src/core/Scene.ts:141](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L141)
+Defined in: [engine/src/core/Scene.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L141)
 
 #### Parameters
 
@@ -592,7 +592,7 @@ Defined in: [engine/src/core/Scene.ts:141](https://github.com/eleferrets/emptyso
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/core/Scene.ts:176](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Scene.ts#L176)
+Defined in: [engine/src/core/Scene.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L176)
 
 #### Parameters
 

@@ -6,7 +6,7 @@
 
 # Interface: DamageContext
 
-Defined in: [battle/src/BattleSystem.ts:126](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L126)
+Defined in: [battle/src/BattleSystem.ts:135](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L135)
 
 Context passed to a custom damage formula set via `setDamageFormula()`.
 `effectiveAttack` and `effectiveDefense` already incorporate status
@@ -18,7 +18,7 @@ multipliers. Access `attacker.stats` and `target.stats` for any custom stat.
 
 > `readonly` **attacker**: [`Combatant`](Combatant.md)
 
-Defined in: [battle/src/BattleSystem.ts:127](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L127)
+Defined in: [battle/src/BattleSystem.ts:136](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L136)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [battle/src/BattleSystem.ts:127](https://github.com/eleferrets/empty
 
 > `readonly` **critMultiplier**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:135](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L135)
+Defined in: [battle/src/BattleSystem.ts:144](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L144)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [battle/src/BattleSystem.ts:135](https://github.com/eleferrets/empty
 
 > `readonly` **effectiveAttack**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:130](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L130)
+Defined in: [battle/src/BattleSystem.ts:139](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L139)
 
 Attacker's attack stat after status multipliers.
 
@@ -44,7 +44,7 @@ Attacker's attack stat after status multipliers.
 
 > `readonly` **effectiveDefense**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L132)
+Defined in: [battle/src/BattleSystem.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L141)
 
 Target's defense stat after status multipliers.
 
@@ -54,7 +54,7 @@ Target's defense stat after status multipliers.
 
 > `readonly` **isCrit**: `boolean`
 
-Defined in: [battle/src/BattleSystem.ts:134](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L134)
+Defined in: [battle/src/BattleSystem.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L143)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [battle/src/BattleSystem.ts:134](https://github.com/eleferrets/empty
 
 > `readonly` **power**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:133](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L133)
+Defined in: [battle/src/BattleSystem.ts:142](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L142)
 
 ***
 
@@ -70,4 +70,4 @@ Defined in: [battle/src/BattleSystem.ts:133](https://github.com/eleferrets/empty
 
 > `readonly` **target**: [`Combatant`](Combatant.md)
 
-Defined in: [battle/src/BattleSystem.ts:128](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L128)
+Defined in: [battle/src/BattleSystem.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L137)

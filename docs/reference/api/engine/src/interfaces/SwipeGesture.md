@@ -6,7 +6,7 @@
 
 # Interface: SwipeGesture
 
-Defined in: [engine/src/systems/PointerSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L45)
+Defined in: [engine/src/systems/PointerSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L45)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:45](https://github.com/eleferre
 
 > **direction**: [`SwipeDirection`](../type-aliases/SwipeDirection.md)
 
-Defined in: [engine/src/systems/PointerSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L50)
+Defined in: [engine/src/systems/PointerSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L50)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:50](https://github.com/eleferre
 
 > **distance**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L52)
+Defined in: [engine/src/systems/PointerSystem.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L52)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:52](https://github.com/eleferre
 
 > **pointerId**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L49)
+Defined in: [engine/src/systems/PointerSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L49)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:49](https://github.com/eleferre
 
 > **type**: `"swipe"`
 
-Defined in: [engine/src/systems/PointerSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L46)
+Defined in: [engine/src/systems/PointerSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L46)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:46](https://github.com/eleferre
 
 > **velocity**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L51)
+Defined in: [engine/src/systems/PointerSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L51)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:51](https://github.com/eleferre
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L47)
+Defined in: [engine/src/systems/PointerSystem.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L47)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [engine/src/systems/PointerSystem.ts:47](https://github.com/eleferre
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L48)
+Defined in: [engine/src/systems/PointerSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L48)

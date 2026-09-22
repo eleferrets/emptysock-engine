@@ -6,7 +6,7 @@
 
 # Interface: DualRumbleOptions
 
-Defined in: [engine/src/systems/GamepadSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L7)
+Defined in: [engine/src/systems/GamepadSystem.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L7)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:7](https://github.com/eleferret
 
 > `readonly` **duration**: `number`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L10)
+Defined in: [engine/src/systems/GamepadSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L10)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/GamepadSystem.ts:10](https://github.com/eleferre
 
 > `readonly` **strongMagnitude**: `number`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L9)
+Defined in: [engine/src/systems/GamepadSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L9)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [engine/src/systems/GamepadSystem.ts:9](https://github.com/eleferret
 
 > `readonly` **weakMagnitude**: `number`
 
-Defined in: [engine/src/systems/GamepadSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/GamepadSystem.ts#L8)
+Defined in: [engine/src/systems/GamepadSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/GamepadSystem.ts#L8)

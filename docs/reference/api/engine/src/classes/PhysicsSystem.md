@@ -6,7 +6,7 @@
 
 # Class: PhysicsSystem
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L21)
+Defined in: [engine/src/systems/PhysicsSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L21)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:21](https://github.com/eleferre
 
 > **get** **RAPIER**(): `__module`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L50)
+Defined in: [engine/src/systems/PhysicsSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L50)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:50](https://github.com/eleferre
 
 > **get** **world**(): `World`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L45)
+Defined in: [engine/src/systems/PhysicsSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L45)
 
 ##### Returns
 
@@ -52,7 +52,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:45](https://github.com/eleferre
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L222)
+Defined in: [engine/src/systems/PhysicsSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L222)
 
 #### Returns
 
@@ -64,7 +64,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:222](https://github.com/eleferr
 
 > **init**(`options?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L36)
+Defined in: [engine/src/systems/PhysicsSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L36)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:36](https://github.com/eleferre
 
 > **registerEntity**(`entity`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L61)
+Defined in: [engine/src/systems/PhysicsSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L61)
 
 Register an entity's PhysicsBody component with the Rapier world.
 Reads position from a Transform component on the same entity.
@@ -105,7 +105,7 @@ to PhysicsBody.
 
 > **step**(`fixedDt`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L151)
+Defined in: [engine/src/systems/PhysicsSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L151)
 
 Advance the physics world by exactly one step of `fixedDt` seconds and
 fire collision/sensor callbacks. Accumulation is handled externally by
@@ -129,7 +129,7 @@ driven by the scene manager's accumulator loop) rather than from
 
 > **syncToTransforms**(`entities`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:128](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem.ts#L128)
+Defined in: [engine/src/systems/PhysicsSystem.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L128)
 
 Sync Rapier body positions back to Transform components.
 Call after step() each frame.

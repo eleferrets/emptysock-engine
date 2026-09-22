@@ -6,7 +6,7 @@
 
 # Interface: Combatant
 
-Defined in: [battle/src/BattleSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L24)
+Defined in: [battle/src/BattleSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L33)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:24](https://github.com/eleferrets/emptys
 
 > **id**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L25)
+Defined in: [battle/src/BattleSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L34)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [battle/src/BattleSystem.ts:25](https://github.com/eleferrets/emptys
 
 > **isParty**: `boolean`
 
-Defined in: [battle/src/BattleSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L29)
+Defined in: [battle/src/BattleSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L38)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [battle/src/BattleSystem.ts:29](https://github.com/eleferrets/emptys
 
 > **name**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L26)
+Defined in: [battle/src/BattleSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L35)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [battle/src/BattleSystem.ts:26](https://github.com/eleferrets/emptys
 
 > **stats**: [`BattleStats`](../type-aliases/BattleStats.md)
 
-Defined in: [battle/src/BattleSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L27)
+Defined in: [battle/src/BattleSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L36)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [battle/src/BattleSystem.ts:27](https://github.com/eleferrets/emptys
 
 > **statusEffects**: readonly [`StatusEffect`](StatusEffect.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/battle/src/BattleSystem.ts#L28)
+Defined in: [battle/src/BattleSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L37)

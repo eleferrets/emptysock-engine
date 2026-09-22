@@ -6,7 +6,7 @@
 
 # Class: PhysicsBody
 
-Defined in: [engine/src/components/PhysicsBody.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L36)
+Defined in: [engine/src/components/PhysicsBody.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L36)
 
 PhysicsBody — value component describing the shape and material of a rigid
 body. Game code reads and writes these properties, and registers collision
@@ -25,7 +25,7 @@ directly by game code.
 
 > **new PhysicsBody**(`options?`): `PhysicsBody`
 
-Defined in: [engine/src/components/PhysicsBody.ts:61](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L61)
+Defined in: [engine/src/components/PhysicsBody.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L61)
 
 #### Parameters
 
@@ -81,7 +81,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:61](https://github.com/eleferr
 
 > **bodyHandle**: `number` \| `null` = `null`
 
-Defined in: [engine/src/components/PhysicsBody.ts:51](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L51)
+Defined in: [engine/src/components/PhysicsBody.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L51)
 
 Rapier rigid body handle. Set by PhysicsSystem.registerEntity(); null until registered.
 
@@ -91,7 +91,7 @@ Rapier rigid body handle. Set by PhysicsSystem.registerEntity(); null until regi
 
 > **bodyType**: [`RigidBodyType`](../type-aliases/RigidBodyType.md)
 
-Defined in: [engine/src/components/PhysicsBody.ts:40](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L40)
+Defined in: [engine/src/components/PhysicsBody.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L40)
 
 ***
 
@@ -99,7 +99,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:40](https://github.com/eleferr
 
 > **colliderHandle**: `number` \| `null` = `null`
 
-Defined in: [engine/src/components/PhysicsBody.ts:53](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L53)
+Defined in: [engine/src/components/PhysicsBody.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L53)
 
 Rapier collider handle. Set by PhysicsSystem.registerEntity(); null until registered.
 
@@ -109,7 +109,7 @@ Rapier collider handle. Set by PhysicsSystem.registerEntity(); null until regist
 
 > **density**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:45](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L45)
+Defined in: [engine/src/components/PhysicsBody.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L45)
 
 ***
 
@@ -117,7 +117,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:45](https://github.com/eleferr
 
 > **enabled**: `boolean` = `true`
 
-Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L23)
+Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L23)
 
 #### Inherited from
 
@@ -129,7 +129,7 @@ Defined in: [engine/src/core/Component.ts:23](https://github.com/eleferrets/empt
 
 > **friction**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:46](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L46)
+Defined in: [engine/src/components/PhysicsBody.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L46)
 
 ***
 
@@ -137,7 +137,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:46](https://github.com/eleferr
 
 > **height**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:43](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L43)
+Defined in: [engine/src/components/PhysicsBody.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L43)
 
 ***
 
@@ -145,7 +145,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:43](https://github.com/eleferr
 
 > **isSensor**: `boolean`
 
-Defined in: [engine/src/components/PhysicsBody.ts:48](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L48)
+Defined in: [engine/src/components/PhysicsBody.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L48)
 
 ***
 
@@ -153,7 +153,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:48](https://github.com/eleferr
 
 > **radius**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:44](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L44)
+Defined in: [engine/src/components/PhysicsBody.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L44)
 
 ***
 
@@ -161,7 +161,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:44](https://github.com/eleferr
 
 > **restitution**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:47](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L47)
+Defined in: [engine/src/components/PhysicsBody.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L47)
 
 ***
 
@@ -169,7 +169,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:47](https://github.com/eleferr
 
 > **shape**: [`ColliderShape`](../type-aliases/ColliderShape.md)
 
-Defined in: [engine/src/components/PhysicsBody.ts:41](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L41)
+Defined in: [engine/src/components/PhysicsBody.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L41)
 
 ***
 
@@ -177,7 +177,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:41](https://github.com/eleferr
 
 > `readonly` **type**: `string`
 
-Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L22)
+Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L22)
 
 #### Inherited from
 
@@ -189,7 +189,7 @@ Defined in: [engine/src/core/Component.ts:22](https://github.com/eleferrets/empt
 
 > **width**: `number`
 
-Defined in: [engine/src/components/PhysicsBody.ts:42](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L42)
+Defined in: [engine/src/components/PhysicsBody.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L42)
 
 ***
 
@@ -197,7 +197,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:42](https://github.com/eleferr
 
 > `readonly` `static` **TYPE**: [`ComponentType`](../type-aliases/ComponentType.md)\<`PhysicsBody`\>
 
-Defined in: [engine/src/components/PhysicsBody.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L37)
+Defined in: [engine/src/components/PhysicsBody.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L37)
 
 ## Methods
 
@@ -205,7 +205,7 @@ Defined in: [engine/src/components/PhysicsBody.ts:37](https://github.com/eleferr
 
 > **dispatchCollisionEnter**(`other`, `contact`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:112](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L112)
+Defined in: [engine/src/components/PhysicsBody.ts:112](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L112)
 
 Called by PhysicsSystem when Rapier reports a collision start with `other`.
 
@@ -229,7 +229,7 @@ Called by PhysicsSystem when Rapier reports a collision start with `other`.
 
 > **dispatchCollisionExit**(`other`, `contact`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:117](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L117)
+Defined in: [engine/src/components/PhysicsBody.ts:117](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L117)
 
 Called by PhysicsSystem when Rapier reports a collision end with `other`.
 
@@ -253,7 +253,7 @@ Called by PhysicsSystem when Rapier reports a collision end with `other`.
 
 > **dispatchSensorEnter**(`other`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:122](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L122)
+Defined in: [engine/src/components/PhysicsBody.ts:122](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L122)
 
 Called by PhysicsSystem when Rapier reports a sensor intersection start with `other`.
 
@@ -273,7 +273,7 @@ Called by PhysicsSystem when Rapier reports a sensor intersection start with `ot
 
 > **dispatchSensorExit**(`other`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:127](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L127)
+Defined in: [engine/src/components/PhysicsBody.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L127)
 
 Called by PhysicsSystem when Rapier reports a sensor intersection end with `other`.
 
@@ -293,7 +293,7 @@ Called by PhysicsSystem when Rapier reports a sensor intersection end with `othe
 
 > **dispatchSensorStay**(`other`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:132](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L132)
+Defined in: [engine/src/components/PhysicsBody.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L132)
 
 Called by PhysicsSystem once per step while `other` remains inside this sensor.
 
@@ -313,7 +313,7 @@ Called by PhysicsSystem once per step while `other` remains inside this sensor.
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L30)
+Defined in: [engine/src/core/Component.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L30)
 
 Called once when component is first attached to an entity
 
@@ -331,7 +331,7 @@ Called once when component is first attached to an entity
 
 > **onCollisionEnter**(`cb`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:87](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L87)
+Defined in: [engine/src/components/PhysicsBody.ts:87](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L87)
 
 Register a callback invoked when this body starts touching another (non-sensor) body.
 
@@ -351,7 +351,7 @@ Register a callback invoked when this body starts touching another (non-sensor) 
 
 > **onCollisionExit**(`cb`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:92](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L92)
+Defined in: [engine/src/components/PhysicsBody.ts:92](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L92)
 
 Register a callback invoked when this body stops touching another (non-sensor) body.
 
@@ -371,7 +371,7 @@ Register a callback invoked when this body stops touching another (non-sensor) b
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L33)
+Defined in: [engine/src/core/Component.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L33)
 
 Called once when component is detached from an entity
 
@@ -389,7 +389,7 @@ Called once when component is detached from an entity
 
 > **onSensorEnter**(`cb`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:97](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L97)
+Defined in: [engine/src/components/PhysicsBody.ts:97](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L97)
 
 Register a callback invoked when another body enters this sensor.
 
@@ -409,7 +409,7 @@ Register a callback invoked when another body enters this sensor.
 
 > **onSensorExit**(`cb`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:102](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L102)
+Defined in: [engine/src/components/PhysicsBody.ts:102](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L102)
 
 Register a callback invoked when another body exits this sensor.
 
@@ -429,7 +429,7 @@ Register a callback invoked when another body exits this sensor.
 
 > **onSensorStay**(`cb`): `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:107](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L107)
+Defined in: [engine/src/components/PhysicsBody.ts:107](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L107)
 
 Register a callback invoked every step another body remains inside this sensor.
 
@@ -449,7 +449,7 @@ Register a callback invoked every step another body remains inside this sensor.
 
 > **serialize**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/PhysicsBody.ts:136](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/components/PhysicsBody.ts#L136)
+Defined in: [engine/src/components/PhysicsBody.ts:136](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L136)
 
 Serialize component data for saving
 
@@ -467,7 +467,7 @@ Serialize component data for saving
 
 > `optional` **update**(`_deltaTime`): `void`
 
-Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Component.ts#L36)
+Defined in: [engine/src/core/Component.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Component.ts#L36)
 
 Called each frame during the update pass
 

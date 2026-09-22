@@ -6,7 +6,7 @@
 
 # Interface: ImageLoader
 
-Defined in: [types/src/index.ts:157](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L157)
+Defined in: [types/src/index.ts:157](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L157)
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: [types/src/index.ts:157](https://github.com/eleferrets/emptysock-eng
 
 > **load**(`src`): `Promise`\<`string` \| `ImageBitmap`\>
 
-Defined in: [types/src/index.ts:158](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/types/src/index.ts#L158)
+Defined in: [types/src/index.ts:158](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L158)
 
 #### Parameters
 

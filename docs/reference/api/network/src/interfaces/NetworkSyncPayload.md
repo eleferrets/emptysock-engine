@@ -6,7 +6,7 @@
 
 # Interface: NetworkSyncPayload
 
-Defined in: [network/src/NetworkSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L11)
+Defined in: [network/src/NetworkSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L13)
 
 Outbound sync message shape sent via `room.send(messageType, payload)`.
 
@@ -16,7 +16,7 @@ Outbound sync message shape sent via `room.send(messageType, payload)`.
 
 > `readonly` **componentName**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L13)
+Defined in: [network/src/NetworkSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L15)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [network/src/NetworkSystem.ts:13](https://github.com/eleferrets/empt
 
 > `readonly` **field**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L14)
+Defined in: [network/src/NetworkSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L16)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [network/src/NetworkSystem.ts:14](https://github.com/eleferrets/empt
 
 > `readonly` **networkId**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L12)
+Defined in: [network/src/NetworkSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L14)
 
 ***
 
@@ -40,4 +40,4 @@ Defined in: [network/src/NetworkSystem.ts:12](https://github.com/eleferrets/empt
 
 > `readonly` **value**: `unknown`
 
-Defined in: [network/src/NetworkSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L15)
+Defined in: [network/src/NetworkSystem.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L17)

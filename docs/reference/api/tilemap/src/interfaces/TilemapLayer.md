@@ -6,7 +6,7 @@
 
 # Interface: TilemapLayer
 
-Defined in: [tilemap/src/TilemapSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L24)
+Defined in: [tilemap/src/TilemapSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L24)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:24](https://github.com/eleferrets/empt
 
 > **cells**: [`TileCell`](TileCell.md)[][]
 
-Defined in: [tilemap/src/TilemapSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L26)
+Defined in: [tilemap/src/TilemapSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L26)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:26](https://github.com/eleferrets/empt
 
 > **name**: `string`
 
-Defined in: [tilemap/src/TilemapSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L25)
+Defined in: [tilemap/src/TilemapSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L25)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:25](https://github.com/eleferrets/empt
 
 > **opacity**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L28)
+Defined in: [tilemap/src/TilemapSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L28)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [tilemap/src/TilemapSystem.ts:28](https://github.com/eleferrets/empt
 
 > **visible**: `boolean`
 
-Defined in: [tilemap/src/TilemapSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/tilemap/src/TilemapSystem.ts#L27)
+Defined in: [tilemap/src/TilemapSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L27)

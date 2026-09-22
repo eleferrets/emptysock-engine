@@ -6,7 +6,7 @@
 
 # Class: NetworkSystem
 
-Defined in: [network/src/NetworkSystem.ts:57](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L57)
+Defined in: [network/src/NetworkSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L59)
 
 The client-side half of ENGINE_DESIGN.md §23.2's networking bridge:
 "`@emptysock/network` reads/writes through the same `.get()` Proxy layer
@@ -26,7 +26,7 @@ bitECS's entity ids either: the network<->local mapping is entirely
 
 > **new NetworkSystem**(`options`): `NetworkSystem`
 
-Defined in: [network/src/NetworkSystem.ts:70](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L70)
+Defined in: [network/src/NetworkSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L72)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [network/src/NetworkSystem.ts:70](https://github.com/eleferrets/empt
 
 > `readonly` **entities**: [`NetworkEntityMap`](NetworkEntityMap.md)
 
-Defined in: [network/src/NetworkSystem.ts:58](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L58)
+Defined in: [network/src/NetworkSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L60)
 
 ## Methods
 
@@ -52,7 +52,7 @@ Defined in: [network/src/NetworkSystem.ts:58](https://github.com/eleferrets/empt
 
 > **destroy**(): `void`
 
-Defined in: [network/src/NetworkSystem.ts:191](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L191)
+Defined in: [network/src/NetworkSystem.ts:218](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L218)
 
 Stop listening to the collection's onAdd/onRemove. Does not disconnect the room.
 
@@ -66,7 +66,7 @@ Stop listening to the collection's onAdd/onRemove. Does not disconnect the room.
 
 > **getEntity**(`networkId`): `Entity` \| `undefined`
 
-Defined in: [network/src/NetworkSystem.ts:181](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L181)
+Defined in: [network/src/NetworkSystem.ts:208](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L208)
 
 Look up the local `Entity` mirroring a network id, if any.
 
@@ -86,7 +86,7 @@ Look up the local `Entity` mirroring a network id, if any.
 
 > **getNetworkId**(`entity`): `string` \| `undefined`
 
-Defined in: [network/src/NetworkSystem.ts:186](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L186)
+Defined in: [network/src/NetworkSystem.ts:213](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L213)
 
 Look up the network id a local `Entity` was registered under, if any.
 
@@ -102,11 +102,43 @@ Look up the network id a local `Entity` was registered under, if any.
 
 ***
 
+### reconcile()
+
+> **reconcile**(): `void`
+
+Defined in: [network/src/NetworkSystem.ts:196](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L196)
+
+Drop the mapping for any tracked entity that was destroyed *locally*
+(`scene.destroy(entity)` called directly by gameplay code, not via the
+Colyseus `onRemove` path this class already handles in `_bindCollection`).
+
+`@emptysock/network` must never import bitECS internals or require a
+new hook on `@emptysock/engine`'s core `Scene`/`Entity` (CLAUDE.md's
+"engine never imports network" / "network only ever sees `.get()`"
+boundary), so there is no push notification available for "an entity
+this map knows about just died". Instead this polls: every tracked
+`Entity`'s already-public `.isAlive` is checked, and any that are no
+longer alive get `deleteByEntity`-ed. Without this, a destroyed
+entity's `rawId` can be recycled by bitECS onto a completely unrelated
+`spawn()` elsewhere in the same scene, and the stale mapping would
+silently alias the wrong entity on the next `sync()`/inbound `listen()`
+callback.
+
+Called automatically at the top of `sync()` (so it runs at the same
+low, fixed cadence networking already polls at) — call it directly
+only if something needs the mapping reconciled off that cadence.
+
+#### Returns
+
+`void`
+
+***
+
 ### sync()
 
 > **sync**(): `void`
 
-Defined in: [network/src/NetworkSystem.ts:152](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/network/src/NetworkSystem.ts#L152)
+Defined in: [network/src/NetworkSystem.ts:146](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L146)
 
 Call once per frame (or at whatever cadence the game wants to push
 updates — networked state is "replicated a handful of times a second",

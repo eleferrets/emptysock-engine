@@ -6,7 +6,7 @@
 
 # Abstract Class: NetworkActor
 
-Defined in: [engine/src/core/NetworkActor.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/NetworkActor.ts#L12)
+Defined in: [engine/src/core/NetworkActor.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/NetworkActor.ts#L12)
 
 Opt-in base class for actors that participate in real-time networking.
 Attach a Transport (WebSocket, WebRTC, etc.) before calling start().
@@ -24,7 +24,7 @@ exactly as if they were sent locally — so receive() handles both cases.
 
 > **new NetworkActor**(`id`): `NetworkActor`
 
-Defined in: [engine/src/core/Actor.ts:21](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L21)
+Defined in: [engine/src/core/Actor.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L21)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/core/Actor.ts:21](https://github.com/eleferrets/emptysoc
 
 > `protected` **\_transport**: [`Transport`](../interfaces/Transport.md) \| `null` = `null`
 
-Defined in: [engine/src/core/NetworkActor.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/NetworkActor.ts#L13)
+Defined in: [engine/src/core/NetworkActor.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/NetworkActor.ts#L13)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/core/NetworkActor.ts:13](https://github.com/eleferrets/e
 
 > `readonly` **id**: `string`
 
-Defined in: [engine/src/core/Actor.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L17)
+Defined in: [engine/src/core/Actor.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L17)
 
 #### Inherited from
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/core/Actor.ts:17](https://github.com/eleferrets/emptysoc
 
 > **get** **isRunning**(): `boolean`
 
-Defined in: [engine/src/core/Actor.ts:60](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L60)
+Defined in: [engine/src/core/Actor.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L60)
 
 ##### Returns
 
@@ -84,7 +84,7 @@ Defined in: [engine/src/core/Actor.ts:60](https://github.com/eleferrets/emptysoc
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/core/NetworkActor.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/NetworkActor.ts#L33)
+Defined in: [engine/src/core/NetworkActor.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/NetworkActor.ts#L33)
 
 Override to clean up listeners and resources.
 
@@ -102,7 +102,7 @@ Override to clean up listeners and resources.
 
 > **flush**(): `void`
 
-Defined in: [engine/src/core/Actor.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L37)
+Defined in: [engine/src/core/Actor.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L37)
 
 Drain the mailbox and dispatch each message. Called by ActorSystem each frame.
 
@@ -120,7 +120,7 @@ Drain the mailbox and dispatch each message. Called by ActorSystem each frame.
 
 > `protected` **onStart**(): `void`
 
-Defined in: [engine/src/core/Actor.ts:76](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L76)
+Defined in: [engine/src/core/Actor.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L76)
 
 #### Returns
 
@@ -136,7 +136,7 @@ Defined in: [engine/src/core/Actor.ts:76](https://github.com/eleferrets/emptysoc
 
 > `protected` **onStop**(): `void`
 
-Defined in: [engine/src/core/Actor.ts:77](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L77)
+Defined in: [engine/src/core/Actor.ts:77](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L77)
 
 #### Returns
 
@@ -152,7 +152,7 @@ Defined in: [engine/src/core/Actor.ts:77](https://github.com/eleferrets/emptysoc
 
 > `abstract` **receive**(`msg`): `void`
 
-Defined in: [engine/src/core/Actor.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L52)
+Defined in: [engine/src/core/Actor.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L52)
 
 Override to handle incoming messages.
 
@@ -176,7 +176,7 @@ Override to handle incoming messages.
 
 > **send**(`msg`): `void`
 
-Defined in: [engine/src/core/Actor.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L26)
+Defined in: [engine/src/core/Actor.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L26)
 
 Enqueue a message in this actor's mailbox. Drops the message with a warning if the inbox exceeds the limit.
 
@@ -200,7 +200,7 @@ Enqueue a message in this actor's mailbox. Drops the message with a warning if t
 
 > `protected` **sendRemote**(`targetActorId`, `msg`): `void`
 
-Defined in: [engine/src/core/NetworkActor.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/NetworkActor.ts#L25)
+Defined in: [engine/src/core/NetworkActor.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/NetworkActor.ts#L25)
 
 Send a message to a remote peer's actor.
 
@@ -224,7 +224,7 @@ Send a message to a remote peer's actor.
 
 > **setTransport**(`transport`): `void`
 
-Defined in: [engine/src/core/NetworkActor.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/NetworkActor.ts#L15)
+Defined in: [engine/src/core/NetworkActor.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/NetworkActor.ts#L15)
 
 #### Parameters
 
@@ -242,7 +242,7 @@ Defined in: [engine/src/core/NetworkActor.ts:15](https://github.com/eleferrets/e
 
 > **start**(): `void`
 
-Defined in: [engine/src/core/Actor.ts:65](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L65)
+Defined in: [engine/src/core/Actor.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L65)
 
 Called by ActorSystem.register().
 
@@ -260,7 +260,7 @@ Called by ActorSystem.register().
 
 > **stop**(): `void`
 
-Defined in: [engine/src/core/Actor.ts:71](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L71)
+Defined in: [engine/src/core/Actor.ts:71](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L71)
 
 Called by ActorSystem.unregister().
 
@@ -278,7 +278,7 @@ Called by ActorSystem.unregister().
 
 > **update**(`_dt`): `void`
 
-Defined in: [engine/src/core/Actor.ts:55](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/core/Actor.ts#L55)
+Defined in: [engine/src/core/Actor.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L55)
 
 Override to add per-frame logic (dt in seconds).
 

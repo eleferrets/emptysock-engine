@@ -6,7 +6,7 @@
 
 # Interface: MapEvent
 
-Defined in: [engine/src/systems/MapEventSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L24)
+Defined in: [engine/src/systems/MapEventSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L24)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:24](https://github.com/eleferr
 
 > **commands**: [`EventCommand`](../type-aliases/EventCommand.md)[]
 
-Defined in: [engine/src/systems/MapEventSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L29)
+Defined in: [engine/src/systems/MapEventSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L29)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:29](https://github.com/eleferr
 
 > **id**: `string`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L25)
+Defined in: [engine/src/systems/MapEventSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L25)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:25](https://github.com/eleferr
 
 > **tileX**: `number`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L26)
+Defined in: [engine/src/systems/MapEventSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L26)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:26](https://github.com/eleferr
 
 > **tileY**: `number`
 
-Defined in: [engine/src/systems/MapEventSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L27)
+Defined in: [engine/src/systems/MapEventSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L27)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:27](https://github.com/eleferr
 
 > **trigger**: [`EventTriggerType`](../type-aliases/EventTriggerType.md)
 
-Defined in: [engine/src/systems/MapEventSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L28)
+Defined in: [engine/src/systems/MapEventSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L28)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/MapEventSystem.ts:28](https://github.com/eleferr
 
 > `optional` **when?**: [`VariableCondition`](../type-aliases/VariableCondition.md)
 
-Defined in: [engine/src/systems/MapEventSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/MapEventSystem.ts#L37)
+Defined in: [engine/src/systems/MapEventSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/MapEventSystem.ts#L37)
 
 Optional gate evaluated against the `VariableStore` before the event is
 allowed to run. When present and false, `update()` skips the event

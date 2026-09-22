@@ -6,7 +6,7 @@
 
 # Class: PointerSystem
 
-Defined in: [engine/src/systems/PointerSystem.ts:140](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L140)
+Defined in: [engine/src/systems/PointerSystem.ts:140](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L140)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:140](https://github.com/eleferr
 
 > **get** **pointerCount**(): `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:253](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L253)
+Defined in: [engine/src/systems/PointerSystem.ts:253](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L253)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:253](https://github.com/eleferr
 
 > **get** **pointers**(): readonly [`PointerState`](../interfaces/PointerState.md)[]
 
-Defined in: [engine/src/systems/PointerSystem.ts:257](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L257)
+Defined in: [engine/src/systems/PointerSystem.ts:257](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L257)
 
 ##### Returns
 
@@ -54,7 +54,7 @@ readonly [`PointerState`](../interfaces/PointerState.md)[]
 
 > **get** **primaryPointer**(): [`PointerState`](../interfaces/PointerState.md) \| `undefined`
 
-Defined in: [engine/src/systems/PointerSystem.ts:267](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L267)
+Defined in: [engine/src/systems/PointerSystem.ts:267](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L267)
 
 Primary pointer (mouse, or first touch), if any is active.
 
@@ -68,7 +68,7 @@ Primary pointer (mouse, or first touch), if any is active.
 
 > **attach**(`target?`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:159](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L159)
+Defined in: [engine/src/systems/PointerSystem.ts:159](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L159)
 
 Attach native listeners. Guarded so it is a no-op outside a browser-like
 environment (Node/Vitest) per the engine environment boundary — callers
@@ -91,7 +91,7 @@ below for testing.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:199](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L199)
+Defined in: [engine/src/systems/PointerSystem.ts:199](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L199)
 
 Alias for detach() — compatible with SystemManager teardown.
 
@@ -105,7 +105,7 @@ Alias for detach() — compatible with SystemManager teardown.
 
 > **detach**(): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:182](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L182)
+Defined in: [engine/src/systems/PointerSystem.ts:182](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L182)
 
 #### Returns
 
@@ -117,7 +117,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:182](https://github.com/eleferr
 
 > **dispatchPointerCancel**(`evt`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:382](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L382)
+Defined in: [engine/src/systems/PointerSystem.ts:382](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L382)
 
 #### Parameters
 
@@ -137,7 +137,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:382](https://github.com/eleferr
 
 > **dispatchPointerDown**(`evt`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:292](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L292)
+Defined in: [engine/src/systems/PointerSystem.ts:292](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L292)
 
 #### Parameters
 
@@ -177,7 +177,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:292](https://github.com/eleferr
 
 > **dispatchPointerMove**(`evt`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:322](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L322)
+Defined in: [engine/src/systems/PointerSystem.ts:322](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L322)
 
 #### Parameters
 
@@ -205,7 +205,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:322](https://github.com/eleferr
 
 > **dispatchPointerUp**(`evt`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:339](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L339)
+Defined in: [engine/src/systems/PointerSystem.ts:339](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L339)
 
 #### Parameters
 
@@ -233,7 +233,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:339](https://github.com/eleferr
 
 > **dispatchWheel**(`evt`): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:394](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L394)
+Defined in: [engine/src/systems/PointerSystem.ts:394](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L394)
 
 #### Parameters
 
@@ -265,7 +265,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:394](https://github.com/eleferr
 
 > **getPointer**(`id`): [`PointerState`](../interfaces/PointerState.md) \| `undefined`
 
-Defined in: [engine/src/systems/PointerSystem.ts:261](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L261)
+Defined in: [engine/src/systems/PointerSystem.ts:261](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L261)
 
 #### Parameters
 
@@ -283,7 +283,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:261](https://github.com/eleferr
 
 > **onGesture**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:237](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L237)
+Defined in: [engine/src/systems/PointerSystem.ts:237](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L237)
 
 #### Parameters
 
@@ -301,7 +301,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:237](https://github.com/eleferr
 
 > **onPointerDown**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:225](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L225)
+Defined in: [engine/src/systems/PointerSystem.ts:225](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L225)
 
 #### Parameters
 
@@ -319,7 +319,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:225](https://github.com/eleferr
 
 > **onPointerMove**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:229](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L229)
+Defined in: [engine/src/systems/PointerSystem.ts:229](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L229)
 
 #### Parameters
 
@@ -337,7 +337,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:229](https://github.com/eleferr
 
 > **onPointerUp**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:233](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L233)
+Defined in: [engine/src/systems/PointerSystem.ts:233](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L233)
 
 #### Parameters
 
@@ -355,7 +355,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:233](https://github.com/eleferr
 
 > **onWheel**(`handler`): () => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:241](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L241)
+Defined in: [engine/src/systems/PointerSystem.ts:241](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L241)
 
 #### Parameters
 
@@ -373,7 +373,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:241](https://github.com/eleferr
 
 > **update**(): `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:210](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L210)
+Defined in: [engine/src/systems/PointerSystem.ts:210](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L210)
 
 Poll for time-based gestures. Call once per frame (like `GamepadSystem.
 update()`); this is what fires `longpress` for a pointer held still past

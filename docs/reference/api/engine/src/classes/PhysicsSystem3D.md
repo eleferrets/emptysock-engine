@@ -6,7 +6,7 @@
 
 # Class: PhysicsSystem3D
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:113](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L113)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:113](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L113)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:113](https://github.com/elefe
 
 > **get** **isInitialized**(): `boolean`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:380](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L380)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:380](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L380)
 
 ##### Returns
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:380](https://github.com/elefe
 
 > **\[dispose\]**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:376](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L376)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:376](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L376)
 
 #### Returns
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:376](https://github.com/elefe
 
 > **addBody**(`options?`): [`Physics3DHandle`](../interfaces/Physics3DHandle.md)
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:146](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L146)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:146](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L146)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:146](https://github.com/elefe
 
 > **castRay**(`origin`, `direction`, `maxDistance`): [`RaycastHit`](../interfaces/RaycastHit.md) \| `null`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:304](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L304)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:304](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L304)
 
 Cast a ray from `origin` in `direction` (does not need to be normalised)
 up to `maxDistance` world units. Returns the closest hit, or null.
@@ -97,7 +97,7 @@ up to `maxDistance` world units. Returns the closest hit, or null.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:365](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L365)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:365](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L365)
 
 Free all Rapier WASM memory. MUST be called when the scene unloads.
 The GC cannot see Rapier's WASM heap — not calling this leaks memory permanently.
@@ -112,7 +112,7 @@ The GC cannot see Rapier's WASM heap — not calling this leaks memory permanent
 
 > **init**(`gravity?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:128](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L128)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L128)
 
 #### Parameters
 
@@ -130,7 +130,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:128](https://github.com/elefe
 
 > **onCollisionEnter**(`cb`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:137](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L137)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L137)
 
 Register a callback fired when two bodies begin overlapping this frame.
 
@@ -150,7 +150,7 @@ Register a callback fired when two bodies begin overlapping this frame.
 
 > **onCollisionExit**(`cb`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:142](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L142)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:142](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L142)
 
 Register a callback fired when two bodies stop overlapping.
 
@@ -170,7 +170,7 @@ Register a callback fired when two bodies stop overlapping.
 
 > **removeBody**(`index`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:287](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L287)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:287](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L287)
 
 #### Parameters
 
@@ -188,7 +188,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:287](https://github.com/elefe
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:331](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PhysicsSystem3D.ts#L331)
+Defined in: [engine/src/systems/PhysicsSystem3D.ts:331](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L331)
 
 Step the simulation by dt seconds. Call once per game-loop tick.
 

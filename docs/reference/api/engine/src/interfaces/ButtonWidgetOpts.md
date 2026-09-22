@@ -6,7 +6,7 @@
 
 # Interface: ButtonWidgetOpts
 
-Defined in: [engine/src/ui/widgets/button.ts:7](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L7)
+Defined in: [engine/src/ui/widgets/button.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L7)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/ui/widgets/button.ts:7](https://github.com/eleferrets/em
 
 > `optional` **alpha?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L121)
+Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L121)
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/ui/widgets/base.ts:121](https://github.com/eleferrets/em
 
 > `optional` **anchor?**: [`WidgetAnchor`](../type-aliases/WidgetAnchor.md)
 
-Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L119)
+Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L119)
 
 #### Inherited from
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/ui/widgets/base.ts:119](https://github.com/eleferrets/em
 
 > `optional` **animateOnHover?**: `boolean`
 
-Defined in: [engine/src/ui/widgets/button.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L18)
+Defined in: [engine/src/ui/widgets/button.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L18)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/ui/widgets/button.ts:18](https://github.com/eleferrets/e
 
 > `optional` **background?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:11](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L11)
+Defined in: [engine/src/ui/widgets/button.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L11)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/ui/widgets/button.ts:11](https://github.com/eleferrets/e
 
 > `optional` **borderRadius?**: `number`
 
-Defined in: [engine/src/ui/widgets/button.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L14)
+Defined in: [engine/src/ui/widgets/button.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L14)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/ui/widgets/button.ts:14](https://github.com/eleferrets/e
 
 > `optional` **color?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L10)
+Defined in: [engine/src/ui/widgets/button.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L10)
 
 ***
 
@@ -74,7 +74,7 @@ Defined in: [engine/src/ui/widgets/button.ts:10](https://github.com/eleferrets/e
 
 > `optional` **disabled?**: `boolean`
 
-Defined in: [engine/src/ui/widgets/button.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L17)
+Defined in: [engine/src/ui/widgets/button.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L17)
 
 ***
 
@@ -82,7 +82,7 @@ Defined in: [engine/src/ui/widgets/button.ts:17](https://github.com/eleferrets/e
 
 > `optional` **font?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L16)
+Defined in: [engine/src/ui/widgets/button.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L16)
 
 ***
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/ui/widgets/button.ts:16](https://github.com/eleferrets/e
 
 > `optional` **fontSize?**: `number`
 
-Defined in: [engine/src/ui/widgets/button.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L15)
+Defined in: [engine/src/ui/widgets/button.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L15)
 
 ***
 
@@ -98,7 +98,7 @@ Defined in: [engine/src/ui/widgets/button.ts:15](https://github.com/eleferrets/e
 
 > `optional` **height?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L118)
+Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L118)
 
 #### Inherited from
 
@@ -110,7 +110,7 @@ Defined in: [engine/src/ui/widgets/base.ts:118](https://github.com/eleferrets/em
 
 > `optional` **hoverBackground?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L12)
+Defined in: [engine/src/ui/widgets/button.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L12)
 
 ***
 
@@ -118,7 +118,7 @@ Defined in: [engine/src/ui/widgets/button.ts:12](https://github.com/eleferrets/e
 
 > `optional` **icon?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L9)
+Defined in: [engine/src/ui/widgets/button.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L9)
 
 ***
 
@@ -126,7 +126,7 @@ Defined in: [engine/src/ui/widgets/button.ts:9](https://github.com/eleferrets/em
 
 > `optional` **label?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:8](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L8)
+Defined in: [engine/src/ui/widgets/button.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L8)
 
 ***
 
@@ -134,7 +134,7 @@ Defined in: [engine/src/ui/widgets/button.ts:8](https://github.com/eleferrets/em
 
 > `optional` **pressedBackground?**: `string`
 
-Defined in: [engine/src/ui/widgets/button.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/button.ts#L13)
+Defined in: [engine/src/ui/widgets/button.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/button.ts#L13)
 
 ***
 
@@ -142,7 +142,7 @@ Defined in: [engine/src/ui/widgets/button.ts:13](https://github.com/eleferrets/e
 
 > `optional` **visible?**: `boolean`
 
-Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L120)
+Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L120)
 
 #### Inherited from
 
@@ -154,7 +154,7 @@ Defined in: [engine/src/ui/widgets/base.ts:120](https://github.com/eleferrets/em
 
 > `optional` **width?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L117)
+Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L117)
 
 #### Inherited from
 
@@ -166,7 +166,7 @@ Defined in: [engine/src/ui/widgets/base.ts:117](https://github.com/eleferrets/em
 
 > `optional` **x?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L115)
+Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L115)
 
 #### Inherited from
 
@@ -178,7 +178,7 @@ Defined in: [engine/src/ui/widgets/base.ts:115](https://github.com/eleferrets/em
 
 > `optional` **y?**: `number`
 
-Defined in: [engine/src/ui/widgets/base.ts:116](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/ui/widgets/base.ts#L116)
+Defined in: [engine/src/ui/widgets/base.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/widgets/base.ts#L116)
 
 #### Inherited from
 

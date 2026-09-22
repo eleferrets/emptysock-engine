@@ -6,7 +6,7 @@
 
 # Interface: FadeOptions
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:204](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PostProcessSystem.ts#L204)
+Defined in: [engine/src/systems/PostProcessSystem.ts:204](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L204)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:204](https://github.com/ele
 
 > `optional` **duration?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:206](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PostProcessSystem.ts#L206)
+Defined in: [engine/src/systems/PostProcessSystem.ts:206](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L206)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:206](https://github.com/ele
 
 > `optional` **to?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:205](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PostProcessSystem.ts#L205)
+Defined in: [engine/src/systems/PostProcessSystem.ts:205](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L205)

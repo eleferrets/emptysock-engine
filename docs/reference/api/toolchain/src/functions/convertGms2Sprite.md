@@ -8,7 +8,7 @@
 
 > **convertGms2Sprite**(`spriteYyDir`): `Promise`\<[`SpriteAsset`](../interfaces/SpriteAsset.md)\>
 
-Defined in: [toolchain/src/gms2-sprite-import.ts:52](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/toolchain/src/gms2-sprite-import.ts#L52)
+Defined in: [toolchain/src/gms2-sprite-import.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/gms2-sprite-import.ts#L52)
 
 Convert a GMS2 sprite directory (containing a .yy file) into a SpriteAsset.
 Throws a descriptive Error if the directory or .yy file cannot be read, or if

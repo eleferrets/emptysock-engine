@@ -6,7 +6,7 @@
 
 # Interface: TapGesture
 
-Defined in: [engine/src/systems/PointerSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L29)
+Defined in: [engine/src/systems/PointerSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L29)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:29](https://github.com/eleferre
 
 > **pointerId**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L33)
+Defined in: [engine/src/systems/PointerSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L33)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:33](https://github.com/eleferre
 
 > **type**: `"tap"`
 
-Defined in: [engine/src/systems/PointerSystem.ts:30](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L30)
+Defined in: [engine/src/systems/PointerSystem.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L30)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:30](https://github.com/eleferre
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:31](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L31)
+Defined in: [engine/src/systems/PointerSystem.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L31)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/PointerSystem.ts:31](https://github.com/eleferre
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/PointerSystem.ts#L32)
+Defined in: [engine/src/systems/PointerSystem.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L32)

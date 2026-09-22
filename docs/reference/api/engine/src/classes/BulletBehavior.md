@@ -6,7 +6,7 @@
 
 # Class: BulletBehavior
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L9)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L9)
 
 BulletBehavior — moves an entity at a constant angle each frame.
 When destroyOutside is true and the entity leaves the bounding rect,
@@ -22,7 +22,7 @@ it is removed from the scene.
 
 > **new BulletBehavior**(`options?`): `BulletBehavior`
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:20](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L20)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L20)
 
 #### Parameters
 
@@ -70,7 +70,7 @@ Defined in: [engine/src/behaviors/BulletBehavior.ts:20](https://github.com/elefe
 
 > **angle**: `number`
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L12)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L12)
 
 Angle in radians (0 = right).
 
@@ -80,7 +80,7 @@ Angle in radians (0 = right).
 
 > **destroyOutside**: `boolean`
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L13)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L13)
 
 ***
 
@@ -88,7 +88,7 @@ Defined in: [engine/src/behaviors/BulletBehavior.ts:13](https://github.com/elefe
 
 > **speed**: `number`
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L10)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L10)
 
 ## Methods
 
@@ -96,7 +96,7 @@ Defined in: [engine/src/behaviors/BulletBehavior.ts:10](https://github.com/elefe
 
 > `optional` **onAttach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L13)
+Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L13)
 
 #### Returns
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:13](https://github.com/eleferrets/
 
 > `optional` **onDetach**(): `void`
 
-Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/Behavior.ts#L14)
+Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/Behavior.ts#L14)
 
 #### Returns
 
@@ -128,7 +128,7 @@ Defined in: [engine/src/behaviors/Behavior.ts:14](https://github.com/eleferrets/
 
 > **update**(`ctx`): `void`
 
-Defined in: [engine/src/behaviors/BulletBehavior.ts:41](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/behaviors/BulletBehavior.ts#L41)
+Defined in: [engine/src/behaviors/BulletBehavior.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/behaviors/BulletBehavior.ts#L41)
 
 #### Parameters
 

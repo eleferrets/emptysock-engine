@@ -6,7 +6,7 @@
 
 # Interface: AssetLoadFailure
 
-Defined in: [engine/src/systems/AssetManifest.ts:15](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L15)
+Defined in: [engine/src/systems/AssetManifest.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L15)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:15](https://github.com/eleferre
 
 > **error**: `unknown`
 
-Defined in: [engine/src/systems/AssetManifest.ts:19](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L19)
+Defined in: [engine/src/systems/AssetManifest.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L19)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:19](https://github.com/eleferre
 
 > **id**: `string`
 
-Defined in: [engine/src/systems/AssetManifest.ts:16](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L16)
+Defined in: [engine/src/systems/AssetManifest.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L16)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/AssetManifest.ts:16](https://github.com/eleferre
 
 > **path**: `string`
 
-Defined in: [engine/src/systems/AssetManifest.ts:17](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L17)
+Defined in: [engine/src/systems/AssetManifest.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L17)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/AssetManifest.ts:17](https://github.com/eleferre
 
 > **type**: [`AssetType`](../type-aliases/AssetType.md)
 
-Defined in: [engine/src/systems/AssetManifest.ts:18](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AssetManifest.ts#L18)
+Defined in: [engine/src/systems/AssetManifest.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AssetManifest.ts#L18)

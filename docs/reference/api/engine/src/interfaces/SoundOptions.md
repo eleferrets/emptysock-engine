@@ -6,7 +6,7 @@
 
 # Interface: SoundOptions
 
-Defined in: [engine/src/systems/AudioSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AudioSystem.ts#L3)
+Defined in: [engine/src/systems/AudioSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L3)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:3](https://github.com/eleferrets/
 
 > `optional` **group?**: `string`
 
-Defined in: [engine/src/systems/AudioSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AudioSystem.ts#L6)
+Defined in: [engine/src/systems/AudioSystem.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L6)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:6](https://github.com/eleferrets/
 
 > `optional` **loop?**: `boolean`
 
-Defined in: [engine/src/systems/AudioSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AudioSystem.ts#L5)
+Defined in: [engine/src/systems/AudioSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L5)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [engine/src/systems/AudioSystem.ts:5](https://github.com/eleferrets/
 
 > `optional` **volume?**: `number`
 
-Defined in: [engine/src/systems/AudioSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/AudioSystem.ts#L4)
+Defined in: [engine/src/systems/AudioSystem.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L4)

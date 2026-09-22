@@ -6,7 +6,7 @@
 
 # Class: LightingSystem
 
-Defined in: [engine/src/systems/LightingSystem.ts:186](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L186)
+Defined in: [engine/src/systems/LightingSystem.ts:186](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L186)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:186](https://github.com/elefer
 
 > **get** **ambientColour**(): `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:227](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L227)
+Defined in: [engine/src/systems/LightingSystem.ts:227](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L227)
 
 ##### Returns
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:227](https://github.com/elefer
 
 > **get** **ambientIntensity**(): `number`
 
-Defined in: [engine/src/systems/LightingSystem.ts:230](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L230)
+Defined in: [engine/src/systems/LightingSystem.ts:230](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L230)
 
 ##### Returns
 
@@ -54,7 +54,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:230](https://github.com/elefer
 
 > **get** **lights**(): `ReadonlyMap`\<`string`, [`Light`](../interfaces/Light.md)\>
 
-Defined in: [engine/src/systems/LightingSystem.ts:206](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L206)
+Defined in: [engine/src/systems/LightingSystem.ts:206](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L206)
 
 ##### Returns
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:206](https://github.com/elefer
 
 > **addLight**(`config`): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:214](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L214)
+Defined in: [engine/src/systems/LightingSystem.ts:214](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L214)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:214](https://github.com/elefer
 
 > **attachFilter**(`stage`, `useNormalMap?`, `canvasWidth?`, `canvasHeight?`): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:242](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L242)
+Defined in: [engine/src/systems/LightingSystem.ts:242](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L242)
 
 Attach the GPU lighting filter to a PixiJS container (typically the scene stage).
 This replaces the previous registry-only placeholder with real GPU rendering.
@@ -117,7 +117,7 @@ This replaces the previous registry-only placeholder with real GPU rendering.
 
 > **detachFilter**(): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:261](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L261)
+Defined in: [engine/src/systems/LightingSystem.ts:261](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L261)
 
 #### Returns
 
@@ -129,7 +129,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:261](https://github.com/elefer
 
 > **removeLight**(`id`): `boolean`
 
-Defined in: [engine/src/systems/LightingSystem.ts:218](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L218)
+Defined in: [engine/src/systems/LightingSystem.ts:218](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L218)
 
 #### Parameters
 
@@ -147,7 +147,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:218](https://github.com/elefer
 
 > **setAmbient**(`colour`, `intensity`): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L222)
+Defined in: [engine/src/systems/LightingSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L222)
 
 #### Parameters
 
@@ -169,7 +169,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:222](https://github.com/elefer
 
 > **setResolution**(`width`, `height`): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:256](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L256)
+Defined in: [engine/src/systems/LightingSystem.ts:256](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L256)
 
 #### Parameters
 
@@ -191,7 +191,7 @@ Defined in: [engine/src/systems/LightingSystem.ts:256](https://github.com/elefer
 
 > **update**(`_dt`): `void`
 
-Defined in: [engine/src/systems/LightingSystem.ts:275](https://github.com/eleferrets/emptysock-engine/blob/b99bc83f395a2a008bf7f96e63875520cb9c5b89/packages/engine/src/systems/LightingSystem.ts#L275)
+Defined in: [engine/src/systems/LightingSystem.ts:275](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L275)
 
 #### Parameters
 
