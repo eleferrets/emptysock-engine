@@ -160,7 +160,10 @@ export class RenderPipeline {
    */
   renderFrame(scene: Scene, postProcess?: PostProcessSystem): void {
     this.syncEntities(scene);
-    if (postProcess !== undefined) this.renderTransitionOverlay(postProcess);
+    if (postProcess !== undefined) {
+      this._render.syncPostProcessLayerFilters(postProcess);
+      this.renderTransitionOverlay(postProcess);
+    }
     this._render.render();
   }
 

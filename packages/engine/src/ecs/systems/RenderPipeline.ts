@@ -9,6 +9,7 @@ import {
   type RenderSystemOptions,
 } from "../../systems/RenderSystem.js";
 import { LayerSystem } from "../../systems/LayerSystem.js";
+import type { PostProcessSystem } from "../../systems/PostProcessSystem.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
@@ -126,9 +127,25 @@ export class RenderPipeline implements SceneRenderer {
   private readonly _textureCache = new Map<string, Texture>();
   private readonly _sortedLayers = new Set<string>();
 
+  /**
+   * Set via `attachPostProcess()`. When present, `renderFrame()` calls
+   * `RenderSystem.syncPostProcessLayerFilters()` each frame so
+   * `PostProcessSystem.setLayerFilter()`'s real pixi filters
+   * (`BlurFilter`/`ColorMatrixFilter`/`pixi-filters`' `OutlineFilter`, per
+   * RELEASE_PASS.md Track 2) stay in sync with the layer containers this
+   * pipeline owns. Not constructor-only, since a game may not have a
+   * `PostProcessSystem` instance yet when the pipeline is constructed.
+   */
+  private _postProcess: PostProcessSystem | null = null;
+
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._loadTexture = options.textureLoader ?? defaultTextureLoader;
+  }
+
+  /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
+  attachPostProcess(postProcess: PostProcessSystem | null): void {
+    this._postProcess = postProcess;
   }
 
   /**
@@ -179,6 +196,9 @@ export class RenderPipeline implements SceneRenderer {
     this._syncMain(main);
     for (const overlay of overlays) this._syncOverlay(overlay);
     this._pruneOverlays(overlays);
+    if (this._postProcess !== null) {
+      this._render.syncPostProcessLayerFilters(this._postProcess);
+    }
     this._render.render();
   }
 

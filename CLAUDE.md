@@ -495,6 +495,50 @@ currently belongs to and fully disposes the previous one's sprites the
 moment a different `Scene` is passed in, reusing `releaseOverlay`'s
 per-sprite teardown rather than a second copy of it.
 
+### PostProcessSystem's layer filters become real pixi Filters in RenderSystem, not just CSS strings
+
+`PostProcessSystem.setLayerFilter(layerId, opts)` stores a framework-agnostic
+`LayerFilterOptions` (a type string plus params) and always could render a
+CSS-string approximation via `cssFilterForLayer()` for a host that draws a
+layer as a DOM element — but nothing ever translated those same options into
+a real PixiJS filter for the actual WebGL/WebGPU-rendered layers, so setting
+a layer filter in game code silently did nothing visually in either
+`RenderPipeline`. `RenderSystem.syncPostProcessLayerFilters(postProcess)`
+closes that gap: it reads `postProcess.layerFilters` and builds/updates one
+real `Filter` per layer id via `addLayerShaderFilter()` (already generic —
+see "Collision/sensor callbacks"-style side-table precedent; this is the
+same "engine owns a side-table, keyed by the same id the caller already
+uses" shape, here keyed by layer id instead of `World`+`eid`). The
+effect-to-library mapping is `blur` → pixi.js core's `BlurFilter`;
+`brightness`/`contrast`/`saturate`/`hue-rotate`/`invert`/`colour-grade` →
+pixi.js core's `ColorMatrixFilter` via its chainable convenience methods;
+`colourblind` → `ColorMatrixFilter` with `PostProcessSystem`'s own
+`COLOURBLIND_MATRICES` CVD-simulation coefficients embedded directly into
+the 5x4 matrix (the same coefficients `cssFilterForLayer()`'s SVG
+`feColorMatrix` fallback already uses, so the two code paths can never
+visually disagree); `outline` → `pixi-filters@6.1.5`'s `OutlineFilter` (a
+real added dependency, not core pixi.js). One filter instance is cached per
+layer id and only rebuilt when that layer's filter _type_ changes — an
+unchanged type just gets its params re-applied in place — so calling this
+every frame (both `RenderPipeline`s' `renderFrame()` do, when a
+`PostProcessSystem` is supplied/attached) doesn't reallocate a GPU filter
+per frame. `CustomShaderFilter`/`LightingSystem` needed no equivalent
+wiring — both already construct a plain pixi `Filter` directly and go
+through the same pre-existing `addLayerShaderFilter()`, which has no
+opinion on which system built the filter it's given.
+
+A real, previously-latent bug surfaced while wiring this up:
+`addLayerShaderFilter`/`removeLayerShaderFilter` assumed `container.filters`
+was always an array to spread/filter over. PixiJS's own type says
+`readonly Filter[]` (never `null`/`undefined`), but a freshly constructed
+`Container` actually has it unset at runtime — so the very first filter
+ever attached to any layer via either method would have thrown. Both now
+null-coalesce to `[]` before spreading/filtering. If you hit PixiJS's
+`no-unnecessary-condition`-flagged type claiming something is never
+null/undefined, verify the runtime behaviour of a fresh instance before
+trusting the type — this is the second time in this pass a third-party
+type didn't match observed behaviour.
+
 ### VNSystem and MapEventSystem default to an isolated VariableStore, not an implicit shared one
 
 Superseded 2026-09-22, alongside "PluginSystem and VariableStore are Game services" above. `packages/vn/src/VNSystem.ts` and `packages/engine/src/systems/MapEventSystem.ts` used to default their `store: VariableStore` constructor parameter to `@emptysock/engine`'s module-level `variableStore` singleton — real, implicit, undocumented-at-the-call-site sharing: a VN choice gated on switch 12 could be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the same game, and vice versa. Now that `VariableStore` is a `Game` service rather than a module singleton (no bare importable instance exists to default to), both constructors instead default to `store: VariableStore = new VariableStore()` — a fresh, isolated instance, matching the pattern `VisualScriptComponent`/`VisualScriptCompiler` already used. Sharing state across systems is still fully supported and just as easy, but now explicit at the call site: pass `ctx.variables` (the same `Game`-owned instance every scene's `onLoad` receives via `SceneLifecycle`) to `new VNSystem(ctx.variables)`/`new MapEventSystem(ctx.variables)` when you want dialogue/map-trigger switches to share state with the rest of the game. See the doc comments directly on each constructor for the same explanation at the point of use.

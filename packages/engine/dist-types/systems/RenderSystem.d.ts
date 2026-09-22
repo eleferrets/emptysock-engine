@@ -1,6 +1,7 @@
 import { Container, type Filter, type Renderer } from "pixi.js";
 import type { LayerSystem } from "./LayerSystem.js";
 import type { GPUTier } from "../core/GPUTier.js";
+import { type PostProcessSystem } from "./PostProcessSystem.js";
 export interface RenderSystemOptions {
   width?: number;
   height?: number;
@@ -25,6 +26,8 @@ export declare class RenderSystem {
   private _layerContainers;
   /** Fallback single-container used when no LayerSystem is set. */
   private _defaultContainer;
+  /** Real pixi Filter instances built from `PostProcessSystem.layerFilters`, keyed by layer id, reused across frames so `syncPostProcessLayerFilters` doesn't reallocate a GPU filter every call. */
+  private _postProcessFilters;
   init(options?: RenderSystemOptions): Promise<void>;
   /**
    * Attach a LayerSystem. May be called after init(). When set, entities
@@ -63,6 +66,30 @@ export declare class RenderSystem {
   addLayerShaderFilter(layerName: string, filter: Filter): void;
   /** Detach a previously attached shader filter from a layer's container. */
   removeLayerShaderFilter(layerName: string, filter: Filter): void;
+  /**
+   * Reads `postProcess.layerFilters` and applies the real PixiJS filter for
+   * each entry to that layer's container, per the effect-to-library mapping
+   * decided in RELEASE_PASS.md Track 0's scope-hardening section: `blur` →
+   * pixi.js core's `BlurFilter`; `brightness`/`contrast`/`saturate`/
+   * `hue-rotate`/`invert`/`colour-grade`/`colourblind` → pixi.js core's
+   * `ColorMatrixFilter` (colourblind reuses `PostProcessSystem`'s own
+   * Brettel/Viénot/Machado simulation matrices via `.multiply()`, the exact
+   * same coefficients the CSS/SVG fallback in `cssFilterForLayer()` uses);
+   * `outline` → `pixi-filters`' `OutlineFilter`. `cssFilterForLayer()` is
+   * untouched and still exists for hosts (the browser preview iframe) that
+   * render a layer as a DOM element rather than a PixiJS container.
+   *
+   * One filter instance per layer id is built once and reused across calls
+   * — call this every frame from `render()`'s caller; it does not rebuild a
+   * filter unless the layer's filter *type* actually changed, and layers
+   * whose filter was cleared or disabled since the last call get their
+   * filter detached.
+   */
+  syncPostProcessLayerFilters(postProcess: PostProcessSystem): void;
+  private _clearPostProcessFilter;
+  private _applyPostProcessFilter;
+  private _createPostProcessFilter;
+  private _configurePostProcessFilter;
   get renderer(): Renderer;
   get stage(): Container;
   get canvas(): HTMLCanvasElement;

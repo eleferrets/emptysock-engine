@@ -4,6 +4,7 @@ import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
 import { type RenderSystemOptions } from "../../systems/RenderSystem.js";
 import { LayerSystem } from "../../systems/LayerSystem.js";
+import type { PostProcessSystem } from "../../systems/PostProcessSystem.js";
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
 export interface RenderPipelineOptions extends Omit<
@@ -101,7 +102,19 @@ export declare class RenderPipeline implements SceneRenderer {
   private readonly _overlayContainers;
   private readonly _textureCache;
   private readonly _sortedLayers;
+  /**
+   * Set via `attachPostProcess()`. When present, `renderFrame()` calls
+   * `RenderSystem.syncPostProcessLayerFilters()` each frame so
+   * `PostProcessSystem.setLayerFilter()`'s real pixi filters
+   * (`BlurFilter`/`ColorMatrixFilter`/`pixi-filters`' `OutlineFilter`, per
+   * RELEASE_PASS.md Track 2) stay in sync with the layer containers this
+   * pipeline owns. Not constructor-only, since a game may not have a
+   * `PostProcessSystem` instance yet when the pipeline is constructed.
+   */
+  private _postProcess;
   constructor(options?: RenderPipelineOptions);
+  /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
+  attachPostProcess(postProcess: PostProcessSystem | null): void;
   /**
    * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
    * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
