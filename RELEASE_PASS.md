@@ -20,6 +20,18 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## Process decisions — 2026-09-22 (how this pass is actually run, not what it builds)
+
+Settled with the project owner, alongside everything else in this file. Re-read before starting a new track or a new session on this pass.
+
+- **No real game/deadline/platform constraint drives this.** Confirmed with the project owner: this is a clean engine-only rebuild, not migration for an existing shipped game. Touch/input/performance decisions are made on general mobile/tablet/desktop merit, not a specific device or store requirement.
+- **Sequential execution, one session at a time — no parallel agents per track (for now).** Tracks 1–6 are _designed_ to be parallelizable once Track 0 lands, but the project owner chose sequential for now: do Track 0, then work through 1–6 one at a time in the same continuous thread. Revisit this if a future session finds the sequential pace is the actual bottleneck — the tracks were written to make that switch possible later without replanning.
+- **One long-lived branch for the whole pass, not one PR per track.** Everything lands as commits on `claude/charming-pasteur-b1zahe` until the pass is fully done (Track 9's deletion + Track 10's docs), then it goes up as PR(s) at the end — not incrementally per track. Don't create intermediate per-track PRs even though the repo's normal convention favors small reviewable PRs; this pass is the deliberate exception, matching ground rule 17's "the whole thing lands together" framing.
+- **No changesets until the final 1.0.0 bump.** Skip `pnpm changeset` for intermediate commits during this pass, even ones that change a published package's public behavior — the packages are all `private: true` and unpublished, so there's no consumer depending on intermediate version numbers, and per-track changeset files would all get squashed into one bump at the end anyway. Add the changeset(s) as part of ground rule 17's final 1.0.0 bump, not before.
+- **No CI workflows exist in this repo** (`.github/workflows` is empty) — there's no automated gate enforcing any of the above. `pnpm run typecheck`/`test`/`lint` are the only checks, and they're run manually per commit/session, same as this session's baseline check. Don't assume a CI pipeline will catch a regression between sessions; each session re-running the full check before and after its own work is the actual safety net.
+
+---
+
 ## Scope addition — 2026-09-22: mobile/tablet/desktop, touch + touchpad, everywhere
 
 Decided with the project owner alongside the ECS-core pass below, applying to **both** the runtime engine and `apps/ide` — not just shipped games. This is not a separate pass; fold it into the tracks below wherever they touch input or rendering.
