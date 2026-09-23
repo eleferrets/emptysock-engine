@@ -78,10 +78,21 @@ export { Transform } from "./components/Transform.js";
 export { Sprite } from "./components/Sprite.js";
 export { Layout, LayoutStyle } from "./components/Layout.js";
 export {
+  WidgetAppearance,
+  Label,
+  PanelStyle,
+  ButtonState,
+  Checkbox,
+  Slider,
+  Progress,
+  ImageWidget,
+} from "./components/Widgets.js";
+export {
   WidgetParent,
   WidgetTree,
   detachWidgetParent,
 } from "./ui/WidgetTree.js";
+export { UISystem } from "./ui/UISystem.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
 export type {
   RenderPipelineOptions,
@@ -93,6 +104,14 @@ export { SaveSystem } from "./systems/SaveSystem.js";
 export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
 export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
 export type { StorageAdapter } from "./systems/StorageAdapter.js";
+export { CGGallery } from "./systems/CGGallery.js";
+export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
+export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
+export type {
+  LogLevel,
+  DebugLogEntry,
+  DebugCommandHandler,
+} from "./systems/DebugOverlaySystem.js";
 export {
   PhysicsSystem,
   PhysicsNotInitializedError,

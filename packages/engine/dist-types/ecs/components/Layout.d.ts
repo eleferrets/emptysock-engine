@@ -29,6 +29,16 @@ export declare const LayoutStyle: import("../Component.js").ComponentDef<{
   /** Applied to all four edges uniformly — a real per-edge style is a future extension, not needed by the scrollable-list prototype. */
   padding: number;
   gap: number;
+  /**
+   * 0 = relative (the default — takes part in the parent's flex flow), 1 =
+   * absolute (removed from flow, positioned via `left`/`top` relative to
+   * the parent's own box — yoga's `PositionType.Absolute`). A fixed-position
+   * overlay (a debug HUD, a modal) is the real, motivating use case: it
+   * needs an exact on-screen position independent of sibling layout.
+   */
+  positionType: number;
+  left: number;
+  top: number;
 }>;
 export type LayoutStyleShape = ReturnType<typeof LayoutStyle.createDefaults>;
 /**

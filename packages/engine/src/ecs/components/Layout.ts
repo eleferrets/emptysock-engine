@@ -33,6 +33,16 @@ export const LayoutStyle = defineComponent(
     /** Applied to all four edges uniformly — a real per-edge style is a future extension, not needed by the scrollable-list prototype. */
     padding: 0,
     gap: 0,
+    /**
+     * 0 = relative (the default — takes part in the parent's flex flow), 1 =
+     * absolute (removed from flow, positioned via `left`/`top` relative to
+     * the parent's own box — yoga's `PositionType.Absolute`). A fixed-position
+     * overlay (a debug HUD, a modal) is the real, motivating use case: it
+     * needs an exact on-screen position independent of sibling layout.
+     */
+    positionType: 0,
+    left: 0,
+    top: 0,
   }),
   {
     schema: {
@@ -43,6 +53,9 @@ export const LayoutStyle = defineComponent(
       flexShrink: { kind: "number" },
       padding: { kind: "number" },
       gap: { kind: "number" },
+      positionType: { kind: "enum", options: ["relative", "absolute"] },
+      left: { kind: "number" },
+      top: { kind: "number" },
     },
   },
 );

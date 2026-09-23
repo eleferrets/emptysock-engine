@@ -9,7 +9,13 @@ import {
   withAutoRemoveSubject,
 } from "bitecs";
 import type { Relation } from "bitecs";
-import { loadYoga, Edge, FlexDirection, Gutter } from "yoga-layout/load";
+import {
+  loadYoga,
+  Edge,
+  FlexDirection,
+  Gutter,
+  PositionType,
+} from "yoga-layout/load";
 import type { Node as YogaNode, Yoga } from "yoga-layout/load";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
@@ -207,6 +213,11 @@ export class WidgetTree {
       node.setFlexShrink(style.flexShrink);
       node.setPadding(Edge.All, style.padding);
       node.setGap(Gutter.All, style.gap);
+      if (style.positionType === 1) {
+        node.setPositionType(PositionType.Absolute);
+        node.setPosition(Edge.Left, style.left);
+        node.setPosition(Edge.Top, style.top);
+      }
 
       const targets = getRelationTargets(scene.world, entity.eid, WidgetParent);
       const parentEid = targets[0];
