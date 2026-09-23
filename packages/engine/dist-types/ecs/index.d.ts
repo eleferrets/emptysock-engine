@@ -76,6 +76,12 @@ export type {
 export type { Serializable, SerializableRecord } from "./Serializable.js";
 export { Transform } from "./components/Transform.js";
 export { Sprite } from "./components/Sprite.js";
+export { Layout, LayoutStyle } from "./components/Layout.js";
+export {
+  WidgetParent,
+  WidgetTree,
+  detachWidgetParent,
+} from "./ui/WidgetTree.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
 export type {
   RenderPipelineOptions,
