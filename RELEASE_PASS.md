@@ -20,6 +20,58 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## HANDOFF — merge `claude/clever-faraday-ffl4r3` to `main`
+
+**Written 2026-09-23 for whichever agent picks this up next.** This branch contains the entire ECS-core consolidation pass — 24 commits ahead of `main`, `main` unchanged underneath it (`git merge-base origin/main HEAD` == `origin/main`'s current tip, `9bded06`), so this is a clean fast-forward merge with no conflict-resolution risk from a moved `main`. Re-check that fact before merging in case `main` has moved since this was written.
+
+### What's in this branch, in one paragraph
+
+The engine went from two parallel object models (a class-based `Scene`/`Entity`/`Component` system plus a newer bitECS-backed one, living side by side under `packages/engine/src/{core,systems,components,ui}/` vs `ecs/`) to exactly one. Every real consumer (`apps/ide`, `@emptysock/vn`, `@emptysock/tilemap`, `@emptysock/network`, `@emptysock/toolchain`) was migrated and verified against the ECS API first; only once that was confirmed complete did the last commit (`201e5dd`) delete the classic tree outright, move the genuinely-shared files that were living under it into the main tree, flatten the former `ecs/` subtree up to the package root, and remove the `@emptysock/engine/ecs` subpath export — `@emptysock/engine`'s `.` entry is now the only surface. `CLAUDE.md` was rewritten in the same commit to drop every "classic vs. ECS" contrast and describe the engine as the one implementation it now is.
+
+**Read `CLAUDE.md`'s "Non-obvious decisions" section before touching anything** — it's the current, accurate decision record for this codebase post-cutover. Read this branch's own commit messages (`git log 9bded06..HEAD`) for the blow-by-blow if you need more detail than CLAUDE.md captures; they're detailed and in order.
+
+### Verification status as of the last commit on this branch (`201e5dd`)
+
+All green, run fresh at that commit, not stale/assumed:
+
+- `pnpm run typecheck` — 12/12 packages
+- `pnpm run lint` — 11/11 packages
+- `pnpm run test` — 12/12 packages (engine: 335/335 tests). `@emptysock/toolchain`'s `detectToolchain > includes android tools when android target requested` test is a known, pre-existing flake under parallel `turbo` load (times out at the default 5s only when other packages' tests are running concurrently) — confirmed transient by re-running `pnpm --filter @emptysock/toolchain run test` standalone (39/39, every time, across many repeats this whole pass). Not a regression from this branch; do not chase it if it reappears in CI the same way — just confirm standalone before treating it as real.
+
+**Before merging**, redo this verification at whatever HEAD you're actually merging (a `git pull`/rebase, even a clean fast-forward, is worth a fresh `typecheck && lint && test` — don't trust this note past any new commit):
+
+```
+pnpm install && pnpm run typecheck && pnpm run lint && pnpm run test
+```
+
+### How to merge
+
+1. Confirm `main` hasn't moved in a way that conflicts (`git fetch origin main && git merge-base origin/main claude/clever-faraday-ffl4r3` should still equal `origin/main`'s tip for a trivial fast-forward; if `main` has moved, you'll need to merge/rebase `main` into this branch first and re-verify).
+2. This repo has no PR template and no CONTRIBUTING.md convention on file — use ordinary judgement (a PR with the commit summary above, or a direct fast-forward merge, whichever matches how this repo's maintainers actually work; check recent merged PRs on `main` if unsure which they prefer).
+3. **This is a breaking change** — say so plainly in the PR/merge description: `@emptysock/engine` no longer has a classic (non-ECS) export surface, and the `@emptysock/engine/ecs` subpath is removed. Any code outside this monorepo (there shouldn't be any real external consumers yet — all packages are `private: true`, per CLAUDE.md's Versioning section) importing from the old subpath would break.
+4. Do not squash away the breaking-change marker if your merge method rewrites the commit message — keep `BREAKING CHANGE: ...` visible in whatever final message lands on `main`, since `packages/*/package.json` versions haven't been bumped yet (see below) and this is the note that'll matter when they are.
+5. After merging, delete the `claude/clever-faraday-ffl4r3` branch only if asked to — leave it alone otherwise, per this session's git-safety defaults (destructive branch operations need explicit confirmation).
+
+### Real, open work this branch deliberately did NOT do — don't treat the merge as "done, full stop"
+
+Tracked in this file's "Track 9"/"Track 10" sections above (search for them) — the short version:
+
+- **Six real features were deleted, not ported**, because they had zero ECS equivalent and zero callers anywhere in the monorepo at the time: `CharacterController`, `Animator`, `AnimatorController`, `RigidJoint`, `AssetManifest`, `LightingSystem`, `PathfindingSystem`, `HotReloadSystem`, `MapEventSystem`, `CharacterStage`. If a future game actually needs any of these, they need a real ECS design pass (on the order of the Visual Script Editor or UI Placement Editor ports this same pass already did), not a resurrection of the deleted class-based files — `git show <commit>~1:packages/engine/src/systems/<Name>.ts` (or search this branch's own commit history) will recover the deleted source if it's useful as a reference for that redesign, but do not just copy it back in.
+- **A source-comment sweep is still open**: `CLAUDE.md` was rewritten to drop "classic vs. ECS" framing, but individual source files' own doc comments were not swept the same way — e.g. `RenderPipeline.ts`'s class doc comment still explicitly contrasts itself with "the classic single-scene RenderPipeline" by name, and there are others like it scattered through `packages/engine/src/`. Grep for `classic`/`the ECS version`/`used to`/`previously` across `packages/*/src` and `apps/ide/src` and rewrite anything that reads as contrasting against a system that no longer exists in the repo.
+- **`docs/`, `docs/manual/`, and the two companion repos** (`eleferrets/emptysock-ai-skills`, `eleferrets/emptysock-mcp`) have not been touched at all this pass — they still describe the old two-surface API. This is real, scoped follow-up work (RELEASE_PASS.md's Track 10), not done here.
+- **No package has been version-bumped.** All packages are still `0.2.0`/`private: true`. Bumping to `1.0.0` (per this file's own "ground rule 17", search above if you need the exact wording) is explicitly gated on Track 10 being fully closed, not on this merge landing — don't bump versions as part of this merge.
+
+### If something looks broken after merging that wasn't broken on this branch
+
+Check whether it's one of these two known, pre-existing, _not-fixed-by-this-branch_ gaps before assuming the merge caused it — both are documented in `CLAUDE.md`:
+
+- Physics in the IDE's browser preview (`PhysicsSystem.init()`'s dynamic `import()` of the Rapier WASM build can't resolve as a bare specifier once the runtime bundler externalizes it) — a real, separate, still-open gap, not something this pass introduced or was asked to fix.
+- Anything about the Visual Script Editor panel's own UI not reflecting live `VisualScriptState` entities — the panel still authors a `VisualScriptGraph` directly; wiring it to `registerVisualScriptGraph`/spawn a live preview entity is separate, not-yet-started follow-up work, documented in `CLAUDE.md`'s "Visual script compilation" entry.
+
+---
+
+---
+
 ## START HERE — handoff to the next session, 2026-09-22
 
 **Read this section first, then the "Process decisions" and ground rules sections below, before touching any code.** This pass spans multiple sessions; the previous session ended here deliberately (user asked to pause, write a handoff, and merge to `main`) — this is not a stopping point due to a blocker, just a natural checkpoint.
