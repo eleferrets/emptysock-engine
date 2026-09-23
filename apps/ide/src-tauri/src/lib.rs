@@ -159,6 +159,47 @@ fn open_in_vscode(path: String) -> OpenVsCodeResult {
 }
 
 // ---------------------------------------------------------------------------
+// Git command (GitPanel — commit/push/log for the project's own repo)
+// ---------------------------------------------------------------------------
+//
+// One generic passthrough rather than one Tauri command per git subcommand
+// (status/add/commit/push/log/…) — GitPanel already assembles the exact
+// argv it wants (e.g. `["commit", "-m", msg]`), so there is no benefit to
+// re-encoding each subcommand's flags into a second, parallel Rust-side
+// API. Args are passed to `std::process::Command::args()` as a real Vec,
+// never through a shell, so there is no injection risk from a commit
+// message or file path containing shell metacharacters. Same
+// `std::process::Command` pattern as `open_in_vscode`/`export_game`, not
+// the `tauri-plugin-shell` JS API — no shell-execute scope config needed.
+
+#[derive(Serialize)]
+pub struct GitResult {
+    pub success: bool,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[tauri::command]
+fn run_git(project_dir: String, args: Vec<String>) -> GitResult {
+    match std::process::Command::new("git")
+        .current_dir(&project_dir)
+        .args(&args)
+        .output()
+    {
+        Ok(output) => GitResult {
+            success: output.status.success(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        },
+        Err(e) => GitResult {
+            success: false,
+            stdout: String::new(),
+            stderr: format!("Could not launch git ({e}). Is git installed and on PATH?"),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Logging command
 // ---------------------------------------------------------------------------
 
@@ -412,7 +453,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -428,6 +468,7 @@ pub fn run() {
             save_file,
             export_game,
             open_in_vscode,
+            run_git,
             log_error
         ])
         .run(tauri::generate_context!())

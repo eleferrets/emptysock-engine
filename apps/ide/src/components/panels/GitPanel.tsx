@@ -8,19 +8,41 @@ interface FileStatus {
   diff?: string;
 }
 
+interface CommitEntry {
+  hash: string;
+  author: string;
+  date: string;
+  subject: string;
+}
+
 const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-async function runGit(args: string[]): Promise<string> {
-  if (!isTauri()) return "(git unavailable in browser)";
+interface GitResult {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Runs `git <args>` in `projectDir` via the `run_git` Tauri command — a
+ * plain `std::process::Command` spawn (see lib.rs), not the
+ * `tauri-plugin-shell` JS API, so no shell-execute scope config is needed
+ * and a commit message or file path containing shell metacharacters is
+ * never at risk of injection (args go straight into a real `Vec`, never
+ * through a shell). Returns the raw result rather than just stdout so
+ * callers can surface a real error (e.g. "not a git repository", "nothing
+ * to commit", a failed push) instead of silently swallowing it.
+ */
+async function runGit(projectDir: string, args: string[]): Promise<GitResult> {
+  if (!isTauri()) {
+    return { success: false, stdout: "", stderr: "git unavailable in browser" };
+  }
   const { invoke } = await import("@tauri-apps/api/core");
   try {
-    return (await invoke<string>("plugin:shell|execute", {
-      cmd: "git",
-      args,
-    })) as string;
-  } catch {
-    return "";
+    return await invoke<GitResult>("run_git", { projectDir, args });
+  } catch (e) {
+    return { success: false, stdout: "", stderr: String(e) };
   }
 }
 
@@ -80,6 +102,27 @@ const MOCK_FILES: FileStatus[] = [
 +
 +  override start(): void {}
 +}`,
+  },
+];
+
+const MOCK_COMMITS: CommitEntry[] = [
+  {
+    hash: "a1b2c3d",
+    author: "You",
+    date: "2026-09-23",
+    subject: "feat(player): tune movement speed",
+  },
+  {
+    hash: "e4f5a6b",
+    author: "You",
+    date: "2026-09-22",
+    subject: "feat(scenes): add menu scene",
+  },
+  {
+    hash: "c7d8e9f",
+    author: "You",
+    date: "2026-09-21",
+    subject: "chore: initial commit",
   },
 ];
 
@@ -217,6 +260,61 @@ function FileRow({
   );
 }
 
+// ── History (commit log) ────────────────────────────────────────────────────
+function HistoryView({
+  commits,
+  browserMode,
+}: {
+  commits: CommitEntry[];
+  browserMode: boolean;
+}): React.ReactElement {
+  if (commits.length === 0) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          padding: "16px 12px",
+          color: "var(--es-text-muted)",
+        }}
+      >
+        {browserMode
+          ? "Commit history is available in the desktop app"
+          : "No commits yet — make one from the Changes tab."}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: "auto" }}>
+      {commits.map((c) => (
+        <div
+          key={c.hash}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            padding: "6px 12px",
+            borderBottom: "1px solid var(--es-border)",
+          }}
+        >
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            {c.subject}
+          </div>
+          <div style={{ fontSize: 10, color: "var(--es-text-muted)" }}>
+            <span
+              style={{ fontFamily: "monospace", color: "var(--es-accent)" }}
+            >
+              {c.hash.slice(0, 7)}
+            </span>{" "}
+            · {c.author} · {c.date}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function GitPanel(): React.ReactElement {
   const { projectFolder, addLog } = useIDEStore();
@@ -228,32 +326,52 @@ export function GitPanel(): React.ReactElement {
   const [expandedDiffPath, setExpandedDiffPath] = React.useState<string | null>(
     null,
   );
+  const [commits, setCommits] = React.useState<CommitEntry[]>([]);
+  const [tab, setTab] = React.useState<"changes" | "history">("changes");
+  const [pushing, setPushing] = React.useState(false);
+  const [ahead, setAhead] = React.useState(0);
 
   const toggleDiff = (path: string): void => {
     setExpandedDiffPath((prev) => (prev === path ? null : path));
   };
 
+  const git = React.useCallback(
+    (args: string[]) => runGit(projectFolder, args),
+    [projectFolder],
+  );
+
   const refresh = React.useCallback(async (): Promise<void> => {
     if (!isTauri()) {
       setFiles(MOCK_FILES);
       setBranch("main");
+      setCommits(MOCK_COMMITS);
       return;
     }
-    const statusOut = await runGit([
-      "-C",
-      projectFolder,
-      "status",
-      "--porcelain",
+    const [statusOut, branchOut, logOut, aheadOut] = await Promise.all([
+      git(["status", "--porcelain"]),
+      git(["rev-parse", "--abbrev-ref", "HEAD"]),
+      git([
+        "log",
+        "-30",
+        "--pretty=format:%H%x1f%an%x1f%ad%x1f%s",
+        "--date=short",
+      ]),
+      git(["rev-list", "--count", "@{u}..HEAD"]),
     ]);
-    const branchOut = await runGit([
-      "-C",
-      projectFolder,
-      "rev-parse",
-      "--abbrev-ref",
-      "HEAD",
-    ]);
-    setBranch(branchOut.trim() || "main");
-    const parsed: FileStatus[] = statusOut
+    setBranch(branchOut.stdout.trim() || "main");
+    setAhead(Number.parseInt(aheadOut.stdout.trim(), 10) || 0);
+    setCommits(
+      logOut.stdout
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          const [hash = "", author = "", date = "", subject = ""] =
+            line.split("\x1f");
+          return { hash, author, date, subject };
+        }),
+    );
+
+    const parsed: FileStatus[] = statusOut.stdout
       .split("\n")
       .filter(Boolean)
       .map((line) => {
@@ -275,38 +393,61 @@ export function GitPanel(): React.ReactElement {
       parsed.map(async (f): Promise<FileStatus> => {
         if (f.status === "untracked") return f;
         const diffArgs = f.staged
-          ? ["-C", projectFolder, "diff", "--staged", "--", f.path]
-          : ["-C", projectFolder, "diff", "--", f.path];
-        const diff = await runGit(diffArgs);
-        const trimmed = diff.trim();
+          ? ["diff", "--staged", "--", f.path]
+          : ["diff", "--", f.path];
+        const diff = await git(diffArgs);
+        const trimmed = diff.stdout.trim();
         return trimmed !== "" ? { ...f, diff: trimmed } : { ...f };
       }),
     );
 
     setFiles(withDiffs);
-  }, [projectFolder]);
+  }, [git]);
 
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const stageFile = async (path: string): Promise<void> => {
-    await runGit(["-C", projectFolder, "add", path]);
+    await git(["add", path]);
     void refresh();
   };
 
   const unstageFile = async (path: string): Promise<void> => {
-    await runGit(["-C", projectFolder, "reset", "HEAD", path]);
+    await git(["reset", "HEAD", path]);
     void refresh();
   };
 
   const commit = async (): Promise<void> => {
     if (!commitMsg.trim()) return;
     setLoading(true);
-    const out = await runGit(["-C", projectFolder, "commit", "-m", commitMsg]);
-    addLog("info", `git commit: ${out.split("\n")[0]}`, "GitPanel");
+    const result = await git(["commit", "-m", commitMsg]);
+    const firstLine = (result.success ? result.stdout : result.stderr).split(
+      "\n",
+    )[0];
+    addLog(
+      result.success ? "info" : "error",
+      `git commit: ${firstLine ?? "(no output)"}`,
+      "GitPanel",
+    );
     setCommitMsg("");
     setLoading(false);
+    void refresh();
+  };
+
+  const push = async (): Promise<void> => {
+    setPushing(true);
+    const result = await git(["push"]);
+    const firstLine = (result.success ? result.stdout : result.stderr)
+      .trim()
+      .split("\n")
+      .pop();
+    addLog(
+      result.success ? "info" : "error",
+      `git push: ${firstLine ?? "(no output)"}`,
+      "GitPanel",
+    );
+    setPushing(false);
     void refresh();
   };
 
@@ -357,166 +498,231 @@ export function GitPanel(): React.ReactElement {
             {branch}
           </span>
         </span>
-        <button onClick={() => void refresh()} style={btnBase}>
-          Refresh
-        </button>
-      </div>
-
-      {/* File list */}
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Browser-mode disclaimer */}
-        {browserMode && (
-          <div
-            style={{
-              padding: "6px 12px",
-              background:
-                "color-mix(in srgb, var(--es-yellow) 10%, transparent)",
-              borderBottom: "1px solid var(--es-yellow)",
-              color: "var(--es-yellow)",
-              fontSize: 11,
-              flexShrink: 0,
-            }}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={() => void push()}
+            disabled={pushing || browserMode}
+            title={
+              browserMode
+                ? "Push is available in the desktop app"
+                : "Push committed changes to the remote"
+            }
+            style={btnBase}
           >
-            Preview — no git repo connected
-          </div>
-        )}
-
-        {/* Staged */}
-        <div
-          style={{
-            padding: "6px 12px 2px",
-            color: "var(--es-text-muted)",
-            fontSize: 11,
-            fontWeight: 600,
-          }}
-        >
-          STAGED ({staged.length})
+            {pushing ? "Pushing…" : ahead > 0 ? `Push (${ahead})` : "Push"}
+          </button>
+          <button onClick={() => void refresh()} style={btnBase}>
+            Refresh
+          </button>
         </div>
-        {staged.map((f) => (
-          <FileRow
-            key={f.path}
-            f={f}
-            expanded={expandedDiffPath === f.path}
-            onToggle={() => toggleDiff(f.path)}
-            action={
-              <button onClick={() => void unstageFile(f.path)} style={btnBase}>
-                -
-              </button>
-            }
-          />
-        ))}
-
-        {/* Unstaged */}
-        <div
-          style={{
-            padding: "6px 12px 2px",
-            color: "var(--es-text-muted)",
-            fontSize: 11,
-            fontWeight: 600,
-            marginTop: 4,
-          }}
-        >
-          UNSTAGED ({unstaged.length})
-        </div>
-        {unstaged.map((f) => (
-          <FileRow
-            key={f.path}
-            f={f}
-            expanded={expandedDiffPath === f.path}
-            onToggle={() => toggleDiff(f.path)}
-            action={
-              <button
-                onClick={() => void stageFile(f.path)}
-                style={{
-                  padding: "1px 6px",
-                  background: "var(--es-accent)",
-                  border: "none",
-                  borderRadius: 3,
-                  color: "var(--es-text-on-accent)",
-                  cursor: "pointer",
-                  fontSize: 10,
-                }}
-              >
-                +
-              </button>
-            }
-          />
-        ))}
-
-        {browserMode && files.length === 0 && (
-          <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
-            Git is available in the desktop app
-          </div>
-        )}
-        {!browserMode && files.length === 0 && (
-          <div style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}>
-            Nothing changed. Enjoy it while it lasts.
-          </div>
-        )}
       </div>
 
-      {/* Commit */}
+      {/* Tabs */}
       <div
         style={{
-          borderTop: "1px solid var(--es-border)",
-          padding: 12,
           display: "flex",
-          flexDirection: "column",
-          gap: 6,
+          borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
         }}
       >
-        <textarea
-          value={commitMsg}
-          onChange={(e) => setCommitMsg(e.target.value)}
-          placeholder="Commit message (Ctrl+Enter to commit)..."
-          rows={2}
-          onKeyDown={(e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void commit();
-          }}
-          style={{
-            padding: "4px 8px",
-            background: "var(--es-bg)",
-            border: "1px solid var(--es-border)",
-            borderRadius: 4,
-            color: "var(--es-text)",
-            resize: "none",
-            fontSize: 12,
-            fontFamily: "inherit",
-          }}
-        />
-        <button
-          onClick={() => void commit()}
-          disabled={!commitMsg.trim() || staged.length === 0 || loading}
-          style={{
-            padding: "5px 0",
-            background:
-              commitMsg.trim() && staged.length > 0
-                ? "var(--es-accent)"
-                : "var(--es-surface)",
-            border: "none",
-            borderRadius: 4,
-            color:
-              commitMsg.trim() && staged.length > 0
-                ? "var(--es-text-on-accent)"
-                : "var(--es-text-muted)",
-            cursor:
-              commitMsg.trim() && staged.length > 0 ? "pointer" : "default",
-            fontWeight: 600,
-          }}
-        >
-          {loading
-            ? "Committing..."
-            : `Commit (${staged.length} file${staged.length !== 1 ? "s" : ""})`}
-        </button>
+        {(
+          [
+            { id: "changes", label: `Changes (${files.length})` },
+            { id: "history", label: "History" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              flex: 1,
+              padding: "6px 0",
+              background: "transparent",
+              border: "none",
+              borderBottom:
+                tab === t.id
+                  ? "2px solid var(--es-accent)"
+                  : "2px solid transparent",
+              color: tab === t.id ? "var(--es-text)" : "var(--es-text-muted)",
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: tab === t.id ? 600 : 400,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
+
+      {tab === "changes" ? (
+        <>
+          {/* File list */}
+          <div
+            style={{
+              flex: 1,
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Browser-mode disclaimer */}
+            {browserMode && (
+              <div
+                style={{
+                  padding: "6px 12px",
+                  background:
+                    "color-mix(in srgb, var(--es-yellow) 10%, transparent)",
+                  borderBottom: "1px solid var(--es-yellow)",
+                  color: "var(--es-yellow)",
+                  fontSize: 11,
+                  flexShrink: 0,
+                }}
+              >
+                Preview — no git repo connected
+              </div>
+            )}
+
+            {/* Staged */}
+            <div
+              style={{
+                padding: "6px 12px 2px",
+                color: "var(--es-text-muted)",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              STAGED ({staged.length})
+            </div>
+            {staged.map((f) => (
+              <FileRow
+                key={f.path}
+                f={f}
+                expanded={expandedDiffPath === f.path}
+                onToggle={() => toggleDiff(f.path)}
+                action={
+                  <button
+                    onClick={() => void unstageFile(f.path)}
+                    style={btnBase}
+                  >
+                    -
+                  </button>
+                }
+              />
+            ))}
+
+            {/* Unstaged */}
+            <div
+              style={{
+                padding: "6px 12px 2px",
+                color: "var(--es-text-muted)",
+                fontSize: 11,
+                fontWeight: 600,
+                marginTop: 4,
+              }}
+            >
+              UNSTAGED ({unstaged.length})
+            </div>
+            {unstaged.map((f) => (
+              <FileRow
+                key={f.path}
+                f={f}
+                expanded={expandedDiffPath === f.path}
+                onToggle={() => toggleDiff(f.path)}
+                action={
+                  <button
+                    onClick={() => void stageFile(f.path)}
+                    style={{
+                      padding: "1px 6px",
+                      background: "var(--es-accent)",
+                      border: "none",
+                      borderRadius: 3,
+                      color: "var(--es-text-on-accent)",
+                      cursor: "pointer",
+                      fontSize: 10,
+                    }}
+                  >
+                    +
+                  </button>
+                }
+              />
+            ))}
+
+            {browserMode && files.length === 0 && (
+              <div
+                style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}
+              >
+                Git is available in the desktop app
+              </div>
+            )}
+            {!browserMode && files.length === 0 && (
+              <div
+                style={{ padding: "16px 12px", color: "var(--es-text-muted)" }}
+              >
+                Nothing changed. Enjoy it while it lasts.
+              </div>
+            )}
+          </div>
+
+          {/* Commit */}
+          <div
+            style={{
+              borderTop: "1px solid var(--es-border)",
+              padding: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            <textarea
+              value={commitMsg}
+              onChange={(e) => setCommitMsg(e.target.value)}
+              placeholder="Commit message (Ctrl+Enter to commit)..."
+              rows={2}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter")
+                  void commit();
+              }}
+              style={{
+                padding: "4px 8px",
+                background: "var(--es-bg)",
+                border: "1px solid var(--es-border)",
+                borderRadius: 4,
+                color: "var(--es-text)",
+                resize: "none",
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            />
+            <button
+              onClick={() => void commit()}
+              disabled={!commitMsg.trim() || staged.length === 0 || loading}
+              style={{
+                padding: "5px 0",
+                background:
+                  commitMsg.trim() && staged.length > 0
+                    ? "var(--es-accent)"
+                    : "var(--es-surface)",
+                border: "none",
+                borderRadius: 4,
+                color:
+                  commitMsg.trim() && staged.length > 0
+                    ? "var(--es-text-on-accent)"
+                    : "var(--es-text-muted)",
+                cursor:
+                  commitMsg.trim() && staged.length > 0 ? "pointer" : "default",
+                fontWeight: 600,
+              }}
+            >
+              {loading
+                ? "Committing..."
+                : `Commit (${staged.length} file${staged.length !== 1 ? "s" : ""})`}
+            </button>
+          </div>
+        </>
+      ) : (
+        <HistoryView commits={commits} browserMode={browserMode} />
+      )}
     </div>
   );
 }
