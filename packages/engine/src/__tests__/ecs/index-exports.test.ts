@@ -27,4 +27,49 @@ describe("@emptysock/engine/ecs export surface", () => {
     expect(tweens).toBeInstanceOf(ECS.TweenManager);
     tweens.destroy();
   });
+
+  it("exports SequenceSystem/evaluateTrackAt and ParticleEmitter", () => {
+    expect(typeof ECS.SequenceSystem).toBe("function");
+    expect(new ECS.SequenceSystem()).toBeInstanceOf(ECS.SequenceSystem);
+    expect(typeof ECS.evaluateTrackAt).toBe("function");
+    expect(typeof ECS.ParticleEmitter).toBe("function");
+    expect(new ECS.ParticleEmitter({})).toBeInstanceOf(ECS.ParticleEmitter);
+  });
+
+  it("exports createCustomShaderFilter", () => {
+    expect(typeof ECS.createCustomShaderFilter).toBe("function");
+  });
+
+  it("exports all five Game-service classes as real, constructible classes", () => {
+    expect(typeof ECS.PluginSystem).toBe("function");
+    expect(new ECS.PluginSystem()).toBeInstanceOf(ECS.PluginSystem);
+    expect(typeof ECS.VariableStore).toBe("function");
+    expect(new ECS.VariableStore()).toBeInstanceOf(ECS.VariableStore);
+    expect(typeof ECS.evaluateCondition).toBe("function");
+    expect(typeof ECS.LocalisationSystem).toBe("function");
+    expect(new ECS.LocalisationSystem()).toBeInstanceOf(ECS.LocalisationSystem);
+    expect(typeof ECS.ViewportSystem).toBe("function");
+    expect(new ECS.ViewportSystem()).toBeInstanceOf(ECS.ViewportSystem);
+    expect(typeof ECS.WindowSystem).toBe("function");
+    expect(new ECS.WindowSystem()).toBeInstanceOf(ECS.WindowSystem);
+  });
+
+  it("the exported service classes are the exact same classes Game registers, not parallel copies", () => {
+    const game = new ECS.Game();
+    expect(game.services.get(ECS.PluginSystem)).toBeInstanceOf(
+      ECS.PluginSystem,
+    );
+    expect(game.services.get(ECS.VariableStore)).toBeInstanceOf(
+      ECS.VariableStore,
+    );
+    expect(game.services.get(ECS.LocalisationSystem)).toBeInstanceOf(
+      ECS.LocalisationSystem,
+    );
+    expect(game.services.get(ECS.ViewportSystem)).toBeInstanceOf(
+      ECS.ViewportSystem,
+    );
+    expect(game.services.get(ECS.WindowSystem)).toBeInstanceOf(
+      ECS.WindowSystem,
+    );
+  });
 });

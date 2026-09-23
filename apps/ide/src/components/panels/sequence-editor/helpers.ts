@@ -2,7 +2,7 @@ import {
   evaluateTrackAt,
   type SequenceDefinition,
   type SequenceTrackDef,
-} from "@emptysock/engine";
+} from "@emptysock/engine/ecs";
 import { TRACK_TYPE_TO_PROPERTY } from "../../../store/sequenceStore";
 import type { TrackType, Keyframe, Track } from "./types";
 

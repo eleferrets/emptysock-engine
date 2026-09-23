@@ -1,8 +1,8 @@
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-import type { VariableCondition } from "@emptysock/engine";
+import type { VariableCondition } from "@emptysock/engine/ecs";
 
-export type { VariableCondition } from "@emptysock/engine";
+export type { VariableCondition } from "@emptysock/engine/ecs";
 
 export type NodeType = "dialogue" | "choice" | "condition";
 

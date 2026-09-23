@@ -5,7 +5,7 @@ import { autoDetectRenderer, Sprite, Texture, type Renderer } from "pixi.js";
 import {
   createCustomShaderFilter,
   type CustomShaderFilter,
-} from "@emptysock/engine";
+} from "@emptysock/engine/ecs";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 import { useShaderStore, type ShaderState } from "../../store/shaderStore";

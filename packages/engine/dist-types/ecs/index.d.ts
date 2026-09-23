@@ -68,6 +68,41 @@ export type {
   TweenHandle,
   EasingName,
 } from "../systems/TweenSystem.js";
+export { SequenceSystem, evaluateTrackAt } from "../systems/SequenceSystem.js";
+export type {
+  SequenceDefinition,
+  SequenceTrackDef,
+} from "../systems/SequenceSystem.js";
+export { ParticleEmitter } from "../systems/ParticleSystem.js";
+export type {
+  ParticleEmitterOptions,
+  EmitterShape,
+} from "../systems/ParticleSystem.js";
+export { createCustomShaderFilter } from "../systems/CustomShaderFilter.js";
+export type { CustomShaderFilter } from "../systems/CustomShaderFilter.js";
+export { PluginSystem } from "../core/PluginSystem.js";
+export type { Plugin, PluginContext } from "../core/PluginSystem.js";
+export { VariableStore, evaluateCondition } from "../systems/VariableStore.js";
+export type {
+  VariableStoreData,
+  VariableCondition,
+} from "../systems/VariableStore.js";
+export { LocalisationSystem } from "../systems/LocalisationSystem.js";
+export type { Locale, TranslationMap } from "../systems/LocalisationSystem.js";
+export {
+  ViewportSystem,
+  computeViewportSize,
+  gpuTierRenderDefaults,
+} from "../systems/ViewportSystem.js";
+export type {
+  ScaleMode,
+  ResizableRenderTarget,
+  ViewportConfig,
+  ViewportSize,
+  SafeAreaInsets,
+} from "../systems/ViewportSystem.js";
+export { WindowSystem } from "../systems/WindowSystem.js";
+export type { WindowMode, WindowConfig } from "../systems/WindowSystem.js";
 export type {
   UpdateFn,
   SceneDefinition,

@@ -533,6 +533,37 @@ whether `ecs/Game.ts` or another ECS-core file already imports it directly
 what looks like classic-only surface is really just under-exported from the
 ECS subpath.
 
+Auditing every `apps/ide` file still importing the classic root surface for
+this same reason found a bigger instance of it: **none of `Game`'s five
+constructor-registered services (`PluginSystem`/`VariableStore`/
+`LocalisationSystem`/`ViewportSystem`/`WindowSystem`) were exported from
+`ecs/index.ts` either** — `Game` registers real instances of all five and
+hands them to scene code as `SceneLifecycle.plugins`/`.variables`/
+`.localisation`/`.viewport`/`.window`, but game code had no way to import the
+class itself for a type-safe `game.services.get(VariableStore)` call. Also
+missing and now added: `SequenceSystem`/`evaluateTrackAt`, `ParticleEmitter`,
+`createCustomShaderFilter` — each verified genuinely shared (zero
+classic-`Entity`/`Scene` coupling in their own imports) before adding, not
+assumed. `index-exports.test.ts` additionally confirms `game.services.get(X)`
+returns an instance of the exact class this subpath exports, for all five
+services — not a parallel copy that happens to share a name.
+
+Two real, separate, larger gaps this audit found and deliberately did not
+try to fix: the Visual Script Editor and the UI Placement Editor are both
+entirely classic-only subsystems with no ECS equivalent. `components/
+VisualScriptComponent.ts` (backing the Visual Script Editor) extends the
+classic `core/Component.ts` base class directly — it is class-based,
+structurally incompatible with `defineComponent`'s plain-data ECS
+components, so this is not an import-path fix. `ui/widgets/base.ts`'s
+`WidgetAnchor` (backing the UI Placement Editor, which also imports the
+classic `UISystem`/`IUIRenderer` as a live runtime dependency) is the
+classic widget system the "ECS UISystem" entry above already documents as a
+**different**, parallel implementation from `ecs/ui/UISystem.ts`/
+`ecs/components/Widgets.ts` — not the same concept under two import paths.
+Porting either to ECS is real, scoped work on the same order as the
+WidgetTree/UISystem port already done (a genuine design pass), not a
+mechanical import swap — don't attempt either as a quick fix.
+
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 
 `GitPanel.tsx` used to call `invoke("plugin:shell|execute", { cmd: "git", args })` directly against `@tauri-apps/plugin-shell`'s low-level invoke name — but the JS package (`@tauri-apps/plugin-shell`) was never actually added as a dependency, the param name was wrong (the plugin's real `execute` command takes `program`, not `cmd`), and using the shell plugin at all would have meant configuring its scoped-execute allowlist in `capabilities/default.json` (a `shell:allow-execute` permission naming exactly which programs/argument shapes are permitted) just to run one fixed binary. None of that ever worked. Replaced with `run_git(project_dir, args)`, a single Tauri command in `lib.rs` that does a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` already use, and CLAUDE.md's own comment above `open_in_vscode` already called out as the "no shell-execute scope config needed" alternative. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. `tauri_plugin_shell::init()`'s plugin registration and the `shell:default` capability entry were removed outright since nothing else in the app used them. One generic passthrough (rather than one Tauri command per git subcommand) was deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.

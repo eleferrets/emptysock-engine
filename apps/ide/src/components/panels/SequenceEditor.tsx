@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { TweenManager, SequenceSystem } from "@emptysock/engine";
+import { TweenManager, SequenceSystem } from "@emptysock/engine/ecs";
 import {
   useSequenceStore,
   TRACK_TYPE_TO_PROPERTY,

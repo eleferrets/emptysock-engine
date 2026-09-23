@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { EasingName } from "@emptysock/engine";
+import type { EasingName } from "@emptysock/engine/ecs";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
