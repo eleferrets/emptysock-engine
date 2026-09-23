@@ -1,6 +1,13 @@
 /**
- * Bundles @emptysock/engine as a self-contained IIFE that sets
- * window.EmptySockEngine = { ...all exports }.
+ * Bundles @emptysock/engine's ECS API (`@emptysock/engine/ecs`) as a
+ * self-contained IIFE that sets window.EmptySockEngine = { ...ecs exports }.
+ * This is the one surface user game code and the live preview/Inspector
+ * bridge see at runtime — the classic root export surface
+ * (`@emptysock/engine`'s `.` entry) is never bundled here, since ECS and
+ * classic export colliding names for different things (`Entity`, `Scene`,
+ * `Transform`, `PhysicsSystem`, `UISystem`, …) and merging both into one
+ * flat `window.EmptySockEngine` namespace would silently shadow one
+ * implementation with the other.
  *
  * Output: src/runtime/engineBundle.generated.ts
  * Run automatically via the predev / prebuild npm scripts.
@@ -18,11 +25,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const isProd = process.argv.includes('--minify') || process.env.NODE_ENV === 'production';
 
-const engineEntry = resolve(__dirname, '../../packages/engine/src/index.ts');
+const engineEntry = resolve(__dirname, '../../packages/engine/src/ecs/index.ts');
 const outDir = resolve(__dirname, 'src/runtime');
 const outFile = resolve(outDir, 'engineBundle.generated.ts');
 
-console.log(`[engine-runtime] Bundling engine as IIFE${isProd ? ' (minified)' : ''}...`);
+console.log(`[engine-runtime] Bundling engine ECS API as IIFE${isProd ? ' (minified)' : ''}...`);
 
 const result = await build({
   configFile: false,
@@ -33,6 +40,7 @@ const result = await build({
   },
   resolve: {
     alias: {
+      '@emptysock/engine/ecs': engineEntry,
       '@emptysock/engine': engineEntry,
     },
   },
@@ -50,12 +58,25 @@ const result = await build({
       fileName: () => 'engine.iife.js',
     },
     rollupOptions: {
-      external: ['@dimforge/rapier2d-compat', '@dimforge/rapier3d-compat', /^@tauri-apps\//],
+      // The deterministic-compat builds are optionalDependencies (most games
+      // never install them — CLAUDE.md's "Deterministic Rapier build is
+      // imported via a non-literal specifier") and are not installed here;
+      // externalizing them keeps the bundler from resolving both branches of
+      // PhysicsSystem's runtime `moduleName` ternary at build time.
+      external: [
+        '@dimforge/rapier2d-compat',
+        '@dimforge/rapier2d-deterministic-compat',
+        '@dimforge/rapier3d-compat',
+        '@dimforge/rapier3d-deterministic-compat',
+        /^@tauri-apps\//,
+      ],
       output: {
         name: 'EmptySockEngine',
         globals: {
           '@dimforge/rapier2d-compat': 'RAPIER2D',
+          '@dimforge/rapier2d-deterministic-compat': 'RAPIER2D',
           '@dimforge/rapier3d-compat': 'RAPIER3D',
+          '@dimforge/rapier3d-deterministic-compat': 'RAPIER3D',
         },
       },
     },

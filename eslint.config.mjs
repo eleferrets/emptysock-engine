@@ -9,6 +9,11 @@ export default [
       '**/node_modules/**',
       '**/*.js',
       '**/*.mjs',
+      // Checked-in fallback stub for a build-generated file (the real
+      // engineBundle.generated.ts is produced by engine-runtime.build.mjs
+      // and is itself gitignored) — not part of apps/ide's tsconfig
+      // `include`, so typed linting has no project to resolve it against.
+      'apps/ide/src/runtime/engineBundle.generated.d.ts',
     ],
   },
   // Base rules — no type information required

@@ -1,11 +1,16 @@
 /**
  * `@emptysock/engine/ecs` — the bitECS-backed ECS core (see ENGINE_DESIGN.md
- * and `CLAUDE.md`). Lives at a separate subpath export, not re-exported from
- * the package root, so the classic engine (`Scene`/`Entity`/`Component`/
- * `ActorSystem`/`PhysicsSystem` from `../index.js`) keeps working unmodified
- * alongside it. Both are current, supported entry points into the engine —
- * this one is the array-backed, high-entity-count option; the package root
- * is the classic, class-based option. Neither is scheduled to retire.
+ * and `CLAUDE.md`). This is the engine's one live game-authoring surface:
+ * `apps/ide` bundles it as `window.EmptySockEngine` for the preview iframe
+ * and types Monaco's Code editor against it, and it's the surface every
+ * project template and the live Inspector bridge (`ecs/bridge/QueryChannel.ts`)
+ * target. It lives at a separate subpath export, not re-exported from the
+ * package root, because the classic engine (`Scene`/`Entity`/`Component`/
+ * `ActorSystem`/`PhysicsSystem` from `../index.js`) still exists on disk and
+ * exports colliding names for different things — merging both into one
+ * export surface isn't a safe mechanical change. The root export surface is
+ * not bundled or typed anywhere in `apps/ide` any more; it remains only
+ * until the classic `core/`/`systems/` source trees themselves are deleted.
  */
 export { defineComponent } from "./Component.js";
 export type {

@@ -92,11 +92,18 @@ function engineTypesPlugin(): Plugin {
       );
     }
 
-    // The public surface is whatever index.d.ts re-exports, now resolvable
-    // purely by ambient module name (no file-based resolution involved).
+    // The public surface Monaco types game code against is the ECS API
+    // (`ecs/index.d.ts`), not the classic root `index.d.ts` — the same
+    // surface `engine-runtime.build.mjs` bundles as `window.EmptySockEngine`
+    // for the live preview. Keeping these two in sync matters: a mismatch
+    // would let a game typecheck against one API while actually running a
+    // different one at runtime. Ambient module declarations for a bare
+    // specifier are resolvable purely by name (no file-based resolution
+    // involved), so re-exporting from "__internal/ecs/index" instead of
+    // "__internal/index" is the entire change needed here.
     parts.push(
       `declare module "@emptysock/engine" {\n` +
-        `  export * from "${INTERNAL_PREFIX}index";\n` +
+        `  export * from "${INTERNAL_PREFIX}ecs/index";\n` +
         `}`,
     );
 

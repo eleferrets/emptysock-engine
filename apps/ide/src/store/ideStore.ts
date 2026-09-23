@@ -274,28 +274,45 @@ interface IDEState {
   loadProject: (raw: string) => void;
 }
 
-const INITIAL_CODE = `import { Scene, Entity, Transform, Sprite } from '@emptysock/engine';
+const INITIAL_CODE = `import { Game, defineScene, RenderPipeline, Transform, Sprite } from '@emptysock/engine';
 
-export class GameScene extends Scene {
-  constructor() {
-    super('GameScene');
+const gameScene = defineScene({
+  onLoad(scene) {
+    const player = scene.spawn('Player');
+    player.add(Transform, { x: 640, y: 360 });
+    player.add(Sprite, { tint: 0x7c6af7 });
+
+    const ground = scene.spawn('Ground');
+    ground.add(Transform, { x: 640, y: 680 });
+    ground.add(Sprite, { tint: 0x4ade80 });
+
+    console.log('GameScene loaded');
+  },
+});
+
+const game = new Game();
+const renderer = new RenderPipeline();
+
+async function main(): Promise<void> {
+  await renderer.init({ width: GAME_WIDTH, height: GAME_HEIGHT });
+  game.attachRenderer(renderer);
+  document.body.appendChild(renderer.canvas);
+
+  // manageLifecycle: false — this starter has no physics bodies or actors,
+  // so it skips creating a PhysicsSystem/ActorSystem it would never use.
+  await game.loadScene(gameScene, { manageLifecycle: false });
+
+  let lastTime = performance.now();
+  function frame(now: number): void {
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    game.update(dt);
+    requestAnimationFrame(frame);
   }
-
-  override start(): void {
-    super.start();
-    const player = this.createEntity('Player');
-    player.addComponent(new Transform({ x: 640, y: 360 }));
-    player.addComponent(new Sprite({ tint: 0x7c6af7 }));
-    player.addTag('player');
-
-    const ground = this.createEntity('Ground');
-    ground.addComponent(new Transform({ x: 640, y: 680 }));
-    ground.addComponent(new Sprite({ tint: 0x4ade80 }));
-    ground.addTag('ground');
-
-    console.log('GameScene started with', this.getEntities().size, 'entities');
-  }
+  requestAnimationFrame(frame);
 }
+
+void main();
 `;
 
 const INITIAL_FILES: ProjectFile[] = [
