@@ -49,15 +49,21 @@ end to end, not just documented as a known gap.
       that opens `new WebSocket(...)` to the configured bridge URL and relays `handle()` calls the same
       way. Never put WebSocket/networking code inside `packages/engine` itself (environment boundary). - Update `emptysock-mcp/README.md`'s tool status table honestly once tools are live instead of
       stub — don't leave it reading as more/less finished than it actually is.
-- [ ] **`ImageWidget` real image loading/caching** (`packages/engine/src/ui/Widgets.ts` +
-      `ui/UISystem.ts`'s `_renderImagePlaceholder`). Needs a real loader (pixi.js `Assets`/`Texture.from`,
-      same library `AssetManifest` already wraps) with an in-memory cache keyed by source path, replacing
-      the always-placeholder box once a source resolves. Keep the placeholder as the loading/error state,
-      not the permanent one.
-- [ ] **`generatePrefabTypes` wired into a real build step** (`packages/toolchain/src/prefabCodegen.ts`
-      is implemented and tested but nothing calls it). Wire it into `packages/toolchain/src/cli.ts` as a
-      real CLI subcommand (e.g. `emptysock-toolchain codegen-prefabs`) at minimum; an IDE auto-save hook
-      is a nice-to-have, not required for this item to close.
+- [x] **`ImageWidget` real image loading/caching** (`packages/engine/src/ui/Widgets.ts` +
+      `ui/UISystem.ts`'s `_renderImagePlaceholder`) — done 2026-09-23. `UISystem._renderImage()` resolves
+      `ImageWidget.src` through an `ImageLoader` (defaulting to pixi's `Assets.load`, the same loader
+      `RenderPipeline`'s `TextureLoader` wraps), cached by path in a shared `Map<string, ImageCacheEntry>`
+      so the same path loads once regardless of how many widgets reference it. Draws via
+      `IUIRenderer.drawImage()` using `texture.source.resource` (pixi's own underlying drawable), keeping
+      the file free of any DOM image import. Placeholder box stays as the loading/error fallback. See
+      CLAUDE.md's "ui/UISystem.ts: widget state lives on components" entry for the design writeup.
+- [x] **`generatePrefabTypes` wired into a real build step** (`packages/toolchain/src/prefabCodegen.ts`
+      is implemented and tested but nothing calls it) — done 2026-09-23. Added
+      `emptysock-toolchain codegen-prefabs <project-dir> [--out <path>] [--components <modules...>]`
+      (`cli.ts`, logic in the new `prefabCodegenCli.ts`'s `runCodegenPrefabs()`): finds every
+      `*.prefab.json` under the project dir, builds a `ComponentLookup` from `@emptysock/engine`'s
+      built-ins plus any project component modules named via `--components`, and writes the generated
+      `.d.ts` to disk. An IDE auto-save hook remains a separate, not-yet-started follow-up.
 - [ ] **Visual Script Editor panel live preview** (`apps/ide`'s `visual-script/*.tsx`,
       `logicScriptStore.ts`). Panel authors a `VisualScriptGraph` directly but never calls
       `registerVisualScriptGraph` or spawns a `VisualScriptState` entity — wire a preview path so editing
@@ -79,7 +85,7 @@ end to end, not just documented as a known gap.
       (`SceneInspector.tsx`/`EntityProperties.tsx`/`CanvasPreview.tsx`/`useEngineChannel.ts`) are reading
       from a bridge that predates `QueryChannel` entirely, separate from (but architecturally identical to)
       the MCP transport gap. Rewire `EngineChannel.ts` onto `QueryChannel.handle({ kind: "listEntities" |
-  "entityInfo" | "getComponent" | "setComponent" })` calls over the existing `PlayRunner` postMessage
+"entityInfo" | "getComponent" | "setComponent" })` calls over the existing `PlayRunner` postMessage
       relay, verify the live preview + Inspector still work end to end (real browser verification, not
       typecheck-only), then Track 8's `ComponentRegistry`-driven Inspector schema lookup (see the `[~]`
       item further down this file) becomes unblocked for real — don't do that item until this one is
