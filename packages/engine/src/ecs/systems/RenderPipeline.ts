@@ -1,4 +1,11 @@
-import { Assets, Container, Sprite as PixiSprite, Texture } from "pixi.js";
+import {
+  Assets,
+  Container,
+  Particle,
+  ParticleContainer,
+  Sprite as PixiSprite,
+  Texture,
+} from "pixi.js";
 import type { Renderer } from "pixi.js";
 import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
@@ -10,6 +17,7 @@ import {
 } from "../../systems/RenderSystem.js";
 import { LayerSystem } from "../../systems/LayerSystem.js";
 import type { PostProcessSystem } from "../../systems/PostProcessSystem.js";
+import type { ParticleEmitter } from "../../systems/ParticleSystem.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
@@ -138,6 +146,22 @@ export class RenderPipeline implements SceneRenderer {
    */
   private _postProcess: PostProcessSystem | null = null;
 
+  /**
+   * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
+   * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
+   * own doc comment) with zero pixi dependency — it was never actually
+   * wired into gameplay rendering, only the IDE's canvas-based preview
+   * editor. `mountParticles()`/`unmountParticles()` are that missing wire:
+   * one pixi core `ParticleContainer` per mounted emitter (no new
+   * dependency — `ParticleContainer`/`Particle` are core pixi.js exports),
+   * resynced every `renderFrame()` from `ParticleEmitter.getParticles()`.
+   */
+  private readonly _particleContainers = new Map<
+    ParticleEmitter,
+    ParticleContainer
+  >();
+  private readonly _particleTextures = new Map<ParticleEmitter, Texture>();
+
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._loadTexture = options.textureLoader ?? defaultTextureLoader;
@@ -146,6 +170,73 @@ export class RenderPipeline implements SceneRenderer {
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
   attachPostProcess(postProcess: PostProcessSystem | null): void {
     this._postProcess = postProcess;
+  }
+
+  /**
+   * Mounts `emitter`'s particles into a real pixi `ParticleContainer` on
+   * layer `layerName`, resynced every `renderFrame()`. Loads the emitter's
+   * `options.texture` path through this pipeline's own texture loader (the
+   * same cache-and-load path sprites use) — an emitter with no texture set
+   * falls back to `Texture.WHITE`, a plain filled square, so an emitter
+   * mounted before its real texture is ready still renders something
+   * visible rather than nothing. Awaiting this before the emitter starts
+   * producing particles is recommended but not required — particles that
+   * exist before the texture resolves simply aren't drawn yet.
+   */
+  async mountParticles(
+    emitter: ParticleEmitter,
+    layerName = "default",
+  ): Promise<void> {
+    if (this._particleContainers.has(emitter)) return;
+    const texturePath = emitter.options.texture;
+    const texture =
+      texturePath.length > 0
+        ? await this._loadTexture(texturePath)
+        : Texture.WHITE;
+    const container = new ParticleContainer({
+      dynamicProperties: {
+        position: true,
+        rotation: true,
+        scale: true,
+        color: true,
+      },
+    });
+    this._render.getLayerContainer(layerName).addChild(container);
+    this._particleContainers.set(emitter, container);
+    this._particleTextures.set(emitter, texture);
+  }
+
+  /** Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on an emitter that was never mounted (a no-op). */
+  unmountParticles(emitter: ParticleEmitter): void {
+    const container = this._particleContainers.get(emitter);
+    if (container === undefined) return;
+    container.destroy({ children: true });
+    this._particleContainers.delete(emitter);
+    this._particleTextures.delete(emitter);
+  }
+
+  private _syncParticles(): void {
+    for (const [emitter, container] of this._particleContainers) {
+      container.removeParticles();
+      const texture = this._particleTextures.get(emitter) ?? Texture.WHITE;
+      for (const p of emitter.getParticles()) {
+        if (!p.active) continue;
+        container.addParticle(
+          new Particle({
+            texture,
+            x: p.x,
+            y: p.y,
+            scaleX: p.scale,
+            scaleY: p.scale,
+            rotation: p.rotation,
+            anchorX: 0.5,
+            anchorY: 0.5,
+            tint: p.colour,
+            alpha: p.alpha,
+          }),
+        );
+      }
+    }
   }
 
   /**
@@ -199,6 +290,7 @@ export class RenderPipeline implements SceneRenderer {
     if (this._postProcess !== null) {
       this._render.syncPostProcessLayerFilters(this._postProcess);
     }
+    this._syncParticles();
     this._render.render();
   }
 
@@ -406,6 +498,9 @@ export class RenderPipeline implements SceneRenderer {
     this._releaseMain();
     for (const scene of Array.from(this._overlayContainers.keys())) {
       this.releaseOverlay(scene);
+    }
+    for (const emitter of Array.from(this._particleContainers.keys())) {
+      this.unmountParticles(emitter);
     }
     this._textureCache.clear();
     this._render.destroy();

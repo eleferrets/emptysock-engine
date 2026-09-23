@@ -5,6 +5,7 @@ import type { SceneRenderer } from "../Game.js";
 import { type RenderSystemOptions } from "../../systems/RenderSystem.js";
 import { LayerSystem } from "../../systems/LayerSystem.js";
 import type { PostProcessSystem } from "../../systems/PostProcessSystem.js";
+import type { ParticleEmitter } from "../../systems/ParticleSystem.js";
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
 export interface RenderPipelineOptions extends Omit<
@@ -112,9 +113,36 @@ export declare class RenderPipeline implements SceneRenderer {
    * `PostProcessSystem` instance yet when the pipeline is constructed.
    */
   private _postProcess;
+  /**
+   * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
+   * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
+   * own doc comment) with zero pixi dependency — it was never actually
+   * wired into gameplay rendering, only the IDE's canvas-based preview
+   * editor. `mountParticles()`/`unmountParticles()` are that missing wire:
+   * one pixi core `ParticleContainer` per mounted emitter (no new
+   * dependency — `ParticleContainer`/`Particle` are core pixi.js exports),
+   * resynced every `renderFrame()` from `ParticleEmitter.getParticles()`.
+   */
+  private readonly _particleContainers;
+  private readonly _particleTextures;
   constructor(options?: RenderPipelineOptions);
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
   attachPostProcess(postProcess: PostProcessSystem | null): void;
+  /**
+   * Mounts `emitter`'s particles into a real pixi `ParticleContainer` on
+   * layer `layerName`, resynced every `renderFrame()`. Loads the emitter's
+   * `options.texture` path through this pipeline's own texture loader (the
+   * same cache-and-load path sprites use) — an emitter with no texture set
+   * falls back to `Texture.WHITE`, a plain filled square, so an emitter
+   * mounted before its real texture is ready still renders something
+   * visible rather than nothing. Awaiting this before the emitter starts
+   * producing particles is recommended but not required — particles that
+   * exist before the texture resolves simply aren't drawn yet.
+   */
+  mountParticles(emitter: ParticleEmitter, layerName?: string): Promise<void>;
+  /** Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on an emitter that was never mounted (a no-op). */
+  unmountParticles(emitter: ParticleEmitter): void;
+  private _syncParticles;
   /**
    * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
    * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for

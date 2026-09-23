@@ -61,6 +61,7 @@ export default [
       'packages/engine/src/__tests__/AssetManifest.test.ts',
       'packages/engine/src/ecs/systems/RenderPipeline.ts',
       'packages/engine/src/__tests__/ecs/RenderPipeline.test.ts',
+      'packages/engine/src/__tests__/ecs/RenderPipelineParticles.test.ts',
       'packages/engine/src/ecs/systems/PhysicsSystem.ts',
       'packages/engine/src/ecs/systems/PhysicsSystem3D.ts',
     ],
