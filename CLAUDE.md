@@ -513,6 +513,26 @@ boilerplate — confirming `listEntities` found both seeded entities,
 `setComponent` wrote through to the live entity, and a follow-up
 `getComponent` read the new value back.
 
+### `@emptysock/engine/ecs` re-exports `Actor`/`ActorSystem`/`CameraSystem`/`TweenManager` — genuinely shared, not classic-only
+
+`ActorSystem` (used internally by `ecs/Game.ts`, handed to scene code as
+`SceneLifecycle.actors`) and `CameraSystem` (already documented above as
+having "zero coupling to the classic `core/Entity.ts`/`Scene.ts`") were both
+real, environment-agnostic implementations game code targeting the ECS API
+had no way to import — neither was re-exported from `ecs/index.ts`, only
+from the classic root surface. Same for `TweenManager` (`systems/TweenSystem.ts`
+— the class itself is named `TweenManager`, not `TweenSystem`) and `Actor`/
+`Message`/`ActorId`. All four are added to `ecs/index.ts` now, re-exporting
+the identical shared implementation the classic root surface uses — this is
+not a fork or a parallel copy, and `index-exports.test.ts` constructs each
+one directly to prove the export is real, not just present in the type
+surface. If a future "is X classic-only or shared" question comes up for
+another system living in `packages/engine/src/systems/` or `core/`, check
+whether `ecs/Game.ts` or another ECS-core file already imports it directly
+(as it does for `ActorSystem`) before assuming it needs porting — some of
+what looks like classic-only surface is really just under-exported from the
+ECS subpath.
+
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 
 `GitPanel.tsx` used to call `invoke("plugin:shell|execute", { cmd: "git", args })` directly against `@tauri-apps/plugin-shell`'s low-level invoke name — but the JS package (`@tauri-apps/plugin-shell`) was never actually added as a dependency, the param name was wrong (the plugin's real `execute` command takes `program`, not `cmd`), and using the shell plugin at all would have meant configuring its scoped-execute allowlist in `capabilities/default.json` (a `shell:allow-execute` permission naming exactly which programs/argument shapes are permitted) just to run one fixed binary. None of that ever worked. Replaced with `run_git(project_dir, args)`, a single Tauri command in `lib.rs` that does a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` already use, and CLAUDE.md's own comment above `open_in_vscode` already called out as the "no shell-execute scope config needed" alternative. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. `tauri_plugin_shell::init()`'s plugin registration and the `shell:default` capability entry were removed outright since nothing else in the app used them. One generic passthrough (rather than one Tauri command per git subcommand) was deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.

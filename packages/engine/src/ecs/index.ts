@@ -6,9 +6,12 @@
  * project template and the live Inspector bridge (`ecs/bridge/QueryChannel.ts`)
  * target. It lives at a separate subpath export, not re-exported from the
  * package root, because the classic engine (`Scene`/`Entity`/`Component`/
- * `ActorSystem`/`PhysicsSystem` from `../index.js`) still exists on disk and
- * exports colliding names for different things — merging both into one
- * export surface isn't a safe mechanical change. The root export surface is
+ * `PhysicsSystem` from `../index.js`) still exists on disk and exports
+ * colliding names for different things — merging both into one export
+ * surface isn't a safe mechanical change. (`ActorSystem`/`CameraSystem`/
+ * `TweenManager` are genuinely shared, environment-agnostic implementations
+ * re-exported here without collision — see their own imports below.) The
+ * root export surface is
  * not bundled or typed anywhere in `apps/ide` any more; it remains only
  * until the classic `core/`/`systems/` source trees themselves are deleted.
  */
@@ -54,6 +57,28 @@ export type {
   CoroutineYield,
 } from "./Coroutines.js";
 export { Game, defineScene } from "./Game.js";
+// ActorSystem (§ CLAUDE.md "ActorSystem mailbox ordering") is a shared
+// implementation, not a classic-only one — `Game.loadScene()`/`loadOverlay()`
+// already construct one per scene and hand it to game code as
+// `SceneLifecycle.actors`. `Actor`/`Message`/`ActorId` are exported here so
+// game code can define its own `Actor` subclasses without reaching into the
+// classic root surface for them.
+export { Actor } from "../core/Actor.js";
+export type { Message, ActorId } from "../core/Actor.js";
+export { ActorSystem } from "../core/ActorSystem.js";
+// CameraSystem and TweenSystem likewise have zero coupling to the classic
+// object model (CLAUDE.md's "PluginSystem... are Game services" entry notes
+// CameraSystem already had "zero coupling to the classic core/Entity.ts/
+// Scene.ts") — real, usable systems for ECS game code, just not previously
+// re-exported from this subpath.
+export { CameraSystem } from "../systems/CameraSystem.js";
+export type { CameraState, CameraBounds } from "../systems/CameraSystem.js";
+export { TweenManager } from "../systems/TweenSystem.js";
+export type {
+  TweenOptions,
+  TweenHandle,
+  EasingName,
+} from "../systems/TweenSystem.js";
 export type {
   UpdateFn,
   SceneDefinition,
