@@ -59,6 +59,82 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     await game.unloadScene();
   });
 
+  it("setComponent writes through to the same live proxy getComponent/listEntities read", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+
+    const entity = scene.spawn();
+    entity.add(Transform, { x: 3, y: 4 });
+
+    const channel = new QueryChannel();
+    channel.registerComponents(Transform);
+    channel.attach(scene);
+
+    const written = channel.handle({
+      kind: "setComponent",
+      entityId: entity.eid,
+      component: "Transform",
+      patch: { x: 99 },
+    });
+    expect(written.ok).toBe(true);
+    if (!written.ok) throw new Error("expected ok");
+    expect(written.data).toMatchObject({ x: 99, y: 4 });
+
+    // The write is live on the entity itself, not just the channel's echo.
+    expect(entity.get(Transform)?.x).toBe(99);
+
+    const reread = channel.handle({
+      kind: "getComponent",
+      entityId: entity.eid,
+      component: "Transform",
+    });
+    expect(reread.ok).toBe(true);
+    if (!reread.ok) throw new Error("expected ok");
+    expect(reread.data).toMatchObject({ x: 99, y: 4 });
+
+    await game.unloadScene();
+  });
+
+  it("setComponent returns unknown-component/not-found the same way getComponent does", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const entity = scene.spawn();
+    entity.add(Transform);
+
+    const channel = new QueryChannel();
+    channel.registerComponents(Transform);
+    channel.attach(scene);
+
+    expect(
+      channel.handle({
+        kind: "setComponent",
+        entityId: entity.eid,
+        component: "NotRegistered",
+        patch: {},
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "unknown-component",
+        message: expect.any(String) as string,
+      },
+    });
+
+    expect(
+      channel.handle({
+        kind: "setComponent",
+        entityId: 999,
+        component: "Transform",
+        patch: {},
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: "not-found", message: expect.any(String) as string },
+    });
+
+    await game.unloadScene();
+  });
+
   it("includes Meta/Transform-derived fields when present, and omits them when absent", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}));

@@ -7,13 +7,16 @@ import { type PhysicsSystem } from "../systems/PhysicsSystem.js";
  * (`physics_raycast_2d`, `physics_overlap_circle`, `physics_body_state`,
  * plus entity/component reads and scene entity listing) relay against.
  *
- * This is the ECS-core counterpart to `core/IDEBridge.ts`: `IDEBridge` is a
- * `postMessage`-shaped, fire-and-forget broadcast (entity snapshots pushed
- * on a timer, component patches pushed back) built for the classic object
- * model and the IDE's own iframe embedding. Raycasts and overlap tests need a
- * synchronous request/response round trip against a live ECS-core `Scene` and
- * `PhysicsSystem` instead, so this is a separate, narrower thing — it does
- * not replace `IDEBridge` or share its wire format.
+ * This is also the IDE's live Inspector transport target — `apps/ide`'s
+ * preview iframe host constructs one, finds the running game's `Game`
+ * instance via the static `Game.instances` registry, attaches its
+ * `currentScene`, and relays `listEntities`/`entityInfo`/`getComponent`/
+ * `setComponent` queries over `postMessage`. `core/IDEBridge.ts`'s own
+ * `postMessage` wire format (`es:entities`/`es:set-component`, a fire-
+ * and-forget broadcast built for the classic object model) has no real
+ * caller anywhere in `apps/ide` — nothing ever calls `ideBridge.install()`
+ * — so there was never a live protocol to migrate off of, only a dead one
+ * to leave alone for the deletion pass.
  *
  * ## Transport-agnostic by design
  *
@@ -79,6 +82,19 @@ export interface GetComponentQuery {
   entityId: number;
   component: string;
 }
+/**
+ * Merge `patch` into one component's live fields on one entity — the one
+ * mutation this channel supports, alongside its otherwise read-only query
+ * kinds. Exists for the IDE's live Inspector: editing a value while the
+ * game is running has to reach the same live component data
+ * `getComponent`/`listEntities` read, not a separate write path.
+ */
+export interface SetComponentQuery {
+  kind: "setComponent";
+  entityId: number;
+  component: string;
+  patch: Record<string, unknown>;
+}
 /** `physics_raycast_2d` — cast a ray, return the first hit (if any). */
 export interface Raycast2DQuery {
   kind: "raycast2d";
@@ -102,6 +118,7 @@ export type EngineQuery =
   | ListEntitiesQuery
   | EntityInfoQuery
   | GetComponentQuery
+  | SetComponentQuery
   | Raycast2DQuery
   | OverlapCircle2DQuery
   | BodyState2DQuery;
@@ -225,6 +242,7 @@ export declare class QueryChannel {
   private _listEntities;
   private _entityInfo;
   private _getComponent;
+  private _setComponent;
   private _raycast2d;
   private _overlapCircle2d;
   private _bodyState2d;

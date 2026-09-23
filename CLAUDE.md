@@ -458,18 +458,30 @@ original bare `{ entityId, components }` shape, so this is additive, not a
 breaking change to the query result.
 
 This closes the "we don't have a shape to migrate to" half of Track 0's deferred
-item, but not the whole thing: `apps/ide/src/services/EngineChannel.ts` still
-consumes the classic `IDEBridge` `es:entities`/`es:component-fields` postMessage
-protocol end to end, confirmed by grep — nothing in `apps/ide` has been rewired to
-call `queryChannel.handle({ kind: "listEntities" })` instead. That rewiring
-touches `CanvasPreview.tsx`/`EntityProperties.tsx`/`SceneInspector.tsx`/
-`useEngineChannel.ts` and can only be verified by actually running the live
-preview iframe and clicking through the Inspector — not something a
-non-interactive session can safely do blind. Until that rewiring lands, Track 8's
-"Inspector reads a real `ComponentRegistry`-driven schema" item stays blocked:
-its own stated precondition is "every component is ECS-native," and the
-Inspector's live data source is still the pre-ECS bridge regardless of how many
-`ComponentDef`s exist on the engine side.
+item, but not the whole thing — and the remaining piece is bigger than a wire-
+protocol rewrite. Traced end to end (RELEASE_PASS.md has the full write-up):
+`apps/ide/engine-runtime.build.mjs` bundles only `packages/engine/src/index.ts`
+(the classic root export surface) into the IIFE the preview iframe actually
+runs, and `apps/ide/vite.config.ts`'s `engineTypesPlugin` only exposes that same
+root surface to Monaco — `@emptysock/engine/ecs` (`Game`, `QueryChannel`, every
+ECS component/system) is bundled and typed nowhere in `apps/ide` today. Root and
+ECS also export colliding names for different things (`Entity`, `Scene`,
+`Transform`, `PhysicsSystem`, `UISystem`, …), so merging them into one flat
+runtime namespace isn't a safe mechanical fix either. `QueryChannel.attach()`
+takes an ECS `Scene` specifically and has no way to inspect a classic one, so it
+cannot become "the" live Inspector bridge until `apps/ide`'s authored-game
+pipeline (Monaco types, the runtime bundle, project templates) actually targets
+the ECS API — a project-owner-level decision and a much larger migration than
+rewiring `EngineChannel.ts`.
+
+Two small, real, independently useful pieces of groundwork landed for whenever
+that migration happens: `Game.instances: Set<Game>` (`ecs/Game.ts`) — a pure,
+DOM-free static registry of every live `Game`, so a future ECS-aware preview
+bootstrap can find a `Game` it didn't construct itself without game code opting
+in to anything IDE-specific — and `QueryChannel`'s `setComponent` query kind,
+which merges a patch into a component's live fields through the same proxy
+`getComponent`/`listEntities` already read from. Both are real, tested, and
+useful on their own; neither makes the Inspector live today.
 
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 

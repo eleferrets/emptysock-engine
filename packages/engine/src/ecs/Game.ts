@@ -273,6 +273,21 @@ export interface GameOptions {
 }
 
 export class Game {
+  /**
+   * Every live `Game` instance, in construction order. Pure in-memory
+   * bookkeeping — no DOM, no globals, nothing that violates the engine
+   * environment boundary — so a headless/Node `Game` is unaffected. This
+   * exists so host code that doesn't own the `new Game()` call (the IDE's
+   * preview iframe bootstrap script, which runs alongside arbitrary game
+   * code it never wrote) has a documented way to find the game instance
+   * the user's own code just created, instead of requiring every game to
+   * opt in to some IDE-specific registration call. See
+   * `ecs/bridge/QueryChannel.ts`'s doc comment for the other half: the host
+   * is expected to `new QueryChannel().attach(game.currentScene, ...)`
+   * once it finds a `Game` here, not the other way around.
+   */
+  static readonly instances = new Set<Game>();
+
   private readonly _deterministic: boolean;
   private _current: LoadedScene | null = null;
   /**
@@ -308,6 +323,7 @@ export class Game {
     this.services.register(LocalisationSystem);
     this.services.register(ViewportSystem);
     this.services.register(WindowSystem);
+    Game.instances.add(this);
   }
 
   /** Equivalent to `new Game(options)` — reads better at a call site than `new`. */

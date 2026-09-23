@@ -14,13 +14,16 @@ import { Transform } from "../components/Transform.js";
  * (`physics_raycast_2d`, `physics_overlap_circle`, `physics_body_state`,
  * plus entity/component reads and scene entity listing) relay against.
  *
- * This is the ECS-core counterpart to `core/IDEBridge.ts`: `IDEBridge` is a
- * `postMessage`-shaped, fire-and-forget broadcast (entity snapshots pushed
- * on a timer, component patches pushed back) built for the classic object
- * model and the IDE's own iframe embedding. Raycasts and overlap tests need a
- * synchronous request/response round trip against a live ECS-core `Scene` and
- * `PhysicsSystem` instead, so this is a separate, narrower thing — it does
- * not replace `IDEBridge` or share its wire format.
+ * This is also the IDE's live Inspector transport target — `apps/ide`'s
+ * preview iframe host constructs one, finds the running game's `Game`
+ * instance via the static `Game.instances` registry, attaches its
+ * `currentScene`, and relays `listEntities`/`entityInfo`/`getComponent`/
+ * `setComponent` queries over `postMessage`. `core/IDEBridge.ts`'s own
+ * `postMessage` wire format (`es:entities`/`es:set-component`, a fire-
+ * and-forget broadcast built for the classic object model) has no real
+ * caller anywhere in `apps/ide` — nothing ever calls `ideBridge.install()`
+ * — so there was never a live protocol to migrate off of, only a dead one
+ * to leave alone for the deletion pass.
  *
  * ## Transport-agnostic by design
  *
@@ -93,6 +96,20 @@ export interface GetComponentQuery {
   component: string;
 }
 
+/**
+ * Merge `patch` into one component's live fields on one entity — the one
+ * mutation this channel supports, alongside its otherwise read-only query
+ * kinds. Exists for the IDE's live Inspector: editing a value while the
+ * game is running has to reach the same live component data
+ * `getComponent`/`listEntities` read, not a separate write path.
+ */
+export interface SetComponentQuery {
+  kind: "setComponent";
+  entityId: number;
+  component: string;
+  patch: Record<string, unknown>;
+}
+
 /** `physics_raycast_2d` — cast a ray, return the first hit (if any). */
 export interface Raycast2DQuery {
   kind: "raycast2d";
@@ -119,6 +136,7 @@ export type EngineQuery =
   | ListEntitiesQuery
   | EntityInfoQuery
   | GetComponentQuery
+  | SetComponentQuery
   | Raycast2DQuery
   | OverlapCircle2DQuery
   | BodyState2DQuery;
@@ -278,6 +296,8 @@ export class QueryChannel {
         return this._entityInfo(query.entityId);
       case "getComponent":
         return this._getComponent(query.entityId, query.component);
+      case "setComponent":
+        return this._setComponent(query.entityId, query.component, query.patch);
       case "raycast2d":
         return this._raycast2d(query);
       case "overlapCircle2d":
@@ -408,6 +428,43 @@ export class QueryChannel {
       return notFound(`Entity ${entityId} has no "${component}" component.`);
     }
     return ok({ ...data });
+  }
+
+  private _setComponent(
+    entityId: number,
+    component: string,
+    patch: Record<string, unknown>,
+  ): EngineQueryResult<Record<string, unknown>> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+
+    const def = this._components.get(component);
+    if (def === undefined) {
+      return {
+        ok: false,
+        error: {
+          code: "unknown-component",
+          message: `"${component}" is not registered with this query channel.`,
+        },
+      };
+    }
+
+    const entity = this._entityHandle(entityId);
+    if (entity === null || !entity.isAlive) {
+      return notFound(`No live entity with id ${entityId}.`);
+    }
+    const proxy = entity.get(def) as Record<string, unknown> | undefined;
+    if (proxy === undefined) {
+      return notFound(`Entity ${entityId} has no "${component}" component.`);
+    }
+    // `proxy` is the same live, write-through proxy `entity.get()` always
+    // returns (`Entity.ts`'s `createComponentProxy`) — assigning a field
+    // here writes straight into the component's real parallel-array store,
+    // the same store `getComponent`/`listEntities` read from next tick.
+    for (const [field, value] of Object.entries(patch)) {
+      proxy[field] = value;
+    }
+    return ok({ ...proxy });
   }
 
   private _raycast2d(
