@@ -202,6 +202,31 @@ export type {
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
 export { PhysicsBody, getPhysicsBody } from "./components/PhysicsBody.js";
+export {
+  VisualScriptState,
+  registerVisualScriptGraph,
+  getVisualScriptGraph,
+  unregisterVisualScriptGraph,
+} from "./components/VisualScript.js";
+export { VisualScriptSystem } from "./systems/VisualScriptSystem.js";
+export { VisualScriptGraphBuilder } from "../components/VisualScriptComponent.js";
+export type {
+  VisualScriptGraph,
+  VSNode,
+  VSNodeKind,
+  VSConnection,
+  OnUpdateNode,
+  OnEventNode,
+  SequenceNode,
+  BranchNode,
+  GetVariableNode,
+  SetVariableNode,
+  GetSwitchNode,
+  SetSwitchNode,
+  SendMessageNode,
+} from "../components/VisualScriptComponent.js";
+export { compileVisualScriptGraph } from "../systems/VisualScriptCompiler.js";
+export type { VSCompiledContext } from "../systems/VisualScriptCompiler.js";
 export { QueryChannel } from "./bridge/QueryChannel.js";
 export type {
   EngineQuery,

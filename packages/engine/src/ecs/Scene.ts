@@ -18,6 +18,7 @@ import {
 } from "./Prefab.js";
 import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
+import { clearVisualScriptScope } from "./components/VisualScript.js";
 import { clearCoroutines } from "./Coroutines.js";
 
 /**
@@ -185,6 +186,9 @@ export class Scene {
     // a coroutine still scheduled against the previous occupant would keep
     // running against whatever new entity later reuses this id.
     clearCoroutines(this.world, entity.eid);
+    // Same reasoning again for a Visual Script run's per-entity evaluation
+    // scope — see `clearVisualScriptScope`'s doc comment.
+    clearVisualScriptScope(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {

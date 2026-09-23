@@ -222,6 +222,38 @@ export type {
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
 export { PhysicsBody, getPhysicsBody } from "./components/PhysicsBody.js";
+export {
+  VisualScriptState,
+  registerVisualScriptGraph,
+  getVisualScriptGraph,
+  unregisterVisualScriptGraph,
+} from "./components/VisualScript.js";
+export { VisualScriptSystem } from "./systems/VisualScriptSystem.js";
+// The graph shape itself (`VisualScriptGraph`/`VSNode`/`VSConnection`/...)
+// and the fluent `VisualScriptGraphBuilder` have zero classic-`Component`
+// coupling — they're pure data/type definitions the Visual Script Editor
+// panel, the classic interpreter, and this ECS system all share (see
+// CLAUDE.md's Visual Script Editor entry) — so they're re-exported here too
+// rather than forcing ECS game code to reach into the classic root surface
+// just to construct or type a graph.
+export { VisualScriptGraphBuilder } from "../components/VisualScriptComponent.js";
+export type {
+  VisualScriptGraph,
+  VSNode,
+  VSNodeKind,
+  VSConnection,
+  OnUpdateNode,
+  OnEventNode,
+  SequenceNode,
+  BranchNode,
+  GetVariableNode,
+  SetVariableNode,
+  GetSwitchNode,
+  SetSwitchNode,
+  SendMessageNode,
+} from "../components/VisualScriptComponent.js";
+export { compileVisualScriptGraph } from "../systems/VisualScriptCompiler.js";
+export type { VSCompiledContext } from "../systems/VisualScriptCompiler.js";
 export { QueryChannel } from "./bridge/QueryChannel.js";
 export type {
   EngineQuery,

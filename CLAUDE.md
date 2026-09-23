@@ -564,6 +564,58 @@ Porting either to ECS is real, scoped work on the same order as the
 WidgetTree/UISystem port already done (a genuine design pass), not a
 mechanical import swap — don't attempt either as a quick fix.
 
+### Visual Script Editor's ECS port: the graph is shared static data, the component is a one-field cursor
+
+`ecs/components/VisualScript.ts`/`ecs/systems/VisualScriptSystem.ts` are the
+ECS-side counterpart to the classic `components/VisualScriptComponent.ts` (the
+"Visual script compilation" entry above covers the classic interpreter/
+compiler pair, unchanged — this reuses `VisualScriptCompiler.compileVisualScriptGraph`
+directly rather than re-implementing it). The classic version cannot just be
+re-exported: it `extends` the classic `Component` base class, structurally
+incompatible with `defineComponent`'s plain-data ECS components.
+
+Research into how production ECS engines represent this (Unity DOTS's
+`EntitiesBT`/`DOTS-BehaviorTree`, Bevy's `bevy_behavior`) converged on one
+shape before any code was written: the graph itself is shared, immutable data
+referenced by id, never duplicated per entity. `VisualScriptState` (the ECS
+component) is deliberately tiny — one field, `graphId: string` — and
+`registerVisualScriptGraph`/`getVisualScriptGraph`/`unregisterVisualScriptGraph`
+hold the real `VisualScriptGraph` data in a module-level registry keyed by
+that id, the same "shared static data keyed by id" pattern `@emptysock/network`'s
+`NetworkedFields` side-map and `TilemapSystem`'s tilemap registry both already
+use. Many entities running the same authored graph share one `graphId`
+string and, via `VisualScriptSystem`'s per-`graphId` compiled-module cache,
+one compiled function — never a copy of `nodes`/`connections` sitting in
+bitECS's own parallel arrays.
+
+The classic component's private `_scope` (a per-trigger-run
+`outputKey -> number` evaluation binding) is genuinely per-entity, mutable,
+non-serializable runtime state — it cannot live on `VisualScriptState` itself,
+which must stay `Serializable`. It lives in a `WeakMap<World, Map<eid,
+Map<string, number>>>` side-table instead (`getVisualScriptScope`/
+`clearVisualScriptScope`), the same shape `PhysicsBody`'s callback side-table
+already uses. `Scene.destroy()` calls `clearVisualScriptScope` alongside
+`clearPhysicsBody`/`clearCoroutines` for the identical reason those two
+already document: a prefab-pooled entity's reused bitECS id must not inherit
+the previous occupant's stale scope entries, since pooled ids are never
+released back to bitECS's own recycling.
+
+`VisualScriptSystem` takes an optional shared `VariableStore`/`ActorSystem`
+once, at construction — unlike the classic component, which owns a private
+`VariableStore`/`ActorSystem` reference per instance — matching
+`SceneLifecycle`'s "one instance per scene, shared by whatever reads it"
+convention (see "VNSystem and MapEventSystem default to an isolated
+VariableStore" above): pass `ctx.variables`/`ctx.actors` from a scene's
+`onLoad` to share state with the rest of the game, or leave the constructor
+defaults for an isolated instance. `update(scene)`/`fireEvent(scene,
+eventType)` drive every `VisualScriptState` entity via `scene.each()`.
+
+The Visual Script Editor panel's own UI (`visual-script/*.tsx`,
+`logicScriptStore.ts`) is unchanged and still authors/targets the classic
+`VisualScriptComponent` — wiring the panel to emit `VisualScriptState`/call
+`registerVisualScriptGraph` instead is separate, not-yet-started follow-up
+work. This entry only closes the "does a real ECS equivalent exist" gap.
+
 ### `Tilemap`'s root entity is spawned lazily by `loadInto()`, not eagerly by `register()`
 
 `@emptysock/tilemap`'s `TilemapSystem.register(data)` is called before any
