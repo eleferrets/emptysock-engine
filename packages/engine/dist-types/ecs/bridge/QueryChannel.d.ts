@@ -136,6 +136,21 @@ export interface EngineQueryResponse {
 export interface EntitySummary {
   entityId: number;
   components: string[];
+  /**
+   * From the entity's optional `Meta` component (RELEASE_PASS.md Track 0's
+   * deferred IDEBridge/QueryChannel unification, resolved by
+   * `ecs/components/Meta.ts`) — `undefined`/absent fields mean the entity
+   * carries no `Meta` component at all, the common case for a purely
+   * code-spawned entity. Never fabricated: a `name` present here always
+   * came from a real `Meta.name` field, not a placeholder.
+   */
+  name?: string;
+  tags?: readonly string[];
+  active?: boolean;
+  /** From the entity's optional `Transform` component, when present. */
+  x?: number;
+  y?: number;
+  rotation?: number;
 }
 export interface RaycastResultData {
   entityId: number;
@@ -205,6 +220,8 @@ export declare class QueryChannel {
    * instead.
    */
   private _entityHandle;
+  /** `Meta`/`Transform` fields for `EntitySummary`, when the entity carries either — see `EntitySummary`'s own doc comment. */
+  private _summaryExtras;
   private _listEntities;
   private _entityInfo;
   private _getComponent;

@@ -75,6 +75,8 @@ export type {
 } from "../systems/PointerSystem.js";
 export type { Serializable, SerializableRecord } from "./Serializable.js";
 export { Transform } from "./components/Transform.js";
+export { Meta } from "./components/Meta.js";
+export type { MetaShape } from "./components/Meta.js";
 export { Sprite } from "./components/Sprite.js";
 export { Layout, LayoutStyle } from "./components/Layout.js";
 export {

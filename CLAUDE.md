@@ -436,6 +436,39 @@ The one real design question this forced: GML event code (Create/Step/Draw/Destr
 
 None of the real `.yy`/`.yyp` format quirks documented above (trailing commas, `%Name`, event naming, `resourceType` room layers, sprite frame UUIDs, `defaultScriptType` non-signal, untranspiled GM8.1 DnD symbols) were touched by this — they live entirely in the parsing layer (`gms2-parse.ts`/`gms2-sprite-import.ts`/`gms2-room-import.ts`/`gms2-transpile.ts`), which this redesign never modified, only the codegen layer consuming its output.
 
+### `Meta` component gives `QueryChannel` a real entity name/tags/active shape — `apps/ide` still isn't wired to read it
+
+RELEASE_PASS.md's Track 0 deferred unifying `IDEBridge` into `QueryChannel` for a
+specific, real reason: `QueryChannel`'s `EntitySummary` had no `name`/`tags`/`active`
+fields, and bitECS entities have no built-in notion of any of the three, so
+inventing that shape needed a real design decision rather than a placeholder.
+`ecs/components/Meta.ts` is that decision — an optional component (`name: string`,
+`tags: string[]`, `active: boolean`) following the same "optional, absent means a
+sane default" pattern `WidgetAppearance` already uses for `visible`/`alpha`: an
+entity with no `Meta` is simply unnamed/untagged/active, the common case for a
+purely code-spawned entity that never needs to show up named in an editor.
+`QueryChannel.EntitySummary` gained matching optional `name?`/`tags?`/`active?`
+fields plus `x?`/`y?`/`rotation?` sourced from `Transform` when present, and both
+`_listEntities()` and `_entityInfo()` route through a new private
+`_summaryExtras(entity)` that reads `Meta`/`Transform` if they exist and spreads
+whichever fields are present — an entity with neither component still gets the
+original bare `{ entityId, components }` shape, so this is additive, not a
+breaking change to the query result.
+
+This closes the "we don't have a shape to migrate to" half of Track 0's deferred
+item, but not the whole thing: `apps/ide/src/services/EngineChannel.ts` still
+consumes the classic `IDEBridge` `es:entities`/`es:component-fields` postMessage
+protocol end to end, confirmed by grep — nothing in `apps/ide` has been rewired to
+call `queryChannel.handle({ kind: "listEntities" })` instead. That rewiring
+touches `CanvasPreview.tsx`/`EntityProperties.tsx`/`SceneInspector.tsx`/
+`useEngineChannel.ts` and can only be verified by actually running the live
+preview iframe and clicking through the Inspector — not something a
+non-interactive session can safely do blind. Until that rewiring lands, Track 8's
+"Inspector reads a real `ComponentRegistry`-driven schema" item stays blocked:
+its own stated precondition is "every component is ECS-native," and the
+Inspector's live data source is still the pre-ECS bridge regardless of how many
+`ComponentDef`s exist on the engine side.
+
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 
 `GitPanel.tsx` used to call `invoke("plugin:shell|execute", { cmd: "git", args })` directly against `@tauri-apps/plugin-shell`'s low-level invoke name — but the JS package (`@tauri-apps/plugin-shell`) was never actually added as a dependency, the param name was wrong (the plugin's real `execute` command takes `program`, not `cmd`), and using the shell plugin at all would have meant configuring its scoped-execute allowlist in `capabilities/default.json` (a `shell:allow-execute` permission naming exactly which programs/argument shapes are permitted) just to run one fixed binary. None of that ever worked. Replaced with `run_git(project_dir, args)`, a single Tauri command in `lib.rs` that does a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` already use, and CLAUDE.md's own comment above `open_in_vscode` already called out as the "no shell-execute scope config needed" alternative. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. `tauri_plugin_shell::init()`'s plugin registration and the `shell:default` capability entry were removed outright since nothing else in the app used them. One generic passthrough (rather than one Tauri command per git subcommand) was deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.

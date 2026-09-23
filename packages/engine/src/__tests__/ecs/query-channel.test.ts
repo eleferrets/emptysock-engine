@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Game, defineScene } from "../../ecs/Game.js";
-import { QueryChannel } from "../../ecs/bridge/QueryChannel.js";
+import {
+  QueryChannel,
+  type EntitySummary,
+} from "../../ecs/bridge/QueryChannel.js";
 import { PhysicsBody } from "../../ecs/components/PhysicsBody.js";
 import { Transform } from "../../ecs/components/Transform.js";
+import { Meta } from "../../ecs/components/Meta.js";
 
 describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge)", () => {
   it("answers entity/component queries against a live scene", async () => {
@@ -20,7 +24,13 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     expect(list.ok).toBe(true);
     if (!list.ok) throw new Error("expected ok");
     expect(list.data).toEqual([
-      { entityId: entity.eid, components: ["Transform"] },
+      {
+        entityId: entity.eid,
+        components: ["Transform"],
+        x: 3,
+        y: 4,
+        rotation: 0,
+      },
     ]);
 
     const info = channel.handle({
@@ -32,6 +42,9 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     expect(info.data).toEqual({
       entityId: entity.eid,
       components: ["Transform"],
+      x: 3,
+      y: 4,
+      rotation: 0,
     });
 
     const component = channel.handle({
@@ -42,6 +55,64 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     expect(component.ok).toBe(true);
     if (!component.ok) throw new Error("expected ok");
     expect(component.data).toMatchObject({ x: 3, y: 4 });
+
+    await game.unloadScene();
+  });
+
+  it("includes Meta/Transform-derived fields when present, and omits them when absent", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+
+    const named = scene.spawn();
+    named.add(Transform, { x: 5, y: 6, rotation: 0.5 });
+    named.add(Meta, { name: "Hero", tags: ["player", "controllable"] });
+
+    const bare = scene.spawn();
+    bare.add(Transform, { x: 1, y: 2 });
+
+    const channel = new QueryChannel();
+    channel.registerComponents(Transform, Meta);
+    channel.attach(scene);
+
+    const list = channel.handle({ kind: "listEntities" });
+    expect(list.ok).toBe(true);
+    if (!list.ok) throw new Error("expected ok");
+    const summaries = list.data as EntitySummary[];
+    const namedSummary = summaries.find((s) => s.entityId === named.eid);
+    const bareSummary = summaries.find((s) => s.entityId === bare.eid);
+    expect(namedSummary).toEqual({
+      entityId: named.eid,
+      components: expect.arrayContaining(["Transform", "Meta"]) as string[],
+      name: "Hero",
+      tags: ["player", "controllable"],
+      active: true,
+      x: 5,
+      y: 6,
+      rotation: 0.5,
+    });
+    expect(bareSummary).toEqual({
+      entityId: bare.eid,
+      components: ["Transform"],
+      x: 1,
+      y: 2,
+      rotation: 0,
+    });
+    expect(bareSummary).not.toHaveProperty("name");
+    expect(bareSummary).not.toHaveProperty("tags");
+
+    const info = channel.handle({ kind: "entityInfo", entityId: named.eid });
+    expect(info.ok).toBe(true);
+    if (!info.ok) throw new Error("expected ok");
+    expect(info.data).toEqual({
+      entityId: named.eid,
+      components: expect.arrayContaining(["Transform", "Meta"]) as string[],
+      name: "Hero",
+      tags: ["player", "controllable"],
+      active: true,
+      x: 5,
+      y: 6,
+      rotation: 0.5,
+    });
 
     await game.unloadScene();
   });

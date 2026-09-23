@@ -5,6 +5,8 @@ import {
   PhysicsNotInitializedError,
   type PhysicsSystem,
 } from "../systems/PhysicsSystem.js";
+import { Meta } from "../components/Meta.js";
+import { Transform } from "../components/Transform.js";
 
 /**
  * ENGINE_DESIGN.md §8 / RELEASE_PASS.md "MCP live bridge" — the engine-side
@@ -153,6 +155,21 @@ export interface EngineQueryResponse {
 export interface EntitySummary {
   entityId: number;
   components: string[];
+  /**
+   * From the entity's optional `Meta` component (RELEASE_PASS.md Track 0's
+   * deferred IDEBridge/QueryChannel unification, resolved by
+   * `ecs/components/Meta.ts`) — `undefined`/absent fields mean the entity
+   * carries no `Meta` component at all, the common case for a purely
+   * code-spawned entity. Never fabricated: a `name` present here always
+   * came from a real `Meta.name` field, not a placeholder.
+   */
+  name?: string;
+  tags?: readonly string[];
+  active?: boolean;
+  /** From the entity's optional `Transform` component, when present. */
+  x?: number;
+  y?: number;
+  rotation?: number;
 }
 
 export interface RaycastResultData {
@@ -300,17 +317,37 @@ export class QueryChannel {
     return new Entity(live.scene.world, entityId, new Map());
   }
 
+  /** `Meta`/`Transform` fields for `EntitySummary`, when the entity carries either — see `EntitySummary`'s own doc comment. */
+  private _summaryExtras(entity: Entity): Partial<EntitySummary> {
+    const extras: Partial<EntitySummary> = {};
+    const meta = entity.get(Meta);
+    if (meta !== undefined) {
+      extras.name = meta.name;
+      extras.tags = meta.tags;
+      extras.active = meta.active;
+    }
+    const transform = entity.get(Transform);
+    if (transform !== undefined) {
+      extras.x = transform.x;
+      extras.y = transform.y;
+      extras.rotation = transform.rotation;
+    }
+    return extras;
+  }
+
   private _listEntities(): EngineQueryResult<EntitySummary[]> {
     const live = this._live;
     if (live === null) return noLiveInstance();
 
     const byEntity = new Map<number, Set<string>>();
+    const entities = new Map<number, Entity>();
     for (const def of this._components.values()) {
       live.scene.each(def, (_component, entity) => {
         let names = byEntity.get(entity.eid);
         if (names === undefined) {
           names = new Set();
           byEntity.set(entity.eid, names);
+          entities.set(entity.eid, entity);
         }
         names.add(def.componentName);
       });
@@ -318,7 +355,12 @@ export class QueryChannel {
 
     const summaries: EntitySummary[] = [];
     for (const [entityId, names] of byEntity) {
-      summaries.push({ entityId, components: [...names] });
+      const entity = entities.get(entityId);
+      summaries.push({
+        entityId,
+        components: [...names],
+        ...(entity !== undefined ? this._summaryExtras(entity) : {}),
+      });
     }
     return ok(summaries);
   }
@@ -336,7 +378,7 @@ export class QueryChannel {
     for (const def of this._components.values()) {
       if (entity.has(def)) components.push(def.componentName);
     }
-    return ok({ entityId, components });
+    return ok({ entityId, components, ...this._summaryExtras(entity) });
   }
 
   private _getComponent(
