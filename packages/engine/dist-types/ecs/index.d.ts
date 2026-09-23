@@ -106,6 +106,12 @@ export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
 export type { StorageAdapter } from "./systems/StorageAdapter.js";
 export { CGGallery } from "./systems/CGGallery.js";
 export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
+export { SceneTransitionManager } from "./systems/SceneTransition.js";
+export type {
+  TransitionEffect,
+  TransitionOptions,
+  TransitionEffectSink,
+} from "./systems/SceneTransition.js";
 export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
 export type {
   LogLevel,

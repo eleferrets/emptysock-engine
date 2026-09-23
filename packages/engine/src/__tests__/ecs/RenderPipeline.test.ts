@@ -236,3 +236,68 @@ describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
     expect(spriteA?.parent).toBeNull();
   });
 });
+
+describe("ECS RenderPipeline transition overlay (RELEASE_PASS.md Track 6)", () => {
+  let pipeline: InstanceType<typeof RenderPipeline>;
+
+  beforeEach(async () => {
+    pipeline = new RenderPipeline({
+      textureLoader: vi.fn(() => Promise.resolve(makeTestTexture())),
+    });
+    await pipeline.init();
+  });
+
+  it("does nothing when no transition is active", async () => {
+    const { PostProcessSystem } =
+      await import("../../systems/PostProcessSystem.js");
+    const post = new PostProcessSystem();
+    expect(() => pipeline.renderTransitionOverlay(post)).not.toThrow();
+  });
+
+  it("draws a fade overlay without throwing while a transition is active", async () => {
+    const { PostProcessSystem } =
+      await import("../../systems/PostProcessSystem.js");
+    const post = new PostProcessSystem();
+    post.beginTransition("fade", 0x000000);
+    post.transitionProgress = 0.25;
+    expect(post.transitionActive).toBe(true);
+    expect(() => pipeline.renderTransitionOverlay(post)).not.toThrow();
+  });
+
+  it("draws wipe and slide overlays without throwing", async () => {
+    const { PostProcessSystem } =
+      await import("../../systems/PostProcessSystem.js");
+    const post = new PostProcessSystem();
+    post.beginTransition("wipe", 0xffffff);
+    post.transitionProgress = 0.5;
+    expect(() => pipeline.renderTransitionOverlay(post)).not.toThrow();
+
+    post.beginTransition("slide", 0x111111);
+    post.transitionProgress = 0.75;
+    expect(() => pipeline.renderTransitionOverlay(post)).not.toThrow();
+  });
+
+  it("hides the overlay once the transition ends", async () => {
+    const { PostProcessSystem } =
+      await import("../../systems/PostProcessSystem.js");
+    const post = new PostProcessSystem();
+    post.beginTransition("fade", 0x000000);
+    post.transitionProgress = 0.5;
+    pipeline.renderTransitionOverlay(post);
+    post.endTransition();
+    expect(post.transitionActive).toBe(false);
+    expect(() => pipeline.renderTransitionOverlay(post)).not.toThrow();
+  });
+
+  it("renderFrame() paints the transition overlay automatically once a PostProcessSystem is attached", async () => {
+    const { PostProcessSystem } =
+      await import("../../systems/PostProcessSystem.js");
+    const post = new PostProcessSystem();
+    post.beginTransition("fade", 0x000000);
+    post.transitionProgress = 0.5;
+    pipeline.attachPostProcess(post);
+
+    const scene = new Scene();
+    expect(() => pipeline.renderFrame(scene)).not.toThrow();
+  });
+});

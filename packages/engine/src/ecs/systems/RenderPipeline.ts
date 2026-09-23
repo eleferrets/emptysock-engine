@@ -1,6 +1,7 @@
 import {
   Assets,
   Container,
+  Graphics,
   Particle,
   ParticleContainer,
   Sprite as PixiSprite,
@@ -162,6 +163,9 @@ export class RenderPipeline implements SceneRenderer {
   >();
   private readonly _particleTextures = new Map<ParticleEmitter, Texture>();
 
+  /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
+  private _transitionOverlay: Graphics | null = null;
+
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._loadTexture = options.textureLoader ?? defaultTextureLoader;
@@ -289,9 +293,78 @@ export class RenderPipeline implements SceneRenderer {
     this._pruneOverlays(overlays);
     if (this._postProcess !== null) {
       this._render.syncPostProcessLayerFilters(this._postProcess);
+      this.renderTransitionOverlay(this._postProcess);
     }
     this._syncParticles();
     this._render.render();
+  }
+
+  /**
+   * Paints the scene-transition overlay described by `postProcess`'s
+   * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
+   * the stage — the exact same overlay-based approach (a single colour
+   * rect, never two live scenes rendered simultaneously) as the classic
+   * `systems/RenderPipeline.ts`'s `renderTransitionOverlay()`. RELEASE_PASS.md
+   * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
+   * technically buildable (`renderer.render({ target: renderTexture,
+   * container })`, pixi v8's real object-form API) but deliberately did
+   * **not** build it in this pass: it's a genuine two-full-render-pass-per-
+   * frame cost during the transition window with no documented perf number
+   * from pixi's own docs, and the honest way to decide "default-on vs.
+   * opt-in" is profiling on real target devices (including lower-end
+   * tablets, per the mobile/tablet scope) — not something a headless CI
+   * sandbox can do. Shipping an unvalidated perf-risk rendering path
+   * without being able to verify its cost would be worse than keeping the
+   * proven, cheap overlay approach. Revisit once real device profiling is
+   * actually possible.
+   */
+  renderTransitionOverlay(postProcess: PostProcessSystem): void {
+    if (!postProcess.transitionActive) {
+      if (this._transitionOverlay !== null)
+        this._transitionOverlay.visible = false;
+      return;
+    }
+
+    const overlay = this._ensureTransitionOverlay();
+    overlay.visible = true;
+    overlay.clear();
+
+    const w = this._render.canvas.width;
+    const h = this._render.canvas.height;
+    const colour = postProcess.transitionColour;
+    const progress = postProcess.transitionProgress;
+
+    switch (postProcess.transitionEffect) {
+      case "fade": {
+        const alpha =
+          progress < 0.5 ? progress / 0.5 : 1 - (progress - 0.5) / 0.5;
+        overlay.rect(0, 0, w, h).fill({ color: colour, alpha });
+        break;
+      }
+      case "wipe": {
+        const width = w * progress;
+        overlay.rect(0, 0, width, h).fill({ color: colour, alpha: 1 });
+        break;
+      }
+      case "slide": {
+        const x = -w + w * 2 * progress;
+        overlay.rect(x, 0, w, h).fill({ color: colour, alpha: 1 });
+        break;
+      }
+      default:
+        overlay.visible = false;
+        break;
+    }
+  }
+
+  private _ensureTransitionOverlay(): Graphics {
+    if (this._transitionOverlay === null) {
+      this._transitionOverlay = new Graphics();
+      this._transitionOverlay.zIndex = Number.MAX_SAFE_INTEGER;
+      this._render.stage.addChild(this._transitionOverlay);
+      this._render.stage.sortableChildren = true;
+    }
+    return this._transitionOverlay;
   }
 
   /** Sync the main scene's PixiJS sprites without rendering. Exposed for tests/custom loops. */
@@ -503,6 +576,8 @@ export class RenderPipeline implements SceneRenderer {
       this.unmountParticles(emitter);
     }
     this._textureCache.clear();
+    this._transitionOverlay?.destroy();
+    this._transitionOverlay = null;
     this._render.destroy();
     this._layers.destroy();
   }

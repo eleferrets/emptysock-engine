@@ -125,6 +125,8 @@ export declare class RenderPipeline implements SceneRenderer {
    */
   private readonly _particleContainers;
   private readonly _particleTextures;
+  /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
+  private _transitionOverlay;
   constructor(options?: RenderPipelineOptions);
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
   attachPostProcess(postProcess: PostProcessSystem | null): void;
@@ -170,6 +172,27 @@ export declare class RenderPipeline implements SceneRenderer {
    * renders once.
    */
   renderFrame(main: Scene, overlays?: readonly Scene[]): void;
+  /**
+   * Paints the scene-transition overlay described by `postProcess`'s
+   * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
+   * the stage — the exact same overlay-based approach (a single colour
+   * rect, never two live scenes rendered simultaneously) as the classic
+   * `systems/RenderPipeline.ts`'s `renderTransitionOverlay()`. RELEASE_PASS.md
+   * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
+   * technically buildable (`renderer.render({ target: renderTexture,
+   * container })`, pixi v8's real object-form API) but deliberately did
+   * **not** build it in this pass: it's a genuine two-full-render-pass-per-
+   * frame cost during the transition window with no documented perf number
+   * from pixi's own docs, and the honest way to decide "default-on vs.
+   * opt-in" is profiling on real target devices (including lower-end
+   * tablets, per the mobile/tablet scope) — not something a headless CI
+   * sandbox can do. Shipping an unvalidated perf-risk rendering path
+   * without being able to verify its cost would be worse than keeping the
+   * proven, cheap overlay approach. Revisit once real device profiling is
+   * actually possible.
+   */
+  renderTransitionOverlay(postProcess: PostProcessSystem): void;
+  private _ensureTransitionOverlay;
   /** Sync the main scene's PixiJS sprites without rendering. Exposed for tests/custom loops. */
   syncEntities(scene: Scene): void;
   private _syncMain;
