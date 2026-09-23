@@ -51,3 +51,9 @@ export type { ImportResult } from "./gms2-import.js";
 
 export { generatePrefabTypes } from "./prefabCodegen.js";
 export type { PrefabCodegenOptions } from "./prefabCodegen.js";
+
+export { runCodegenPrefabs } from "./prefabCodegenCli.js";
+export type {
+  CodegenPrefabsOptions,
+  CodegenPrefabsResult,
+} from "./prefabCodegenCli.js";

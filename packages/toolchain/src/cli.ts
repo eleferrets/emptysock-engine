@@ -11,6 +11,7 @@ import {
 } from "./ToolchainSettings.js";
 import { importGMS2Project } from "./gms2-import.js";
 import { buildDesktopApp } from "./desktopBuild.js";
+import { runCodegenPrefabs } from "./prefabCodegenCli.js";
 
 const exec = promisify(execFile);
 
@@ -311,6 +312,54 @@ async function zipDirectory(dir: string, zipName: string): Promise<void> {
     console.error(`Failed to zip build output: ${String(e)}`);
   }
 }
+
+program
+  .command("codegen-prefabs")
+  .description(
+    "Generate a .d.ts file of PrefabDef declarations from a project's .prefab.json files",
+  )
+  .argument("<project-dir>", "Project directory to scan for .prefab.json files")
+  .option(
+    "--out <path>",
+    "Output .d.ts path (default: <project-dir>/prefabs.generated.d.ts)",
+  )
+  .option(
+    "--components <modules...>",
+    "Extra compiled JS module(s) (e.g. dist/components.js) whose ComponentDef exports register the project's own components, in addition to @emptysock/engine's built-ins",
+  )
+  .action(
+    async (
+      projectDir: string,
+      opts: { out?: string; components?: string[] },
+    ) => {
+      const dir = path.resolve(projectDir);
+      if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+        console.error(`Not a directory: ${dir}`);
+        process.exitCode = 1;
+        return;
+      }
+
+      const result = await runCodegenPrefabs(dir, {
+        ...(opts.out ? { out: path.resolve(opts.out) } : {}),
+        componentModules: opts.components ?? [],
+      });
+
+      if (!result.ok) {
+        console.error(result.error);
+        process.exitCode = 1;
+        return;
+      }
+
+      if (result.prefabCount === 0) {
+        console.log(`No *.prefab.json files found under ${dir}.`);
+        return;
+      }
+
+      console.log(
+        `Generated ${result.prefabCount} prefab declaration(s) → ${result.outPath}`,
+      );
+    },
+  );
 
 program.parseAsync(process.argv).catch((e: unknown) => {
   console.error(e);
