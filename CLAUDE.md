@@ -114,6 +114,8 @@ Learned by testing the importer once, end to end, against a real full GameMaker 
 - Sprites store one PNG per frame at the sprite directory root, named by that frame's own UUID (`.yy` `frames[].name`), never `<sprite name>.png`.
 - `defaultScriptType: 1` does **not** reliably mean "uses GML Visual" — do not warn on it alone.
 - Real projects carry legacy GameMaker 8.1 DnD-compatibility symbols (`action_move`, `gml_pragma`, etc.) in compiled action lists — leave these untranspiled (surface as unresolved identifiers) rather than faking them.
+- A `GMRBackgroundLayer` with a real `spriteId` (a tiled/parallax background image, as opposed to a plain solid-colour compatibility layer with `spriteId: null`) is common in real rooms and has no equivalent field in the generated `.scene.json` — `convertGms2Room` captures it as `RoomLayer.backgroundSprite` purely so `importGMS2Project` can warn by name (`droppedBackgroundSprites`) instead of silently losing a real background image reference with no note anywhere.
+- A resource type this importer has no import path for at all (fonts, notes, GameMaker's own compatibility-report files, …) must still produce a named warning, not just a silent entry in the returned `skipped` array — `migration-report.md` is the one place a developer actually reads after running the import, and an asset invisible there is effectively undocumented data loss.
 
 ### rc-dock: newly enabled modules must be docked by anchor tab, not floated
 

@@ -18,6 +18,16 @@ export interface RoomLayer {
   type: string;
   tiles: TileEntry[];
   instances: InstanceEntry[];
+  /**
+   * The referenced sprite's name, for a `GMRBackgroundLayer` that has a real
+   * `spriteId` set (a tiled/parallax background image, as opposed to a plain
+   * solid-colour compatibility layer with `spriteId: null`). There is no
+   * import path for this today — `buildRoomSceneJSON` has nowhere to put a
+   * background image reference in the current `SceneFile` shape — so this
+   * field exists purely so the caller can warn that a real background image
+   * was dropped, instead of silently losing it with no note anywhere.
+   */
+  backgroundSprite?: string;
 }
 
 export interface RoomData {
@@ -147,13 +157,33 @@ export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
         : typeof layer.resourceType === "string"
           ? layer.resourceType
           : "unknown";
+    const backgroundSprite =
+      layerType === "GMRBackgroundLayer" &&
+      typeof layer["spriteId"] === "object" &&
+      layer["spriteId"] !== null &&
+      typeof (layer["spriteId"] as Record<string, unknown>)["name"] === "string"
+        ? ((layer["spriteId"] as Record<string, unknown>)["name"] as string)
+        : undefined;
     return {
       name: layerName,
       type: layerType,
       tiles: parseTiles(layer),
       instances: parseInstances(layer),
+      ...(backgroundSprite !== undefined ? { backgroundSprite } : {}),
     };
   });
 
   return { name, width, height, layers };
+}
+
+/**
+ * Every real background image this room's layers reference that
+ * `buildRoomSceneJSON` has no way to carry into the generated `.scene.json`
+ * — see `RoomLayer.backgroundSprite`'s doc comment for why. Used by
+ * `importGMS2Project` to warn instead of silently dropping the reference.
+ */
+export function droppedBackgroundSprites(room: RoomData): string[] {
+  return room.layers
+    .map((layer) => layer.backgroundSprite)
+    .filter((sprite): sprite is string => sprite !== undefined);
 }

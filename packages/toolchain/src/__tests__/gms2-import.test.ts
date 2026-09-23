@@ -256,6 +256,48 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       await fs.rm(out, { recursive: true, force: true });
     }
   });
+
+  it("warns when a room's background layer references a real sprite, instead of silently dropping it", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "room.yyp"),
+        `{
+          "%Name":"Room Background Test",
+          "resources":[
+            {"id":{"name":"rm_bg","path":"rooms/rm_bg/rm_bg.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const roomDir = path.join(dir, "rooms", "rm_bg");
+      await fs.mkdir(roomDir, { recursive: true });
+      await fs.writeFile(
+        path.join(roomDir, "rm_bg.yy"),
+        `{
+          "roomSettings":{"Width":800,"Height":600,},
+          "layers":[
+            {"name":"Background","resourceType":"GMRBackgroundLayer","spriteId":{"name":"bg_grass",},},
+            {"name":"Compat colour","resourceType":"GMRBackgroundLayer","spriteId":null,},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "room.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.warnings).toEqual([
+        expect.stringContaining(
+          'Room "rm_bg" has a background layer using sprite "bg_grass"',
+        ) as string,
+      ]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("convertGms2Sprite (synthetic per-frame PNGs)", () => {
@@ -376,5 +418,39 @@ describe("convertGms2Room (synthetic resourceType-based layers)", () => {
     expect(room.layers[0]?.instances).toEqual([
       { objectName: "obj_hero", x: 80, y: 64 },
     ]);
+  });
+});
+
+describe("a resource type with no import path (fonts, notes, compatibility reports, …)", () => {
+  it("warns by name instead of vanishing silently into the skipped list", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-unknown-res-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-unknown-res-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "test.yyp"),
+        `{
+          "%Name":"Unknown Resource Test",
+          "resources":[
+            {"id":{"name":"font0","path":"fonts/font0/font0.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "test.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).toContain("font0");
+      expect(result.warnings).toEqual([
+        expect.stringContaining(
+          '"font0" (fonts/font0/font0.yy) has no import path',
+        ) as string,
+      ]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
   });
 });

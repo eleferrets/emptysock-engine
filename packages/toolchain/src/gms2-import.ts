@@ -10,6 +10,10 @@ import {
   scriptStub,
 } from "./gms2-codegen.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
+import {
+  convertGms2Room,
+  droppedBackgroundSprites,
+} from "./gms2-room-import.js";
 
 // Re-exported for backward compatibility — some callers (and the test
 // suite) import `parseGmsJson` directly from this module.
@@ -96,8 +100,17 @@ export async function importGMS2Project(
     } else if (resPath.startsWith("tilesets/")) {
       tilesets.push(name);
     } else {
-      // Unknown type — skip
+      // A resource type this importer has no migration path for at all
+      // (fonts, notes, extensions, GameMaker's own compatibility reports,
+      // …) — not one of the categories above that get their own
+      // report-table row and manual-work note. Still surfaced as a real
+      // warning so it shows up in migration-report.md, rather than only
+      // living in the returned `skipped` array where a caller reading just
+      // the generated report file would never learn it exists.
       skipped.push(name);
+      warnings.push(
+        `"${name}" (${resPath}) has no import path in this tool and was skipped entirely — recreate it manually.`,
+      );
       if (verbose) {
         console.log(
           `  [skip] ${name} (unrecognised resource path: ${resPath})`,
@@ -158,6 +171,15 @@ export async function importGMS2Project(
       filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
       convertedRooms.push(name);
       reportEntries.push({ kind: "room", name, status: "converted" });
+
+      const room = await convertGms2Room(
+        path.join(projectRoot, "rooms", name, `${name}.yy`),
+      );
+      for (const sprite of droppedBackgroundSprites(room)) {
+        warnings.push(
+          `Room "${name}" has a background layer using sprite "${sprite}" — background images have no equivalent in the generated .scene.json yet and must be recreated manually.`,
+        );
+      }
     } catch (err) {
       const note = "conversion failed — see warnings";
       warnings.push(
