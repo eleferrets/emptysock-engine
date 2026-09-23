@@ -5,9 +5,11 @@ import { Scene } from "../Scene.js";
 import { WidgetTree } from "../ui/WidgetTree.js";
 import { UISystem } from "../ui/UISystem.js";
 import { LayoutStyle, type LayoutStyleShape } from "../components/Layout.js";
+import type { Texture } from "pixi.js";
 import {
   ButtonState,
   Checkbox,
+  ImageWidget,
   Label,
   PanelStyle,
   Progress,
@@ -264,5 +266,82 @@ describe("UISystem — render", () => {
       expect.any(Number),
       expect.any(Number),
     );
+  });
+});
+
+describe("UISystem — ImageWidget loading/caching", () => {
+  it("draws the placeholder while a source is loading, then the real image once it resolves — loading only once per shared path", async () => {
+    let resolveLoad: (texture: Texture) => void = () => undefined;
+    const loader = vi.fn(
+      () =>
+        new Promise<Texture>((resolve) => {
+          resolveLoad = resolve;
+        }),
+    );
+    const imageUi = new UISystem(tree, { imageLoader: loader });
+
+    const a = tree.createWidget(scene);
+    a.add(ImageWidget, { src: "sprites/hero.png" });
+    styleOf(a).width = 32;
+    styleOf(a).height = 32;
+
+    const b = tree.createWidget(scene);
+    b.add(ImageWidget, { src: "sprites/hero.png" });
+    styleOf(b).width = 32;
+    styleOf(b).height = 32;
+
+    tree.layout(scene, 64, 64);
+
+    const ctx = makeCtx();
+    imageUi.render(scene, ctx);
+    // Both widgets share one path — only one real load kicks off.
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(ctx.fillRect).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+
+    const fakeResource = { width: 32, height: 32 };
+    const texture = {
+      source: { resource: fakeResource },
+    } as unknown as Texture;
+    resolveLoad(texture);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const ctx2 = makeCtx();
+    imageUi.render(scene, ctx2);
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(ctx2.drawImage).toHaveBeenCalledTimes(2);
+  });
+
+  it("draws the placeholder for an empty src and keeps drawing the placeholder if the load fails", async () => {
+    const loader = vi.fn(() => Promise.reject(new Error("404")));
+    const imageUi = new UISystem(tree, { imageLoader: loader });
+    const consoleSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const empty = tree.createWidget(scene);
+    empty.add(ImageWidget, { src: "" });
+    styleOf(empty).width = 16;
+    styleOf(empty).height = 16;
+
+    const failing = tree.createWidget(scene);
+    failing.add(ImageWidget, { src: "sprites/missing.png" });
+    styleOf(failing).width = 16;
+    styleOf(failing).height = 16;
+
+    tree.layout(scene, 32, 32);
+
+    const ctx = makeCtx();
+    imageUi.render(scene, ctx);
+    expect(loader).toHaveBeenCalledTimes(1); // never called for the empty src
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const ctx2 = makeCtx();
+    imageUi.render(scene, ctx2);
+    expect(ctx2.drawImage).not.toHaveBeenCalled();
+    expect(ctx2.fillRect).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });

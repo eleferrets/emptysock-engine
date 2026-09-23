@@ -57,10 +57,12 @@ export default [
       'packages/engine/src/systems/PhysicsSystem3D.ts',
       'packages/engine/src/systems/CameraSystem.ts',
       'packages/engine/src/types/aliases.ts',
+      'packages/engine/src/ui/UISystem.ts',
       'packages/engine/src/__tests__/RenderPipeline.test.ts',
       'packages/engine/src/__tests__/RenderSystem.test.ts',
       'packages/engine/src/__tests__/RenderPipelineParticles.test.ts',
       'packages/engine/src/__tests__/ViewportSystem.test.ts',
+      'packages/engine/src/__tests__/UISystem.test.ts',
     ],
     plugins: {
       '@typescript-eslint': tsPlugin,

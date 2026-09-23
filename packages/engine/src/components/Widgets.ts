@@ -7,9 +7,11 @@ import { defineComponent } from "../Component.js";
  * `LayoutStyle`+`Layout` for its box, plus exactly one of the kind
  * components below for what it actually draws/does. Deliberately a small
  * surface: no per-widget animation (fadeIn/slideIn/pop/shake), no anchor
- * resolution, no image-bitmap loading/caching, and no event-emitter
- * callbacks (`.on("click", cb)`) — those are real, separately-tracked gaps
- * (RELEASE_PASS.md Track 3), not oversights. State instead lives directly
+ * resolution, and no event-emitter callbacks (`.on("click", cb)`) — those
+ * are real, separately-tracked gaps (RELEASE_PASS.md Track 3), not
+ * oversights. `ImageWidget.src` real bitmap loading/caching is done —
+ * `ui/UISystem.ts`'s `_renderImage()` loads it through the same pixi
+ * `Assets.load` pattern `RenderPipeline` uses, cached by path. State instead lives directly
  * on these components and is read by polling each frame (`checkbox.checked`,
  * `slider.value`, `button.state`), the same "state lives in the component,
  * game code reads it" style `VisualScriptState`/`PhysicsBody` already

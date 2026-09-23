@@ -1,3 +1,5 @@
+import { Assets } from "pixi.js";
+import type { Texture } from "pixi.js";
 import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
@@ -25,6 +27,22 @@ interface PressState {
   dragging: boolean;
 }
 
+/** Resolves an `ImageWidget.src` path to a real pixi `Texture` — same shape as `RenderPipeline.ts`'s `TextureLoader`, defaulting to the same `Assets.load` pixi wraps. Overridable for tests/hosts that want a fake loader. */
+export type ImageLoader = (path: string) => Promise<Texture>;
+
+const defaultImageLoader: ImageLoader = (path) => Assets.load(path);
+
+/** One `ImageWidget.src`'s load state — mirrors `RenderPipeline`'s per-path texture cache, just keyed by widget source path instead of sprite texture path. */
+type ImageCacheEntry =
+  | { state: "loading" }
+  | { state: "loaded"; texture: Texture }
+  | { state: "error" };
+
+export interface UISystemOptions {
+  /** Overrides how `ImageWidget.src` paths resolve to pixi textures — defaults to `Assets.load`. */
+  imageLoader?: ImageLoader;
+}
+
 /**
  * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
  * entity-per-widget layout foundation (ground rule 4a) and the widget-kind
@@ -37,8 +55,17 @@ interface PressState {
  */
 export class UISystem {
   private readonly _presses = new Map<number, PressState>();
+  private readonly _loadImage: ImageLoader;
 
-  constructor(private readonly _tree: WidgetTree) {}
+  /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
+  private readonly _imageCache = new Map<string, ImageCacheEntry>();
+
+  constructor(
+    private readonly _tree: WidgetTree,
+    options: UISystemOptions = {},
+  ) {
+    this._loadImage = options.imageLoader ?? defaultImageLoader;
+  }
 
   private _isVisible(entity: Entity): boolean {
     const appearance = entity.get(WidgetAppearance);
@@ -187,7 +214,7 @@ export class UISystem {
       if (label !== undefined) this._renderLabel(ctx, box, label);
 
       const image = entity.get(ImageWidget);
-      if (image !== undefined) this._renderImagePlaceholder(ctx, box);
+      if (image !== undefined) this._renderImage(ctx, box, image.src);
 
       ctx.restore();
     }
@@ -333,7 +360,57 @@ export class UISystem {
     ctx.fillText(label.text, tx, box.y + box.height / 2);
   }
 
-  /** Image loading/caching (`ImageLoader`) isn't implemented yet — draws a grey placeholder box until the widget's source resolves. */
+  /**
+   * Draws `src` (an `ImageWidget.src` path) via this system's `ImageLoader`
+   * (`Assets.load` by default, the same pixi loader `RenderPipeline` uses),
+   * cached by path in `_imageCache` so the same image is loaded once and
+   * reused by every widget instance that references it, never reloaded per
+   * frame or per instance. The grey placeholder box remains the fallback
+   * for both real "nothing to draw yet" states — no source set, or a load
+   * still in flight — and the error state, a failed load; it is not drawn
+   * once a source has actually resolved to a loaded texture.
+   */
+  private _renderImage(
+    ctx: IUIRenderer,
+    box: { x: number; y: number; width: number; height: number },
+    src: string,
+  ): void {
+    if (src === "") {
+      this._renderImagePlaceholder(ctx, box);
+      return;
+    }
+    const cached = this._imageCache.get(src);
+    if (cached === undefined) {
+      this._imageCache.set(src, { state: "loading" });
+      this._loadImage(src)
+        .then((texture) => {
+          this._imageCache.set(src, { state: "loaded", texture });
+        })
+        .catch((err: unknown) => {
+          this._imageCache.set(src, { state: "error" });
+          console.error(`[UISystem] failed to load image "${src}":`, err);
+        });
+      this._renderImagePlaceholder(ctx, box);
+      return;
+    }
+    if (cached.state !== "loaded") {
+      this._renderImagePlaceholder(ctx, box);
+      return;
+    }
+    // `texture.source.resource` is the underlying drawable (an
+    // `ImageBitmap`/`HTMLImageElement`/canvas, depending on host and asset
+    // type) pixi's loader resolved — exactly the `object` shape
+    // `IUIRenderer.drawImage()` accepts, without this file importing any
+    // DOM image type itself.
+    const resource: unknown = cached.texture.source.resource;
+    if (resource === null || resource === undefined) {
+      this._renderImagePlaceholder(ctx, box);
+      return;
+    }
+    ctx.drawImage(resource as object, box.x, box.y, box.width, box.height);
+  }
+
+  /** Fallback for an `ImageWidget` with no source set yet, a source still loading, or a source that failed to load — a grey placeholder box. */
   private _renderImagePlaceholder(
     ctx: IUIRenderer,
     box: { x: number; y: number; width: number; height: number },
