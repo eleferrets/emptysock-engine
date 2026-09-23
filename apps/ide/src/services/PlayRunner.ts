@@ -193,7 +193,16 @@ ${buildRapierImportMap(vendorBaseUrl)}
     }
     var scene = current.currentScene;
     if (scene !== null && !_esQueryChannel.isLive) {
-      _esQueryChannel.attach(scene);
+      // No navmesh instance to attach here: apps/ide has no live tilemap/
+      // navmesh panel exposing a loaded NavMeshSystem today, so
+      // navmeshFindPath/navmeshNearestNode queries answer "no-navmesh"
+      // in the preview, which is the honest answer, not a stub gap.
+      var lifecycle = current.lifecycle;
+      _esQueryChannel.attach(
+        scene,
+        undefined,
+        lifecycle ? { actors: lifecycle.actors } : undefined,
+      );
     } else if (scene === null && _esQueryChannel.isLive) {
       _esQueryChannel.detach();
     }

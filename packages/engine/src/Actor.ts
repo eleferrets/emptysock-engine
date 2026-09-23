@@ -64,6 +64,11 @@ export abstract class Actor {
     return this._running;
   }
 
+  /** Number of messages currently queued, not yet drained by `flush()`. Read by `QueryChannel`'s `actorInboxSize` query. */
+  get inboxSize(): number {
+    return this._inbox.length;
+  }
+
   /** Called by ActorSystem.register(). */
   start(): void {
     this._running = true;

@@ -78,6 +78,21 @@ export class NavMeshSystem {
     return waypoints;
   }
 
+  /**
+   * The nearest walkable point on the mesh to `point` — a polygon's
+   * centroid, either the one `point` is actually inside or the closest
+   * one by centroid distance. Returns `null` when no polygons are loaded.
+   * Public surface for `QueryChannel`'s `navmeshNearestNode` query
+   * (`NavMeshQuerySource` in `packages/engine/src/bridge/QueryChannel.ts`)
+   * — the engine depends only on that structural interface, never this
+   * class, per CLAUDE.md's "RenderPipeline mounts a tilemap through a
+   * structural interface" pattern.
+   */
+  nearestNode(point: Vec2): Vec2 | null {
+    const poly = this._nearestPolygon(point);
+    return poly === null ? null : poly.centroid;
+  }
+
   private _nearestPolygon(point: Vec2): NavPolygon | null {
     let nearest: NavPolygon | null = null;
     let minDist = Infinity;

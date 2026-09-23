@@ -1,5 +1,5 @@
 import type { ComponentDef } from "../Component.js";
-import { Entity } from "../Entity.js";
+import { Entity, type Vec2 } from "../Entity.js";
 import type { Scene } from "../Scene.js";
 import {
   PhysicsNotInitializedError,
@@ -8,12 +8,17 @@ import {
 import { Meta } from "../components/Meta.js";
 import { Transform } from "../components/Transform.js";
 import { componentRegistry } from "../ComponentRegistry.js";
+import type { ActorSystem } from "../ActorSystem.js";
+import type { Message } from "../Actor.js";
 
 /**
  * ENGINE_DESIGN.md §8 / RELEASE_PASS.md "MCP live bridge" — the engine-side
  * half of the query/command channel `emptysock-mcp`'s physics/scene tools
  * (`physics_raycast_2d`, `physics_overlap_circle`, `physics_body_state`,
- * plus entity/component reads and scene entity listing) relay against.
+ * entity/component reads and scene entity listing, entity creation,
+ * `ActorSystem` messaging (`actor_send_message`/`actor_broadcast`/
+ * `actor_inbox_size`/`actor_list`), and `NavMeshSystem` pathfinding
+ * (`navmesh_find_path`/`navmesh_nearest_node`)) relay against.
  *
  * This is also the IDE's live Inspector transport target — `apps/ide`'s
  * preview iframe host constructs one, finds the running game's `Game`
@@ -65,14 +70,27 @@ import { componentRegistry } from "../ComponentRegistry.js";
  * the "fabricated answer" §8 warns against — an agent acting on a
  * mis-reported empty result could make a decision (e.g. "path is clear")
  * that is only true because nothing was actually queried.
+ *
+ * The same "attached-but-not-that-system" shape repeats for the two other
+ * optional systems a live game may or may not actually be running:
+ * `"no-actor-system"` (a `Scene` is attached but no `ActorSystem` was
+ * passed to `attach()` — a scene can be live with zero actors, so this is
+ * never `"no-live-instance"`) and `"no-navmesh"` (same reasoning, for
+ * navmesh pathfinding). `ActorSystem` is native to `@emptysock/engine`
+ * (`ActorSystem.ts`), so its query kinds (`actorSendMessage`/
+ * `actorBroadcast`/`actorInboxSize`/`actorList`) take a real `ActorSystem`
+ * import directly. `NavMeshSystem` lives in `@emptysock/tilemap`, which
+ * depends on `@emptysock/engine`, never the other way around (CLAUDE.md's
+ * dependency-direction rule) — so `attach()` instead takes an optional
+ * `NavMeshQuerySource`, a narrow structural interface covering only
+ * `findPath`/`nearestNode`, the same "engine depends on the interface,
+ * never a concrete implementation" pattern `RenderPipeline`'s
+ * `TileLayerSource` already uses for mounting a `Tilemap`. `NavMeshSystem`
+ * satisfies `NavMeshQuerySource` structurally; neither package imports the
+ * other.
  */
 
 // --- Query request shapes ---------------------------------------------
-
-interface Vec2 {
-  x: number;
-  y: number;
-}
 
 /** List every entity that carries at least one of the channel's registered component types. */
 export interface ListEntitiesQuery {
@@ -128,6 +146,58 @@ export interface BodyState2DQuery {
   entityId: number;
 }
 
+/**
+ * `scene_create_entity` — spawn a bare entity via `Scene.spawn()`, then
+ * `entity.add()` each named component (already-registered defaults, no
+ * per-field overrides — this is entity creation, not a full prefab spawn).
+ * `tag`, if given, is written as `Meta.name`/`Meta.tags` (adding a `Meta`
+ * component if the entity doesn't have one) rather than invented as a
+ * second, parallel identity concept — see CLAUDE.md's `Meta` component
+ * entry.
+ */
+export interface CreateEntityQuery {
+  kind: "createEntity";
+  tag?: string;
+  components?: string[];
+}
+
+/** `actor_send_message` — enqueue a message in one actor's mailbox. */
+export interface ActorSendMessageQuery {
+  kind: "actorSendMessage";
+  actorId: string;
+  message: Message;
+}
+
+/** `actor_broadcast` — enqueue a message in every registered actor's mailbox. */
+export interface ActorBroadcastQuery {
+  kind: "actorBroadcast";
+  message: Message;
+}
+
+/** `actor_inbox_size` — one actor's currently-queued (not yet flushed) message count. */
+export interface ActorInboxSizeQuery {
+  kind: "actorInboxSize";
+  actorId: string;
+}
+
+/** `actor_list` — every registered actor's id, in registration order. */
+export interface ActorListQuery {
+  kind: "actorList";
+}
+
+/** `navmesh_find_path` — an A* waypoint path between two world-space points on the attached navmesh. */
+export interface NavMeshFindPathQuery {
+  kind: "navmeshFindPath";
+  from: Vec2;
+  to: Vec2;
+}
+
+/** `navmesh_nearest_node` — the nearest walkable point on the attached navmesh to a world-space point. */
+export interface NavMeshNearestNodeQuery {
+  kind: "navmeshNearestNode";
+  point: Vec2;
+}
+
 export type EngineQuery =
   | ListEntitiesQuery
   | EntityInfoQuery
@@ -135,7 +205,14 @@ export type EngineQuery =
   | SetComponentQuery
   | Raycast2DQuery
   | OverlapCircle2DQuery
-  | BodyState2DQuery;
+  | BodyState2DQuery
+  | CreateEntityQuery
+  | ActorSendMessageQuery
+  | ActorBroadcastQuery
+  | ActorInboxSizeQuery
+  | ActorListQuery
+  | NavMeshFindPathQuery
+  | NavMeshNearestNodeQuery;
 
 /** Envelope a transport sends across the wire; `id` round-trips for request/response matching. */
 export interface EngineQueryRequest {
@@ -148,6 +225,8 @@ export interface EngineQueryRequest {
 export type EngineQueryErrorCode =
   | "no-live-instance"
   | "no-physics-world"
+  | "no-actor-system"
+  | "no-navmesh"
   | "not-found"
   | "unknown-component";
 
@@ -201,11 +280,49 @@ export interface BodyStateData {
   isSensor: boolean;
 }
 
+export interface CreateEntityData {
+  entityId: number;
+  tag?: string;
+  components: string[];
+  /** Names from `components` that no `ComponentDef` was resolvable for — added to neither the entity nor the result's `components` list. */
+  skipped: string[];
+}
+
+export interface ActorSendResultData {
+  actorId: string;
+  queued: true;
+}
+
+export interface ActorBroadcastResultData {
+  delivered: number;
+}
+
+/**
+ * `NavMeshSystem` lives in `@emptysock/tilemap`, which depends on
+ * `@emptysock/engine`, never the other way around — see this file's module
+ * doc comment and CLAUDE.md's "`RenderPipeline` mounts a tilemap through a
+ * structural interface" entry, the exact precedent this follows.
+ * `@emptysock/tilemap`'s `NavMeshSystem` satisfies this shape structurally;
+ * neither package imports the other.
+ */
+export interface NavMeshQuerySource {
+  findPath(from: Vec2, to: Vec2): Vec2[] | null;
+  nearestNode(point: Vec2): Vec2 | null;
+}
+
 // --- Channel ---------------------------------------------------------------
 
 interface LiveInstance {
   scene: Scene;
   physics: PhysicsSystem | undefined;
+  actors: ActorSystem | undefined;
+  navmesh: NavMeshQuerySource | undefined;
+}
+
+/** Optional systems `attach()` can wire in alongside the required `Scene`. */
+export interface QueryChannelAttachOptions {
+  actors?: ActorSystem;
+  navmesh?: NavMeshQuerySource;
 }
 
 function noLiveInstance<T>(): EngineQueryResult<T> {
@@ -226,6 +343,28 @@ function noPhysicsWorld<T>(): EngineQueryResult<T> {
       code: "no-physics-world",
       message:
         "This scene has no initialized physics world — nothing to raycast or overlap-test against.",
+    },
+  };
+}
+
+function noActorSystem<T>(): EngineQueryResult<T> {
+  return {
+    ok: false,
+    error: {
+      code: "no-actor-system",
+      message:
+        "This scene has no ActorSystem attached — nothing to message or list.",
+    },
+  };
+}
+
+function noNavMesh<T>(): EngineQueryResult<T> {
+  return {
+    ok: false,
+    error: {
+      code: "no-navmesh",
+      message:
+        "This scene has no navmesh attached — nothing to path or query against.",
     },
   };
 }
@@ -291,9 +430,25 @@ export class QueryChannel {
       .find((def) => def.componentName === component);
   }
 
-  /** Point this channel at a live `Scene` (and, if physics queries are needed, its `PhysicsSystem`). */
-  attach(scene: Scene, physics?: PhysicsSystem): void {
-    this._live = { scene, physics };
+  /**
+   * Point this channel at a live `Scene` (and, if physics queries are
+   * needed, its `PhysicsSystem`). `options.actors`/`options.navmesh` wire
+   * in `ActorSystem`/navmesh queries the same way — all three are
+   * independently optional, since a live scene can be attached with any
+   * subset of them running (a scene with no navmesh loaded is normal, not
+   * an error; see the module doc comment for the resulting error codes).
+   */
+  attach(
+    scene: Scene,
+    physics?: PhysicsSystem,
+    options?: QueryChannelAttachOptions,
+  ): void {
+    this._live = {
+      scene,
+      physics,
+      actors: options?.actors,
+      navmesh: options?.navmesh,
+    };
   }
 
   /** Nothing is live any more — every query now answers `"no-live-instance"`. */
@@ -327,6 +482,20 @@ export class QueryChannel {
         return this._overlapCircle2d(query);
       case "bodyState2d":
         return this._bodyState2d(query.entityId);
+      case "createEntity":
+        return this._createEntity(query.tag, query.components);
+      case "actorSendMessage":
+        return this._actorSendMessage(query.actorId, query.message);
+      case "actorBroadcast":
+        return this._actorBroadcast(query.message);
+      case "actorInboxSize":
+        return this._actorInboxSize(query.actorId);
+      case "actorList":
+        return this._actorList();
+      case "navmeshFindPath":
+        return this._navmeshFindPath(query.from, query.to);
+      case "navmeshNearestNode":
+        return this._navmeshNearestNode(query.point);
     }
   }
 
@@ -553,5 +722,112 @@ export class QueryChannel {
       if (err instanceof PhysicsNotInitializedError) return noPhysicsWorld();
       throw err;
     }
+  }
+
+  private _createEntity(
+    tag: string | undefined,
+    components: string[] | undefined,
+  ): EngineQueryResult<CreateEntityData> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+
+    const entity = live.scene.spawn();
+    const added: string[] = [];
+    const skipped: string[] = [];
+    for (const name of components ?? []) {
+      const def = this._resolveComponent(name);
+      if (def === undefined) {
+        skipped.push(name);
+        continue;
+      }
+      if (!entity.has(def)) entity.add(def);
+      added.push(name);
+    }
+    if (tag !== undefined) {
+      const meta = entity.has(Meta) ? entity.get(Meta) : entity.add(Meta);
+      if (meta !== undefined) {
+        meta.name = tag;
+        meta.tags = [tag];
+      }
+    }
+
+    return ok({
+      entityId: entity.eid,
+      ...(tag !== undefined ? { tag } : {}),
+      components: added,
+      skipped,
+    });
+  }
+
+  private _actorSendMessage(
+    actorId: string,
+    message: Message,
+  ): EngineQueryResult<ActorSendResultData> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.actors === undefined) return noActorSystem();
+
+    const actor = live.actors.get(actorId);
+    if (actor === undefined) {
+      return notFound(`No registered actor with id "${actorId}".`);
+    }
+    live.actors.send(actorId, message);
+    return ok({ actorId, queued: true });
+  }
+
+  private _actorBroadcast(
+    message: Message,
+  ): EngineQueryResult<ActorBroadcastResultData> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.actors === undefined) return noActorSystem();
+
+    live.actors.broadcast(message);
+    return ok({ delivered: live.actors.size });
+  }
+
+  private _actorInboxSize(actorId: string): EngineQueryResult<number> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.actors === undefined) return noActorSystem();
+
+    const actor = live.actors.get(actorId);
+    if (actor === undefined) {
+      return notFound(`No registered actor with id "${actorId}".`);
+    }
+    return ok(actor.inboxSize);
+  }
+
+  private _actorList(): EngineQueryResult<string[]> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.actors === undefined) return noActorSystem();
+
+    return ok(live.actors.getAll().map((actor) => actor.id));
+  }
+
+  private _navmeshFindPath(
+    from: Vec2,
+    to: Vec2,
+  ): EngineQueryResult<Vec2[] | null> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.navmesh === undefined) return noNavMesh();
+
+    const path = live.navmesh.findPath(from, to);
+    // `NavMeshSystem.findPath` returns `[]` (never `null`) when no path
+    // exists — see NavMeshSystem.ts. Either "no path" shape from a real
+    // `NavMeshQuerySource` implementation normalises to `ok(null)` here,
+    // matching `raycast2d`'s "queried and found nothing" convention.
+    if (path === null || path.length === 0) return ok(null);
+    return ok(path);
+  }
+
+  private _navmeshNearestNode(point: Vec2): EngineQueryResult<Vec2 | null> {
+    const live = this._live;
+    if (live === null) return noLiveInstance();
+    if (live.navmesh === undefined) return noNavMesh();
+
+    return ok(live.navmesh.nearestNode(point));
   }
 }

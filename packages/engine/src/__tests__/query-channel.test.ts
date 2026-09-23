@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { Game, defineScene } from "../Game.js";
-import { QueryChannel, type EntitySummary } from "../bridge/QueryChannel.js";
+import {
+  QueryChannel,
+  type EntitySummary,
+  type NavMeshQuerySource,
+} from "../bridge/QueryChannel.js";
 import { PhysicsBody } from "../components/PhysicsBody.js";
 import { Transform } from "../components/Transform.js";
 import { Meta } from "../components/Meta.js";
+import { ActorSystem } from "../ActorSystem.js";
+import { Actor, type Message } from "../Actor.js";
 
 describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge)", () => {
   it("answers entity/component queries against a live scene", async () => {
@@ -426,5 +432,236 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     });
 
     await game.unloadScene();
+  });
+
+  // --- createEntity -----------------------------------------------------
+
+  it("createEntity spawns a bare entity, adds known components, tags via Meta, and lists skipped unknown component names", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const channel = new QueryChannel();
+    channel.registerComponents(Transform);
+    channel.attach(scene);
+
+    const created = channel.handle({
+      kind: "createEntity",
+      tag: "player",
+      components: ["Transform", "TotallyMadeUpComponent"],
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) throw new Error("expected ok");
+    const data = created.data as {
+      entityId: number;
+      tag?: string;
+      components: string[];
+      skipped: string[];
+    };
+    expect(data.tag).toBe("player");
+    expect(data.components).toEqual(["Transform"]);
+    expect(data.skipped).toEqual(["TotallyMadeUpComponent"]);
+
+    const info = channel.handle({
+      kind: "entityInfo",
+      entityId: data.entityId,
+    });
+    expect(info.ok).toBe(true);
+    if (!info.ok) throw new Error("expected ok");
+    expect(info.data).toMatchObject({
+      name: "player",
+      tags: ["player"],
+      components: expect.arrayContaining(["Transform", "Meta"]) as string[],
+    });
+
+    await game.unloadScene();
+  });
+
+  it("createEntity with no live instance answers no-live-instance", () => {
+    const channel = new QueryChannel();
+    expect(channel.handle({ kind: "createEntity" })).toEqual({
+      ok: false,
+      error: {
+        code: "no-live-instance",
+        message: expect.any(String) as string,
+      },
+    });
+  });
+
+  // --- ActorSystem queries -----------------------------------------------
+
+  class EchoActor extends Actor {
+    received: Message[] = [];
+    receive(msg: Message): void {
+      this.received.push(msg);
+    }
+  }
+
+  it("actor queries relay against an attached ActorSystem", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const actors = new ActorSystem();
+    const alice = new EchoActor("alice");
+    const bob = new EchoActor("bob");
+    actors.register(alice);
+    actors.register(bob);
+
+    const channel = new QueryChannel();
+    channel.attach(scene, undefined, { actors });
+
+    const list = channel.handle({ kind: "actorList" });
+    expect(list).toEqual({ ok: true, data: ["alice", "bob"] });
+
+    const sendOk = channel.handle({
+      kind: "actorSendMessage",
+      actorId: "alice",
+      message: { type: "ping" },
+    });
+    expect(sendOk).toEqual({
+      ok: true,
+      data: { actorId: "alice", queued: true },
+    });
+
+    const inbox = channel.handle({
+      kind: "actorInboxSize",
+      actorId: "alice",
+    });
+    expect(inbox).toEqual({ ok: true, data: 1 });
+
+    const sendUnknown = channel.handle({
+      kind: "actorSendMessage",
+      actorId: "carol",
+      message: { type: "ping" },
+    });
+    expect(sendUnknown).toEqual({
+      ok: false,
+      error: { code: "not-found", message: expect.any(String) as string },
+    });
+
+    const broadcast = channel.handle({
+      kind: "actorBroadcast",
+      message: { type: "tick" },
+    });
+    expect(broadcast).toEqual({ ok: true, data: { delivered: 2 } });
+
+    const bobInbox = channel.handle({
+      kind: "actorInboxSize",
+      actorId: "bob",
+    });
+    expect(bobInbox).toEqual({ ok: true, data: 1 });
+
+    actors.destroy();
+    await game.unloadScene();
+  });
+
+  it("actor queries answer no-actor-system when the scene is live but no ActorSystem was attached", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const channel = new QueryChannel();
+    channel.attach(scene);
+
+    expect(channel.handle({ kind: "actorList" })).toEqual({
+      ok: false,
+      error: { code: "no-actor-system", message: expect.any(String) as string },
+    });
+    expect(
+      channel.handle({
+        kind: "actorSendMessage",
+        actorId: "alice",
+        message: { type: "ping" },
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: "no-actor-system", message: expect.any(String) as string },
+    });
+
+    await game.unloadScene();
+  });
+
+  it("actor queries answer no-live-instance when nothing is attached at all", () => {
+    const channel = new QueryChannel();
+    expect(channel.handle({ kind: "actorList" })).toEqual({
+      ok: false,
+      error: {
+        code: "no-live-instance",
+        message: expect.any(String) as string,
+      },
+    });
+  });
+
+  // --- NavMesh queries -----------------------------------------------------
+
+  function fakeNavMesh(): NavMeshQuerySource {
+    return {
+      findPath: (from, to) =>
+        from.x === to.x && from.y === to.y ? [] : [from, { x: 0, y: 0 }, to],
+      nearestNode: (point) => ({ x: point.x + 1, y: point.y }),
+    };
+  }
+
+  it("navmesh queries relay against an attached NavMeshQuerySource", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const channel = new QueryChannel();
+    channel.attach(scene, undefined, { navmesh: fakeNavMesh() });
+
+    const found = channel.handle({
+      kind: "navmeshFindPath",
+      from: { x: 0, y: 0 },
+      to: { x: 10, y: 10 },
+    });
+    expect(found).toEqual({
+      ok: true,
+      data: [
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+      ],
+    });
+
+    const notFoundPath = channel.handle({
+      kind: "navmeshFindPath",
+      from: { x: 5, y: 5 },
+      to: { x: 5, y: 5 },
+    });
+    expect(notFoundPath).toEqual({ ok: true, data: null });
+
+    const nearest = channel.handle({
+      kind: "navmeshNearestNode",
+      point: { x: 2, y: 3 },
+    });
+    expect(nearest).toEqual({ ok: true, data: { x: 3, y: 3 } });
+
+    await game.unloadScene();
+  });
+
+  it("navmesh queries answer no-navmesh when the scene is live but no navmesh was attached", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const channel = new QueryChannel();
+    channel.attach(scene);
+
+    expect(
+      channel.handle({
+        kind: "navmeshNearestNode",
+        point: { x: 0, y: 0 },
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: "no-navmesh", message: expect.any(String) as string },
+    });
+
+    await game.unloadScene();
+  });
+
+  it("navmesh queries answer no-live-instance when nothing is attached at all", () => {
+    const channel = new QueryChannel();
+    expect(
+      channel.handle({ kind: "navmeshNearestNode", point: { x: 0, y: 0 } }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "no-live-instance",
+        message: expect.any(String) as string,
+      },
+    });
   });
 });

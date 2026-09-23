@@ -251,6 +251,18 @@ export type {
   Raycast2DQuery,
   OverlapCircle2DQuery,
   BodyState2DQuery,
+  CreateEntityQuery,
+  ActorSendMessageQuery,
+  ActorBroadcastQuery,
+  ActorInboxSizeQuery,
+  ActorListQuery,
+  NavMeshFindPathQuery,
+  NavMeshNearestNodeQuery,
+  CreateEntityData,
+  ActorSendResultData,
+  ActorBroadcastResultData,
+  NavMeshQuerySource,
+  QueryChannelAttachOptions,
 } from "./bridge/QueryChannel.js";
 export type {
   PhysicsBodyHandle,
