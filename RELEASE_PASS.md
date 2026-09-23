@@ -20,6 +20,61 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## Track: close every stub/not-wired gap found in the 2026-09-23 wiring audit
+
+**Written 2026-09-23.** The wiring audit (an artifact, not a repo file) found one root cause behind
+thirteen `emptysock-mcp` stub tools (`physics_*`/`scene_*`/`navmesh_*`/`actor_*`) — no transport
+connects an MCP tool call to a live `QueryChannel` instance — plus four independent, smaller gaps
+already named in CLAUDE.md. Goal of this track: wire all five, so "batteries included" is actually true
+end to end, not just documented as a known gap.
+
+- [ ] **QueryChannel bridge transport.** `packages/engine/src/bridge/QueryChannel.ts`'s `handle()` is
+      real and transport-agnostic; nothing carries a query from a separate `emptysock-mcp` Node process
+      to a live game process. Fixed protocol (write both ends to this exact contract so the two repos'
+      agents don't need to coordinate live): - Transport: plain WebSocket. `emptysock-mcp` hosts the server (it's the long-lived process a
+      developer starts); the live game/IDE preview is the client that dials in — matches "engine
+      defines the interface, whoever has a live instance wires the concrete pipe" (same pattern as
+      `StorageAdapter`/`Transport`). - New env var `EMPTYSOCK_BRIDGE_PORT` (default `7777`) in `emptysock-mcp`'s `src/env.ts` +
+      `.env.example`. - Wire envelope, both directions, JSON text frames:
+      `{ "id": string, "query": EngineQuery }` server→client (client is whichever live game connected),
+      `{ "id": string, "result": EngineQueryResult<T> }` client→server, `id` echoed to match responses
+      to in-flight requests. `EngineQuery`/`EngineQueryResult` are `QueryChannel.ts`'s existing exported
+      types — reuse them, don't invent a parallel shape. - Only one live game is expected connected at a time (dev workflow: one IDE preview running against
+      one MCP server). A tool call with zero connected clients, or a response that doesn't arrive within
+      a bounded timeout, resolves the _same_ `{ ok: false, reason: "no-live-instance" }` shape
+      `QueryChannel` itself already defines — never fall back to the old fabricated stub data, and never
+      collapse timeout into "no hit"/"empty" the way the stubs used to. - Client side lives in `apps/ide/src/services/PlayRunner.ts`'s iframe bootstrap (or a sibling file
+      it imports) — it already constructs a `QueryChannel` and attaches it to `Game.instances` for the
+      existing postMessage/`EngineChannel` bridge to the IDE panels; add a second, independent consumer
+      that opens `new WebSocket(...)` to the configured bridge URL and relays `handle()` calls the same
+      way. Never put WebSocket/networking code inside `packages/engine` itself (environment boundary). - Update `emptysock-mcp/README.md`'s tool status table honestly once tools are live instead of
+      stub — don't leave it reading as more/less finished than it actually is.
+- [ ] **`ImageWidget` real image loading/caching** (`packages/engine/src/ui/Widgets.ts` +
+      `ui/UISystem.ts`'s `_renderImagePlaceholder`). Needs a real loader (pixi.js `Assets`/`Texture.from`,
+      same library `AssetManifest` already wraps) with an in-memory cache keyed by source path, replacing
+      the always-placeholder box once a source resolves. Keep the placeholder as the loading/error state,
+      not the permanent one.
+- [ ] **`generatePrefabTypes` wired into a real build step** (`packages/toolchain/src/prefabCodegen.ts`
+      is implemented and tested but nothing calls it). Wire it into `packages/toolchain/src/cli.ts` as a
+      real CLI subcommand (e.g. `emptysock-toolchain codegen-prefabs`) at minimum; an IDE auto-save hook
+      is a nice-to-have, not required for this item to close.
+- [ ] **Visual Script Editor panel live preview** (`apps/ide`'s `visual-script/*.tsx`,
+      `logicScriptStore.ts`). Panel authors a `VisualScriptGraph` directly but never calls
+      `registerVisualScriptGraph` or spawns a `VisualScriptState` entity — wire a preview path so editing
+      the graph has a live effect the panel can show.
+- [ ] **Physics in the IDE's browser preview** — `PhysicsSystem.init()`'s `await import(moduleName)` is a
+      genuine bare-specifier dynamic import once `apps/ide`'s bundler externalizes
+      `@dimforge/rapier2d-compat`/`rapier3d-compat`, with no import map to resolve it. Per CLAUDE.md's own
+      note: fix via an import-map entry mapping the bare specifier to a real ESM Rapier WASM build, or a
+      small runtime shim `apps/ide` registers before the game module loads. This is the riskiest/most
+      exploratory item — budget real investigation time, don't assume the first approach tried works.
+
+Land each item as its own commit(s), Conventional Commits, typecheck/lint/test green after each, per this
+file's ground rules. Mark `[x]` here as each closes; once all five are `[x]`, migrate anything durable into
+CLAUDE.md's "Non-obvious decisions" the way every other closed track has.
+
+---
+
 ## HANDOFF — merge `claude/clever-faraday-ffl4r3` to `main`
 
 **Written 2026-09-23 for whichever agent picks this up next.** This branch contains the entire ECS-core consolidation pass — 24 commits ahead of `main`, `main` unchanged underneath it (`git merge-base origin/main HEAD` == `origin/main`'s current tip, `9bded06`), so this is a clean fast-forward merge with no conflict-resolution risk from a moved `main`. Re-check that fact before merging in case `main` has moved since this was written.
