@@ -9,3 +9,4 @@ coverage/
 .claude/worktrees/
 apps/ide/public/manual/
 apps/ide/public/esbuild.wasm
+apps/ide/public/vendor/

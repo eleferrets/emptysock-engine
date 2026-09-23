@@ -12,11 +12,65 @@ export interface RunnerMessage {
 
 export type MessageHandler = (msg: RunnerMessage) => void;
 
-function buildIframeHtml(engineBundle: string, userModuleUrl: string): string {
+/**
+ * Escapes the one sequence that would otherwise prematurely close a
+ * `<script type="importmap">` block if it appeared inside a JSON string
+ * value (it can't today — vendorBaseUrl is always an http(s) origin the
+ * IDE itself controls — but this keeps the generator honest either way).
+ */
+function escapeForInlineScript(json: string): string {
+  return json.replace(/<\/script/gi, "<\\/script");
+}
+
+/**
+ * Builds the `<script type="importmap">` block that lets the preview
+ * iframe's dynamic `import(moduleName)` (PhysicsSystem.init()'s
+ * non-literal Rapier import — see CLAUDE.md's "Deterministic Rapier build
+ * is imported via a non-literal specifier") resolve the bare specifiers
+ * "@dimforge/rapier2d-compat"/"@dimforge/rapier3d-compat" to real files,
+ * instead of failing as an unresolvable bare specifier in the browser.
+ *
+ * No bundler can rewrite that import — `moduleName` is a runtime string,
+ * not a literal — so this is the one place in the stack that actually can:
+ * a browser-native import map, resolved against real static files
+ * (public/vendor/rapier/*.mjs, copied by scripts/copy-rapier-vendor.mjs
+ * from the real @dimforge/rapier{2,3}d-compat packages' own ESM entry
+ * points, WASM inlined as base64 — no separate fetch needed).
+ *
+ * `vendorBaseUrl` is an absolute origin (`window.location.origin` at call
+ * time) rather than a relative path: the iframe document itself is loaded
+ * from a `blob:` URL (see `PlayRunner.start()`), which has no meaningful
+ * relative base to resolve a relative import-map URL against, so the
+ * vendored files are addressed by absolute URL back to the IDE's own
+ * origin, which serves them from `public/`.
+ *
+ * Deliberately does NOT cover the `-deterministic-compat` variants —
+ * those are optionalDependencies most games never install (see engine's
+ * CLAUDE.md), so `copy-rapier-vendor.mjs` never vendors them and there is
+ * nothing for this import map to point at; a game that opts into
+ * deterministic physics and runs only in the desktop (Tauri) build, not
+ * the browser preview, is unaffected by this gap.
+ */
+function buildRapierImportMap(vendorBaseUrl: string): string {
+  const map = {
+    imports: {
+      "@dimforge/rapier2d-compat": `${vendorBaseUrl}/vendor/rapier/rapier2d-compat.mjs`,
+      "@dimforge/rapier3d-compat": `${vendorBaseUrl}/vendor/rapier/rapier3d-compat.mjs`,
+    },
+  };
+  return `<script type="importmap">${escapeForInlineScript(JSON.stringify(map))}</script>`;
+}
+
+function buildIframeHtml(
+  engineBundle: string,
+  userModuleUrl: string,
+  vendorBaseUrl: string,
+): string {
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
+${buildRapierImportMap(vendorBaseUrl)}
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0e0e10; overflow: hidden; width: 100vw; height: 100vh; }
@@ -224,7 +278,11 @@ export class PlayRunner {
     });
     this._moduleBlobUrl = URL.createObjectURL(moduleBlob);
 
-    const html = buildIframeHtml(ENGINE_BUNDLE, this._moduleBlobUrl);
+    const html = buildIframeHtml(
+      ENGINE_BUNDLE,
+      this._moduleBlobUrl,
+      window.location.origin,
+    );
     const blob = new Blob([html], { type: "text/html" });
     this._blobUrl = URL.createObjectURL(blob);
 
