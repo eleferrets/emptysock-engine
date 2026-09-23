@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { engineChannel } from "../EngineChannel.js";
+import { engineChannel, summaryToSnapshot } from "../EngineChannel.js";
 
 /**
- * Covers the postMessage boundary validation between the IDE and the
- * preview iframe: a well-formed `es:entities` payload is accepted and
- * dispatched to handlers, while a malformed one (wrong field type, missing
- * field, or not an array at all) is dropped with a console warning and
- * never reaches handlers — it must not corrupt IDE state.
+ * Covers the `es:query`/`es:query-result` request/response protocol between
+ * the IDE and the preview iframe's `QueryChannel` bridge — replacing the
+ * classic `IDEBridge`'s fire-and-forget `es:entities`/`es:set-component`
+ * broadcast, which had no real caller anywhere in `apps/ide` to begin with.
  */
 
 function makeEvent(data: unknown): MessageEvent {
@@ -17,165 +16,126 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("EngineChannel — es:entities validation", () => {
-  it("accepts and dispatches a well-formed es:entities payload", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onEntities(handler);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const snapshot = {
-      id: "e1",
-      name: "Player",
-      active: true,
-      components: ["Transform", "Sprite"],
-      tags: ["player"],
-      x: 10,
-      y: 20,
-      rotation: 0,
-    };
-
-    engineChannel.handleMessage(
-      makeEvent({ type: "es:entities", payload: [snapshot] }),
-    );
-
-    expect(handler).toHaveBeenCalledWith([snapshot]);
-    expect(warnSpy).not.toHaveBeenCalled();
-    unsubscribe();
-  });
-
-  it("drops an es:entities payload with a wrong-typed field and warns", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onEntities(handler);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const badSnapshot = {
-      id: "e1",
-      name: "Player",
-      active: true,
-      components: ["Transform"],
-      tags: [],
-      x: "not-a-number", // wrong type
-      y: 20,
-      rotation: 0,
-    };
-
-    engineChannel.handleMessage(
-      makeEvent({ type: "es:entities", payload: [badSnapshot] }),
-    );
-
-    expect(handler).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    unsubscribe();
-  });
-
-  it("drops an es:entities payload with a missing field and warns", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onEntities(handler);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const badSnapshot = {
-      id: "e1",
-      name: "Player",
-      active: true,
-      components: ["Transform"],
-      tags: [],
-      // x missing entirely
-      y: 20,
-      rotation: 0,
-    };
-
-    engineChannel.handleMessage(
-      makeEvent({ type: "es:entities", payload: [badSnapshot] }),
-    );
-
-    expect(handler).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    unsubscribe();
-  });
-
-  it("drops an es:entities payload whose top-level payload is not an array", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onEntities(handler);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    engineChannel.handleMessage(
-      makeEvent({ type: "es:entities", payload: { not: "an array" } }),
-    );
-
-    expect(handler).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    unsubscribe();
-  });
-
-  it("ignores messages with no es: prefix", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onEntities(handler);
-    engineChannel.handleMessage(
-      makeEvent({ type: "other:thing", payload: [] }),
-    );
-    expect(handler).not.toHaveBeenCalled();
-    unsubscribe();
-  });
-});
-
-describe("EngineChannel — es:component-fields validation", () => {
-  it("accepts a well-formed es:component-fields message", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onComponentFields(handler);
-
-    engineChannel.handleMessage(
-      makeEvent({
-        type: "es:component-fields",
-        entityId: "e1",
-        component: "Sprite",
-        fields: { visible: true },
-      }),
-    );
-
-    expect(handler).toHaveBeenCalledWith("e1", "Sprite", { visible: true });
-    unsubscribe();
-  });
-
-  it("drops es:component-fields with a non-object fields value and warns", () => {
-    const handler = vi.fn();
-    const unsubscribe = engineChannel.onComponentFields(handler);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    engineChannel.handleMessage(
-      makeEvent({
-        type: "es:component-fields",
-        entityId: "e1",
-        component: "Sprite",
-        fields: "not-an-object",
-      }),
-    );
-
-    expect(handler).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    unsubscribe();
-  });
-});
-
-describe("EngineChannel — postToEngine is the only outbound method", () => {
-  it("posts a message to the attached iframe's contentWindow", () => {
+describe("EngineChannel.query — request/response over postMessage", () => {
+  it("posts an es:query with a fresh id, resolves when the matching es:query-result arrives", async () => {
     const postMessage = vi.fn();
     const fakeIframe = {
       contentWindow: { postMessage },
     } as unknown as HTMLIFrameElement;
-
     engineChannel.setIframe(fakeIframe);
-    engineChannel.postToEngine({ type: "es:select-entity", id: "e1" });
 
-    expect(postMessage).toHaveBeenCalledWith(
-      { type: "es:select-entity", id: "e1" },
-      "*",
+    const pending = engineChannel.query({ kind: "listEntities" });
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const sent = postMessage.mock.calls[0]?.[0] as {
+      type: string;
+      id: string;
+      query: unknown;
+    };
+    expect(sent.type).toBe("es:query");
+    expect(sent.query).toEqual({ kind: "listEntities" });
+
+    engineChannel.handleMessage(
+      makeEvent({
+        type: "es:query-result",
+        id: sent.id,
+        result: { ok: true, data: [] },
+      }),
     );
+
+    await expect(pending).resolves.toEqual({ ok: true, data: [] });
     engineChannel.setIframe(null);
   });
 
-  it("has no sendToEngine method (removed dead duplicate)", () => {
+  it("resolves no-live-instance immediately when no iframe is attached", async () => {
+    engineChannel.setIframe(null);
+    const result = await engineChannel.query({ kind: "listEntities" });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "no-live-instance",
+        message: expect.any(String) as string,
+      },
+    });
+  });
+
+  it("ignores an es:query-result whose id does not match any pending query", () => {
+    const postMessage = vi.fn();
+    engineChannel.setIframe({
+      contentWindow: { postMessage },
+    } as unknown as HTMLIFrameElement);
+
+    // Should not throw, and should not affect any real pending query.
+    expect(() =>
+      engineChannel.handleMessage(
+        makeEvent({
+          type: "es:query-result",
+          id: "not-a-real-id",
+          result: { ok: true, data: [] },
+        }),
+      ),
+    ).not.toThrow();
+    engineChannel.setIframe(null);
+  });
+
+  it("ignores messages with no es:query-result type", () => {
+    expect(() =>
+      engineChannel.handleMessage(makeEvent({ type: "other:thing" })),
+    ).not.toThrow();
+  });
+
+  it("resolves every pending query as no-live-instance when the iframe changes mid-flight", async () => {
+    const postMessage = vi.fn();
+    engineChannel.setIframe({
+      contentWindow: { postMessage },
+    } as unknown as HTMLIFrameElement);
+
+    const pending = engineChannel.query({ kind: "listEntities" });
+    engineChannel.setIframe(null); // Simulates a re-render/reload swapping the iframe.
+
+    const result = await pending;
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("no-live-instance");
+  });
+});
+
+describe("summaryToSnapshot", () => {
+  it("fills in defaults for every optional EntitySummary field", () => {
     expect(
-      (engineChannel as unknown as Record<string, unknown>)["sendToEngine"],
-    ).toBeUndefined();
+      summaryToSnapshot({ entityId: 7, components: ["Transform"] }),
+    ).toEqual({
+      id: "7",
+      name: "Entity 7",
+      active: true,
+      components: ["Transform"],
+      tags: [],
+      x: 0,
+      y: 0,
+      rotation: 0,
+    });
+  });
+
+  it("passes through real Meta/Transform-derived fields when present", () => {
+    expect(
+      summaryToSnapshot({
+        entityId: 3,
+        components: ["Transform", "Meta"],
+        name: "Hero",
+        tags: ["player"],
+        active: false,
+        x: 10,
+        y: 20,
+        rotation: 1.5,
+      }),
+    ).toEqual({
+      id: "3",
+      name: "Hero",
+      active: false,
+      components: ["Transform", "Meta"],
+      tags: ["player"],
+      x: 10,
+      y: 20,
+      rotation: 1.5,
+    });
   });
 });

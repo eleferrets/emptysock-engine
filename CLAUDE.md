@@ -438,50 +438,80 @@ The one real design question this forced: GML event code (Create/Step/Draw/Destr
 
 None of the real `.yy`/`.yyp` format quirks documented above (trailing commas, `%Name`, event naming, `resourceType` room layers, sprite frame UUIDs, `defaultScriptType` non-signal, untranspiled GM8.1 DnD symbols) were touched by this — they live entirely in the parsing layer (`gms2-parse.ts`/`gms2-sprite-import.ts`/`gms2-room-import.ts`/`gms2-transpile.ts`), which this redesign never modified, only the codegen layer consuming its output.
 
-### `Meta` component gives `QueryChannel` a real entity name/tags/active shape — `apps/ide` still isn't wired to read it
+### `apps/ide` bundles and types the ECS API, not the classic one — the live Inspector bridge is real
 
-RELEASE_PASS.md's Track 0 deferred unifying `IDEBridge` into `QueryChannel` for a
-specific, real reason: `QueryChannel`'s `EntitySummary` had no `name`/`tags`/`active`
-fields, and bitECS entities have no built-in notion of any of the three, so
-inventing that shape needed a real design decision rather than a placeholder.
-`ecs/components/Meta.ts` is that decision — an optional component (`name: string`,
-`tags: string[]`, `active: boolean`) following the same "optional, absent means a
-sane default" pattern `WidgetAppearance` already uses for `visible`/`alpha`: an
-entity with no `Meta` is simply unnamed/untagged/active, the common case for a
-purely code-spawned entity that never needs to show up named in an editor.
-`QueryChannel.EntitySummary` gained matching optional `name?`/`tags?`/`active?`
-fields plus `x?`/`y?`/`rotation?` sourced from `Transform` when present, and both
-`_listEntities()` and `_entityInfo()` route through a new private
-`_summaryExtras(entity)` that reads `Meta`/`Transform` if they exist and spreads
-whichever fields are present — an entity with neither component still gets the
-original bare `{ entityId, components }` shape, so this is additive, not a
-breaking change to the query result.
+`apps/ide/engine-runtime.build.mjs` bundles `@emptysock/engine/ecs` (not the
+classic root surface) as `window.EmptySockEngine` for the preview iframe, and
+`apps/ide/vite.config.ts`'s `engineTypesPlugin` types Monaco's Code editor
+against the same surface — the two have to stay in sync, since a mismatch
+would let a game typecheck against one API while running a different one.
+Root and ECS export colliding names for different things (`Entity`, `Scene`,
+`Transform`, `PhysicsSystem`, `UISystem`, …), so this is a full switch, not a
+merge; the classic root surface is not bundled or typed anywhere in `apps/ide`
+any more, though it still exists on disk and apps/ide's own source still
+imports some of it directly (a separate, ordinary npm import, unrelated to
+the runtime bundle/Monaco). `engine-runtime.build.mjs` also externalizes
+`@dimforge/rapier{2,3}d-deterministic-compat` alongside the non-deterministic
+builds — Rolldown resolves both branches of `PhysicsSystem`'s runtime
+`moduleName` ternary at build time and fails hard on a genuinely-uninstalled
+optional dependency otherwise.
 
-This closes the "we don't have a shape to migrate to" half of Track 0's deferred
-item, but not the whole thing — and the remaining piece is bigger than a wire-
-protocol rewrite. Traced end to end (RELEASE_PASS.md has the full write-up):
-`apps/ide/engine-runtime.build.mjs` bundles only `packages/engine/src/index.ts`
-(the classic root export surface) into the IIFE the preview iframe actually
-runs, and `apps/ide/vite.config.ts`'s `engineTypesPlugin` only exposes that same
-root surface to Monaco — `@emptysock/engine/ecs` (`Game`, `QueryChannel`, every
-ECS component/system) is bundled and typed nowhere in `apps/ide` today. Root and
-ECS also export colliding names for different things (`Entity`, `Scene`,
-`Transform`, `PhysicsSystem`, `UISystem`, …), so merging them into one flat
-runtime namespace isn't a safe mechanical fix either. `QueryChannel.attach()`
-takes an ECS `Scene` specifically and has no way to inspect a classic one, so it
-cannot become "the" live Inspector bridge until `apps/ide`'s authored-game
-pipeline (Monaco types, the runtime bundle, project templates) actually targets
-the ECS API — a project-owner-level decision and a much larger migration than
-rewiring `EngineChannel.ts`.
+The default new-project boilerplate (`ideStore.ts`'s `INITIAL_CODE`) is real
+ECS code (`defineScene`, `scene.spawn()`, `entity.add(Component, props)`,
+`RenderPipeline`/`game.attachRenderer()`, a `requestAnimationFrame` loop) —
+not the classic `extends Scene` shape it used to seed. `RenderPipeline.init()`
+must be awaited before `.canvas`/`attachRenderer()` are usable (throws
+"RenderSystem not initialized" otherwise); the boilerplate does this. It also
+passes `manageLifecycle: false` to `loadScene()` since a sprite-only starter
+has no physics bodies or actors to justify a `PhysicsSystem`/`ActorSystem` it
+would never use — which sidesteps a separate, real, still-open gap: ECS
+`PhysicsSystem`'s non-literal `await import(moduleName)` cannot resolve as a
+bare specifier in a real browser with no import map, since the deterministic
+build is necessarily externalized from the runtime bundle. This affects the
+classic `PhysicsSystem` identically (externalizing a module makes its dynamic
+`import()` a genuine unresolvable bare specifier at runtime regardless of
+whether the source specifier was literal or computed) — physics has likely
+never worked in the IDE's browser preview, full stop, independent of this
+migration. Not fixed here; needs an import-map entry or a runtime shim
+`apps/ide` registers before the game module loads, in a dedicated pass.
 
-Two small, real, independently useful pieces of groundwork landed for whenever
-that migration happens: `Game.instances: Set<Game>` (`ecs/Game.ts`) — a pure,
-DOM-free static registry of every live `Game`, so a future ECS-aware preview
-bootstrap can find a `Game` it didn't construct itself without game code opting
-in to anything IDE-specific — and `QueryChannel`'s `setComponent` query kind,
-which merges a patch into a component's live fields through the same proxy
-`getComponent`/`listEntities` already read from. Both are real, tested, and
-useful on their own; neither makes the Inspector live today.
+The live Inspector bridge itself is real and verified end to end, not just
+typechecked. `apps/ide/src/services/PlayRunner.ts`'s iframe bootstrap script
+polls `window.EmptySockEngine.Game.instances` (a pure, DOM-free static
+`Set<Game>` every `Game` constructor call adds itself to — the mechanism that
+lets a preview host find a `Game` it never constructed, without game code
+opting in to anything IDE-specific), constructs/attaches a `QueryChannel` to
+whichever `Game`'s `currentScene` it finds, and relays `es:query`/
+`es:query-result` over `postMessage`. `EngineChannel.ts` (the IDE-side
+transport) is a request/response `query<T>(EngineQuery):
+Promise<EngineQueryResult<T>>`, replacing the classic `IDEBridge`'s
+fire-and-forget `es:entities`/`es:set-component` broadcast — which had no real
+caller anywhere in `apps/ide` to begin with (nothing ever called
+`ideBridge.install()`), so there was never a live protocol to migrate off of,
+only a dead one left alone for the deletion pass. `summaryToSnapshot()`
+converts `QueryChannel.EntitySummary`'s numeric entity ids and optional
+`Meta`/`Transform`-derived fields into the `EntitySnapshot` shape
+`SceneInspector.tsx`/`EntityProperties.tsx` already render; edits go through
+`QueryChannel`'s `setComponent` query kind, which merges a patch into a
+component's live fields through the same proxy `getComponent`/`listEntities`
+already read from.
+
+`QueryChannel` also no longer needs `registerComponents(...)` called with a
+hardcoded list before it can see anything: `ComponentRegistry` gained
+`registeredComponents(world): ComponentDef[]` (every component name at least
+one live entity has used, in registration order, scoped per-`World` like
+everything else in that class), and `QueryChannel._resolveComponents()`/
+`_resolveComponent()` merge manually-registered defs with whatever the
+registry has actually observed live. This is what makes the bridge work
+against a game whose component set was never enumerated up front.
+
+Verified by extracting `PlayRunner.ts`'s real `buildIframeHtml()` template and
+bundling `EngineChannel.ts` standalone (not hand-reimplementing either) into a
+two-window headless Chromium harness — a real parent page and a real iframe
+running the real generated engine bundle and the real default-project
+boilerplate — confirming `listEntities` found both seeded entities,
+`setComponent` wrote through to the live entity, and a follow-up
+`getComponent` read the new value back.
 
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 

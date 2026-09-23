@@ -196,14 +196,22 @@ export declare class QueryChannel {
   private _live;
   private readonly _components;
   /**
-   * Register the component types this channel can read/list. Entity/
-   * component queries only ever see components registered here — a `Scene`
-   * has no built-in "list every entity regardless of shape" primitive
-   * (ENGINE_DESIGN.md §21's `each()` always takes explicit component defs),
-   * so the channel needs the same explicit list. Safe to call more than
+   * Register component types this channel should read/list even before
+   * `componentRegistry` has seen any live entity use them (e.g. right after
+   * `attach()`, before the first `scene.spawn()`). Not required for
+   * ordinary operation any more: `_resolveComponents()`/`_resolveComponent()`
+   * also consult `componentRegistry.registeredComponents(scene.world)`
+   * directly, which is what makes this channel work against a game whose
+   * component set the caller never enumerated up front — the whole point
+   * of ground rule 13's "IDE Inspector reads a real `ComponentRegistry`-
+   * driven schema" item this channel now serves. Safe to call more than
    * once; later calls add to, rather than replace, the registered set.
    */
   registerComponents(...defs: ComponentDef[]): void;
+  /** Every component this channel can currently see: manually registered, plus whatever `componentRegistry` has observed live on this scene's world. */
+  private _resolveComponents;
+  /** Resolve one component by name — manually registered first, then whatever `componentRegistry` has observed live. */
+  private _resolveComponent;
   /** Point this channel at a live `Scene` (and, if physics queries are needed, its `PhysicsSystem`). */
   attach(scene: Scene, physics?: PhysicsSystem): void;
   /** Nothing is live any more — every query now answers `"no-live-instance"`. */

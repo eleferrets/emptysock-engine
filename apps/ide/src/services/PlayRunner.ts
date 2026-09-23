@@ -111,8 +111,41 @@ function buildIframeHtml(engineBundle: string, userModuleUrl: string): string {
     } else if (e.data.type === 'set-fps-cap' && typeof e.data.cap === 'number') {
       _rafCap = Math.max(0, e.data.cap);
       _rafLastFrame = 0;
+    } else if (e.data.type === 'es:query' && typeof e.data.id === 'string' && e.data.query) {
+      var channel = _esEnsureQueryChannel();
+      var result = channel
+        ? channel.handle(e.data.query)
+        : { ok: false, error: { code: 'no-live-instance', message: 'No QueryChannel available yet.' } };
+      window.parent.postMessage({ type: 'es:query-result', id: e.data.id, result: result }, '*');
     }
   });
+
+  // Live Inspector bridge: finds the game's own Game instance via the
+  // Game.instances registry (game code never opts in to anything IDE-
+  // specific) and relays QueryChannel queries over postMessage. Polled
+  // rather than event-driven since there is no reliable hook for "game code
+  // just called new Game()" or "just called loadScene()" from outside.
+  var _esQueryChannel = null;
+  var _esBoundGame = null;
+  function _esEnsureQueryChannel() {
+    var NS = window.EmptySockEngine;
+    if (!NS || typeof NS.QueryChannel !== 'function') return null;
+    var current = null;
+    NS.Game.instances.forEach(function(g) { current = g; });
+    if (current === null) return null;
+    if (current !== _esBoundGame) {
+      _esBoundGame = current;
+      _esQueryChannel = new NS.QueryChannel();
+    }
+    var scene = current.currentScene;
+    if (scene !== null && !_esQueryChannel.isLive) {
+      _esQueryChannel.attach(scene);
+    } else if (scene === null && _esQueryChannel.isLive) {
+      _esQueryChannel.detach();
+    }
+    return _esQueryChannel;
+  }
+  setInterval(_esEnsureQueryChannel, 200);
 
   // FPS counter
   var last = performance.now(), frames = 0;

@@ -7,6 +7,7 @@ import {
 } from "../systems/PhysicsSystem.js";
 import { Meta } from "../components/Meta.js";
 import { Transform } from "../components/Transform.js";
+import { componentRegistry } from "../ComponentRegistry.js";
 
 /**
  * ENGINE_DESIGN.md §8 / RELEASE_PASS.md "MCP live bridge" — the engine-side
@@ -257,15 +258,42 @@ export class QueryChannel {
   private readonly _components = new Map<string, ComponentDef>();
 
   /**
-   * Register the component types this channel can read/list. Entity/
-   * component queries only ever see components registered here — a `Scene`
-   * has no built-in "list every entity regardless of shape" primitive
-   * (ENGINE_DESIGN.md §21's `each()` always takes explicit component defs),
-   * so the channel needs the same explicit list. Safe to call more than
+   * Register component types this channel should read/list even before
+   * `componentRegistry` has seen any live entity use them (e.g. right after
+   * `attach()`, before the first `scene.spawn()`). Not required for
+   * ordinary operation any more: `_resolveComponents()`/`_resolveComponent()`
+   * also consult `componentRegistry.registeredComponents(scene.world)`
+   * directly, which is what makes this channel work against a game whose
+   * component set the caller never enumerated up front — the whole point
+   * of ground rule 13's "IDE Inspector reads a real `ComponentRegistry`-
+   * driven schema" item this channel now serves. Safe to call more than
    * once; later calls add to, rather than replace, the registered set.
    */
   registerComponents(...defs: ComponentDef[]): void {
     for (const def of defs) this._components.set(def.componentName, def);
+  }
+
+  /** Every component this channel can currently see: manually registered, plus whatever `componentRegistry` has observed live on this scene's world. */
+  private _resolveComponents(): ComponentDef[] {
+    const merged = new Map(this._components);
+    if (this._live !== null) {
+      for (const def of componentRegistry.registeredComponents(
+        this._live.scene.world,
+      )) {
+        if (!merged.has(def.componentName)) merged.set(def.componentName, def);
+      }
+    }
+    return [...merged.values()];
+  }
+
+  /** Resolve one component by name — manually registered first, then whatever `componentRegistry` has observed live. */
+  private _resolveComponent(component: string): ComponentDef | undefined {
+    const manual = this._components.get(component);
+    if (manual !== undefined) return manual;
+    if (this._live === null) return undefined;
+    return componentRegistry
+      .registeredComponents(this._live.scene.world)
+      .find((def) => def.componentName === component);
   }
 
   /** Point this channel at a live `Scene` (and, if physics queries are needed, its `PhysicsSystem`). */
@@ -361,7 +389,7 @@ export class QueryChannel {
 
     const byEntity = new Map<number, Set<string>>();
     const entities = new Map<number, Entity>();
-    for (const def of this._components.values()) {
+    for (const def of this._resolveComponents()) {
       live.scene.each(def, (_component, entity) => {
         let names = byEntity.get(entity.eid);
         if (names === undefined) {
@@ -395,7 +423,7 @@ export class QueryChannel {
     }
 
     const components: string[] = [];
-    for (const def of this._components.values()) {
+    for (const def of this._resolveComponents()) {
       if (entity.has(def)) components.push(def.componentName);
     }
     return ok({ entityId, components, ...this._summaryExtras(entity) });
@@ -408,7 +436,7 @@ export class QueryChannel {
     const live = this._live;
     if (live === null) return noLiveInstance();
 
-    const def = this._components.get(component);
+    const def = this._resolveComponent(component);
     if (def === undefined) {
       return {
         ok: false,
@@ -438,7 +466,7 @@ export class QueryChannel {
     const live = this._live;
     if (live === null) return noLiveInstance();
 
-    const def = this._components.get(component);
+    const def = this._resolveComponent(component);
     if (def === undefined) {
       return {
         ok: false,

@@ -1,5 +1,21 @@
-// EngineChannel — IDE-side listener for postMessage events from the engine iframe.
-// Validates the "es:" prefix and dispatches to registered handlers.
+// EngineChannel — IDE-side transport for the live Inspector bridge.
+//
+// Talks a request/response protocol (`es:query` / `es:query-result`) to the
+// preview iframe's own bootstrap script (`PlayRunner.ts`'s `buildIframeHtml`),
+// which relays each query to a `QueryChannel` (`@emptysock/engine/ecs`)
+// attached to whatever `Game`/`Scene` the user's own game code created — see
+// `QueryChannel.ts`'s doc comment for the full design. This replaces the
+// classic `IDEBridge`'s fire-and-forget `es:entities`/`es:set-component`
+// broadcast, which had no real caller anywhere in `apps/ide` to begin with
+// (nothing ever called `ideBridge.install()`).
+
+import type {
+  EngineQuery,
+  EngineQueryResult,
+  EntitySummary,
+} from "@emptysock/engine/ecs";
+
+export type { EntitySummary };
 
 export interface EntitySnapshot {
   id: string;
@@ -12,111 +28,107 @@ export interface EntitySnapshot {
   rotation: number;
 }
 
-export type OutboundMsg =
-  | { type: "es:select-entity"; id: string }
-  | {
-      type: "es:set-component";
-      id: string;
-      component: string;
-      patch: Record<string, unknown>;
-    };
-
-type EntitiesHandler = (entities: EntitySnapshot[]) => void;
-type FieldsHandler = (
-  entityId: string,
-  component: string,
-  fields: Record<string, unknown>,
-) => void;
-
-/**
- * Runtime type guard for one inbound `EntitySnapshot`. The postMessage
- * boundary between the IDE and the preview iframe is untyped at runtime —
- * a malformed or stale engine build could send a payload that satisfies
- * `Array.isArray` but not the actual shape, so every field is checked here
- * rather than trusting a single `as EntitySnapshot[]` cast.
- */
-function isEntitySnapshot(x: unknown): x is EntitySnapshot {
-  if (typeof x !== "object" || x === null) return false;
-  const o = x as Record<string, unknown>;
-  return (
-    typeof o["id"] === "string" &&
-    typeof o["name"] === "string" &&
-    typeof o["active"] === "boolean" &&
-    Array.isArray(o["components"]) &&
-    o["components"].every((c) => typeof c === "string") &&
-    Array.isArray(o["tags"]) &&
-    o["tags"].every((t) => typeof t === "string") &&
-    typeof o["x"] === "number" &&
-    typeof o["y"] === "number" &&
-    typeof o["rotation"] === "number"
-  );
+/** `EntitySummary`'s optional, "absent means a sane default" fields become real defaults at this boundary — `apps/ide`'s panels read plain, always-present values. */
+export function summaryToSnapshot(summary: EntitySummary): EntitySnapshot {
+  return {
+    id: String(summary.entityId),
+    name: summary.name ?? `Entity ${summary.entityId}`,
+    active: summary.active ?? true,
+    components: summary.components,
+    tags: summary.tags !== undefined ? [...summary.tags] : [],
+    x: summary.x ?? 0,
+    y: summary.y ?? 0,
+    rotation: summary.rotation ?? 0,
+  };
 }
 
+interface PendingQuery {
+  resolve: (result: EngineQueryResult<unknown>) => void;
+  timeoutHandle: ReturnType<typeof setTimeout>;
+}
+
+/** How long a query waits for a reply before resolving as `no-live-instance` — the preview iframe may not have loaded a Game yet, which is a normal state, not an error to surface as a hang. */
+const QUERY_TIMEOUT_MS = 2000;
+
+let _nextQueryId = 0;
+
 class EngineChannelService {
-  private readonly _entitiesHandlers = new Set<EntitiesHandler>();
-  private readonly _fieldsHandlers = new Set<FieldsHandler>();
   private _iframe: HTMLIFrameElement | null = null;
+  private readonly _pending = new Map<string, PendingQuery>();
 
   setIframe(iframe: HTMLIFrameElement | null): void {
     this._iframe = iframe;
+    // A new iframe means every in-flight query's answer can never arrive.
+    for (const [id, pending] of this._pending) {
+      clearTimeout(pending.timeoutHandle);
+      pending.resolve({
+        ok: false,
+        error: {
+          code: "no-live-instance",
+          message: "Preview iframe changed before this query returned.",
+        },
+      });
+      this._pending.delete(id);
+    }
   }
 
-  postToEngine(msg: OutboundMsg): void {
-    this._iframe?.contentWindow?.postMessage(msg, "*");
-  }
+  /**
+   * Send one query to the live preview and resolve with its real answer, or
+   * a `no-live-instance` result if nothing replies in time (no game loaded
+   * yet, or the preview isn't running at all) — never a thrown/rejected
+   * promise for that ordinary case.
+   */
+  query<T>(q: EngineQuery): Promise<EngineQueryResult<T>> {
+    const contentWindow = this._iframe?.contentWindow;
+    if (contentWindow === null || contentWindow === undefined) {
+      return Promise.resolve({
+        ok: false,
+        error: {
+          code: "no-live-instance",
+          message: "No preview iframe is running.",
+        },
+      });
+    }
 
-  onEntities(handler: EntitiesHandler): () => void {
-    this._entitiesHandlers.add(handler);
-    return () => this._entitiesHandlers.delete(handler);
-  }
-
-  onComponentFields(handler: FieldsHandler): () => void {
-    this._fieldsHandlers.add(handler);
-    return () => this._fieldsHandlers.delete(handler);
+    const id = `q${String(_nextQueryId++)}`;
+    return new Promise((resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        this._pending.delete(id);
+        resolve({
+          ok: false,
+          error: {
+            code: "no-live-instance",
+            message: "No live game answered this query.",
+          },
+        });
+      }, QUERY_TIMEOUT_MS);
+      this._pending.set(id, {
+        resolve: resolve as (result: EngineQueryResult<unknown>) => void,
+        timeoutHandle,
+      });
+      contentWindow.postMessage({ type: "es:query", id, query: q }, "*");
+    });
   }
 
   handleMessage(event: MessageEvent): void {
     const data = event.data as Record<string, unknown> | null;
     if (typeof data !== "object" || data === null) return;
-    const t = data["type"];
-    if (typeof t !== "string" || !t.startsWith("es:")) return;
+    if (data["type"] !== "es:query-result") return;
 
-    if (t === "es:entities") {
-      const payload = data["payload"];
-      if (!Array.isArray(payload)) {
-        console.warn(
-          "EngineChannel: dropped es:entities message — payload is not an array",
-        );
-        return;
-      }
-      if (!payload.every(isEntitySnapshot)) {
-        console.warn(
-          "EngineChannel: dropped es:entities message — one or more entities failed shape validation",
-        );
-        return;
-      }
-      const snapshots = payload;
-      for (const h of this._entitiesHandlers) h(snapshots);
-    } else if (t === "es:component-fields") {
-      const entityId = data["entityId"];
-      const component = data["component"];
-      const fields = data["fields"];
-      if (
-        typeof entityId !== "string" ||
-        typeof component !== "string" ||
-        typeof fields !== "object" ||
-        fields === null ||
-        Array.isArray(fields)
-      ) {
-        console.warn(
-          "EngineChannel: dropped es:component-fields message — malformed payload",
-        );
-        return;
-      }
-      for (const h of this._fieldsHandlers) {
-        h(entityId, component, fields as Record<string, unknown>);
-      }
+    const id = data["id"];
+    const result = data["result"];
+    if (
+      typeof id !== "string" ||
+      typeof result !== "object" ||
+      result === null
+    ) {
+      return;
     }
+    const pending = this._pending.get(id);
+    if (pending === undefined) return; // Already timed out, or an id from a stale iframe.
+    clearTimeout(pending.timeoutHandle);
+    this._pending.delete(id);
+    pending.resolve(result as EngineQueryResult<unknown>);
   }
 }
 

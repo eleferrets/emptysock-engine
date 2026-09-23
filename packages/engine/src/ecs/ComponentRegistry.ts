@@ -159,6 +159,23 @@ class ComponentRegistry {
     return entry.store;
   }
 
+  /**
+   * Every `ComponentDef` currently registered on `world` — i.e. every
+   * component name at least one live `ensure()` call has touched for this
+   * world, in registration order. This is what makes a truly
+   * component-agnostic live Inspector bridge possible: `QueryChannel`
+   * doesn't have to be told in advance which components a given game
+   * uses (`registerComponents(Transform, Sprite, ...)`) — it can instead
+   * ask the registry directly, once at least one entity has actually used
+   * each component. A world nothing has been spawned/added to yet
+   * legitimately returns `[]`, not an error.
+   */
+  registeredComponents(world: World): ComponentDef[] {
+    const byName = this._byWorld.get(world);
+    if (byName === undefined) return [];
+    return [...byName.values()].map((entry) => entry.lastDef);
+  }
+
   /** Test/dev hook: forget every world's registered components. */
   clearAll(): void {
     // WeakMap has no clear(); scopes are per-world already and worlds are

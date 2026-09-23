@@ -135,6 +135,42 @@ describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge
     await game.unloadScene();
   });
 
+  it("discovers components via componentRegistry without registerComponents() being called at all", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+
+    const entity = scene.spawn();
+    entity.add(Transform, { x: 7, y: 8 });
+
+    const channel = new QueryChannel();
+    // Deliberately no channel.registerComponents(...) call.
+    channel.attach(scene);
+
+    const list = channel.handle({ kind: "listEntities" });
+    expect(list.ok).toBe(true);
+    if (!list.ok) throw new Error("expected ok");
+    expect(list.data).toEqual([
+      {
+        entityId: entity.eid,
+        components: ["Transform"],
+        x: 7,
+        y: 8,
+        rotation: 0,
+      },
+    ]);
+
+    const component = channel.handle({
+      kind: "getComponent",
+      entityId: entity.eid,
+      component: "Transform",
+    });
+    expect(component.ok).toBe(true);
+    if (!component.ok) throw new Error("expected ok");
+    expect(component.data).toMatchObject({ x: 7, y: 8 });
+
+    await game.unloadScene();
+  });
+
   it("includes Meta/Transform-derived fields when present, and omits them when absent", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}));

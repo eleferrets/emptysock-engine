@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import type { EntityItem, EntitySnapshot } from "../../store/ideStore";
-import { engineChannel } from "../../services/EngineChannel";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
@@ -214,8 +213,10 @@ export function SceneInspector(): React.ReactElement {
     addEntity(name);
   };
 
-  // When selection changes: signal store so EntityProperties can react,
-  // and notify the engine iframe to push component fields for the selected entity.
+  // When selection changes: signal store so EntityProperties can react.
+  // useEngineChannel's poll loop reads useIDEStore's selectedEntity directly
+  // and queries the live preview for its fields on the next tick — nothing
+  // needs to be pushed to the engine iframe here.
   React.useEffect(() => {
     if (selectedIds.size === 0) {
       selectEntity(null);
@@ -223,9 +224,8 @@ export function SceneInspector(): React.ReactElement {
       const [id] = selectedIds;
       if (id !== undefined) {
         selectEntity(id);
-        // Clear stale live fields before the engine responds with fresh ones
+        // Clear stale live fields until the next poll tick fetches fresh ones.
         useIDEStore.getState().setLiveComponentFields(null);
-        engineChannel.postToEngine({ type: "es:select-entity", id });
       }
     } else {
       // Multiple selected — clear the store selection so EntityProperties

@@ -161,6 +161,7 @@ export type {
   ListEntitiesQuery,
   EntityInfoQuery,
   GetComponentQuery,
+  SetComponentQuery,
   Raycast2DQuery,
   OverlapCircle2DQuery,
   BodyState2DQuery,
@@ -173,3 +174,21 @@ export type {
   CollisionCallback,
   SensorCallback,
 } from "./components/PhysicsBody.js";
+
+/**
+ * Curated list of built-in `componentName`s an editor's "Add Component"
+ * picker can offer for an entity that isn't live yet — there is no running
+ * `Scene`/`World` to ask `componentRegistry.registeredComponents()` about
+ * in that editing-time context, so some static list is unavoidable. This is
+ * the ECS counterpart to the classic root surface's `COMPONENT_REGISTRY`;
+ * it deliberately does not try to be exhaustive (widget/UI components,
+ * `Meta`, and anything a game defines itself via `defineComponent` are real
+ * components that just aren't offered from this generic picker) — extend it
+ * as new built-in components earn a place in that dropdown.
+ */
+export const COMPONENT_REGISTRY: readonly string[] = [
+  "Transform",
+  "Sprite",
+  "PhysicsBody",
+  "Meta",
+] as const;

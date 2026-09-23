@@ -16,9 +16,12 @@ function makeEntity(
   components: { type: string; properties: Record<string, string> }[],
 ): void {
   useIDEStore.setState({
-    selectedEntityId: "e1",
+    // A real-looking numeric id — live entity ids are always numeric
+    // strings (`String(entityId)`, see EngineChannel.ts's `summaryToSnapshot`);
+    // handlePatch() only queries the live preview for a numeric id.
+    selectedEntityId: "1",
     selectedEntity: {
-      id: "e1",
+      id: "1",
       name: "Player",
       type: "Entity",
       transform: { x: "0", y: "0", rotation: "0", scaleX: "1", scaleY: "1" },
@@ -85,7 +88,9 @@ describe("EntityProperties — schema-driven Inspector controls", () => {
         properties: { texturePath: "", visible: "true", tint: "0" },
       },
     ]);
-    const spy = vi.spyOn(engineChannel, "postToEngine");
+    const spy = vi
+      .spyOn(engineChannel, "query")
+      .mockResolvedValue({ ok: true, data: {} });
 
     act(() => {
       root.render(<EntityProperties />);
@@ -104,7 +109,8 @@ describe("EntityProperties — schema-driven Inspector controls", () => {
 
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "es:set-component",
+        kind: "setComponent",
+        entityId: 1,
         component: "Sprite",
         patch: { visible: false },
       }),

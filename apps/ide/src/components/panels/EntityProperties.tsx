@@ -5,8 +5,8 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { useHistory } from "../../hooks/useHistory";
-import { COMPONENT_REGISTRY } from "@emptysock/engine";
 import {
+  COMPONENT_REGISTRY,
   Transform as V2Transform,
   Sprite as V2Sprite,
   PhysicsBody as V2PhysicsBody,
@@ -414,12 +414,15 @@ export function EntityProperties(): React.ReactElement {
     // (CLAUDE.md: "Undo/redo is mandatory in every panel that mutates
     // editor data").
     setSnap(makeSnapshot());
-    engineChannel.postToEngine({
-      type: "es:set-component",
-      id: entityId,
-      component: componentType,
-      patch: { [fieldKey]: newValue },
-    });
+    const numericId = Number(entityId);
+    if (Number.isFinite(numericId)) {
+      void engineChannel.query({
+        kind: "setComponent",
+        entityId: numericId,
+        component: componentType,
+        patch: { [fieldKey]: newValue },
+      });
+    }
   };
 
   if (selectedEntity === null) {
