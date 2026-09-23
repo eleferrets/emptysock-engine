@@ -1,7 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
-import { RotateCcw, RotateCw, Trash2 } from "lucide-react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
+import { RotateCcw, RotateCw, Trash2, Play, Square } from "lucide-react";
 import { useHistory } from "../../../hooks/useHistory";
 import { useLogicScriptStore } from "../../../store/logicScriptStore";
+import { useLogicScriptPreview } from "./useLogicScriptPreview";
 import type {
   VSNode,
   VSNodeKind,
@@ -74,6 +81,9 @@ export function LogicScriptEditor(): React.ReactElement {
     for (const n of graph.nodes) layout[n.id] = { x: n.x, y: n.y };
     setLogicScriptLayout(layout);
   }, [graph, setLogicScriptGraph, setLogicScriptLayout]);
+
+  const vsGraph = useMemo(() => toVisualScriptGraph(graph), [graph]);
+  const preview = useLogicScriptPreview(vsGraph);
 
   const [pendingEdge, setPendingEdge] = useState<LogicPendingEdge | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -336,6 +346,37 @@ export function LogicScriptEditor(): React.ReactElement {
           <RotateCw size={13} />
         </button>
 
+        <button
+          onClick={preview.state.running ? preview.stop : preview.start}
+          title={
+            preview.state.running
+              ? "Stop preview"
+              : "Run this graph against a live headless VisualScriptSystem"
+          }
+          style={{
+            ...btnStyleGhost,
+            color: preview.state.running ? "var(--es-red)" : "var(--es-accent)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          {preview.state.running ? <Square size={12} /> : <Play size={12} />}
+          {preview.state.running ? "Stop" : "Preview"}
+        </button>
+
+        {preview.state.running &&
+          preview.state.eventTypes.map((eventType) => (
+            <button
+              key={eventType}
+              onClick={() => preview.fireEvent(eventType)}
+              title={`Fire onEvent("${eventType}")`}
+              style={btnStyleGhost}
+            >
+              Fire: {eventType}
+            </button>
+          ))}
+
         <span
           style={{
             fontSize: 11,
@@ -343,7 +384,19 @@ export function LogicScriptEditor(): React.ReactElement {
             marginLeft: "auto",
           }}
         >
-          Click a port to connect • Select + Delete to remove
+          {preview.state.error !== null
+            ? `Preview error: ${preview.state.error}`
+            : preview.state.running
+              ? `Previewing — tick ${preview.state.tickCount} • vars: ${
+                  Object.entries(preview.state.variables)
+                    .map(([i, v]) => `#${i}=${v}`)
+                    .join(", ") || "none read"
+                } • switches: ${
+                  Object.entries(preview.state.switches)
+                    .map(([i, v]) => `#${i}=${v ? "on" : "off"}`)
+                    .join(", ") || "none read"
+                }`
+              : "Click a port to connect • Select + Delete to remove"}
         </span>
       </div>
 
