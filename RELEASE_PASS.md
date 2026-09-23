@@ -28,10 +28,22 @@ connects an MCP tool call to a live `QueryChannel` instance — plus four indepe
 already named in CLAUDE.md. Goal of this track: wire all five, so "batteries included" is actually true
 end to end, not just documented as a known gap.
 
-- [ ] **QueryChannel bridge transport.** `packages/engine/src/bridge/QueryChannel.ts`'s `handle()` is
-      real and transport-agnostic; nothing carries a query from a separate `emptysock-mcp` Node process
-      to a live game process. Fixed protocol (write both ends to this exact contract so the two repos'
-      agents don't need to coordinate live): - Transport: plain WebSocket. `emptysock-mcp` hosts the server (it's the long-lived process a
+- [x] **QueryChannel bridge transport** — done 2026-09-23, landed in `emptysock-mcp` (this repo's own
+      `QueryChannel.ts` needed no change; the missing half was entirely on the mcp-server side).
+      `emptysock-mcp`'s `src/lib/bridge.ts` hosts the WebSocket server on `127.0.0.1:EMPTYSOCK_BRIDGE_PORT`
+      (default `7777`); `physics_*`/`scene_*` tools now relay real `EngineQuery`s and return the real
+      `QueryChannel` result, falling back to an honest `{ ok:false, reason:"no-live-instance" }` when
+      nothing is connected or a reply times out (5s) — never the old fabricated stub data.
+      `navmesh_*`/`actor_*`/`scene_create_entity` stay stubs for a real, different reason surfaced during
+      this work: `QueryChannel` itself has no query kind for navmesh, `ActorSystem`, or entity creation
+      yet — that's a genuinely separate, not-yet-scoped engine-side follow-up (extending `QueryChannel`'s
+      `EngineQuery` union), not part of this item. `@emptysock/engine`'s wire types are hand-mirrored in
+      `emptysock-mcp/src/lib/bridgeTypes.ts` rather than imported (the package is private/unpublished with
+      native/WASM deps) — a real, flagged maintenance cost if `QueryChannel`'s shapes ever change; swap in
+      a real `import type` if `@emptysock/engine` is ever published. `emptysock-mcp` commit `09d5629` on
+      its own `claude/eager-fermat-925dyh`, typecheck+70/70 tests verified green independently by this
+      session, not just trusted from the subagent report.
+      Original spec, kept for reference: - Transport: plain WebSocket. `emptysock-mcp` hosts the server (it's the long-lived process a
       developer starts); the live game/IDE preview is the client that dials in — matches "engine
       defines the interface, whoever has a live instance wires the concrete pipe" (same pattern as
       `StorageAdapter`/`Transport`). - New env var `EMPTYSOCK_BRIDGE_PORT` (default `7777`) in `emptysock-mcp`'s `src/env.ts` +
@@ -96,7 +108,7 @@ end to end, not just documented as a known gap.
 - [x] **Fold in: unify `IDEBridge` into `QueryChannel`** — confirmed already done, 2026-09-23 (found
       complete, not left over from a previous session's undocumented work). `EngineChannel.ts` already
       sends `QueryChannel`-shaped queries (`{ kind: "listEntities" | "entityInfo" | "getComponent" |
-    "setComponent" }`) as `es:query`/`es:query-result` postMessage envelopes over `PlayRunner.ts`'s
+  "setComponent" }`) as `es:query`/`es:query-result` postMessage envelopes over `PlayRunner.ts`'s
       relay, which itself constructs a real `QueryChannel`, finds the live `Game` via `Game.instances`,
       and calls `.handle()` directly — grepped the whole `apps/ide/src` tree for `IDEBridge`/
       `es:entities`/`es:set-component`/`es:component-fields`: no such file and no such wire-protocol
@@ -106,9 +118,25 @@ end to end, not just documented as a known gap.
 **Bridge auth, decided 2026-09-23:** no auth token — bind the WebSocket server to `127.0.0.1` only,
 matching this MCP server's existing trust model (local file I/O, no network auth anywhere else in it).
 
+**Track status 2026-09-23: five of six `[x]`, one `[~]` (physics import-map, core mechanism verified,
+full iframe-bootstrap end-to-end not yet driven).** New, real follow-up surfaced by closing the bridge
+item, not yet scoped as its own track item — add before calling this track fully closed:
+
+- [ ] Extend `QueryChannel`'s `EngineQuery` union with navmesh (`NavMeshSystem` path lookup),
+      `ActorSystem` (send/broadcast/inbox size/list), and entity-creation query kinds, so
+      `emptysock-mcp`'s `navmesh_*`/`actor_*`/`scene_create_entity` tools can stop being stubs for real —
+      they're wired to the bridge transport now but have nothing on the other end to call. This is
+      `packages/engine/src/bridge/QueryChannel.ts` work in this repo; once it lands, `emptysock-mcp`'s
+      tool handlers need a matching follow-up to actually call the new query kinds instead of returning
+      `not-found`.
+- [ ] Finish item 4 above for real: drive the full `PlayRunner.ts` iframe bootstrap end-to-end inside the
+      actual `apps/ide` dev server with a physics-using game scene, not just the isolated import-map
+      mechanism (already confirmed working via raw CDP against a standalone page).
+
 Land each item as its own commit(s), Conventional Commits, typecheck/lint/test green after each, per this
-file's ground rules. Mark `[x]` here as each closes; once all six are `[x]`, migrate anything durable into
-CLAUDE.md's "Non-obvious decisions" the way every other closed track has.
+file's ground rules. Mark `[x]` here as each closes; once every item above (including the two new ones)
+is `[x]`, migrate anything durable into CLAUDE.md's "Non-obvious decisions" the way every other closed
+track has.
 
 ---
 
