@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
-import { Diagnostics } from "@emptysock/engine/ecs";
+import { Diagnostics } from "@emptysock/engine";
 import "./styles/globals.css";
 import "./styles/rc-dock-overrides.css";
 import { loader } from "@monaco-editor/react";

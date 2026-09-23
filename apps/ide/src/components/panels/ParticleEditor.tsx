@@ -8,7 +8,7 @@ import {
   ParticleEmitter,
   type ParticleEmitterOptions,
   type EmitterShape,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 
 // The panel edits ParticleEmitterOptions directly — the exact shape
 // `new ParticleEmitter(options)` accepts in code (see

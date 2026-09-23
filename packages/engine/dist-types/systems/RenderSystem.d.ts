@@ -1,6 +1,6 @@
 import { Container, type Filter, type Renderer } from "pixi.js";
 import type { LayerSystem } from "./LayerSystem.js";
-import type { GPUTier } from "../core/GPUTier.js";
+import type { GPUTier } from "../GPUTier.js";
 import { type PostProcessSystem } from "./PostProcessSystem.js";
 export interface RenderSystemOptions {
   width?: number;

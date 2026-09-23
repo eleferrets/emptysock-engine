@@ -6,7 +6,7 @@
  *
  * ```ts
  * import { createHeadlessGame } from "@emptysock/engine/testing";
- * import { defineScene, defineComponent } from "@emptysock/engine/ecs";
+ * import { defineScene, defineComponent } from "@emptysock/engine";
  *
  * const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
  * const game = createHeadlessGame();
@@ -23,24 +23,21 @@ import {
   type LoadOverlayOptions,
   type LoadSceneOptions,
   type SceneDefinition,
-} from "../ecs/Game.js";
-import { Scene } from "../ecs/Scene.js";
+} from "../Game.js";
+import { Scene } from "../Scene.js";
 
-export { Scene } from "../ecs/Scene.js";
-export { Entity } from "../ecs/Entity.js";
-export { defineComponent } from "../ecs/Component.js";
-export type { ComponentDef } from "../ecs/Component.js";
-export { defineScene } from "../ecs/Game.js";
-export type { SceneDefinition, SceneLifecycle, UpdateFn } from "../ecs/Game.js";
-export { ServiceRegistry } from "../ecs/Services.js";
-export type { ServiceConstructor } from "../ecs/Services.js";
-export { SaveSystem } from "../ecs/systems/SaveSystem.js";
-export type {
-  MigrateFn,
-  SaveSystemOptions,
-} from "../ecs/systems/SaveSystem.js";
-export { MemoryStorageAdapter } from "../ecs/systems/StorageAdapter.js";
-export type { StorageAdapter } from "../ecs/systems/StorageAdapter.js";
+export { Scene } from "../Scene.js";
+export { Entity } from "../Entity.js";
+export { defineComponent } from "../Component.js";
+export type { ComponentDef } from "../Component.js";
+export { defineScene } from "../Game.js";
+export type { SceneDefinition, SceneLifecycle, UpdateFn } from "../Game.js";
+export { ServiceRegistry } from "../Services.js";
+export type { ServiceConstructor } from "../Services.js";
+export { SaveSystem } from "../systems/SaveSystem.js";
+export type { MigrateFn, SaveSystemOptions } from "../systems/SaveSystem.js";
+export { MemoryStorageAdapter } from "../systems/StorageAdapter.js";
+export type { StorageAdapter } from "../systems/StorageAdapter.js";
 
 /**
  * A `Game` whose `loadScene`/`loadOverlay` always run headless — the

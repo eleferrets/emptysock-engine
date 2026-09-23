@@ -9,7 +9,7 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 // Default project boilerplate targets the ECS API, not the classic one —
-// apps/ide's runtime bundle and Monaco types only cover @emptysock/engine/ecs
+// apps/ide's runtime bundle and Monaco types only cover @emptysock/engine
 // now (RELEASE_PASS.md's "apps/ide ECS migration" track), so a new project
 // seeded with classic-API code (`extends Scene`, `createEntity`, `new
 // Transform(...)`) would fail to even typecheck, let alone run.

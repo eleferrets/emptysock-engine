@@ -4,7 +4,7 @@ import { SNIPPETS } from "../components/panels/codeSnippets.js";
 /**
  * The "Insert Snippet" feature hands these strings straight into a user's
  * ECS-targeted game file (apps/ide's Monaco types and runtime bundle only
- * cover @emptysock/engine/ecs now — RELEASE_PASS.md's "apps/ide ECS
+ * cover @emptysock/engine now — RELEASE_PASS.md's "apps/ide ECS
  * migration" track). A snippet written against the classic API
  * (`extends Scene`, `createEntity`, `addComponent(new X())`, `hasTag`) would
  * not even typecheck in the Code editor, let alone run.

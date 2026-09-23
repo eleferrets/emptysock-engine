@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TilemapSystem } from "../TilemapSystem.js";
-import { Game, defineScene, Transform } from "@emptysock/engine/ecs";
+import { Game, defineScene, Transform } from "@emptysock/engine";
 import type { TilemapData } from "../TilemapSystem.js";
 
 function makeData(solid?: boolean): TilemapData {

@@ -1,4 +1,4 @@
-import type { Entity } from "@emptysock/engine/ecs";
+import type { Entity } from "@emptysock/engine";
 
 /**
  * Bidirectional map between a Colyseus network id (a room state schema

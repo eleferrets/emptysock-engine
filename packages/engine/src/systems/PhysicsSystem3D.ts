@@ -1,21 +1,28 @@
 /**
- * PhysicsSystem3D — full 3D rigid-body physics via @dimforge/rapier3d-compat.
+ * `PhysicsSystem3D` — full 3D rigid-body physics via
+ * `@dimforge/rapier3d-compat` (or the deterministic-compat build, §15.2).
+ *
+ * It keeps the classic, handle-returning `addBody()` API rather than an ECS
+ * component (there is no ECS-core 3D component) — that shape is kept as-is
+ * rather than retrofitted onto `PhysicsBody`/bitECS, since `SceneLifecycle`
+ * (Game.ts) only has room for one physics system slot and 3D games are the
+ * minority case (ENGINE_DESIGN.md §10 round 1 item 3: "3D is not held to the
+ * same 'hide everything' bar as 2D"). A 3D game constructs and owns this
+ * directly, the same way `{ manageLifecycle: false }` hands back raw
+ * systems for manual ownership — see `Game.ts`'s escape hatch. What it adds
+ * beyond the classic 3D physics system: fixed-timestep accumulation +
+ * interpolation alpha (matching the 2D `PhysicsSystem`) and the
+ * deterministic-build swap.
  *
  * Quick-start:
  *   const physics = new PhysicsSystem3D();
- *   await physics.init({ x: 0, y: -9.81, z: 0 });
- *
- *   const box = physics.addBody({ shape: 'box', bodyType: 'dynamic', position: { x: 0, y: 5, z: 0 } });
- *   box.setLinearDamping(0.2);
- *
- *   physics.onCollisionEnter((a, b) => console.log('hit', a, b));
- *
+ *   await physics.init({ gravity: { x: 0, y: -9.81, z: 0 } });
+ *   const box = physics.addBody({ shape: "box", bodyType: "dynamic", position: { x: 0, y: 5, z: 0 } });
  *   // in game loop (onUpdate — must NOT be async):
  *   physics.update(dt);
- *   const pos = box.getPosition();
- *
- *   // When the scene unloads, ALWAYS call destroy() — Rapier3D holds WASM
- *   // memory the GC cannot see.  See CLAUDE.md § PhysicsSystem3D must be destroyed.
+ *   const alpha = physics.interpolationAlpha; // for a renderer to lerp with
+ *   // when the scene unloads, ALWAYS call destroy() — see CLAUDE.md
+ *   // "PhysicsSystem3D must be destroyed".
  *   physics.destroy();
  */
 
@@ -37,31 +44,22 @@ export type Shape3D = "box" | "sphere" | "capsule" | "cylinder" | "cone";
 export interface PhysicsBody3DOptions {
   bodyType?: BodyType3D;
   shape?: Shape3D;
-  /** Half-extents for box shape (default 0.5, 0.5, 0.5). */
   halfExtents?: Vec3;
-  /** Radius for sphere / capsule / cylinder / cone. */
   radius?: number;
-  /** Half-height for capsule / cylinder / cone. */
   halfHeight?: number;
   position?: Vec3;
   rotation?: Quat;
   density?: number;
   restitution?: number;
   friction?: number;
-  /** When true the collider generates overlap events but does not block movement. */
   isSensor?: boolean;
-  /** Enable continuous collision detection for fast-moving bodies (bullets, etc.). */
   ccdEnabled?: boolean;
 }
 
 export interface RaycastHit {
-  /** The body that was hit. */
   bodyIndex: number;
-  /** Distance along the ray from the origin to the hit point. */
   distance: number;
-  /** World-space hit point. */
   point: Vec3;
-  /** Surface normal at the hit point. */
   normal: Vec3;
 }
 
@@ -74,73 +72,123 @@ type CollisionCallback = (event: CollisionEvent) => void;
 
 export interface Physics3DHandle {
   readonly bodyIndex: number;
-
-  // Transform
   setPosition(pos: Vec3): void;
   getPosition(): Vec3;
   getRotation(): Quat;
-
-  // Velocity
   setLinearVelocity(vel: Vec3, wakeUp?: boolean): void;
   getLinearVelocity(): Vec3;
   setAngularVelocity(vel: Vec3, wakeUp?: boolean): void;
   getAngularVelocity(): Vec3;
-
-  // Forces — use applyForce for continuous per-frame forces, applyImpulse for one-shot kicks
   applyForce(force: Vec3, wakeUp?: boolean): void;
   applyImpulse(impulse: Vec3, wakeUp?: boolean): void;
   applyTorqueImpulse(torque: Vec3, wakeUp?: boolean): void;
-
-  // Damping
   setLinearDamping(damping: number): void;
   setAngularDamping(damping: number): void;
-
-  // Gravity
   setGravityScale(scale: number): void;
-
-  /**
-   * Raycast downward from the body's centre by `distance` world units.
-   * Returns true if the ray hits any other collider within that distance.
-   * More reliable than testing linvel.y (which passes for slow-falling bodies).
-   */
   isGrounded(distance?: number): boolean;
 }
 
+export interface PhysicsSystem3DOptions {
+  gravity?: Vec3;
+  /** Seconds per physics step (§10.3). Default 1/60. */
+  fixedTimestep?: number;
+  /** §15.2 — swap in the deterministic-compat WASM build. */
+  deterministic?: boolean;
+}
+
 import type * as _Rapier3DModule from "@dimforge/rapier3d-compat";
+import {
+  FixedTimestepAccumulator,
+  lerpSnapshot,
+} from "./FixedTimestepAccumulator.js";
+
 type Rapier3D = typeof _Rapier3DModule;
 type RapierEventQueue = InstanceType<Rapier3D["EventQueue"]>;
+
+interface Snapshot3D {
+  position: Vec3;
+  rotation: Quat;
+}
 
 export class PhysicsSystem3D {
   private _rapier: Rapier3D | null = null;
   private _world: InstanceType<Rapier3D["World"]> | null = null;
   private _eventQueue: RapierEventQueue | null = null;
-  /** index → rigidBody */
   private readonly _bodies: Map<number, InstanceType<Rapier3D["RigidBody"]>> =
     new Map();
-  /** rigidBody handle → index */
   private readonly _handleToIndex: Map<number, number> = new Map();
-  /** collider handle → index (for collision event lookup) */
   private readonly _colliderHandleToIndex: Map<number, number> = new Map();
   private _nextIndex = 0;
   private readonly _onEnterCallbacks: CollisionCallback[] = [];
   private readonly _onExitCallbacks: CollisionCallback[] = [];
 
-  async init(gravity: Vec3 = { x: 0, y: -9.81, z: 0 }): Promise<void> {
-    const R = await import("@dimforge/rapier3d-compat");
+  private readonly _timestep = new FixedTimestepAccumulator();
+  private readonly _snapshots = new Map<
+    number,
+    { previous: Snapshot3D; current: Snapshot3D }
+  >();
+
+  async init(options: PhysicsSystem3DOptions = {}): Promise<void> {
+    // See the matching comment in ecs/systems/PhysicsSystem.ts — a
+    // non-literal specifier keeps the deterministic build an optional,
+    // opt-in dependency rather than a hard one.
+    const moduleName = options.deterministic
+      ? "@dimforge/rapier3d-deterministic-compat"
+      : "@dimforge/rapier3d-compat";
+    const R = (await import(moduleName)) as unknown as Rapier3D;
     await R.init();
     this._rapier = R;
+    this._timestep.fixedTimestep = options.fixedTimestep ?? 1 / 60;
+    const gravity = options.gravity ?? { x: 0, y: -9.81, z: 0 };
     this._world = new R.World(gravity);
     this._eventQueue = new R.EventQueue(true);
   }
 
-  /** Register a callback fired when two bodies begin overlapping this frame. */
   onCollisionEnter(cb: CollisionCallback): void {
     this._onEnterCallbacks.push(cb);
   }
 
-  /** Register a callback fired when two bodies stop overlapping. */
   onCollisionExit(cb: CollisionCallback): void {
     this._onExitCallbacks.push(cb);
+  }
+
+  /** How far (0..1) the current render frame sits between the last two physics steps. */
+  get interpolationAlpha(): number {
+    return this._timestep.alpha;
+  }
+
+  /** Linearly interpolated transform for a body, for rendering. */
+  getInterpolatedTransform(
+    bodyIndex: number,
+    alpha = this._timestep.alpha,
+  ): Snapshot3D {
+    return lerpSnapshot(
+      (index) => this._snapshots.get(index),
+      bodyIndex,
+      alpha,
+      () => ({
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+      }),
+      (previous, current, a) => ({
+        position: {
+          x:
+            previous.position.x +
+            (current.position.x - previous.position.x) * a,
+          y:
+            previous.position.y +
+            (current.position.y - previous.position.y) * a,
+          z:
+            previous.position.z +
+            (current.position.z - previous.position.z) * a,
+        },
+        // Rotation interpolation is left linear-per-component (not slerp) —
+        // good enough for the alpha window between two fixed steps, which is
+        // never more than one step's worth of rotation; a renderer wanting a
+        // true slerp can do it itself from `previous`/`current` quats.
+        rotation: current.rotation,
+      }),
+    );
   }
 
   addBody(options: PhysicsBody3DOptions = {}): Physics3DHandle {
@@ -212,9 +260,17 @@ export class PhysicsSystem3D {
     const collider = world.createCollider(colDesc, body);
     this._colliderHandleToIndex.set(collider.handle, index);
 
+    const initialSnapshot: Snapshot3D = {
+      position: { ...pos },
+      rotation: options.rotation ?? { x: 0, y: 0, z: 0, w: 1 },
+    };
+    this._snapshots.set(index, {
+      previous: { ...initialSnapshot },
+      current: { ...initialSnapshot },
+    });
+
     const handle: Physics3DHandle = {
       bodyIndex: index,
-
       setPosition: (p) => {
         body.setTranslation(p, true);
       },
@@ -226,7 +282,6 @@ export class PhysicsSystem3D {
         const r = body.rotation();
         return { x: r.x, y: r.y, z: r.z, w: r.w };
       },
-
       setLinearVelocity: (v, wake = true) => {
         body.setLinvel(v, wake);
       },
@@ -241,7 +296,6 @@ export class PhysicsSystem3D {
         const v = body.angvel();
         return { x: v.x, y: v.y, z: v.z };
       },
-
       applyForce: (f, wake = true) => {
         body.addForce(f, wake);
       },
@@ -251,18 +305,15 @@ export class PhysicsSystem3D {
       applyTorqueImpulse: (t, wake = true) => {
         body.applyTorqueImpulse(t, wake);
       },
-
       setLinearDamping: (d) => {
         body.setLinearDamping(d);
       },
       setAngularDamping: (d) => {
         body.setAngularDamping(d);
       },
-
       setGravityScale: (s) => {
         body.setGravityScale(s, true);
       },
-
       isGrounded: (distance = 0.15) => {
         const t = body.translation();
         const origin = { x: t.x, y: t.y, z: t.z };
@@ -288,19 +339,15 @@ export class PhysicsSystem3D {
     const body = this._bodies.get(index);
     if (body !== undefined && this._world !== null) {
       this._handleToIndex.delete(body.handle);
-      // Remove any collider handle mappings for this body
       for (const [ch, idx] of this._colliderHandleToIndex) {
         if (idx === index) this._colliderHandleToIndex.delete(ch);
       }
       this._world.removeRigidBody(body);
       this._bodies.delete(index);
+      this._snapshots.delete(index);
     }
   }
 
-  /**
-   * Cast a ray from `origin` in `direction` (does not need to be normalised)
-   * up to `maxDistance` world units. Returns the closest hit, or null.
-   */
   castRay(
     origin: Vec3,
     direction: Vec3,
@@ -327,12 +374,35 @@ export class PhysicsSystem3D {
     };
   }
 
-  /** Step the simulation by dt seconds. Call once per game-loop tick. */
+  /**
+   * Fixed-timestep accumulation (§10.3), mirroring the 2D `PhysicsSystem`:
+   * `dt` (real frame time) accumulates and the world steps zero or more
+   * times at exactly `fixedTimestep` seconds each, keeping a
+   * previous/current snapshot per body for `getInterpolatedTransform`.
+   */
   update(dt: number): void {
     if (this._world === null || this._rapier === null) return;
-    // Clamp dt to avoid instability at very low frame rates
-    this._world.timestep = Math.max(0.001, Math.min(dt, 0.05));
-    this._world.step(this._eventQueue ?? undefined);
+    this._timestep.advance(dt, (fixedDt) => this._step(fixedDt));
+  }
+
+  private _step(fixedDt: number): void {
+    const world = this._world;
+    if (world === null) return;
+    world.timestep = fixedDt;
+    world.step(this._eventQueue ?? undefined);
+
+    for (const [index, body] of this._bodies) {
+      const t = body.translation();
+      const r = body.rotation();
+      const snap = this._snapshots.get(index);
+      if (snap === undefined) continue;
+      snap.previous = snap.current;
+      snap.current = {
+        position: { x: t.x, y: t.y, z: t.z },
+        rotation: { x: r.x, y: r.y, z: r.z, w: r.w },
+      };
+    }
+
     this._drainCollisionEvents();
   }
 
@@ -359,8 +429,8 @@ export class PhysicsSystem3D {
   }
 
   /**
-   * Free all Rapier WASM memory. MUST be called when the scene unloads.
-   * The GC cannot see Rapier's WASM heap — not calling this leaks memory permanently.
+   * Free all Rapier WASM memory. MUST be called when the scene unloads —
+   * see CLAUDE.md "PhysicsSystem3D must be destroyed".
    */
   destroy(): void {
     this._eventQueue?.free();
@@ -371,6 +441,8 @@ export class PhysicsSystem3D {
     this._bodies.clear();
     this._handleToIndex.clear();
     this._colliderHandleToIndex.clear();
+    this._snapshots.clear();
+    this._timestep.reset();
   }
 
   [Symbol.dispose](): void {

@@ -18,7 +18,7 @@ import {
   Slider,
   Checkbox,
   ImageWidget,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 
 async function makeTree(): Promise<{ scene: Scene; tree: WidgetTree }> {
   const scene = new Scene();

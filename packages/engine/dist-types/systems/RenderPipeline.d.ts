@@ -1,18 +1,17 @@
 import { Container, Texture } from "pixi.js";
 import type { Renderer } from "pixi.js";
-import type { Scene } from "../core/Scene.js";
+import type { Scene } from "../Scene.js";
+import type { SceneRenderer } from "../Game.js";
 import { type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+import type { ParticleEmitter } from "./ParticleSystem.js";
 /**
- * The minimal shape `mountTilemap()` needs from an auto-tile resolver —
- * just the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
+ * The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
+ * the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
  * `AutoTileSystem` satisfies this without either package importing the
  * other, the same "engine depends on the interface, never a concrete
- * implementation" pattern as `TileLayerSource`/`Tilemap` (see CLAUDE.md).
- * `AutoTileSystem` itself moved to `@emptysock/tilemap` (RELEASE_PASS.md
- * Track 2) since it's pure tile-authoring logic with zero rendering/ECS
- * coupling, matching the precedent that already put `NavMeshSystem` there.
+ * implementation" pattern as `TileLayerSource`/`Tilemap` below.
  */
 export interface AutoTileResolver {
   resolve(
@@ -23,8 +22,8 @@ export interface AutoTileResolver {
   ): number;
 }
 /**
- * The subset of `@emptysock/tilemap`'s `Tilemap` shape that RenderPipeline
- * actually reads. RenderPipeline lives in the core engine and must not
+ * The subset of `@emptysock/tilemap`'s `Tilemap` shape that `RenderPipeline`
+ * actually reads. `RenderPipeline` lives in the core engine and must not
  * depend on the optional `@emptysock/tilemap` module package (§13.1), so it
  * depends on this structural interface instead — `Tilemap` satisfies it
  * without either package importing the other. Only `mountTilemap()`'s
@@ -71,36 +70,148 @@ export interface RenderPipelineOptions extends Omit<
   textureLoader?: TextureLoader;
 }
 /**
- * RenderPipeline is the one piece of code a game needs to touch to see
- * something on screen. It owns a RenderSystem (the raw PixiJS renderer) and a
- * LayerSystem (draw order), and on every `renderFrame(scene)` call it:
+ * ECS-core equivalent of `../../systems/RenderPipeline.ts`, built on the `defineComponent`/
+ * `Scene.each` object model, and `Game`'s `SceneRenderer` shape (ENGINE_DESIGN.md
+ * §4 step 7 / §12.3). Reuses the classic `RenderSystem` (the raw PixiJS wrapper) and
+ * `LayerSystem` (layer-level ordering/visibility, via `RenderSystem`'s
+ * `getLayerContainer`/`syncLayerVisibility`) unchanged — neither imports the
+ * classic `core/Entity.ts`/`Scene.ts`, so there was nothing incompatible
+ * about them to begin with.
  *
- *  1. Walks the scene for every entity carrying both `Transform` and
- *     `Sprite`, keeps a PixiJS sprite in sync with it (position, rotation,
- *     scale, tint, alpha, anchor, visibility), loads its texture exactly
- *     once, and places it in the layer/depth the `Sprite` component asks
- *     for — no manual `layerSystem.addEntity()` call required.
- *  2. Draws any tilemap mounted via `mountTilemap()` as real textured tile
- *     sprites (optionally resolved through an `AutoTileResolver`), not just a
- *     walkability grid.
+ * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
+ * after auditing the actual code:** the original plan called for rebuilding
+ * `LayerSystem` on PixiJS v8.7+'s `RenderLayer` API instead of the current
+ * per-layer-`Container` approach. Auditing `RenderSystem.ts` first shows why
+ * that doesn't help here: `RenderLayer.attach()` requires the attached
+ * object to already have a real `Container` parent elsewhere for
+ * transforms, and throws on `addChild()` itself — but this renderer already
+ * writes sprites' `x`/`y` in absolute coordinates directly onto the sprite
+ * (no nested world-transform hierarchy `RenderLayer` would decouple draw
+ * order from), and `getLayerContainer(name)`'s callers (this class *and*
+ * the classic `RenderPipeline`, both real, both staying) already do
+ * `container.addChild(pixiSprite)` directly. Swapping to `RenderLayer`
+ * would mean reworking `RenderSystem`'s shared public API (used by both
+ * pipelines) for a decoupling this flat architecture has no actual use
+ * for. The one real bug the original plan was chasing — `LayerSystem`'s
+ * per-entity placement map (`addEntity`/`removeEntity`/`getEntityLayer`/
+ * `getEntityDepth`) being raw-eid-keyed with no scene scoping — turned out
+ * to have zero real readers anywhere in the codebase (confirmed by grep:
+ * `getEntityLayer`/`getEntityDepth`/`getEntitiesOnLayer` are called
+ * nowhere, not even by the classic pipeline that also writes to them) —
+ * it was writing per-frame bookkeeping data that got read by nothing, not
+ * a scoping bug actively corrupting real behavior. This class no longer
+ * calls `addEntity`/`removeEntity` at all (dead write removed); the layer-
+ * *level* concepts `LayerSystem` still provides (name → index/visibility)
+ * remain real and unchanged, since `RenderSystem` genuinely needs those for
+ * stage ordering and `syncLayerVisibility()`.
+ *
+ * On `renderFrame(main, overlays)` it:
+ *
+ *  1. Walks `main` for every `Transform`+`Sprite` entity via `scene.each` (the
+ *     bulk-iteration path, ENGINE_DESIGN.md §21 — no per-entity Proxy
+ *     overhead), keeps a PixiJS sprite in sync with it, and places it on
+ *     `layer`/`depth`.
+ *  2. Does the same for each overlay `Scene`, but into a dedicated container
+ *     appended to the stage *after* the main scene's layer containers — Pixi
+ *     draws children in `addChild` order, so later-appended containers paint
+ *     on top. Overlays are synced in the array's order, i.e. call order
+ *     (ENGINE_DESIGN.md §12.3), so the most recently `loadOverlay()`-ed scene
+ *     ends up topmost.
  *  3. Renders the frame.
  *
- * Attaching `Transform` + `Sprite` to an entity is the entire contract for
- * "this shows up on screen" — there is no second, separate step.
+ * **Multiple live scenes and entity id collisions**: every `Scene` owns its
+ * own bitECS `World`, and each `World`'s entity ids independently start from
+ * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
+ * therefore has several *different* entities that all report `eid === 3`.
+ * Tracking sprites in one flat `Map<number, PixiSprite>` (what the classic
+ * single-scene `RenderPipeline` does, and all it ever needed to do) would silently
+ * alias an overlay's entity 3 onto the main scene's. This class instead keys
+ * its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`)
+ * — one level of scoping up from `ComponentRegistry`'s per-`World` scoping
+ * and `PhysicsBody`'s per-`World` callback side-table (`ecs/components/PhysicsBody.ts`),
+ * but the same underlying idea: never index directly by a raw entity id
+ * without first scoping by which scene's world it belongs to.
+ *
+ * That per-`Scene` scoping covers the *main* scene too, not just overlays:
+ * `Game.unloadScene()`/`loadScene()` swap in a brand new `Scene` (a new
+ * bitECS `World`, entity ids starting at 0 again), so a single flat
+ * `_mainTracking` object reused across that swap would alias the old
+ * scene's leftover Pixi sprites onto the new scene's same-numbered
+ * entities, and leave the old sprites themselves never destroyed. `_syncMain`
+ * tracks which `Scene` its tracking currently belongs to (`_mainScene`) and,
+ * the moment a *different* `Scene` object is passed in, fully disposes the
+ * previous one's tracking (`_releaseMain`, sharing the exact same per-sprite
+ * teardown `releaseOverlay`/`_pruneOverlays` already use for overlays)
+ * before starting fresh — main-scene tracking and overlay tracking now share
+ * one underlying `Map<Scene, SceneTracking>`.
  */
-export declare class RenderPipeline {
+export declare class RenderPipeline implements SceneRenderer {
   private readonly _render;
   private readonly _layers;
   private readonly _loadTexture;
-  private readonly _pixiSprites;
-  private readonly _texturePaths;
+  /** Shared by the main scene and every overlay — see the class doc comment above. */
+  private readonly _tracking;
+  private _mainScene;
+  private readonly _overlayContainers;
   private readonly _textureCache;
   private readonly _sortedLayers;
+  /**
+   * Set via `attachPostProcess()`. When present, `renderFrame()` calls
+   * `RenderSystem.syncPostProcessLayerFilters()` each frame so
+   * `PostProcessSystem.setLayerFilter()`'s real pixi filters
+   * (`BlurFilter`/`ColorMatrixFilter`/`pixi-filters`' `OutlineFilter`, per
+   * RELEASE_PASS.md Track 2) stay in sync with the layer containers this
+   * pipeline owns. Not constructor-only, since a game may not have a
+   * `PostProcessSystem` instance yet when the pipeline is constructed.
+   */
+  private _postProcess;
+  /**
+   * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
+   * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
+   * own doc comment) with zero pixi dependency — it was never actually
+   * wired into gameplay rendering, only the IDE's canvas-based preview
+   * editor. `mountParticles()`/`unmountParticles()` are that missing wire:
+   * one pixi core `ParticleContainer` per mounted emitter (no new
+   * dependency — `ParticleContainer`/`Particle` are core pixi.js exports),
+   * resynced every `renderFrame()` from `ParticleEmitter.getParticles()`.
+   */
+  private readonly _particleContainers;
+  private readonly _particleTextures;
+  /** Tilemap tile sprites, mounted via `mountTilemap()` — see that method's doc comment. */
   private readonly _mountedTilemaps;
   private _tilemapGeneration;
   /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
   private _transitionOverlay;
   constructor(options?: RenderPipelineOptions);
+  /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
+  attachPostProcess(postProcess: PostProcessSystem | null): void;
+  /**
+   * Mounts `emitter`'s particles into a real pixi `ParticleContainer` on
+   * layer `layerName`, resynced every `renderFrame()`. Loads the emitter's
+   * `options.texture` path through this pipeline's own texture loader (the
+   * same cache-and-load path sprites use) — an emitter with no texture set
+   * falls back to `Texture.WHITE`, a plain filled square, so an emitter
+   * mounted before its real texture is ready still renders something
+   * visible rather than nothing. Awaiting this before the emitter starts
+   * producing particles is recommended but not required — particles that
+   * exist before the texture resolves simply aren't drawn yet.
+   */
+  mountParticles(emitter: ParticleEmitter, layerName?: string): Promise<void>;
+  /** Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on an emitter that was never mounted (a no-op). */
+  unmountParticles(emitter: ParticleEmitter): void;
+  private _syncParticles;
+  /**
+   * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
+   * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
+   * production"; `RenderSystem.init()` already passes
+   * `preference: ["webgpu", "webgl"]` to `autoDetectRenderer`, i.e. it tries
+   * WebGPU first and falls back, so WebGPU stays available as an explicit
+   * opt-in on hosts that force it — nothing here changes that). Needs a real
+   * DOM/canvas environment; never call this under the headless testing
+   * harness (`createHeadlessGame()` never attaches a `RenderPipeline` at
+   * all — see `Game.attachRenderer`/`ecs/Game.ts` step 7 — so game code
+   * driven purely through `testing/index.ts` never reaches this call).
+   */
   init(options?: RenderPipelineOptions): Promise<void>;
   /** The engine's LayerSystem — call `defineLayer()` on it for custom draw order. */
   get layers(): LayerSystem;
@@ -109,40 +220,47 @@ export declare class RenderPipeline {
   get canvas(): HTMLCanvasElement;
   resize(width: number, height: number): void;
   /**
-   * Sync every Transform+Sprite entity in `scene` to its PixiJS sprite, then
-   * render the frame. Call this once per frame from the game loop, after
-   * `SceneManager.update()`.
+   * `Game.update()` step 7's entry point (via `Game.attachRenderer(this)` —
+   * this method is what makes `RenderPipeline` satisfy `SceneRenderer`
+   * structurally). Syncs the main scene, then every overlay in call order,
+   * releases tracking for any overlay no longer present in `overlays`, and
+   * renders once.
    */
-  renderFrame(scene: Scene, postProcess?: PostProcessSystem): void;
+  renderFrame(main: Scene, overlays?: readonly Scene[]): void;
   /**
-   * Paint the scene-transition overlay described by `postProcess`'s
-   * transitionEffect/transitionProgress/transitionColour on top of the
-   * stage. Called automatically from `renderFrame()` when a PostProcessSystem
-   * is supplied; callers with a custom render loop can call it directly
-   * after `syncEntities()`.
-   *
-   * - "fade": full-screen colour rect, alpha rises to 1 over the first half
-   *   of the transition and falls back to 0 over the second half (a
-   *   crossfade through `transitionColour`).
-   * - "wipe": a directional reveal — a colour rect that grows from one edge
-   *   of the screen to the other as progress advances.
-   * - "slide": a colour panel that pushes fully across the screen and off
-   *   again, simulating the outgoing/incoming scene sliding — since
-   *   RenderPipeline doesn't keep two scenes' worth of sprites live
-   *   simultaneously, the panel itself carries the transition motion.
+   * Paints the scene-transition overlay described by `postProcess`'s
+   * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
+   * the stage — the exact same overlay-based approach (a single colour
+   * rect, never two live scenes rendered simultaneously) as the classic
+   * `systems/RenderPipeline.ts`'s `renderTransitionOverlay()`. RELEASE_PASS.md
+   * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
+   * technically buildable (`renderer.render({ target: renderTexture,
+   * container })`, pixi v8's real object-form API) but deliberately did
+   * **not** build it in this pass: it's a genuine two-full-render-pass-per-
+   * frame cost during the transition window with no documented perf number
+   * from pixi's own docs, and the honest way to decide "default-on vs.
+   * opt-in" is profiling on real target devices (including lower-end
+   * tablets, per the mobile/tablet scope) — not something a headless CI
+   * sandbox can do. Shipping an unvalidated perf-risk rendering path
+   * without being able to verify its cost would be worse than keeping the
+   * proven, cheap overlay approach. Revisit once real device profiling is
+   * actually possible.
    */
   renderTransitionOverlay(postProcess: PostProcessSystem): void;
   private _ensureTransitionOverlay;
-  /** Sync PixiJS sprites from Transform+Sprite components without rendering. Exposed for tests and custom loops. */
+  /** Sync the main scene's PixiJS sprites without rendering. Exposed for tests/custom loops. */
   syncEntities(scene: Scene): void;
-  private _containerFor;
-  private _applyTexture;
-  private _removeSprite;
+  private _syncMain;
+  /** Fully tear down the current main scene's tracking — same per-sprite teardown `releaseOverlay` uses. */
+  private _releaseMain;
+  private _syncOverlay;
+  private _syncOne;
   /**
    * Build real tile sprites for `tilemap` and add them to `renderLayer`
-   * (defaults to `"default"`). Pass an `AutoTileResolver` to resolve neighbour-
-   * aware tile variants instead of drawing the raw tile indices. Safe to call
-   * once per tilemap; call `unmountTilemap()` first to rebuild after edits.
+   * (defaults to `"default"`). Pass an `AutoTileResolver` to resolve
+   * neighbour-aware tile variants instead of drawing the raw tile indices.
+   * Safe to call once per tilemap; call `unmountTilemap()` first to rebuild
+   * after edits.
    */
   mountTilemap(
     tilemap: TileLayerSource,
@@ -151,5 +269,20 @@ export declare class RenderPipeline {
   ): void;
   unmountTilemap(tilemap: TileLayerSource): void;
   private _buildTilemapSprites;
+  private _containerFor;
+  private _overlayContainer;
+  private _applyTexture;
+  private _removeSprite;
+  /**
+   * Drop tracking (and destroy sprites) for any overlay scene not present in
+   * `active` — called every `renderFrame()` with the caller's current
+   * overlay list, so an unloaded overlay's leftover sprites don't linger
+   * until the next mismatched sync. `Game.unloadOverlay()` doesn't need to
+   * know this class exists at all; this runs the cleanup lazily on the very
+   * next `renderFrame()` after the overlay stops appearing in `overlays`.
+   */
+  private _pruneOverlays;
+  /** Explicitly release an overlay's tracking/container — safe to call even if `renderFrame` would have pruned it anyway. */
+  releaseOverlay(scene: Scene): void;
   destroy(): void;
 }

@@ -1,154 +1,211 @@
-import { z } from "zod";
+import type { ComponentDef } from "../Component.js";
+import type { Scene } from "../Scene.js";
+import type { SerializableRecord } from "../Serializable.js";
+import { MemoryStorageAdapter, type StorageAdapter } from "./StorageAdapter.js";
 
-/**
- * Default shape of a save slot for a `startScene`-style game: one scene
- * name, a free-form data bag, and bookkeeping fields. This is the schema
- * `SaveSystem` uses when no custom schema is passed to its constructor —
- * it is a *default policy*, not something the generic persistence
- * mechanism enforces. Pass your own Zod schema to `SaveSystem` to store a
- * differently-shaped slot (see the class doc comment).
- */
-export interface GameSaveSlot {
-  readonly id: string;
-  readonly scene: string;
-  readonly data: Record<string, unknown>;
-  readonly timestamp: number;
-  readonly playtime: number;
+/** One saved component instance, stamped with the schema version it was saved under. */
+interface SavedComponent {
+  readonly version: number;
+  readonly data: SerializableRecord;
 }
 
-/** @deprecated Use `GameSaveSlot` — kept as an alias for backward compatibility. */
-export type SaveSlot = GameSaveSlot;
+/** One saved entity: every save-aware component it carried, keyed by componentName. */
+interface SavedEntity {
+  readonly components: Record<string, SavedComponent>;
+}
 
-const GameSaveSlotSchema: z.ZodType<GameSaveSlot> = z.object({
-  id: z.string(),
-  scene: z.string(),
-  data: z.record(z.string(), z.unknown()),
-  timestamp: z.number(),
-  playtime: z.number().nonnegative(),
-});
-
-const STORAGE_PREFIX = "emptysock_save_";
+/** The on-disk/in-storage save blob shape. `formatVersion` is this shape's own version, not any component's. */
+interface SaveBlob {
+  readonly formatVersion: 1;
+  readonly entities: readonly SavedEntity[];
+}
 
 /**
- * Generic key-value persistence for save slots, backed by `localStorage`.
- *
- * `SaveSystem` itself only knows how to store and retrieve an opaque JSON
- * object per slot under a prefixed key, and validate that a loaded slot
- * matches a schema — it has no opinion on what a "save slot" contains.
- * The *shape* of a slot is supplied as a Zod schema:
- *
- * - Construct with no schema to get the default `GameSaveSlot` shape
- *   (`{ scene, data, timestamp, playtime }`), matching a typical
- *   `startScene`-driven game.
- * - Construct with `new SaveSystem(prefix, mySchema)` to store any other
- *   slot shape your game needs (e.g. per-character saves, a different set
- *   of bookkeeping fields, no `scene` field at all). `mySchema` must
- *   describe the full slot including an `id: string` field — `save()`
- *   fills `id` in from the slot name automatically.
+ * Migrates one component's saved data forward from the version it was saved
+ * under to the currently-registered def's version. Register with
+ * `SaveSystem.registerMigration`. Whatever it returns is trusted as-is and
+ * handed straight to `entity.add()` — it is the component author's job to
+ * return a value matching the *current* shape.
  */
-export class SaveSystem<TSlot extends { id: string } = GameSaveSlot> {
-  private readonly _prefix: string;
-  private readonly _schema: z.ZodType<TSlot>;
-  private readonly _isDefaultSchema: boolean;
+export type MigrateFn = (
+  oldData: SerializableRecord,
+  oldVersion: number,
+) => SerializableRecord;
 
-  constructor(prefix: string = STORAGE_PREFIX, schema?: z.ZodType<TSlot>) {
-    this._prefix = prefix;
-    this._isDefaultSchema = schema === undefined;
-    this._schema =
-      schema ?? (GameSaveSlotSchema as unknown as z.ZodType<TSlot>);
+export interface SaveSystemOptions {
+  /**
+   * Storage backend. Defaults to an in-memory adapter (safe under Node/
+   * Vitest and the headless testing harness); a real game supplies an
+   * IndexedDB- or Tauri-fs-backed adapter built outside the engine package
+   * — see `StorageAdapter.ts`'s doc comment for why.
+   */
+  readonly adapter?: StorageAdapter;
+  /** Prefix under which slot keys are stored. Defaults to `"emptysock_save_"`. */
+  readonly keyPrefix?: string;
+}
+
+/**
+ * ENGINE_DESIGN.md §12.1/§19.3 — generic save/load for any ECS-core component
+ * built on the `Serializable` constraint. No per-component save/load code
+ * is required for the common case: `SaveSystem` reads every configured
+ * component's fields straight off the entity via the name-keyed component
+ * lookup already in `Entity`/`ComponentRegistry`.
+ *
+ * A `SaveSystem` is bound to one `Scene` and one explicit list of
+ * "save-aware" `ComponentDef`s at construction. The explicit list (rather
+ * than some global "every component ever defined" registry) mirrors
+ * `scene.each(...)`'s own design — Scene/ComponentRegistry deliberately
+ * don't track a global list of every `ComponentDef` that has ever existed,
+ * only per-world, per-name storage — and keeps `SaveSystem` from silently
+ * saving components a game never intended to persist (e.g. purely-visual
+ * runtime state).
+ */
+export class SaveSystem {
+  private readonly _scene: Scene;
+  private readonly _components: ReadonlyMap<string, ComponentDef>;
+  private readonly _migrations = new Map<string, MigrateFn>();
+  private readonly _adapter: StorageAdapter;
+  private readonly _keyPrefix: string;
+
+  constructor(
+    scene: Scene,
+    components: readonly ComponentDef[],
+    options: SaveSystemOptions = {},
+  ) {
+    this._scene = scene;
+    this._components = new Map(
+      components.map((def) => [def.componentName, def]),
+    );
+    this._adapter = options.adapter ?? new MemoryStorageAdapter();
+    this._keyPrefix = options.keyPrefix ?? "emptysock_save_";
   }
 
   /**
-   * Persist a save slot.
-   *
-   * With the default schema, `timestamp` defaults to `Date.now()` and
-   * `playtime` defaults to `0` when omitted, so a minimal call only needs
-   * `scene` and `data`. With a custom schema, `entry` must supply every
-   * field the schema requires except `id` (which comes from `slotId`).
-   *
-   * If the assembled slot does not validate against the schema, the save
-   * is rejected and a warning is logged — nothing is written to storage.
+   * Register a migration for `componentName`, run on load when a saved
+   * instance's stamped version doesn't match the currently-registered
+   * def's version. Only one migration per component name is kept — the
+   * latest registration wins — since it is expected to migrate from
+   * whatever old version is found straight to the current one in one step.
    */
-  save(
-    slotId: string,
-    entry: TSlot extends GameSaveSlot
-      ? {
-          scene: string;
-          data: Record<string, unknown>;
-          timestamp?: number;
-          playtime?: number;
-        }
-      : Omit<TSlot, "id">,
-  ): void {
-    const record: Record<string, unknown> = {
-      ...(entry as Record<string, unknown>),
-      id: slotId,
+  registerMigration(componentName: string, migrate: MigrateFn): void {
+    this._migrations.set(componentName, migrate);
+  }
+
+  /**
+   * Snapshot every live entity's save-aware components and persist them
+   * under `slotId`.
+   */
+  async save(slotId: string): Promise<void> {
+    const blob: SaveBlob = {
+      formatVersion: 1,
+      entities: this._snapshotEntities(),
     };
+    await this._adapter.set(this._keyPrefix + slotId, JSON.stringify(blob));
+  }
 
-    if (this._isDefaultSchema) {
-      const defaults = entry as { timestamp?: number; playtime?: number };
-      record["timestamp"] = defaults.timestamp ?? Date.now();
-      record["playtime"] = defaults.playtime ?? 0;
-    }
+  /** `true` if a save exists under `slotId`. */
+  async hasSave(slotId: string): Promise<boolean> {
+    return (await this._adapter.get(this._keyPrefix + slotId)) !== null;
+  }
 
-    const parsed = this._schema.safeParse(record);
-    if (!parsed.success) {
+  /** All slot ids currently saved. */
+  async listSlots(): Promise<string[]> {
+    const keys = await this._adapter.listKeys(this._keyPrefix);
+    return keys.map((key) => key.slice(this._keyPrefix.length));
+  }
+
+  /** Delete a save slot. No-op if it doesn't exist. */
+  async deleteSave(slotId: string): Promise<void> {
+    await this._adapter.delete(this._keyPrefix + slotId);
+  }
+
+  /**
+   * Load `slotId` into this `SaveSystem`'s scene, spawning one fresh entity
+   * per saved entity and re-populating its components by name. A
+   * version-mismatched component either runs its registered `migrate()`
+   * hook, or — if none is registered — logs a warning and drops just that
+   * component's data. Neither case throws or aborts the rest of the load;
+   * a corrupt/outdated single component never corrupts the whole save.
+   *
+   * Returns `false` (and loads nothing) if the slot doesn't exist.
+   */
+  async load(slotId: string): Promise<boolean> {
+    const raw = await this._adapter.get(this._keyPrefix + slotId);
+    if (raw === null) return false;
+
+    let blob: SaveBlob;
+    try {
+      blob = JSON.parse(raw) as SaveBlob;
+    } catch {
       console.warn(
-        `[SaveSystem] save() rejected data for slot "${slotId}" — it does not match the configured slot schema: ${parsed.error.message}`,
+        `[SaveSystem] Save slot "${slotId}" is not valid JSON — nothing loaded.`,
       );
-      return;
+      return false;
     }
 
-    try {
-      localStorage.setItem(this._prefix + slotId, JSON.stringify(parsed.data));
-    } catch {
-      // Storage unavailable — silently fail
-    }
-  }
-
-  load(slotId: string): TSlot | null {
-    try {
-      const raw = localStorage.getItem(this._prefix + slotId);
-      if (raw === null) return null;
-      const parsed = JSON.parse(raw) as unknown;
-      const result = this._schema.safeParse(parsed);
-      return result.success ? result.data : null;
-    } catch {
-      return null;
-    }
-  }
-
-  listSlots(): TSlot[] {
-    const slots: TSlot[] = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k === null || !k.startsWith(this._prefix)) continue;
-        const raw = localStorage.getItem(k);
-        if (raw === null) continue;
-        try {
-          const parsed = JSON.parse(raw) as unknown;
-          const result = this._schema.safeParse(parsed);
-          if (result.success) slots.push(result.data);
-        } catch {
-          // Skip malformed slots
+    for (const savedEntity of blob.entities) {
+      const entity = this._scene.spawn();
+      for (const [componentName, saved] of Object.entries(
+        savedEntity.components,
+      )) {
+        const def = this._components.get(componentName);
+        if (def === undefined) {
+          console.warn(
+            `[SaveSystem] Save slot "${slotId}" has an unrecognized component "${componentName}" — dropped.`,
+          );
+          continue;
         }
+
+        let data = saved.data;
+        if (saved.version !== def.version) {
+          const migrate = this._migrations.get(componentName);
+          if (migrate !== undefined) {
+            data = migrate(saved.data, saved.version);
+          } else {
+            console.warn(
+              `[SaveSystem] Component "${componentName}" saved at version ${saved.version} but the current def is version ${def.version}, and no migrate() is registered — dropping this component's saved data for one entity.`,
+            );
+            continue;
+          }
+        }
+
+        const knownFields = new Set(Object.keys(def.createDefaults()));
+        const unknownFields = Object.keys(data).filter(
+          (field) => !knownFields.has(field),
+        );
+        if (unknownFields.length > 0) {
+          console.warn(
+            `[SaveSystem] Component "${componentName}" saved data has unrecognized field(s) [${unknownFields.join(", ")}] not in the current def's shape — dropped, rest of the component loaded.`,
+          );
+          data = Object.fromEntries(
+            Object.entries(data).filter(([field]) => knownFields.has(field)),
+          ) as SerializableRecord;
+        }
+
+        entity.add(def, data);
       }
-    } catch {
-      // Storage unavailable
     }
-    return slots;
+
+    return true;
   }
 
-  delete(slotId: string): void {
-    try {
-      localStorage.removeItem(this._prefix + slotId);
-    } catch {
-      // Storage unavailable
-    }
-  }
+  private _snapshotEntities(): SavedEntity[] {
+    const byEid = new Map<number, Record<string, SavedComponent>>();
 
-  update(_dt: number): void {
-    // No per-frame work
+    for (const def of this._components.values()) {
+      this._scene.each(def, (component, entity) => {
+        let components = byEid.get(entity.eid);
+        if (components === undefined) {
+          components = {};
+          byEid.set(entity.eid, components);
+        }
+        components[def.componentName] = {
+          version: def.version,
+          data: { ...component } as SerializableRecord,
+        };
+      });
+    }
+
+    return [...byEid.values()].map((components) => ({ components }));
   }
 }

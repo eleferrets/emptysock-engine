@@ -1,5 +1,5 @@
 import React from "react";
-import { Scene, UISystem, WidgetTree } from "@emptysock/engine/ecs";
+import { Scene, UISystem, WidgetTree } from "@emptysock/engine";
 import type { IUIRenderer } from "@emptysock/types";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";

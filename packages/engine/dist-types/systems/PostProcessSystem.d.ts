@@ -1,4 +1,4 @@
-import type { TransitionEffect } from "../core/SceneManager.js";
+import type { TransitionEffect } from "./SceneTransition.js";
 export type LayerFilterType =
   | "blur"
   | "colour-grade"

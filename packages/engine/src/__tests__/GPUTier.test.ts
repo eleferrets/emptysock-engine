@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { detectGPUTier, classifyRenderer } from "../core/GPUTier.js";
-import type { GPUTierAdapter } from "../core/GPUTier.js";
+import { detectGPUTier, classifyRenderer } from "../GPUTier.js";
+import type { GPUTierAdapter } from "../GPUTier.js";
 import type { GPUTier } from "@emptysock/types";
 import { NullHostAdapter } from "@emptysock/types";
 

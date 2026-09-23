@@ -6,15 +6,27 @@ import {
 } from "../components/panels/visual-script/logicHelpers";
 import type { LogicGraphState } from "../components/panels/visual-script/logicTypes";
 import {
-  VisualScriptComponent,
   VariableStore,
   ActorSystem,
   Actor,
+  Game,
+  defineScene,
+  VisualScriptSystem,
+  VisualScriptState,
+  registerVisualScriptGraph,
 } from "@emptysock/engine";
 import type { Message } from "@emptysock/engine";
 
+async function makeScene() {
+  const game = new Game();
+  const { scene } = await game.loadScene(defineScene({}), {
+    manageLifecycle: false,
+  });
+  return scene;
+}
+
 describe("Logic Script panel save path -> VisualScriptGraph parity", () => {
-  it("builds a graph via the panel's node/connection shape that VisualScriptComponent runs directly", () => {
+  it("builds a graph via the panel's node/connection shape that VisualScriptSystem runs directly", async () => {
     // Simulates what the panel's canvas produces: nodes placed with x/y, wired
     // via click-to-connect, saved through toVisualScriptGraph() — the exact
     // function the panel's store-sync effect calls on every change.
@@ -67,19 +79,23 @@ describe("Logic Script panel save path -> VisualScriptGraph parity", () => {
     const store = new VariableStore();
     store.setVar(10, 3);
 
-    // Zero translation: the saved graph drops straight into the real component.
-    const vs = new VisualScriptComponent({ graph, variableStore: store });
-    vs.update(0.016);
+    // Zero translation: the saved graph drops straight into the real ECS system.
+    registerVisualScriptGraph("panel-test-graph", graph);
+    const scene = await makeScene();
+    const entity = scene.spawn();
+    entity.add(VisualScriptState, { graphId: "panel-test-graph" });
+    const system = new VisualScriptSystem({ variables: store });
+    system.update(scene);
 
     expect(store.getVar(20)).toBe(1);
 
     store.setVar(10, 1);
     store.setVar(20, 0);
-    vs.update(0.016);
+    system.update(scene);
     expect(store.getVar(20)).toBe(2);
   });
 
-  it("a sendMessage node built by the panel dispatches through a real ActorSystem", () => {
+  it("a sendMessage node built by the panel dispatches through a real ActorSystem", async () => {
     const received: Message[] = [];
     class Recorder extends Actor {
       receive(msg: Message): void {
@@ -108,8 +124,12 @@ describe("Logic Script panel save path -> VisualScriptGraph parity", () => {
     };
 
     const graph = toVisualScriptGraph(state);
-    const vs = new VisualScriptComponent({ graph, actorSystem: actors });
-    vs.fireEvent("hit");
+    registerVisualScriptGraph("panel-test-graph-2", graph);
+    const scene = await makeScene();
+    const entity = scene.spawn();
+    entity.add(VisualScriptState, { graphId: "panel-test-graph-2" });
+    const system = new VisualScriptSystem({ actorSystem: actors });
+    system.fireEvent(scene, "hit");
     actors.update(0.016);
 
     expect(received).toHaveLength(1);

@@ -9,7 +9,7 @@ import {
 import { OutlineFilter } from "pixi-filters";
 import type { LayerSystem } from "./LayerSystem.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
-import type { GPUTier } from "../core/GPUTier.js";
+import type { GPUTier } from "../GPUTier.js";
 import {
   COLOURBLIND_MATRICES,
   type LayerFilterOptions,

@@ -7,8 +7,8 @@
 // produce identical results.
 
 import type { TweenManager, TweenHandle } from "./TweenSystem.js";
-import { ease } from "../core/easing.js";
-import type { EasingName } from "../core/easing.js";
+import { ease } from "../easing.js";
+import type { EasingName } from "../easing.js";
 
 export interface SequenceKeyframe {
   time: number;

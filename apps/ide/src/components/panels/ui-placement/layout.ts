@@ -2,7 +2,7 @@
 //
 // `PlacedWidget.opts` mirrors the exact field set the matching ECS widget-kind
 // component (`Label`/`PanelStyle`/`ButtonState`/`Checkbox`/`Slider`/
-// `Progress`/`ImageWidget`, `@emptysock/engine/ecs`) accepts, plus `width`/
+// `Progress`/`ImageWidget`, `@emptysock/engine`) accepts, plus `width`/
 // `height` (→ `LayoutStyle`) and `x`/`y`/`anchor` (→ `resolveAnchoredPosition`
 // → `LayoutStyle.left`/`.top`). `layoutToEntities` spawns real widget entities
 // via `WidgetTree.createWidget()` and `entity.add(Component, opts)` — the
@@ -23,7 +23,7 @@ import {
   type Entity,
   type Scene,
   type WidgetTree,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 
 export type { WidgetAnchor };
 

@@ -7,7 +7,7 @@ import { indent, readAndTranspileGML } from "./gms2-transpile.js";
 // ---------------------------------------------------------------------------
 // Per-asset-kind codegen — RELEASE_PASS.md Track 7 / ground rule 15:
 // GameMaker objects emit a `.prefab.json` (structural, ECS-native, matches
-// `@emptysock/engine/ecs`'s `PrefabFile` shape) plus a companion
+// `@emptysock/engine`'s `PrefabFile` shape) plus a companion
 // `.behavior.ts` module of plain exported functions for the transpiled GML
 // event logic (real executable code, which a `PrefabFile`'s components
 // cannot hold — see `Widgets.ts`'s and `PhysicsBody.ts`'s "a component's
@@ -26,7 +26,7 @@ export function toPascalCase(name: string): string {
 
 /**
  * Builds the `.prefab.json` contents for a GMS2 object — the *structural*
- * half of the object, in `@emptysock/engine/ecs`'s real `PrefabFile` shape
+ * half of the object, in `@emptysock/engine`'s real `PrefabFile` shape
  * (`packages/engine/src/ecs/SceneFile.ts`). Every GameMaker object instance
  * has a position, so every prefab gets a `Transform` component; richer
  * structural mapping (a `sprite_id` → `Sprite`, physics settings →
@@ -197,7 +197,7 @@ export async function buildObjectBehavior(
 // functions up to your own prefab instances however your game dispatches
 // per-prefab behavior — see ${name}.prefab.json for this object's
 // structural (component) data.
-import type { Entity } from '@emptysock/engine/ecs';
+import type { Entity } from '@emptysock/engine';
 
 ${onCreate}
 
@@ -249,7 +249,7 @@ export const ${toPascalCase(name)}Sprite = {
 }
 
 /**
- * Build a `.scene.json` file (`@emptysock/engine/ecs`'s real `SceneFile`
+ * Build a `.scene.json` file (`@emptysock/engine`'s real `SceneFile`
  * shape) from a converted GMS2 room: one prefab instance per room instance,
  * referencing the `.prefab.json` `buildObjectPrefabJSON()` emits for each
  * imported object — ground rule 15's actual ask, replacing the old
@@ -300,7 +300,7 @@ export function placeholder_${name}(): void {
  * A plain manifest of every prefab/scene file this import produced —
  * there's no "register a component" step for the JSON output the way the
  * old class-based entrypoint had, since `.prefab.json`/`.scene.json` are
- * loaded via `@emptysock/engine/ecs`'s `parsePrefabFile`/`loadSceneFile`
+ * loaded via `@emptysock/engine`'s `parsePrefabFile`/`loadSceneFile`
  * directly, not imported as modules. This is a plain data file (not code)
  * so a game's own bootstrap can enumerate what got imported without
  * parsing directory listings.

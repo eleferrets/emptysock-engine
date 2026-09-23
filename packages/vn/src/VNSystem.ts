@@ -2,9 +2,9 @@ import {
   VariableStore,
   evaluateCondition,
   type VariableCondition,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 
-export type { VariableCondition } from "@emptysock/engine/ecs";
+export type { VariableCondition } from "@emptysock/engine";
 
 export type DialogueNode =
   | {

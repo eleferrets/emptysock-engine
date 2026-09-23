@@ -1,27 +1,183 @@
-// Core ECS
-export { Component, componentType } from "./core/Component.js";
-export type { ComponentType } from "./core/Component.js";
-export { Entity } from "./core/Entity.js";
-export type { Vec2 } from "./core/Entity.js";
-export type { CoroutineHandle, CoroutineFactory } from "./ecs/Coroutines.js";
-export { Scene } from "./core/Scene.js";
-export type { SystemFn } from "./core/Scene.js";
-
-// Engine API
-export { Engine } from "./core/EngineAPI.js";
-
-// Actor Model
-export { Actor } from "./core/Actor.js";
-export type { Message, ActorId } from "./core/Actor.js";
-export { ActorSystem } from "./core/ActorSystem.js";
-
-// Plugin System
-export { PluginSystem } from "./core/PluginSystem.js";
-export type { Plugin, PluginContext } from "./core/PluginSystem.js";
-
-// Systems
-export { RenderSystem } from "./systems/RenderSystem.js";
-export type { RenderSystemOptions } from "./systems/RenderSystem.js";
+/**
+ * `@emptysock/engine` — the bitECS-backed ECS core (see ENGINE_DESIGN.md and
+ * CLAUDE.md). This is the engine's one and only game-authoring surface:
+ * `apps/ide` bundles it as `window.EmptySockEngine` for the preview iframe
+ * and types Monaco's Code editor against it, and it's the surface every
+ * project template and the live Inspector bridge (`bridge/QueryChannel.ts`)
+ * target. There is no separate classic engine anymore — the pre-ECS
+ * `core/`/`systems/`/`components/`/`ui/` source trees (a parallel
+ * class-based `Scene`/`Entity`/`Component`/`PhysicsSystem` object model with
+ * a colliding name for nearly everything below) were deleted once every
+ * real consumer (this file included) was verified to be fully migrated;
+ * `RELEASE_PASS.md`'s Track 9 has the full audit trail. A handful of files
+ * from those trees turned out to be genuinely environment-agnostic, load-
+ * bearing dependencies of the ECS core itself (`ActorSystem`, `CameraSystem`,
+ * `AudioSystem`, `InputSystem`, `RenderSystem`, etc.) and were moved into
+ * this tree rather than deleted — they were never "classic-only", just
+ * mis-filed. This surface used to also be reachable at the now-removed
+ * `@emptysock/engine/ecs` subpath; that alias is gone too, since there is
+ * only one surface to reach now.
+ */
+export { defineComponent } from "./Component.js";
+export type {
+  ComponentDef,
+  ComponentSchema,
+  ComponentFieldSchema,
+  DefineComponentOptions,
+} from "./Component.js";
+export { componentRegistry } from "./ComponentRegistry.js";
+export { Entity } from "./Entity.js";
+export { Scene } from "./Scene.js";
+export type { SpawnOptions } from "./Scene.js";
+export { definePrefab, flattenPrefab, prefabComponentDefs } from "./Prefab.js";
+export type { PrefabDef, PrefabComponentEntry } from "./Prefab.js";
+export {
+  parsePrefabFile,
+  parsePrefabFiles,
+  loadSceneFile,
+} from "./SceneFile.js";
+export type {
+  PrefabFile,
+  PrefabFileComponentEntry,
+  SceneFile,
+  SceneFileEntity,
+  SceneFilePrefabInstance,
+  ComponentLookup,
+} from "./SceneFile.js";
+export {
+  startCoroutine,
+  stopCoroutine,
+  updateCoroutines,
+  clearCoroutines,
+  waitFrames,
+  waitSeconds,
+  waitUntil,
+} from "./Coroutines.js";
+export type {
+  CoroutineHandle,
+  CoroutineFactory,
+  CoroutineGen,
+  CoroutineYield,
+} from "./Coroutines.js";
+export { Game, defineScene } from "./Game.js";
+// ActorSystem (§ CLAUDE.md "ActorSystem mailbox ordering") is a shared
+// implementation, not a classic-only one — `Game.loadScene()`/`loadOverlay()`
+// already construct one per scene and hand it to game code as
+// `SceneLifecycle.actors`. `Actor`/`Message`/`ActorId` are exported here so
+// game code can define its own `Actor` subclasses without reaching into the
+// classic root surface for them.
+export { Actor } from "./Actor.js";
+export type { Message, ActorId } from "./Actor.js";
+export { ActorSystem } from "./ActorSystem.js";
+// CameraSystem and TweenSystem likewise have zero coupling to the classic
+// object model (CLAUDE.md's "PluginSystem... are Game services" entry notes
+// CameraSystem already had "zero coupling to the classic core/Entity.ts/
+// Scene.ts") — real, usable systems for ECS game code, just not previously
+// re-exported from this subpath.
+export { CameraSystem } from "./systems/CameraSystem.js";
+export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
+export { TweenManager } from "./systems/TweenSystem.js";
+export type {
+  TweenOptions,
+  TweenHandle,
+  EasingName,
+} from "./systems/TweenSystem.js";
+export { SequenceSystem, evaluateTrackAt } from "./systems/SequenceSystem.js";
+export type {
+  SequenceDefinition,
+  SequenceTrackDef,
+} from "./systems/SequenceSystem.js";
+export { ParticleEmitter } from "./systems/ParticleSystem.js";
+export type {
+  ParticleEmitterOptions,
+  EmitterShape,
+} from "./systems/ParticleSystem.js";
+export { createCustomShaderFilter } from "./systems/CustomShaderFilter.js";
+export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
+// `Game`'s five constructor-registered services (CLAUDE.md's "PluginSystem,
+// VariableStore, LocalisationSystem, ViewportSystem, and WindowSystem are
+// Game services" entry) — game code needs the class itself as a type-safe
+// key for `game.services.get(VariableStore)`/`ctx.plugins` etc., which none
+// of these being absent from this subpath made impossible.
+export { PluginSystem } from "./PluginSystem.js";
+export type { Plugin, PluginContext } from "./PluginSystem.js";
+export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
+export type {
+  VariableStoreData,
+  VariableCondition,
+} from "./systems/VariableStore.js";
+export { LocalisationSystem } from "./systems/LocalisationSystem.js";
+export type { Locale, TranslationMap } from "./systems/LocalisationSystem.js";
+export {
+  ViewportSystem,
+  computeViewportSize,
+  gpuTierRenderDefaults,
+} from "./systems/ViewportSystem.js";
+export type {
+  ScaleMode,
+  ResizableRenderTarget,
+  ViewportConfig,
+  ViewportSize,
+  SafeAreaInsets,
+} from "./systems/ViewportSystem.js";
+export { WindowSystem } from "./systems/WindowSystem.js";
+export type { WindowMode, WindowConfig } from "./systems/WindowSystem.js";
+// Pure, dependency-free utilities with zero classic-model coupling —
+// `AStarSearch` has no imports at all, and `Vec2` is a plain `{x, y}` shape
+// (its home in `core/Entity.ts` is an accident of the classic layout, not a
+// sign it's classic-only).
+export { AStarSearch } from "./AStarSearch.js";
+export type { AStarSearchOptions, AStarSearchResult } from "./AStarSearch.js";
+export type { Vec2 } from "./Entity.js";
+export type {
+  UpdateFn,
+  SceneDefinition,
+  SceneLifecycle,
+  LoadSceneOptions,
+  LoadOverlayOptions,
+  SceneRenderer,
+} from "./Game.js";
+export { Diagnostics } from "./Diagnostics.js";
+export { InputManager } from "./Input.js";
+export type {
+  Binding,
+  ActionMap,
+  KeyboardSnapshot,
+  GamepadSnapshot,
+} from "./Input.js";
+export type {
+  PointerState,
+  Gesture,
+  TapGesture,
+  LongPressGesture,
+  SwipeGesture,
+  PinchGesture,
+  WheelEventInfo,
+} from "./systems/PointerSystem.js";
+export type { Serializable, SerializableRecord } from "./Serializable.js";
+export { Transform } from "./components/Transform.js";
+export { Meta } from "./components/Meta.js";
+export type { MetaShape } from "./components/Meta.js";
+export { Sprite } from "./components/Sprite.js";
+export { Layout, LayoutStyle } from "./components/Layout.js";
+export {
+  WidgetAppearance,
+  Label,
+  PanelStyle,
+  ButtonState,
+  Checkbox,
+  Slider,
+  Progress,
+  ImageWidget,
+} from "./components/Widgets.js";
+export {
+  WidgetParent,
+  WidgetTree,
+  detachWidgetParent,
+} from "./ui/WidgetTree.js";
+export { UISystem } from "./ui/UISystem.js";
+export { resolveAnchoredPosition } from "./ui/Anchor.js";
+export type { WidgetAnchor, AnchoredPosition } from "./ui/Anchor.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
 export type {
   RenderPipelineOptions,
@@ -29,69 +185,60 @@ export type {
   TileLayerSource,
   AutoTileResolver,
 } from "./systems/RenderPipeline.js";
-export { PhysicsSystem } from "./systems/PhysicsSystem.js";
-export type { PhysicsWorldOptions } from "./systems/PhysicsSystem.js";
+export { ServiceRegistry } from "./Services.js";
+export type { ServiceConstructor } from "./Services.js";
+export { SaveSystem } from "./systems/SaveSystem.js";
+export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
+export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
+export type { StorageAdapter } from "./systems/StorageAdapter.js";
+export { CGGallery } from "./systems/CGGallery.js";
+export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
+export { SceneTransitionManager } from "./systems/SceneTransition.js";
+export type {
+  TransitionEffect,
+  TransitionOptions,
+  TransitionEffectSink,
+} from "./systems/SceneTransition.js";
+export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
+export type {
+  LogLevel,
+  DebugLogEntry,
+  DebugCommandHandler,
+} from "./systems/DebugOverlaySystem.js";
+export {
+  PhysicsSystem,
+  PhysicsNotInitializedError,
+} from "./systems/PhysicsSystem.js";
+export type {
+  PhysicsSystemOptions,
+  RaycastHit2D,
+  BodyState2D,
+} from "./systems/PhysicsSystem.js";
 export { PhysicsSystem3D } from "./systems/PhysicsSystem3D.js";
 export type {
+  PhysicsSystem3DOptions,
   PhysicsBody3DOptions,
   Physics3DHandle,
-  Vec3,
   BodyType3D,
   Shape3D,
+  Vec3,
   Quat,
   RaycastHit,
   CollisionEvent,
 } from "./systems/PhysicsSystem3D.js";
-export { InputSystem } from "./systems/InputSystem.js";
-export type { KeyState } from "./systems/InputSystem.js";
-export { AudioSystem } from "./systems/AudioSystem.js";
-export type { SoundOptions } from "./systems/AudioSystem.js";
-export { AssetManifest } from "./systems/AssetManifest.js";
-export type {
-  AssetType,
-  AssetDescriptor,
-  AssetLoadFailure,
-  AssetLoadResult,
-  AssetProgressListener,
-  AssetManifestOptions,
-} from "./systems/AssetManifest.js";
-export { DebugOverlaySystem } from "./systems/DebugOverlaySystem.js";
-export type {
-  DebugLogEntry,
-  DebugCommandHandler,
-  LogLevel,
-} from "./systems/DebugOverlaySystem.js";
+export { PhysicsBody, getPhysicsBody } from "./components/PhysicsBody.js";
 export {
-  accessibilitySettings,
-  AccessibilitySettings,
-} from "./ui/AccessibilitySettings.js";
-export { CameraSystem } from "./systems/CameraSystem.js";
-export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
-
-// Components
-export { Transform } from "./components/Transform.js";
-export { Sprite } from "./components/Sprite.js";
-export { PhysicsBody } from "./components/PhysicsBody.js";
-export type { RigidBodyType, ColliderShape } from "./components/PhysicsBody.js";
-export { CharacterController } from "./components/CharacterController.js";
-export { Animator } from "./components/Animator.js";
-export type { AnimationClip } from "./components/Animator.js";
-export { AnimatorController } from "./components/AnimatorController.js";
-export type {
-  AnimParamValue,
-  AnimTransitionContext,
-  AnimTransitionOptions,
-  ActiveClipFrame,
-} from "./components/AnimatorController.js";
-export {
-  VisualScriptComponent,
+  VisualScriptState,
+  registerVisualScriptGraph,
+  getVisualScriptGraph,
+  unregisterVisualScriptGraph,
   VisualScriptGraphBuilder,
-} from "./components/VisualScriptComponent.js";
+} from "./components/VisualScript.js";
 export type {
+  VisualScriptGraph,
   VSNode,
   VSNodeKind,
   VSConnection,
-  VisualScriptGraph,
   OnUpdateNode,
   OnEventNode,
   SequenceNode,
@@ -101,257 +248,54 @@ export type {
   GetSwitchNode,
   SetSwitchNode,
   SendMessageNode,
-} from "./components/VisualScriptComponent.js";
+} from "./components/VisualScript.js";
 export {
+  VisualScriptSystem,
   compileVisualScriptGraph,
-  CompiledVisualScriptComponent,
-} from "./systems/VisualScriptCompiler.js";
-export type { VSCompiledContext } from "./systems/VisualScriptCompiler.js";
-
-// New Systems
-export { LightingSystem, LightingFilter } from "./systems/LightingSystem.js";
-export type { Light, LightType } from "./systems/LightingSystem.js";
-export {
-  CustomShaderFilter,
-  createCustomShaderFilter,
-  DEFAULT_CUSTOM_SHADER_VERTEX,
-  DEFAULT_CUSTOM_SHADER_FRAGMENT,
-} from "./systems/CustomShaderFilter.js";
-export type { CustomShaderOptions } from "./systems/CustomShaderFilter.js";
-export { SequenceSystem, evaluateTrackAt } from "./systems/SequenceSystem.js";
+} from "./systems/VisualScriptSystem.js";
+export type { VSCompiledContext } from "./systems/VisualScriptSystem.js";
+export { QueryChannel } from "./bridge/QueryChannel.js";
 export type {
-  SequenceDefinition,
-  SequenceTrackDef,
-  SequenceKeyframe,
-} from "./systems/SequenceSystem.js";
-export { AStarSearch } from "./core/AStarSearch.js";
+  EngineQuery,
+  EngineQueryRequest,
+  EngineQueryResponse,
+  EngineQueryResult,
+  EngineQueryError,
+  EngineQueryErrorCode,
+  EntitySummary,
+  RaycastResultData,
+  BodyStateData,
+  ListEntitiesQuery,
+  EntityInfoQuery,
+  GetComponentQuery,
+  SetComponentQuery,
+  Raycast2DQuery,
+  OverlapCircle2DQuery,
+  BodyState2DQuery,
+} from "./bridge/QueryChannel.js";
 export type {
-  AStarEdge,
-  AStarSearchOptions,
-  AStarSearchResult,
-} from "./core/AStarSearch.js";
-export { PathfindingSystem } from "./systems/PathfindingSystem.js";
-export type {
-  GridCell,
-  PathRequest,
-  PathResult,
-} from "./systems/PathfindingSystem.js";
-export { SaveSystem } from "./systems/SaveSystem.js";
-export type { SaveSlot, GameSaveSlot } from "./systems/SaveSystem.js";
-export { LocalisationSystem } from "./systems/LocalisationSystem.js";
-export type { Locale, TranslationMap } from "./systems/LocalisationSystem.js";
-export {
-  CoroutineSystem,
-  waitFrames,
-  waitSeconds,
-  waitUntil,
-} from "./systems/CoroutineSystem.js";
-export type {
-  CoroutineGen,
-  CoroutineYield,
-} from "./systems/CoroutineSystem.js";
-export { GamepadSystem } from "./systems/GamepadSystem.js";
-export type {
-  GamepadState,
-  DualRumbleOptions,
-} from "./systems/GamepadSystem.js";
-
-export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
-export type {
-  VariableStoreData,
-  VariableCondition,
-} from "./systems/VariableStore.js";
-
-export {
-  PointerSystem,
-  MIN_TOUCH_TARGET_SIZE,
-} from "./systems/PointerSystem.js";
-export type {
-  PointerState,
-  GestureType,
-  Gesture,
-  TapGesture,
-  LongPressGesture,
-  SwipeGesture,
-  SwipeDirection,
-  PinchGesture,
-  WheelEventInfo,
-  PointerDownHandler,
-  PointerMoveHandler,
-  PointerUpHandler,
-  GestureHandler,
-  WheelHandler,
-} from "./systems/PointerSystem.js";
-
-// Core Manager
-export { SystemManager } from "./core/SystemManager.js";
-export type { UpdatableSystem } from "./core/SystemManager.js";
-
-// SceneManager
-export { SceneManagerInstance as SceneManager } from "./core/SceneManager.js";
-export type {
-  TransitionOptions as SceneTransitionOptions,
-  SceneFactory,
-} from "./core/SceneManager.js";
-
-// Particles
-export { ParticleSystem, ParticleEmitter } from "./systems/ParticleSystem.js";
-export type {
-  ParticleEmitterOptions,
-  EmitterShape,
-} from "./systems/ParticleSystem.js";
-
-// Tweens & Timers
-export { TweenManager } from "./systems/TweenSystem.js";
-export type { TweenOptions, TweenHandle } from "./systems/TweenSystem.js";
-
-// UI
-export { UISystem } from "./systems/UISystem.js";
-export type {
-  IUIRenderer,
-  HostAdapter,
-  HostMessage,
-  HostMessageHandler,
-} from "@emptysock/types";
-export { NullHostAdapter } from "@emptysock/types";
-
-// Easing
-export { ease } from "./core/easing.js";
-export type { EasingName } from "./core/easing.js";
-
-// Widget API
-export {
-  Widget,
-  LabelWidget,
-  ImageWidget,
-  ButtonWidget,
-  PanelWidget,
-  ProgressBarWidget,
-  SliderWidget,
-  CheckboxWidget,
-} from "./ui/Widget.js";
-export type {
-  WidgetAnchor,
-  AnimationName,
-  SlideDirection,
-  WidgetEvent,
-  AnimationOpts,
-  LabelWidgetOpts,
-  ImageWidgetOpts,
-  ButtonWidgetOpts,
-  ButtonState,
-  PanelWidgetOpts,
-  ProgressBarWidgetOpts,
-  SliderWidgetOpts,
-  CheckboxWidgetOpts,
-} from "./ui/Widget.js";
-
-// Post-processing
-export { PostProcessSystem } from "./systems/PostProcessSystem.js";
-export {
-  COLOURBLIND_MATRICES,
-  colourblindFilterId,
-  colourblindFilterDefsSVG,
-} from "./systems/PostProcessSystem.js";
-export type { ColourblindMode } from "./systems/PostProcessSystem.js";
-export type {
-  PostEffectType,
-  PostEffectOptions,
-  ActiveEffect,
-  FlashOptions,
-  FadeOptions,
-  LayerFilterType,
-  LayerFilterOptions,
-  LayerFilter,
-} from "./systems/PostProcessSystem.js";
-
-// RigidJoint
-export { RigidJoint } from "./components/RigidJoint.js";
-export type {
-  JointType,
-  RevoluteOptions,
-  PrismaticOptions,
-  SpringOptions,
-} from "./components/RigidJoint.js";
-
-// PhysicsBody callbacks
-export type {
+  PhysicsBodyHandle,
+  PhysicsBodyType,
+  PhysicsBodyShape,
   ContactInfo,
   CollisionCallback,
   SensorCallback,
 } from "./components/PhysicsBody.js";
 
-// Layer System
-export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
-export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
-
-// Hot reload
-export { HotReloadSystem } from "./systems/HotReloadSystem.js";
-
-// IDE Bridge
-export { ideBridge } from "./core/IDEBridge.js";
-export type {
-  EntitySnapshot,
-  ComponentPatchHandler,
-  SelectHandler,
-} from "./core/IDEBridge.js";
-
-// GPU tier detection
-export { detectGPUTier, classifyRenderer } from "./core/GPUTier.js";
-export type { GPUTier } from "./core/GPUTier.js";
-
-// Window management
-export { WindowSystem } from "./systems/WindowSystem.js";
-export type { WindowConfig, WindowMode } from "./systems/WindowSystem.js";
-
-// Viewport management (design-resolution scaling, resize, safe-area insets)
-export {
-  ViewportSystem,
-  computeViewportSize,
-  gpuTierRenderDefaults,
-} from "./systems/ViewportSystem.js";
-export type {
-  ScaleMode,
-  ViewportConfig,
-  ViewportSize,
-  SafeAreaInsets,
-  ResizableRenderTarget,
-} from "./systems/ViewportSystem.js";
-
-// Behaviors
-export * from "./behaviors/index.js";
-
-// CG gallery
-export { CGGallery } from "./systems/CGGallery.js";
-export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
-
-// VN stage & background layers
-export { CharacterStage } from "./systems/CharacterStage.js";
-export type {
-  StageSlot,
-  CharacterStageOptions,
-  CharacterShowOptions,
-} from "./systems/CharacterStage.js";
-// Map event system
-export { MapEventSystem } from "./systems/MapEventSystem.js";
-export type {
-  MapEvent,
-  EventTriggerType,
-  EventCommand,
-  EventCommandHandler,
-} from "./systems/MapEventSystem.js";
-
-// Public type aliases
-export type { GameStage } from "./types/aliases.js";
-
-// IDE Bridge — internal; not part of the public game API
-
-// Component registry — canonical list of built-in component type strings
+/**
+ * Curated list of built-in `componentName`s an editor's "Add Component"
+ * picker can offer for an entity that isn't live yet — there is no running
+ * `Scene`/`World` to ask `componentRegistry.registeredComponents()` about
+ * in that editing-time context, so some static list is unavoidable. This is
+ * the ECS counterpart to the classic root surface's `COMPONENT_REGISTRY`;
+ * it deliberately does not try to be exhaustive (widget/UI components,
+ * `Meta`, and anything a game defines itself via `defineComponent` are real
+ * components that just aren't offered from this generic picker) — extend it
+ * as new built-in components earn a place in that dropdown.
+ */
 export const COMPONENT_REGISTRY: readonly string[] = [
   "Transform",
   "Sprite",
   "PhysicsBody",
-  "CharacterController",
-  "Animator",
-  "RigidJoint",
+  "Meta",
 ] as const;

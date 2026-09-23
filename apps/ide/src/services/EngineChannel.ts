@@ -2,7 +2,7 @@
 //
 // Talks a request/response protocol (`es:query` / `es:query-result`) to the
 // preview iframe's own bootstrap script (`PlayRunner.ts`'s `buildIframeHtml`),
-// which relays each query to a `QueryChannel` (`@emptysock/engine/ecs`)
+// which relays each query to a `QueryChannel` (`@emptysock/engine`)
 // attached to whatever `Game`/`Scene` the user's own game code created — see
 // `QueryChannel.ts`'s doc comment for the full design. This replaces the
 // classic `IDEBridge`'s fire-and-forget `es:entities`/`es:set-component`
@@ -13,7 +13,7 @@ import type {
   EngineQuery,
   EngineQueryResult,
   EntitySummary,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 
 export type { EntitySummary };
 

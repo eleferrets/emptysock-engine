@@ -1,15 +1,8 @@
-// DebugOverlaySystem — a shippable in-game debug overlay and console.
-//
-// Disabled by default: construct it and call `enable()` behind a dev flag
-// (e.g. a query param or a build-time constant the game itself defines —
-// this system takes no opinion on how that flag is read). Renders through
-// the existing UI widget tree (PanelWidget + LabelWidget) so it works in
-// Node/tests, the browser preview, and the Tauri WebView identically. Add
-// its root widget to a scene's UISystem placed at LAYER.UI so it always
-// draws above game content.
-
-import { PanelWidget } from "../ui/widgets/panel.js";
-import { LabelWidget } from "../ui/widgets/label.js";
+import type { Entity } from "../Entity.js";
+import type { Scene } from "../Scene.js";
+import { LayoutStyle } from "../components/Layout.js";
+import { Label, PanelStyle, WidgetAppearance } from "../components/Widgets.js";
+import type { WidgetTree } from "../ui/WidgetTree.js";
 
 export type LogLevel = "log" | "warn" | "error";
 
@@ -24,9 +17,19 @@ export type DebugCommandHandler = (args: string[]) => string | void;
 const MAX_LOG_LINES = 200;
 const VISIBLE_LOG_LINES = 8;
 
+/**
+ * ECS-core port of `../../systems/DebugOverlaySystem.ts` — same contract
+ * (disabled by default, a stats line + scrollback console, a command
+ * registry), rendered through `WidgetTree`/`UISystem` (`PanelStyle` +
+ * `Label` widgets) instead of the classic `PanelWidget`/`LabelWidget`
+ * classes, so it works identically in Node/tests, the browser preview, and
+ * the Tauri WebView the same way the classic version did. Uses `Layout`'s
+ * new `positionType: "absolute"` (added for exactly this: a fixed HUD
+ * overlay position independent of any sibling flex layout).
+ */
 export class DebugOverlaySystem {
   private _enabled = false;
-  private readonly _commands: Map<string, DebugCommandHandler> = new Map();
+  private readonly _commands = new Map<string, DebugCommandHandler>();
   private readonly _log: DebugLogEntry[] = [];
 
   private _entityCount = 0;
@@ -35,42 +38,45 @@ export class DebugOverlaySystem {
   private _frameAccum = 0;
   private _frameSamples = 0;
 
-  readonly root: PanelWidget;
-  private readonly _statsLabel: LabelWidget;
-  private readonly _consoleLabel: LabelWidget;
+  readonly root: Entity;
+  private readonly _statsLabel: Entity;
+  private readonly _consoleLabel: Entity;
 
-  constructor() {
-    this.root = new PanelWidget({
-      x: 8,
-      y: 8,
-      width: 360,
-      height: 160,
+  constructor(scene: Scene, tree: WidgetTree) {
+    this.root = tree.createWidget(scene);
+    this.root.add(PanelStyle, {
       background: "#000000cc",
-      border: "#33ff99",
+      borderColor: "#33ff99",
       borderWidth: 1,
-      visible: false,
     });
-    this._statsLabel = new LabelWidget({
-      x: 8,
-      y: 4,
-      width: 344,
-      height: 40,
+    this.root.add(WidgetAppearance, { visible: false });
+    const rootStyle = this.root.get(LayoutStyle);
+    if (rootStyle !== undefined) {
+      rootStyle.positionType = 1;
+      rootStyle.left = 8;
+      rootStyle.top = 8;
+      rootStyle.width = 360;
+      rootStyle.height = 160;
+      rootStyle.padding = 8;
+    }
+
+    this._statsLabel = tree.createWidget(scene, this.root);
+    this._statsLabel.add(Label, {
       color: "#33ff99",
       font: "monospace",
       fontSize: 12,
-      align: "left",
     });
-    this._consoleLabel = new LabelWidget({
-      x: 8,
-      y: 48,
-      width: 344,
-      height: 100,
+    const statsStyle = this._statsLabel.get(LayoutStyle);
+    if (statsStyle !== undefined) statsStyle.height = 40;
+
+    this._consoleLabel = tree.createWidget(scene, this.root);
+    this._consoleLabel.add(Label, {
       color: "#cccccc",
       font: "monospace",
       fontSize: 11,
-      align: "left",
     });
-    this.root.children.push(this._statsLabel, this._consoleLabel);
+    const consoleStyle = this._consoleLabel.get(LayoutStyle);
+    if (consoleStyle !== undefined) consoleStyle.height = 100;
 
     this.registerCommand("help", () =>
       [...this._commands.keys()].sort().join(", "),
@@ -87,16 +93,19 @@ export class DebugOverlaySystem {
 
   enable(): void {
     this._enabled = true;
-    this.root.visible = true;
+    const appearance = this.root.get(WidgetAppearance);
+    if (appearance !== undefined) appearance.visible = true;
   }
 
   disable(): void {
     this._enabled = false;
-    this.root.visible = false;
+    const appearance = this.root.get(WidgetAppearance);
+    if (appearance !== undefined) appearance.visible = false;
   }
 
   toggle(): void {
-    this._enabled ? this.disable() : this.enable();
+    if (this._enabled) this.disable();
+    else this.enable();
   }
 
   /** Call once per frame with the frame's delta time (seconds) and current entity count. */
@@ -111,11 +120,17 @@ export class DebugOverlaySystem {
       this._frameSamples = 0;
     }
     if (!this._enabled) return;
-    this._statsLabel.text = `FPS: ${this._fps}  frame: ${this._frameTimeMs.toFixed(2)}ms  entities: ${this._entityCount}`;
-    const visible = this._log.slice(-VISIBLE_LOG_LINES);
-    this._consoleLabel.text = visible
-      .map((e) => `[${e.level}] ${e.message}`)
-      .join("\n");
+    const statsLabel = this._statsLabel.get(Label);
+    if (statsLabel !== undefined) {
+      statsLabel.text = `FPS: ${this._fps}  frame: ${this._frameTimeMs.toFixed(2)}ms  entities: ${this._entityCount}`;
+    }
+    const consoleLabel = this._consoleLabel.get(Label);
+    if (consoleLabel !== undefined) {
+      const visible = this._log.slice(-VISIBLE_LOG_LINES);
+      consoleLabel.text = visible
+        .map((e) => `[${e.level}] ${e.message}`)
+        .join("\n");
+    }
   }
 
   // ─── Logging ──────────────────────────────────────────────────────────

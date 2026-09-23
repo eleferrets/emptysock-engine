@@ -1,9 +1,9 @@
-import { defineComponent } from "@emptysock/engine/ecs";
+import { defineComponent } from "@emptysock/engine";
 import type {
   ComponentDef,
   ComponentLookup,
   PrefabFile,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { generatePrefabTypes } from "../prefabCodegen.js";
@@ -40,7 +40,7 @@ describe("generatePrefabTypes", () => {
     expect(dts).toContain('"current": number;');
     expect(dts).toContain('"max": number;');
     expect(dts).toContain(
-      'import type { PrefabDef } from "@emptysock/engine/ecs";',
+      'import type { PrefabDef } from "@emptysock/engine";',
     );
   });
 

@@ -3,7 +3,7 @@ import type {
   VSNodeKind,
   VSConnection,
   VisualScriptGraph,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
 import type { LogicNode, LogicGraphState } from "./logicTypes";
 import {
   LNODE_WIDTH,

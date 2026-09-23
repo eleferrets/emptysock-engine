@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { defineComponent, Scene } from "@emptysock/engine/ecs";
+import { defineComponent, Scene } from "@emptysock/engine";
 import { networked, clearNetworkedFields } from "../NetworkedFields.js";
 import { NetworkSystem } from "../NetworkSystem.js";
 import type {

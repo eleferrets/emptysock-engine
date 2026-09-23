@@ -1,4 +1,4 @@
-import type { VSNode, VSNodeKind, VSConnection } from "@emptysock/engine/ecs";
+import type { VSNode, VSNodeKind, VSConnection } from "@emptysock/engine";
 
 // ── Editor-side node shape ───────────────────────────────────────────────────
 //

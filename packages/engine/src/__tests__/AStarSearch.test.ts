@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AStarSearch } from "../core/AStarSearch.js";
+import { AStarSearch } from "../AStarSearch.js";
 
 interface GridNode {
   x: number;

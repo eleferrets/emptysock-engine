@@ -1,21 +1,28 @@
 /**
- * PhysicsSystem3D — full 3D rigid-body physics via @dimforge/rapier3d-compat.
+ * `PhysicsSystem3D` — full 3D rigid-body physics via
+ * `@dimforge/rapier3d-compat` (or the deterministic-compat build, §15.2).
+ *
+ * It keeps the classic, handle-returning `addBody()` API rather than an ECS
+ * component (there is no ECS-core 3D component) — that shape is kept as-is
+ * rather than retrofitted onto `PhysicsBody`/bitECS, since `SceneLifecycle`
+ * (Game.ts) only has room for one physics system slot and 3D games are the
+ * minority case (ENGINE_DESIGN.md §10 round 1 item 3: "3D is not held to the
+ * same 'hide everything' bar as 2D"). A 3D game constructs and owns this
+ * directly, the same way `{ manageLifecycle: false }` hands back raw
+ * systems for manual ownership — see `Game.ts`'s escape hatch. What it adds
+ * beyond the classic 3D physics system: fixed-timestep accumulation +
+ * interpolation alpha (matching the 2D `PhysicsSystem`) and the
+ * deterministic-build swap.
  *
  * Quick-start:
  *   const physics = new PhysicsSystem3D();
- *   await physics.init({ x: 0, y: -9.81, z: 0 });
- *
- *   const box = physics.addBody({ shape: 'box', bodyType: 'dynamic', position: { x: 0, y: 5, z: 0 } });
- *   box.setLinearDamping(0.2);
- *
- *   physics.onCollisionEnter((a, b) => console.log('hit', a, b));
- *
+ *   await physics.init({ gravity: { x: 0, y: -9.81, z: 0 } });
+ *   const box = physics.addBody({ shape: "box", bodyType: "dynamic", position: { x: 0, y: 5, z: 0 } });
  *   // in game loop (onUpdate — must NOT be async):
  *   physics.update(dt);
- *   const pos = box.getPosition();
- *
- *   // When the scene unloads, ALWAYS call destroy() — Rapier3D holds WASM
- *   // memory the GC cannot see.  See CLAUDE.md § PhysicsSystem3D must be destroyed.
+ *   const alpha = physics.interpolationAlpha; // for a renderer to lerp with
+ *   // when the scene unloads, ALWAYS call destroy() — see CLAUDE.md
+ *   // "PhysicsSystem3D must be destroyed".
  *   physics.destroy();
  */
 export interface Vec3 {
@@ -34,30 +41,21 @@ export type Shape3D = "box" | "sphere" | "capsule" | "cylinder" | "cone";
 export interface PhysicsBody3DOptions {
   bodyType?: BodyType3D;
   shape?: Shape3D;
-  /** Half-extents for box shape (default 0.5, 0.5, 0.5). */
   halfExtents?: Vec3;
-  /** Radius for sphere / capsule / cylinder / cone. */
   radius?: number;
-  /** Half-height for capsule / cylinder / cone. */
   halfHeight?: number;
   position?: Vec3;
   rotation?: Quat;
   density?: number;
   restitution?: number;
   friction?: number;
-  /** When true the collider generates overlap events but does not block movement. */
   isSensor?: boolean;
-  /** Enable continuous collision detection for fast-moving bodies (bullets, etc.). */
   ccdEnabled?: boolean;
 }
 export interface RaycastHit {
-  /** The body that was hit. */
   bodyIndex: number;
-  /** Distance along the ray from the origin to the hit point. */
   distance: number;
-  /** World-space hit point. */
   point: Vec3;
-  /** Surface normal at the hit point. */
   normal: Vec3;
 }
 export interface CollisionEvent {
@@ -80,48 +78,57 @@ export interface Physics3DHandle {
   setLinearDamping(damping: number): void;
   setAngularDamping(damping: number): void;
   setGravityScale(scale: number): void;
-  /**
-   * Raycast downward from the body's centre by `distance` world units.
-   * Returns true if the ray hits any other collider within that distance.
-   * More reliable than testing linvel.y (which passes for slow-falling bodies).
-   */
   isGrounded(distance?: number): boolean;
+}
+export interface PhysicsSystem3DOptions {
+  gravity?: Vec3;
+  /** Seconds per physics step (§10.3). Default 1/60. */
+  fixedTimestep?: number;
+  /** §15.2 — swap in the deterministic-compat WASM build. */
+  deterministic?: boolean;
+}
+interface Snapshot3D {
+  position: Vec3;
+  rotation: Quat;
 }
 export declare class PhysicsSystem3D {
   private _rapier;
   private _world;
   private _eventQueue;
-  /** index → rigidBody */
   private readonly _bodies;
-  /** rigidBody handle → index */
   private readonly _handleToIndex;
-  /** collider handle → index (for collision event lookup) */
   private readonly _colliderHandleToIndex;
   private _nextIndex;
   private readonly _onEnterCallbacks;
   private readonly _onExitCallbacks;
-  init(gravity?: Vec3): Promise<void>;
-  /** Register a callback fired when two bodies begin overlapping this frame. */
+  private readonly _timestep;
+  private readonly _snapshots;
+  init(options?: PhysicsSystem3DOptions): Promise<void>;
   onCollisionEnter(cb: CollisionCallback): void;
-  /** Register a callback fired when two bodies stop overlapping. */
   onCollisionExit(cb: CollisionCallback): void;
+  /** How far (0..1) the current render frame sits between the last two physics steps. */
+  get interpolationAlpha(): number;
+  /** Linearly interpolated transform for a body, for rendering. */
+  getInterpolatedTransform(bodyIndex: number, alpha?: number): Snapshot3D;
   addBody(options?: PhysicsBody3DOptions): Physics3DHandle;
   removeBody(index: number): void;
-  /**
-   * Cast a ray from `origin` in `direction` (does not need to be normalised)
-   * up to `maxDistance` world units. Returns the closest hit, or null.
-   */
   castRay(
     origin: Vec3,
     direction: Vec3,
     maxDistance: number,
   ): RaycastHit | null;
-  /** Step the simulation by dt seconds. Call once per game-loop tick. */
+  /**
+   * Fixed-timestep accumulation (§10.3), mirroring the 2D `PhysicsSystem`:
+   * `dt` (real frame time) accumulates and the world steps zero or more
+   * times at exactly `fixedTimestep` seconds each, keeping a
+   * previous/current snapshot per body for `getInterpolatedTransform`.
+   */
   update(dt: number): void;
+  private _step;
   private _drainCollisionEvents;
   /**
-   * Free all Rapier WASM memory. MUST be called when the scene unloads.
-   * The GC cannot see Rapier's WASM heap — not calling this leaks memory permanently.
+   * Free all Rapier WASM memory. MUST be called when the scene unloads —
+   * see CLAUDE.md "PhysicsSystem3D must be destroyed".
    */
   destroy(): void;
   [Symbol.dispose](): void;

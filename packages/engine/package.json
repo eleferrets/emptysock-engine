@@ -13,10 +13,6 @@
     "./testing": {
       "import": "./dist/testing/index.js",
       "types": "./dist/testing/index.d.ts"
-    },
-    "./ecs": {
-      "import": "./dist/ecs/index.js",
-      "types": "./dist/ecs/index.d.ts"
     }
   },
   "scripts": {

@@ -1,4 +1,6 @@
-import { PanelWidget } from "../ui/widgets/panel.js";
+import type { Entity } from "../Entity.js";
+import type { Scene } from "../Scene.js";
+import type { WidgetTree } from "../ui/WidgetTree.js";
 export type LogLevel = "log" | "warn" | "error";
 export interface DebugLogEntry {
   readonly level: LogLevel;
@@ -6,6 +8,16 @@ export interface DebugLogEntry {
   readonly timestamp: number;
 }
 export type DebugCommandHandler = (args: string[]) => string | void;
+/**
+ * ECS-core port of `../../systems/DebugOverlaySystem.ts` — same contract
+ * (disabled by default, a stats line + scrollback console, a command
+ * registry), rendered through `WidgetTree`/`UISystem` (`PanelStyle` +
+ * `Label` widgets) instead of the classic `PanelWidget`/`LabelWidget`
+ * classes, so it works identically in Node/tests, the browser preview, and
+ * the Tauri WebView the same way the classic version did. Uses `Layout`'s
+ * new `positionType: "absolute"` (added for exactly this: a fixed HUD
+ * overlay position independent of any sibling flex layout).
+ */
 export declare class DebugOverlaySystem {
   private _enabled;
   private readonly _commands;
@@ -15,10 +27,10 @@ export declare class DebugOverlaySystem {
   private _fps;
   private _frameAccum;
   private _frameSamples;
-  readonly root: PanelWidget;
+  readonly root: Entity;
   private readonly _statsLabel;
   private readonly _consoleLabel;
-  constructor();
+  constructor(scene: Scene, tree: WidgetTree);
   get enabled(): boolean;
   enable(): void;
   disable(): void;

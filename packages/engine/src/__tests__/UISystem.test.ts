@@ -1,188 +1,269 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { UISystem } from "../systems/UISystem.js";
-import { ButtonWidget } from "../ui/widgets/button.js";
-import { PanelWidget } from "../ui/widgets/panel.js";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { IUIRenderer } from "@emptysock/types";
+import type { Entity } from "../Entity.js";
+import { Scene } from "../Scene.js";
+import { WidgetTree } from "../ui/WidgetTree.js";
+import { UISystem } from "../ui/UISystem.js";
+import { LayoutStyle, type LayoutStyleShape } from "../components/Layout.js";
+import {
+  ButtonState,
+  Checkbox,
+  Label,
+  PanelStyle,
+  Progress,
+  Slider,
+  WidgetAppearance,
+} from "../components/Widgets.js";
 
+/** Minimal IUIRenderer stub, same shape as `Widget.test.ts`'s `makeCtx()`. */
+function makeCtx(): IUIRenderer {
+  return {
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    font: "",
+    textAlign: "left",
+    textBaseline: "top",
+    globalAlpha: 1,
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    rect: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    arcTo: vi.fn(),
+    arc: vi.fn(),
+    fillText: vi.fn(),
+    drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    clip: vi.fn(),
+  };
+}
+
+/** Every widget this file creates has a `LayoutStyle` — narrows `entity.get()`'s `T | undefined` for test call sites. */
+function styleOf(entity: Entity): LayoutStyleShape {
+  const style = entity.get(LayoutStyle);
+  if (style === undefined) throw new Error("expected LayoutStyle on widget");
+  return style;
+}
+
+/**
+ * RELEASE_PASS.md Track 3's real `UISystem` port on top of the `WidgetTree`
+ * prototype — hit-testing, press/drag/click/hover dispatch, matching the
+ * classic `systems/UISystem.ts`'s real contract (see that file's own tests
+ * for the scenarios this draws from: click-vs-drag threshold, disabled
+ * buttons don't hover/press, topmost-widget-wins hit-testing).
+ */
+
+let scene: Scene;
+let tree: WidgetTree;
 let ui: UISystem;
 
-beforeEach(() => {
-  ui = new UISystem();
+beforeEach(async () => {
+  scene = new Scene();
+  tree = new WidgetTree();
+  await tree.init();
+  ui = new UISystem(tree);
 });
 
-describe("UISystem", () => {
-  it("add puts a widget into roots", () => {
-    const btn = new ButtonWidget({
-      x: 10,
-      y: 20,
-      width: 100,
-      height: 40,
-      label: "OK",
-    });
-    ui.add(btn);
-    expect(ui.roots).toContain(btn);
+describe("UISystem — hit-testing", () => {
+  it("hitTest returns the topmost (last-created) widget at a point", () => {
+    const back = tree.createWidget(scene);
+    styleOf(back).width = 100;
+    styleOf(back).height = 100;
+
+    tree.layout(scene, 100, 100);
+    expect(ui.hitTest(scene, 50, 50)?.eid).toBe(back.eid);
+
+    const front = tree.createWidget(scene);
+    styleOf(front).width = 100;
+    styleOf(front).height = 100;
+    tree.layout(scene, 100, 100);
+
+    expect(ui.hitTest(scene, 50, 50)?.eid).toBe(front.eid);
   });
 
-  it("remove deletes from roots", () => {
-    const btn = new ButtonWidget({ width: 100, height: 40 });
-    ui.add(btn);
-    ui.remove(btn);
-    expect(ui.roots).not.toContain(btn);
+  it("returns undefined outside every widget's box", () => {
+    const w = tree.createWidget(scene);
+    styleOf(w).width = 50;
+    styleOf(w).height = 50;
+    tree.layout(scene, 100, 100);
+
+    expect(ui.hitTest(scene, 90, 90)).toBeUndefined();
   });
 
-  it("clear empties roots", () => {
-    ui.add(new ButtonWidget({}));
-    ui.add(new ButtonWidget({}));
-    ui.clear();
-    expect(ui.roots.length).toBe(0);
-  });
+  it("skips a widget whose WidgetAppearance.visible is false", () => {
+    const w = tree.createWidget(scene);
+    styleOf(w).width = 50;
+    styleOf(w).height = 50;
+    w.add(WidgetAppearance, { visible: false });
+    tree.layout(scene, 100, 100);
 
-  it("click handler fires on triggerClick", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ width: 100, height: 40 });
-    btn.on("click", fn);
-    btn.triggerClick();
-    expect(fn).toHaveBeenCalledOnce();
-  });
-
-  it("handleClick dispatches to topmost widget", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.handleClick(100, 25, 1280, 720);
-    expect(fn).toHaveBeenCalledOnce();
-  });
-
-  it("handleClick returns false when no widget hit", () => {
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 50, height: 50 });
-    ui.add(btn);
-    expect(ui.handleClick(500, 500, 1280, 720)).toBe(false);
-  });
-
-  it("child widgets can be added to a panel", () => {
-    const panel = new PanelWidget({ width: 300, height: 200 });
-    const child = new ButtonWidget({ width: 80, height: 30 });
-    panel.children.push(child);
-    expect(panel.children).toContain(child);
-  });
-
-  it("each instance has isolated roots", () => {
-    const ui2 = new UISystem();
-    ui.add(new ButtonWidget({}));
-    expect(ui2.roots.length).toBe(0);
+    expect(ui.hitTest(scene, 10, 10)).toBeUndefined();
   });
 });
 
-describe("UISystem press/drag/release dispatch", () => {
-  it("dispatchPointerDown does not fire click immediately", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.dispatchPointerDown(100, 25, 1280, 720);
-    expect(fn).not.toHaveBeenCalled();
-  });
+describe("UISystem — button press/click/drag", () => {
+  it("a plain press-and-release within the drag threshold fires a click", () => {
+    const button = tree.createWidget(scene);
+    button.add(ButtonState);
+    styleOf(button).width = 100;
+    styleOf(button).height = 40;
+    tree.layout(scene, 100, 40);
 
-  it("dispatchPointerUp on the same widget without drag fires click", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.dispatchPointerDown(100, 25, 1280, 720);
-    const fired = ui.dispatchPointerUp(105, 27, 1280, 720);
+    ui.dispatchPointerDown(scene, 50, 20);
+    expect(button.get(ButtonState)?.state).toBe(2); // pressed
+    const fired = ui.dispatchPointerUp(scene, 52, 20);
+
     expect(fired).toBe(true);
-    expect(fn).toHaveBeenCalledOnce();
+    expect(button.get(ButtonState)?.state).toBe(0); // back to normal
   });
 
-  it("moving past the drag threshold suppresses the click on release", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.dispatchPointerDown(100, 25, 1280, 720);
-    ui.dispatchPointerDrag(150, 25);
-    const fired = ui.dispatchPointerUp(150, 25, 1280, 720);
+  it("moving past the drag threshold before release does not fire a click", () => {
+    const button = tree.createWidget(scene);
+    button.add(ButtonState);
+    styleOf(button).width = 200;
+    styleOf(button).height = 40;
+    tree.layout(scene, 200, 40);
+
+    ui.dispatchPointerDown(scene, 20, 20);
+    ui.dispatchPointerDrag(scene, 40, 20); // 20px > 6px threshold
+    const fired = ui.dispatchPointerUp(scene, 40, 20);
+
     expect(fired).toBe(false);
-    expect(fn).not.toHaveBeenCalled();
   });
 
-  it("dispatchPointerUp with no matching press returns false", () => {
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    ui.add(btn);
-    expect(ui.dispatchPointerUp(100, 25, 1280, 720)).toBe(false);
+  it("a disabled button does not enter the pressed state", () => {
+    const button = tree.createWidget(scene);
+    button.add(ButtonState, { disabled: true });
+    styleOf(button).width = 100;
+    styleOf(button).height = 40;
+    tree.layout(scene, 100, 40);
+
+    ui.dispatchPointerDown(scene, 50, 20);
+    expect(button.get(ButtonState)?.state).toBe(0);
   });
 
-  it("cancelPointer aborts a press without firing click", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 200, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.dispatchPointerDown(100, 25, 1280, 720);
+  it("cancelPointer aborts a press without firing a click and resets state", () => {
+    const button = tree.createWidget(scene);
+    button.add(ButtonState);
+    styleOf(button).width = 100;
+    styleOf(button).height = 40;
+    tree.layout(scene, 100, 40);
+
+    ui.dispatchPointerDown(scene, 50, 20);
     ui.cancelPointer();
-    ui.dispatchPointerUp(100, 25, 1280, 720);
-    expect(fn).not.toHaveBeenCalled();
-  });
+    expect(button.get(ButtonState)?.state).toBe(0);
 
-  it("tracks multiple simultaneous pointer presses independently by pointerId", () => {
-    const fnA = vi.fn();
-    const fnB = vi.fn();
-    const a = new ButtonWidget({ x: 0, y: 0, width: 100, height: 50 });
-    const b = new ButtonWidget({ x: 200, y: 0, width: 100, height: 50 });
-    a.on("click", fnA);
-    b.on("click", fnB);
-    ui.add(a);
-    ui.add(b);
-    ui.dispatchPointerDown(50, 25, 1280, 720, 1);
-    ui.dispatchPointerDown(250, 25, 1280, 720, 2);
-    ui.dispatchPointerUp(50, 25, 1280, 720, 1);
-    expect(fnA).toHaveBeenCalledOnce();
-    expect(fnB).not.toHaveBeenCalled();
-    ui.dispatchPointerUp(250, 25, 1280, 720, 2);
-    expect(fnB).toHaveBeenCalledOnce();
-  });
-
-  it("release outside the pressed widget's bounds does not fire click", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 50, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.dispatchPointerDown(25, 25, 1280, 720);
-    const fired = ui.dispatchPointerUp(500, 500, 1280, 720);
+    const fired = ui.dispatchPointerUp(scene, 50, 20);
     expect(fired).toBe(false);
-    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("updateHover sets hover state only while nothing is pressed", () => {
+    const button = tree.createWidget(scene);
+    button.add(ButtonState);
+    styleOf(button).width = 100;
+    styleOf(button).height = 40;
+    tree.layout(scene, 100, 40);
+
+    ui.updateHover(scene, 50, 20);
+    expect(button.get(ButtonState)?.state).toBe(1); // hover
+
+    ui.updateHover(scene, 500, 500);
+    expect(button.get(ButtonState)?.state).toBe(0);
   });
 });
 
-describe("UISystem scale factor", () => {
-  it("defaults to a scale of 1", () => {
-    expect(ui.scale).toBe(1);
+describe("UISystem — checkbox", () => {
+  it("toggles Checkbox.checked on a real click, not on a drag", () => {
+    const box = tree.createWidget(scene);
+    box.add(Checkbox);
+    styleOf(box).width = 20;
+    styleOf(box).height = 20;
+    tree.layout(scene, 20, 20);
+
+    ui.dispatchPointerDown(scene, 10, 10);
+    ui.dispatchPointerUp(scene, 10, 10);
+    expect(box.get(Checkbox)?.checked).toBe(true);
+
+    ui.dispatchPointerDown(scene, 10, 10);
+    ui.dispatchPointerDrag(scene, 19, 19);
+    ui.dispatchPointerUp(scene, 19, 19);
+    expect(box.get(Checkbox)?.checked).toBe(true); // unchanged — that release was a drag
+  });
+});
+
+describe("UISystem — slider", () => {
+  it("dragging across the slider's box updates its value proportionally", () => {
+    const slider = tree.createWidget(scene);
+    slider.add(Slider, { min: 0, max: 100 });
+    styleOf(slider).width = 200;
+    styleOf(slider).height = 20;
+    tree.layout(scene, 200, 20);
+
+    ui.dispatchPointerDown(scene, 0, 10);
+    expect(slider.get(Slider)?.value).toBe(0);
+
+    ui.dispatchPointerDrag(scene, 100, 10);
+    expect(slider.get(Slider)?.value).toBe(50);
+
+    ui.dispatchPointerDrag(scene, 200, 10);
+    expect(slider.get(Slider)?.value).toBe(100);
   });
 
-  it("setScale applies uiScale to existing roots and their children", () => {
-    const panel = new PanelWidget({ width: 100, height: 100 });
-    const child = new ButtonWidget({ width: 50, height: 20 });
-    panel.children.push(child);
-    ui.add(panel);
-    ui.setScale(2);
-    expect(panel.uiScale).toBe(2);
-    expect(child.uiScale).toBe(2);
-  });
+  it("clamps the value to [min, max] even past the widget's box", () => {
+    const slider = tree.createWidget(scene);
+    slider.add(Slider, { min: 0, max: 10 });
+    styleOf(slider).width = 100;
+    styleOf(slider).height = 20;
+    tree.layout(scene, 100, 20);
 
-  it("setScale affects hit-testing bounds", () => {
-    const fn = vi.fn();
-    const btn = new ButtonWidget({ x: 0, y: 0, width: 100, height: 50 });
-    btn.on("click", fn);
-    ui.add(btn);
-    ui.setScale(2);
-    // At 2x scale the button now spans to x=200; a point at x=150 should hit.
-    expect(ui.handleClick(150, 50, 1280, 720)).toBe(true);
-    expect(fn).toHaveBeenCalledOnce();
+    ui.dispatchPointerDown(scene, 0, 10);
+    ui.dispatchPointerDrag(scene, 500, 10);
+    expect(slider.get(Slider)?.value).toBe(10);
   });
+});
 
-  it("newly added widgets pick up a non-default scale", () => {
-    ui.setScale(1.5);
-    const btn = new ButtonWidget({ width: 10, height: 10 });
-    ui.add(btn);
-    expect(btn.uiScale).toBe(1.5);
+describe("UISystem — render", () => {
+  it("draws every visible widget kind without throwing, skips invisible ones", () => {
+    const panel = tree.createWidget(scene);
+    panel.add(PanelStyle);
+    styleOf(panel).width = 200;
+    styleOf(panel).height = 100;
+
+    const label = tree.createWidget(scene, panel);
+    label.add(Label, { text: "hello" });
+    styleOf(label).height = 20;
+
+    const button = tree.createWidget(scene, panel);
+    button.add(ButtonState);
+    styleOf(button).height = 30;
+
+    const hidden = tree.createWidget(scene, panel);
+    hidden.add(Label, { text: "should not draw" });
+    hidden.add(WidgetAppearance, { visible: false });
+
+    const progress = tree.createWidget(scene, panel);
+    progress.add(Progress, { value: 5, max: 10 });
+    styleOf(progress).height = 10;
+
+    tree.layout(scene, 200, 100);
+
+    const ctx = makeCtx();
+    expect(() => ui.render(scene, ctx)).not.toThrow();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "hello",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(ctx.fillText).not.toHaveBeenCalledWith(
+      "should not draw",
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 });

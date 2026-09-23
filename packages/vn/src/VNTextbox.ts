@@ -1,5 +1,14 @@
-import { PanelWidget, LabelWidget } from "@emptysock/engine";
-import type { UISystem } from "@emptysock/engine";
+import {
+  Layout,
+  LayoutStyle,
+  PanelStyle,
+  Label,
+  WidgetAppearance,
+  resolveAnchoredPosition,
+  type Entity,
+  type Scene,
+  type WidgetTree,
+} from "@emptysock/engine";
 import type { VNSystem } from "./VNSystem.js";
 
 export interface VNTextboxOptions {
@@ -7,11 +16,10 @@ export interface VNTextboxOptions {
   canvasWidth: number;
   /** Canvas height — used to position the textbox at the bottom. */
   canvasHeight: number;
-  /**
-   * Scene UI system. The textbox registers itself as a root widget here and
-   * removes itself when destroy() is called.
-   */
-  ui: UISystem;
+  /** The scene to spawn the textbox's widget entities into. */
+  scene: Scene;
+  /** The scene's widget tree — the textbox's entities are spawned/destroyed through it. */
+  tree: WidgetTree;
   /** Height of the dialogue panel in pixels. Default 160. */
   height?: number;
   /** Height of the speaker name plate in pixels. Default 36. */
@@ -35,47 +43,59 @@ export interface VNTextboxOptions {
   /**
    * Typewriter reveal speed in characters per second. When set, text is
    * revealed character by character with line breaks pre-calculated so words
-   * never split across lines mid-reveal. Click or call skipTypewriter() to
-   * jump to the end. Set to 0 or omit for instant display.
+   * never split across lines mid-reveal. Call `handlePointerDown()` or
+   * `skipTypewriter()` to jump to the end. Set to 0 or omit for instant display.
    */
   typewriterSpeed?: number;
 }
 
 /**
- * VNTextbox — a pre-built dialogue box rendered by UISystem.
+ * VNTextbox — a pre-built dialogue box, ported to the ECS core (the classic
+ * `PanelWidget`/`LabelWidget`/`UISystem.add()` API this used to build on was
+ * deleted once every real consumer migrated — CLAUDE.md's "ECS UISystem"
+ * entry). Spawns real widget entities (`PanelStyle`/`Label`, positioned via
+ * `LayoutStyle`) through the caller's `WidgetTree`, and the caller renders
+ * them the same way it renders every other widget entity: `uiSystem.render(
+ * scene, ctx)`. There is no per-widget click-callback mechanism in the ECS
+ * UI layer (state lives on components, game code polls it) — this class
+ * exposes its own `handlePointerDown(x, y)` hit-test instead of relying on
+ * one, the same "a panel isn't a button, so it gets its own hit-test" shape
+ * a bespoke interactive panel would need in any ECS.
  *
- * Creates a PanelWidget anchored to the bottom of the canvas with a speaker
- * name plate and a text area. Call `bind(vnSystem)` to wire it to a VNSystem
- * instance — it will automatically update whenever the current node changes.
- *
- * Call `update(dt)` every frame (or let Scene.update() handle it via the
- * UISystem it drives automatically) so the typewriter animation advances.
+ * Call `bind(vnSystem)` to wire it to a `VNSystem` instance — it will
+ * automatically update whenever the current node changes. Call `update(dt)`
+ * every frame so the typewriter animation advances.
  *
  * @example
  * ```typescript
  * const textbox = new VNTextbox({
  *   canvasWidth: 800,
  *   canvasHeight: 600,
- *   ui: scene.ui,
- *   typewriterSpeed: 40,  // 40 chars/sec, smart line-break pre-calculation
+ *   scene,
+ *   tree,
+ *   typewriterSpeed: 40,
  * });
  * textbox.bind(myVnSystem);
  *
- * // In onUpdate — advance the typewriter:
+ * // In onUpdate:
  * textbox.update(dt);
+ * tree.layout(scene, 800, 600);
  *
- * // In the game loop render callback:
- * scene.ui.render(ctx, 800, 600);
+ * // In the render callback:
+ * uiSystem.render(scene, ctx);
  * ```
  */
 export class VNTextbox {
-  private readonly _panel: PanelWidget;
-  private readonly _namePlateBg: PanelWidget;
-  private readonly _namePlate: LabelWidget;
-  private readonly _text: LabelWidget;
-  private readonly _ui: UISystem;
+  private readonly _scene: Scene;
+  private readonly _tree: WidgetTree;
+  private readonly _panel: Entity;
+  private readonly _namePlateBg: Entity;
+  private readonly _namePlate: Entity;
+  private readonly _text: Entity;
   private _vnSystem: VNSystem | null = null;
 
+  private readonly _canvasWidth: number;
+  private readonly _canvasHeight: number;
   private readonly _textWidth: number;
   private readonly _typeSpeed: number;
   /**
@@ -101,12 +121,13 @@ export class VNTextbox {
     const fs = opts.fontSize ?? 16;
     const ff = opts.fontFamily ?? "sans-serif";
 
+    this._scene = opts.scene;
+    this._tree = opts.tree;
+    this._canvasWidth = cw;
+    this._canvasHeight = ch;
     this._textWidth = cw - px * 2;
     this._typeSpeed = opts.typewriterSpeed ?? 0;
-    this._ui = opts.ui;
 
-    // Offscreen canvas for text measurement — only needed when typewriter is on
-    // and only available in browser contexts (not Node/Vitest).
     if (this._typeSpeed > 0 && typeof document !== "undefined") {
       const mc = document.createElement("canvas");
       const ctx = mc.getContext("2d");
@@ -121,80 +142,63 @@ export class VNTextbox {
     }
 
     // Widget layout — all anchored bottom-left so positions are stable
-    // regardless of canvas height (y is measured from the bottom edge).
+    // regardless of canvas height (y is measured from the bottom edge),
+    // resolved to absolute LayoutStyle.left/.top via resolveAnchoredPosition.
     //
     //  ch ─────────────────────────────────────
     //  ch - npH ──── name plate ────────────────
     //  ch - (h+npH) ─ panel top ────────────────
-    //
-    // Panel: fills the full width, h+npH tall, flush to the bottom.
-    this._panel = new PanelWidget({
-      x: 0,
-      y: 0,
-      width: cw,
-      height: h + npH,
-      anchor: "bottom-left",
+    this._panel = this._tree.createWidget(this._scene);
+    this._placeBottomLeft(this._panel, 0, 0, cw, h + npH);
+    this._panel.add(PanelStyle, {
       background: panelColor,
-      cornerRadius: 0,
+      borderRadius: 0,
     });
-    this._panel.alpha = 0.88;
+    this._panel.add(WidgetAppearance, { visible: true, alpha: 0.88 });
 
-    // Name plate background: a coloured strip sitting behind the speaker
-    // name label, using namePlateColor to visually separate the speaker's
-    // name from the dialogue body below it.
-    this._namePlateBg = new PanelWidget({
-      x: 0,
-      y: h,
-      width: cw,
-      height: npH,
-      anchor: "bottom-left",
+    this._namePlateBg = this._tree.createWidget(this._scene, this._panel);
+    this._placeBottomLeft(this._namePlateBg, 0, h, cw, npH);
+    this._namePlateBg.add(PanelStyle, {
       background: namePlateColor,
-      cornerRadius: 0,
+      borderRadius: 0,
     });
 
-    // Name plate: top strip of the panel.
-    // From bottom: y = h so that oy = ch - npH - h = ch - (h+npH).
-    this._namePlate = new LabelWidget({
-      x: px,
-      y: h,
-      width: 200,
-      height: npH,
-      anchor: "bottom-left",
-      color: textColor,
-      fontSize: fs,
-      font: ff,
-    });
+    this._namePlate = this._tree.createWidget(this._scene, this._panel);
+    this._placeBottomLeft(this._namePlate, px, h, 200, npH);
+    this._namePlate.add(Label, { color: textColor, fontSize: fs, font: ff });
 
-    // Text area: below the name plate, with internal padding.
-    // From bottom: y = npH + 12 so that oy = ch - (h-npH-24) - (npH+12)
-    //   = ch - h + npH + 24 - npH - 12 = ch - h + 12.
-    // That places the top of the text area 12 px below the name plate.
-    this._text = new LabelWidget({
-      x: px,
-      y: npH + 12,
-      width: this._textWidth,
-      height: h - npH - 24,
-      anchor: "bottom-left",
-      color: textColor,
-      fontSize: fs,
-      font: ff,
-    });
+    this._text = this._tree.createWidget(this._scene, this._panel);
+    this._placeBottomLeft(
+      this._text,
+      px,
+      npH + 12,
+      this._textWidth,
+      h - npH - 24,
+    );
+    this._text.add(Label, { color: textColor, fontSize: fs, font: ff });
+  }
 
-    // Children are positioned absolutely (same cw/ch reference), but grouping
-    // them under the panel keeps tick/hit-test in the right order. The
-    // background strip must render before (i.e. be pushed before) the label
-    // that sits on top of it.
-    this._panel.children.push(this._namePlateBg);
-    this._panel.children.push(this._namePlate);
-    this._panel.children.push(this._text);
-
-    this._panel.on("click", () => this._advance());
-
-    this._ui.add(this._panel);
-
-    // Suppress unused-variable warning — ch is used in the layout comment only,
-    // but we accept it as a parameter for future-proofing symmetric APIs.
-    void ch;
+  /** Resolves `anchor: "bottom-left"` for `(x, y, width, height)` and writes the entity's `LayoutStyle`. */
+  private _placeBottomLeft(
+    entity: Entity,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
+    const { left, top } = resolveAnchoredPosition(
+      "bottom-left",
+      x,
+      y,
+      width,
+      height,
+      this._canvasWidth,
+      this._canvasHeight,
+    );
+    const style = entity.get(LayoutStyle);
+    if (style !== undefined) {
+      Object.assign(style, { positionType: 1, left, top, width, height });
+    }
   }
 
   /** Wire this textbox to a VNSystem instance. The textbox immediately reflects the current node. */
@@ -205,11 +209,12 @@ export class VNTextbox {
 
   /** Show or hide the textbox. */
   set visible(v: boolean) {
-    this._panel.visible = v;
+    const appearance = this._panel.get(WidgetAppearance);
+    if (appearance !== undefined) appearance.visible = v;
   }
 
   get visible(): boolean {
-    return this._panel.visible;
+    return this._panel.get(WidgetAppearance)?.visible ?? true;
   }
 
   /** True while a typewriter reveal is in progress. */
@@ -219,9 +224,6 @@ export class VNTextbox {
 
   /**
    * Advance the typewriter animation. Call once per frame from `onUpdate(dt)`.
-   * If the scene's UISystem.update() is called automatically (it is, via
-   * Scene.update()), widget animations already run — this method drives only
-   * the character-reveal logic, which is separate.
    */
   update(dt: number): void {
     if (!this._typing) return;
@@ -233,7 +235,10 @@ export class VNTextbox {
       this._typeIndex + charsToReveal,
       this._typeTarget.length,
     );
-    this._text.text = this._typeTarget.slice(0, this._typeIndex);
+    const label = this._text.get(Label);
+    if (label !== undefined) {
+      label.text = this._typeTarget.slice(0, this._typeIndex);
+    }
     if (this._typeIndex >= this._typeTarget.length) {
       this._typing = false;
       this._typeAccum = 0;
@@ -248,34 +253,58 @@ export class VNTextbox {
     if (!this._typing) return;
     this._typing = false;
     this._typeAccum = 0;
-    this._text.text = this._typeTarget;
+    const label = this._text.get(Label);
+    if (label !== undefined) label.text = this._typeTarget;
+  }
+
+  /**
+   * Hit-tests `(x, y)` against the panel's current on-screen box (post-
+   * `tree.layout()`) and advances/skips exactly like a click on the classic
+   * panel used to. Returns whether the point hit the panel at all, so the
+   * caller can decide whether to also dispatch the point elsewhere.
+   */
+  handlePointerDown(x: number, y: number): boolean {
+    const box = this._panel.get(Layout);
+    if (box === undefined) return false;
+    const hit =
+      x >= box.x &&
+      x <= box.x + box.width &&
+      y >= box.y &&
+      y <= box.y + box.height;
+    if (hit) this._advance();
+    return hit;
   }
 
   /** Update speaker name and dialogue text from the current VNSystem node. */
   private _sync(): void {
     if (this._vnSystem === null) return;
     const node = this._vnSystem.currentNode;
+    const appearance = this._panel.get(WidgetAppearance);
     if (node === null) {
-      this._panel.visible = false;
+      if (appearance !== undefined) appearance.visible = false;
       return;
     }
-    this._panel.visible = true;
+    if (appearance !== undefined) appearance.visible = true;
+    const namePlate = this._namePlate.get(Label);
+    const text = this._text.get(Label);
     if (node.type === "dialogue") {
-      this._namePlate.text = node.speaker;
+      if (namePlate !== undefined) namePlate.text = node.speaker;
       if (this._typeSpeed > 0) {
         this._startTypewriter(node.text);
-      } else {
-        this._text.text = node.text;
+      } else if (text !== undefined) {
+        text.text = node.text;
       }
     } else if (node.type === "choice") {
       this._stopTypewriter();
-      this._namePlate.text = "";
-      this._text.text = node.options
-        .map((o, i) => `${i + 1}. ${o.label}`)
-        .join("\n");
+      if (namePlate !== undefined) namePlate.text = "";
+      if (text !== undefined) {
+        text.text = node.options
+          .map((o, i) => `${i + 1}. ${o.label}`)
+          .join("\n");
+      }
     } else {
       this._stopTypewriter();
-      this._panel.visible = false;
+      if (appearance !== undefined) appearance.visible = false;
     }
   }
 
@@ -315,7 +344,8 @@ export class VNTextbox {
     this._typeIndex = 0;
     this._typeAccum = 0;
     this._typing = true;
-    this._text.text = "";
+    const label = this._text.get(Label);
+    if (label !== undefined) label.text = "";
   }
 
   private _stopTypewriter(): void {
@@ -339,10 +369,13 @@ export class VNTextbox {
     // choice selection is handled externally via VNSystem.selectOption()
   }
 
-  /** Remove the textbox widgets from UISystem. Call when the scene unloads. */
+  /** Destroy the textbox's widget entities. Call when the scene unloads. */
   destroy(): void {
     this._stopTypewriter();
-    this._ui.remove(this._panel);
+    this._tree.destroyWidget(this._scene, this._namePlateBg);
+    this._tree.destroyWidget(this._scene, this._namePlate);
+    this._tree.destroyWidget(this._scene, this._text);
+    this._tree.destroyWidget(this._scene, this._panel);
     this._vnSystem = null;
   }
 }

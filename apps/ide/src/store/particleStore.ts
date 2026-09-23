@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ParticleEmitterOptions } from "@emptysock/engine/ecs";
+import type { ParticleEmitterOptions } from "@emptysock/engine";
 
 // ── Initial data ─────────────────────────────────────────────────────────────
 // Mirrors the defaults ParticleEmitter itself falls back to (see

@@ -1,56 +1,27 @@
-import {
-  Component,
-  componentType,
-  type ComponentType,
-} from "../core/Component.js";
+import { defineComponent } from "../Component.js";
 
-export class Transform extends Component {
-  static readonly TYPE: ComponentType<Transform> =
-    componentType<Transform>("Transform");
-
-  public x: number;
-  public y: number;
-  public rotation: number; // radians
-  public scaleX: number;
-  public scaleY: number;
-
-  constructor(
-    options: {
-      x?: number;
-      y?: number;
-      rotation?: number;
-      scaleX?: number;
-      scaleY?: number;
-    } = {},
-  ) {
-    super("Transform");
-    this.x = options.x ?? 0;
-    this.y = options.y ?? 0;
-    this.rotation = options.rotation ?? 0;
-    this.scaleX = options.scaleX ?? 1;
-    this.scaleY = options.scaleY ?? 1;
-  }
-
-  setPosition(x: number, y: number): this {
-    this.x = x;
-    this.y = y;
-    return this;
-  }
-
-  translate(dx: number, dy: number): this {
-    this.x += dx;
-    this.y += dy;
-    return this;
-  }
-
-  override serialize(): Record<string, unknown> {
-    return {
-      ...super.serialize(),
-      x: this.x,
-      y: this.y,
-      rotation: this.rotation,
-      scaleX: this.scaleX,
-      scaleY: this.scaleY,
-    };
-  }
-}
+/**
+ * ECS-core equivalent of `../../components/Transform.ts`, built on `defineComponent`. All
+ * fields are plain numbers, so this needs no special storage treatment
+ * (ENGINE_DESIGN.md §7/§21) — `ComponentRegistry` gives it one parallel
+ * array per field automatically.
+ */
+export const Transform = defineComponent(
+  "Transform",
+  () => ({
+    x: 0,
+    y: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+  }),
+  {
+    schema: {
+      x: { kind: "number" },
+      y: { kind: "number" },
+      rotation: { kind: "number" },
+      scaleX: { kind: "number" },
+      scaleY: { kind: "number" },
+    },
+  },
+);

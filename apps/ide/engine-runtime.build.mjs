@@ -1,13 +1,11 @@
 /**
- * Bundles @emptysock/engine's ECS API (`@emptysock/engine/ecs`) as a
- * self-contained IIFE that sets window.EmptySockEngine = { ...ecs exports }.
- * This is the one surface user game code and the live preview/Inspector
- * bridge see at runtime — the classic root export surface
- * (`@emptysock/engine`'s `.` entry) is never bundled here, since ECS and
- * classic export colliding names for different things (`Entity`, `Scene`,
- * `Transform`, `PhysicsSystem`, `UISystem`, …) and merging both into one
- * flat `window.EmptySockEngine` namespace would silently shadow one
- * implementation with the other.
+ * Bundles @emptysock/engine's public API as a self-contained IIFE that sets
+ * window.EmptySockEngine = { ...engine exports }. This is the one surface
+ * user game code and the live preview/Inspector bridge see at runtime.
+ * There is only one export surface — the pre-ECS classic engine
+ * (`core/`/`systems/`/`components/`/`ui/`) was deleted once every real
+ * consumer was migrated (RELEASE_PASS.md Track 9), so there is no longer a
+ * colliding second surface to avoid bundling.
  *
  * Output: src/runtime/engineBundle.generated.ts
  * Run automatically via the predev / prebuild npm scripts.
@@ -25,11 +23,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const isProd = process.argv.includes('--minify') || process.env.NODE_ENV === 'production';
 
-const engineEntry = resolve(__dirname, '../../packages/engine/src/ecs/index.ts');
+const engineEntry = resolve(__dirname, '../../packages/engine/src/index.ts');
 const outDir = resolve(__dirname, 'src/runtime');
 const outFile = resolve(outDir, 'engineBundle.generated.ts');
 
-console.log(`[engine-runtime] Bundling engine ECS API as IIFE${isProd ? ' (minified)' : ''}...`);
+console.log(`[engine-runtime] Bundling engine API as IIFE${isProd ? ' (minified)' : ''}...`);
 
 const result = await build({
   configFile: false,
@@ -40,7 +38,6 @@ const result = await build({
   },
   resolve: {
     alias: {
-      '@emptysock/engine/ecs': engineEntry,
       '@emptysock/engine': engineEntry,
     },
   },

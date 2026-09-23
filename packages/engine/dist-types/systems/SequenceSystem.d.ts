@@ -1,5 +1,5 @@
 import type { TweenManager } from "./TweenSystem.js";
-import type { EasingName } from "../core/easing.js";
+import type { EasingName } from "../easing.js";
 export interface SequenceKeyframe {
   time: number;
   value: number;

@@ -10,11 +10,8 @@ import {
   Transform as V2Transform,
   Sprite as V2Sprite,
   PhysicsBody as V2PhysicsBody,
-} from "@emptysock/engine/ecs";
-import type {
-  ComponentSchema,
-  SerializableRecord,
-} from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
+import type { ComponentSchema, SerializableRecord } from "@emptysock/engine";
 import { engineChannel } from "../../services/EngineChannel";
 
 /**

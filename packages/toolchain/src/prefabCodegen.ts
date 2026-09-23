@@ -2,8 +2,8 @@ import type {
   ComponentDef,
   ComponentLookup,
   PrefabFile,
-} from "@emptysock/engine/ecs";
-import { parsePrefabFiles, prefabComponentDefs } from "@emptysock/engine/ecs";
+} from "@emptysock/engine";
+import { parsePrefabFiles, prefabComponentDefs } from "@emptysock/engine";
 
 /**
  * ENGINE_DESIGN.md §13.4 — the offline half of "JSON with generated `.d.ts`
@@ -14,7 +14,7 @@ import { parsePrefabFiles, prefabComponentDefs } from "@emptysock/engine/ecs";
  * `.d.ts` string — no engine runtime behaviour, no `Scene`/`World` involved.
  * `packages/engine/src/ecs/SceneFile.ts` owns the other half: parsing that
  * same JSON into a live `PrefabDef` a running `Scene` can actually spawn.
- * Both halves share `ComponentLookup`/`PrefabFile` from `@emptysock/engine/ecs`
+ * Both halves share `ComponentLookup`/`PrefabFile` from `@emptysock/engine`
  * so a field can't drift between "what spawns" and "what autocompletes".
  *
  * This function is the codegen step itself, callable from either caller
@@ -66,7 +66,7 @@ function toIdentifier(prefabName: string): string {
 }
 
 export interface PrefabCodegenOptions {
-  /** Import specifier the emitted `.d.ts` uses for `PrefabDef` — defaults to `@emptysock/engine/ecs`. */
+  /** Import specifier the emitted `.d.ts` uses for `PrefabDef` — defaults to `@emptysock/engine`. */
   readonly engineImportSpecifier?: string;
 }
 
@@ -88,8 +88,7 @@ export function generatePrefabTypes(
   lookup: ComponentLookup,
   options: PrefabCodegenOptions = {},
 ): string {
-  const importSpecifier =
-    options.engineImportSpecifier ?? "@emptysock/engine/ecs";
+  const importSpecifier = options.engineImportSpecifier ?? "@emptysock/engine";
   const prefabs = parsePrefabFiles(files, lookup);
 
   const header = [

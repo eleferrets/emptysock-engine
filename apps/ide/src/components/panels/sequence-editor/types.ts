@@ -1,4 +1,4 @@
-import type { EasingName } from "@emptysock/engine/ecs";
+import type { EasingName } from "@emptysock/engine";
 import type {
   SequenceTrack,
   SequenceTrackType,

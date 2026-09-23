@@ -1,7 +1,7 @@
 // Post-processing effect registry — framework-agnostic.
 // The RenderSystem/PixiJS layer reads this to apply PixiJS filters.
 
-import type { TransitionEffect } from "../core/SceneManager.js";
+import type { TransitionEffect } from "./SceneTransition.js";
 
 // ─── Per-layer filter types ───────────────────────────────────────────────────
 

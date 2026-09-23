@@ -1,5 +1,5 @@
-import type { Scene, Entity } from "@emptysock/engine/ecs";
-import { Transform } from "@emptysock/engine/ecs";
+import type { Scene, Entity } from "@emptysock/engine";
+import { Transform } from "@emptysock/engine";
 
 // ─── Tilemap data model ───────────────────────────────────────────────────────
 
