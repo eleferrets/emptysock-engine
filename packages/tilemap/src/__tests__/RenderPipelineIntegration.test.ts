@@ -32,7 +32,7 @@ vi.mock("pixi.js", async () => {
   };
 });
 
-const { RenderPipeline, Scene } = await import("@emptysock/engine");
+const { RenderPipeline } = await import("@emptysock/engine");
 const { Tilemap, TilemapSystem } = await import("../TilemapSystem.js");
 const { AutoTileSystem } = await import("../AutoTileSystem.js");
 
@@ -42,42 +42,37 @@ function makeTestTexture(): Texture {
 
 describe("RenderPipeline + Tilemap", () => {
   let pipeline: InstanceType<typeof RenderPipeline>;
-  let scene: InstanceType<typeof Scene>;
 
   beforeEach(async () => {
     pipeline = new RenderPipeline({
       textureLoader: vi.fn(() => Promise.resolve(makeTestTexture())),
     });
     await pipeline.init();
-    scene = new Scene("test");
   });
 
   it("mounts a tilemap and builds one tile sprite per non-empty cell", async () => {
-    const tilemap = new Tilemap(
-      {
-        name: "test-map",
+    const tilemap = new Tilemap({
+      name: "test-map",
+      tileWidth: 16,
+      tileHeight: 16,
+      cols: 2,
+      rows: 1,
+      tileset: {
+        imagePath: "tileset.png",
         tileWidth: 16,
         tileHeight: 16,
-        cols: 2,
-        rows: 1,
-        tileset: {
-          imagePath: "tileset.png",
-          tileWidth: 16,
-          tileHeight: 16,
-          columns: 4,
-          rows: 4,
-        },
-        layers: [
-          {
-            name: "ground",
-            visible: true,
-            opacity: 1,
-            cells: [[{ tileIndex: 0, solid: false }, { tileIndex: -1 }]],
-          },
-        ],
+        columns: 4,
+        rows: 4,
       },
-      scene.createEntity("map"),
-    );
+      layers: [
+        {
+          name: "ground",
+          visible: true,
+          opacity: 1,
+          cells: [[{ tileIndex: 0, solid: false }, { tileIndex: -1 }]],
+        },
+      ],
+    });
 
     pipeline.mountTilemap(tilemap);
     // texture loading is async; flush microtasks
@@ -98,31 +93,28 @@ describe("RenderPipeline + Tilemap", () => {
       defaultTileIndex: 9,
     });
 
-    const tilemap = new Tilemap(
-      {
-        name: "auto-map",
+    const tilemap = new Tilemap({
+      name: "auto-map",
+      tileWidth: 16,
+      tileHeight: 16,
+      cols: 1,
+      rows: 1,
+      tileset: {
+        imagePath: "tileset.png",
         tileWidth: 16,
         tileHeight: 16,
-        cols: 1,
-        rows: 1,
-        tileset: {
-          imagePath: "tileset.png",
-          tileWidth: 16,
-          tileHeight: 16,
-          columns: 4,
-          rows: 4,
-        },
-        layers: [
-          {
-            name: "ground",
-            visible: true,
-            opacity: 1,
-            cells: [[{ tileIndex: 0 }]],
-          },
-        ],
+        columns: 4,
+        rows: 4,
       },
-      scene.createEntity("auto-entity"),
-    );
+      layers: [
+        {
+          name: "ground",
+          visible: true,
+          opacity: 1,
+          cells: [[{ tileIndex: 0 }]],
+        },
+      ],
+    });
 
     const resolveSpy = vi.spyOn(autoTile, "resolve");
     pipeline.mountTilemap(tilemap, "default", autoTile);

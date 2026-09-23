@@ -564,6 +564,41 @@ Porting either to ECS is real, scoped work on the same order as the
 WidgetTree/UISystem port already done (a genuine design pass), not a
 mechanical import swap — don't attempt either as a quick fix.
 
+### `Tilemap`'s root entity is spawned lazily by `loadInto()`, not eagerly by `register()`
+
+`@emptysock/tilemap`'s `TilemapSystem.register(data)` is called before any
+`Scene` necessarily exists (a project's tilemaps are typically registered
+once at startup, then loaded into whichever scene needs them later) — but an
+ECS `Entity` cannot exist without a real bitECS `World` to belong to, unlike
+the classic `new Entity(name)`, which could be constructed standalone and
+added to a `Scene` afterward. `Tilemap.entity` is therefore `null` until
+`TilemapSystem.loadInto(scene, name)` actually calls `scene.spawn()` and
+binds the result via the package-internal `_bindEntity()` — `register()`
+only ever constructs the map's plain data (`width`/`height`/`getLayer()`/
+`asGrid()`/`tileAt()` all work off `data` alone, no entity needed). Nothing
+outside `TilemapSystem.ts` itself reads `.entity` directly — `RenderPipeline
+.mountTilemap()` only needs the structural `TileLayerSource` shape
+(`{ data: {...} }`), never the entity — so this is a real but narrowly
+contained design constraint, not a leaky one. Any future system that wants
+to "prepare data before a scene exists, spawn a real entity once one does"
+should follow the same shape: a nullable entity field, set once by whichever
+method actually receives a live `Scene`.
+
+### `@emptysock/toolchain`'s GMS2 codegen only has one live implementation per asset kind — check for a superseding rewrite before trusting a re-export
+
+`packages/toolchain/src/index.ts` re-exported `generateObjectStub`
+(`gms2-gml-stub.ts`) and `gmlObjectToTypeScript`/`gmlObjectDirToTypeScript`
+(`gms2/gmlStubConverter.ts`) — both real, working code, and both dead: the
+actual `importGMS2Project` pipeline calls `gms2-codegen.ts`'s
+`buildObjectBehavior()`/`buildObjectPrefabJSON()` instead, which is what
+ground rule 15's prefab/scene JSON redesign made canonical. Both were
+deleted outright, the same "near-duplicate superseded by the canonical
+implementation" reasoning `index.ts`'s own comment already recorded for
+`gms2/spriteImport.ts`/`gms2/roomImport.ts` — this pair was just missed at
+the time. A module being re-exported from `index.ts` is not by itself
+evidence it's live; grep for real callers of the exported function inside
+`gms2-import.ts` (the one real entry point) before trusting an export list.
+
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 
 `GitPanel.tsx` used to call `invoke("plugin:shell|execute", { cmd: "git", args })` directly against `@tauri-apps/plugin-shell`'s low-level invoke name — but the JS package (`@tauri-apps/plugin-shell`) was never actually added as a dependency, the param name was wrong (the plugin's real `execute` command takes `program`, not `cmd`), and using the shell plugin at all would have meant configuring its scoped-execute allowlist in `capabilities/default.json` (a `shell:allow-execute` permission naming exactly which programs/argument shapes are permitted) just to run one fixed binary. None of that ever worked. Replaced with `run_git(project_dir, args)`, a single Tauri command in `lib.rs` that does a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` already use, and CLAUDE.md's own comment above `open_in_vscode` already called out as the "no shell-execute scope config needed" alternative. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. `tauri_plugin_shell::init()`'s plugin registration and the `shell:default` capability entry were removed outright since nothing else in the app used them. One generic passthrough (rather than one Tauri command per git subcommand) was deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.

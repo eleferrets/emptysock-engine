@@ -119,6 +119,16 @@ export type {
 } from "../systems/ViewportSystem.js";
 export { WindowSystem } from "../systems/WindowSystem.js";
 export type { WindowMode, WindowConfig } from "../systems/WindowSystem.js";
+// Pure, dependency-free utilities with zero classic-model coupling —
+// `AStarSearch` has no imports at all, and `Vec2` is a plain `{x, y}` shape
+// (its home in `core/Entity.ts` is an accident of the classic layout, not a
+// sign it's classic-only).
+export { AStarSearch } from "../core/AStarSearch.js";
+export type {
+  AStarSearchOptions,
+  AStarSearchResult,
+} from "../core/AStarSearch.js";
+export type { Vec2 } from "../core/Entity.js";
 export type {
   UpdateFn,
   SceneDefinition,

@@ -30,8 +30,6 @@ export type {
   InstanceEntry,
 } from "./gms2-room-import.js";
 
-export { generateObjectStub } from "./gms2-gml-stub.js";
-
 export {
   readWindowConfig,
   applyWindowConfigToTauri,
@@ -42,14 +40,13 @@ export type { WindowConfig, WindowMode } from "./window-config.js";
 export { importGMS2Project } from "./gms2-import.js";
 export type { ImportResult } from "./gms2-import.js";
 
-// NOTE: gms2/spriteImport.ts and gms2/roomImport.ts were removed as
-// near-duplicates of ./gms2-sprite-import.ts and ./gms2-room-import.ts,
+// NOTE: gms2/spriteImport.ts, gms2/roomImport.ts, and gms2/gmlStubConverter.ts
+// were removed as near-duplicates of ./gms2-sprite-import.ts,
+// ./gms2-room-import.ts, and ./gms2-codegen.ts's buildObjectBehavior(),
 // which are the canonical implementations wired into importGMS2Project.
-
-export {
-  gmlObjectToTypeScript,
-  gmlObjectDirToTypeScript,
-} from "./gms2/gmlStubConverter.js";
+// gmlStubConverter.ts additionally predated ground rule 15's prefab/scene
+// JSON redesign — it still generated classic `extends Scene` class stubs,
+// which nothing in the real import pipeline (or anything else) called.
 
 export { generatePrefabTypes } from "./prefabCodegen.js";
 export type { PrefabCodegenOptions } from "./prefabCodegen.js";

@@ -1,5 +1,5 @@
-import type { Scene } from "@emptysock/engine";
-import { Entity, Transform } from "@emptysock/engine";
+import type { Scene, Entity } from "@emptysock/engine/ecs";
+import { Transform } from "@emptysock/engine/ecs";
 
 // ─── Tilemap data model ───────────────────────────────────────────────────────
 
@@ -42,13 +42,28 @@ export interface TilemapData {
 
 export class Tilemap {
   public readonly data: TilemapData;
-  public readonly entity: Entity;
   private readonly _layerIndex: Map<string, TilemapLayer>;
+  /**
+   * `null` until `TilemapSystem.loadInto()` spawns this map's root entity
+   * into a real `Scene` — unlike the classic `Entity`, an ECS `Entity` is
+   * always scoped to one `Scene`'s bitECS `World` and cannot exist before
+   * one does, so `register()` (called before any `Scene` necessarily
+   * exists) can only construct the map's plain data, not its entity.
+   */
+  private _entity: Entity | null = null;
 
-  constructor(data: TilemapData, entity: Entity) {
+  constructor(data: TilemapData) {
     this.data = data;
-    this.entity = entity;
     this._layerIndex = new Map(data.layers.map((l) => [l.name, l]));
+  }
+
+  get entity(): Entity | null {
+    return this._entity;
+  }
+
+  /** @internal set once by `TilemapSystem.loadInto()`. */
+  _bindEntity(entity: Entity): void {
+    this._entity = entity;
   }
 
   get width(): number {
@@ -97,22 +112,22 @@ export class Tilemap {
 class TilemapSystemImpl {
   private readonly _maps: Map<string, Tilemap> = new Map();
 
-  /** Register a map from parsed JSON data. */
+  /** Register a map from parsed JSON data. No entity exists yet — call `loadInto()` once a `Scene` is available. */
   register(data: TilemapData): Tilemap {
-    const entity = new Entity(data.name);
-    entity.addComponent(new Transform());
-    const tilemap = new Tilemap(data, entity);
+    const tilemap = new Tilemap(data);
     this._maps.set(data.name, tilemap);
     return tilemap;
   }
 
-  /** Load a tilemap into the scene (adds its root entity). */
+  /** Load a tilemap into the scene — spawns its root entity and binds it to the previously-registered `Tilemap`. */
   loadInto(scene: Scene, name: string): Tilemap {
     const map = this._maps.get(name);
     if (map === undefined) {
       throw new Error(`TilemapSystem: no map registered as "${name}"`);
     }
-    scene.addEntity(map.entity);
+    const entity = scene.spawn(map.data.name);
+    entity.add(Transform);
+    map._bindEntity(entity);
     return map;
   }
 

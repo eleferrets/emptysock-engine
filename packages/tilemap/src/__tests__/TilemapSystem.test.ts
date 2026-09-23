@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TilemapSystem } from "../TilemapSystem.js";
-import { Scene } from "@emptysock/engine";
+import { Game, defineScene, Transform } from "@emptysock/engine/ecs";
 import type { TilemapData } from "../TilemapSystem.js";
 
 function makeData(solid?: boolean): TilemapData {
@@ -65,10 +65,21 @@ describe("TilemapSystem", () => {
     expect(grid[0]?.[0]).toBe(true);
   });
 
-  it("loadInto adds map entity to scene", () => {
+  it("has no entity until loadInto spawns one", () => {
+    const map = TilemapSystem.register(makeData());
+    expect(map.entity).toBeNull();
+  });
+
+  it("loadInto spawns a real, live entity with a Transform, bound to the map", async () => {
     TilemapSystem.register(makeData());
-    const scene = new Scene("Test");
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}), {
+      manageLifecycle: false,
+    });
     const map = TilemapSystem.loadInto(scene, "TestMap");
-    expect(scene.getEntity(map.entity.id)).toBe(map.entity);
+    expect(map.entity).not.toBeNull();
+    expect(map.entity?.isAlive).toBe(true);
+    expect(map.entity?.has(Transform)).toBe(true);
+    await game.unloadScene();
   });
 });

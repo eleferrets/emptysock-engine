@@ -120,6 +120,12 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     expect(content).toContain("onCollideWithObjWall");
     expect(content).toContain("onKeyPressLeft");
     expect(content).toContain("onKeyReleaseLeft");
+    // The generated behavior module's Entity type must come from the ECS
+    // subpath — apps/ide's runtime bundle and Monaco types only cover
+    // @emptysock/engine/ecs now, and a .prefab.json's entities are real ECS
+    // entities, not classic ones.
+    expect(content).toContain("from '@emptysock/engine/ecs'");
+    expect(content).not.toContain("from '@emptysock/engine'");
   });
 
   it("emits a real .prefab.json (ground rule 15) instead of a class, with a Transform component", async () => {

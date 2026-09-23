@@ -103,6 +103,12 @@ export type {
 } from "../systems/ViewportSystem.js";
 export { WindowSystem } from "../systems/WindowSystem.js";
 export type { WindowMode, WindowConfig } from "../systems/WindowSystem.js";
+export { AStarSearch } from "../core/AStarSearch.js";
+export type {
+  AStarSearchOptions,
+  AStarSearchResult,
+} from "../core/AStarSearch.js";
+export type { Vec2 } from "../core/Entity.js";
 export type {
   UpdateFn,
   SceneDefinition,

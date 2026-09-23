@@ -1,5 +1,5 @@
 import type { DialogueNode, DialogueTree } from "./VNSystem.js";
-import type { VariableCondition } from "@emptysock/engine";
+import type { VariableCondition } from "@emptysock/engine/ecs";
 
 // Story Graph node/edge types — the visual-editor representation persisted
 // in the IDE and exported as .storyGraph.json.

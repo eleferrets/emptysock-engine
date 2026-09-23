@@ -1,5 +1,5 @@
-import type { Vec2 } from "@emptysock/engine";
-import { AStarSearch } from "@emptysock/engine";
+import type { Vec2 } from "@emptysock/engine/ecs";
+import { AStarSearch } from "@emptysock/engine/ecs";
 export type { Vec2 };
 
 export interface NavPolygon {

@@ -197,7 +197,7 @@ export async function buildObjectBehavior(
 // functions up to your own prefab instances however your game dispatches
 // per-prefab behavior — see ${name}.prefab.json for this object's
 // structural (component) data.
-import type { Entity } from '@emptysock/engine';
+import type { Entity } from '@emptysock/engine/ecs';
 
 ${onCreate}
 
