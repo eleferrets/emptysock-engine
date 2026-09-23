@@ -114,12 +114,28 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       verbose: false,
     });
     const content = await fs.readFile(
-      path.join(outDir, "obj_hero.ts"),
+      path.join(outDir, "obj_hero.behavior.ts"),
       "utf-8",
     );
     expect(content).toContain("onCollideWithObjWall");
     expect(content).toContain("onKeyPressLeft");
     expect(content).toContain("onKeyReleaseLeft");
+  });
+
+  it("emits a real .prefab.json (ground rule 15) instead of a class, with a Transform component", async () => {
+    await importGMS2Project(path.join(projectDir, "test.yyp"), outDir, {
+      verbose: false,
+    });
+    const raw = await fs.readFile(
+      path.join(outDir, "obj_hero.prefab.json"),
+      "utf-8",
+    );
+    const prefab = JSON.parse(raw) as {
+      prefabName: string;
+      components: { component: string }[];
+    };
+    expect(prefab.prefabName).toBe("obj_hero");
+    expect(prefab.components).toEqual([{ component: "Transform" }]);
   });
 
   it("does not warn about defaultScriptType: 1 alone (it is not a reliable GML Visual signal)", async () => {
@@ -173,7 +189,7 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         verbose: false,
       });
       const content = await fs.readFile(
-        path.join(dndOutDir, "obj_legacy.ts"),
+        path.join(dndOutDir, "obj_legacy.behavior.ts"),
         "utf-8",
       );
       expect(content).toContain("action_move(direction, 4);");
@@ -181,6 +197,63 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     } finally {
       await fs.rm(dndDir, { recursive: true, force: true });
       await fs.rm(dndOutDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
+  it("writes prefabInstances for every known-object room instance, omitting unknown ones", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-json-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-json-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "room.yyp"),
+        `{
+          "%Name":"Room JSON Test",
+          "resources":[
+            {"id":{"name":"obj_player","path":"objects/obj_player/obj_player.yy",},},
+            {"id":{"name":"rm_main","path":"rooms/rm_main/rm_main.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      await fs.mkdir(path.join(dir, "objects", "obj_player"), {
+        recursive: true,
+      });
+      const roomDir = path.join(dir, "rooms", "rm_main");
+      await fs.mkdir(roomDir, { recursive: true });
+      await fs.writeFile(
+        path.join(roomDir, "rm_main.yy"),
+        `{
+          "roomSettings":{"Width":800,"Height":600,},
+          "layers":[
+            {"name":"Instances","resourceType":"GMRInstanceLayer","instances":[
+              {"objectId":{"name":"obj_player",},"x":10,"y":20,},
+              {"objectId":{"name":"obj_unknown_not_imported",},"x":99,"y":99,},
+            ],},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "room.yyp"), out, {
+        verbose: false,
+      });
+      const raw = await fs.readFile(
+        path.join(out, "rooms", "rm_main.scene.json"),
+        "utf-8",
+      );
+      const scene = JSON.parse(raw) as {
+        sceneName: string;
+        prefabInstances: { prefab: string; props: { x: number; y: number } }[];
+      };
+      expect(scene.sceneName).toBe("rm_main");
+      expect(scene.prefabInstances).toEqual([
+        { prefab: "obj_player", props: { x: 10, y: 20 } },
+      ]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
     }
   });
 });

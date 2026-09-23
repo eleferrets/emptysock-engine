@@ -2,10 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import { parseGmsJson, type YYProject } from "./gms2-parse.js";
 import {
-  buildObjectStub,
-  buildRoomScene,
+  buildObjectBehavior,
+  buildObjectPrefabJSON,
+  buildRoomSceneJSON,
   buildSpriteAsset,
-  projectEntrypoint,
+  projectManifestJSON,
   scriptStub,
 } from "./gms2-codegen.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
@@ -62,7 +63,7 @@ export async function importGMS2Project(
   // defaultScriptType: 1 and still have ordinary .gml files for every
   // event. Whether an individual event is GML Visual is only knowable by
   // checking for the corresponding .gml file per object/event, which
-  // buildObjectStub already does (falling back to a TODO stub when no
+  // buildObjectBehavior already does (falling back to a TODO stub when no
   // .gml file is found). We no longer emit a project-wide warning from
   // this field alone, since it produced false positives on real projects.
 
@@ -113,8 +114,10 @@ export async function importGMS2Project(
 
   for (const name of objects) {
     if (verbose) console.log(`  [object] ${name}`);
-    const content = await buildObjectStub(name, projectRoot);
-    filesToWrite.push({ rel: `${name}.ts`, content });
+    const prefabJSON = buildObjectPrefabJSON(name);
+    const behavior = await buildObjectBehavior(name, projectRoot);
+    filesToWrite.push({ rel: `${name}.prefab.json`, content: prefabJSON });
+    filesToWrite.push({ rel: `${name}.behavior.ts`, content: behavior });
     reportEntries.push({ kind: "object", name, status: "converted" });
   }
 
@@ -151,8 +154,8 @@ export async function importGMS2Project(
   for (const name of rooms) {
     if (verbose) console.log(`  [room] ${name}`);
     try {
-      const content = await buildRoomScene(name, projectRoot, objects);
-      filesToWrite.push({ rel: `rooms/${name}.ts`, content });
+      const content = await buildRoomSceneJSON(name, projectRoot, objects);
+      filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
       convertedRooms.push(name);
       reportEntries.push({ kind: "room", name, status: "converted" });
     } catch (err) {
@@ -175,7 +178,10 @@ export async function importGMS2Project(
     reportEntries.push({ kind: "tileset", name, status: "manual" });
   }
 
-  filesToWrite.push({ rel: "project.ts", content: projectEntrypoint(objects) });
+  filesToWrite.push({
+    rel: "project-manifest.json",
+    content: projectManifestJSON(objects, convertedRooms),
+  });
   filesToWrite.push({
     rel: "migration-report.md",
     content: migrationReport({
