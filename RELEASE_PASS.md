@@ -136,13 +136,59 @@ matching this MCP server's existing trust model (local file I/O, no network auth
 iframe-bootstrap end-to-end) closed same day by a follow-up session — see the item above. One real,
 not-yet-scoped follow-up surfaced by closing the bridge item earlier in this track:
 
-- [ ] Extend `QueryChannel`'s `EngineQuery` union with navmesh (`NavMeshSystem` path lookup),
-      `ActorSystem` (send/broadcast/inbox size/list), and entity-creation query kinds, so
-      `emptysock-mcp`'s `navmesh_*`/`actor_*`/`scene_create_entity` tools can stop being stubs for real —
-      they're wired to the bridge transport now but have nothing on the other end to call. This is
-      `packages/engine/src/bridge/QueryChannel.ts` work in this repo; once it lands, `emptysock-mcp`'s
-      tool handlers need a matching follow-up to actually call the new query kinds instead of returning
-      `not-found`.
+- [x] **Extend `QueryChannel`'s `EngineQuery` union with navmesh, `ActorSystem`, and entity-creation
+      query kinds — done 2026-09-23.** Seven new `EngineQuery` kinds landed in
+      `packages/engine/src/bridge/QueryChannel.ts`:
+      - `{ kind: "createEntity", tag?: string, components?: string[] }` → `CreateEntityData { entityId:
+        number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
+        entity, `entity.add()`s each named already-registered component (defaults only), writes `tag`
+        into `Meta.name`/`Meta.tags` if given (adding `Meta` if absent). Names in `components` that
+        don't resolve to a registered `ComponentDef` land in `skipped`, not a hard error. Only error:
+        `"no-live-instance"`.
+      - `{ kind: "actorSendMessage", actorId: string, message: Message }` → `{ actorId, queued: true }`;
+        unknown `actorId` → `"not-found"`.
+      - `{ kind: "actorBroadcast", message: Message }` → `{ delivered: number }` (count of registered
+        actors).
+      - `{ kind: "actorInboxSize", actorId: string }` → `number`; unknown `actorId` → `"not-found"`.
+      - `{ kind: "actorList" }` → `string[]` (every registered actor id, registration order).
+      - All four actor kinds: `"no-live-instance"` if nothing attached, new code **`"no-actor-system"`**
+        if a scene is attached but no `ActorSystem` was passed to `attach()`.
+      - `{ kind: "navmeshFindPath", from: Vec2, to: Vec2 }` → `Vec2[] | null` (`null` = no path found,
+        not an error).
+      - `{ kind: "navmeshNearestNode", point: Vec2 }` → `Vec2 | null`.
+      - Both navmesh kinds: `"no-live-instance"` if nothing attached, new code **`"no-navmesh"`** if a
+        scene is attached but no navmesh source was passed to `attach()`.
+      `attach(scene, physics?, options?)` grew a third optional `{ actors?: ActorSystem; navmesh?:
+      NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
+      `NavMeshQuerySource` (new exported interface, `QueryChannel.ts`) is a narrow structural shape —
+      `findPath(from, to): Vec2[] | null` / `nearestNode(point): Vec2 | null` — since `NavMeshSystem`
+      lives in `@emptysock/tilemap`, which depends on `@emptysock/engine`, never the reverse; mirrors
+      `RenderPipeline`'s `TileLayerSource` pattern exactly. `@emptysock/tilemap`'s `NavMeshSystem`
+      satisfies it structurally (gained a new public `nearestNode()` method; `findPath()` was already
+      public and needed no signature change — its `[]`-on-no-path return is handled by `QueryChannel`
+      normalising an empty array to `ok(null)`). `ActorSystem` needed no structural interface — it's
+      native to `@emptysock/engine` — but `Actor` gained a public `inboxSize` getter (previously
+      private-only) for `actorInboxSize` to read.
+      `apps/ide/src/services/PlayRunner.ts`'s preview bootstrap now passes `{ actors: lifecycle.actors
+      }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
+      live tilemap/navmesh panel anywhere today exposing a loaded `NavMeshSystem` instance to attach, so
+      `navmeshFindPath`/`navmeshNearestNode` answer `"no-navmesh"` in the live preview; that is the
+      honest current state, not a gap this item left open by accident.
+      New tests in `packages/engine/src/__tests__/query-channel.test.ts`: happy path for all seven query
+      kinds, `"no-actor-system"`/`"no-navmesh"` each firing with a live scene but no system attached,
+      and `"no-live-instance"` still firing for both new families with nothing attached at all.
+      `pnpm typecheck`/`lint`/`test` all green across the whole monorepo (29/29 turbo tasks), verified
+      with `--force` (no cache trust).
+      **Follow-up for whoever picks up `emptysock-mcp` next (not done here, out of this repo's scope):**
+      `navmesh_find_path`/`navmesh_nearest_node` (`src/tools/navmesh.ts`), `actor_send_message`/
+      `actor_broadcast`/`actor_inbox_size`/`actor_list` (`src/tools/actor.ts`), and
+      `scene_create_entity` (`src/tools/scene.ts`) still call `noNavmeshQueryKind()`/`noActorQueryKind()`/
+      return a hardcoded `not-found` respectively (per that repo's commit `09d5629`) — they need
+      rewiring onto `queryLiveGame({ kind: "navmeshFindPath", from, to })` etc., using the exact query
+      shapes and result/error-code names listed above. `mapId`/`sceneId` params those tools already
+      accept have no equivalent on the engine side (one live `Scene` is attached at a time) and should
+      keep being echoed back verbatim in the response, same as the existing `scene_*` handlers already do
+      for `sceneId`.
 - [x] Finish item 4 above for real: drive the full `PlayRunner.ts` iframe bootstrap end-to-end inside the
       actual `apps/ide` dev server with a physics-using game scene, not just the isolated import-map
       mechanism (already confirmed working via raw CDP against a standalone page). Done 2026-09-23 — see
