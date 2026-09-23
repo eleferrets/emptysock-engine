@@ -1,5 +1,6 @@
 import React from "react";
-import { UISystem, type IUIRenderer } from "@emptysock/engine";
+import { Scene, UISystem, WidgetTree } from "@emptysock/engine/ecs";
+import type { IUIRenderer } from "@emptysock/types";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 import { ViewControls } from "./shared/ViewControls";
@@ -23,7 +24,7 @@ import {
   defaultOpts,
   widgetBounds,
   widgetAnchor,
-  layoutToWidgets,
+  layoutToEntities,
   layoutToSnippet,
   widgetToSnippet,
 } from "./ui-placement/layout";
@@ -72,9 +73,29 @@ export function UIPlacementPanel(): React.ReactElement {
   } = useHistory<PlacedWidget[]>([]);
 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  // Real UISystem instance the preview renders through — never a hand-drawn
-  // mockup of what a widget "looks like".
-  const uiSystemRef = React.useRef<UISystem>(new UISystem());
+  // Real ECS Scene/WidgetTree/UISystem the preview renders through — never a
+  // hand-drawn mockup of what a widget "looks like". `WidgetTree.init()`
+  // loads yoga's WASM module asynchronously (see WidgetTree.ts's doc
+  // comment), so the preview can't draw anything real until `ready` flips.
+  const sceneRef = React.useRef<Scene>(new Scene());
+  const treeRef = React.useRef<WidgetTree>(new WidgetTree());
+  const uiSystemRef = React.useRef<UISystem | null>(null);
+  const previewEntitiesRef = React.useRef<ReturnType<typeof layoutToEntities>>(
+    [],
+  );
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void treeRef.current.init().then(() => {
+      if (cancelled) return;
+      uiSystemRef.current = new UISystem(treeRef.current);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -133,15 +154,27 @@ export function UIPlacementPanel(): React.ReactElement {
 
     drawGrid(ctx, cw, ch, { ...gridOpts, showRuler: false });
 
-    // Real preview: rebuild the actual Widget tree from the saved layout and
-    // render it through the actual UISystem/Widget.render() path.
+    // Real preview: rebuild the actual widget-tree entities from the saved
+    // layout and render them through the actual ecs UISystem.render() path.
     ctx.save();
     ctx.translate(R, R);
     const uiSystem = uiSystemRef.current;
-    uiSystem.clear();
-    for (const w of layoutToWidgets(widgets)) uiSystem.add(w);
-    uiSystem.update(0);
-    uiSystem.render(ctx as unknown as IUIRenderer, CANVAS_W, CANVAS_H);
+    if (ready && uiSystem !== null) {
+      const scene = sceneRef.current;
+      const tree = treeRef.current;
+      for (const entity of previewEntitiesRef.current) {
+        tree.destroyWidget(scene, entity);
+      }
+      previewEntitiesRef.current = layoutToEntities(
+        scene,
+        tree,
+        widgets,
+        CANVAS_W,
+        CANVAS_H,
+      );
+      tree.layout(scene, CANVAS_W, CANVAS_H);
+      uiSystem.render(scene, ctx as unknown as IUIRenderer);
+    }
 
     if (selectedId !== null) {
       const sel = widgets.find((w) => w.id === selectedId);
@@ -237,6 +270,7 @@ export function UIPlacementPanel(): React.ReactElement {
     selectedId,
     selectedAnchor,
     R,
+    ready,
   ]);
 
   React.useEffect(() => {
@@ -244,8 +278,8 @@ export function UIPlacementPanel(): React.ReactElement {
   }, [drawCanvas]);
 
   React.useEffect(() => {
-    const uiSystem = uiSystemRef.current;
-    return () => uiSystem.destroy();
+    const tree = treeRef.current;
+    return () => tree.destroy();
   }, []);
 
   const resolveWorldPos = React.useCallback(

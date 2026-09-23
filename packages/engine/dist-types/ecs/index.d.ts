@@ -155,6 +155,8 @@ export {
   detachWidgetParent,
 } from "./ui/WidgetTree.js";
 export { UISystem } from "./ui/UISystem.js";
+export { resolveAnchoredPosition } from "./ui/Anchor.js";
+export type { WidgetAnchor, AnchoredPosition } from "./ui/Anchor.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
 export type {
   RenderPipelineOptions,

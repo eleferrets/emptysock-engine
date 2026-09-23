@@ -616,6 +616,48 @@ The Visual Script Editor panel's own UI (`visual-script/*.tsx`,
 `registerVisualScriptGraph` instead is separate, not-yet-started follow-up
 work. This entry only closes the "does a real ECS equivalent exist" gap.
 
+### UI Placement Editor's ECS port: `resolveAnchoredPosition` plus real spawned widget entities
+
+`apps/ide/src/components/panels/ui-placement/layout.ts`/`UIPlacementPanel.tsx`
+are the other classic-only subsystem the "ECS UISystem" and "apps/ide bundles
+the ECS API" entries above flagged as a real, separate, larger gap. The panel
+used to import classic `PanelWidget`/`ButtonWidget`/etc. (`packages/engine/src/ui/widgets/*.ts`)
+directly and construct them from a `PlacedWidget.opts` bag shaped exactly like
+each `Widget` subclass's constructor options. That entire dependency is gone:
+`PlacedWidget.opts` now mirrors the matching ECS widget-kind component's own
+field set (`ecs/components/Widgets.ts`'s `Label`/`PanelStyle`/`ButtonState`/
+`Checkbox`/`Slider`/`Progress`/`ImageWidget`) plus `x`/`y`/`width`/`height`/
+`anchor`, and `layoutToEntities(scene, tree, layout, canvasW, canvasH)` spawns
+real widget entities via `WidgetTree.createWidget()` + `entity.add(Component,
+opts)` — the exact construction a developer would write by hand.
+
+Porting this forced one real, previously-missing piece into existence:
+`ecs/ui/Anchor.ts`'s `resolveAnchoredPosition(anchor, x, y, w, h, containerW,
+containerH)`. `ecs/components/Widgets.ts`'s own doc comment already named
+"no anchor resolution" as a tracked gap versus the classic `Widget` class,
+since nothing in the ECS UI layer had ever needed nine-point anchor math
+before this panel did. It's a pure function, not a component or a system —
+ported faithfully from the classic `Widget.resolvedPosition()`'s switch
+logic, since that math has nothing ECS-specific about it, and is exported
+from `ecs/index.ts` so any future game code needing the same anchor
+semantics doesn't have to reinvent it. Its output feeds `LayoutStyle.left`/
+`.top` with `positionType: 1` — the same "opts a widget out of the parent's
+flex flow" absolute-positioning support `LayoutStyle` already gained for
+`DebugOverlaySystem`'s fixed-position HUD case (see "ECS UISystem" above);
+this panel is its second real consumer, not a new mechanism.
+
+`UIPlacementPanel.tsx`'s preview canvas now owns a real `Scene`+`WidgetTree`+
+ecs `UISystem`, constructed once and gated behind a `ready` state flip since
+`WidgetTree.init()`'s yoga WASM load is asynchronous (`Scene` itself needs no
+`Game` — its constructor is plain and synchronous). Every `drawCanvas` call
+destroys the previous draw's widget entities (tracked via the `Entity[]`
+`layoutToEntities` returns, since `Scene` exposes no public "list every live
+entity" API to iterate instead) and respawns fresh ones from the saved
+layout, then calls the real `tree.layout(scene, w, h)` + `uiSystem.render(
+scene, ctx)` path — not a hand-drawn mockup of what a widget "looks like",
+the same principle the panel's original comment already stated, just against
+the ECS renderer now.
+
 ### `Tilemap`'s root entity is spawned lazily by `loadInto()`, not eagerly by `register()`
 
 `@emptysock/tilemap`'s `TilemapSystem.register(data)` is called before any

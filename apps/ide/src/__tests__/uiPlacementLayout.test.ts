@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  layoutToWidgets,
+  layoutToEntities,
   defaultOpts,
   widgetBounds,
   widgetAnchor,
@@ -8,17 +8,28 @@ import {
   type PlacedWidget,
 } from "../components/panels/ui-placement/layout";
 import {
-  ButtonWidget,
-  LabelWidget,
-  PanelWidget,
-  ProgressBarWidget,
-  SliderWidget,
-  CheckboxWidget,
+  Scene,
+  WidgetTree,
+  Layout,
+  PanelStyle,
+  ButtonState,
+  Label,
+  Progress,
+  Slider,
+  Checkbox,
   ImageWidget,
-} from "@emptysock/engine";
+} from "@emptysock/engine/ecs";
 
-describe("ui-placement layout <-> Widget parity", () => {
-  it("layoutToWidgets constructs the real engine Widget subclasses", () => {
+async function makeTree(): Promise<{ scene: Scene; tree: WidgetTree }> {
+  const scene = new Scene();
+  const tree = new WidgetTree();
+  await tree.init();
+  return { scene, tree };
+}
+
+describe("ui-placement layout <-> ECS entity parity", () => {
+  it("layoutToEntities spawns real widget entities carrying the matching kind component", async () => {
+    const { scene, tree } = await makeTree();
     const layout: PlacedWidget[] = [
       {
         id: "w1",
@@ -45,21 +56,24 @@ describe("ui-placement layout <-> Widget parity", () => {
       },
     ];
 
-    const widgets = layoutToWidgets(layout);
-    expect(widgets[0]).toBeInstanceOf(PanelWidget);
-    expect(widgets[1]).toBeInstanceOf(ButtonWidget);
-    expect(widgets[2]).toBeInstanceOf(LabelWidget);
-    expect(widgets[3]).toBeInstanceOf(ProgressBarWidget);
-    expect(widgets[4]).toBeInstanceOf(SliderWidget);
-    expect(widgets[5]).toBeInstanceOf(CheckboxWidget);
-    expect(widgets[6]).toBeInstanceOf(ImageWidget);
+    const entities = layoutToEntities(scene, tree, layout, 480, 270);
+    expect(entities[0]?.has(PanelStyle)).toBe(true);
+    expect(entities[1]?.has(ButtonState)).toBe(true);
+    expect(entities[2]?.has(Label)).toBe(true);
+    expect(entities[3]?.has(Progress)).toBe(true);
+    expect(entities[4]?.has(Slider)).toBe(true);
+    expect(entities[5]?.has(Checkbox)).toBe(true);
+    expect(entities[6]?.has(ImageWidget)).toBe(true);
+    tree.destroy();
   });
 
-  it("is a lossless 1:1 mapping: constructing directly from the same opts produces an equivalent widget", () => {
+  it("is a lossless 1:1 mapping: the spawned entity's Layout matches resolveAnchoredPosition against the same opts", async () => {
+    const { scene, tree } = await makeTree();
     const placed: PlacedWidget<"button"> = {
       id: "w1",
       type: "button",
       opts: {
+        ...ButtonState.createDefaults(),
         x: 30,
         y: 40,
         width: 120,
@@ -69,53 +83,59 @@ describe("ui-placement layout <-> Widget parity", () => {
       },
     };
 
-    const [fromLayout] = layoutToWidgets([placed]);
-    const handWritten = new ButtonWidget(placed.opts);
+    const [entity] = layoutToEntities(scene, tree, [placed], 480, 270);
+    tree.layout(scene, 480, 270);
 
-    expect(fromLayout).toBeInstanceOf(ButtonWidget);
-    const a = fromLayout as ButtonWidget;
-    expect(a.x).toBe(handWritten.x);
-    expect(a.y).toBe(handWritten.y);
-    expect(a.width).toBe(handWritten.width);
-    expect(a.height).toBe(handWritten.height);
-    expect(a.anchor).toBe(handWritten.anchor);
-    expect(a.label).toBe(handWritten.label);
+    expect(entity?.get(ButtonState)?.label).toBe("Play");
+    const box = entity?.get(Layout);
+    // "center" anchor: left = cw/2 + x - w/2, top = ch/2 + y - h/2
+    expect(box?.x).toBe(480 / 2 + 30 - 120 / 2);
+    expect(box?.y).toBe(270 / 2 + 40 - 36 / 2);
+    tree.destroy();
   });
 
-  it("widgetBounds/widgetAnchor read straight off the constructor-options object", () => {
+  it("widgetBounds/widgetAnchor read straight off the opts object", () => {
     const placed: PlacedWidget<"panel"> = {
       id: "w1",
       type: "panel",
       opts: {
+        ...PanelStyle.createDefaults(),
         x: 5,
         y: 6,
         width: 200,
         height: 120,
         anchor: "bottom-left",
         background: "#111111",
-        cornerRadius: 6,
+        borderRadius: 6,
       },
     };
     expect(widgetBounds(placed)).toEqual({ x: 5, y: 6, w: 200, h: 120 });
     expect(widgetAnchor(placed)).toBe("bottom-left");
   });
 
-  it("defaultOpts fills the same fields the engine constructor defaults to", () => {
+  it("defaultOpts fills the same fields the matching ECS component defaults to", () => {
     const opts = defaultOpts("checkbox", "top-left", 0, 0);
-    const widget = new CheckboxWidget(opts);
-    expect(widget.label).toBe("Option");
-    expect(widget.checked).toBe(false);
+    expect(opts.label).toBe("Option");
+    expect(opts.checked).toBe(false);
   });
 
-  it("widgetToSnippet emits a constructor call using the exact opts object", () => {
+  it("widgetToSnippet emits real ECS spawn/add code using the exact opts object", () => {
     const placed: PlacedWidget<"slider"> = {
       id: "w1",
       type: "slider",
-      opts: { x: 1, y: 2, width: 160, value: 0.5, min: 0, max: 1 },
+      opts: {
+        ...Slider.createDefaults(),
+        x: 1,
+        y: 2,
+        width: 160,
+        height: 20,
+        anchor: "top-left",
+        value: 0.5,
+      },
     };
     const snippet = widgetToSnippet(placed);
-    expect(snippet).toContain("new SliderWidget({");
+    expect(snippet).toContain("tree.createWidget(scene)");
     expect(snippet).toContain("value: 0.5");
-    expect(snippet).toContain("this.uiSystem.add(slider);");
+    expect(snippet).toContain("slider.add(Slider,");
   });
 });

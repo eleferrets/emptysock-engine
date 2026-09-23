@@ -1,29 +1,29 @@
 // Code/visual parity layer for the UI Widget Editor panel.
 //
-// `PlacedWidget.opts` is *exactly* the constructor-options object a developer
-// would hand-write for the matching `@emptysock/engine` Widget subclass
-// (`LabelWidgetOpts`, `ButtonWidgetOpts`, ...). Nothing here re-shapes that
-// data — `layoutToWidgets` just calls `new XWidget(opts)` per entry, so the
-// panel's save format and the hand-written code path produce identical
-// `Widget` instances from identical data.
+// `PlacedWidget.opts` mirrors the exact field set the matching ECS widget-kind
+// component (`Label`/`PanelStyle`/`ButtonState`/`Checkbox`/`Slider`/
+// `Progress`/`ImageWidget`, `@emptysock/engine/ecs`) accepts, plus `width`/
+// `height` (→ `LayoutStyle`) and `x`/`y`/`anchor` (→ `resolveAnchoredPosition`
+// → `LayoutStyle.left`/`.top`). `layoutToEntities` spawns real widget entities
+// via `WidgetTree.createWidget()` and `entity.add(Component, opts)` — the
+// same construction a developer would write by hand — so the panel's save
+// format and the hand-written code path produce identical live entities from
+// identical data.
 import {
-  LabelWidget,
-  ButtonWidget,
-  PanelWidget,
-  ProgressBarWidget,
-  SliderWidget,
-  CheckboxWidget,
+  Label,
+  PanelStyle,
+  ButtonState,
+  Checkbox,
+  Slider,
+  Progress,
   ImageWidget,
-  type Widget,
+  LayoutStyle,
+  resolveAnchoredPosition,
   type WidgetAnchor,
-  type LabelWidgetOpts,
-  type ButtonWidgetOpts,
-  type PanelWidgetOpts,
-  type ProgressBarWidgetOpts,
-  type SliderWidgetOpts,
-  type CheckboxWidgetOpts,
-  type ImageWidgetOpts,
-} from "@emptysock/engine";
+  type Entity,
+  type Scene,
+  type WidgetTree,
+} from "@emptysock/engine/ecs";
 
 export type { WidgetAnchor };
 
@@ -36,36 +36,40 @@ export type WidgetType =
   | "checkbox"
   | "image";
 
-/** Per-type constructor-options shape, keyed exactly like the engine exports. */
+/** Per-type style-field shape, keyed exactly like the matching ECS component's own fields (plus shared `x`/`y`/`width`/`height`/`anchor`). */
 export interface WidgetOptsMap {
-  panel: PanelWidgetOpts;
-  button: ButtonWidgetOpts;
-  label: LabelWidgetOpts;
-  "progress-bar": ProgressBarWidgetOpts;
-  slider: SliderWidgetOpts;
-  checkbox: CheckboxWidgetOpts;
-  image: ImageWidgetOpts;
+  panel: ReturnType<typeof PanelStyle.createDefaults> & PlacementFields;
+  button: ReturnType<typeof ButtonState.createDefaults> & PlacementFields;
+  label: ReturnType<typeof Label.createDefaults> & PlacementFields;
+  "progress-bar": ReturnType<typeof Progress.createDefaults> & PlacementFields;
+  slider: ReturnType<typeof Slider.createDefaults> & PlacementFields;
+  checkbox: ReturnType<typeof Checkbox.createDefaults> & PlacementFields;
+  image: ReturnType<typeof ImageWidget.createDefaults> & PlacementFields;
 }
 
-/**
- * One placed widget. `opts` is the real constructor-options object (minus
- * `onChange`, which isn't serialisable — callbacks stay in hand-written
- * code and are re-attached the same way after `layoutToWidgets`).
- */
+interface PlacementFields {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  anchor: WidgetAnchor;
+}
+
+/** One placed widget — `opts` is the real flat data `layoutToEntities` consumes. */
 export interface PlacedWidget<T extends WidgetType = WidgetType> {
   id: string;
   type: T;
-  opts: Omit<WidgetOptsMap[T], "onChange">;
+  opts: WidgetOptsMap[T];
 }
 
 export const WIDGET_LABEL: Record<WidgetType, string> = {
-  panel: "PanelWidget",
-  button: "ButtonWidget",
-  label: "LabelWidget",
-  "progress-bar": "ProgressBarWidget",
-  slider: "SliderWidget",
-  checkbox: "CheckboxWidget",
-  image: "ImageWidget",
+  panel: "Panel",
+  button: "Button",
+  label: "Label",
+  "progress-bar": "Progress",
+  slider: "Slider",
+  checkbox: "Checkbox",
+  image: "Image",
 };
 
 export const WIDGET_TYPES: WidgetType[] = [
@@ -78,7 +82,7 @@ export const WIDGET_TYPES: WidgetType[] = [
   "image",
 ];
 
-/** Default constructor-options for a freshly-placed widget of each type. */
+/** Default field values for a freshly-placed widget of each type. */
 export function defaultOpts<T extends WidgetType>(
   type: T,
   anchor: WidgetAnchor,
@@ -91,62 +95,62 @@ export function defaultOpts<T extends WidgetType>(
     case "panel":
       result = {
         ...base,
+        ...PanelStyle.createDefaults(),
         width: 200,
         height: 120,
-        background: "#1a1a2e",
-        cornerRadius: 6,
-      } satisfies PanelWidgetOpts;
+      };
       break;
     case "button":
       result = {
         ...base,
+        ...ButtonState.createDefaults(),
         width: 120,
         height: 36,
-        label: "Button",
-      } satisfies ButtonWidgetOpts;
+      };
       break;
     case "label":
       result = {
         ...base,
-        text: "Label",
-        fontSize: 16,
-      } satisfies LabelWidgetOpts;
+        ...Label.createDefaults(),
+        width: 100,
+        height: 24,
+      };
       break;
     case "progress-bar":
       result = {
         ...base,
+        ...Progress.createDefaults(),
+        value: 0.75,
         width: 200,
         height: 20,
-        value: 0.75,
-        min: 0,
-        max: 1,
-        fillColor: "#4ade80",
-      } satisfies ProgressBarWidgetOpts;
+      };
       break;
     case "slider":
       result = {
         ...base,
+        ...Slider.createDefaults(),
+        value: 0.5,
         width: 160,
         height: 20,
-        value: 0.5,
-        min: 0,
-        max: 1,
-      } satisfies SliderWidgetOpts;
+      };
       break;
     case "checkbox":
       result = {
         ...base,
+        ...Checkbox.createDefaults(),
         label: "Option",
-        checked: false,
-      } satisfies CheckboxWidgetOpts;
+        width: 24,
+        height: 24,
+      };
       break;
     case "image":
       result = {
         ...base,
+        ...ImageWidget.createDefaults(),
+        src: "assets/image.png",
         width: 64,
         height: 64,
-        src: "assets/image.png",
-      } satisfies ImageWidgetOpts;
+      };
       break;
   }
   return result as WidgetOptsMap[T];
@@ -159,55 +163,108 @@ export function widgetBounds(w: PlacedWidget): {
   w: number;
   h: number;
 } {
-  const o = w.opts as {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  };
-  const fallback = defaultOpts(w.type, "top-left", 0, 0) as {
-    width?: number;
-    height?: number;
-  };
-  return {
-    x: o.x ?? 0,
-    y: o.y ?? 0,
-    w: o.width ?? fallback.width ?? 100,
-    h: o.height ?? fallback.height ?? 40,
-  };
+  const o = asRecord(w.opts);
+  return { x: o.x, y: o.y, w: o.width, h: o.height };
 }
 
 export function widgetAnchor(w: PlacedWidget): WidgetAnchor {
-  return (w.opts as { anchor?: WidgetAnchor }).anchor ?? "top-left";
+  return asRecord(w.opts).anchor as WidgetAnchor;
+}
+
+/** Loosens a `WidgetOptsMap[T]` value to a plain record for generic field access — every real field access still goes through this one cast site. */
+function asRecord(
+  opts: WidgetOptsMap[WidgetType],
+): Record<string, unknown> & PlacementFields {
+  return opts as unknown as Record<string, unknown> & PlacementFields;
+}
+
+/** Style fields only — `opts` minus the shared placement fields `LayoutStyle` already owns. */
+function styleFields(opts: WidgetOptsMap[WidgetType]): Record<string, unknown> {
+  const {
+    x: _x,
+    y: _y,
+    width: _w,
+    height: _h,
+    anchor: _a,
+    ...style
+  } = asRecord(opts);
+  void _x;
+  void _y;
+  void _w;
+  void _h;
+  void _a;
+  return style;
 }
 
 /**
- * Lossless, one-call mapping from the panel's saved layout to real `Widget`
- * instances — the exact same construction a developer would write by hand:
+ * Lossless, one-call mapping from the panel's saved layout to real, live
+ * widget entities on `scene`/`tree` — the exact same construction a
+ * developer would write by hand:
  *
  * ```ts
- * const widgets = layoutToWidgets(layout);
- * for (const w of widgets) uiSystem.add(w);
+ * const entities = layoutToEntities(scene, tree, layout, canvasW, canvasH);
  * ```
+ *
+ * `canvasWidth`/`canvasHeight` resolve each widget's anchor into an absolute
+ * `LayoutStyle.left`/`.top` (`positionType: 1` — outside the parent's flex
+ * flow, per `LayoutStyle`'s own doc comment).
  */
-export function layoutToWidgets(layout: PlacedWidget[]): Widget[] {
+export function layoutToEntities(
+  scene: Scene,
+  tree: WidgetTree,
+  layout: PlacedWidget[],
+  canvasWidth: number,
+  canvasHeight: number,
+): Entity[] {
   return layout.map((w) => {
+    const entity = tree.createWidget(scene);
+    const opts = asRecord(w.opts);
+    const { left, top } = resolveAnchoredPosition(
+      opts.anchor,
+      opts.x,
+      opts.y,
+      opts.width,
+      opts.height,
+      canvasWidth,
+      canvasHeight,
+    );
+    // `tree.createWidget()` already attaches a default `LayoutStyle` —
+    // overwrite its fields in place rather than `.add()`-ing a second time.
+    const layoutStyle = entity.get(LayoutStyle);
+    if (layoutStyle !== undefined) {
+      Object.assign(layoutStyle, {
+        positionType: 1,
+        left,
+        top,
+        width: opts.width,
+        height: opts.height,
+      });
+    }
+    const style = styleFields(w.opts);
     switch (w.type) {
       case "panel":
-        return new PanelWidget(w.opts as PanelWidgetOpts);
+        entity.add(PanelStyle, style as never);
+        break;
       case "button":
-        return new ButtonWidget(w.opts as ButtonWidgetOpts);
+        entity.add(ButtonState, style as never);
+        break;
       case "label":
-        return new LabelWidget(w.opts as LabelWidgetOpts);
+        entity.add(Label, style as never);
+        break;
       case "progress-bar":
-        return new ProgressBarWidget(w.opts as ProgressBarWidgetOpts);
+        entity.add(Progress, style as never);
+        break;
       case "slider":
-        return new SliderWidget(w.opts as SliderWidgetOpts);
+        entity.add(Slider, style as never);
+        break;
       case "checkbox":
-        return new CheckboxWidget(w.opts as CheckboxWidgetOpts);
+        entity.add(Checkbox, style as never);
+        break;
       case "image":
-        return new ImageWidget(w.opts as ImageWidgetOpts);
+        entity.add(ImageWidget, style as never);
+        break;
     }
+    return entity;
   });
 }
 
@@ -218,13 +275,13 @@ function optsToSource(opts: Record<string, unknown>): string {
   return `{ ${parts.join(", ")} }`;
 }
 
-const CTOR_NAME: Record<WidgetType, string> = {
-  panel: "PanelWidget",
-  button: "ButtonWidget",
-  label: "LabelWidget",
-  "progress-bar": "ProgressBarWidget",
-  slider: "SliderWidget",
-  checkbox: "CheckboxWidget",
+const COMPONENT_NAME: Record<WidgetType, string> = {
+  panel: "PanelStyle",
+  button: "ButtonState",
+  label: "Label",
+  "progress-bar": "Progress",
+  slider: "Slider",
+  checkbox: "Checkbox",
   image: "ImageWidget",
 };
 
@@ -239,21 +296,25 @@ const VAR_NAME: Record<WidgetType, string> = {
 };
 
 /**
- * Generates the exact hand-written-equivalent code for one placed widget,
- * built from the same `opts` object `layoutToWidgets` consumes — proving the
- * visual and code paths share one data shape rather than two parallel ones.
+ * Generates the exact hand-written-equivalent ECS code for one placed
+ * widget, built from the same `opts` object `layoutToEntities` consumes —
+ * proving the visual and code paths share one data shape rather than two
+ * parallel ones.
  */
 export function widgetToSnippet(w: PlacedWidget): string {
-  const ctor = CTOR_NAME[w.type];
+  const componentName = COMPONENT_NAME[w.type];
   const varName = VAR_NAME[w.type];
-  const optsSrc = optsToSource(w.opts as Record<string, unknown>);
-  const lines = [`const ${varName} = new ${ctor}(${optsSrc});`];
-  if (w.type === "button")
-    lines.push(`${varName}.on('click', () => { /* TODO */ });`);
-  if (w.type === "slider" || w.type === "checkbox") {
-    lines.push(`${varName}.on('change', (v) => { /* TODO */ });`);
-  }
-  lines.push(`this.uiSystem.add(${varName});`);
+  const opts = asRecord(w.opts);
+  const { width, height } = opts;
+  const style = styleFields(w.opts);
+  const styleSrc = optsToSource(style);
+  const lines = [
+    `const ${varName} = tree.createWidget(scene);`,
+    `${varName}.add(LayoutStyle, { positionType: 1, left: 0, top: 0, width: ${String(
+      width,
+    )}, height: ${String(height)} }); // resolve x/y/anchor via resolveAnchoredPosition()`,
+    `${varName}.add(${componentName}, ${styleSrc});`,
+  ];
   return lines.join("\n");
 }
 

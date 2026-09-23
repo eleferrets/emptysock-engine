@@ -10,17 +10,17 @@ interface FieldSpec {
   options?: string[];
 }
 
-// Field lists mirror each Widget subclass's constructor-options exactly
-// (see packages/engine/src/ui/widgets/*.ts). `x`/`y`/`anchor` are edited
-// elsewhere in the panel; every other constructor option is authorable here.
+// Field lists mirror each ECS widget-kind component's own fields exactly
+// (see packages/engine/src/ecs/components/Widgets.ts). `x`/`y`/`anchor` are
+// edited elsewhere in the panel; every other field is authorable here.
 const FIELDS: Record<WidgetType, FieldSpec[]> = {
   panel: [
     { key: "width", label: "width", kind: "number" },
     { key: "height", label: "height", kind: "number" },
     { key: "background", label: "background", kind: "color" },
-    { key: "border", label: "border", kind: "color" },
+    { key: "borderColor", label: "borderColor", kind: "color" },
     { key: "borderWidth", label: "borderWidth", kind: "number" },
-    { key: "cornerRadius", label: "cornerRadius", kind: "number" },
+    { key: "borderRadius", label: "borderRadius", kind: "number" },
   ],
   button: [
     { key: "width", label: "width", kind: "number" },
@@ -33,7 +33,6 @@ const FIELDS: Record<WidgetType, FieldSpec[]> = {
     { key: "borderRadius", label: "borderRadius", kind: "number" },
     { key: "fontSize", label: "fontSize", kind: "number" },
     { key: "disabled", label: "disabled", kind: "boolean" },
-    { key: "animateOnHover", label: "animateOnHover", kind: "boolean" },
   ],
   label: [
     { key: "text", label: "text", kind: "text" },
@@ -54,12 +53,6 @@ const FIELDS: Record<WidgetType, FieldSpec[]> = {
     { key: "max", label: "max", kind: "number" },
     { key: "fillColor", label: "fillColor", kind: "color" },
     { key: "trackColor", label: "trackColor", kind: "color" },
-    {
-      key: "direction",
-      label: "direction",
-      kind: "select",
-      options: ["h", "v"],
-    },
   ],
   slider: [
     { key: "width", label: "width", kind: "number" },
@@ -83,13 +76,6 @@ const FIELDS: Record<WidgetType, FieldSpec[]> = {
     { key: "width", label: "width", kind: "number" },
     { key: "height", label: "height", kind: "number" },
     { key: "src", label: "src", kind: "text" },
-    {
-      key: "scaleMode",
-      label: "scaleMode",
-      kind: "select",
-      options: ["fit", "fill", "stretch", "none"],
-    },
-    { key: "tint", label: "tint", kind: "color" },
   ],
 };
 
@@ -111,7 +97,7 @@ export function PropertyEditor({
   onChange: (opts: Record<string, unknown>) => void;
 }): React.ReactElement {
   const fields = FIELDS[widget.type];
-  const opts = widget.opts as Record<string, unknown>;
+  const opts = widget.opts as unknown as Record<string, unknown>;
 
   return (
     <>
