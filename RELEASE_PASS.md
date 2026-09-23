@@ -64,32 +64,44 @@ end to end, not just documented as a known gap.
       `*.prefab.json` under the project dir, builds a `ComponentLookup` from `@emptysock/engine`'s
       built-ins plus any project component modules named via `--components`, and writes the generated
       `.d.ts` to disk. An IDE auto-save hook remains a separate, not-yet-started follow-up.
-- [ ] **Visual Script Editor panel live preview** (`apps/ide`'s `visual-script/*.tsx`,
-      `logicScriptStore.ts`). Panel authors a `VisualScriptGraph` directly but never calls
-      `registerVisualScriptGraph` or spawns a `VisualScriptState` entity — wire a preview path so editing
-      the graph has a live effect the panel can show.
-- [ ] **Physics in the IDE's browser preview** — `PhysicsSystem.init()`'s `await import(moduleName)` is a
-      genuine bare-specifier dynamic import once `apps/ide`'s bundler externalizes
-      `@dimforge/rapier2d-compat`/`rapier3d-compat`, with no import map to resolve it. Per CLAUDE.md's own
-      note: fix via an import-map entry mapping the bare specifier to a real ESM Rapier WASM build, or a
-      small runtime shim `apps/ide` registers before the game module loads. This is the riskiest/most
-      exploratory item — budget real investigation time, don't assume the first approach tried works.
-      **Decided 2026-09-23: attempt it in this same pass, not deferred** — if it can't be fully verified
-      in-browser from this sandbox, document exactly how far it got and what's unverified rather than
-      claiming it's fixed.
-- [ ] **Fold in: unify `IDEBridge` into `QueryChannel`** (previously its own separate, long-deferred
-      Track 0 item above — folded into this track 2026-09-23 since it touches the same
-      `apps/ide/src/services/EngineChannel.ts` the bridge-transport item above already needs to edit).
-      `EngineChannel.ts` still speaks the old pre-ECS `es:entities`/`es:set-component`/`es:component-fields`
-      postMessage wire protocol end to end, not `QueryChannel` — so the IDE's own Inspector panels
-      (`SceneInspector.tsx`/`EntityProperties.tsx`/`CanvasPreview.tsx`/`useEngineChannel.ts`) are reading
-      from a bridge that predates `QueryChannel` entirely, separate from (but architecturally identical to)
-      the MCP transport gap. Rewire `EngineChannel.ts` onto `QueryChannel.handle({ kind: "listEntities" |
-"entityInfo" | "getComponent" | "setComponent" })` calls over the existing `PlayRunner` postMessage
-      relay, verify the live preview + Inspector still work end to end (real browser verification, not
-      typecheck-only), then Track 8's `ComponentRegistry`-driven Inspector schema lookup (see the `[~]`
-      item further down this file) becomes unblocked for real — don't do that item until this one is
-      verified working, per its own existing warning.
+- [x] **Visual Script Editor panel live preview** (`apps/ide`'s `visual-script/*.tsx`,
+      `logicScriptStore.ts`) — done 2026-09-23. Added `useLogicScriptPreview.ts`: registers the panel's
+      current graph via `registerVisualScriptGraph` and drives it against a real headless `Scene` +
+      `VisualScriptSystem` (no renderer, no DOM) on a `requestAnimationFrame` loop calling
+      `VisualScriptSystem.update(scene)` every tick, plus a per-`onEvent`-node "Fire" control calling
+      `fireEvent(scene, eventType)`. `LogicScriptEditor.tsx`'s toolbar got a Preview/Stop button showing
+      live output values (every `Variable`/`Switch` index the graph reads or writes, snapshotted from the
+      same `VariableStore` the compiled graph writes through) and buttons for each declared event type.
+      True per-node "currently executing" highlighting is explicitly out of scope — the compiled output
+      never calls back per node (see CLAUDE.md's Visual Script entry) and instrumenting that lives in
+      `packages/engine`, not this IDE-only pass; documented in the hook's own doc comment.
+- [~] **Physics in the IDE's browser preview** — done for the 2D/3D compat builds, real browser-verified,
+  2026-09-23. `PhysicsSystem.init()`'s `await import(moduleName)` uses a runtime string, so no bundler
+  can rewrite it; the fix is a real browser-native import map. Added
+  `apps/ide/scripts/copy-rapier-vendor.mjs` (wired into `predev`/`prebuild`) to vendor
+  `@dimforge/rapier{2,3}d-compat`'s own real ESM entry points (`dist/rapier.mjs`, WASM inlined as
+  base64) into `public/vendor/rapier/`, and `PlayRunner.ts` now injects a
+  `<script type="importmap">` into the preview iframe mapping both bare specifiers to those files by
+  absolute URL. **Verified for real**, not just typechecked: served the vendored files over a plain
+  HTTP static server and drove a real headless Chromium instance via raw CDP (`Runtime.evaluate`
+  polling, native Node 22 `WebSocket`) against a page using the exact same import map shape — both
+  `await import("@dimforge/rapier2d-compat")` and `...rapier3d-compat` resolved, `RAPIER.init()`
+  completed, and a real `RAPIER.World` was constructed for both 2D and 3D. Remaining gap, hence `[~]`
+  not `[x]`: did not additionally drive the full `PlayRunner.ts` iframe bootstrap end-to-end with a
+  physics-using game scene inside the actual IDE dev server (no time budget left this pass for that
+  larger harness) — the core resolution mechanism is confirmed working, but a real
+  `PhysicsSystem.init()` call inside the real iframe bootstrap has not been. Does not cover the
+  `-deterministic-compat` variants (optionalDependencies nothing in this repo installs, so nothing to
+  vendor for them).
+- [x] **Fold in: unify `IDEBridge` into `QueryChannel`** — confirmed already done, 2026-09-23 (found
+      complete, not left over from a previous session's undocumented work). `EngineChannel.ts` already
+      sends `QueryChannel`-shaped queries (`{ kind: "listEntities" | "entityInfo" | "getComponent" |
+    "setComponent" }`) as `es:query`/`es:query-result` postMessage envelopes over `PlayRunner.ts`'s
+      relay, which itself constructs a real `QueryChannel`, finds the live `Game` via `Game.instances`,
+      and calls `.handle()` directly — grepped the whole `apps/ide/src` tree for `IDEBridge`/
+      `es:entities`/`es:set-component`/`es:component-fields`: no such file and no such wire-protocol
+      strings exist outside two explanatory code comments. `useEngineChannel.ts`, `EntityProperties.tsx`
+      already use the new `kind`-based query shapes too. No code change was needed for this item.
 
 **Bridge auth, decided 2026-09-23:** no auth token — bind the WebSocket server to `127.0.0.1` only,
 matching this MCP server's existing trust model (local file I/O, no network auth anywhere else in it).
