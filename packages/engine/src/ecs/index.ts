@@ -137,6 +137,7 @@ export type {
   LoadOverlayOptions,
   SceneRenderer,
 } from "./Game.js";
+export { Diagnostics } from "./Diagnostics.js";
 export { InputManager } from "./Input.js";
 export type {
   Binding,

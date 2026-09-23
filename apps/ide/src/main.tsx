@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
-import { Engine } from "@emptysock/engine";
+import { Diagnostics } from "@emptysock/engine/ecs";
 import "./styles/globals.css";
 import "./styles/rc-dock-overrides.css";
 import { loader } from "@monaco-editor/react";
@@ -11,11 +11,11 @@ import * as monaco from "monaco-editor";
 loader.config({ monaco });
 
 // Wire the Tauri file-log handler without touching the engine package itself.
-// The engine exposes Engine.onFileLog() precisely so this boundary can stay clean.
+// The engine exposes Diagnostics.onFileLog() precisely so this boundary can stay clean.
 if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
   const tauriCore = "@tauri-apps/api/core";
   void import(/* @vite-ignore */ tauriCore).then(({ invoke }) => {
-    Engine.onFileLog((msg) => {
+    Diagnostics.onFileLog((msg) => {
       void invoke("log_error", { message: msg }).catch(() => undefined);
     });
   });

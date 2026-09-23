@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { VisualScriptGraph } from "@emptysock/engine";
+import type { VisualScriptGraph } from "@emptysock/engine/ecs";
 
 // ── State / actions ──────────────────────────────────────────────────────────
 //

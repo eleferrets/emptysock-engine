@@ -7,7 +7,7 @@ import type {
   VSNodeKind,
   BranchNode,
   SetVariableNode,
-} from "@emptysock/engine";
+} from "@emptysock/engine/ecs";
 import type {
   LogicNode,
   LogicGraphState,
