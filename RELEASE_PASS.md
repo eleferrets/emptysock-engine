@@ -87,28 +87,42 @@ end to end, not just documented as a known gap.
       True per-node "currently executing" highlighting is explicitly out of scope — the compiled output
       never calls back per node (see CLAUDE.md's Visual Script entry) and instrumenting that lives in
       `packages/engine`, not this IDE-only pass; documented in the hook's own doc comment.
-- [~] **Physics in the IDE's browser preview** — done for the 2D/3D compat builds, real browser-verified,
-  2026-09-23. `PhysicsSystem.init()`'s `await import(moduleName)` uses a runtime string, so no bundler
-  can rewrite it; the fix is a real browser-native import map. Added
-  `apps/ide/scripts/copy-rapier-vendor.mjs` (wired into `predev`/`prebuild`) to vendor
-  `@dimforge/rapier{2,3}d-compat`'s own real ESM entry points (`dist/rapier.mjs`, WASM inlined as
-  base64) into `public/vendor/rapier/`, and `PlayRunner.ts` now injects a
-  `<script type="importmap">` into the preview iframe mapping both bare specifiers to those files by
-  absolute URL. **Verified for real**, not just typechecked: served the vendored files over a plain
-  HTTP static server and drove a real headless Chromium instance via raw CDP (`Runtime.evaluate`
-  polling, native Node 22 `WebSocket`) against a page using the exact same import map shape — both
-  `await import("@dimforge/rapier2d-compat")` and `...rapier3d-compat` resolved, `RAPIER.init()`
-  completed, and a real `RAPIER.World` was constructed for both 2D and 3D. Remaining gap, hence `[~]`
-  not `[x]`: did not additionally drive the full `PlayRunner.ts` iframe bootstrap end-to-end with a
-  physics-using game scene inside the actual IDE dev server (no time budget left this pass for that
-  larger harness) — the core resolution mechanism is confirmed working, but a real
-  `PhysicsSystem.init()` call inside the real iframe bootstrap has not been. Does not cover the
-  `-deterministic-compat` variants (optionalDependencies nothing in this repo installs, so nothing to
-  vendor for them).
+- [x] **Physics in the IDE's browser preview** — done for the 2D/3D compat builds, real browser-verified,
+      2026-09-23, now including the full `PlayRunner.ts` iframe bootstrap end-to-end (closed the `[~]` gap
+      left by the previous session). `PhysicsSystem.init()`'s `await import(moduleName)` uses a runtime
+      string, so no bundler can rewrite it; the fix is a real browser-native import map. Added
+      `apps/ide/scripts/copy-rapier-vendor.mjs` (wired into `predev`/`prebuild`) to vendor
+      `@dimforge/rapier{2,3}d-compat`'s own real ESM entry points (`dist/rapier.mjs`, WASM inlined as
+      base64) into `public/vendor/rapier/`, and `PlayRunner.ts` now injects a
+      `<script type="importmap">` into the preview iframe mapping both bare specifiers to those files by
+      absolute URL. First verified by the previous session via raw CDP against an isolated standalone page
+      (core import-map mechanism only). This session closed the remaining gap for real: ran `apps/ide`'s
+      actual `pnpm run dev` Vite dev server (after `pnpm install` + `predev`, neither of which had been run
+      in this checkout yet), loaded a page served by that same dev server in real headless Chromium
+      (`/opt/pw-browsers/chromium-1194`, driven via the `playwright` package already installed globally on
+      this box) that calls the real, unmodified `playRunner.start()` — the exact function
+      `CanvasPreview.tsx`'s Play button calls — with a real game module built by the real `GameBuildService`
+      (esbuild-wasm) containing a scene that actually constructs and `PhysicsSystem.init()`s a 2D
+      `PhysicsBody` (`manageLifecycle: true`, the default the boilerplate deliberately avoids) and, in a
+      second run through the same real `playRunner.start()`, a standalone `PhysicsSystem3D`. Both cases:
+      `console.log`d a dynamic body's `y` position after 60 real `game.update(1/60)`/`physics.update(1/60)`
+      steps under gravity `{x:0,y:-9.81}` — 2D reported `y = -4.925436496734619`, 3D reported the identical
+      `y = -4.925436496734619` (same gravity/timestep, independent Rapier world) — proving both a real 2D
+      and a real 3D Rapier `World` resolved via the import map and genuinely stepped inside the actual
+      `apps/ide` dev server's iframe bootstrap, not just returned a default/never-moved value. No gap found
+      between the isolated test and the real dev-server flow — the import map, `blob:` iframe, and
+      `window.location.origin`-relative vendor URLs all worked exactly as designed on the first real run
+      once a test scene actually constructed a `PhysicsSystem`/`PhysicsSystem3D` (the default boilerplate
+      never does, by design — see CLAUDE.md's "Deterministic Rapier build" entry). No engine or IDE source
+      changed — this was pure verification, so no commit for this item beyond this doc update. Test/scratch
+      files (a temporary `apps/ide/scratch-physics-test.html` harness page and a Playwright driver script)
+      were deleted before finishing, matching the standard the previous session set. Still does not cover
+      the `-deterministic-compat` variants (optionalDependencies nothing in this repo installs, so nothing
+      for `copy-rapier-vendor.mjs` to vendor for them) — unchanged, real, separate gap.
 - [x] **Fold in: unify `IDEBridge` into `QueryChannel`** — confirmed already done, 2026-09-23 (found
       complete, not left over from a previous session's undocumented work). `EngineChannel.ts` already
       sends `QueryChannel`-shaped queries (`{ kind: "listEntities" | "entityInfo" | "getComponent" |
-  "setComponent" }`) as `es:query`/`es:query-result` postMessage envelopes over `PlayRunner.ts`'s
+"setComponent" }`) as `es:query`/`es:query-result` postMessage envelopes over `PlayRunner.ts`'s
       relay, which itself constructs a real `QueryChannel`, finds the live `Game` via `Game.instances`,
       and calls `.handle()` directly — grepped the whole `apps/ide/src` tree for `IDEBridge`/
       `es:entities`/`es:set-component`/`es:component-fields`: no such file and no such wire-protocol
@@ -118,9 +132,9 @@ end to end, not just documented as a known gap.
 **Bridge auth, decided 2026-09-23:** no auth token — bind the WebSocket server to `127.0.0.1` only,
 matching this MCP server's existing trust model (local file I/O, no network auth anywhere else in it).
 
-**Track status 2026-09-23: five of six `[x]`, one `[~]` (physics import-map, core mechanism verified,
-full iframe-bootstrap end-to-end not yet driven).** New, real follow-up surfaced by closing the bridge
-item, not yet scoped as its own track item — add before calling this track fully closed:
+**Track status 2026-09-23: six of six `[x]`.** Physics import-map's remaining `[~]` gap (full
+iframe-bootstrap end-to-end) closed same day by a follow-up session — see the item above. One real,
+not-yet-scoped follow-up surfaced by closing the bridge item earlier in this track:
 
 - [ ] Extend `QueryChannel`'s `EngineQuery` union with navmesh (`NavMeshSystem` path lookup),
       `ActorSystem` (send/broadcast/inbox size/list), and entity-creation query kinds, so
@@ -129,9 +143,10 @@ item, not yet scoped as its own track item — add before calling this track ful
       `packages/engine/src/bridge/QueryChannel.ts` work in this repo; once it lands, `emptysock-mcp`'s
       tool handlers need a matching follow-up to actually call the new query kinds instead of returning
       `not-found`.
-- [ ] Finish item 4 above for real: drive the full `PlayRunner.ts` iframe bootstrap end-to-end inside the
+- [x] Finish item 4 above for real: drive the full `PlayRunner.ts` iframe bootstrap end-to-end inside the
       actual `apps/ide` dev server with a physics-using game scene, not just the isolated import-map
-      mechanism (already confirmed working via raw CDP against a standalone page).
+      mechanism (already confirmed working via raw CDP against a standalone page). Done 2026-09-23 — see
+      the "Physics in the IDE's browser preview" item above, now `[x]`.
 
 Land each item as its own commit(s), Conventional Commits, typecheck/lint/test green after each, per this
 file's ground rules. Mark `[x]` here as each closes; once every item above (including the two new ones)
