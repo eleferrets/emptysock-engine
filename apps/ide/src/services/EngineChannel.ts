@@ -4,10 +4,7 @@
 // preview iframe's own bootstrap script (`PlayRunner.ts`'s `buildIframeHtml`),
 // which relays each query to a `QueryChannel` (`@emptysock/engine`)
 // attached to whatever `Game`/`Scene` the user's own game code created — see
-// `QueryChannel.ts`'s doc comment for the full design. This replaces the
-// classic `IDEBridge`'s fire-and-forget `es:entities`/`es:set-component`
-// broadcast, which had no real caller anywhere in `apps/ide` to begin with
-// (nothing ever called `ideBridge.install()`).
+// `QueryChannel.ts`'s doc comment for the full design.
 
 import type {
   EngineQuery,

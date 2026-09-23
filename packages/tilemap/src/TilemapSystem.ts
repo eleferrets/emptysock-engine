@@ -45,10 +45,10 @@ export class Tilemap {
   private readonly _layerIndex: Map<string, TilemapLayer>;
   /**
    * `null` until `TilemapSystem.loadInto()` spawns this map's root entity
-   * into a real `Scene` — unlike the classic `Entity`, an ECS `Entity` is
-   * always scoped to one `Scene`'s bitECS `World` and cannot exist before
-   * one does, so `register()` (called before any `Scene` necessarily
-   * exists) can only construct the map's plain data, not its entity.
+   * into a real `Scene` — an `Entity` is always scoped to one `Scene`'s
+   * bitECS `World` and cannot exist before one does, so `register()`
+   * (called before any `Scene` necessarily exists) can only construct the
+   * map's plain data, not its entity.
    */
   private _entity: Entity | null = null;
 

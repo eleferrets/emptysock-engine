@@ -3,9 +3,7 @@ import { engineChannel, summaryToSnapshot } from "../EngineChannel.js";
 
 /**
  * Covers the `es:query`/`es:query-result` request/response protocol between
- * the IDE and the preview iframe's `QueryChannel` bridge — replacing the
- * classic `IDEBridge`'s fire-and-forget `es:entities`/`es:set-component`
- * broadcast, which had no real caller anywhere in `apps/ide` to begin with.
+ * the IDE and the preview iframe's `QueryChannel` bridge.
  */
 
 function makeEvent(data: unknown): MessageEvent {

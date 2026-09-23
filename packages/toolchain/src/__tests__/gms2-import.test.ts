@@ -121,9 +121,8 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     expect(content).toContain("onKeyPressLeft");
     expect(content).toContain("onKeyReleaseLeft");
     // The generated behavior module's Entity type must come from
-    // @emptysock/engine — the one real export surface (the pre-ECS classic
-    // engine was deleted, RELEASE_PASS.md Track 9), and a .prefab.json's
-    // entities are real ECS entities.
+    // @emptysock/engine — the one real export surface — and a
+    // .prefab.json's entities are real entities.
     expect(content).toContain("from '@emptysock/engine'");
   });
 

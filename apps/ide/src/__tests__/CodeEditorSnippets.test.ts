@@ -3,14 +3,13 @@ import { SNIPPETS } from "../components/panels/codeSnippets.js";
 
 /**
  * The "Insert Snippet" feature hands these strings straight into a user's
- * ECS-targeted game file (apps/ide's Monaco types and runtime bundle only
- * cover @emptysock/engine now — RELEASE_PASS.md's "apps/ide ECS
- * migration" track). A snippet written against the classic API
- * (`extends Scene`, `createEntity`, `addComponent(new X())`, `hasTag`) would
- * not even typecheck in the Code editor, let alone run.
+ * game file (apps/ide's Monaco types and runtime bundle only cover
+ * @emptysock/engine). A snippet written against an API shape that engine
+ * doesn't export (`extends Scene`, `createEntity`, `addComponent(new X())`,
+ * `hasTag`) would not even typecheck in the Code editor, let alone run.
  */
-describe("CodeEditor SNIPPETS target the ECS API, not the classic one", () => {
-  it("contains no classic-only API shapes in any snippet body", () => {
+describe("CodeEditor SNIPPETS target the real engine API", () => {
+  it("contains no non-existent API shapes in any snippet body", () => {
     for (const snippet of SNIPPETS) {
       expect(snippet.body).not.toContain("extends Scene");
       expect(snippet.body).not.toContain("createEntity");

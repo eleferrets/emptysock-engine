@@ -45,8 +45,9 @@ export type { ImportResult } from "./gms2-import.js";
 // ./gms2-room-import.ts, and ./gms2-codegen.ts's buildObjectBehavior(),
 // which are the canonical implementations wired into importGMS2Project.
 // gmlStubConverter.ts additionally predated ground rule 15's prefab/scene
-// JSON redesign — it still generated classic `extends Scene` class stubs,
-// which nothing in the real import pipeline (or anything else) called.
+// JSON redesign — it still generated `extends Scene` class stubs, a shape
+// no longer used anywhere, which nothing in the real import pipeline (or
+// anything else) called.
 
 export { generatePrefabTypes } from "./prefabCodegen.js";
 export type { PrefabCodegenOptions } from "./prefabCodegen.js";

@@ -143,11 +143,12 @@ export interface LoadOverlayOptions {
  * inside the engine environment boundary (CLAUDE.md: "the engine package
  * must not import anything from the DOM"; pixi.js's renderer construction
  * needs a canvas) so it keeps running under the headless testing harness
- * with zero Pixi involvement, import included. This mirrors the classic pattern
- * documented in CLAUDE.md under "Scene transitions: SceneManager times them,
- * RenderPipeline paints them" — `SceneManager` drove a `TransitionEffectSink`
- * interface that `PostProcessSystem` satisfied structurally, never importing
- * pixi itself. `RenderPipeline` satisfies `SceneRenderer` the same way here.
+ * with zero Pixi involvement, import included. This mirrors the pattern
+ * documented in CLAUDE.md under "Scene transitions: SceneTransitionManager
+ * times them, RenderPipeline paints them" — `SceneTransitionManager` drives
+ * a `TransitionEffectSink` interface that `PostProcessSystem` satisfies
+ * structurally, never importing pixi itself. `RenderPipeline` satisfies
+ * `SceneRenderer` the same way here.
  */
 export interface SceneRenderer {
   /**
@@ -360,7 +361,7 @@ export class Game {
     return this._input;
   }
 
-  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed, unchanged from the classic engine). */
+  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed). */
   get audio(): AudioSystem {
     return this._audio;
   }

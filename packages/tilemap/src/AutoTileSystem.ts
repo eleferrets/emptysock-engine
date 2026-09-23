@@ -10,12 +10,12 @@
  * it's pure tile-authoring/content logic with zero rendering or ECS
  * coupling (no pixi, no Scene/Entity, just plain data in and a tile index
  * out) — the same reasoning that already put `NavMeshSystem` here rather
- * than in `packages/engine`. The classic `RenderPipeline.mountTilemap()`
- * (still in engine core, since every game needs to render, not just ones
- * with tile levels) never imports this class directly; it declares its own
- * minimal `AutoTileResolver` structural interface (just the one `resolve()`
- * method it actually calls) that this class satisfies without either
- * package importing the other — the exact same pattern as `TileLayerSource`/
+ * than in `packages/engine`. `RenderPipeline.mountTilemap()` (in engine
+ * core, since every game needs to render, not just ones with tile levels)
+ * never imports this class directly; it declares its own minimal
+ * `AutoTileResolver` structural interface (just the one `resolve()` method
+ * it actually calls) that this class satisfies without either package
+ * importing the other — the exact same pattern as `TileLayerSource`/
  * `Tilemap` (see CLAUDE.md's "RenderPipeline mounts a tilemap through a
  * structural interface" entry).
  */

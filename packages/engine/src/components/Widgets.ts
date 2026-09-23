@@ -5,17 +5,15 @@ import { defineComponent } from "../Component.js";
  * of `LayoutStyle`/`Layout` (see `Layout.ts`) the same way `Transform`+
  * `Sprite` composes for a render entity — a widget entity carries
  * `LayoutStyle`+`Layout` for its box, plus exactly one of the kind
- * components below for what it actually draws/does. Deliberately a smaller
- * surface than the classic `ui/widgets/*.ts` classes: no per-widget
- * animation (`Widget.animate()`'s fadeIn/slideIn/pop/shake), no anchor
+ * components below for what it actually draws/does. Deliberately a small
+ * surface: no per-widget animation (fadeIn/slideIn/pop/shake), no anchor
  * resolution, no image-bitmap loading/caching, and no event-emitter
  * callbacks (`.on("click", cb)`) — those are real, separately-tracked gaps
  * (RELEASE_PASS.md Track 3), not oversights. State instead lives directly
  * on these components and is read by polling each frame (`checkbox.checked`,
  * `slider.value`, `button.state`), the same "state lives in the component,
- * game code reads it" style `VisualScriptComponent`/`PhysicsBody` already
- * use elsewhere in the ECS core, rather than reintroducing a callback-based
- * event system.
+ * game code reads it" style `VisualScriptState`/`PhysicsBody` already
+ * use elsewhere, rather than a callback-based event system.
  */
 
 /** Optional on any widget entity; absent means visible, alpha 1 (the common case) so most widgets never need this component at all. */
@@ -182,7 +180,7 @@ export const Progress = defineComponent(
 );
 export type ProgressShape = ReturnType<typeof Progress.createDefaults>;
 
-/** Image loading/caching (the classic `UISystem.setImageLoader`/`getImage`) is a real, separately-tracked gap — this component only records the source path a future render pass would resolve. */
+/** Image loading/caching is a real, separately-tracked gap — this component only records the source path a future render pass would resolve. */
 export const ImageWidget = defineComponent(
   "ImageWidget",
   () => ({

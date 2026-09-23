@@ -19,12 +19,7 @@ import { componentRegistry } from "../ComponentRegistry.js";
  * preview iframe host constructs one, finds the running game's `Game`
  * instance via the static `Game.instances` registry, attaches its
  * `currentScene`, and relays `listEntities`/`entityInfo`/`getComponent`/
- * `setComponent` queries over `postMessage`. `core/IDEBridge.ts`'s own
- * `postMessage` wire format (`es:entities`/`es:set-component`, a fire-
- * and-forget broadcast built for the classic object model) has no real
- * caller anywhere in `apps/ide` — nothing ever calls `ideBridge.install()`
- * — so there was never a live protocol to migrate off of, only a dead one
- * to leave alone for the deletion pass.
+ * `setComponent` queries over `postMessage`.
  *
  * ## Transport-agnostic by design
  *

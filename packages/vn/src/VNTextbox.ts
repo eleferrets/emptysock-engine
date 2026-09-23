@@ -50,17 +50,15 @@ export interface VNTextboxOptions {
 }
 
 /**
- * VNTextbox — a pre-built dialogue box, ported to the ECS core (the classic
- * `PanelWidget`/`LabelWidget`/`UISystem.add()` API this used to build on was
- * deleted once every real consumer migrated — CLAUDE.md's "ECS UISystem"
- * entry). Spawns real widget entities (`PanelStyle`/`Label`, positioned via
- * `LayoutStyle`) through the caller's `WidgetTree`, and the caller renders
- * them the same way it renders every other widget entity: `uiSystem.render(
- * scene, ctx)`. There is no per-widget click-callback mechanism in the ECS
- * UI layer (state lives on components, game code polls it) — this class
- * exposes its own `handlePointerDown(x, y)` hit-test instead of relying on
- * one, the same "a panel isn't a button, so it gets its own hit-test" shape
- * a bespoke interactive panel would need in any ECS.
+ * VNTextbox — a pre-built dialogue box. Spawns real widget entities
+ * (`PanelStyle`/`Label`, positioned via `LayoutStyle`) through the caller's
+ * `WidgetTree`, and the caller renders them the same way it renders every
+ * other widget entity: `uiSystem.render(scene, ctx)`. There is no
+ * per-widget click-callback mechanism in the UI layer (state lives on
+ * components, game code polls it) — this class exposes its own
+ * `handlePointerDown(x, y)` hit-test instead of relying on one, the same
+ * "a panel isn't a button, so it gets its own hit-test" shape a bespoke
+ * interactive panel would need.
  *
  * Call `bind(vnSystem)` to wire it to a `VNSystem` instance — it will
  * automatically update whenever the current node changes. Call `update(dt)`
@@ -259,9 +257,9 @@ export class VNTextbox {
 
   /**
    * Hit-tests `(x, y)` against the panel's current on-screen box (post-
-   * `tree.layout()`) and advances/skips exactly like a click on the classic
-   * panel used to. Returns whether the point hit the panel at all, so the
-   * caller can decide whether to also dispatch the point elsewhere.
+   * `tree.layout()`) and advances/skips as if the panel were clicked.
+   * Returns whether the point hit the panel at all, so the caller can
+   * decide whether to also dispatch the point elsewhere.
    */
   handlePointerDown(x: number, y: number): boolean {
     const box = this._panel.get(Layout);

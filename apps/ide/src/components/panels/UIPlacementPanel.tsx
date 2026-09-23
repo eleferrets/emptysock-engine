@@ -355,8 +355,8 @@ export function UIPlacementPanel(): React.ReactElement {
   };
 
   /**
-   * Touch/pen place immediately on press (no separate "up" step, matching
-   * how the classic `onTouchStart` behaved) — mouse instead waits for
+   * Touch/pen place immediately on press (no separate "up" step) — mouse
+   * instead waits for
    * `onClick` (`handleCanvasClick`, fired on press+release) so a mouse drag
    * that leaves and re-enters the canvas doesn't place a widget partway
    * through. `pointerType === "mouse"` is excluded here for exactly that

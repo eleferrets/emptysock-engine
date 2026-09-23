@@ -15,7 +15,7 @@ import {
 import type { WidgetTree } from "./WidgetTree.js";
 import { widgetRoundRect } from "./canvasHelpers.js";
 
-/** Same threshold as the classic `systems/UISystem.ts` — a press that moves further than this before release is a drag, not a click. */
+/** A press that moves further than this before release is a drag, not a click. */
 const CLICK_DRAG_THRESHOLD = 6;
 
 interface PressState {
@@ -26,15 +26,14 @@ interface PressState {
 }
 
 /**
- * ECS-native `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
+ * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
  * entity-per-widget layout foundation (ground rule 4a) and the widget-kind
- * components in `components/Widgets.ts`. Covers the classic
- * `systems/UISystem.ts`'s real, load-bearing contract — hit-testing,
- * press/drag/click/hover dispatch, and rendering — against a `Scene`'s live
- * widget tree instead of a `Widget[]` array. Deliberately does not port
- * per-widget animation, anchor resolution, or image bitmap loading/caching
- * (see `Widgets.ts`'s class doc comment) — those are real, separately
- * tracked follow-ups, not silently dropped.
+ * components in `components/Widgets.ts`. Covers hit-testing,
+ * press/drag/click/hover dispatch, and rendering against a `Scene`'s live
+ * widget tree. Deliberately does not implement per-widget animation, anchor
+ * resolution, or image bitmap loading/caching (see `Widgets.ts`'s class doc
+ * comment) — those are real, separately tracked follow-ups, not silently
+ * dropped.
  */
 export class UISystem {
   private readonly _presses = new Map<number, PressState>();
@@ -60,10 +59,9 @@ export class UISystem {
   /**
    * Topmost widget under `(x, y)`, or `undefined`. `WidgetTree.orderedWidgets()`
    * returns root-first order; walking it in reverse visits the most
-   * recently added leaf-most widgets first, mirroring the classic
-   * `_findHit()`'s "children win over their own parent, later siblings win
-   * over earlier ones" behaviour without needing a second recursive
-   * per-level pass.
+   * recently added leaf-most widgets first, giving "children win over their
+   * own parent, later siblings win over earlier ones" without needing a
+   * second recursive per-level pass.
    */
   hitTest(scene: Scene, x: number, y: number): Entity | undefined {
     const order = this._tree.orderedWidgets(scene);
@@ -335,7 +333,7 @@ export class UISystem {
     ctx.fillText(label.text, tx, box.y + box.height / 2);
   }
 
-  /** Image loading/caching (`ImageLoader`) isn't ported yet — draws a grey placeholder box, the same visual fallback the classic `ImageWidget` uses before its source resolves. */
+  /** Image loading/caching (`ImageLoader`) isn't implemented yet — draws a grey placeholder box until the widget's source resolves. */
   private _renderImagePlaceholder(
     ctx: IUIRenderer,
     box: { x: number; y: number; width: number; height: number },

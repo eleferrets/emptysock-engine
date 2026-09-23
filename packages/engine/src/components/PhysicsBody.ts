@@ -40,8 +40,7 @@ export const PhysicsBody = defineComponent(
     velocity: { x: 0, y: 0 },
     // Rapier handles, set by PhysicsSystem.registerEntity(); null until
     // registered. Kept on the component (rather than an internal-only map)
-    // because the classic PhysicsBody did the same and game code occasionally wants to know
-    // whether a body has been registered yet.
+    // so game code can check whether a body has been registered yet.
     bodyHandle: null as number | null,
     colliderHandle: null as number | null,
   }),

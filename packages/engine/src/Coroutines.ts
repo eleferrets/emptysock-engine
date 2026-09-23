@@ -36,12 +36,11 @@ export interface CoroutineHandle {
 }
 
 /**
- * ECS-native replacement for the classic `core/Entity.ts`'s
  * `startCoroutine()`/`stopCoroutine()` (CLAUDE.md's "`onUpdate` must not be
  * async" decision names `entity.startCoroutine()` as the escape hatch for
- * multi-frame work, and `ecs/Game.ts` already throws a runtime error citing
- * it by name for async-`onUpdate` misuse — this file is what makes that
- * method real on the ECS `Entity`).
+ * multi-frame work, and `Game.ts` throws a runtime error citing it by name
+ * for async-`onUpdate` misuse — this file is what makes that method real on
+ * `Entity`).
  *
  * Coroutines are scoped per-`World` (one per `Scene`, same as
  * `ComponentRegistry`/`PhysicsBody`'s side-tables — see CLAUDE.md's "Shared
@@ -94,7 +93,7 @@ function ensureOwner(world: World): CoroutineOwner {
  * Start a coroutine on `entity`. The coroutine is stopped automatically the
  * instant the entity is no longer alive (checked every `updateCoroutines()`
  * call) — game code never has to manually stop a coroutine on entity
- * destroy the way the classic `Entity.startCoroutine()` didn't either.
+ * destroy.
  *
  * @example
  * ```typescript

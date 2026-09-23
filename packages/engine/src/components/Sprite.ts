@@ -21,11 +21,10 @@ import { defineComponent } from "../Component.js";
  * (game code never needs to reach into Pixi internals). `RenderPipeline`
  * keeps that association in its *own* side table instead —
  * `Map<Scene, Map<number, PixiSprite>>` keyed by the owning `Scene` and the
- * entity's `eid` — exactly the same shape the classic `RenderPipeline` uses
- * (`Map<number, PixiSprite>` keyed by entity id; this one adds the outer `Scene`
- * key only because a `Game` can have several live scenes — main plus
- * overlays — whose `eid`s independently start from 0 and would otherwise
- * collide). If a later Track 1 system (physics collision callbacks, audio
+ * entity's `eid` — the outer `Scene` key exists because a `Game` can have
+ * several live scenes — main plus overlays — whose `eid`s independently
+ * start from 0 and would otherwise collide. If a later Track 1 system
+ * (physics collision callbacks, audio
  * playback handles) needs to associate a non-serializable runtime object
  * with an entity, follow this same pattern: a plain component holding only
  * `Serializable` fields, plus an external `Map`/`WeakMap` owned by the

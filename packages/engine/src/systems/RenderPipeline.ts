@@ -101,13 +101,11 @@ interface MountedTilemap {
 }
 
 /**
- * ECS-core equivalent of `../../systems/RenderPipeline.ts`, built on the `defineComponent`/
- * `Scene.each` object model, and `Game`'s `SceneRenderer` shape (ENGINE_DESIGN.md
- * §4 step 7 / §12.3). Reuses the classic `RenderSystem` (the raw PixiJS wrapper) and
- * `LayerSystem` (layer-level ordering/visibility, via `RenderSystem`'s
- * `getLayerContainer`/`syncLayerVisibility`) unchanged — neither imports the
- * classic `core/Entity.ts`/`Scene.ts`, so there was nothing incompatible
- * about them to begin with.
+ * Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
+ * `SceneRenderer` shape (ENGINE_DESIGN.md §4 step 7 / §12.3). Uses
+ * `RenderSystem` (the raw PixiJS wrapper) and `LayerSystem` (layer-level
+ * ordering/visibility, via `RenderSystem`'s `getLayerContainer`/
+ * `syncLayerVisibility`).
  *
  * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
  * after auditing the actual code:** the original plan called for rebuilding
@@ -118,23 +116,21 @@ interface MountedTilemap {
  * transforms, and throws on `addChild()` itself — but this renderer already
  * writes sprites' `x`/`y` in absolute coordinates directly onto the sprite
  * (no nested world-transform hierarchy `RenderLayer` would decouple draw
- * order from), and `getLayerContainer(name)`'s callers (this class *and*
- * the classic `RenderPipeline`, both real, both staying) already do
+ * order from), and `getLayerContainer(name)`'s callers already do
  * `container.addChild(pixiSprite)` directly. Swapping to `RenderLayer`
- * would mean reworking `RenderSystem`'s shared public API (used by both
- * pipelines) for a decoupling this flat architecture has no actual use
- * for. The one real bug the original plan was chasing — `LayerSystem`'s
- * per-entity placement map (`addEntity`/`removeEntity`/`getEntityLayer`/
- * `getEntityDepth`) being raw-eid-keyed with no scene scoping — turned out
- * to have zero real readers anywhere in the codebase (confirmed by grep:
+ * would mean reworking `RenderSystem`'s shared public API for a decoupling
+ * this flat architecture has no actual use for. The one real bug the
+ * original plan was chasing — `LayerSystem`'s per-entity placement map
+ * (`addEntity`/`removeEntity`/`getEntityLayer`/`getEntityDepth`) being
+ * raw-eid-keyed with no scene scoping — turned out to have zero real
+ * readers anywhere in the codebase (confirmed by grep:
  * `getEntityLayer`/`getEntityDepth`/`getEntitiesOnLayer` are called
- * nowhere, not even by the classic pipeline that also writes to them) —
- * it was writing per-frame bookkeeping data that got read by nothing, not
- * a scoping bug actively corrupting real behavior. This class no longer
- * calls `addEntity`/`removeEntity` at all (dead write removed); the layer-
- * *level* concepts `LayerSystem` still provides (name → index/visibility)
- * remain real and unchanged, since `RenderSystem` genuinely needs those for
- * stage ordering and `syncLayerVisibility()`.
+ * nowhere) — it was writing per-frame bookkeeping data that got read by
+ * nothing, not a scoping bug actively corrupting real behavior. This class
+ * no longer calls `addEntity`/`removeEntity` at all (dead write removed);
+ * the layer-*level* concepts `LayerSystem` still provides (name →
+ * index/visibility) remain real and unchanged, since `RenderSystem`
+ * genuinely needs those for stage ordering and `syncLayerVisibility()`.
  *
  * On `renderFrame(main, overlays)` it:
  *
@@ -154,8 +150,7 @@ interface MountedTilemap {
  * own bitECS `World`, and each `World`'s entity ids independently start from
  * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
  * therefore has several *different* entities that all report `eid === 3`.
- * Tracking sprites in one flat `Map<number, PixiSprite>` (what the classic
- * single-scene `RenderPipeline` does, and all it ever needed to do) would silently
+ * Tracking sprites in one flat `Map<number, PixiSprite>` would silently
  * alias an overlay's entity 3 onto the main scene's. This class instead keys
  * its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`)
  * — one level of scoping up from `ComponentRegistry`'s per-`World` scoping
@@ -361,9 +356,8 @@ export class RenderPipeline implements SceneRenderer {
   /**
    * Paints the scene-transition overlay described by `postProcess`'s
    * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
-   * the stage — the exact same overlay-based approach (a single colour
-   * rect, never two live scenes rendered simultaneously) as the classic
-   * `systems/RenderPipeline.ts`'s `renderTransitionOverlay()`. RELEASE_PASS.md
+   * the stage — an overlay-based approach (a single colour rect, never two
+   * live scenes rendered simultaneously). RELEASE_PASS.md
    * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
    * technically buildable (`renderer.render({ target: renderTexture,
    * container })`, pixi v8's real object-form API) but deliberately did

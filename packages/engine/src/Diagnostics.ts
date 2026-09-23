@@ -2,16 +2,10 @@ import type { HostMessage, HostAdapter } from "@emptysock/types";
 import { HostAdapterSlot } from "./HostAdapterSlot.js";
 
 /**
- * Error/file-log/debugger surface, extracted out of `core/EngineAPI.ts`'s
- * `Engine` object so `apps/ide` (or any other ECS-only host) can wire the
- * Tauri file-log handler and the IDE debugger's pause/breakpoint protocol
- * without needing `Engine`'s `pushScene`/`popScene` facade, which genuinely
- * does need the classic scene-stack singleton (`SceneManager.ts`'s
- * `SceneManagerInstance`) — the ECS core has no equivalent pause/resume
- * stack (see CLAUDE.md's "SceneTransitionManager" entry). This module has
- * zero classic-model coupling: it never imports `SceneManager.ts`. `Engine`
- * itself spreads this object plus its own `pushScene`/`popScene` methods, so
- * there is exactly one diagnostics implementation, not a parallel copy.
+ * Error/file-log/debugger surface so `apps/ide` (or any other host) can wire
+ * the Tauri file-log handler and the IDE debugger's pause/breakpoint
+ * protocol independently of scene lifecycle — the engine has no pause/resume
+ * scene stack (see CLAUDE.md's "SceneTransitionManager" entry).
  */
 type ErrorHandler = (msg: string) => void;
 

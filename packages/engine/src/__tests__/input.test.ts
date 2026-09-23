@@ -123,12 +123,11 @@ describe("ECS InputManager (ENGINE_DESIGN.md §4 step 1 / §15.3)", () => {
   });
 });
 
-// Parity coverage for the deleted classic `systems/InputBindings.ts` — its
-// real scenarios (rebind, reset-to-defaults, save/load persistence) now
-// live directly on `InputManager`, per RELEASE_PASS.md's Track 1 decision
-// to fold named-action rebinding into the ECS input layer rather than port
+// Covers rebind, reset-to-defaults, and save/load persistence scenarios,
+// all living directly on `InputManager` per RELEASE_PASS.md's Track 1
+// decision to fold named-action rebinding into the input layer rather than
 // a second, parallel implementation.
-describe("InputManager rebinding and persistence (classic InputBindings parity)", () => {
+describe("InputManager rebinding and persistence", () => {
   it("bindAction replaces the physical input for an action", () => {
     const input = new InputManager({ jump: [{ kind: "key", code: "Space" }] });
     input.simulateKeyDown("KeyW");

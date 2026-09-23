@@ -81,8 +81,7 @@ describe("DebugOverlaySystem", () => {
     overlay.log("keep me");
     overlay.runCommand("clear");
     // clear's handler empties the log, but runCommand() then logs the
-    // invocation itself ("> clear") afterwards — same real classic
-    // behaviour (systems/DebugOverlaySystem.ts), not a difference here.
+    // invocation itself ("> clear") afterwards.
     expect(overlay.history.map((e) => e.message)).toEqual(["> clear"]);
   });
 

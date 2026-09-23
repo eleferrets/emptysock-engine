@@ -8,20 +8,20 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Default project boilerplate targets the ECS API, not the classic one —
-// apps/ide's runtime bundle and Monaco types only cover @emptysock/engine
-// now (RELEASE_PASS.md's "apps/ide ECS migration" track), so a new project
-// seeded with classic-API code (`extends Scene`, `createEntity`, `new
-// Transform(...)`) would fail to even typecheck, let alone run.
+// Default project boilerplate targets the real @emptysock/engine API —
+// apps/ide's runtime bundle and Monaco types only cover it, so a new
+// project seeded with an API shape it doesn't export (`extends Scene`,
+// `createEntity`, `new Transform(...)`) would fail to even typecheck, let
+// alone run.
 // ---------------------------------------------------------------------------
-describe("ideStore — default project boilerplate is ECS, not classic", () => {
-  it("imports and calls only real ECS API shapes", () => {
+describe("ideStore — default project boilerplate targets the real engine API", () => {
+  it("imports and calls only real engine API shapes", () => {
     const code = useIDEStore.getState().editorCode;
     expect(code).toContain("defineScene");
     expect(code).toContain("scene.spawn(");
     expect(code).toContain(".add(Transform");
     expect(code).toContain("new Game()");
-    // Classic-only API shapes must not reappear in the seeded boilerplate.
+    // Non-existent API shapes must not reappear in the seeded boilerplate.
     expect(code).not.toContain("extends Scene");
     expect(code).not.toContain("createEntity");
     expect(code).not.toContain("addComponent");

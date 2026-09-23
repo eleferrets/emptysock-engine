@@ -4,19 +4,8 @@
  * `apps/ide` bundles it as `window.EmptySockEngine` for the preview iframe
  * and types Monaco's Code editor against it, and it's the surface every
  * project template and the live Inspector bridge (`bridge/QueryChannel.ts`)
- * target. There is no separate classic engine anymore — the pre-ECS
- * `core/`/`systems/`/`components/`/`ui/` source trees (a parallel
- * class-based `Scene`/`Entity`/`Component`/`PhysicsSystem` object model with
- * a colliding name for nearly everything below) were deleted once every
- * real consumer (this file included) was verified to be fully migrated;
- * `RELEASE_PASS.md`'s Track 9 has the full audit trail. A handful of files
- * from those trees turned out to be genuinely environment-agnostic, load-
- * bearing dependencies of the ECS core itself (`ActorSystem`, `CameraSystem`,
- * `AudioSystem`, `InputSystem`, `RenderSystem`, etc.) and were moved into
- * this tree rather than deleted — they were never "classic-only", just
- * mis-filed. This surface used to also be reachable at the now-removed
- * `@emptysock/engine/ecs` subpath; that alias is gone too, since there is
- * only one surface to reach now.
+ * target. There is exactly one export surface — no subpath split, and no
+ * second, parallel object model anywhere in this package.
  */
 export { defineComponent } from "./Component.js";
 export type {
@@ -60,20 +49,13 @@ export type {
   CoroutineYield,
 } from "./Coroutines.js";
 export { Game, defineScene } from "./Game.js";
-// ActorSystem (§ CLAUDE.md "ActorSystem mailbox ordering") is a shared
-// implementation, not a classic-only one — `Game.loadScene()`/`loadOverlay()`
-// already construct one per scene and hand it to game code as
+// ActorSystem (§ CLAUDE.md "ActorSystem mailbox ordering") — `Game.loadScene()`/
+// `loadOverlay()` construct one per scene and hand it to game code as
 // `SceneLifecycle.actors`. `Actor`/`Message`/`ActorId` are exported here so
-// game code can define its own `Actor` subclasses without reaching into the
-// classic root surface for them.
+// game code can define its own `Actor` subclasses.
 export { Actor } from "./Actor.js";
 export type { Message, ActorId } from "./Actor.js";
 export { ActorSystem } from "./ActorSystem.js";
-// CameraSystem and TweenSystem likewise have zero coupling to the classic
-// object model (CLAUDE.md's "PluginSystem... are Game services" entry notes
-// CameraSystem already had "zero coupling to the classic core/Entity.ts/
-// Scene.ts") — real, usable systems for ECS game code, just not previously
-// re-exported from this subpath.
 export { CameraSystem } from "./systems/CameraSystem.js";
 export type { CameraState, CameraBounds } from "./systems/CameraSystem.js";
 export { TweenManager } from "./systems/TweenSystem.js";
@@ -97,8 +79,7 @@ export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
 // `Game`'s five constructor-registered services (CLAUDE.md's "PluginSystem,
 // VariableStore, LocalisationSystem, ViewportSystem, and WindowSystem are
 // Game services" entry) — game code needs the class itself as a type-safe
-// key for `game.services.get(VariableStore)`/`ctx.plugins` etc., which none
-// of these being absent from this subpath made impossible.
+// key for `game.services.get(VariableStore)`/`ctx.plugins` etc.
 export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
@@ -122,10 +103,8 @@ export type {
 } from "./systems/ViewportSystem.js";
 export { WindowSystem } from "./systems/WindowSystem.js";
 export type { WindowMode, WindowConfig } from "./systems/WindowSystem.js";
-// Pure, dependency-free utilities with zero classic-model coupling —
-// `AStarSearch` has no imports at all, and `Vec2` is a plain `{x, y}` shape
-// (its home in `core/Entity.ts` is an accident of the classic layout, not a
-// sign it's classic-only).
+// Pure, dependency-free utilities — `AStarSearch` has no imports at all, and
+// `Vec2` is a plain `{x, y}` shape re-exported from `Entity.ts`.
 export { AStarSearch } from "./AStarSearch.js";
 export type { AStarSearchOptions, AStarSearchResult } from "./AStarSearch.js";
 export type { Vec2 } from "./Entity.js";
@@ -286,9 +265,8 @@ export type {
  * Curated list of built-in `componentName`s an editor's "Add Component"
  * picker can offer for an entity that isn't live yet — there is no running
  * `Scene`/`World` to ask `componentRegistry.registeredComponents()` about
- * in that editing-time context, so some static list is unavoidable. This is
- * the ECS counterpart to the classic root surface's `COMPONENT_REGISTRY`;
- * it deliberately does not try to be exhaustive (widget/UI components,
+ * in that editing-time context, so some static list is unavoidable. It
+ * deliberately does not try to be exhaustive (widget/UI components,
  * `Meta`, and anything a game defines itself via `defineComponent` are real
  * components that just aren't offered from this generic picker) — extend it
  * as new built-in components earn a place in that dropdown.

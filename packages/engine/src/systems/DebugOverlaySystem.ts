@@ -18,14 +18,12 @@ const MAX_LOG_LINES = 200;
 const VISIBLE_LOG_LINES = 8;
 
 /**
- * ECS-core port of `../../systems/DebugOverlaySystem.ts` — same contract
- * (disabled by default, a stats line + scrollback console, a command
- * registry), rendered through `WidgetTree`/`UISystem` (`PanelStyle` +
- * `Label` widgets) instead of the classic `PanelWidget`/`LabelWidget`
- * classes, so it works identically in Node/tests, the browser preview, and
- * the Tauri WebView the same way the classic version did. Uses `Layout`'s
- * new `positionType: "absolute"` (added for exactly this: a fixed HUD
- * overlay position independent of any sibling flex layout).
+ * Disabled by default; a stats line + scrollback console, a command
+ * registry, rendered through `WidgetTree`/`UISystem` (`PanelStyle` +
+ * `Label` widgets), so it works identically in Node/tests, the browser
+ * preview, and the Tauri WebView. Uses `Layout`'s `positionType: "absolute"`
+ * (added for exactly this: a fixed HUD overlay position independent of any
+ * sibling flex layout).
  */
 export class DebugOverlaySystem {
   private _enabled = false;

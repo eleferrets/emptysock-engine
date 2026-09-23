@@ -52,11 +52,10 @@ function styleOf(entity: Entity): LayoutStyleShape {
 }
 
 /**
- * RELEASE_PASS.md Track 3's real `UISystem` port on top of the `WidgetTree`
- * prototype — hit-testing, press/drag/click/hover dispatch, matching the
- * classic `systems/UISystem.ts`'s real contract (see that file's own tests
- * for the scenarios this draws from: click-vs-drag threshold, disabled
- * buttons don't hover/press, topmost-widget-wins hit-testing).
+ * RELEASE_PASS.md Track 3's `UISystem`, built on top of the `WidgetTree`
+ * prototype — hit-testing, press/drag/click/hover dispatch: click-vs-drag
+ * threshold, disabled buttons don't hover/press, topmost-widget-wins
+ * hit-testing.
  */
 
 let scene: Scene;

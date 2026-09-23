@@ -116,8 +116,7 @@ export class Entity {
   /**
    * Add a component to this entity. Throws on a stale/destroyed handle
    * (mutating something that no longer exists is a bug, not a no-op) and
-   * throws if the component is already present — same "one shot" semantics
-   * the classic `addComponent` has.
+   * throws if the component is already present — "one shot" semantics.
    */
   add<T extends SerializableRecord>(
     def: ComponentDef<T>,
