@@ -19,13 +19,15 @@ The docs follow a Unity/Unreal-style layout — four sections that match differe
 | Glossary           | `docs/glossary.md`           | Canonical term spellings, deprecated aliases, definitions                                         |
 | Language Reference | `docs/language-reference.md` | TypeScript & JavaScript reference for engine scripting                                            |
 
-> The legacy `docs/manual/` files remain for backward compatibility with external links. New content goes in the directories above.
+> The `docs/manual/` files remain for backward compatibility with external links. New content goes in the directories above.
 
 ---
 
 ## Repo layout
 
 Top-level packages: `packages/engine` (@emptysock/engine, the runtime), `packages/types` (@emptysock/types, shared interfaces with no implementation), `packages/toolchain` (@emptysock/toolchain + the emptysock-toolchain CLI binary), `packages/network` (@emptysock/network, the optional Colyseus multiplayer companion package — §11.4/§23.2 — never imported by @emptysock/engine itself), `packages/vn` (@emptysock/vn, VNSystem/Story Graph — §13.1), `packages/battle` (@emptysock/battle, BattleSystem — §13.1), `packages/tilemap` (@emptysock/tilemap, TilemapSystem/NavMeshSystem — §13.1; each an optional module package, a `workspace:*` dependant of @emptysock/engine, never the other way around), and `apps/ide` (Tauri v2 + React/Vite). Each panel in the IDE is a single file under `apps/ide/src/components/panels/`. Editor state lives in one store _tree_ rooted at `apps/ide/src/store/ideStore.ts` (Zustand) plus named sibling stores for specific domains (DB, sequence, localisation, variable, audio, VN, VS, CG state, …) composed alongside it — not literally all inside that one file. Build logic lives in `apps/ide/src/services/`.
+
+The engine's actual runtime — `Scene`, `Entity`, systems, components — is entity-component-system throughout: bitECS-backed, data-oriented, with components as plain `Serializable` data and systems as functions that operate over queries. `packages/engine/src/ecs/` is the engine; there is no other engine model underneath it.
 
 ---
 
@@ -35,21 +37,29 @@ Top-level packages: `packages/engine` (@emptysock/engine, the runtime), `package
 
 The engine package must not import anything from the DOM, from Tauri APIs, or from `apps/ide`. The reason is that the same compiled engine bundle runs in three contexts: Node.js (Vitest), the browser preview iframe (IDE), and the Tauri WebView (desktop). An import of a DOM-only API causes silent runtime failures in Node, not a compile error. Enforce this by reviewing any new engine import against the allowed list: the TypeScript standard library and other `@emptysock/*` packages only.
 
-### Actor mailbox ordering
+### ActorSystem mailbox ordering
 
-ActorSystem drains every actor's inbox before calling update() on any actor. This means all messages sent during frame N are fully processed before frame N's update() logic runs on any actor. A consequence: messages sent inside an actor's receive() are processed in the same flush pass, not deferred to the next frame. If you add a message loop that causes an actor to send back to itself, the flush will run until the inbox is empty — an infinite loop if the actor always re-enqueues.
+`ActorSystem` drains every actor's inbox before calling `update()` on any actor. This means all messages sent during frame N are fully processed before frame N's `update()` logic runs on any actor. A consequence: messages sent inside an actor's `receive()` are processed in the same flush pass, not deferred to the next frame. If you add a message loop that causes an actor to send back to itself, the flush will run until the inbox is empty — an infinite loop if the actor always re-enqueues.
 
-### Transport is an interface, not a class
+A new `ActorSystem` is constructed for the main scene and for every overlay, and torn down with that scene/overlay. A shared `ActorSystem` that persists across scenes would process stale messages from actors that belong to an unloaded scene — since those actors would still be registered, `broadcast()` would invoke them after their scene's teardown has run, a use-after-destroy bug that's difficult to reproduce. One `ActorSystem` per scene is the rule; don't share one across scene boundaries.
 
-NetworkActor accepts a Transport interface. The engine never ships a concrete WebSocket or WebRTC implementation. The reason is bundle size: games that have no multiplayer should not pay for the weight of a WebSocket client or WebRTC negotiation stack. The concrete implementation lives in game code and is injected at runtime. Do not add a concrete transport to the engine package.
+### Transport and StorageAdapter are interfaces, never a concrete implementation
+
+Anything that needs network I/O or persistent storage from inside `@emptysock/engine` takes a plain interface — `Transport` (send/receive) for networking, `StorageAdapter` (`get`/`set`/`delete`/`listKeys`) for storage — and the engine never ships a concrete implementation behind either one. The reason is bundle size and the environment boundary above: a game with no multiplayer shouldn't pay for a WebSocket/WebRTC stack, and `@emptysock/engine` has to keep running under plain Node/Vitest with zero DOM or filesystem-plugin surface touched. The concrete implementation — a real WebSocket transport, an IndexedDB adapter, a Tauri-fs adapter — lives in game code or host code (`apps/ide`'s preview shell, the Tauri desktop shell) and is injected at runtime. Do not add a concrete transport or storage backend to the engine package itself; extend the interface instead.
+
+`ecs/systems/SaveSystem.ts` is the canonical `StorageAdapter` consumer: with no adapter given, it defaults to `MemoryStorageAdapter` (an in-process `Map`, nothing persisted across restarts), which is what makes it usable out of the box under the headless testing harness and any other Node context. `ComponentDef` carries a `version: number` (default `1`, set via `defineComponent(name, defaults, { version })`'s optional third argument). `SaveSystem` stamps every saved component instance with its def's version; on load, a stamped version that doesn't match the currently-registered def's version runs a migration registered via `SaveSystem.registerMigration(componentName, migrate)`, or — if none is registered — logs a warning and drops just that one component's data for that one entity. Everything else in the save still loads; a schema mismatch on one component type never aborts or corrupts the rest of the load.
+
+A `Game`-level settings/flags blob that isn't tied to one scene's live entities (input bindings, a CG-unlock flag set, a debug overlay's own state) takes a `StorageAdapter` directly, the same as `InputManager.saveBindings()`/`loadBindings()`, `ecs/systems/CGGallery.ts`, and `ecs/systems/DebugOverlaySystem.ts` all do. `SaveSystem` serializes a live `Scene`'s entities/components — it is the wrong shape for a settings blob that isn't per-entity component data, regardless of how small that blob is. Only real per-entity save data goes through `SaveSystem`; everything else goes through `StorageAdapter` directly.
 
 ### PluginSystem, VariableStore, LocalisationSystem, ViewportSystem, and WindowSystem are Game services, not module-level singletons
 
-Superseded 2026-09-22 (ECS-core consolidation pass): `PluginSystem`, `VariableStore`, `ViewportSystem`, and `WindowSystem` used to ship as bare module-level singletons (`pluginSystem`, `variableStore`, `viewportSystem`, `windowSystem`) precisely because each is process-global — an analytics SDK, a switches/variables store, the one canvas/viewport, or the one OS window all exist once for the lifetime of the app, not per-scene, and a module singleton makes that reachable from anywhere without threading a reference through scene boundaries. The problem: a real module-level singleton is _actually_ global mutable state shared across every test file in the same process, which is a correctness hazard, not just an implementation detail — two unrelated test files touching `variableStore.setSwitch()` would silently interfere with each other via shared Node module caching.
+`PluginSystem`, `VariableStore`, `LocalisationSystem`, `ViewportSystem`, and `WindowSystem` are registered as `Game` services (`Game`'s constructor calls `this.services.register(...)` for each, per `ecs/Services.ts`'s `ServiceRegistry` — ENGINE_DESIGN.md §5's "typed, explicit replacement for Godot-style autoloads"), and handed to scene code via `SceneLifecycle.plugins`/`.variables`/`.localisation`/`.viewport`/`.window`, the same convenience pattern as `SceneLifecycle.audio`/`.input`. Each of the five is process-global in nature — an analytics SDK, a switches/variables store, the one canvas/viewport, or the one OS window all exist once for the lifetime of the app, not per-scene — but none of them is a bare module-level singleton, because a real module-level singleton is global mutable state shared across every test file in the same process: two unrelated test files touching `variableStore.setSwitch()` would silently interfere with each other via shared Node module caching. Registering each as a `Game` service instead keeps the "reachable from anywhere without dependency injection" property (one instance per `Game`, which in practice means one per running process) while making the instance's lifetime and scope explicit and test-isolable — a `new Game()` in one test never shares state with a `new Game()` in another.
 
-All five are now registered as `Game` services instead (`Game`'s constructor calls `this.services.register(...)` for each, per `ecs/Services.ts`'s `ServiceRegistry` — ENGINE_DESIGN.md §5's "typed, explicit replacement for Godot-style autoloads"), and handed to scene code via `SceneLifecycle.plugins`/`.variables`/`.localisation`/`.viewport`/`.window`, the same convenience pattern already established for `SceneLifecycle.audio`/`.input`. `LocalisationSystem` never had a module-level singleton to begin with (it had no real consumers anywhere in the codebase before this) — it's registered here from the start as a `Game` service, on the same reasoning, rather than ever being given the chance to become an ad hoc singleton. This keeps the "reachable from anywhere without dependency injection" property (one instance per `Game`, which in practice means one per running process) while making the instance's lifetime and scope explicit and test-isolable — a `new Game()` in one test never shares state with a `new Game()` in another. Game code that needs a shared, process-wide instance should read it from `ctx.plugins`/`ctx.variables`/`ctx.localisation`/`ctx.viewport`/`ctx.window` (inside a scene's `onLoad`/`onUpdate`) or `game.services.get(...)` directly, never construct or expect a bare importable singleton value.
+Game code that needs a shared, process-wide instance should read it from `ctx.plugins`/`ctx.variables`/`ctx.localisation`/`ctx.viewport`/`ctx.window` (inside a scene's `onLoad`/`onUpdate`) or `game.services.get(...)` directly, never construct or expect a bare importable singleton value. `VNSystem` (`@emptysock/vn`) and `MapEventSystem`'s constructors default their `store: VariableStore` parameter to a fresh `new VariableStore()` — an isolated instance, matching the pattern `VisualScriptComponent`/`VisualScriptCompiler` use — rather than any shared default, since there is no bare importable instance to default to. Sharing state across systems is fully supported and just as easy, but explicit at the call site: pass `ctx.variables` (the same `Game`-owned instance every scene's `onLoad` receives via `SceneLifecycle`) to `new VNSystem(ctx.variables)`/`new MapEventSystem(ctx.variables)` when dialogue/map-trigger switches should share state with the rest of the game.
 
-`CameraSystem` deliberately stays out of this list — a camera is naturally per-scene (a scene may want its own camera, or several, or none), matches how the classic model always used it (game code constructs `new CameraSystem()` and calls `camera.attach(stage)` itself; neither the classic nor the ECS `RenderPipeline` ever auto-wires a camera), and it already has zero coupling to the classic `core/Entity.ts`/`Scene.ts` — nothing about it needed to change for this pass at all.
+`SceneTransitionManager` (`ecs/systems/SceneTransition.ts`) follows the same rule for a sixth case: it is not a singleton either. Game code constructs its own `new SceneTransitionManager()`; nothing hands out a shared instance.
+
+`CameraSystem` deliberately stays out of this list — a camera is naturally per-scene (a scene may want its own camera, or several, or none). Game code constructs `new CameraSystem()` and calls `camera.attach(stage)` itself; `RenderPipeline` never auto-wires a camera.
 
 ### Tauri detection at runtime
 
@@ -58,6 +68,8 @@ Code that needs Tauri capabilities must check `'__TAURI_INTERNALS__' in window` 
 ### rc-dock owns the full viewport
 
 DockLayout is the sole child of the IDE's root flex container. Never add a sibling element with fixed height alongside it. rc-dock calculates panel sizes from its own bounding box. A sibling that consumes vertical space causes the layout to overflow — the bottom panels become partially hidden and the overflow does not scroll because DockLayout sets its own overflow policy. Add persistent UI (a title bar, a status bar) by making it a DockLayout tab, not a flex sibling.
+
+`openPanelInLayout` in `apps/ide/src/App.tsx` docks a not-yet-present module tab by looking up an existing anchor tab for the module's group ("canvas" for main-panel modules, "assets" for bottom-panel modules) via `layout.find(anchorId)` and calling `layout.dockMove(factory(), anchorId, "middle")` to dock into that pane, falling back to float only if the anchor tab is missing. `closePanelInLayout` (`dockMove(tab, null, "remove")`) removes a module's tab when it's disabled. Any "enable an optional panel at runtime" feature must dock against an anchor tab this way — never call `dockMove` with a `null` target and `"float"` direction for a tab that has a real home; that always spawns rc-dock's floating-window fallback regardless of which tab group the module belongs to.
 
 ### No loading screen, no splash screen
 
@@ -71,6 +83,8 @@ NvOptimusEnablement and AmdPowerXpressRequestHighPerformance are declared as `#[
 
 Rapier3D allocates its world and body buffers in WASM linear memory, which is outside the JavaScript heap. The garbage collector cannot see this memory. Calling physics.destroy() runs Rapier's internal Drop implementation and frees the WASM allocation. If destroy() is not called when a scene unloads, the WASM heap grows permanently for the lifetime of the process. On long play sessions that transition between scenes frequently, this causes out-of-memory crashes.
 
+`PhysicsSystem.init()`/`PhysicsSystem3D.init()` choose between `@dimforge/rapier{2,3}d-compat` and the `-deterministic-compat` build with `await import(moduleName)` where `moduleName` is a runtime string, not a literal. A literal `import("@dimforge/rapier2d-deterministic-compat")` would make TypeScript (and any bundler resolving imports at build time) treat the deterministic build as a hard dependency of `@emptysock/engine`, which defeats the point of it being `optionalDependencies` (§15.2 — most games never install it and shouldn't pay for it, including at install/bundle time). Keep this non-literal if the deterministic swap logic ever moves.
+
 ### onUpdate must not be async
 
 The game loop calls onUpdate(dt) as a plain synchronous function and does not await the return value. If onUpdate is declared async, the async/await machinery creates a Promise that is silently discarded. Work scheduled after an await inside onUpdate runs at an undefined time, divorced from the game loop's frame budget. The engine also cannot catch errors thrown after an await in onUpdate. Use coroutines (entity.startCoroutine) for work that spans multiple frames.
@@ -83,29 +97,33 @@ The esbuild-wasm virtual filesystem plugin intercepts relative imports at build 
 
 NavMeshSystem.load() accepts a pre-built polygon graph. There is no API to generate the navmesh from a tilemap at runtime. Building a polygon graph from raw tile data requires Delaunay triangulation and polygon merging, which is O(n log n) and would block the main thread for hundreds of milliseconds on a large level. Build the navmesh in the level editor (or a preprocessing step) and ship the polygon data as a JSON asset.
 
-### Component types as identity keys
+### Components are identified by their `componentName` string, and by their real bitECS store — two different things a query needs
 
-addComponent and getComponent use the `component.type` string field as the key, not the constructor function. The internal map is `Map<string, Component>`. Do not assume two components with different classes but the same `type` string are distinct — they will collide. The lookup is strict: `getComponent("BaseHealth")` will not find a component whose `type` is `"SpecializedHealth"`, even if one extends the other. One component type string per entity slot is intentional — it prevents ambiguous multi-component queries.
+`addComponent`/`getComponent`-style APIs and bitECS's own `query()` need two different objects, and conflating them is a real, silent-failure-shaped mistake. `entity.add(SomeComponent)`/`entity.get(SomeComponent)` take the plain `ComponentDef` object a `defineComponent(...)` call returns. bitECS's own `query()`/`Hierarchy()` terms need the actual per-`World` store object that `ComponentRegistry.ensure(world, def)` returns — passing the `ComponentDef` directly to `query()` compiles fine and silently matches zero entities, no error. Any code building a bitECS query (`WidgetTree.orderedWidgets()` is the canonical example) must call `componentRegistry.ensure()` itself before constructing the query terms.
 
-### One ActorSystem per scene
-
-Create a new ActorSystem in onLoad and destroy it in onDestroy. A shared ActorSystem that persists across scenes will process stale messages from actors that belong to an unloaded scene. Since actors from the old scene are still registered, broadcast() will invoke them after their scene's onDestroy has run, causing use-after-destroy bugs that are difficult to reproduce.
+Two components with different classes but the same `componentName` string collide by design: `ComponentRegistry` keys everything by that string, not by object identity, since a hot-reloaded module produces a new `ComponentDef` reference for "the same" component. One component name per entity slot is intentional — it prevents ambiguous multi-component queries and gives hot-reload a stable key to reattach to.
 
 ### Collision/sensor callbacks live on PhysicsBody, dispatched by PhysicsSystem
 
-Registration (`onCollisionEnter`, `onSensorEnter`, etc.) belongs on `PhysicsBody` because that's the value component game code already holds a reference to after `entity.getComponent("PhysicsBody")` — no second lookup, no event-bus indirection. Dispatch (`dispatchCollisionEnter`, etc.) is `PhysicsSystem`'s job because it owns the Rapier `World`/`EventQueue` and is the only thing that ever observes a real collision. `PhysicsSystem._drainCollisionEvents()` still also emits `entity.emit("collisionEnter", ...)` for existing consumers of the old entity-event path — both fire side by side, no behavioural regression for code written against the old API.
+Registration (`onCollisionEnter`, `onSensorEnter`, etc.) belongs on `PhysicsBody` because that's the value component game code already holds a reference to after `entity.get(PhysicsBody)` — no second lookup, no event-bus indirection. Dispatch (`dispatchCollisionEnter`, etc.) is `PhysicsSystem`'s job because it owns the Rapier `World`/`EventQueue` and is the only thing that ever observes a real collision.
 
-### Scene transitions: SceneManager times them, RenderPipeline paints them
+`defineComponent<T extends SerializableRecord>` rejects a shape with a function field at the type level (`Serializable.ts`) — deliberately, so a component made only of `Serializable` fields can be saved/loaded generically. `PhysicsBody`'s `onCollisionEnter`/`onSensorEnter`/etc. are exactly the kind of field that constraint exists to keep out, so they cannot live in `PhysicsBody`'s own defaults object. `components/PhysicsBody.ts` instead keeps a `WeakMap<World, Map<eid, { callbacks, handle }>>` side-table (the same per-world scoping pattern `ComponentRegistry` uses) and hands out a `Proxy` via `getPhysicsBody(entity)` that reads/writes the real component for ordinary fields and the side-table for the five callback properties — so `getPhysicsBody(entity).onCollisionEnter = fn` still reads as "assigning is the registration" even though the callback and the data never share storage. `PhysicsSystem` dispatches by reading the side-table directly (`getPhysicsCallbacks`), not through the proxy. `clearPhysicsBody(world, eid)` is called by `Scene.destroy()` for every destroyed entity (pooled-reset and real-destroy paths both) — this is what stops a prefab-pooled entity's reused bitECS id from inheriting the previous occupant's stale collision callbacks and handle Proxy, since pooled ids are never released back to bitECS's own recycling (see "Prefab pooling" below). A future component that wants a callback-shaped property should use the same pattern rather than loosening `SerializableRecord`, and should give its own side-table the same explicit `clear(world, eid)` treatment called from `Scene.destroy()` — a `WeakMap`'s eventual GC never happens for a pooled entity's slot, since the `World` stays alive for the whole scene.
 
-`SceneManager.transition()` takes an `effect: TransitionEffect` but never imports pixi — it stays inside the engine environment boundary (Node/browser/Tauri all run it). It drives a minimal `TransitionEffectSink` interface (`beginTransition`/`transitionProgress`/`endTransition`) via `attachPostProcess()`; `PostProcessSystem` satisfies that shape structurally. Actual pixels come from `RenderPipeline.renderTransitionOverlay(postProcess)`, which reads `PostProcessSystem`'s `transitionEffect`/`transitionProgress`/`transitionColour` and draws a full-screen `Graphics` rect — a triangle wave for `fade`, a growing rect for `wipe`, a rect sweeping across the screen for `slide`. This is an overlay-based transition (one rect on top of whatever's currently rendered), not a true two-scene crossfade — RenderPipeline doesn't keep two scenes' sprites live simultaneously. Good enough for a cut-covering transition; revisit if a game needs to see both scenes blending.
+### Scene transitions: SceneTransitionManager times them, RenderPipeline paints them
+
+`SceneTransitionManager.transition()` (`ecs/systems/SceneTransition.ts`) takes an `effect: TransitionEffect` but never imports pixi — it stays inside the engine environment boundary (Node/browser/Tauri all run it). It drives a minimal `TransitionEffectSink` interface (`beginTransition`/`transitionProgress`/`endTransition`) via `attachPostProcess()`; `PostProcessSystem` satisfies that shape structurally. Actual pixels come from `RenderPipeline.renderTransitionOverlay(postProcess)`, which reads `PostProcessSystem`'s `transitionEffect`/`transitionProgress`/`transitionColour` and draws a full-screen `Graphics` rect — a triangle wave for `fade`, a growing rect for `wipe`, a rect sweeping across the screen for `slide`. This is an overlay-based transition (one rect on top of whatever's currently rendered), not a true two-scene crossfade — `RenderPipeline` doesn't keep two scenes' sprites live simultaneously.
+
+A true two-scene crossfade is technically buildable (`renderer.render({ target: renderTexture, container })`, pixi v8's real object-form API) but its cost (a genuine two-full-render-pass-per-frame hit during the transition window) has no documented number from pixi's own docs and can only really be judged by profiling real target devices, including lower-end tablets. The overlay approach is the considered default, proven and cheap; revisit only once real device profiling is actually possible.
+
+`SceneTransitionManager` is deliberately narrow: it has no scene registration (name → factory registry) and no pause/resume scene stack. `ecs/Game.ts` already owns real scene swapping (`loadScene()`/`loadOverlay()`/`unloadScene()`) with its own lifecycle guarantees, so `SceneTransitionManager`'s only job is timing a transition's visual progress and calling a caller-supplied `load` callback (`() => game.loadScene(...)`) once the duration elapses. If a pause/resume stack is ever wanted, that's a `Game.ts` design question, not something to build into this class.
 
 ### export-utils has no desktop packaging path — use packages/toolchain/src/desktopBuild.ts
 
-`packages/export-utils`'s `exportWindows`/`exportMacOS`/`exportLinux` were deleted — they were a second, unwired, non-functional desktop packaging implementation (fake NSIS script, an empty `.app` directory with no compiled binary, a hand-assembled `.AppImage`). `packages/toolchain/src/desktopBuild.ts` is the one real desktop export path: it scaffolds an actual Tauri v2 project and runs `cargo tauri build`. If desktop export logic needs to change, change it there — don't resurrect the export-utils versions. `exportWeb`/`exportAndroid`/`exportIOS`/`exportRaspi` still live in export-utils since desktopBuild.ts doesn't cover those targets, but nothing currently calls them from the CLI either.
+`packages/toolchain/src/desktopBuild.ts` is the one real desktop export path: it scaffolds an actual Tauri v2 project and runs `cargo tauri build`. If desktop export logic needs to change, change it there. `packages/export-utils` has no `exportWindows`/`exportMacOS`/`exportLinux` — desktop packaging only ever happens through `desktopBuild.ts`. `exportWeb`/`exportAndroid`/`exportIOS`/`exportRaspi` live in `export-utils` since `desktopBuild.ts` doesn't cover those targets, but nothing currently calls them from the CLI either.
 
 ### GMS2 `.yyp`/`.yy` are not strict JSON, and other real-format quirks
 
-Learned by testing the importer once, end to end, against a real full GameMaker export provided temporarily by the user solely for that purpose; the project data was deleted from disk immediately after and was never committed. Permanently captured as synthetic regression tests in `packages/toolchain/src/__tests__/gms2-import.test.ts`. The quirks:
+Captured as synthetic regression tests in `packages/toolchain/src/__tests__/gms2-import.test.ts`, verified against a real GameMaker export. The quirks:
 
 - `.yyp`/`.yy` files are **not strict JSON** — GameMaker's IDE always writes a trailing comma before the final `}`/`]` of every object and array. Strip `,(\s*[}\]])` → `$1` before parsing.
 - The project's own display name lives at `.yyp` root under `"%Name"`, not `"name"`.
@@ -115,46 +133,17 @@ Learned by testing the importer once, end to end, against a real full GameMaker 
 - `defaultScriptType: 1` does **not** reliably mean "uses GML Visual" — do not warn on it alone.
 - Real projects carry legacy GameMaker 8.1 DnD-compatibility symbols (`action_move`, `gml_pragma`, etc.) in compiled action lists — leave these untranspiled (surface as unresolved identifiers) rather than faking them.
 
-### rc-dock: newly enabled modules must be docked by anchor tab, not floated
+These quirks live entirely in the parsing layer (`gms2-parse.ts`/`gms2-sprite-import.ts`/`gms2-room-import.ts`/`gms2-transpile.ts`) — the format facts about GameMaker's real export data are independent of the engine's object model.
 
-`openPanelInLayout` in `apps/ide/src/App.tsx` used to add a not-yet-present module tab with `layout.dockMove(factory(), null, "float")`, which always spawns rc-dock's floating-window fallback regardless of which tab group the module belongs to. The fix looks up an existing anchor tab for the module's group ("canvas" for main-panel modules, "assets" for bottom-panel modules) via `layout.find(anchorId)` and calls `layout.dockMove(factory(), anchorId, "middle")` to dock into that pane, falling back to float only if the anchor tab is missing. `closePanelInLayout` (`dockMove(tab, null, "remove")`) removes a module's tab when it's disabled — toggling a module off used to leave its tab dangling. Any future "enable an optional panel at runtime" feature must dock against an anchor tab this way, never call `dockMove` with a `null` target and `"float"` direction for a tab that has a real home.
+### GMS2 import emits prefab/scene JSON plus a companion behavior module — never a class
+
+The GMS2 importer (`packages/toolchain/src/gms2-*.ts`) targets `@emptysock/engine/ecs`'s prefab/scene JSON shapes, not TypeScript classes: `buildObjectPrefabJSON()` emits a real `.prefab.json` (the `PrefabFile` shape — every GameMaker object instance has a position, so every generated prefab gets a `Transform` component), and `buildRoomSceneJSON()` emits a real `.scene.json` (the `SceneFile` shape, one `prefabInstances` entry per room instance whose object was actually imported).
+
+GML event code (Create/Step/Draw/Destroy/Collision/KeyPress handlers) is genuine executable behavior, and a `PrefabFile`'s components must stay plain `Serializable` data — the same constraint that keeps `PhysicsBody`'s collision callbacks in a side-table rather than the component's own fields, and the same reason `ecs/ui/UISystem.ts`'s widget components have no event-emitter callbacks. Transpiled GML logic structurally cannot live inside a `.prefab.json`. `buildObjectBehavior()` transpiles each GML event via the transpile pipeline, emitting plain exported functions (`onCreate(entity)`, `onUpdate(entity, dt)`, `onCollideWithX(entity, other)`, …) into a companion `<name>.behavior.ts` module rather than class methods. Wiring these functions up to real prefab instances (a per-prefab-name dispatch table, most likely) is left to the game importing the project — the engine has no single opinionated "GMS2 object behavior" runtime to hand this off to automatically, the same "engine defines the shape, game code wires the actual behavior" pattern used throughout the codebase. `projectManifestJSON()` is a plain JSON file listing every prefab/behavior/scene file produced — there's no "register a component" step for JSON loaded via `parsePrefabFile`/`loadSceneFile` directly.
 
 ### Monaco resolves `@emptysock/engine` via one ambient module block, not per-file extra libs
 
-The bundled Monaco TypeScript worker only supports `ModuleResolutionKind.Classic | NodeJs`, which cannot resolve the bare specifier `@emptysock/engine` from a pile of per-file `addExtraLib` entries at `file:///node_modules/@emptysock/engine/**` (this produced `TS2792: Cannot find module`, cascading into false "Property X does not exist" errors on every inherited method). `engineTypesPlugin` in `apps/ide/vite.config.ts` instead flattens `packages/engine/dist-types/**/*.d.ts` into synthetic ambient modules (`declare module "@emptysock/engine/__internal/<path>" { ... }`, with every relative specifier rewritten to the matching synthetic name) and re-exports them all through one `declare module "@emptysock/engine" { export * from "@emptysock/engine/__internal/index"; }` block. Ambient declarations for a bare specifier are looked up by name directly, bypassing module resolution entirely. If `packages/engine`'s public type surface changes shape (e.g. new subpath exports), this flattening logic in `engineTypesPlugin` needs to know about the new entry points, not just the dist-types glob.
-
-### SaveSystem storage backend is an injected adapter, not a runtime check
-
-`ecs/systems/SaveSystem.ts` needs one save/load API that ends up on IndexedDB
-in the browser preview and Tauri's fs plugin on desktop (§19.3), but unlike
-the "Tauri detection at runtime" pattern elsewhere in this file, `SaveSystem`
-does **not** check `'__TAURI_INTERNALS__' in window` itself. Doing so would
-still require importing (even dynamically) an IndexedDB or
-`@tauri-apps/plugin-fs` code path from inside `@emptysock/engine`, which is
-exactly what "Engine environment boundary" forbids — the same compiled
-engine bundle has to keep running under plain Node/Vitest with zero DOM or
-Tauri surface touched. Instead `SaveSystem` takes a `StorageAdapter`
-interface (`get`/`set`/`delete`/`listKeys`), the same shape as
-`NetworkActor`'s `Transport`: the engine defines and depends on the
-interface, never a concrete implementation. The IndexedDB and Tauri-fs
-adapters are built and runtime-selected by the host (`apps/ide`'s preview
-shell, the Tauri desktop shell) and injected into `SaveSystem`'s
-constructor. With no adapter given, `SaveSystem` defaults to
-`MemoryStorageAdapter` (an in-process `Map`, nothing persisted across
-restarts) — this is what makes it usable out of the box under the headless
-testing harness and any other Node context.
-
-Separately, `ComponentDef` now carries a `version: number` (default `1`,
-set via `defineComponent(name, defaults, { version })`'s optional third
-argument — purely additive, every existing two-argument call site is
-unaffected). `SaveSystem` stamps every saved component instance with its
-def's version; on load, a stamped version that doesn't match the
-currently-registered def's version runs a migration registered via
-`SaveSystem.registerMigration(componentName, migrate)`, or — if none is
-registered — logs a warning and drops just that one component's data for
-that one entity. Everything else in the save still loads; a schema
-mismatch on one component type never aborts or corrupts the rest of the
-load.
+The bundled Monaco TypeScript worker only supports `ModuleResolutionKind.Classic | NodeJs`, which cannot resolve the bare specifier `@emptysock/engine` from a pile of per-file `addExtraLib` entries at `file:///node_modules/@emptysock/engine/**` (this produces `TS2792: Cannot find module`, cascading into false "Property X does not exist" errors on every inherited method). `engineTypesPlugin` in `apps/ide/vite.config.ts` instead flattens `packages/engine/dist-types/**/*.d.ts` into synthetic ambient modules (`declare module "@emptysock/engine/__internal/<path>" { ... }`, with every relative specifier rewritten to the matching synthetic name) and re-exports them all through one `declare module "@emptysock/engine" { export * from "@emptysock/engine/__internal/index"; }` block. Ambient declarations for a bare specifier are looked up by name directly, bypassing module resolution entirely. If `packages/engine`'s public type surface changes shape (e.g. new subpath exports), this flattening logic in `engineTypesPlugin` needs to know about the new entry points, not just the dist-types glob.
 
 ### @emptysock/network's field-marking and entity-mapping scheme
 
@@ -166,352 +155,87 @@ Network room state (a Colyseus `MapSchema`) has no notion of a local bitECS enti
 
 ### Per-component metadata: on `ComponentDef` if the engine needs it, in the add-on package's own side-map if only that package needs it
 
-Two legitimate patterns exist for attaching metadata to a component, and this is the precedent for choosing between them for a future third kind. `SaveSystem`'s `version: number` lives directly ON `ComponentDef` (`defineComponent(name, defaults, { version })`) because `@emptysock/engine` itself needs it to function — `SaveSystem` is core engine code, and versioning save data is meaningless without knowing which def is "current". `@emptysock/network`'s `networked(componentDef, fields)` instead marks fields in an external side-map (`packages/network/src/NetworkedFields.ts`, a module-level `Map<componentName, Set<fieldName>>`) because only an _optional add-on package_ needs it — `@emptysock/engine` has no concept of "networked" and must not, per the engine/network boundary ("`@emptysock/network` never imported by `@emptysock/engine` itself"). Both key on the same `componentName` string `ComponentRegistry` uses (not `ComponentDef` object identity, which doesn't survive a hot-reloaded module producing a new reference for "the same" component). The rule for the next kind of per-component metadata: if `@emptysock/engine` itself consumes it to do its job, add it as a field on `ComponentDef`; if only an optional package consumes it, keep it in that package's own name-keyed side-map. Do not unify these two mechanisms — they have genuinely different lifecycles and consumers, and forcing them together would violate the engine/network boundary either way.
+Two patterns exist for attaching metadata to a component, and this is the rule for choosing between them. `SaveSystem`'s `version: number` lives directly ON `ComponentDef` (`defineComponent(name, defaults, { version })`) because `@emptysock/engine` itself needs it to function — `SaveSystem` is core engine code, and versioning save data is meaningless without knowing which def is "current". `@emptysock/network`'s `networked(componentDef, fields)` instead marks fields in an external side-map (`packages/network/src/NetworkedFields.ts`, a module-level `Map<componentName, Set<fieldName>>`) because only an _optional add-on package_ needs it — `@emptysock/engine` has no concept of "networked" and must not, per the engine/network boundary ("`@emptysock/network` never imported by `@emptysock/engine` itself"). Both key on the same `componentName` string `ComponentRegistry` uses (not `ComponentDef` object identity, which doesn't survive a hot-reloaded module producing a new reference for "the same" component). The rule for the next kind of per-component metadata: if `@emptysock/engine` itself consumes it to do its job, add it as a field on `ComponentDef`; if only an optional package consumes it, keep it in that package's own name-keyed side-map. Do not unify these two mechanisms — they have genuinely different lifecycles and consumers, and forcing them together would violate the engine/network boundary either way.
 
 ### Component shape-change detection diffs declared defaults, not live entity data, and resets are world-scoped
 
-`ComponentRegistry.ensure()` (§13.3 — "a component _shape_ change forces a
-full reload of just the affected entities, with a console message naming
-which component and why") detects a shape change by comparing the
-`typeof` of every field in a re-registered `ComponentDef`'s _declared_
-defaults (`def.createDefaults()`) against a snapshot taken the last time
-that `componentName` was registered — never against the actual values
-currently sitting in the component's live arrays. This matters because
-`ensure()` runs on every ordinary access (`entity.get()`, `entity.add()`,
-`scene.each()`, …), not only after a hot-swap, and a field's runtime value
-routinely diverges in type from its initial default during normal
-gameplay — `PhysicsBody.bodyHandle` starts `null` and is later assigned a
-real numeric handle by `PhysicsSystem`, for one. Diffing against live data
-would misfire a "shape changed" reset on that kind of ordinary mutation.
-Diffing against the previous _declared_ defaults reacts only to an actual
-field add/remove/type change in the component's own shape. As a fast path,
-`ensure()` also skips diffing altogether when the exact same `ComponentDef`
-object comes back (the overwhelmingly common case — a module-level `const`
-read every frame): diffing only ever runs when a _different_ object shows
-up under the same `componentName`, which only happens via a re-evaluated
-`defineComponent(...)` call, i.e. a hot-swap.
+`ComponentRegistry.ensure()` (§13.3 — "a component _shape_ change forces a full reload of just the affected entities, with a console message naming which component and why") detects a shape change by comparing the `typeof` of every field in a re-registered `ComponentDef`'s _declared_ defaults (`def.createDefaults()`) against a snapshot taken the last time that `componentName` was registered — never against the actual values currently sitting in the component's live arrays. This matters because `ensure()` runs on every ordinary access (`entity.get()`, `entity.add()`, `scene.each()`, …), not only after a hot-swap, and a field's runtime value routinely diverges in type from its initial default during normal gameplay — `PhysicsBody.bodyHandle` starts `null` and is later assigned a real numeric handle by `PhysicsSystem`, for one. Diffing against live data would misfire a "shape changed" reset on that kind of ordinary mutation. Diffing against the previous _declared_ defaults reacts only to an actual field add/remove/type change in the component's own shape. As a fast path, `ensure()` also skips diffing altogether when the exact same `ComponentDef` object comes back (the overwhelmingly common case — a module-level `const` read every frame): diffing only ever runs when a _different_ object shows up under the same `componentName`, which only happens via a re-evaluated `defineComponent(...)` call, i.e. a hot-swap.
 
-"Affected entities" is scoped exactly the way `ComponentRegistry` already
-scopes everything else: per `World` (one per `Scene`), keyed by
-`componentName`, per the class's existing per-world `WeakMap`. A shape
-change to a component reloads only the entities on the _one world_ that
-registration call is for, found via a bitECS `query` against that world's
-still-stable store object before its field arrays are touched — an
-unrelated `Scene`'s entities (even ones using a component of the same
-name) are a different `World` and are untouched. The reset itself does not
-destroy and respawn the entity (which would also wipe its _other_,
-unrelated components) — it strips and rewrites only the changed
-component's own field arrays for those entities to the new shape's
-defaults, in place, on the same store object bitECS already has
-registered. Entities that never had the component are never queried or
-touched.
+"Affected entities" is scoped exactly the way `ComponentRegistry` already scopes everything else: per `World` (one per `Scene`), keyed by `componentName`, per the class's existing per-world `WeakMap`. A shape change to a component reloads only the entities on the _one world_ that registration call is for, found via a bitECS `query` against that world's still-stable store object before its field arrays are touched — an unrelated `Scene`'s entities (even ones using a component of the same name) are a different `World` and are untouched. The reset itself does not destroy and respawn the entity (which would also wipe its _other_, unrelated components) — it strips and rewrites only the changed component's own field arrays for those entities to the new shape's defaults, in place, on the same store object bitECS already has registered. Entities that never had the component are never queried or touched.
 
-`Scene.spawn(prefab, props, { pool: true })`/`Scene.destroy(entity)`
-(`packages/engine/src/ecs/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold
-pooling into the ordinary spawn/destroy calls, but a pooled entity's bitECS
-id is deliberately **not** released back to bitECS's own id-recycling on
-destroy — only its components are stripped. If it were released, bitECS's
-own "next `addEntity()` gets the freed id" recycling (§23) could hand that
-id to a completely unrelated `spawn()` elsewhere before this prefab's pool
-claims it back, which would break "this pool only reuses slots this prefab
-previously owned." The consequence: `entity.isAlive` on a pooled-and-
-destroyed entity's old handle reads `true`, not `false` — unlike a normal
-(non-pooled) `destroy()`, where the handle goes properly stale. Game code
-holding that old handle sees the practical equivalent of "destroyed"
-anyway (`.get()` returns `undefined` for every component, since none are
-attached), but do not write code that branches on `isAlive` to detect
-"was this entity destroyed" for a pooled entity — check `.has()`/`.get()`
-against the components you actually care about instead.
+`Scene.spawn(prefab, props, { pool: true })`/`Scene.destroy(entity)` (`packages/engine/src/ecs/{Prefab,Scene}.ts`, ENGINE_DESIGN.md §12.4) fold pooling into the ordinary spawn/destroy calls, but a pooled entity's bitECS id is deliberately **not** released back to bitECS's own id-recycling on destroy — only its components are stripped. If it were released, bitECS's own "next `addEntity()` gets the freed id" recycling (§23) could hand that id to a completely unrelated `spawn()` elsewhere before this prefab's pool claims it back, which would break "this pool only reuses slots this prefab previously owned." The consequence: `entity.isAlive` on a pooled-and-destroyed entity's old handle reads `true`, not `false` — unlike a normal (non-pooled) `destroy()`, where the handle goes properly stale. Game code holding that old handle sees the practical equivalent of "destroyed" anyway (`.get()` returns `undefined` for every component, since none are attached), but do not write code that branches on `isAlive` to detect "was this entity destroyed" for a pooled entity — check `.has()`/`.get()` against the components you actually care about instead.
 
 ### Prefab `.d.ts` codegen lives in toolchain, not the engine
 
-`generatePrefabTypes` (`packages/toolchain/src/prefabCodegen.ts`,
-ENGINE_DESIGN.md §13.4) reads a project's `.prefab.json` files plus the
-project's real, registered `ComponentDef`s and emits a `.d.ts` string
-declaring one `PrefabDef<{...}>`-typed `declare const` per prefab. It lives
-in `packages/toolchain`, not `packages/engine/src/ecs`, because it never
-touches a `Scene`/`World` — it's pure offline codegen, the same "reads
-source files, emits a sibling file" shape as the GMS2 importer, not a
-runtime capability. The engine side (`packages/engine/src/ecs/SceneFile.ts`)
-owns the complementary runtime half — parsing that same prefab/scene JSON
-into a `PrefabDef` a live `Scene` can actually `spawn()` — and both sides
-import the same `ComponentLookup`/`PrefabFile` shapes from
-`@emptysock/engine/ecs` so the two halves can't drift apart on what a field
-means. `PrefabDef<T>` itself carries an unused, `@internal` `__props?: T`
-phantom field purely so `Scene.spawn<T>(prefab: PrefabDef<T>, props?:
-Partial<T>)` can infer `T` from whichever prefab value is passed —
-`definePrefab` leaves `T` at its `SerializableRecord` default for
-hand-authored prefabs, and `generatePrefabTypes`'s emitted `declare const`
-is what actually pins `T` to a concrete shape for a JSON-authored one.
-Wiring `generatePrefabTypes` into an actual IDE auto-save hook or a
-`packages/toolchain/src/cli.ts` build command is a noted follow-up in
-`RELEASE_PASS.md`, not done yet — the function itself is real and tested.
+`generatePrefabTypes` (`packages/toolchain/src/prefabCodegen.ts`, ENGINE_DESIGN.md §13.4) reads a project's `.prefab.json` files plus the project's real, registered `ComponentDef`s and emits a `.d.ts` string declaring one `PrefabDef<{...}>`-typed `declare const` per prefab. It lives in `packages/toolchain`, not `packages/engine/src/ecs`, because it never touches a `Scene`/`World` — it's pure offline codegen, the same "reads source files, emits a sibling file" shape as the GMS2 importer, not a runtime capability. The engine side (`packages/engine/src/ecs/SceneFile.ts`) owns the complementary runtime half — parsing that same prefab/scene JSON into a `PrefabDef` a live `Scene` can actually `spawn()` — and both sides import the same `ComponentLookup`/`PrefabFile` shapes from `@emptysock/engine/ecs` so the two halves can't drift apart on what a field means. `PrefabDef<T>` itself carries an unused, `@internal` `__props?: T` phantom field purely so `Scene.spawn<T>(prefab: PrefabDef<T>, props?: Partial<T>)` can infer `T` from whichever prefab value is passed — `definePrefab` leaves `T` at its `SerializableRecord` default for hand-authored prefabs, and `generatePrefabTypes`'s emitted `declare const` is what actually pins `T` to a concrete shape for a JSON-authored one. Wiring `generatePrefabTypes` into an IDE auto-save hook or a `packages/toolchain/src/cli.ts` build command is a real, tracked follow-up in `RELEASE_PASS.md`, not done yet — the function itself is real and tested.
 
 ### Input snapshot: frozen by copy, not by timing
 
-ENGINE*DESIGN.md §4 step 1 requires input "polled once, frozen for the
-frame". `ecs/Input.ts`'s `InputManager.snapshot()` (called once, first, by
-`Game.update()`) does this by making an actual copy — `keys:
-input.snapshotKeys()` (a fresh `Map`), a fresh `Map` of every gamepad's
-state, and the current `touches` array — into a private `_frozen` object.
-`isDown()`/`keyboard`/`gamepad()`/`touches` all read only `_frozen`, never
-the live `InputSystem`/`GamepadSystem` underneath. This matters because
-`InputSystem`'s own `_keys` map is mutated live by DOM event listeners
-between synchronous ticks of the event loop — relying on "JS is
-single-threaded, so nothing can mutate it mid-`update()`" would happen to
-work for real device events, but it would silently break the instant
-anything called `InputSystem`'s internals directly instead of through the
-frozen copy (and does not hold at all for the headless test-injection path
-below, which calls into `InputSystem` synchronously, same tick, deliberately
-mid-"frame" to prove the freeze holds). Copy-based freezing makes the
-guarantee independent of \_how* something tries to change input mid-frame,
-not just "how fast the OS can deliver an event".
+ENGINE*DESIGN.md §4 step 1 requires input "polled once, frozen for the frame". `ecs/Input.ts`'s `InputManager.snapshot()` (called once, first, by `Game.update()`) does this by making an actual copy — `keys: input.snapshotKeys()` (a fresh `Map`), a fresh `Map` of every gamepad's state, and the current `touches` array — into a private `_frozen` object. `isDown()`/`keyboard`/`gamepad()`/`touches` all read only `_frozen`, never the live `InputSystem`/`GamepadSystem` underneath. This matters because `InputSystem`'s own `_keys` map is mutated live by DOM event listeners between synchronous ticks of the event loop — relying on "JS is single-threaded, so nothing can mutate it mid-`update()`" would happen to work for real device events, but it would silently break the instant anything called `InputSystem`'s internals directly instead of through the frozen copy (and does not hold at all for the headless test-injection path below, which calls into `InputSystem` synchronously, same tick, deliberately mid-"frame" to prove the freeze holds). Copy-based freezing makes the guarantee independent of \_how* something tries to change input mid-frame, not just "how fast the OS can deliver an event".
 
-Headless/testing input injection is non-DOM on purpose:
-`InputSystem.simulateKeyDown(code)`/`simulateKeyUp(code)` write directly to
-the internal key map — no `KeyboardEvent`, no `window`, no jsdom dependency
-— so `@emptysock/engine`'s Node/Vitest path (CLAUDE.md's "Engine environment
-boundary") can exercise real action-mapping and freeze-per-frame behavior
-without a DOM. `Game` never calls `InputManager.attach()` itself; only
-host bootstrap code (browser preview shell, Tauri WebView entry point) does,
-which is what keeps a headless `Game` from touching `window` at all.
+`InputSystem` is keyboard-only, with `PointerSystem` feeding `InputManager`'s frozen snapshot separately (`input.pointers`/`.gestures`/`.wheelEvents`). Headless/testing input injection is non-DOM on purpose: `InputSystem.simulateKeyDown(code)`/`simulateKeyUp(code)` write directly to the internal key map — no `KeyboardEvent`, no `window`, no jsdom dependency — so `@emptysock/engine`'s Node/Vitest path (the engine environment boundary above) can exercise real action-mapping and freeze-per-frame behavior without a DOM. `Game` never calls `InputManager.attach()` itself; only host bootstrap code (browser preview shell, Tauri WebView entry point) does, which is what keeps a headless `Game` from touching `window` at all.
 
 ### Audio stays a Game-owned singleton, not a per-entity component
 
-`AudioSystem` (Howler-backed) has no per-entity audio-emitter component
-anywhere — games hold a reference to one `AudioSystem` instance and call
-`.play(id)` on it directly. There is nothing ECS-shaped to model here, so
-`Game.ts` simply constructs one `AudioSystem` in its constructor
-(`game.audio`, also handed through `SceneLifecycle.audio` for convenience)
-and never recreates or destroys it on `loadScene`/`unloadScene` — the same
-"game-owned, not scene-owned" treatment as `game.input`, since music
-commonly needs to keep playing across a scene transition and the engine has
-no automatic per-scene audio teardown. A game that wants scene-scoped sound
-(stop this scene's sfx/music on unload) does it explicitly from that
-scene's own `onUnload` (e.g. `audio.stop(id)` or `audio.unloadAll()`) — the
-engine does not guess at which sounds "belong" to which scene.
-
-### PhysicsBody callbacks live in a side-table, not the component's fields
-
-`defineComponent<T extends SerializableRecord>` rejects a shape with a
-function field at the type level (`Serializable.ts`) — deliberately, so a
-component made only of `Serializable` fields can be saved/loaded generically
-later. `PhysicsBody`'s `onCollisionEnter`/`onSensorEnter`/etc. are exactly
-the kind of field that constraint exists to keep out, so they cannot live in
-`PhysicsBody`'s own defaults object. `components/PhysicsBody.ts` instead
-keeps a `WeakMap<World, Map<eid, callbacks>>` side-table (the same per-world
-scoping pattern `ComponentRegistry` already uses) and hands out a `Proxy` via
-`getPhysicsBody(entity)` that reads/writes the real component for ordinary
-fields and the side-table for the five callback properties — so
-`getPhysicsBody(entity).onCollisionEnter = fn` still reads as "assigning is
-the registration" (CLAUDE.md's "Collision/sensor callbacks" decision) even
-though the callback and the data never share storage. `PhysicsSystem`
-dispatches by reading the side-table directly (`getPhysicsCallbacks`), not
-through the proxy. A future component that wants a callback-shaped property
-should use the same pattern rather than loosening `SerializableRecord`.
-
-### Deterministic Rapier build is imported via a non-literal specifier
-
-`PhysicsSystem.init()`/`PhysicsSystem3D.init()` choose between
-`@dimforge/rapier{2,3}d-compat` and the `-deterministic-compat` build with
-`await import(moduleName)` where `moduleName` is a runtime string, not a
-literal. A literal `import("@dimforge/rapier2d-deterministic-compat")` would
-make TypeScript (and any bundler resolving imports at build time) treat the
-deterministic build as a hard dependency of `@emptysock/engine`, which
-defeats the point of it being `optionalDependencies` (§15.2 — most games
-never install it and shouldn't pay for it, including at install/bundle
-time). Keep this non-literal if the deterministic swap logic ever moves.
+`AudioSystem` (Howler-backed) has no per-entity audio-emitter component anywhere — games hold a reference to one `AudioSystem` instance and call `.play(id)` on it directly. There is nothing ECS-shaped to model here, so `Game.ts` simply constructs one `AudioSystem` in its constructor (`game.audio`, also handed through `SceneLifecycle.audio` for convenience) and never recreates or destroys it on `loadScene`/`unloadScene` — the same "game-owned, not scene-owned" treatment as `game.input`, since music commonly needs to keep playing across a scene transition and the engine has no automatic per-scene audio teardown. A game that wants scene-scoped sound (stop this scene's sfx/music on unload) does it explicitly from that scene's own `onUnload` (e.g. `audio.stop(id)` or `audio.unloadAll()`) — the engine does not guess at which sounds "belong" to which scene.
 
 ### RenderPipeline tracks sprites per-`Scene`, not by raw entity id
 
-`Game` can have several live scenes at once — the main scene plus any
-`loadOverlay()`-ed overlays (§12.3) — and each one owns its own bitECS
-`World`, whose entity ids independently start from 0 (see `Scene.ts`). That
-means the main scene's entity `eid 3` and an overlay's entity `eid 3` are
-two different entities that happen to share a number. `systems/RenderPipeline.ts`
-keys its sprite/texture-path tracking per `Scene`
-(`Map<Scene, { sprites: Map<number, PixiSprite>, ... }>`) to avoid aliasing
-them — the same "never index by a raw entity id without first scoping by
-which world it belongs to" rule `ComponentRegistry` and `PhysicsBody`'s
-callback side-table already follow (see the "PhysicsBody callbacks" entry
-above), just scoped by `Scene` instead of `World` since `RenderPipeline` is
-an external system reaching in, not a component module. Overlay sprites
-skip the older, singleton-style `LayerSystem` entirely (it's keyed by raw
-entity id with no scene scoping, so feeding it overlay eids would reproduce
-the exact collision this exists to avoid) — each overlay instead gets one
-flat, self-sorting `Container` appended to the stage after the main scene's
-layer containers, which is enough for draw-order-within-an-overlay without
-needing cross-container named layers there.
+`Game` can have several live scenes at once — the main scene plus any `loadOverlay()`-ed overlays (§12.3) — and each one owns its own bitECS `World`, whose entity ids independently start from 0 (see `Scene.ts`). That means the main scene's entity `eid 3` and an overlay's entity `eid 3` are two different entities that happen to share a number. `systems/RenderPipeline.ts` keys its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`, the same map covering both the main scene and every overlay) to avoid aliasing them — the same "never index by a raw entity id without first scoping by which world it belongs to" rule `ComponentRegistry` and `PhysicsBody`'s callback side-table follow, just scoped by `Scene` instead of `World` since `RenderPipeline` is an external system reaching in, not a component module. `_syncMain` tracks which `Scene` it currently belongs to and fully disposes the previous one's sprites the moment a different `Scene` is passed in, reusing `releaseOverlay`'s per-sprite teardown. Overlay sprites each get one flat, self-sorting `Container` appended to the stage after the main scene's layer containers, which is enough for draw-order-within-an-overlay without needing cross-container named layers there.
 
 ### `Game.attachRenderer` takes a structural interface, not the concrete `RenderPipeline`
 
-`Game.ts` defines `SceneRenderer` (`renderFrame(main, overlays)`) as a
-plain interface and never imports `systems/RenderPipeline.ts`, which in
-turn imports `pixi.js` and returns `HTMLCanvasElement`. This is the same
-pattern as `SceneManager`/`TransitionEffectSink` (see "Scene
-transitions: SceneManager times them, RenderPipeline paints them" above):
-`Game.ts` has to keep running under the headless testing harness in plain
-Node with zero DOM/Pixi involvement (the engine-environment-boundary rule),
-so it can only depend on the shape a renderer has, never a concrete
-Pixi-backed one. `Game.update()`'s render step (7) is gated on both "a
-renderer is attached" and "this scene wasn't loaded with `headless: true`" —
-belt-and-suspenders, since a `HeadlessGame` never calls `attachRenderer` at
-all, but the second check means it stays safe even if something did.
+`Game.ts` defines `SceneRenderer` (`renderFrame(main, overlays)`) as a plain interface and never imports `systems/RenderPipeline.ts`, which in turn imports `pixi.js` and returns `HTMLCanvasElement`. This is the same pattern as `SceneTransitionManager`/`TransitionEffectSink`: `Game.ts` has to keep running under the headless testing harness in plain Node with zero DOM/Pixi involvement (the engine-environment-boundary rule), so it can only depend on the shape a renderer has, never a concrete Pixi-backed one. `Game.update()`'s render step (7) is gated on both "a renderer is attached" and "this scene wasn't loaded with `headless: true`" — belt-and-suspenders, since a `HeadlessGame` never calls `attachRenderer` at all, but the second check means it stays safe even if something did.
 
 ### Visual script compilation: per-node cases, not a re-implemented interpreter
 
-`VisualScriptCompiler.compileVisualScriptGraph` turns a `VisualScriptGraph`
-into a JS module string via `new Function("module", "exports", "console",
-source)`, not a bundler/transpile step, so it can compile and load in one
-call inside the engine package with zero new build tooling. The graph format
-it targets is the ActorSystem/VariableStore shape (`VariableStore` get/set
-var/switch, `ActorSystem.send`) because that is genuinely what the Visual
-Script Editor's Logic Script tab authors today — the graph has no
-entity/component or `scene.spawn` node kinds at all, so there is no
-alternate API to target; compiling to entity/component calls would mean
-inventing new node kinds, which is out of scope for a compiler over the
-existing format.
+`VisualScriptCompiler.compileVisualScriptGraph` turns a `VisualScriptGraph` into a JS module string via `new Function("module", "exports", "console", source)`, not a bundler/transpile step, so it can compile and load in one call inside the engine package with zero new build tooling. The graph format it targets is the ActorSystem/VariableStore shape (`VariableStore` get/set var/switch, `ActorSystem.send`) because that is genuinely what the Visual Script Editor's Logic Script tab authors — the graph has no entity/component or `scene.spawn` node kinds at all, so there is no alternate API to target; compiling to entity/component calls would mean inventing new node kinds, which is out of scope for a compiler over the existing format.
 
-The emitted code is a `switch` inside a `while (__next !== undefined)` loop
-keyed on node id, not straight-line code, because a `VisualScriptGraph` can
-legally contain a cycle (see `VisualScriptComponent.test.ts`'s "does not
-loop forever" case) and straight-line generated code cannot represent one.
-This is still compiled output, not an interpreter: each `case` is the one
-specific statement for that one node with its field values baked in as
-literals at compile time (`ctx.variables.setVar(1, 5)`, never a generic
-`execute(node)` call reading `node.kind` at runtime) — only the _dispatch
-shape_, not the per-node logic, is shared with the interpreter's loop.
-`VisualScriptComponent` (the interpreter) is unchanged and stays the
-default runtime path; `CompiledVisualScriptComponent` is an opt-in, same-
-shape drop-in for games that want to ship compiled logic instead. Both are
-tested against each other node-by-node so they can never silently diverge
-in behaviour.
+The emitted code is a `switch` inside a `while (__next !== undefined)` loop keyed on node id, not straight-line code, because a `VisualScriptGraph` can legally contain a cycle (see `VisualScriptComponent.test.ts`'s "does not loop forever" case) and straight-line generated code cannot represent one. This is still compiled output, not an interpreter: each `case` is the one specific statement for that one node with its field values baked in as literals at compile time (`ctx.variables.setVar(1, 5)`, never a generic `execute(node)` call reading `node.kind` at runtime) — only the _dispatch shape_, not the per-node logic, is shared with the interpreter's loop. `VisualScriptComponent` (the interpreter) is the default runtime path; `CompiledVisualScriptComponent` is an opt-in, same-shape drop-in for games that want to ship compiled logic instead. Both are tested against each other node-by-node so they can never silently diverge in behaviour.
 
 ### RenderPipeline mounts a tilemap through a structural interface, not `@emptysock/tilemap`'s `Tilemap`
 
-`RenderPipeline.mountTilemap()`/`unmountTilemap()` used to take the concrete `Tilemap` class from `packages/engine/src/systems/TilemapSystem.ts`. Once `TilemapSystem`/`NavMeshSystem` moved out to `@emptysock/tilemap` (§13.1), `RenderPipeline` — which stays in the core engine, since every game needs to render, not just ones with tile levels — could no longer import `Tilemap` without making `@emptysock/engine` depend on the very module package that's supposed to depend on it. `RenderPipeline.ts` now declares `TileLayerSource`, a plain structural interface covering only the `{ data: { tileWidth, tileHeight, rows, cols, tileset, layers } }` shape `mountTilemap()` actually reads; `@emptysock/tilemap`'s `Tilemap` satisfies it without either package importing the other, the same "engine depends on the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter`. A consequence: tests that need both a real `RenderPipeline` and a real `Tilemap` together (verifying tiles actually get mounted) can't live in the engine's own test suite any more — they moved to `packages/tilemap/src/__tests__/RenderPipelineIntegration.test.ts`, since `@emptysock/tilemap` is the package that already depends on both.
+`RenderPipeline` stays in the core engine, since every game needs to render, not just ones with tile levels — so it cannot import `@emptysock/tilemap`'s `Tilemap` without making `@emptysock/engine` depend on the very module package that's supposed to depend on it. `RenderPipeline.ts` declares `TileLayerSource`, a plain structural interface covering only the `{ data: { tileWidth, tileHeight, rows, cols, tileset, layers } }` shape `mountTilemap()`/`unmountTilemap()` actually reads; `@emptysock/tilemap`'s `Tilemap` satisfies it without either package importing the other, the same "engine depends on the interface, never a concrete implementation" pattern as `Transport`/`StorageAdapter`. A consequence: tests that need both a real `RenderPipeline` and a real `Tilemap` together (verifying tiles actually get mounted) live in `packages/tilemap/src/__tests__/RenderPipelineIntegration.test.ts`, since `@emptysock/tilemap` is the package that already depends on both.
 
 ### WidgetTree: bitECS relations for structure, yoga-layout for measure/arrange, three real gotchas
 
-`ecs/ui/WidgetTree.ts` (RELEASE_PASS.md Track 3's prototype, ground rule 4a) is the first real consumer of bitECS's relations/hierarchy API in this codebase, and of `yoga-layout`. Three things about actually using them are non-obvious enough to have cost real debugging time:
+`ecs/ui/WidgetTree.ts` is this codebase's consumer of bitECS's relations/hierarchy API, and of `yoga-layout`. Three things about actually using them are non-obvious enough to be worth writing down:
 
-1. **`queryHierarchy` is not a public bitecs@0.4.0 export.** It exists as a real internal function, but the package's own `index.d.ts` only re-exports `getHierarchyDepth`/`getMaxHierarchyDepth` from its `Hierarchy` module — not `queryHierarchy`/`queryHierarchyDepth`. The documented, exported way to get the same parent-before-child depth-sorted traversal is `query(world, [...components, Hierarchy(relation)])`; `Cascade` is a literal alias for `Hierarchy` in this version (`var Cascade = Hierarchy`), not a distinct traversal mode. `WidgetTree.orderedWidgets()` is the one place that does this correctly — route any future hierarchy-ordered query through it (or the same pattern) rather than trying to import `queryHierarchy` directly, which doesn't exist at the public API surface.
-2. **A `query()`/`Hierarchy()` term must be the real bitECS-registered store, not the `ComponentDef`.** `entity.add(SomeComponent)`/`entity.get(SomeComponent)` take the plain `ComponentDef` object (see "Component shape-change detection" below), but bitECS's own `query()` needs the actual per-`World` store object `ComponentRegistry.ensure(world, def)` returns — passing the `ComponentDef` directly compiles fine and silently matches zero entities, no error. `WidgetTree.orderedWidgets()` calls `componentRegistry.ensure()` itself so nothing else has to remember this.
+1. **`queryHierarchy` is not a public bitecs@0.4.0 export.** It exists as a real internal function, but the package's own `index.d.ts` only re-exports `getHierarchyDepth`/`getMaxHierarchyDepth` from its `Hierarchy` module — not `queryHierarchy`/`queryHierarchyDepth`. The documented, exported way to get the same parent-before-child depth-sorted traversal is `query(world, [...components, Hierarchy(relation)])`; `Cascade` is a literal alias for `Hierarchy` in this version (`var Cascade = Hierarchy`), not a distinct traversal mode. `WidgetTree.orderedWidgets()` is the one place that does this correctly — route any hierarchy-ordered query through it (or the same pattern) rather than trying to import `queryHierarchy` directly, which doesn't exist at the public API surface.
+2. **A `query()`/`Hierarchy()` term must be the real bitECS-registered store, not the `ComponentDef`** — see "Components are identified by their `componentName` string, and by their real bitECS store" above. `WidgetTree.orderedWidgets()` calls `componentRegistry.ensure()` itself so nothing else has to remember this.
 3. **`Hierarchy`/`Cascade` query results are cached per-relation, invalidated only by a relation pair changing — not by destroying the underlying entity.** Destroying a childless widget and re-running a `Hierarchy()`-ordered query can still return its now-stale eid, and `getRelationTargets` throws given one. `orderedWidgets()` filters every result through `entityExists()` before returning it — any other code building a hierarchy-ordered query over a relation that entities can be destroyed out from under needs the same defensive filter.
 
-Separately: `yoga-layout@3.2.1`'s async WASM init (`loadYoga()`) is imported from the package's `yoga-layout/load` subpath, not its default `.` entry — the default entry's own module-level side effects for auto-loading the WASM synchronously are undocumented magic this codebase deliberately avoids; `./load` re-exports the same plain enum constants (`FlexDirection`, `Edge`, `Gutter`, …) plus an explicit `loadYoga(): Promise<Yoga>` with no ambiguity about when the WASM actually loads. The WASM binary is embedded as base64 directly in the npm package (no runtime fetch), which is what makes `WidgetTree.init()` safe to await under the headless Node/Vitest testing harness with zero DOM.
+`WidgetParent` (`createRelation(withAutoRemoveSubject)`) is passed as a function reference, not called with `()` — `createRelation`'s modifier-array overload expects `(relation: Relation<T>) => Relation<T>` functions directly.
 
-`LayoutStyle.flexDirection`'s `0`/`1` ordinals are this component's own, deliberately not yoga's real `FlexDirection` enum values (`Column = 0`, `Row = 2`, with reverse variants at 1/3) — keeping the component's schema value independent of whichever layout library sits underneath it, translated by `WidgetTree`'s adapter. `LayoutStyle.width`/`.height` use `-1` as an "auto" sentinel (maps to yoga's `setWidthAuto()`/`setHeightAuto()`) rather than a second boolean pair per axis, since `Serializable` already allows a plain number field and every other field here is one.
+`yoga-layout@3.2.1`'s async WASM init (`loadYoga()`) is imported from the package's `yoga-layout/load` subpath, not its default `.` entry — the default entry's own module-level side effects for auto-loading the WASM synchronously are undocumented magic this codebase deliberately avoids; `./load` re-exports the same plain enum constants (`FlexDirection`, `Edge`, `Gutter`, …) plus an explicit `loadYoga(): Promise<Yoga>` with no ambiguity about when the WASM actually loads. The WASM binary is embedded as base64 directly in the npm package (no runtime fetch), which is what makes `WidgetTree.init()` safe to await under the headless Node/Vitest testing harness with zero DOM.
 
-### ECS UISystem: widget state lives on components, not event-emitter callbacks; CGGallery/DebugOverlaySystem follow the StorageAdapter precedent
+`LayoutStyle.flexDirection`'s `0`/`1` ordinals are this component's own, deliberately not yoga's real `FlexDirection` enum values (`Column = 0`, `Row = 2`, with reverse variants at 1/3) — keeping the component's schema value independent of whichever layout library sits underneath it, translated by `WidgetTree`'s adapter. `LayoutStyle.width`/`.height` use `-1` as an "auto" sentinel (maps to yoga's `setWidthAuto()`/`setHeightAuto()`) rather than a second boolean pair per axis, since `Serializable` already allows a plain number field and every other field here is one. `LayoutStyle` also carries `positionType`/`left`/`top` (yoga's `PositionType.Absolute` + `setPosition(Edge, ...)`) for a fixed-position HUD overlay that needs an exact on-screen position independent of any parent's flex flow — `positionType: 1` opts a widget out of the parent's flex flow entirely, positioned by `left`/`top` alone; `0` (the default) is ordinary flex-flow layout, unaffected.
 
-`ecs/ui/UISystem.ts` covers the classic `systems/UISystem.ts`'s real, load-bearing contract (hit-testing, press/drag/click dispatch with the same drag threshold, hover) against `WidgetTree`'s entity-per-widget tree and the widget-kind components in `ecs/components/Widgets.ts` (`Label`, `PanelStyle`, `ButtonState`, `Checkbox`, `Slider`, `Progress`, `ImageWidget`). The one deliberate contract change: **no `.on("click", cb)` event emitter.** A `Checkbox`'s `checked` field flips in place when `UISystem` resolves a click; a `Slider`'s `value` updates in place while being dragged; a `ButtonState`'s `state` (0 normal / 1 hover / 2 pressed) is written by pointer dispatch every frame. Game code reads these by polling the component each frame, the same "state lives in the component, game code reads it" style `VisualScriptComponent`/`PhysicsBody` already use elsewhere in the ECS core — there is no ECS-native equivalent of an event bus to hang a callback off of, and inventing one just for widgets would be a second, parallel notification mechanism alongside the ECS's actual query-driven update model. Per-widget animation (`fadeIn`/`slideIn`/`pop`/`shake`), anchor resolution, and real image bitmap loading/caching are real, tracked gaps, not silently dropped — `ImageWidget` renders a flat placeholder box today.
+### ECS UISystem: widget state lives on components, not event-emitter callbacks
 
-`ecs/systems/CGGallery.ts` and `ecs/systems/DebugOverlaySystem.ts` both needed a settings-blob persistence story and both took the same route Track 1 already set for `InputManager.saveBindings()`/`loadBindings()`: a `StorageAdapter` (`get`/`set`/`delete`/`listKeys`), not `ecs/systems/SaveSystem.ts`. `SaveSystem` serializes a live `Scene`'s entities/components — a CG-unlock flag set or a debug overlay's own state isn't per-entity component data, so `SaveSystem`'s `Scene`/`ComponentDef`-bound API is the wrong shape for it regardless of how small the blob is. The rule going forward: a `Game`-level settings/flags blob that isn't tied to one scene's live entities takes a `StorageAdapter` directly; only real per-entity save data goes through `SaveSystem`.
+`ecs/ui/UISystem.ts` handles hit-testing, press/drag/click dispatch with a drag threshold, and hover, against `WidgetTree`'s entity-per-widget tree and the widget-kind components in `ecs/components/Widgets.ts` (`Label`, `PanelStyle`, `ButtonState`, `Checkbox`, `Slider`, `Progress`, `ImageWidget`). There is no `.on("click", cb)` event emitter. A `Checkbox`'s `checked` field flips in place when `UISystem` resolves a click; a `Slider`'s `value` updates in place while being dragged; a `ButtonState`'s `state` (0 normal / 1 hover / 2 pressed) is written by pointer dispatch every frame. Game code reads these by polling the component each frame, the same "state lives in the component, game code reads it" style `VisualScriptComponent`/`PhysicsBody` use elsewhere in the ECS core — there is no ECS-native equivalent of an event bus to hang a callback off of, and inventing one just for widgets would be a second, parallel notification mechanism alongside the ECS's actual query-driven update model. Per-widget animation (`fadeIn`/`slideIn`/`pop`/`shake`), anchor resolution, and real image bitmap loading/caching are real, tracked gaps, not silently dropped — `ImageWidget` renders a flat placeholder box today.
 
-`Layout.ts`'s `LayoutStyle` gained `positionType`/`left`/`top` (yoga's `PositionType.Absolute` + `setPosition(Edge, ...)`) while porting `DebugOverlaySystem` — a fixed-position HUD overlay needs an exact on-screen position independent of any parent's flex flow, which nothing in the original `LayoutStyle` slice could express. `positionType: 1` opts a widget out of the parent's flex flow entirely, positioned by `left`/`top` alone; `0` (the default) is ordinary flex-flow layout, unaffected.
+### ParticleEmitter renders through a real pixi ParticleContainer, rebuilt from scratch every frame
 
-### ParticleEmitter renders through a real pixi ParticleContainer now, rebuilt from scratch every frame
+`ecs/systems/RenderPipeline.ts`'s `mountParticles(emitter, layerName?)`/`unmountParticles(emitter)` wire `systems/ParticleSystem.ts`'s `ParticleEmitter` into actual gameplay rendering — the simulation itself is pure and renderer-agnostic, with zero pixi dependency. One pixi core `ParticleContainer` is mounted per emitter (`ParticleContainer`/`Particle` are core pixi.js exports — no new dependency), and `RenderPipeline.renderFrame()` calls a private `_syncParticles()` every frame that does `container.removeParticles()` then rebuilds the whole list from `emitter.getParticles()` — it does not diff or reuse `Particle` objects across frames. This is a deliberate, documented tradeoff (simplicity over per-frame allocation cost), not an oversight; revisit it if particle counts in a real game ever become a measured bottleneck. An emitter with no `options.texture` set (the default is `""`) renders with `Texture.WHITE` rather than nothing, so a particle effect mounted before its real texture is ready is still visible.
 
-`ecs/systems/RenderPipeline.ts`'s `mountParticles(emitter, layerName?)`/`unmountParticles(emitter)` are the first real wiring of `systems/ParticleSystem.ts`'s `ParticleEmitter` into actual gameplay rendering — it was already a pure, renderer-agnostic simulation with zero pixi dependency (its own doc comment says so), but the only real consumer before this was the IDE's `ParticleEditor.tsx` preview, which draws to a plain HTML canvas. One pixi core `ParticleContainer` is mounted per emitter (`ParticleContainer`/`Particle` are core pixi.js exports — no new dependency), and `RenderPipeline.renderFrame()` calls a private `_syncParticles()` every frame that does `container.removeParticles()` then rebuilds the whole list from `emitter.getParticles()` — it does not diff or reuse `Particle` objects across frames. This is a deliberate, documented tradeoff (simplicity over per-frame allocation cost), not an oversight; revisit it if particle counts in a real game ever become a measured bottleneck. An emitter with no `options.texture` set (the default is `""`) renders with `Texture.WHITE` rather than nothing, so a particle effect mounted before its real texture is ready is still visible.
+### `Meta` component gives `QueryChannel` a real entity name/tags/active shape
 
-### CharacterStage is unused and violates the engine environment boundary — do not port, do not resurrect as-is
-
-`systems/CharacterStage.ts` has zero real callers anywhere in the monorepo (confirmed by grepping `packages/vn/src`, `apps/ide/src`, and `packages/engine/src` — not even `@emptysock/vn`'s `VNTextbox`/`VNBackgroundLayer`, both of which exist and work independently of it). A prior pass of RELEASE_PASS.md's system-reference table had this marked "confirmed real, used by `@emptysock/vn`" — that was wrong, the same kind of grep false-positive already caught twice for `WindowSystem`/`ViewportSystem`. It also directly types against DOM APIs (`HTMLImageElement`, `CanvasRenderingContext2D`, `document`, `Image`) at the type level, unconditionally — a real violation of "Engine environment boundary" above, not just an unused file. If a real VN character-stage feature is ever wanted, rebuild it against `IUIRenderer` and an injected image loader (the same environment-boundary-safe shape `ecs/ui/UISystem.ts`'s `ImageWidget` placeholder is waiting on) — do not resurrect this file as-is.
-
-### SceneTransitionManager times transitions, ecs RenderPipeline paints them — same split as the classic pair, minus the singleton and the scene stack
-
-`ecs/systems/SceneTransition.ts`'s `SceneTransitionManager` is the ECS-side counterpart to the classic `core/SceneManager.ts`, but it is deliberately narrower and — unlike the classic version — not a singleton. Two real differences, both intentional:
-
-1. **No scene registration or pause/resume stack.** The classic `SceneManager` also owned `register()`/`load()` (name → factory registry) and `pushScene()`/`popScene()` (a paused-scene stack), both built directly against classic `core/Scene.ts` methods (`_callOnPause()`/`start()`/`stop()`/`ui.clear()`) the deliberately-narrow ECS `Scene` (spawn/destroy/each, nothing else) doesn't have. `ecs/Game.ts` already owns real scene swapping (`loadScene()`/`loadOverlay()`/`unloadScene()`) with its own lifecycle guarantees, so `SceneTransitionManager`'s only job is timing a transition's visual progress and calling a caller-supplied `load` callback (`() => game.loadScene(...)`) once the duration elapses — it never touches scene registration or a scene stack. If a pause/resume stack is ever wanted on the ECS side, that's a real, separate `Game.ts` design question, not something to retrofit onto this class for classic parity.
-2. **Not a singleton.** The classic `SceneManagerInstance` was a bare module-level `new SceneManager()` export — the exact same shared-mutable-state-across-test-files hazard Track 0 already fixed for `PluginSystem`/`VariableStore`/`LocalisationSystem`/`ViewportSystem`/`WindowSystem` (this pass just hadn't noticed this sixth instance of the same bug class yet). Game code constructs its own `new SceneTransitionManager()`.
-
-`ecs/systems/RenderPipeline.ts`'s `renderTransitionOverlay()` is a direct, unmodified port of the classic version's overlay math (fade = triangle wave, wipe = growing rect, slide = a panel sweeping across the screen) — called automatically from `renderFrame()` once a `PostProcessSystem` is attached via `attachPostProcess()`, the same call site `syncPostProcessLayerFilters()` already uses. **Ground rule 11's crossfade-vs-overlay question resolved to: keep the overlay.** A true two-scene crossfade is confirmed technically buildable (`renderer.render({ target: renderTexture, container })`, pixi v8's real object-form API) but its actual cost (a genuine two-full-render-pass-per-frame hit during the transition window) has no documented number from pixi's own docs and can only really be judged by profiling real target devices, including the lower-end tablets this pass's mobile/tablet scope cares about — not something a headless CI sandbox can do. Shipping an unvalidated perf-risk rendering path without being able to verify it would be worse than keeping the overlay approach, which is proven and cheap. This is a considered decision, not a deferred one — revisit only once real device profiling is actually possible.
-
-### GMS2 import emits prefab/scene JSON plus a companion behavior module — never a class
-
-The GMS2 importer (`packages/toolchain/src/gms2-*.ts`) used to emit `class X extends Component { onCreate() {...} onStep() {...} }` per GameMaker object. Ground rule 15 retired that shape entirely: `buildObjectPrefabJSON()` emits a real `.prefab.json` (`@emptysock/engine/ecs`'s `PrefabFile` shape — every GameMaker object instance has a position, so every generated prefab gets a `Transform` component), and `buildRoomSceneJSON()` emits a real `.scene.json` (`SceneFile` shape, one `prefabInstances` entry per room instance whose object was actually imported).
-
-The one real design question this forced: GML event code (Create/Step/Draw/Destroy/Collision/KeyPress handlers) is genuine executable behavior, and a `PrefabFile`'s components must stay plain `Serializable` data — the same constraint that keeps `PhysicsBody`'s collision callbacks in a side-table rather than the component's own fields, and the same reason `ecs/ui/UISystem.ts`'s widget components have no event-emitter callbacks. Transpiled GML logic structurally cannot live inside a `.prefab.json`. `buildObjectBehavior()` (the renamed `buildObjectStub`) still transpiles each GML event via the same pipeline as before, but now emits plain exported functions (`onCreate(entity)`, `onUpdate(entity, dt)`, `onCollideWithX(entity, other)`, …) into a companion `<name>.behavior.ts` module rather than class methods. Wiring these functions up to real prefab instances (a per-prefab-name dispatch table, most likely) is left to the game importing the project — the engine has no single opinionated "GMS2 object behavior" runtime to hand this off to automatically, the same "engine defines the shape, game code wires the actual behavior" pattern used throughout this pass. `projectManifestJSON()` replaces the old class-importing `project.ts` entrypoint with a plain JSON file listing every prefab/behavior/scene file produced — there's no "register a component" step for JSON loaded via `parsePrefabFile`/`loadSceneFile` directly.
-
-None of the real `.yy`/`.yyp` format quirks documented above (trailing commas, `%Name`, event naming, `resourceType` room layers, sprite frame UUIDs, `defaultScriptType` non-signal, untranspiled GM8.1 DnD symbols) were touched by this — they live entirely in the parsing layer (`gms2-parse.ts`/`gms2-sprite-import.ts`/`gms2-room-import.ts`/`gms2-transpile.ts`), which this redesign never modified, only the codegen layer consuming its output.
-
-### `Meta` component gives `QueryChannel` a real entity name/tags/active shape — `apps/ide` still isn't wired to read it
-
-RELEASE_PASS.md's Track 0 deferred unifying `IDEBridge` into `QueryChannel` for a
-specific, real reason: `QueryChannel`'s `EntitySummary` had no `name`/`tags`/`active`
-fields, and bitECS entities have no built-in notion of any of the three, so
-inventing that shape needed a real design decision rather than a placeholder.
-`ecs/components/Meta.ts` is that decision — an optional component (`name: string`,
-`tags: string[]`, `active: boolean`) following the same "optional, absent means a
-sane default" pattern `WidgetAppearance` already uses for `visible`/`alpha`: an
-entity with no `Meta` is simply unnamed/untagged/active, the common case for a
-purely code-spawned entity that never needs to show up named in an editor.
-`QueryChannel.EntitySummary` gained matching optional `name?`/`tags?`/`active?`
-fields plus `x?`/`y?`/`rotation?` sourced from `Transform` when present, and both
-`_listEntities()` and `_entityInfo()` route through a new private
-`_summaryExtras(entity)` that reads `Meta`/`Transform` if they exist and spreads
-whichever fields are present — an entity with neither component still gets the
-original bare `{ entityId, components }` shape, so this is additive, not a
-breaking change to the query result.
-
-This closes the "we don't have a shape to migrate to" half of Track 0's deferred
-item, but not the whole thing: `apps/ide/src/services/EngineChannel.ts` still
-consumes the classic `IDEBridge` `es:entities`/`es:component-fields` postMessage
-protocol end to end, confirmed by grep — nothing in `apps/ide` has been rewired to
-call `queryChannel.handle({ kind: "listEntities" })` instead. That rewiring
-touches `CanvasPreview.tsx`/`EntityProperties.tsx`/`SceneInspector.tsx`/
-`useEngineChannel.ts` and can only be verified by actually running the live
-preview iframe and clicking through the Inspector — not something a
-non-interactive session can safely do blind. Until that rewiring lands, Track 8's
-"Inspector reads a real `ComponentRegistry`-driven schema" item stays blocked:
-its own stated precondition is "every component is ECS-native," and the
-Inspector's live data source is still the pre-ECS bridge regardless of how many
-`ComponentDef`s exist on the engine side.
+`ecs/components/Meta.ts` is an optional component (`name: string`, `tags: string[]`, `active: boolean`) following the same "optional, absent means a sane default" pattern `WidgetAppearance` uses for `visible`/`alpha`: an entity with no `Meta` is simply unnamed/untagged/active, the common case for a purely code-spawned entity that never needs to show up named in an editor. `QueryChannel.EntitySummary` carries matching optional `name?`/`tags?`/`active?` fields plus `x?`/`y?`/`rotation?` sourced from `Transform` when present, and both `_listEntities()` and `_entityInfo()` route through a private `_summaryExtras(entity)` that reads `Meta`/`Transform` if they exist and spreads whichever fields are present — an entity with neither component gets the bare `{ entityId, components }` shape.
 
 ### GitPanel shells out to git via a plain Tauri command, not the shell plugin
 
-`GitPanel.tsx` used to call `invoke("plugin:shell|execute", { cmd: "git", args })` directly against `@tauri-apps/plugin-shell`'s low-level invoke name — but the JS package (`@tauri-apps/plugin-shell`) was never actually added as a dependency, the param name was wrong (the plugin's real `execute` command takes `program`, not `cmd`), and using the shell plugin at all would have meant configuring its scoped-execute allowlist in `capabilities/default.json` (a `shell:allow-execute` permission naming exactly which programs/argument shapes are permitted) just to run one fixed binary. None of that ever worked. Replaced with `run_git(project_dir, args)`, a single Tauri command in `lib.rs` that does a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` already use, and CLAUDE.md's own comment above `open_in_vscode` already called out as the "no shell-execute scope config needed" alternative. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. `tauri_plugin_shell::init()`'s plugin registration and the `shell:default` capability entry were removed outright since nothing else in the app used them. One generic passthrough (rather than one Tauri command per git subcommand) was deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.
+`GitPanel.tsx` calls a single Tauri command, `run_git(project_dir, args)`, defined in `lib.rs` as a plain `std::process::Command::new("git").current_dir(project_dir).args(args).output()` — the same pattern `open_in_vscode`/`export_game` use, and the reason `open_in_vscode` calls out as the "no shell-execute scope config needed" alternative to the Tauri shell plugin. `args` is a real `Vec<String>` handed straight to `Command::args()`, never concatenated into a shell string, so a commit message or file path containing shell metacharacters can't break out of the intended argv. The app has no `tauri_plugin_shell::init()` registration and no `shell:default` capability entry — nothing in the app needs the shell plugin's scoped-execute allowlist, since `run_git` is a single fixed binary with an explicit argv. One generic passthrough (rather than one Tauri command per git subcommand) is deliberate: `GitPanel` already assembles the exact argv it wants for each operation (status/diff/add/reset/commit/push/log), so a second Rust-side API re-encoding the same subcommands would just be a parallel thing to keep in sync for no benefit.
 
 ### "Open in VS Code" has no real path in browser preview
 
-`VsCodeService.openInVsCode()` (`apps/ide/src/services/VsCodeService.ts`) shells out to `code <path>` via a Tauri command (`open_in_vscode` in `lib.rs`, plain `std::process::Command`, not the shell plugin's scoped execute API) on desktop. In the browser preview there is no equivalent: the File System Access API's `FileSystemDirectoryHandle` (what `ProjectService.openDirectoryBrowser` gets from `showDirectoryPicker()`) exposes only a `name`, never a real OS path, and there is no browser API that recovers one. That means the `vscode://file/<absolute-path>` URI scheme — which really can hand off to an installed VS Code Desktop, but only given a real absolute path — has nothing to open in browser-preview mode. `openInVsCodeBrowser()` still checks for a real absolute path (so a future browser API or host wrapper isn't silently ignored) but in the browser-preview mode this repo ships today that check always fails, and the button says so plainly rather than pretending the click did something.
+`VsCodeService.openInVsCode()` (`apps/ide/src/services/VsCodeService.ts`) shells out to `code <path>` via a Tauri command (`open_in_vscode` in `lib.rs`, plain `std::process::Command`, not the shell plugin's scoped execute API) on desktop. In the browser preview there is no equivalent: the File System Access API's `FileSystemDirectoryHandle` (what `ProjectService.openDirectoryBrowser` gets from `showDirectoryPicker()`) exposes only a `name`, never a real OS path, and there is no browser API that recovers one. That means the `vscode://file/<absolute-path>` URI scheme — which really can hand off to an installed VS Code Desktop, but only given a real absolute path — has nothing to open in browser-preview mode. `openInVsCodeBrowser()` still checks for a real absolute path (so a future browser API or host wrapper isn't silently ignored) but in browser-preview mode that check always fails, and the button says so plainly rather than pretending the click did something.
 
 ### Inspector schema lookup is keyed by componentName string, mirroring the field mismatch it has to tolerate
 
-`defineComponent`'s optional `schema` (ENGINE*DESIGN.md §10.1) is a plain
-object attached to the returned `ComponentDef`, keyed by field name — no
-decorators, no separate registry. `apps/ide`'s `EntityProperties.tsx` reads
-it via a small `componentName -> ComponentInspectorMeta` lookup map
-(`V2_COMPONENT_METADATA`) built once from the component modules it
-imports (`Transform`, `Sprite`, `PhysicsBody`), not by importing every
-component module the IDE might ever encounter. That one map covers both
-each component's `.schema` *and\* its inspector dot color — these used to be
-two separate hand-maintained `Record`s (`V2_COMPONENT_SCHEMAS` plus a
-`componentColor` map), which meant every new schema-bearing component
-needed this file edited in two places with no compile error if either was
-forgotten; they're now one map with one entry per component, so there's
-only one place to update. (The schema and color were not folded into
-`ComponentDef` itself in `packages/engine/src/ecs/Component.ts` — that
-would be the architecturally cleaner home for the color too, but is a
-larger change than this fix warranted; a future pass can move it there
-without changing how `EntityProperties.tsx` reads either.) This matters
-because the Inspector's `component.type` string (editor state, sourced
-from the live engine bridge or the editor's own entity list) is not
-guaranteed to line up 1:1 with a schema entry: an older, singleton-style
-component (`CharacterController`, `Animator`, …) has no `ComponentDef` at
-all, and even a schema'd component may have fields the schema doesn't cover
-(`PhysicsBody`'s `position`/`velocity`/handle fields are deliberately
-unlisted). Both cases — component not in the map, or field not in that
-component's schema object — must resolve to the same fallback: the
-pre-existing raw per-field text editor and the default muted dot color,
-not an error or a blank control. `ComponentSection` checks `schema?.[key]`
-per field, so a schema doesn't need to be all-or-nothing for a component to
-render correctly. If a future pass wants the Inspector to reflect _every_
-registered component's schema instead of a hardcoded few, don't
-hand-import each one here — that's the moment to add a
-`componentRegistry`-driven lookup (`ComponentRegistry.ts` already tracks
-defs per world) rather than growing this file's import list indefinitely.
+`defineComponent`'s optional `schema` (ENGINE_DESIGN.md §10.1) is a plain object attached to the returned `ComponentDef`, keyed by field name — no decorators, no separate registry. `apps/ide`'s `EntityProperties.tsx` reads it via a small `componentName -> ComponentInspectorMeta` lookup map (`V2_COMPONENT_METADATA`) built once from the component modules it imports (`Transform`, `Sprite`, `PhysicsBody`), not by importing every component module the IDE might ever encounter. That one map covers both each component's `.schema` and its inspector dot color, so there's one place to update per component rather than two hand-maintained `Record`s that could drift apart silently. (The schema and color are not folded into `ComponentDef` itself in `packages/engine/src/ecs/Component.ts` — that would be the architecturally cleaner home for the color too, but is a larger change than `EntityProperties.tsx` needs today.)
+
+This matters because the Inspector's `component.type` string (editor state, sourced from the live engine bridge or the editor's own entity list) is not guaranteed to line up 1:1 with a schema entry: some components have no `ComponentDef` at all, and even a schema'd component may have fields the schema doesn't cover (`PhysicsBody`'s `position`/`velocity`/handle fields are deliberately unlisted). Both cases — component not in the map, or field not in that component's schema object — must resolve to the same fallback: the raw per-field text editor and the default muted dot color, not an error or a blank control. `ComponentSection` checks `schema?.[key]` per field, so a schema doesn't need to be all-or-nothing for a component to render correctly. If the Inspector should reflect _every_ registered component's schema instead of a hardcoded few, don't hand-import each one here — that's the moment to add a `componentRegistry`-driven lookup (`ComponentRegistry.ts` already tracks defs per world) rather than growing this file's import list indefinitely.
 
 ### MCP server has no 3D physics tool
 
@@ -523,107 +247,25 @@ defs per world) rather than growing this file's import list indefinitely.
 
 ### Toolchain CLI export bundles with Rolldown, not esbuild
 
-`packages/toolchain/src/desktopBuild.ts`'s desktop export step (`emptysock-toolchain export --platform windows|mac|linux`) bundles the game's entry point with the real `rolldown` npm package, not `esbuild` and not `@rolldown/browser` (that one is the browser-WASM build; it's what `apps/ide`'s in-browser live-preview build would use if that separate, not-yet-started migration ever happens — ENGINE_DESIGN.md §17 sequences the CLI first specifically so the two don't get conflated). The bundling call is factored out as its own `bundleGameEntry()` export so it's testable (`packages/toolchain/src/__tests__/desktopBuild.test.ts`) without a Rust/`cargo tauri` toolchain installed, which the rest of `buildDesktopApp` requires. `apps/ide/src/services/` (`GameBuildService`, the esbuild-wasm virtual-fs plugin) was not touched by this change.
+`packages/toolchain/src/desktopBuild.ts`'s desktop export step (`emptysock-toolchain export --platform windows|mac|linux`) bundles the game's entry point with the real `rolldown` npm package, not `esbuild` and not `@rolldown/browser` (that one is the browser-WASM build; it's what `apps/ide`'s in-browser live-preview build would use if that separate migration ever happens — ENGINE_DESIGN.md §17 sequences the CLI first specifically so the two don't get conflated). The bundling call is factored out as its own `bundleGameEntry()` export so it's testable (`packages/toolchain/src/__tests__/desktopBuild.test.ts`) without a Rust/`cargo tauri` toolchain installed, which the rest of `buildDesktopApp` requires. `apps/ide/src/services/` (`GameBuildService`, the esbuild-wasm virtual-fs plugin) is a separate build path entirely, untouched by this one.
 
 Rolldown's build/output options are not a 1:1 rename of esbuild's — two differences that look like regressions but aren't: there is no top-level `drop: ["console"]` or `target: ["es2020"]` build option; the equivalent lives nested under the Oxc-backed minifier as `minify.compress.dropConsole` and `minify.compress.target`, and only takes effect when `minify` is truthy (so `dropConsole` with `minify: false` is a no-op — matches this CLI's own `--minify`/`--drop-console` flags being independent switches, since `dropConsole` is meaningless without minification actually running). Aggressive property mangling is `minify.compress.mangleProps: { include: <RegExp> }` (an object with a required `include` field), not esbuild's bare `mangleProps: /regex/`.
 
 ### Shared internal helpers — `ecs/internal/scoped.ts` and `ecs/internal/fields.ts`
 
-Two tiny cross-cutting helpers live in `packages/engine/src/ecs/internal/`
-specifically so a recurring pattern doesn't get hand-rolled a fifth time.
-Check here before writing a new per-world/per-scene side-table or a new
-"write this field into this component's store" loop.
+Two tiny cross-cutting helpers live in `packages/engine/src/ecs/internal/` specifically so a recurring pattern doesn't get hand-rolled a fifth time. Check here before writing a new per-world/per-scene side-table or a new "write this field into this component's store" loop.
 
-`scoped.ts` exports `getOrCreate(weakMap, key, create)` and
-`getOrCreateMapEntry(map, key, create)` — the "look up by key, or create and
-store a fresh value" check that `ComponentRegistry.ts`'s per-`World`
-registry, `components/PhysicsBody.ts`'s per-`World` callback/handle
-side-table, and `systems/RenderPipeline.ts`'s per-`Scene` sprite tracking
-and overlay containers all need. A future side-table scoped by `World` or
-`Scene` (or any other object key) should use one of these instead of
-re-writing the same four-line null check.
+`scoped.ts` exports `getOrCreate(weakMap, key, create)` and `getOrCreateMapEntry(map, key, create)` — the "look up by key, or create and store a fresh value" check that `ComponentRegistry.ts`'s per-`World` registry, `components/PhysicsBody.ts`'s per-`World` callback/handle side-table, and `systems/RenderPipeline.ts`'s per-`Scene` sprite tracking and overlay containers all need. A side-table scoped by `World` or `Scene` (or any other object key) should use one of these instead of re-writing the same four-line null check.
 
-`fields.ts` exports `setField(store, field, index, value)` and
-`setFields(store, index, values)` — "write field F at index I into a
-component's parallel-array store, growing the array if this is the first
-write to that field." `Entity.add()`'s defaults/overrides loops,
-`createComponentProxy`'s setter trap (also in `Entity.ts`), and
-`ComponentRegistry.ensure()`'s shape-change reset path all route through
-this now. Any new code that writes directly into a `Record<string,
-unknown[]>` component store (rather than going through `entity.get()`/
-`entity.add()`) should use `setField`/`setFields`, not reimplement the
-grow-on-first-write check inline.
+`fields.ts` exports `setField(store, field, index, value)` and `setFields(store, index, values)` — "write field F at index I into a component's parallel-array store, growing the array if this is the first write to that field." `Entity.add()`'s defaults/overrides loops, `createComponentProxy`'s setter trap (also in `Entity.ts`), and `ComponentRegistry.ensure()`'s shape-change reset path all route through this. Any code that writes directly into a `Record<string, unknown[]>` component store (rather than going through `entity.get()`/`entity.add()`) should use `setField`/`setFields`, not reimplement the grow-on-first-write check inline.
 
-`components/PhysicsBody.ts`'s callback side-table and cached handle Proxy
-were also merged from two parallel `WeakMap<World, Map<eid, X>>`s into one
-`WeakMap<World, Map<eid, { callbacks, handle }>>`, with a new
-`clearPhysicsBody(world, eid)` export. `Scene.destroy()` calls it for every
-destroyed entity (pooled-reset and real-destroy paths both) — this is what
-stops a prefab-pooled entity's reused bitECS id from inheriting the
-previous occupant's stale collision callbacks and handle Proxy, since
-pooled ids are deliberately never released back to bitECS's own recycling
-(see "Prefab pooling keeps a pooled entity bitECS-alive" above). Any future
-per-entity side-table on a component needs the same treatment: give it an
-explicit `clear(world, eid)` and call it from `Scene.destroy()`, not just
-`WeakMap`'s eventual GC once the whole `World` is dropped — that GC never
-happens for a pooled entity's slot, since the `World` stays alive for the
-whole scene.
-
-`systems/RenderPipeline.ts`'s main-scene sprite tracking is likewise now
-scoped per-`Scene` in the exact same `Map<Scene, SceneTracking>` overlay
-tracking already used (previously it was one flat, un-scoped object reused
-across every `Game.loadScene()` swap) — `_syncMain` tracks which `Scene` it
-currently belongs to and fully disposes the previous one's sprites the
-moment a different `Scene` is passed in, reusing `releaseOverlay`'s
-per-sprite teardown rather than a second copy of it.
+`components/PhysicsBody.ts`'s callback side-table and cached handle Proxy share one `WeakMap<World, Map<eid, { callbacks, handle }>>`, with `clearPhysicsBody(world, eid)` called from `Scene.destroy()` for every destroyed entity (see "Collision/sensor callbacks" above for why this matters for pooled entities).
 
 ### PostProcessSystem's layer filters become real pixi Filters in RenderSystem, not just CSS strings
 
-`PostProcessSystem.setLayerFilter(layerId, opts)` stores a framework-agnostic
-`LayerFilterOptions` (a type string plus params) and always could render a
-CSS-string approximation via `cssFilterForLayer()` for a host that draws a
-layer as a DOM element — but nothing ever translated those same options into
-a real PixiJS filter for the actual WebGL/WebGPU-rendered layers, so setting
-a layer filter in game code silently did nothing visually in either
-`RenderPipeline`. `RenderSystem.syncPostProcessLayerFilters(postProcess)`
-closes that gap: it reads `postProcess.layerFilters` and builds/updates one
-real `Filter` per layer id via `addLayerShaderFilter()` (already generic —
-see "Collision/sensor callbacks"-style side-table precedent; this is the
-same "engine owns a side-table, keyed by the same id the caller already
-uses" shape, here keyed by layer id instead of `World`+`eid`). The
-effect-to-library mapping is `blur` → pixi.js core's `BlurFilter`;
-`brightness`/`contrast`/`saturate`/`hue-rotate`/`invert`/`colour-grade` →
-pixi.js core's `ColorMatrixFilter` via its chainable convenience methods;
-`colourblind` → `ColorMatrixFilter` with `PostProcessSystem`'s own
-`COLOURBLIND_MATRICES` CVD-simulation coefficients embedded directly into
-the 5x4 matrix (the same coefficients `cssFilterForLayer()`'s SVG
-`feColorMatrix` fallback already uses, so the two code paths can never
-visually disagree); `outline` → `pixi-filters@6.1.5`'s `OutlineFilter` (a
-real added dependency, not core pixi.js). One filter instance is cached per
-layer id and only rebuilt when that layer's filter _type_ changes — an
-unchanged type just gets its params re-applied in place — so calling this
-every frame (both `RenderPipeline`s' `renderFrame()` do, when a
-`PostProcessSystem` is supplied/attached) doesn't reallocate a GPU filter
-per frame. `CustomShaderFilter`/`LightingSystem` needed no equivalent
-wiring — both already construct a plain pixi `Filter` directly and go
-through the same pre-existing `addLayerShaderFilter()`, which has no
-opinion on which system built the filter it's given.
+`PostProcessSystem.setLayerFilter(layerId, opts)` stores a framework-agnostic `LayerFilterOptions` (a type string plus params), which `cssFilterForLayer()` can render as a CSS-string approximation for a host that draws a layer as a DOM element. `RenderSystem.syncPostProcessLayerFilters(postProcess)` is the WebGL/WebGPU half: it reads `postProcess.layerFilters` and builds/updates one real `Filter` per layer id via `addLayerShaderFilter()` (the same "engine owns a side-table, keyed by the same id the caller already uses" shape as the collision-callback side-table, here keyed by layer id instead of `World`+`eid`). The effect-to-library mapping is `blur` → pixi.js core's `BlurFilter`; `brightness`/`contrast`/`saturate`/`hue-rotate`/`invert`/`colour-grade` → pixi.js core's `ColorMatrixFilter` via its chainable convenience methods; `colourblind` → `ColorMatrixFilter` with `PostProcessSystem`'s own `COLOURBLIND_MATRICES` CVD-simulation coefficients embedded directly into the 5x4 matrix (the same coefficients `cssFilterForLayer()`'s SVG `feColorMatrix` fallback uses, so the two code paths can never visually disagree); `outline` → `pixi-filters@6.1.5`'s `OutlineFilter` (a real dependency, not core pixi.js). One filter instance is cached per layer id and only rebuilt when that layer's filter _type_ changes — an unchanged type just gets its params re-applied in place — so calling this every frame (both `RenderPipeline`s' `renderFrame()` do, when a `PostProcessSystem` is supplied/attached) doesn't reallocate a GPU filter per frame. `CustomShaderFilter`/`LightingSystem` construct a plain pixi `Filter` directly and go through the same `addLayerShaderFilter()`, which has no opinion on which system built the filter it's given.
 
-A real, previously-latent bug surfaced while wiring this up:
-`addLayerShaderFilter`/`removeLayerShaderFilter` assumed `container.filters`
-was always an array to spread/filter over. PixiJS's own type says
-`readonly Filter[]` (never `null`/`undefined`), but a freshly constructed
-`Container` actually has it unset at runtime — so the very first filter
-ever attached to any layer via either method would have thrown. Both now
-null-coalesce to `[]` before spreading/filtering. If you hit PixiJS's
-`no-unnecessary-condition`-flagged type claiming something is never
-null/undefined, verify the runtime behaviour of a fresh instance before
-trusting the type — this is the second time in this pass a third-party
-type didn't match observed behaviour.
-
-### VNSystem and MapEventSystem default to an isolated VariableStore, not an implicit shared one
-
-Superseded 2026-09-22, alongside "PluginSystem and VariableStore are Game services" above. `packages/vn/src/VNSystem.ts` and `packages/engine/src/systems/MapEventSystem.ts` used to default their `store: VariableStore` constructor parameter to `@emptysock/engine`'s module-level `variableStore` singleton — real, implicit, undocumented-at-the-call-site sharing: a VN choice gated on switch 12 could be silently affected by an unrelated `variableStore.setSwitch(12, ...)` call anywhere else in the same game, and vice versa. Now that `VariableStore` is a `Game` service rather than a module singleton (no bare importable instance exists to default to), both constructors instead default to `store: VariableStore = new VariableStore()` — a fresh, isolated instance, matching the pattern `VisualScriptComponent`/`VisualScriptCompiler` already used. Sharing state across systems is still fully supported and just as easy, but now explicit at the call site: pass `ctx.variables` (the same `Game`-owned instance every scene's `onLoad` receives via `SceneLifecycle`) to `new VNSystem(ctx.variables)`/`new MapEventSystem(ctx.variables)` when you want dialogue/map-trigger switches to share state with the rest of the game. See the doc comments directly on each constructor for the same explanation at the point of use.
+`addLayerShaderFilter`/`removeLayerShaderFilter` null-coalesce `container.filters` to `[]` before spreading/filtering over it. PixiJS's own type says `readonly Filter[]` (never `null`/`undefined`), but a freshly constructed `Container` actually has it unset at runtime — the null-coalesce is load-bearing, not defensive filler. If you hit a PixiJS `no-unnecessary-condition`-flagged type claiming something is never null/undefined, verify the runtime behaviour of a fresh instance before trusting the type.
 
 ---
 
@@ -652,7 +294,7 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 **Commits** follow the Conventional Commits spec, enforced by Husky and commitlint. The format is `type(scope): subject`. Valid types: feat, fix, docs, chore, refactor, test, perf, ci. Never bypass the hook with `--no-verify`; it also runs lint-staged (ESLint + Prettier), so bypassing it leaves unformatted code in git.
 
-**File placement:** engine systems go in `packages/engine/src/systems/`, engine core primitives in `packages/engine/src/core/`, IDE panels in `apps/ide/src/components/panels/`. New exports from the engine must be re-exported from `packages/engine/src/index.ts`.
+**File placement:** engine systems live under `packages/engine/src/ecs/systems/`, engine components under `packages/engine/src/ecs/components/`, IDE panels in `apps/ide/src/components/panels/`. New exports from the engine must be re-exported from `packages/engine/src/index.ts`.
 
 **Adding a new engine system:** create the file, export from `packages/engine/src/index.ts`, add an entry to `ai/api-reference.json` in `eleferrets/emptysock-ai-skills`, add a page under `docs/reference/systems/`, add a row to `docs/reference/index.md`, add a section to `docs/manual/05-systems-reference.md`, and add a skill file to `eleferrets/emptysock-ai-skills`. All five locations in a single commit — never land a new system without docs.
 
@@ -660,11 +302,11 @@ All documentation, skill files, and agent prompts must use the canonical spellin
 
 **Keeping docs in sync with engine changes:** any commit that adds, removes, or changes a public engine API must also update the corresponding page in `docs/manual/` (offline manual source) and `docs/reference/` (the Ctrl+F reference). Method signature changes update the reference page. Behaviour changes update both. Never merge an engine change that leaves the docs describing the old shape.
 
-**Undo / redo is mandatory in every panel that mutates editor data.** Use a shared `useHistory<T>` hook that snapshots state before each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Wire `Ctrl+Z` / `Ctrl+Shift+Z` globally. Cap history at 50 steps per panel (session-only, never persisted). Monaco has its own per-file undo stack — do not replace it. Every panel added going forward must ship with undo/redo on day one, not as a follow-up.
+**Undo / redo is mandatory in every panel that mutates editor data.** Use a shared `useHistory<T>` hook that snapshots state before each mutation and exposes `undo()` / `redo()` / `canUndo` / `canRedo`. Wire `Ctrl+Z` / `Ctrl+Shift+Z` globally. Cap history at 50 steps per panel (session-only, never persisted). Monaco has its own per-file undo stack — do not replace it. Every panel ships with undo/redo on day one, not as a follow-up.
 
 **Naming:** TypeScript files use PascalCase for classes and camelCase for modules. Tauri commands in lib.rs use snake_case. CSS variables use the `--es-` prefix to avoid collisions with third-party stylesheets.
 
-**Versioning:** the monorepo uses [changesets](https://github.com/changesets/changesets) (`.changeset/`) to track package version bumps. Run `pnpm changeset` when your PR changes a published package's public behavior, following the prompts to pick a bump type and write a summary. `apps/ide` is excluded (it's an app, not a published package). All packages are currently `private: true`, so `access: restricted` is the default in `.changeset/config.json` until one is actually published to npm.
+**Versioning:** the monorepo uses [changesets](https://github.com/changesets/changesets) (`.changeset/`) to track package version bumps. Run `pnpm changeset` when your PR changes a published package's public behavior, following the prompts to pick a bump type and write a summary. `apps/ide` is excluded (it's an app, not a published package). All packages are `private: true`, so `access: restricted` is the default in `.changeset/config.json` until one is actually published to npm.
 
 ---
 
