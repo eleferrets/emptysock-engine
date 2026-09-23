@@ -68,9 +68,28 @@ end to end, not just documented as a known gap.
       note: fix via an import-map entry mapping the bare specifier to a real ESM Rapier WASM build, or a
       small runtime shim `apps/ide` registers before the game module loads. This is the riskiest/most
       exploratory item — budget real investigation time, don't assume the first approach tried works.
+      **Decided 2026-09-23: attempt it in this same pass, not deferred** — if it can't be fully verified
+      in-browser from this sandbox, document exactly how far it got and what's unverified rather than
+      claiming it's fixed.
+- [ ] **Fold in: unify `IDEBridge` into `QueryChannel`** (previously its own separate, long-deferred
+      Track 0 item above — folded into this track 2026-09-23 since it touches the same
+      `apps/ide/src/services/EngineChannel.ts` the bridge-transport item above already needs to edit).
+      `EngineChannel.ts` still speaks the old pre-ECS `es:entities`/`es:set-component`/`es:component-fields`
+      postMessage wire protocol end to end, not `QueryChannel` — so the IDE's own Inspector panels
+      (`SceneInspector.tsx`/`EntityProperties.tsx`/`CanvasPreview.tsx`/`useEngineChannel.ts`) are reading
+      from a bridge that predates `QueryChannel` entirely, separate from (but architecturally identical to)
+      the MCP transport gap. Rewire `EngineChannel.ts` onto `QueryChannel.handle({ kind: "listEntities" |
+  "entityInfo" | "getComponent" | "setComponent" })` calls over the existing `PlayRunner` postMessage
+      relay, verify the live preview + Inspector still work end to end (real browser verification, not
+      typecheck-only), then Track 8's `ComponentRegistry`-driven Inspector schema lookup (see the `[~]`
+      item further down this file) becomes unblocked for real — don't do that item until this one is
+      verified working, per its own existing warning.
+
+**Bridge auth, decided 2026-09-23:** no auth token — bind the WebSocket server to `127.0.0.1` only,
+matching this MCP server's existing trust model (local file I/O, no network auth anywhere else in it).
 
 Land each item as its own commit(s), Conventional Commits, typecheck/lint/test green after each, per this
-file's ground rules. Mark `[x]` here as each closes; once all five are `[x]`, migrate anything durable into
+file's ground rules. Mark `[x]` here as each closes; once all six are `[x]`, migrate anything durable into
 CLAUDE.md's "Non-obvious decisions" the way every other closed track has.
 
 ---
