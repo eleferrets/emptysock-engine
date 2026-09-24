@@ -13,10 +13,31 @@ import {
 import { useHistory } from "../../hooks/useHistory";
 import { drawRulers, getRulerMetrics, snapPoint } from "../../lib/editorGrid";
 import { ViewControls } from "./shared/ViewControls";
+import { NavMeshSidebar, type NavMeshTool } from "./navmesh/NavMeshSidebar";
+import {
+  polygonCentroid,
+  pointInPolygon,
+  toggleNeighbourLink,
+  removePolygon,
+  isNavMeshData,
+  flattenPoints,
+} from "../../lib/navMeshGeometry";
+
+// Pure geometry/data helpers live in `../../lib/navMeshGeometry.ts` now
+// (kept out of this file to hold its size down — see CLAUDE.md's file-size
+// convention). Re-exported here so existing importers/tests keep working
+// against this module's own path.
+export {
+  polygonCentroid,
+  pointInPolygon,
+  toggleNeighbourLink,
+  removePolygon,
+  isNavMeshData,
+};
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-type Tool = "select" | "draw" | "connect" | "delete";
+type Tool = NavMeshTool;
 
 const VERTEX_RADIUS = 6;
 
@@ -29,98 +50,6 @@ const QUIPS = [
   "Blank floor plan. Draw the walkable bits.",
   "Nothing placed. The A* search agrees with you.",
 ];
-
-export function polygonCentroid(vertices: NavMeshVec2[]): NavMeshVec2 {
-  if (vertices.length === 0) return { x: 0, y: 0 };
-  let sx = 0;
-  let sy = 0;
-  for (const v of vertices) {
-    sx += v.x;
-    sy += v.y;
-  }
-  return { x: sx / vertices.length, y: sy / vertices.length };
-}
-
-export function pointInPolygon(p: NavMeshVec2, verts: NavMeshVec2[]): boolean {
-  let inside = false;
-  for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
-    const vi = verts[i];
-    const vj = verts[j];
-    if (vi === undefined || vj === undefined) continue;
-    if (
-      vi.y > p.y !== vj.y > p.y &&
-      p.x < ((vj.x - vi.x) * (p.y - vi.y)) / (vj.y - vi.y) + vi.x
-    ) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-/** Toggle a bidirectional neighbour link between two polygons in place. */
-export function toggleNeighbourLink(
-  polygons: EditorNavPolygon[],
-  idA: number,
-  idB: number,
-): EditorNavPolygon[] {
-  const a = polygons.find((p) => p.id === idA);
-  const linked = a !== undefined && a.neighbours.includes(idB);
-  return polygons.map((p) => {
-    if (p.id === idA) {
-      return {
-        ...p,
-        neighbours: linked
-          ? p.neighbours.filter((n) => n !== idB)
-          : [...p.neighbours, idB],
-      };
-    }
-    if (p.id === idB) {
-      return {
-        ...p,
-        neighbours: linked
-          ? p.neighbours.filter((n) => n !== idA)
-          : [...p.neighbours, idA],
-      };
-    }
-    return p;
-  });
-}
-
-/** Remove a polygon and strip its id from every other polygon's neighbours. */
-export function removePolygon(
-  polygons: EditorNavPolygon[],
-  id: number,
-): EditorNavPolygon[] {
-  return polygons
-    .filter((p) => p.id !== id)
-    .map((p) => ({
-      ...p,
-      neighbours: p.neighbours.filter((n) => n !== id),
-    }));
-}
-
-export function isNavMeshData(value: unknown): value is EditorNavMeshData {
-  if (typeof value !== "object" || value === null) return false;
-  const polys = (value as { polygons?: unknown }).polygons;
-  if (!Array.isArray(polys)) return false;
-  return polys.every((p) => {
-    if (typeof p !== "object" || p === null) return false;
-    const poly = p as Record<string, unknown>;
-    return (
-      typeof poly["id"] === "number" &&
-      Array.isArray(poly["vertices"]) &&
-      Array.isArray(poly["neighbours"])
-    );
-  });
-}
-
-function flattenPoints(vertices: NavMeshVec2[]): number[] {
-  const out: number[] = [];
-  for (const v of vertices) {
-    out.push(v.x, v.y);
-  }
-  return out;
-}
 
 export function NavMeshEditor(): React.ReactElement {
   const gridCanvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -513,36 +442,6 @@ export function NavMeshEditor(): React.ReactElement {
     addLog("info", `Exported ${polygons.length} nav polygon(s)`);
   };
 
-  const tools: { id: Tool; label: string; hint: string }[] = [
-    { id: "select", label: "Select", hint: "Drag vertices or whole polygons" },
-    {
-      id: "draw",
-      label: "Draw",
-      hint: "Click to place vertices, Enter to finish",
-    },
-    {
-      id: "connect",
-      label: "Connect",
-      hint: "Click two polygons to toggle a link",
-    },
-    { id: "delete", label: "Delete", hint: "Click a polygon to remove it" },
-  ];
-
-  const undoBtnStyle: React.CSSProperties = {
-    padding: "3px 8px",
-    background: "var(--es-surface)",
-    border: "1px solid var(--es-border)",
-    borderRadius: 4,
-    color: "var(--es-text)",
-    cursor: canUndo ? "pointer" : "default",
-    opacity: canUndo ? 1 : 0.4,
-  };
-  const redoBtnStyle: React.CSSProperties = {
-    ...undoBtnStyle,
-    cursor: canRedo ? "pointer" : "default",
-    opacity: canRedo ? 1 : 0.4,
-  };
-
   const selectedPolygon = polygons.find((p) => p.id === selectedId) ?? null;
 
   // Neighbour links, drawn under the polygons.
@@ -579,162 +478,31 @@ export function NavMeshEditor(): React.ReactElement {
         fontSize: 12,
       }}
     >
-      {/* Left panel */}
-      <div
-        style={{
-          width: 190,
-          borderRight: "1px solid var(--es-border)",
-          display: "flex",
-          flexDirection: "column",
-          padding: 8,
-          gap: 12,
-          overflow: "auto",
+      <NavMeshSidebar
+        tool={tool}
+        onSelectTool={(t) => {
+          setTool(t);
+          setDraftVertices([]);
+          setConnectFirstId(null);
         }}
-      >
-        <div style={{ display: "flex", gap: 4 }}>
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            style={undoBtnStyle}
-            title="Undo (Ctrl+Z)"
-          >
-            &#x21A9;
-          </button>
-          <button
-            onClick={redo}
-            disabled={!canRedo}
-            style={redoBtnStyle}
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            &#x21AA;
-          </button>
-        </div>
-
-        <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
-            Tool
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {tools.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setTool(t.id);
-                  setDraftVertices([]);
-                  setConnectFirstId(null);
-                }}
-                title={t.hint}
-                style={{
-                  padding: "4px 8px",
-                  background:
-                    tool === t.id ? "var(--es-accent)" : "var(--es-surface)",
-                  color: "var(--es-text)",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {tool === "draw" && (
-            <button
-              onClick={finishDraftPolygon}
-              disabled={draftVertices.length < 3}
-              style={{
-                marginTop: 6,
-                width: "100%",
-                padding: "3px 0",
-                background: "var(--es-surface)",
-                border: "1px solid var(--es-border)",
-                borderRadius: 4,
-                color: "var(--es-text)",
-                cursor: draftVertices.length >= 3 ? "pointer" : "default",
-                opacity: draftVertices.length >= 3 ? 1 : 0.4,
-              }}
-              title="Finish polygon (Enter)"
-            >
-              Finish polygon ({draftVertices.length})
-            </button>
-          )}
-        </div>
-
-        <div>
-          <div style={{ color: "var(--es-text-muted)", marginBottom: 4 }}>
-            Selected polygon
-          </div>
-          {selectedPolygon === null ? (
-            <div style={{ color: "var(--es-text-muted)", fontSize: 11 }}>
-              None selected.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div>id: {selectedPolygon.id}</div>
-              <div>vertices: {selectedPolygon.vertices.length}</div>
-              <div>
-                neighbours:{" "}
-                {selectedPolygon.neighbours.length > 0
-                  ? selectedPolygon.neighbours.join(", ")
-                  : "none"}
-              </div>
-              <button
-                onClick={() => {
-                  setPolygonsAndCommit(
-                    removePolygon(liveRef.current, selectedPolygon.id),
-                  );
-                  setSelectedId(null);
-                }}
-                style={{
-                  marginTop: 4,
-                  padding: "3px 6px",
-                  background: "var(--es-surface)",
-                  color: "var(--es-red, #ef4444)",
-                  border: "1px solid var(--es-border)",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-              >
-                Delete polygon
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <button
-            onClick={loadNavMesh}
-            style={{
-              padding: "4px 8px",
-              background: "var(--es-surface)",
-              color: "var(--es-text)",
-              border: "1px solid var(--es-border)",
-              borderRadius: 4,
-              cursor: "pointer",
-              textAlign: "left",
-            }}
-          >
-            Load navmesh.json&#x2026;
-          </button>
-          <button
-            onClick={exportNavMesh}
-            disabled={polygons.length === 0}
-            style={{
-              padding: "4px 8px",
-              background: "var(--es-surface)",
-              color: "var(--es-text)",
-              border: "1px solid var(--es-border)",
-              borderRadius: 4,
-              cursor: polygons.length > 0 ? "pointer" : "default",
-              opacity: polygons.length > 0 ? 1 : 0.4,
-              textAlign: "left",
-            }}
-          >
-            Export navmesh.json
-          </button>
-        </div>
-      </div>
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        draftVertexCount={draftVertices.length}
+        onFinishDraft={finishDraftPolygon}
+        selectedPolygon={selectedPolygon}
+        onDeleteSelected={() => {
+          if (selectedPolygon === null) return;
+          setPolygonsAndCommit(
+            removePolygon(liveRef.current, selectedPolygon.id),
+          );
+          setSelectedId(null);
+        }}
+        polygonCount={polygons.length}
+        onLoad={loadNavMesh}
+        onExport={exportNavMesh}
+      />
 
       {/* Canvas */}
       <div
