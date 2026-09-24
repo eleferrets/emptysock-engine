@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { convertGms2Sprite } from "./gms2-sprite-import.js";
 import { convertGms2Room } from "./gms2-room-import.js";
-import { indent, readAndTranspileGML } from "./gms2-transpile.js";
+import { indent, readAndTranspileGML, transpileGML } from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
 
 // ---------------------------------------------------------------------------
@@ -160,6 +160,7 @@ export async function buildObjectPrefabJSON(
 export async function buildObjectBehavior(
   name: string,
   projectRoot: string,
+  knownScripts: string[] = [],
 ): Promise<string> {
   // Look for GML event files alongside the .yy file.
   const objectDir = path.join(projectRoot, "objects", name);
@@ -411,6 +412,28 @@ export async function buildObjectBehavior(
   ];
   const extraBlock = extraFns.length > 0 ? "\n\n" + extraFns.join("\n\n") : "";
 
+  // Object event code routinely calls a user-defined GMS2 script by name —
+  // that script's own generated module (`buildScriptModule`) is what
+  // actually holds the transpiled implementation now (see that function's
+  // doc comment), so a generated `.behavior.ts` file that calls one needs a
+  // real import line, same plain regex-scan approach used there.
+  const allEventBodies = [
+    onCreate,
+    onStepBegin,
+    onUpdate,
+    onStepEnd,
+    onDraw,
+    onDrawGui,
+    onDestroy,
+    ...extraFns,
+  ].join("\n");
+  const calledScripts = knownScripts.filter((script) =>
+    new RegExp(`\\b${escapeRegExp(script)}\\s*\\(`).test(allEventBodies),
+  );
+  const scriptImportLines = calledScripts
+    .map((script) => `import { ${script} } from '../${script}.js';`)
+    .join("\n");
+
   return `// Auto-generated GMS2 behavior for object: ${name}
 // Review and replace GML logic with EmptySock equivalents. Wire these
 // functions up to your own prefab instances however your game dispatches
@@ -425,7 +448,7 @@ export async function buildObjectBehavior(
 // actions need more, see that type's own doc comment).
 import type { Entity, GmlActionContext } from '@emptysock/engine';
 import * as GmlActions from '@emptysock/engine';
-
+${scriptImportLines ? scriptImportLines + "\n" : ""}
 ${onCreate}
 ${onStepBegin ? `\n${onStepBegin}\n` : ""}
 ${onUpdate}
@@ -512,14 +535,125 @@ export async function buildRoomSceneJSON(
   return JSON.stringify(scene, null, 2) + "\n";
 }
 
-export function scriptStub(name: string): string {
-  return `// Auto-generated from GMS2 script: ${name}
-// Migrate GML functions to TypeScript below.
-// Import GML compat helpers if needed: import * as GML from '@emptysock/engine';
-
-export function placeholder_${name}(): void {
-  // TODO: migrate GML script body
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/**
+ * Real GMS2 2.3+ script files (`scripts/<name>/<name>.gml`) are literally
+ * `function <name>(<params>) { ... }` — the script's own `.yy` carries no
+ * parameter metadata at all, only the `.gml` source does, so parameter
+ * names/count are read from the real function signature here, not from
+ * `.yy`. A legacy-style script (no `function` wrapper — just a bare
+ * statement body referencing `argument0`/`argument1`/…, GameMaker's older
+ * convention) has no declared parameter names to read at all; those fall
+ * back to a variadic `...args: unknown[]` signature, with every
+ * `argumentN` reference in the transpiled body rewritten to `args[N]` so the
+ * generated function is actually callable, not just plausible-looking.
+ */
+function extractScriptSignature(source: string): {
+  paramNames: string[];
+  body: string;
+  isLegacyArgStyle: boolean;
+} {
+  const sigMatch = /function\s+\w+\s*\(([^)]*)\)\s*\{/.exec(source);
+  if (sigMatch) {
+    const paramList = sigMatch[1] ?? "";
+    const paramNames = paramList
+      .split(",")
+      .map((p) => p.trim().split("=")[0]?.trim() ?? "")
+      .filter((p) => p.length > 0);
+    // Body is everything between the signature's opening brace and the
+    // matching closing brace — tracked by real depth, not a naive
+    // lastIndexOf("}"), since the body itself very likely contains its own
+    // nested `{`/`}` blocks (if/for/while/struct literals).
+    const braceStart = sigMatch.index + sigMatch[0].length - 1;
+    let depth = 0;
+    let end = source.length;
+    for (let i = braceStart; i < source.length; i++) {
+      if (source[i] === "{") depth++;
+      else if (source[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    return {
+      paramNames,
+      body: source.slice(braceStart + 1, end),
+      isLegacyArgStyle: false,
+    };
+  }
+  return { paramNames: [], body: source, isLegacyArgStyle: true };
+}
+
+/**
+ * Build a real `.ts` module for a GMS2 script: transpiles the script's
+ * actual GML body via the same `transpileGML()` pipeline object events use,
+ * with a real parameter signature (see `extractScriptSignature`) and a
+ * return type inferred from whether the transpiled body contains a
+ * top-level `return expr;`. Any other known script this script's body
+ * actually calls gets a real `import { other } from "./other.js"` line —
+ * found by a plain regex scan for `<scriptName>(` in the transpiled text,
+ * consistent with this transpiler's existing regex-based (not a real
+ * parser) approach. This also covers script-calls-script chains
+ * transitively: each generated module imports whatever it calls, and that
+ * called script's own module in turn imports whatever *it* calls.
+ *
+ * Falls back to a `// TODO: migrate GML script body` stub only when the
+ * script's `.gml` file genuinely can't be read (e.g. a stale/orphaned
+ * resource reference) — mirrors every other asset kind's "honest failure,
+ * not a fabricated result" rule in this importer.
+ */
+export async function buildScriptModule(
+  name: string,
+  projectRoot: string,
+  knownScripts: string[],
+): Promise<string> {
+  const gmlPath = path.join(projectRoot, "scripts", name, `${name}.gml`);
+  let source: string;
+  try {
+    source = await fs.readFile(gmlPath, "utf-8");
+  } catch {
+    return `// Auto-generated from GMS2 script: ${name}
+// The script's .gml source could not be read — likely a stale/orphaned
+// project reference. Migrate the GML function body manually.
+
+export function ${name}(...args: unknown[]): unknown {
+  // TODO: migrate GML script body
+  return undefined;
+}
+`;
+  }
+
+  const { paramNames, body, isLegacyArgStyle } = extractScriptSignature(source);
+  let transpiled = transpileGML(body);
+  if (isLegacyArgStyle) {
+    transpiled = transpiled.replace(/\bargument(\d+)\b/g, "args[$1]");
+  }
+
+  const hasReturn = /\breturn\b[^;{}]*;/.test(transpiled);
+  const returnType = hasReturn ? "unknown" : "void";
+  const paramStr =
+    paramNames.length > 0
+      ? paramNames.map((p) => `${p}: unknown`).join(", ")
+      : "...args: unknown[]";
+
+  const calledScripts = knownScripts.filter(
+    (other) =>
+      other !== name &&
+      new RegExp(`\\b${escapeRegExp(other)}\\s*\\(`).test(transpiled),
+  );
+  const importLines = calledScripts
+    .map((other) => `import { ${other} } from "./${other}.js";`)
+    .join("\n");
+
+  const indentedBody = indent(transpiled.trimEnd(), 2);
+  const bodyBlock = indentedBody.length > 0 ? `\n${indentedBody}\n` : "\n";
+  return `// Auto-generated from GMS2 script: ${name}
+${importLines ? importLines + "\n\n" : ""}export function ${name}(${paramStr}): ${returnType} {${bodyBlock}}
 `;
 }
 

@@ -10,8 +10,8 @@ import {
   buildObjectPrefabJSON,
   buildRoomSceneJSON,
   buildSpriteAsset,
+  buildScriptModule,
   projectManifestJSON,
-  scriptStub,
 } from "./gms2-codegen.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
@@ -178,7 +178,7 @@ export async function importGMS2Project(
     }
 
     const prefabJSON = await buildObjectPrefabJSON(name, projectRoot);
-    const behavior = await buildObjectBehavior(name, projectRoot);
+    const behavior = await buildObjectBehavior(name, projectRoot, scripts);
     filesToWrite.push({ rel: `${name}.prefab.json`, content: prefabJSON });
     filesToWrite.push({ rel: `${name}.behavior.ts`, content: behavior });
     convertedObjects.push(name);
@@ -187,7 +187,8 @@ export async function importGMS2Project(
 
   for (const name of scripts) {
     if (verbose) console.log(`  [script] ${name}`);
-    filesToWrite.push({ rel: `${name}.ts`, content: scriptStub(name) });
+    const content = await buildScriptModule(name, projectRoot, scripts);
+    filesToWrite.push({ rel: `${name}.ts`, content });
     reportEntries.push({ kind: "script", name, status: "converted" });
   }
 
