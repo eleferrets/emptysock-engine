@@ -494,21 +494,24 @@ export {
   registerGmlTimeline,
   getGmlTimeline,
   unregisterGmlTimeline,
-} from "./components/Timeline.js";
-export type { TimelineModule, TimelineMoment } from "./components/Timeline.js";
+} from "./components/GmlTimeline.js";
+export type {
+  TimelineModule,
+  TimelineMoment,
+} from "./components/GmlTimeline.js";
 export { TimelineSystem } from "./systems/TimelineSystem.js";
 
 export {
-  SequenceState,
+  GmlSequenceState,
   registerGmlSequence,
   getGmlSequence,
   unregisterGmlSequence,
-} from "./components/Sequence.js";
+} from "./components/GmlSequence.js";
 export type {
-  SequenceData,
-  SequenceTrack,
-  SequenceTrackTarget,
-  SequenceKeyframe,
-  SequenceInterpolation,
-} from "./components/Sequence.js";
-export { SequenceSystem } from "./systems/SequenceSystem.js";
+  GmlSequenceData,
+  GmlSequenceTrack,
+  GmlSequenceTrackTarget,
+  GmlSequenceKeyframe,
+  GmlSequenceInterpolation,
+} from "./components/GmlSequence.js";
+export { GmlSequenceSystem } from "./systems/GmlSequenceSystem.js";

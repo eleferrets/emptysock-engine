@@ -15,7 +15,10 @@ export type MigrationEntryKind =
   | "tileset"
   | "font"
   | "note"
-  | "shader";
+  | "shader"
+  | "timeline"
+  | "sequence"
+  | "extension";
 
 /**
  * "copied" is distinct from "converted": a `note` resource's real text
@@ -63,6 +66,12 @@ const CATEGORY_LABELS: Partial<
   "note:manual": "Notes (manual)",
   "shader:converted": "Shaders (converted)",
   "shader:manual": "Shaders (manual)",
+  "timeline:converted": "Timelines (converted)",
+  "timeline:manual": "Timelines (manual)",
+  "sequence:converted": "Sequences (converted)",
+  "sequence:manual": "Sequences (manual)",
+  "extension:converted": "Extensions (converted)",
+  "extension:manual": "Extensions (manual)",
 };
 
 // The rows to always render, in this order, even when a category is empty
@@ -83,6 +92,12 @@ const SUMMARY_ROWS: Array<[MigrationEntryKind, MigrationEntryStatus]> = [
   ["note", "manual"],
   ["shader", "converted"],
   ["shader", "manual"],
+  ["timeline", "converted"],
+  ["timeline", "manual"],
+  ["sequence", "converted"],
+  ["sequence", "manual"],
+  ["extension", "converted"],
+  ["extension", "manual"],
   ["tileset", "manual"],
 ];
 
@@ -106,6 +121,12 @@ function labelFor(kind: MigrationEntryKind): string {
       return "Note";
     case "shader":
       return "Shader";
+    case "timeline":
+      return "Timeline";
+    case "sequence":
+      return "Sequence";
+    case "extension":
+      return "Extension";
   }
 }
 
@@ -174,8 +195,18 @@ mechanically translated to \`assets/<name>.shader.ts\` for
 was not verified (no headless WebGL context available at import time); an
 HLSL11 shader (DirectX-only, structurally different from GLSL) or a shader
 with non-passthrough per-vertex logic this importer can't safely reproduce is
-reported manual instead. See \`project-manifest.json\` for the full list of
-prefab/behavior/scene files this import produced.
+reported manual instead. Each timeline was emitted as \`<name>.timeline.ts\`
+(a real \`TimelineModule\` for \`@emptysock/engine\`'s \`TimelineState\`/
+\`TimelineSystem\`) with one transpiled function per moment. Each sequence
+was emitted as \`<name>.sequence.ts\` (a real \`GmlSequenceData\` for
+\`GmlSequenceState\`/\`GmlSequenceSystem\`); only root-level, numeric,
+Transform/Sprite-targeting tracks (position/scale/rotation/image_blend/
+image_alpha) convert — nested instance/graphic/group tracks and non-numeric
+track kinds are reported, never silently dropped. Each extension's GML- or
+JS-backed functions were emitted as \`<extension>/<file>.ts\`; a
+native-library-backed function (\`.dll\`/\`.so\`/\`.dylib\`/\`.jar\`/Obj-C) has no
+source to convert and is listed by name below. See \`project-manifest.json\`
+for the full list of prefab/behavior/scene files this import produced.
 ${warningSection}
 ## Reference Material Copied (Not Engine Assets)
 
@@ -206,5 +237,8 @@ ${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 9. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
 10. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).
 11. **Shaders** — each converted shader's \`assets/<name>.shader.ts\` gives the \`vertexSrc\`/\`fragmentSrc\` to pass to \`createCustomShaderFilter\`; GPU compilation was not verified during import, so test it in-engine before shipping. A shader reported manual (HLSL11, or non-passthrough vertex logic) needs to be rewritten by hand against \`CustomShaderFilter\`'s GLSL ES 3.00 contract.
+12. **Timelines** — register each \`<name>.timeline.ts\`'s default export with \`registerGmlTimeline(id, module)\`, then attach \`TimelineState\` to an entity and set \`running: true\` to play it.
+13. **Sequences** — register each \`<name>.sequence.ts\`'s export with \`registerGmlSequence(id, data)\`, then attach \`GmlSequenceState\` to an entity and set \`playing: true\`. Review any sequence noted with skipped tracks — those animation channels need to be recreated by hand (e.g. with \`TweenManager\`/\`SequenceSystem\`).
+14. **Extensions** — review each \`extensions/<name>/<file>.ts\` module before shipping; a native-library-backed function listed in the warnings above has no automatic migration path and must be reimplemented or replaced.
 `;
 }

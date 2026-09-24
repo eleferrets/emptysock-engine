@@ -1187,7 +1187,7 @@ describe("convertGms2Room (synthetic resourceType-based layers)", () => {
   });
 });
 
-describe("a resource type with no import path (extensions, timelines, …)", () => {
+describe("a resource type with genuinely no import path", () => {
   it("warns by name instead of vanishing silently into the skipped list", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-unknown-res-"));
     const out = await fs.mkdtemp(
@@ -1199,7 +1199,7 @@ describe("a resource type with no import path (extensions, timelines, …)", () 
         `{
           "%Name":"Unknown Resource Test",
           "resources":[
-            {"id":{"name":"ext0","path":"extensions/ext0/ext0.yy",},},
+            {"id":{"name":"anim0","path":"animcurves/anim0/anim0.yy",},},
           ],
         }`,
         "utf-8",
@@ -1208,12 +1208,135 @@ describe("a resource type with no import path (extensions, timelines, …)", () 
       const result = await importGMS2Project(path.join(dir, "test.yyp"), out, {
         verbose: false,
       });
-      expect(result.skipped).toContain("ext0");
+      expect(result.skipped).toContain("anim0");
       expect(result.warnings).toEqual([
         expect.stringContaining(
-          '"ext0" (extensions/ext0/ext0.yy) has no import path',
+          '"anim0" (animcurves/anim0/anim0.yy) has no import path',
         ) as string,
       ]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 timelines/sequences/extensions are wired into a real import run", () => {
+  it("converts a timeline, a sequence, and a GML-backed extension end to end", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-t-s-e-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-t-s-e-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "test.yyp"),
+        `{
+          "%Name":"Timeline Sequence Extension Test",
+          "resources":[
+            {"id":{"name":"tmTest","path":"timelines/tmTest/tmTest.yy",},},
+            {"id":{"name":"seqTest","path":"sequences/seqTest/seqTest.yy",},},
+            {"id":{"name":"extTest","path":"extensions/extTest/extTest.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      const tmDir = path.join(dir, "timelines", "tmTest");
+      await fs.mkdir(tmDir, { recursive: true });
+      await fs.writeFile(
+        path.join(tmDir, "tmTest.yy"),
+        `{"momentList":[{"moment":0,"resourceType":"GMMoment",},],"resourceType":"GMTimeline",}`,
+        "utf-8",
+      );
+      await fs.writeFile(path.join(tmDir, "moment_0.gml"), "x = 1;", "utf-8");
+
+      const seqDir = path.join(dir, "sequences", "seqTest");
+      await fs.mkdir(seqDir, { recursive: true });
+      await fs.writeFile(
+        path.join(seqDir, "seqTest.yy"),
+        `{"resourceType":"GMSequence","length":4.0,"playbackSpeed":30.0,"playbackSpeedType":0,"tracks":[{"resourceType":"GMRealTrack","name":"rotation","interpolation":1,"tracks":[],"keyframes":{"Keyframes":[{"Key":0.0,"Channels":{"0":{"RealValue":0.0,"resourceType":"RealKeyframe",},},},]},},],}`,
+        "utf-8",
+      );
+
+      const extDir = path.join(dir, "extensions", "extTest");
+      await fs.mkdir(extDir, { recursive: true });
+      await fs.writeFile(
+        path.join(extDir, "extTest.yy"),
+        `{"resourceType":"GMExtension","files":[{"resourceType":"GMExtensionFile","filename":"extTest.gml","kind":2,"functions":[{"name":"ext_fn","externalName":"ext_fn","kind":2,},],},],}`,
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(extDir, "extTest.gml"),
+        "function ext_fn() {\n  return 1;\n}\n",
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "test.yyp"), out, {
+        verbose: false,
+      });
+
+      expect(result.skipped).not.toContain("tmTest");
+      expect(result.skipped).not.toContain("seqTest");
+      expect(result.skipped).not.toContain("extTest");
+
+      const timelineOut = await fs.readFile(
+        path.join(out, "tmTest.timeline.ts"),
+        "utf-8",
+      );
+      expect(timelineOut).toContain("moment_0");
+
+      const sequenceOut = await fs.readFile(
+        path.join(out, "seqTest.sequence.ts"),
+        "utf-8",
+      );
+      expect(sequenceOut).toContain("SeqTestSequence");
+
+      const extensionOut = await fs.readFile(
+        path.join(out, "extensions", "extTest", "extTest.ts"),
+        "utf-8",
+      );
+      expect(extensionOut).toContain("export function ext_fn(");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a native-library-backed extension function by name in the migration report", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-t-s-e-native-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-t-s-e-native-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "test.yyp"),
+        `{
+          "%Name":"Native Extension Test",
+          "resources":[
+            {"id":{"name":"extNative","path":"extensions/extNative/extNative.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const extDir = path.join(dir, "extensions", "extNative");
+      await fs.mkdir(extDir, { recursive: true });
+      await fs.writeFile(
+        path.join(extDir, "extNative.yy"),
+        `{"resourceType":"GMExtension","files":[{"resourceType":"GMExtensionFile","filename":"extNative.dll","kind":1,"functions":[{"name":"native_only_fn","externalName":"nativeOnlyFn","kind":1,},],},],}`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "test.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).toContain("extNative");
+      expect(result.warnings.some((w) => w.includes("native_only_fn"))).toBe(
+        true,
+      );
+
+      const report = await fs.readFile(
+        path.join(out, "migration-report.md"),
+        "utf-8",
+      );
+      expect(report).toContain("native_only_fn");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });

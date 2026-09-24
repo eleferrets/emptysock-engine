@@ -26,6 +26,12 @@ import {
   buildShaderAsset,
   ShaderTranslationError,
 } from "./gms2-shader-import.js";
+import { buildTimelineModule } from "./gms2-timeline-import.js";
+import {
+  convertGms2Sequence,
+  buildSequenceModule,
+} from "./gms2-sequence-import.js";
+import { convertGms2Extension } from "./gms2-extension-import.js";
 
 // Re-exported for backward compatibility — some callers (and the test
 // suite) import `parseGmsJson` directly from this module.
@@ -93,6 +99,9 @@ export async function importGMS2Project(
   const fonts: string[] = [];
   const notes: string[] = [];
   const shaders: string[] = [];
+  const timelines: string[] = [];
+  const sequences: string[] = [];
+  const extensions: string[] = [];
 
   const resources = normalizeYypResources(project.resources);
   for (const res of resources) {
@@ -123,9 +132,15 @@ export async function importGMS2Project(
       notes.push(name);
     } else if (resPath.startsWith("shaders/")) {
       shaders.push(name);
+    } else if (resPath.startsWith("timelines/")) {
+      timelines.push(name);
+    } else if (resPath.startsWith("sequences/")) {
+      sequences.push(name);
+    } else if (resPath.startsWith("extensions/")) {
+      extensions.push(name);
     } else {
       // A resource type this importer has no migration path for at all
-      // (extensions, timelines, and any other kind this importer has never
+      // (e.g. GameMaker's own IDE-only asset kinds this importer has never
       // been audited against) — not one of the categories above that get
       // their own report-table row. Still surfaced as a real warning so it
       // shows up in migration-report.md, rather than only living in the
@@ -426,6 +441,112 @@ export async function importGMS2Project(
       });
     }
   }
+  for (const name of timelines) {
+    if (verbose) console.log(`  [timeline] ${name}`);
+    try {
+      const content = await buildTimelineModule(name, projectRoot);
+      filesToWrite.push({ rel: `${name}.timeline.ts`, content });
+      reportEntries.push({ kind: "timeline", name, status: "converted" });
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(`Timeline "${name}" could not be converted (${reason}).`);
+      skipped.push(name);
+      reportEntries.push({
+        kind: "timeline",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+
+  for (const name of sequences) {
+    if (verbose) console.log(`  [sequence] ${name}`);
+    try {
+      const yyPath = path.join(projectRoot, "sequences", name, `${name}.yy`);
+      const converted = await convertGms2Sequence(yyPath);
+      const content = buildSequenceModule(name, converted);
+      filesToWrite.push({ rel: `${name}.sequence.ts`, content });
+
+      let note: string | undefined;
+      if (converted.skippedTracks.length > 0) {
+        note = `${converted.skippedTracks.length} track(s)/setting(s) not converted: ${converted.skippedTracks.join(", ")}.`;
+        warnings.push(`Sequence "${name}": ${note}`);
+      }
+      if (converted.curvedKeyframes > 0) {
+        const curveNote = `${converted.curvedKeyframes} keyframe(s) carried a real embedded animation curve, approximated as linear interpolation.`;
+        warnings.push(`Sequence "${name}": ${curveNote}`);
+        note = note !== undefined ? `${note} ${curveNote}` : curveNote;
+      }
+      reportEntries.push({
+        kind: "sequence",
+        name,
+        status: "converted",
+        ...(note !== undefined ? { note } : {}),
+      });
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Sequence "${name}" could not be converted (${String(err)}).`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "sequence",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+
+  for (const name of extensions) {
+    if (verbose) console.log(`  [extension] ${name}`);
+    try {
+      const converted = await convertGms2Extension(name, projectRoot);
+      for (const mod of converted.modules) {
+        filesToWrite.push({
+          rel: `extensions/${name}/${mod.fileName}`,
+          content: mod.content,
+        });
+      }
+      if (converted.nativeFunctions.length > 0) {
+        const names = converted.nativeFunctions.map((fn) => fn.name).join(", ");
+        warnings.push(
+          `Extension "${name}": ${converted.nativeFunctions.length} native-library-backed function(s) have no source to convert and were skipped: ${names}. Reimplement or replace these manually.`,
+        );
+      }
+      const status = converted.modules.length > 0 ? "converted" : "manual";
+      const note =
+        converted.nativeFunctions.length > 0
+          ? `${converted.nativeFunctions.length} native function(s) skipped: ${converted.nativeFunctions.map((fn) => fn.name).join(", ")}`
+          : undefined;
+      reportEntries.push({
+        kind: "extension",
+        name,
+        status,
+        ...(note !== undefined ? { note } : {}),
+      });
+      if (status === "converted") {
+        // (kept out of `skipped` — at least one function of this extension
+        // has a real generated module, even if others are native-only.)
+      } else {
+        skipped.push(name);
+      }
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Extension "${name}" could not be converted (${String(err)}).`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "extension",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+
   for (const name of tilesets) {
     if (verbose) console.log(`  [skip/manual] tileset: ${name}`);
     skipped.push(name);
