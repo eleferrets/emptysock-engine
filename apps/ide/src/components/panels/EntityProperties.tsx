@@ -237,6 +237,75 @@ function SchemaFieldControl({
   );
 }
 
+/**
+ * The colored-dot + name (+ optional trailing badge/action) row that both
+ * `ComponentSection` (single-select) and `MultiEntityProperties`' per-type
+ * card (multi-select) render for a component. Before this extraction the
+ * two panels hand-duplicated the same dot/name/background markup — a
+ * genuine "two adapters for one seam" case (CLAUDE.md's deepening
+ * principle): one real header shape, two copies to keep in sync. `trailing`
+ * covers what differs — the single-select header adds a remove button and
+ * expand/collapse chevron; the multi-select header adds a shared/count
+ * badge — everything else (dot color, name, row chrome) is identical.
+ */
+function ComponentHeaderRow({
+  color,
+  name,
+  trailing,
+  onClick,
+}: {
+  color: string;
+  name: string;
+  trailing?: React.ReactNode;
+  onClick?: () => void;
+}): React.ReactElement {
+  return (
+    <div
+      {...(onClick !== undefined
+        ? {
+            role: "button",
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") onClick();
+            },
+          }
+        : {})}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 10px",
+        background: "var(--es-surface-2)",
+        ...(onClick !== undefined
+          ? { cursor: "pointer" as const, userSelect: "none" as const }
+          : {}),
+      }}
+    >
+      <div
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: color,
+        }}
+      />
+      <span
+        style={{
+          flex: 1,
+          fontSize: 11,
+          fontWeight: 500,
+          color: "var(--es-text)",
+        }}
+      >
+        {name}
+      </span>
+      {trailing}
+    </div>
+  );
+}
+
 function ComponentSection({
   entityId,
   component,
@@ -269,78 +338,49 @@ function ComponentSection({
         overflow: "hidden",
       }}
     >
-      {/* Use div+role instead of button so the trash button inside is valid HTML */}
-      <div
-        role="button"
-        tabIndex={0}
+      <ComponentHeaderRow
+        color={color}
+        name={component.type}
         onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setOpen((o) => !o);
-        }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "5px 10px",
-          background: "var(--es-surface-2)",
-          cursor: "pointer",
-          userSelect: "none",
-        }}
-      >
-        <div
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            flexShrink: 0,
-            background: color,
-          }}
-        />
-        <span
-          style={{
-            flex: 1,
-            fontSize: 11,
-            fontWeight: 500,
-            color: "var(--es-text)",
-          }}
-        >
-          {component.type}
-        </span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(entityId, component.type);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--es-text-muted)",
-            padding: 2,
-            borderRadius: 2,
-            minHeight: "unset",
-            minWidth: "unset",
-            width: 16,
-            height: 16,
-          }}
-          title={`Remove ${component.type}`}
-        >
-          <Trash2 size={10} />
-        </button>
-        <span
-          style={{
-            color: "var(--es-text-muted)",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        </span>
-      </div>
+        trailing={
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(entityId, component.type);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--es-text-muted)",
+                padding: 2,
+                borderRadius: 2,
+                minHeight: "unset",
+                minWidth: "unset",
+                width: 16,
+                height: 16,
+              }}
+              title={`Remove ${component.type}`}
+            >
+              <Trash2 size={10} />
+            </button>
+            <span
+              style={{
+                color: "var(--es-text-muted)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            </span>
+          </>
+        }
+      />
 
       {open && (
         <div
@@ -603,38 +643,15 @@ function MultiEntityProperties({ ids }: { ids: string[] }): React.ReactElement {
                 overflow: "hidden",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "5px 10px",
-                  background: "var(--es-surface-2)",
-                }}
-              >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    background: meta?.color ?? "var(--es-text-muted)",
-                  }}
-                />
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    color: "var(--es-text)",
-                  }}
-                >
-                  {type}
-                </span>
-                <span style={{ fontSize: 10, color: "var(--es-text-muted)" }}>
-                  {shared ? "shared" : `${count}/${selected.length}`}
-                </span>
-              </div>
+              <ComponentHeaderRow
+                color={meta?.color ?? "var(--es-text-muted)"}
+                name={type}
+                trailing={
+                  <span style={{ fontSize: 10, color: "var(--es-text-muted)" }}>
+                    {shared ? "shared" : `${count}/${selected.length}`}
+                  </span>
+                }
+              />
               {schema && shared && (
                 <div
                   style={{
