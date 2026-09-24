@@ -12,7 +12,51 @@ import fs from "fs/promises";
  * produced by earlier ones (single-pass sequential replacement).
  */
 export function transpileGML(gml: string): string {
+  // A real GML source file can be entirely, permanently dead code — a
+  // developer opened a `/* ...` block comment to disable a whole event and
+  // never added the closing `*/` (GameMaker's own parser is lenient about
+  // an unterminated block comment: it just consumes to end of file, so this
+  // is valid, inert GML, not a project error). Passed straight through,
+  // that same unterminated `/*` is a hard TypeScript parse error — and
+  // because it never closes, it can swallow every later pass's own output
+  // for the rest of the file too. A simple unpaired-marker count (more
+  // `/*` than `*/` in the raw source) is enough to catch the actual shape
+  // this takes in practice — the whole file being one big commented-out
+  // block — without needing a real GML lexer. When it's unpaired, the
+  // event is reported as inert dead code instead of being transpiled: its
+  // real content genuinely never ran in GameMaker either, so there's
+  // nothing lost by not transpiling it, and doing so would just be a
+  // second, TypeScript-flavoured way to break parsing where GML's own
+  // leniency didn't.
+  const openMarkers = (gml.match(/\/\*/g) ?? []).length;
+  const closeMarkers = (gml.match(/\*\//g) ?? []).length;
+  if (openMarkers > closeMarkers) {
+    return "// [GML source event is entirely inert — its body is one big unterminated /* block comment in the original .gml file, so none of it ever ran in GameMaker either. Nothing to migrate.]";
+  }
+
   let out = gml;
+
+  // Neutralise every real, properly-closed `/* ... */` block comment in the
+  // source before any other pass runs. This matters for two separate
+  // reasons: (1) real GML source code inside a `/* ... */` block is dead
+  // code in GameMaker too — transpiling and emitting it as live code would
+  // misrepresent something that never actually ran; (2) several passes
+  // below (with, instance_create_layer/instance_destroy, room_goto, …)
+  // inject their own `/* TODO: ... */`-style explanatory comment in place
+  // of unmodelled GML. If that injection happens to land inside a source
+  // comment this pass hasn't neutralised yet, the result is a *nested*
+  // block comment — invalid in JS/TS, since the first `*/` found (which
+  // could belong to either the original source comment or an injected one)
+  // closes the outer comment early and leaves whatever follows as bare,
+  // unparseable code up until the next stray `*/`. Collapsing every real
+  // source comment to one fixed, content-free placeholder first removes
+  // that hazard entirely — nothing injected by a later pass can ever be
+  // sitting inside pre-existing comment markers, because none survive past
+  // this point.
+  out = out.replace(
+    /\/\*[\s\S]*?\*\//g,
+    "/* [GML comment/dead code omitted] */",
+  );
 
   // -- Variable declarations -------------------------------------------------
   // global.x = expr  →  a TODO comment, not an active statement.
@@ -35,7 +79,12 @@ export function transpileGML(gml: string): string {
   // and doesn't silently misrepresent global (cross-object) state as a
   // function-local variable.
   out = out.replace(
-    /\bglobal\.(\w+)\s*=\s*([^;\n]+);?/g,
+    // `(?!=)` after the `=` keeps this from matching `global.x == y` (a
+    // comparison, not an assignment) — without it, `global.x == y` matched
+    // "assignment" starting at the first `=`, leaving the second `=` to be
+    // swallowed into the captured right-hand-side text, producing garbled
+    // output like `= = y`.
+    /\bglobal\.(\w+)\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, varName: string, expr: string) =>
       `// TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state.`,
   );
@@ -76,18 +125,70 @@ export function transpileGML(gml: string): string {
   // followed by a dangling `&& (b) { ... }` expression statement — not a
   // parse error, so this shape doesn't even surface as an "unresolved
   // identifier" the way genuinely unmodelled GML does; it silently changes
-  // which branch runs. Only handles conditions without their own nested
-  // parens (the overwhelmingly common real shape — a flat chain of
-  // `(x > y) && (a < b)`-style clauses); a condition with nested parens
-  // inside one of the chained groups is rare enough, and safe enough to
-  // leave for manual review, that this doesn't try to handle it.
+  // which branch runs. Each clause allows up to one level of nested parens
+  // (a bare function call used as one clause — `Math.abs(x) > 0.2`,
+  // `mouse_check_button(mb_left)` — is a common real shape); a clause with
+  // parens nested two or more levels deep is rare enough, and safe enough
+  // to leave for manual review, that this doesn't try to handle it.
+  // A "clause" allows up to two levels of nested parens — real conditions
+  // routinely nest that deep (`Math.round(x + (y / 2)) > z` is a function
+  // call, itself containing a further parenthesised sub-expression, used as
+  // one clause). A clause nested three or more levels deep is rare enough,
+  // and safe enough to leave for manual review, that this doesn't try to
+  // handle it.
+  const IF_CLAUSE = String.raw`\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)`;
   out = out.replace(
-    /\bif\s*(\([^()]*\)(?:\s*(?:&&|\|\|)\s*\([^()]*\))+)/g,
+    new RegExp(
+      `\\bif\\s*(${IF_CLAUSE}(?:\\s*(?:&&|\\|\\|)\\s*${IF_CLAUSE})+)`,
+      "g",
+    ),
     (_m, cond: string) => `if (${cond})`,
   );
 
-  // GML's `div` (integer division) infix operator has no JS/TS equivalent
-  // operator — `a div b` must become `Math.floor(a / b)`. Handles both a
+  // if !(a) { ... }  →  if (!(a)) { ... } — same underlying issue as the
+  // bare `&&`/`||` chain above (GML's `if` doesn't require its condition to
+  // be one single enclosing paren; JS/TS's does), just for a leading `!`
+  // instead of a chained boolean operator.
+  out = out.replace(
+    new RegExp(`\\bif\\s*(!\\s*${IF_CLAUSE})`, "g"),
+    (_m, cond: string) => `if (${cond})`,
+  );
+
+  // if <bare expr, no enclosing paren at all> { ... }  →  if (<expr>) { ... }
+  //
+  // The most general form of the same GML/JS `if`-condition gap: GML's
+  // `if place_meeting(x, y, obj) { ... }` (a bare call, no parens around
+  // the condition at all) and `if !place_meeting(...) && cond2 { ... }`
+  // (a bare `!`-prefixed chain, not the already-parenthesised `!(...)`
+  // case above) are both real, valid GML. This pass only fires when the
+  // condition isn't already paren-led (the negative lookahead) and only
+  // when it can find a `{` shortly after the condition (on the same line,
+  // or as the very next non-blank line) to anchor where the condition
+  // actually ends — the same real, common "braced multi-line if" shape
+  // every case seen in practice takes. A single-line, brace-less
+  // `if cond statement;` is deliberately left alone rather than risking
+  // swallowing the statement into the wrapped condition: with no `{` to
+  // anchor against, there's no reliable regex-only way to tell where the
+  // condition ends and the statement begins.
+  //
+  // The negative lookbehind additionally guards against matching the word
+  // "if" inside an ordinary `//` line comment ("// checking if we are
+  // within range" is real, common GML commentary) — this pass's own
+  // condition-capture group can span multiple lines, so an unguarded match
+  // starting inside a comment would keep consuming text across the
+  // newline, right through a real `if` statement below it, and wrap the
+  // wrong (much larger, comment-plus-code) span entirely. (Real `/* ... */`
+  // block comments can't trigger this: the dead-code-comment pass above
+  // already collapsed every one of those to fixed placeholder text with no
+  // "if" in it, before this pass ever runs.)
+  out = out.replace(
+    /(?<!\/\/[^\n]*)\bif\s+(?!\()([\s\S]+?)(?=\r?\n\s*\{|[ \t]+\{)/g,
+    (_m, cond: string) => `if (${cond.trim()})`,
+  );
+
+  // GML's `div` (integer division) and `mod` (modulo) infix operators have
+  // no JS/TS operator equivalent — `a div b` must become
+  // `Math.floor(a / b)`, `a mod b` must become `a % b`. Handles both a
   // parenthesised left/right operand (`(x - y) div (z * 1.5)`) and a bare
   // identifier/number/member-access operand (`total div count`); a more
   // complex operand shape (a full nested expression on one side with no
@@ -98,6 +199,23 @@ export function transpileGML(gml: string): string {
     new RegExp(`(${OPERAND})\\s+div\\s+(${OPERAND})`, "g"),
     (_m, a: string, b: string) => `Math.floor(${a} / ${b})`,
   );
+  out = out.replace(
+    new RegExp(`(${OPERAND})\\s+mod\\s+(${OPERAND})`, "g"),
+    (_m, a: string, b: string) => `(${a} % ${b})`,
+  );
+
+  // GML's data-structure accessor syntax — `arr[| i]` (ds_list), `arr[# c,
+  // r]` (ds_grid), `arr[? key]` (ds_map) — uses a marker character right
+  // after `[` that has no meaning in JS/TS array/member indexing at all,
+  // and is a hard parse error left in place. There's no real ds_list/
+  // ds_grid/ds_map runtime behind a plain JS array in this engine to
+  // preserve the original semantics of, so this only fixes the syntax
+  // (plain index access) and leaves a comment flagging the original
+  // accessor kind for manual review, rather than silently reinterpreting
+  // "list accessor" as "array index" without saying so.
+  out = out.replace(/\[\s*\|\s*/g, "[/* was ds_list accessor: arr[| i] */ ");
+  out = out.replace(/\[\s*#\s*/g, "[/* was ds_grid accessor: arr[# c, r] */ ");
+  out = out.replace(/\[\s*\?\s*/g, "[/* was ds_map accessor: arr[? key] */ ");
 
   // GML's `with (instances) { body }` iterates every instance matching
   // `instances`, running `body` with `self`/bare-identifier scope switched
@@ -147,23 +265,38 @@ export function transpileGML(gml: string): string {
     (_m, semi?: string) => `(undefined /* entity.destroy(); */)${semi ?? ""}`,
   );
 
-  // audio_play_sound(snd, priority, loop)
+  // audio_play_sound(snd, priority, loop) / room_goto(rm_next) / draw_sprite
+  // — GML allows any of these to be the sole (unbraced) body of an `if`/
+  // `else` with no surrounding block: `if (cond) room_goto(rm_next);` is
+  // real, common GML. A `// ...` line-comment substitution leaves that
+  // `if` with no statement body at all — a hard parse error, not the
+  // "honestly unresolved" case a bare identifier would be — the same
+  // expression-vs-statement issue `instance_create_layer`/
+  // `instance_destroy` (above) already had to be fixed for. A value-
+  // returning `(undefined /* ... */)` stays a valid statement (and a valid
+  // sub-expression, for the same reason) in every position a genuine
+  // function call could have appeared in.
+  // The whole argument list is captured as one raw, unparsed string (up to
+  // one level of nested parens — a real, common shape is a sound-choosing
+  // sub-call as the first argument, e.g.
+  // `audio_play_sound(choose(snd_a, snd_b), 1, false)`) rather than split
+  // into snd/priority/loop positionally: a naive `[^,)]+`-per-argument
+  // split breaks the moment any argument itself contains a comma, like that
+  // sub-call's own argument list does.
   out = out.replace(
-    /\baudio_play_sound\s*\(\s*([^,)]+)\s*,\s*[^,)]+\s*,\s*([^)]+)\s*\)\s*;?/g,
-    (_m, _snd: string, loop: string) =>
-      `// audioSystem.play('sound_name', { loop: ${loop.trim()} });`,
+    /\baudio_play_sound\s*\(((?:[^()]|\([^()]*\))*)\)(\s*;)?/g,
+    (_m, args: string, semi?: string) =>
+      `(undefined /* audioSystem.play('sound_name', { ...(${args.trim()}) }); */)${semi ?? ""}`,
   );
-
-  // room_goto(rm_next)
   out = out.replace(
-    /\broom_goto\s*\(\s*([^)]+)\s*\)\s*;?/g,
-    (_m, rm: string) => `// sceneManager.load('${rm.trim()}');`,
+    /\broom_goto\s*\(\s*([^)]+)\s*\)(\s*;)?/g,
+    (_m, rm: string, semi?: string) =>
+      `(undefined /* sceneManager.load('${rm.trim()}'); */)${semi ?? ""}`,
   );
-
-  // draw_sprite
   out = out.replace(
-    /\bdraw_sprite\s*\([^)]*\)\s*;?/g,
-    "// Sprite component handles drawing declaratively",
+    /\bdraw_sprite\s*\([^)]*\)(\s*;)?/g,
+    (_m, semi?: string) =>
+      `(undefined /* Sprite component handles drawing declaratively */)${semi ?? ""}`,
   );
 
   // draw_set_colour/draw_rectangle/draw_circle/draw_text/draw_line — real
