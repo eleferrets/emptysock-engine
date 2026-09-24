@@ -43,6 +43,35 @@ export class GmlBehaviorSystem {
   }
 
   /**
+   * Runs one transpiled GML handler, catching and reporting (never
+   * silently swallowing) anything it throws instead of letting it
+   * propagate out of `update()`/`dispatchCreate()`/etc. A real GMS2 import
+   * routinely contains genuinely unmodelled GML (an unmapped built-in
+   * variable or function CLAUDE.md's own "surface as an unresolved
+   * identifier, don't fake it" rule deliberately leaves untranspiled) —
+   * confirmed against a real project, where one entity's `onCreate`
+   * referencing an unmapped built-in (`view_camera[0]`) threw and, with no
+   * isolation, aborted the *entire* room load before any other entity's
+   * `onCreate` — including ones with no such gap — ever ran. One
+   * behavior's broken/unmodelled GML must not be able to take down every
+   * other entity's dispatch in the same pass, the same "partial success,
+   * honestly reported" shape `SaveSystem`'s per-component migration
+   * failures and `QueryChannel`'s `createEntity` `skipped` list already
+   * use elsewhere in this codebase.
+   */
+  private safeCall(hookName: string, behaviorId: string, fn: () => void): void {
+    try {
+      fn();
+    } catch (err) {
+      console.error(
+        `GmlBehaviorSystem: "${behaviorId}".${hookName} threw — this entity's ${hookName} did not complete, but dispatch continues for every other entity. ${
+          err instanceof Error ? (err.stack ?? err.message) : String(err)
+        }`,
+      );
+    }
+  }
+
+  /**
    * Dispatches `onCreate` for one entity, once. Call this right after
    * spawning an entity that carries `GmlBehaviorState` — the natural
    * integration point is `loadSceneFile()`'s per-spawned-entity hook
@@ -57,7 +86,10 @@ export class GmlBehaviorSystem {
   dispatchCreate(entity: Entity, ctx: GmlActionContext): void {
     const state = entity.get(GmlBehaviorState);
     if (state === undefined) return;
-    this.moduleFor(state)?.onCreate?.(entity, ctx);
+    const module = this.moduleFor(state);
+    const handler = module?.onCreate;
+    if (handler === undefined) return;
+    this.safeCall("onCreate", state.behaviorId, () => handler(entity, ctx));
   }
 
   /**
@@ -79,7 +111,12 @@ export class GmlBehaviorSystem {
   destroy(scene: Scene, entity: Entity, ctx: GmlActionContext): void {
     const state = entity.get(GmlBehaviorState);
     if (state !== undefined) {
-      this.moduleFor(state)?.onDestroy?.(entity, ctx);
+      const handler = this.moduleFor(state)?.onDestroy;
+      if (handler !== undefined) {
+        this.safeCall("onDestroy", state.behaviorId, () =>
+          handler(entity, ctx),
+        );
+      }
     }
     scene.destroy(entity);
   }
@@ -95,13 +132,23 @@ export class GmlBehaviorSystem {
    */
   update(scene: Scene, dt: number, ctx: GmlActionContext): void {
     scene.each(GmlBehaviorState, (state, entity) => {
-      this.moduleFor(state)?.onStepBegin?.(entity, ctx);
+      const handler = this.moduleFor(state)?.onStepBegin;
+      if (handler === undefined) return;
+      this.safeCall("onStepBegin", state.behaviorId, () =>
+        handler(entity, ctx),
+      );
     });
     scene.each(GmlBehaviorState, (state, entity) => {
-      this.moduleFor(state)?.onUpdate?.(entity, dt, ctx);
+      const handler = this.moduleFor(state)?.onUpdate;
+      if (handler === undefined) return;
+      this.safeCall("onUpdate", state.behaviorId, () =>
+        handler(entity, dt, ctx),
+      );
     });
     scene.each(GmlBehaviorState, (state, entity) => {
-      this.moduleFor(state)?.onStepEnd?.(entity, ctx);
+      const handler = this.moduleFor(state)?.onStepEnd;
+      if (handler === undefined) return;
+      this.safeCall("onStepEnd", state.behaviorId, () => handler(entity, ctx));
     });
     this.resolveCollisions(scene, ctx);
   }
@@ -141,10 +188,14 @@ export class GmlBehaviorSystem {
     });
 
     for (const source of sources) {
+      const sourceId =
+        source.get(GmlBehaviorState)?.behaviorId ?? source.eid.toString();
       for (const target of targets) {
         if (target.eid === source.eid) continue;
         if (!checkGmlAabbOverlap(source, target)) continue;
-        dispatchGmlCollision(source, target, ctx);
+        this.safeCall("onCollideWith", sourceId, () =>
+          dispatchGmlCollision(source, target, ctx),
+        );
       }
     }
   }
@@ -208,7 +259,9 @@ export class GmlBehaviorSystem {
       if (handler === undefined) return;
       const drawTarget = makeTarget(entity);
       if (drawTarget === undefined) return;
-      handler(entity, { ...ctx, drawTarget });
+      this.safeCall(handler.name || "onDraw", state.behaviorId, () =>
+        handler(entity, { ...ctx, drawTarget }),
+      );
     });
   }
 }
