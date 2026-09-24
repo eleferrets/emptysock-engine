@@ -136,6 +136,13 @@ export type {
 } from "./systems/PointerSystem.js";
 export type { Serializable, SerializableRecord } from "./Serializable.js";
 export { Transform } from "./components/Transform.js";
+export { LightSource } from "./components/LightSource.js";
+export {
+  LightingSystem,
+  type AmbientLight,
+  type LightSample,
+  type LightingSystemOptions,
+} from "./systems/LightingSystem.js";
 export { Meta } from "./components/Meta.js";
 export type { MetaShape } from "./components/Meta.js";
 export { Sprite } from "./components/Sprite.js";

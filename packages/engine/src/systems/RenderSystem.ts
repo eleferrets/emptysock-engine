@@ -3,10 +3,12 @@ import {
   BlurFilter,
   ColorMatrixFilter,
   Container,
+  Graphics,
+  RenderTexture,
   type Filter,
   type Renderer,
 } from "pixi.js";
-import { OutlineFilter } from "pixi-filters";
+import { OutlineFilter, SimpleLightmapFilter } from "pixi-filters";
 import type { LayerSystem } from "./LayerSystem.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
 import type { GPUTier } from "../GPUTier.js";
@@ -16,6 +18,44 @@ import {
   type LayerFilterType,
   type PostProcessSystem,
 } from "./PostProcessSystem.js";
+import type { LightingSystem, LightSample } from "./LightingSystem.js";
+import type { Scene } from "../Scene.js";
+
+/** Number of concentric rings drawn per light — see `syncLighting()`'s doc comment. */
+const LIGHT_FALLOFF_RINGS = 8;
+
+/**
+ * One light → a `Graphics` of concentric, additively blended filled circles
+ * approximating a `(1 - t)^falloff` radial intensity curve. `originX`/`originY`
+ * shift world-space light coordinates into the lightmap texture's local
+ * space (the lightmap only ever covers `viewport`, not the whole world).
+ */
+function buildLightGraphics(
+  light: LightSample,
+  originX: number,
+  originY: number,
+): Graphics {
+  const graphics = new Graphics();
+  graphics.blendMode = "add";
+  const localX = light.x - originX;
+  const localY = light.y - originY;
+  const falloff = Math.max(0.01, light.falloff);
+
+  let previousIntensity = 0;
+  for (let ring = LIGHT_FALLOFF_RINGS; ring >= 1; ring--) {
+    const t = ring / LIGHT_FALLOFF_RINGS;
+    const intensity = Math.pow(1 - t, falloff);
+    const delta = intensity - previousIntensity;
+    previousIntensity = intensity;
+    if (delta <= 0) continue;
+    const alpha = Math.min(1, Math.max(0, delta * light.intensity));
+    if (alpha <= 0) continue;
+    graphics
+      .circle(localX, localY, light.radius * t)
+      .fill({ color: light.colour, alpha });
+  }
+  return graphics;
+}
 
 export interface RenderSystemOptions {
   width?: number;
@@ -64,6 +104,11 @@ export class RenderSystem {
     string,
     { type: LayerFilterType; filter: Filter }
   > = new Map();
+  /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
+  private _lightingFilter: SimpleLightmapFilter | null = null;
+  private _lightMapTexture: RenderTexture | null = null;
+  private _lightMapContainer: Container | null = null;
+  private _lightingLayerId: string | null = null;
 
   async init(options: RenderSystemOptions = {}): Promise<void> {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
@@ -397,6 +442,125 @@ export class RenderSystem {
     }
   }
 
+  /**
+   * Real 2D dynamic point lighting — see CLAUDE.md's "LightingSystem: real
+   * 2D point lights via a baked lightmap, not a hand-rolled shader" entry
+   * for the full rationale. `LightingSystem` (framework-agnostic) decides
+   * *which* lights are live; this method is the one place that turns them
+   * into pixels, following the exact split `syncPostProcessLayerFilters`
+   * already established (a framework-agnostic system feeds a plain options
+   * object, `RenderSystem` builds/reuses the real pixi objects).
+   *
+   * The technique: every light is drawn as a set of concentric, additively
+   * blended filled circles (`Graphics.circle().fill()`, outer ring first,
+   * each ring's alpha the *increment* of a `(1 - t)^falloff` intensity curve
+   * between it and the next ring in) into an offscreen `RenderTexture` sized
+   * to `viewport` — the "lightmap". `pixi-filters`' real `SimpleLightmapFilter`
+   * (already an engine dependency, already used for PostProcessSystem's
+   * `outline` mapping) is then attached to `layerId` via the same
+   * `addLayerShaderFilter()` every other post-process filter in this file
+   * uses; its shader does `sceneColour * (ambientColour * ambientLevel +
+   * lightmap.rgb)` — read straight from its own real WGSL source — which is
+   * exactly "pitch black except lit areas" at `ambient.level = 0` and "no
+   * darkness at all" at `ambient.level = 1`.
+   *
+   * Concentric rings rather than a `FillGradient` radial fill: `FillGradient`
+   * bakes its gradient into a texture the first time it's used, and that
+   * path has not been verified to run under the headless Node/Vitest harness
+   * (no confirmed canvas-free code path) — concentric `Graphics.circle()`
+   * calls are the same primitive `compat/gml.ts`'s `draw_circle` and
+   * `RenderPipeline`'s scene-transition overlay already use, so this stays
+   * on a rendering primitive this codebase has already verified works
+   * headless. One `RenderTexture` and one lightmap `Container` are built
+   * once and reused/resized across calls, the same "don't reallocate a GPU
+   * resource every frame" discipline `_postProcessFilters` already follows;
+   * the per-light `Graphics` objects are rebuilt from scratch every call
+   * (the same "simplicity over per-frame allocation cost" tradeoff
+   * `ParticleEmitter`'s pixi wiring already accepts).
+   *
+   * `viewport` is the world-space rect the lightmap should cover — normally
+   * the camera's visible area. Lights outside it still count toward
+   * `LightingSystem.maxLights`'s nearest-N cap (`collectLights()` doesn't
+   * know about the viewport rect, only a reference point) but contribute
+   * nothing to a lightmap that doesn't cover them, which is the correct,
+   * honest behaviour — a light fully offscreen has no visible effect to fake.
+   */
+  syncLighting(
+    lighting: LightingSystem,
+    scene: Scene,
+    layerId: string,
+    viewport: { x: number; y: number; width: number; height: number },
+  ): void {
+    if (this._renderer === null) return;
+    const width = Math.max(1, Math.round(viewport.width));
+    const height = Math.max(1, Math.round(viewport.height));
+    const reference = {
+      x: viewport.x + viewport.width / 2,
+      y: viewport.y + viewport.height / 2,
+    };
+    const lights = lighting.collectLights(scene, reference);
+
+    if (
+      this._lightMapTexture === null ||
+      this._lightMapTexture.width !== width ||
+      this._lightMapTexture.height !== height
+    ) {
+      this._lightMapTexture?.destroy(true);
+      this._lightMapTexture = RenderTexture.create({ width, height });
+    }
+    this._lightMapContainer ??= new Container();
+    this._lightMapContainer.removeChildren();
+    for (const light of lights) {
+      this._lightMapContainer.addChild(
+        buildLightGraphics(light, viewport.x, viewport.y),
+      );
+    }
+    this._renderer.render({
+      container: this._lightMapContainer,
+      target: this._lightMapTexture,
+      clearColor: 0x000000,
+    });
+
+    if (this._lightingFilter === null) {
+      this._lightingFilter = new SimpleLightmapFilter({
+        lightMap: this._lightMapTexture,
+        color: lighting.ambient.colour,
+        alpha: lighting.ambient.level,
+      });
+      this._lightingLayerId = layerId;
+      this.addLayerShaderFilter(layerId, this._lightingFilter);
+      return;
+    }
+
+    this._lightingFilter.lightMap = this._lightMapTexture;
+    this._lightingFilter.color = lighting.ambient.colour;
+    this._lightingFilter.alpha = lighting.ambient.level;
+    if (this._lightingLayerId !== layerId) {
+      if (this._lightingLayerId !== null) {
+        this.removeLayerShaderFilter(
+          this._lightingLayerId,
+          this._lightingFilter,
+        );
+      }
+      this.addLayerShaderFilter(layerId, this._lightingFilter);
+      this._lightingLayerId = layerId;
+    }
+  }
+
+  /** Detach and destroy whatever `syncLighting()` built. Call from scene teardown if a scene turns lighting off entirely. */
+  clearLighting(): void {
+    if (this._lightingFilter !== null && this._lightingLayerId !== null) {
+      this.removeLayerShaderFilter(this._lightingLayerId, this._lightingFilter);
+      this._lightingFilter.destroy();
+    }
+    this._lightingFilter = null;
+    this._lightingLayerId = null;
+    this._lightMapTexture?.destroy(true);
+    this._lightMapTexture = null;
+    this._lightMapContainer?.destroy({ children: true });
+    this._lightMapContainer = null;
+  }
+
   get renderer(): Renderer {
     if (this._renderer === null)
       throw new Error("RenderSystem not initialized");
@@ -441,6 +605,7 @@ export class RenderSystem {
       entry.filter.destroy();
     }
     this._postProcessFilters.clear();
+    this.clearLighting();
     this._layerContainers.clear();
     this._defaultContainer = null;
     this._layerSystem = null;
