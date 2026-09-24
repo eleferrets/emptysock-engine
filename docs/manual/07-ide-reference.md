@@ -421,7 +421,53 @@ by the shared `useHistory` hook.
 
 ---
 
-## 7.20 VN Preview Panel
+## 7.20 NavMesh Editor
+
+Open via **Module → NavMesh Editor** in the menu bar (docks next to the
+TilemapEditor tab). A canvas editor for hand-authoring the convex polygon
+graph `@emptysock/tilemap`'s `NavMeshSystem` consumes — per CLAUDE.md's
+"NavMesh data is offline", there is no runtime generation from a tilemap, so
+this panel is how that polygon data actually gets built.
+
+**Tools (toolbar, left panel):**
+
+- **Select** — drag a vertex handle to reshape a polygon, or drag inside a
+  polygon (away from its vertices) to translate the whole shape. `Delete`/
+  `Backspace` removes the selected polygon.
+- **Draw** — click to place vertices one at a time; **Finish polygon**
+  (or `Enter`) closes the loop once at least 3 vertices are placed and
+  assigns a new `id` and computed `centroid`. `Escape` cancels the
+  in-progress draft.
+- **Connect** — click one polygon, then a second, to toggle a neighbour
+  link between them. Links are drawn as lines between centroids so the
+  adjacency graph is visually inspectable. A link is written to both
+  polygons' `neighbours` arrays — `NavMeshSystem.findPath()`'s traversal
+  only walks the edges a polygon's own `neighbours` list names, so the
+  editor keeps both directions in sync rather than leaving a one-way edge.
+- **Delete** — click a polygon to remove it. Any other polygon's
+  `neighbours` entry pointing at the removed id is cleaned up in the same
+  operation — no dangling ids are left behind.
+
+Grid, snap-to-grid and rulers use the shared `ViewControls` cluster
+(top-right of the canvas) — vertex placement and dragging snap to the grid
+when snap is enabled, the same convention `TilemapEditor` uses.
+
+**Load / Export:** **Load navmesh.json…** reads an existing `NavMeshData`
+file from disk; **Export navmesh.json** downloads the current polygons in
+the exact `NavMeshData` shape (`{ polygons: NavPolygon[] }`) — it round-trips
+directly into `NavMeshSystem.load()` with zero transformation.
+
+Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`), backed
+by the shared `useHistory` hook, capped at 50 steps.
+
+**Known v1 gap:** there is no background tilemap/level image shown under the
+navmesh layer yet — the canvas is a plain grid. A navmesh is normally
+authored over a level's tile layout, so this is a real, deliberately deferred
+follow-up (see `RELEASE_PASS.md`), not a silently dropped feature.
+
+---
+
+## 7.21 VN Preview Panel
 
 Shown in the Canvas Preview while the Story Graph panel is open. Renders an in-editor preview of the VN scene: background, character sprites, and textbox, using placeholder assets from the script.
 
@@ -431,7 +477,7 @@ The panel is view-only; edit the script in the Story Graph panel and edit assets
 
 ---
 
-## 7.21 Mobile / Tablet Layout
+## 7.22 Mobile / Tablet Layout
 
 When the IDE loads in a browser on a device narrower than 1024 px, it automatically switches to the mobile layout. The desktop dock layout (rc-dock) is not used on small screens.
 

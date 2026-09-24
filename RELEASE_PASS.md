@@ -20,6 +20,16 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+**2026-09-24.** Built the NavMesh Editor panel (`apps/ide/src/components/panels/NavMeshEditor.tsx`,
+`apps/ide/src/store/navMeshStore.ts`, docs at `docs/manual/07-ide-reference.md` §7.20). Scope call:
+
+- [ ] Follow-up — NavMesh Editor has no background tilemap/level backdrop yet; the canvas is a plain
+      grid for v1. Authoring a navmesh is normally done over a level's tile layout, so wiring in a
+      read-only `Tilemap`/level-image backdrop (reusing whatever `TilemapEditor.tsx` piece fits) is real,
+      deliberately deferred work, not a silently dropped requirement.
+
+---
+
 ## Track: close every stub/not-wired gap found in the 2026-09-23 wiring audit
 
 **Written 2026-09-23.** The wiring audit (an artifact, not a repo file) found one root cause behind
@@ -138,28 +148,19 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
 
 - [x] **Extend `QueryChannel`'s `EngineQuery` union with navmesh, `ActorSystem`, and entity-creation
       query kinds — done 2026-09-23.** Seven new `EngineQuery` kinds landed in
-      `packages/engine/src/bridge/QueryChannel.ts`:
-      - `{ kind: "createEntity", tag?: string, components?: string[] }` → `CreateEntityData { entityId:
-        number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
-        entity, `entity.add()`s each named already-registered component (defaults only), writes `tag`
-        into `Meta.name`/`Meta.tags` if given (adding `Meta` if absent). Names in `components` that
-        don't resolve to a registered `ComponentDef` land in `skipped`, not a hard error. Only error:
-        `"no-live-instance"`.
-      - `{ kind: "actorSendMessage", actorId: string, message: Message }` → `{ actorId, queued: true }`;
-        unknown `actorId` → `"not-found"`.
-      - `{ kind: "actorBroadcast", message: Message }` → `{ delivered: number }` (count of registered
-        actors).
-      - `{ kind: "actorInboxSize", actorId: string }` → `number`; unknown `actorId` → `"not-found"`.
-      - `{ kind: "actorList" }` → `string[]` (every registered actor id, registration order).
-      - All four actor kinds: `"no-live-instance"` if nothing attached, new code **`"no-actor-system"`**
-        if a scene is attached but no `ActorSystem` was passed to `attach()`.
-      - `{ kind: "navmeshFindPath", from: Vec2, to: Vec2 }` → `Vec2[] | null` (`null` = no path found,
-        not an error).
-      - `{ kind: "navmeshNearestNode", point: Vec2 }` → `Vec2 | null`.
-      - Both navmesh kinds: `"no-live-instance"` if nothing attached, new code **`"no-navmesh"`** if a
-        scene is attached but no navmesh source was passed to `attach()`.
+      `packages/engine/src/bridge/QueryChannel.ts`: - `{ kind: "createEntity", tag?: string, components?: string[] }` → `CreateEntityData { entityId:
+      number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
+      entity, `entity.add()`s each named already-registered component (defaults only), writes `tag`
+      into `Meta.name`/`Meta.tags` if given (adding `Meta` if absent). Names in `components` that
+      don't resolve to a registered `ComponentDef` land in `skipped`, not a hard error. Only error:
+      `"no-live-instance"`. - `{ kind: "actorSendMessage", actorId: string, message: Message }` → `{ actorId, queued: true }`;
+      unknown `actorId` → `"not-found"`. - `{ kind: "actorBroadcast", message: Message }` → `{ delivered: number }` (count of registered
+      actors). - `{ kind: "actorInboxSize", actorId: string }` → `number`; unknown `actorId` → `"not-found"`. - `{ kind: "actorList" }` → `string[]` (every registered actor id, registration order). - All four actor kinds: `"no-live-instance"` if nothing attached, new code **`"no-actor-system"`**
+      if a scene is attached but no `ActorSystem` was passed to `attach()`. - `{ kind: "navmeshFindPath", from: Vec2, to: Vec2 }` → `Vec2[] | null` (`null` = no path found,
+      not an error). - `{ kind: "navmeshNearestNode", point: Vec2 }` → `Vec2 | null`. - Both navmesh kinds: `"no-live-instance"` if nothing attached, new code **`"no-navmesh"`** if a
+      scene is attached but no navmesh source was passed to `attach()`.
       `attach(scene, physics?, options?)` grew a third optional `{ actors?: ActorSystem; navmesh?:
-      NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
+    NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
       `NavMeshQuerySource` (new exported interface, `QueryChannel.ts`) is a narrow structural shape —
       `findPath(from, to): Vec2[] | null` / `nearestNode(point): Vec2 | null` — since `NavMeshSystem`
       lives in `@emptysock/tilemap`, which depends on `@emptysock/engine`, never the reverse; mirrors
@@ -170,7 +171,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
       native to `@emptysock/engine` — but `Actor` gained a public `inboxSize` getter (previously
       private-only) for `actorInboxSize` to read.
       `apps/ide/src/services/PlayRunner.ts`'s preview bootstrap now passes `{ actors: lifecycle.actors
-      }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
+    }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
       live tilemap/navmesh panel anywhere today exposing a loaded `NavMeshSystem` instance to attach, so
       `navmeshFindPath`/`navmeshNearestNode` answer `"no-navmesh"` in the live preview; that is the
       honest current state, not a gap this item left open by accident.

@@ -80,6 +80,11 @@ export const ALL_MODULES: ModuleDef[] = [
     label: "CG Gallery",
     description: "CG art viewer with unlock tracking",
   },
+  {
+    id: "navmesh",
+    label: "NavMesh Editor",
+    description: "Hand-author and edit NavMeshSystem polygon data",
+  },
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [

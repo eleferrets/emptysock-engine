@@ -11,6 +11,7 @@ import { EntityProperties } from "./components/panels/EntityProperties";
 import { ConsolePanel } from "./components/panels/ConsolePanel";
 import { AssetBrowser } from "./components/panels/AssetBrowser";
 import { TilemapEditor } from "./components/panels/TilemapEditor";
+import { NavMeshEditor } from "./components/panels/NavMeshEditor";
 import { ParticleEditor } from "./components/panels/ParticleEditor";
 import { VNEditor } from "./components/panels/VNEditor";
 import { VisualScriptEditor } from "./components/panels/VisualScriptEditor";
@@ -84,6 +85,7 @@ function makeImageEditorTab(assetId: string): TabData {
 
 const GATED_TABS: Record<string, TabData> = {
   tilemap: makeTab("tilemap", "Tilemap", <TilemapEditor />, true),
+  navmesh: makeTab("navmesh", "NavMesh", <NavMeshEditor />, true),
   particle: makeTab("particle", "Particles", <ParticleEditor />, true),
   vn: makeTab("vn", "Story Graph", <VNEditor />, true),
   "visual-script": makeTab(
@@ -114,6 +116,7 @@ function getModuleTabs(ids: string[]): TabData[] {
 
 const MAIN_GATED_MODULES = [
   "tilemap",
+  "navmesh",
   "particle",
   "vn",
   "vn-preview",
@@ -208,6 +211,8 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   inspector: () => makeTab("inspector", "Inspector", <EntityProperties />),
   tilemap: () =>
     GATED_TABS["tilemap"] ?? makeTab("tilemap", "Tilemap", <TilemapEditor />),
+  navmesh: () =>
+    GATED_TABS["navmesh"] ?? makeTab("navmesh", "NavMesh", <NavMeshEditor />),
   particle: () =>
     GATED_TABS["particle"] ??
     makeTab("particle", "Particles", <ParticleEditor />),
