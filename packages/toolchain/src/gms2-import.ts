@@ -29,6 +29,11 @@ import {
 } from "./gms2-shader-import.js";
 import { buildTimelineModule } from "./gms2-timeline-import.js";
 import {
+  buildTilesetAsset,
+  buildRoomTilemapModule,
+  type TilesetAsset,
+} from "./gms2-tileset-import.js";
+import {
   convertGms2Sequence,
   buildSequenceModule,
 } from "./gms2-sequence-import.js";
@@ -240,6 +245,40 @@ export async function importGMS2Project(
     }
   }
 
+  // Tilesets are converted before rooms so a room's tile layers (see the
+  // rooms loop below) can look up an already-converted tileset by name and
+  // emit a real TilemapData module for it, rather than the previous
+  // unconditional "manual" treatment with no conversion attempted at all.
+  const convertedTilesets = new Map<string, TilesetAsset>();
+  for (const name of tilesets) {
+    if (verbose) console.log(`  [tileset] ${name}`);
+    try {
+      const { content, tileset } = await buildTilesetAsset(
+        name,
+        projectRoot,
+        outDir,
+      );
+      filesToWrite.push({ rel: `assets/${name}.tileset.ts`, content });
+      convertedTilesets.set(name, tileset);
+      reportEntries.push({ kind: "tileset", name, status: "converted" });
+      if (tileset.asymmetryWarning !== undefined) {
+        warnings.push(tileset.asymmetryWarning);
+      }
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Tileset "${name}" could not be converted (${String(err)}) — skipped, needs manual import.`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "tileset",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+
   const convertedRooms: string[] = [];
   for (const name of rooms) {
     if (verbose) console.log(`  [room] ${name}`);
@@ -287,21 +326,16 @@ export async function importGMS2Project(
       filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
       convertedRooms.push(name);
 
-      // convertGms2Room's parseTiles() already parses every GMRTileLayer's
-      // placed tile data into RoomLayer.tiles, but buildRoomSceneJSON has no
-      // way to carry it into the generated .scene.json — @emptysock/tilemap's
-      // TilemapSystem.register() needs a real TilesetConfig (image path,
-      // tile size, column/row count) that would have to come from actually
-      // converting the referenced *tileset* resource, and tilesets are
-      // currently reported "manual" (no import path at all — see the
-      // tilesets loop below), so there is no real converted tileset asset to
-      // point a generated Tilemap at yet. Rather than let this be silent
-      // data loss (an asset invisible in migration-report.md is effectively
-      // undocumented, per this importer's rule for every other asset kind),
-      // surface it as a real, honest warning and report note naming exactly
-      // how many tiles/tile layers were dropped, so nobody discovers a
-      // "converted" room is actually missing its tile-based level geometry
-      // only by noticing it's missing in-game.
+      // convertGms2Room's parseTiles() parses every GMRTileLayer's placed
+      // tile data into RoomLayer.tiles; now that tilesets themselves convert
+      // (see the tilesets loop above), a room's tile layer(s) get a real
+      // <room>.tilemap.ts module — a TilemapData `@emptysock/tilemap`'s
+      // TilemapSystem.register() can load directly — whenever they
+      // reference a tileset that actually converted. TilemapData carries
+      // exactly one `tileset`, so only the (real-world overwhelmingly
+      // common) single-tileset-per-room case converts automatically; a room
+      // whose tile layers reference more than one distinct tileset gets a
+      // real, honest note instead of a silently-incomplete tilemap.
       const tileLayers = room.layers.filter((layer) => layer.tiles.length > 0);
       const totalTiles = tileLayers.reduce(
         (sum, layer) => sum + layer.tiles.length,
@@ -309,8 +343,41 @@ export async function importGMS2Project(
       );
       let roomNote: string | undefined;
       if (totalTiles > 0) {
-        roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) parsed but not converted — this importer has no Tilemap-asset conversion path yet (would need the referenced tileset resource converted first). Recreate tile layers manually with @emptysock/tilemap.`;
-        warnings.push(`Room "${name}": ${roomNote}`);
+        const distinctTilesetIds = new Set(
+          tileLayers.flatMap((layer) =>
+            layer.tiles.map((tile) => tile.tilesetId),
+          ),
+        );
+        if (distinctTilesetIds.size > 1) {
+          roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) reference ${distinctTilesetIds.size} different tilesets (${[...distinctTilesetIds].join(", ")}) — this importer's generated TilemapData carries only one tileset per room, so no tilemap was generated for this room. Recreate tile layers manually with @emptysock/tilemap, or split this room's tile layers across separate tilesets in GameMaker before re-importing.`;
+          warnings.push(`Room "${name}": ${roomNote}`);
+        } else {
+          const [tilesetName] = distinctTilesetIds;
+          const tileset =
+            tilesetName !== undefined && tilesetName !== ""
+              ? convertedTilesets.get(tilesetName)
+              : undefined;
+          if (tileset === undefined) {
+            roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) reference tileset "${tilesetName ?? ""}", which was not converted (see the Tilesets section above) — no tilemap was generated for this room. Recreate tile layers manually with @emptysock/tilemap once the tileset converts.`;
+            warnings.push(`Room "${name}": ${roomNote}`);
+          } else {
+            const tilesetNameResolved = tilesetName as string;
+            const tilemapResult = buildRoomTilemapModule(
+              name,
+              room,
+              tilesetNameResolved,
+              tileset,
+            );
+            filesToWrite.push({
+              rel: `rooms/${name}.tilemap.ts`,
+              content: tilemapResult.content,
+            });
+            roomNote = `${tilemapResult.tilesPlaced} tile(s) across ${tileLayers.length} tile layer(s) converted to rooms/${name}.tilemap.ts (tileset "${tilesetNameResolved}") — register it with @emptysock/tilemap's TilemapSystem.register()/.loadInto().`;
+            if (tilemapResult.tilesDropped > 0) {
+              roomNote += ` ${tilemapResult.tilesDropped} tile(s) were dropped (out of the room's computed tile grid bounds).`;
+            }
+          }
+        }
       }
       reportEntries.push({
         kind: "room",
@@ -549,12 +616,6 @@ export async function importGMS2Project(
         note: reason,
       });
     }
-  }
-
-  for (const name of tilesets) {
-    if (verbose) console.log(`  [skip/manual] tileset: ${name}`);
-    skipped.push(name);
-    reportEntries.push({ kind: "tileset", name, status: "manual" });
   }
 
   filesToWrite.push({

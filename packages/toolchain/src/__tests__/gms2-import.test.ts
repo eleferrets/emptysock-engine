@@ -968,7 +968,7 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
     }
   });
 
-  it("warns honestly (does not silently drop) when a room has real placed tile data with no Tilemap conversion path", async () => {
+  it("warns honestly (does not silently drop) when a room has real placed tile data referencing a tileset that never converted", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-tiles-"));
     const out = await fs.mkdtemp(
       path.join(os.tmpdir(), "gms2-room-tiles-out-"),
@@ -1008,7 +1008,7 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       // 4 non-zero cells in the TileData grid above: (0,0)=1,(0,1)=1,(1,1)=2,(1,2)=3.
       expect(result.warnings).toEqual([
         expect.stringContaining(
-          'Room "rm_tiles": 4 tile(s) across 1 tile layer(s) parsed but not converted',
+          'Room "rm_tiles": 4 tile(s) across 1 tile layer(s) reference tileset "ts_ground", which was not converted',
         ) as string,
       ]);
 

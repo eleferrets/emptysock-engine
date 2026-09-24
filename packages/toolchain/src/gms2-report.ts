@@ -98,6 +98,7 @@ const SUMMARY_ROWS: Array<[MigrationEntryKind, MigrationEntryStatus]> = [
   ["sequence", "manual"],
   ["extension", "converted"],
   ["extension", "manual"],
+  ["tileset", "converted"],
   ["tileset", "manual"],
 ];
 
@@ -205,8 +206,14 @@ image_alpha) convert — nested instance/graphic/group tracks and non-numeric
 track kinds are reported, never silently dropped. Each extension's GML- or
 JS-backed functions were emitted as \`<extension>/<file>.ts\`; a
 native-library-backed function (\`.dll\`/\`.so\`/\`.dylib\`/\`.jar\`/Obj-C) has no
-source to convert and is listed by name below. See \`project-manifest.json\`
-for the full list of prefab/behavior/scene files this import produced.
+source to convert and is listed by name below. Each tileset was emitted as
+\`assets/<name>.tileset.ts\` (a real \`TilesetConfig\` for
+\`@emptysock/tilemap\`'s \`TilemapSystem\`), its source tile-sheet image (found
+via the tileset's own real \`spriteId\` reference) copied alongside it; a
+room whose tile layers reference exactly one successfully-converted tileset
+also gets a real \`rooms/<name>.tilemap.ts\` (a real \`TilemapData\`) built
+from that room's own placed tile data. See \`project-manifest.json\` for the
+full list of prefab/behavior/scene files this import produced.
 ${warningSection}
 ## Reference Material Copied (Not Engine Assets)
 
@@ -233,7 +240,7 @@ ${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 5. **Sounds** — each converted sound's \`assets/<name>.sound.ts\` shows the exact \`AudioSystem.load\`/\`.play\` call to wire it up; the real audio file is already copied alongside it.
 6. **Fonts** — each converted font's \`assets/<name>.font.ts\` gives the \`Label\`/\`ButtonState\`/\`Checkbox\` \`font\`/\`fontSize\` values to use; make sure the family is actually installed wherever the game runs.
 7. **Notes** — read \`notes/<name>.md\` for any GMS2 note content (including auto-generated compatibility reports) worth carrying into your project's own docs.
-8. **Tilesets** — recreate tilesets and wire them to your scenes.
+8. **Tilesets** — each converted tileset's \`assets/<name>.tileset.ts\` is a real \`TilesetConfig\`, its source tile-sheet image copied alongside it; a room whose tile layers reference exactly one converted tileset also gets a real \`rooms/<name>.tilemap.ts\` \`TilemapData\` module — call \`TilemapSystem.register(...)\`/\`.loadInto(scene, name)\` (\`@emptysock/tilemap\`) with it. A tileset reported manual, or a room whose tile layers reference more than one tileset, needs to be recreated by hand.
 9. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
 10. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).
 11. **Shaders** — each converted shader's \`assets/<name>.shader.ts\` gives the \`vertexSrc\`/\`fragmentSrc\` to pass to \`createCustomShaderFilter\`; GPU compilation was not verified during import, so test it in-engine before shipping. A shader reported manual (HLSL11, or non-passthrough vertex logic) needs to be rewritten by hand against \`CustomShaderFilter\`'s GLSL ES 3.00 contract.
