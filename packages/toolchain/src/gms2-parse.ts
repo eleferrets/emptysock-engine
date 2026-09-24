@@ -106,6 +106,38 @@ export function normalizeYypResources(raw: unknown[]): YYPResource[] {
 }
 
 /**
+ * A legacy `.yyp`'s room instances reference their object by raw GUID —
+ * `GMRInstance.objId: "<guid>"` — not by `{ name, path }` the way newer
+ * `.yy` room instances do (`objectId: { name, path }`). That GUID matches
+ * the legacy resource entry's own dictionary key (`entry.Key`, confirmed
+ * against a real legacy-format project — *not* `entry.Value.id`, a
+ * different, unrelated GUID also present on the same entry), so resolving
+ * an instance's object name back from a legacy room needs a `Key ->
+ * resource name` map built from the *raw*, still-legacy-shaped resources
+ * array — `normalizeYypResources` above already discards each entry's `Key`
+ * once it's flattened into the normalised `{ id: { name, path } }` shape,
+ * so this needs its own pass over the same raw array. Returns an empty map
+ * for a modern `.yyp` (no legacy entries to resolve — modern room
+ * instances carry their own name directly and never need this map).
+ */
+export function buildLegacyResourceGuidMap(
+  raw: unknown[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const entry of raw) {
+    if (!isLegacyResourceEntry(entry)) continue;
+    const key = entry.Key;
+    const resourcePath = entry.Value?.resourcePath;
+    if (typeof key !== "string" || typeof resourcePath !== "string") continue;
+    const forwardPath = resourcePath.replace(/\\/g, "/");
+    const base = forwardPath.split("/").pop() ?? "";
+    const name = base.replace(/\.yy$/i, "");
+    if (name) map[key] = name;
+  }
+  return map;
+}
+
+/**
  * Real GMS2 .yy/.yyp files are not strict JSON: GameMaker's IDE writes a
  * trailing comma before every closing `}`/`]`. JSON.parse rejects this
  * outright. Strip trailing commas before parsing so real project files

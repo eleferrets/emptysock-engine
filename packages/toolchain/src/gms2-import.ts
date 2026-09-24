@@ -3,6 +3,7 @@ import path from "path";
 import {
   parseGmsJson,
   normalizeYypResources,
+  buildLegacyResourceGuidMap,
   type YYProject,
 } from "./gms2-parse.js";
 import {
@@ -104,6 +105,7 @@ export async function importGMS2Project(
   const extensions: string[] = [];
 
   const resources = normalizeYypResources(project.resources);
+  const guidToObjectName = buildLegacyResourceGuidMap(project.resources);
   for (const res of resources) {
     const name = res.id.name;
     const resPath = res.id.path;
@@ -246,9 +248,11 @@ export async function importGMS2Project(
         name,
         projectRoot,
         convertedObjects,
+        guidToObjectName,
       );
       const room = await convertGms2Room(
         path.join(projectRoot, "rooms", name, `${name}.yy`),
+        guidToObjectName,
       );
 
       // Real background images (a GMRBackgroundLayer with a real spriteId)

@@ -101,25 +101,46 @@ function parseTiles(layer: YyLayer): TileEntry[] {
   return result;
 }
 
-function parseInstances(layer: YyLayer): InstanceEntry[] {
+function parseInstances(
+  layer: YyLayer,
+  guidToObjectName: Readonly<Record<string, string>>,
+): InstanceEntry[] {
   const instances = layer.instances;
   if (!Array.isArray(instances)) return [];
-  return instances.map((inst) => ({
-    objectName:
+  return instances.map((inst) => {
+    if (
       typeof inst.objectId === "object" &&
       typeof (inst.objectId as Record<string, unknown>)["name"] === "string"
-        ? ((inst.objectId as Record<string, unknown>)["name"] as string)
-        : "Unknown",
-    x: typeof inst.x === "number" ? inst.x : 0,
-    y: typeof inst.y === "number" ? inst.y : 0,
-  }));
+    ) {
+      return {
+        objectName: (inst.objectId as Record<string, unknown>)[
+          "name"
+        ] as string,
+        x: typeof inst.x === "number" ? inst.x : 0,
+        y: typeof inst.y === "number" ? inst.y : 0,
+      };
+    }
+    // Legacy room format: no `objectId.name` — just a bare `objId` GUID
+    // (see `buildLegacyResourceGuidMap`'s doc comment in gms2-parse.ts).
+    const objId = inst["objId"];
+    const resolvedName =
+      typeof objId === "string" ? guidToObjectName[objId] : undefined;
+    return {
+      objectName: resolvedName ?? "Unknown",
+      x: typeof inst.x === "number" ? inst.x : 0,
+      y: typeof inst.y === "number" ? inst.y : 0,
+    };
+  });
 }
 
 /**
  * Convert a GMS2 room .yy file path into a RoomData object.
  * Throws a descriptive Error on missing file, unreadable file, or invalid JSON.
  */
-export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
+export async function convertGms2Room(
+  roomYyPath: string,
+  guidToObjectName: Readonly<Record<string, string>> = {},
+): Promise<RoomData> {
   let raw: string;
   try {
     raw = await fs.readFile(roomYyPath, "utf-8");
@@ -170,7 +191,7 @@ export async function convertGms2Room(roomYyPath: string): Promise<RoomData> {
       name: layerName,
       type: layerType,
       tiles: parseTiles(layer),
-      instances: parseInstances(layer),
+      instances: parseInstances(layer, guidToObjectName),
       ...(backgroundSprite !== undefined ? { backgroundSprite } : {}),
     };
   });
