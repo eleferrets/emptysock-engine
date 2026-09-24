@@ -120,13 +120,7 @@ export class GmlBehaviorSystem {
     ctx: GmlActionContext,
     makeTarget: (entity: Entity) => GmlDrawTarget | undefined,
   ): void {
-    scene.each(GmlBehaviorState, (state, entity) => {
-      const module = this.moduleFor(state);
-      if (module?.onDraw === undefined) return;
-      const drawTarget = makeTarget(entity);
-      if (drawTarget === undefined) return;
-      module.onDraw(entity, { ...ctx, drawTarget });
-    });
+    this.dispatchDraw(scene, ctx, makeTarget, (module) => module.onDraw);
   }
 
   /**
@@ -145,12 +139,30 @@ export class GmlBehaviorSystem {
     ctx: GmlActionContext,
     makeTarget: (entity: Entity) => GmlDrawTarget | undefined,
   ): void {
+    this.dispatchDraw(scene, ctx, makeTarget, (module) => module.onDrawGui);
+  }
+
+  /**
+   * Shared body of `renderDraw`/`renderDrawGui` — both dispatch the same
+   * way (one `scene.each()` pass, skip an entity with no handler for this
+   * pass, skip one `makeTarget` genuinely has nothing for, call the handler
+   * with a fresh per-call `drawTarget` spliced into `ctx`). `pickHandler`
+   * is the one thing that differs between the two passes.
+   */
+  private dispatchDraw(
+    scene: Scene,
+    ctx: GmlActionContext,
+    makeTarget: (entity: Entity) => GmlDrawTarget | undefined,
+    pickHandler: (module: GmlBehaviorModule) => GmlBehaviorModule["onDraw"],
+  ): void {
     scene.each(GmlBehaviorState, (state, entity) => {
       const module = this.moduleFor(state);
-      if (module?.onDrawGui === undefined) return;
+      if (module === undefined) return;
+      const handler = pickHandler(module);
+      if (handler === undefined) return;
       const drawTarget = makeTarget(entity);
       if (drawTarget === undefined) return;
-      module.onDrawGui(entity, { ...ctx, drawTarget });
+      handler(entity, { ...ctx, drawTarget });
     });
   }
 }
