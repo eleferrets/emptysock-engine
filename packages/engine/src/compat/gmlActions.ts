@@ -25,6 +25,7 @@ import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { getPhysicsBody } from "../components/PhysicsBody.js";
 import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
+import type { GmlDrawTarget } from "./gml.js";
 
 // ---------------------------------------------------------------------------
 // Context — the one thing every generated action call needs threaded to it
@@ -66,6 +67,18 @@ export interface GmlActionContext {
   readonly prefabs?: Readonly<Record<string, PrefabDef>>;
   /** Optional sound-asset-id lookup for `action_sound` (GameMaker sound name -> an id playable via `ctx.game.audio.play(id)`). See `action_sound`'s doc comment for the current limits of this. */
   readonly sounds?: Readonly<Record<string, string>>;
+  /**
+   * The live drawing surface a `draw_*` call (`compat/gml.ts`) targets while
+   * inside a generated `onDraw`/`onDrawGui` call. `GmlBehaviorSystem` is the
+   * one thing that ever sets this — it swaps in a fresh `GmlDrawTarget`
+   * (backed by a per-entity pixi `Graphics`, cleared and redrawn every call,
+   * never persisted) immediately before invoking a behavior module's
+   * `onDraw`/`onDrawGui`, and clears it again immediately after. Undefined
+   * everywhere else (`onCreate`/`onUpdate`/`onDestroy`/collision/key
+   * handlers never draw), so a `draw_*` call made outside a draw dispatch is
+   * a safe, honest no-op rather than throwing.
+   */
+  readonly drawTarget?: GmlDrawTarget;
 }
 
 // ---------------------------------------------------------------------------

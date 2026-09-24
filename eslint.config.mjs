@@ -61,6 +61,7 @@ export default [
       'packages/engine/src/__tests__/RenderPipeline.test.ts',
       'packages/engine/src/__tests__/RenderSystem.test.ts',
       'packages/engine/src/__tests__/RenderPipelineParticles.test.ts',
+      'packages/engine/src/__tests__/GmlBehaviorSystem.test.ts',
       'packages/engine/src/__tests__/ViewportSystem.test.ts',
       'packages/engine/src/__tests__/UISystem.test.ts',
     ],

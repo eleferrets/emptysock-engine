@@ -32,6 +32,7 @@ export type {
   SceneFileEntity,
   SceneFilePrefabInstance,
   ComponentLookup,
+  LoadSceneFileOptions,
 } from "./SceneFile.js";
 export {
   startCoroutine,
@@ -321,3 +322,19 @@ export {
   gmlActionsStep,
   clearGmlActionState,
 } from "./compat/gmlActions.js";
+export type { GmlDrawTarget } from "./compat/gml.js";
+
+/**
+ * Real, automatic dispatch for GMS2-imported `.behavior.ts` modules — see
+ * CLAUDE.md's "GML behavior dispatch: three Step passes, a separate Draw GUI
+ * pass" entry.
+ */
+export {
+  GmlBehaviorState,
+  registerGmlBehavior,
+  getGmlBehavior,
+  unregisterGmlBehavior,
+  getGmlBehaviorHandler,
+} from "./components/GmlBehavior.js";
+export type { GmlBehaviorModule } from "./components/GmlBehavior.js";
+export { GmlBehaviorSystem } from "./systems/GmlBehaviorSystem.js";

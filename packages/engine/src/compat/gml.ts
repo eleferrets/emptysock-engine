@@ -225,62 +225,71 @@ export function ds_list_delete(id: number, pos: number): void {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// draw_* wrappers — map GML draw calls to Canvas 2D operations
+// draw_* wrappers — map GML draw calls to a structural drawing surface
 // ---------------------------------------------------------------------------
 
-export function draw_set_colour(
-  ctx: CanvasRenderingContext2D,
-  hex: number,
-): void {
-  ctx.fillStyle = `#${hex.toString(16).padStart(6, "0")}`;
-  ctx.strokeStyle = ctx.fillStyle;
+/**
+ * The minimal drawing surface a transpiled GML `draw_*` call needs. This is
+ * a plain structural interface, not `CanvasRenderingContext2D` — `gml.ts`
+ * stays inside the engine-environment boundary (no DOM import), and a real
+ * caller wires in whatever actually implements it. `GmlBehaviorSystem`
+ * (`systems/GmlBehaviorSystem.ts`) is the real implementation: a pixi
+ * `Graphics` object wrapped to satisfy this shape, rebuilt from scratch on
+ * every `onDraw`/`onDrawGui` call the same way `ParticleEmitter`'s pixi
+ * container is rebuilt every frame (see CLAUDE.md's "ParticleEmitter renders
+ * through a real pixi ParticleContainer" entry for the precedent this
+ * mirrors) — draw state does not need to persist between calls.
+ */
+export interface GmlDrawTarget {
+  setColor(hex: number): void;
+  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void;
+  circle(x: number, y: number, r: number, outline: boolean): void;
+  text(x: number, y: number, text: string): void;
+  line(x1: number, y1: number, x2: number, y2: number): void;
+}
+
+export function draw_set_colour(target: GmlDrawTarget, hex: number): void {
+  target.setColor(hex);
 }
 
 export function draw_rectangle(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
   outline: boolean,
 ): void {
-  if (outline) ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-  else ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+  target.rect(x1, y1, x2, y2, outline);
 }
 
 export function draw_circle(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x: number,
   y: number,
   r: number,
   outline: boolean,
 ): void {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  if (outline) ctx.stroke();
-  else ctx.fill();
+  target.circle(x, y, r, outline);
 }
 
 export function draw_text(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x: number,
   y: number,
   text: string,
 ): void {
-  ctx.fillText(text, x, y);
+  target.text(x, y, text);
 }
 
 export function draw_line(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
 ): void {
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
+  target.line(x1, y1, x2, y2);
 }
 
 // ---------------------------------------------------------------------------
