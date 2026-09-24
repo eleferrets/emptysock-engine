@@ -169,6 +169,49 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     expect(out).toContain("var image_index = 0;");
     expect(out).toContain("var image_speed = 1;");
   });
+
+  describe("depth — GameMaker draw-order variable, sign-flipped onto Sprite.depth", () => {
+    // manual.gamemaker.io's Depth reference page is explicit: a *lower*
+    // `depth` value draws that instance *in front of* one with a higher
+    // `depth` (its own canonical example: depth -100 draws in front of
+    // depth 0). This engine's `Sprite.depth` sorts the opposite way —
+    // `RenderPipeline` writes `pixiSprite.zIndex = sprite.depth` straight
+    // through, and PixiJS's `zIndex` convention is "higher draws on top" —
+    // so the transpiled write/read must apply a `-` sign flip to preserve
+    // GameMaker's real visual semantic rather than just copying the value.
+    it("rewrites depth = -100; into a real Sprite.depth write with the sign flipped (draws in front -> higher Sprite.depth)", () => {
+      const out = transpileGML("depth = -100;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(-100);",
+      );
+    });
+
+    it("rewrites a positive depth write with the same flip (draws behind -> lower Sprite.depth)", () => {
+      const out = transpileGML("depth = 50;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(50);",
+      );
+    });
+
+    it("round-trips a bare read of depth back through the same flip", () => {
+      const out = transpileGML("depth = -100;\ny = depth;");
+      expect(out).toContain("(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))");
+    });
+
+    it("does not rewrite a dotted reference to another instance's depth", () => {
+      const out = transpileGML("inst.depth = -100;\nx = other.depth;");
+      expect(out).toContain("inst.depth = -100;");
+      expect(out).toContain("other.depth");
+      expect(out).not.toMatch(/\w\.\(\(\)\s*=>/);
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("is valid syntax as the body of a bare (brace-less) if statement", () => {
+      const gml = "if (a) depth = -100;\nif (b)\n{\n  foo();\n}\n";
+      const out = transpileGML(gml);
+      expect(() => new Function(out)).not.toThrow();
+    });
+  });
 });
 
 describe("transpileGML", () => {
@@ -696,8 +739,10 @@ describe("transpileGML", () => {
         ["inst.image_blend = $ff00ff;\n", "inst."],
         ["inst.timeline_index = tmFoo;\n", "inst."],
         ["inst.timeline_running = true;\n", "inst."],
+        ["inst.depth = -100;\n", "inst."],
         ["x = other.sprite_index;\n", "other."],
         ["x = other.image_xscale;\n", "other."],
+        ["x = other.depth;\n", "other."],
       ])("does not corrupt %s", (gml, dottedPrefix) => {
         const out = transpileGML(gml);
         expect(() => new Function(out)).not.toThrow();

@@ -1282,7 +1282,7 @@ export function transpileGML(gml: string): string {
   );
 
   // -- GMS2 rendering built-ins: sprite_index / image_angle / image_xscale /
-  // image_yscale / image_alpha / image_blend --------------------------------
+  // image_yscale / image_alpha / image_blend / depth -------------------------
   //
   // See CLAUDE.md's "GMS2 rendering built-ins: sprite_index / image_*" entry
   // for the full field-mapping table and the honest image_index/image_speed
@@ -1436,6 +1436,39 @@ export function transpileGML(gml: string): string {
   out = out.replace(
     /(?<!\.\s*)\bimage_blend\b/g,
     `(() => { const _t = _entity.get(GmlActions.Sprite)?.tint ?? 0xffffff; return ((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff); })()`,
+  );
+
+  // `depth` — GameMaker's per-instance draw-order variable maps onto
+  // `Sprite.depth` (`components/Sprite.ts`), but the two disagree on
+  // *direction*: manual.gamemaker.io's own Depth reference page is explicit
+  // that a *lower* `depth` value draws that instance *in front of* (on top
+  // of) instances with a higher `depth` — GameMaker's canonical example is
+  // "an instance with depth -100 is drawn in front of one with depth 0".
+  // This engine's `Sprite.depth` sorts the opposite way: `RenderPipeline`
+  // (`_syncOne()`/`_syncProjected()`) writes `pixiSprite.zIndex =
+  // sprite.depth` straight through, and PixiJS's own `zIndex` convention is
+  // "higher zIndex draws on top" — confirmed consistent with
+  // `LayerSystem.ts`'s own doc comment ("lower depth within the same layer
+  // ... also behind"). So a *higher* `Sprite.depth` draws in front here,
+  // the exact inverse of GameMaker's *lower*-draws-in-front rule. Both
+  // rewrites below apply a `-` sign flip so GML's actual visual semantic is
+  // preserved end to end rather than copied byte-for-byte onto a field that
+  // happens to share the name but not the direction: `depth = -100;`
+  // (GameMaker: draws in front) becomes a `Sprite.depth` write of `100`
+  // (this engine: higher zIndex, also draws in front) — same real-world
+  // result, correct sign for this engine's own convention. The read side
+  // applies the identical flip in reverse, so GML code that reads its own
+  // `depth` back after writing it sees its original, un-flipped value
+  // (write `-100` -> `Sprite.depth` becomes `100` -> read back negates to
+  // `-100` again, a real, exact round trip, not an approximation).
+  out = out.replace(
+    /(?<!\.\s*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(${exprRaw.trim()}); })();`,
+  );
+  out = out.replace(
+    /(?<!\.\s*)\bdepth\b/g,
+    `(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))`,
   );
 
   // GameMaker instance variables (both its own built-ins — image_speed,
