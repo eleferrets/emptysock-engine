@@ -52,7 +52,9 @@ Shows the virtual project file tree. Click a file to open it in the Code Editor.
 
 ## 7.5 Inspector Panel
 
-Shows the properties of the selected entity or scene. In the current version, entity properties are editable as key-value pairs. Future: full component introspection with type-aware controls.
+Shows the properties of the selected entity (or entities). A component whose `ComponentDef` carries a `.schema` (see `EntityProperties.tsx`'s `V2_COMPONENT_METADATA`) gets real typed controls — a checkbox for a boolean field, a `<select>` for an enum, a number input for a number — plus a small icon per field (a move-arrows icon for a position/vector-shaped field, a palette icon for a colour field, a link icon for an asset/path field, and a kind-based icon otherwise). A component with no schema entry, or an individual field the schema doesn't cover, falls back to the plain raw-text editor and no icon — this is the intended non-error path, not a bug.
+
+**Multi-select.** Click an entity in the Scene panel to select it, Ctrl/Cmd-click to toggle one in or out of the selection, Shift-click to range-select. Selecting more than one entity switches the Inspector to a combined view: it lists every component type present across the selection with an "N/M" share count, and for a schema'd component every selected entity has, shows its fields with live values fetched per entity over the engine bridge. A field whose value differs across the selection shows a "Mixed" placeholder instead of picking one arbitrarily; typing a new value there applies it to every selected entity that has the component. This is a v1: it edits every selected entity uniformly rather than diffing and re-applying each entity's own prior value.
 
 ---
 
@@ -496,3 +498,20 @@ When the IDE loads in a browser on a device narrower than 1024 px, it automatica
 **Virtual keyboard:** The layout tracks `window.visualViewport` and adjusts bottom padding so the keyboard never covers the editor.
 
 **Touch input in preview:** The game canvas inside the preview iframe receives touch events directly — `InputSystem` handles `touchstart`, `touchmove`, `touchend`, and `touchcancel` natively. No configuration is required.
+
+---
+
+## 7.23 Asset Browser
+
+Double-clicking (or right-click → "Open in …") an asset dispatches to whichever editor actually exists for that asset type:
+
+| Asset type    | Opens                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| image         | Image Editor                                                                                         |
+| script / json | Code tab, with that file's content loaded                                                            |
+| scene         | The Scene panel (there is no per-scene-file loader yet — this just brings the Scene panel into view) |
+| audio, font   | Nothing — no dedicated editor exists for either yet; the asset stays selected                        |
+
+Hovering an asset (without opening it) shows a lightweight preview popover: a real thumbnail for an image, the first few lines of source for a script (when it's already open in a Code tab), and for a scene/prefab JSON that's open in a Code tab, an entity-count and component-type-count summary parsed from its `PrefabFile`/`SceneFile` shape. Audio gets a placeholder waveform, not a real one — there is no audio-decoding/waveform library in this IDE. Any asset type without a richer preview falls back to its path and size.
+
+---
