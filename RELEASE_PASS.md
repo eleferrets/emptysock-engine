@@ -32,12 +32,34 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ## Track: adopt react-konva narrowly, scheduled before the Track 10 docs/skills/mcp rewrite
 
-**Written 2026-09-24**, from a real audit (not a guess) of every canvas-drawing panel in `apps/ide`,
-prompted by `react-konva` sitting in `apps/ide/package.json` as a listed dependency that none of the
-actual canvas panels use — they're all hand-written `<canvas>`/`CanvasRenderingContext2D` code. Goal:
-resolve that inconsistency for real (adopt it where it earns its place, don't touch it where it doesn't),
-land it before starting the Track 10 docs/skills/mcp rewrite so that pass documents the IDE's actual,
-settled panel architecture rather than a mid-migration one.
+**Written 2026-09-24**, from a real audit (not a guess) of every canvas-drawing panel in `apps/ide`.
+
+**Correction, same day, after the first audit pass:** the first pass claimed "no canvas panel uses
+`react-konva`" — wrong. `ImageEditor.tsx` genuinely uses it: `Stage`/`Layer`/`Image`/`Line` drive its
+actual interactive editing surface (brush strokes, eraser via `globalCompositeOperation`, pan/zoom), and
+a separate plain offscreen `<canvas>` handles the operations Konva's vector-node model can't — flood-fill
+(`getImageData`/`putImageData`, real per-pixel work) and undo/export snapshots (`toDataURL`). `stage.toDataURL()`
+bridges the two: rasterize the Konva layer, do pixel ops on the bitmap, load the result back as an image
+for Konva to display again. That's a deliberate, correct split, not a mishmash — the first audit's grep
+for `getContext`/`<canvas` found `ImageEditor.tsx`'s offscreen-canvas half and missed that its visible
+surface is Konva. Re-verified directly (not re-grepped) 2026-09-24: `grep -rl "from \"react-konva\""
+apps/ide/src` returns exactly one file, `ImageEditor.tsx`; every other canvas-touching panel
+(`CanvasPreview`/`NavMeshEditor`/`ShaderEditor`/`Profiler`/`VNPreviewPanel`/`TilemapEditor`/`VNMinimap`/
+`UIPlacementPanel`/`ParticleEditor`) is still confirmed plain-canvas-only, zero Konva — that part of the
+first audit held up.
+
+**Net effect on this track: `react-konva` was never an unused/droppable dependency** — it's real,
+load-bearing, single-consumer. The "drop it if unused" branch below is moot and should not be acted on.
+What _does_ still hold from the first audit: per-panel conversion assessment for the panels that don't
+yet use it is unaffected by this correction (Konva-fit-or-not is about each panel's own drawing needs,
+not about whether some other panel already uses the library) — converting `NavMeshEditor.tsx`/
+`UIPlacementPanel.tsx` is now extending an already-proven-in-this-codebase pattern, a smaller ask than
+adopting a genuinely new dependency would have been, which if anything strengthens the case for doing it.
+
+Goal, corrected: extend the already-real Konva pattern to the panels that would benefit
+(`NavMeshEditor.tsx`, `UIPlacementPanel.tsx`, partially `TilemapEditor.tsx`), leave it alone where it
+doesn't fit, land it before starting the Track 10 docs/skills/mcp rewrite so that pass documents the
+IDE's actual, settled panel architecture rather than a mid-migration one.
 
 **This is not an all-or-nothing conversion.** The audit found `apps/ide`'s canvas panels split cleanly
 into two real categories — panels that author IDE-native shapes (a real Konva fit) and panels that
@@ -51,7 +73,7 @@ Konva would change the rendering primitive underneath that existing shared layer
 anything.
 
 - [ ] **Convert `NavMeshEditor.tsx`** to real `react-konva` nodes (`<Line closed>` per polygon, `<Circle
-    draggable>` per vertex, `onDragMove` replacing the current hand-rolled `dragState`/hit-test math
+  draggable>` per vertex, `onDragMove` replacing the current hand-rolled `dragState`/hit-test math
       around its `handlePointerDown`/`handlePointerMove`). Best-fit candidate: small object counts
       (editor-authored, tens not thousands), heavy drag-interaction code that Konva's node model replaces
       close to 1:1. Do this one first — smallest, cleanest, lowest-risk proof that the pattern works
@@ -84,13 +106,9 @@ anything.
       retained-mode diffing is pure overhead here, zero benefit), `VNPreviewPanel.tsx` and
       `vn-editor/VNMinimap.tsx` (both small, low-interaction, one-shot or rarely-redrawn renders — no
       interaction to gain, not worth the migration cost in isolation).
-- [ ] **After the three conversions above land** (or are explicitly resolved as "not converting," in
-      `TilemapEditor.tsx`'s case): re-audit whether `react-konva` earns its place as a real dependency.
-      If all three land, it clearly does. If `NavMeshEditor.tsx` and/or `UIPlacementPanel.tsx` conversion
-      is deprioritized or abandoned partway, revisit whether keeping an unused-or-barely-used
-      `react-konva` dependency in `package.json` is worse than dropping it until real conversion work is
-      actually scheduled — an honest "not adopted, dependency removed" beats a dependency sitting unused
-      indefinitely.
+- [x] **Re-audit whether `react-konva` earns its place as a real dependency — moot, already settled.**
+      Corrected 2026-09-24: it's real and load-bearing in `ImageEditor.tsx` regardless of how the three
+      conversions above land. No "drop it" branch to revisit.
 - [ ] Update CLAUDE.md once this track closes: add a "Canvas panels: react-konva where it's a real fit,
       plain canvas where it isn't" entry to "Non-obvious decisions," naming the actual boundary this track
       settles on (which panels converted, which didn't and why) — the same "state the design directly,
@@ -230,7 +248,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
 - [x] **Extend `QueryChannel`'s `EngineQuery` union with navmesh, `ActorSystem`, and entity-creation
       query kinds — done 2026-09-23.** Seven new `EngineQuery` kinds landed in
       `packages/engine/src/bridge/QueryChannel.ts`: - `{ kind: "createEntity", tag?: string, components?: string[] }` → `CreateEntityData { entityId:
-    number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
+  number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
       entity, `entity.add()`s each named already-registered component (defaults only), writes `tag`
       into `Meta.name`/`Meta.tags` if given (adding `Meta` if absent). Names in `components` that
       don't resolve to a registered `ComponentDef` land in `skipped`, not a hard error. Only error:
@@ -241,7 +259,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
       not an error). - `{ kind: "navmeshNearestNode", point: Vec2 }` → `Vec2 | null`. - Both navmesh kinds: `"no-live-instance"` if nothing attached, new code **`"no-navmesh"`** if a
       scene is attached but no navmesh source was passed to `attach()`.
       `attach(scene, physics?, options?)` grew a third optional `{ actors?: ActorSystem; navmesh?:
-  NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
+NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
       `NavMeshQuerySource` (new exported interface, `QueryChannel.ts`) is a narrow structural shape —
       `findPath(from, to): Vec2[] | null` / `nearestNode(point): Vec2 | null` — since `NavMeshSystem`
       lives in `@emptysock/tilemap`, which depends on `@emptysock/engine`, never the reverse; mirrors
@@ -252,7 +270,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
       native to `@emptysock/engine` — but `Actor` gained a public `inboxSize` getter (previously
       private-only) for `actorInboxSize` to read.
       `apps/ide/src/services/PlayRunner.ts`'s preview bootstrap now passes `{ actors: lifecycle.actors
-  }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
+}` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
       live tilemap/navmesh panel anywhere today exposing a loaded `NavMeshSystem` instance to attach, so
       `navmeshFindPath`/`navmeshNearestNode` answer `"no-navmesh"` in the live preview; that is the
       honest current state, not a gap this item left open by accident.
