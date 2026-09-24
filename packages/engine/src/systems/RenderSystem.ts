@@ -5,6 +5,7 @@ import {
   Container,
   Graphics,
   RenderTexture,
+  Sprite,
   type Filter,
   type Renderer,
 } from "pixi.js";
@@ -20,6 +21,31 @@ import {
 } from "./PostProcessSystem.js";
 import type { LightingSystem, LightSample } from "./LightingSystem.js";
 import type { Scene } from "../Scene.js";
+
+/**
+ * The structural shape `renderMultiCamera()` needs from one active camera
+ * slot. Re-declared here rather than importing `GmlCameraViewport` from
+ * `compat/gmlCamera.ts` — `RenderSystem.ts` is core engine rendering and
+ * must stay usable by any game, not just GML-imported ones; `compat/` is a
+ * GameMaker-specific translation layer that depends on the engine, never
+ * the other way around (the same layering rule `RenderPipeline`'s
+ * `TileLayerSource` interface already follows for `@emptysock/tilemap`).
+ * `compat/gmlCamera.ts`'s exported `GmlCameraViewport` is structurally
+ * identical to this and satisfies it with no adapter needed.
+ */
+export interface CameraViewport {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+  readonly rotation: number;
+  readonly viewWidth: number;
+  readonly viewHeight: number;
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
+}
 
 /** Number of concentric rings drawn per light — see `syncLighting()`'s doc comment. */
 const LIGHT_FALLOFF_RINGS = 8;
@@ -109,6 +135,12 @@ export class RenderSystem {
   private _lightMapTexture: RenderTexture | null = null;
   private _lightMapContainer: Container | null = null;
   private _lightingLayerId: string | null = null;
+  /** Per-viewport-id offscreen render targets `renderMultiCamera()` reuses across frames. */
+  private _multiCameraTextures: Map<number, RenderTexture> = new Map();
+  /** Per-viewport-id screen-quad sprites `renderMultiCamera()` reuses across frames. */
+  private _multiCameraSprites: Map<number, Sprite> = new Map();
+  /** The compositor container `renderMultiCamera()` renders straight to the canvas as its final pass. */
+  private _multiCameraCompositor: Container | null = null;
 
   async init(options: RenderSystemOptions = {}): Promise<void> {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
@@ -561,6 +593,122 @@ export class RenderSystem {
     this._lightMapContainer = null;
   }
 
+  /**
+   * Real GameMaker-style multi-camera compositing: renders the *same*
+   * `_stage` content once per active viewport (each pass using that
+   * viewport's own position/zoom/rotation, the exact convention
+   * `CameraSystem.update()` already writes to `_stage` — `stage.x =
+   * -viewport.x`, `.y = -viewport.y`, `.scale = viewport.zoom`, `.rotation =
+   * viewport.rotation`, so a single-camera game and a multi-camera one agree
+   * on what "camera position" means) into that viewport's own offscreen
+   * `RenderTexture` (pixi v8's real object-form `renderer.render({
+   * container, target })` API — the same one CLAUDE.md's
+   * `SceneTransitionManager` entry already names as real and available, and
+   * the one `syncLighting()` above already uses for its lightmap pass), then
+   * draws every one of those textures as a plain `Sprite` quad positioned at
+   * that viewport's own screen rectangle (`screenX`/`screenY`/
+   * `screenWidth`/`screenHeight`) in one final pass straight to the real
+   * canvas.
+   *
+   * This is genuinely opt-in: it mutates `_stage`'s transform only for the
+   * duration of its own per-viewport render passes, restoring exactly what
+   * was there before returning — a `CameraSystem` driving the ordinary
+   * single-camera `render()` path never sees any effect from a call here,
+   * and `render()` itself is completely untouched by this method's
+   * existence. Call this instead of `render()` for a frame that wants
+   * GameMaker's multiple-simultaneous-view-slot rendering (see
+   * `compat/gmlCamera.ts`'s `buildActiveGmlCameraViewports()`, which
+   * produces the `viewports` array this method expects); call `render()` as
+   * before for the ordinary single-camera case.
+   *
+   * One `RenderTexture`/`Sprite` pair is cached per viewport `id` and reused
+   * across calls (resized only when that viewport's `viewWidth`/`viewHeight`
+   * actually changed) — the same "don't reallocate a GPU resource every
+   * frame" discipline `_lightMapTexture`/`_postProcessFilters` already
+   * follow. A viewport id that stops appearing in `viewports` (camera
+   * disabled, view slot turned off) has its cached texture/sprite destroyed
+   * and dropped on the next call, not left leaking.
+   *
+   * A real N-full-render-pass-per-frame cost, same caveat
+   * `SceneTransitionManager`'s and this file's own `syncLighting()`'s doc
+   * comments already raise: bounded by how many camera slots a game
+   * actually activates at once, not GameMaker's fixed 8-slot ceiling, but
+   * still needs real device profiling before a game leans on many
+   * simultaneous cameras — this method does not attempt that profiling.
+   */
+  renderMultiCamera(viewports: readonly CameraViewport[]): void {
+    if (this._renderer === null || this._stage === null) return;
+    this.syncLayerVisibility();
+
+    // Preserve whatever CameraSystem.update() last wrote to `_stage` so this
+    // opt-in path can never leak into the ordinary single-camera render().
+    const savedX = this._stage.x;
+    const savedY = this._stage.y;
+    const savedScaleX = this._stage.scale.x;
+    const savedScaleY = this._stage.scale.y;
+    const savedRotation = this._stage.rotation;
+
+    this._multiCameraCompositor ??= new Container();
+    this._multiCameraCompositor.removeChildren();
+
+    const seen = new Set<number>();
+    for (const viewport of viewports) {
+      seen.add(viewport.id);
+      const width = Math.max(1, Math.round(viewport.viewWidth));
+      const height = Math.max(1, Math.round(viewport.viewHeight));
+
+      let texture = this._multiCameraTextures.get(viewport.id);
+      if (
+        texture === undefined ||
+        texture.width !== width ||
+        texture.height !== height
+      ) {
+        texture?.destroy(true);
+        texture = RenderTexture.create({ width, height });
+        this._multiCameraTextures.set(viewport.id, texture);
+      }
+
+      this._stage.x = -viewport.x;
+      this._stage.y = -viewport.y;
+      this._stage.scale.set(viewport.zoom);
+      this._stage.rotation = viewport.rotation;
+
+      this._renderer.render({
+        container: this._stage,
+        target: texture,
+        clearColor: 0x000000,
+      });
+
+      let sprite = this._multiCameraSprites.get(viewport.id);
+      if (sprite === undefined) {
+        sprite = new Sprite(texture);
+        this._multiCameraSprites.set(viewport.id, sprite);
+      } else if (sprite.texture !== texture) {
+        sprite.texture = texture;
+      }
+      sprite.position.set(viewport.screenX, viewport.screenY);
+      sprite.width = viewport.screenWidth;
+      sprite.height = viewport.screenHeight;
+      this._multiCameraCompositor.addChild(sprite);
+    }
+
+    // Drop cached textures/sprites for viewport ids no longer active.
+    for (const id of [...this._multiCameraTextures.keys()]) {
+      if (!seen.has(id)) {
+        this._multiCameraTextures.get(id)?.destroy(true);
+        this._multiCameraTextures.delete(id);
+        this._multiCameraSprites.delete(id);
+      }
+    }
+
+    this._stage.x = savedX;
+    this._stage.y = savedY;
+    this._stage.scale.set(savedScaleX, savedScaleY);
+    this._stage.rotation = savedRotation;
+
+    this._renderer.render(this._multiCameraCompositor);
+  }
+
   get renderer(): Renderer {
     if (this._renderer === null)
       throw new Error("RenderSystem not initialized");
@@ -606,6 +754,13 @@ export class RenderSystem {
     }
     this._postProcessFilters.clear();
     this.clearLighting();
+    for (const texture of this._multiCameraTextures.values()) {
+      texture.destroy(true);
+    }
+    this._multiCameraTextures.clear();
+    this._multiCameraSprites.clear();
+    this._multiCameraCompositor?.destroy({ children: true });
+    this._multiCameraCompositor = null;
     this._layerContainers.clear();
     this._defaultContainer = null;
     this._layerSystem = null;
