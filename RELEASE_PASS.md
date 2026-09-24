@@ -30,6 +30,87 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## Track: adopt react-konva narrowly, scheduled before the Track 10 docs/skills/mcp rewrite
+
+**Written 2026-09-24**, from a real audit (not a guess) of every canvas-drawing panel in `apps/ide`,
+prompted by `react-konva` sitting in `apps/ide/package.json` as a listed dependency that none of the
+actual canvas panels use — they're all hand-written `<canvas>`/`CanvasRenderingContext2D` code. Goal:
+resolve that inconsistency for real (adopt it where it earns its place, don't touch it where it doesn't),
+land it before starting the Track 10 docs/skills/mcp rewrite so that pass documents the IDE's actual,
+settled panel architecture rather than a mid-migration one.
+
+**This is not an all-or-nothing conversion.** The audit found `apps/ide`'s canvas panels split cleanly
+into two real categories — panels that author IDE-native shapes (a real Konva fit) and panels that
+render _live engine/pixi simulation output_ or do _pixel-level raster editing_ (Konva does not apply,
+full stop, regardless of migration effort). Converting the second category would replace working,
+correctly-scoped code with a worse fit for no benefit — that is its own kind of technical debt, not
+progress toward "modern." The audit also found the real shared-chrome payoff case (grid/ruler/snap/zoom
+logic factored out of every grid panel) **already exists** — `apps/ide/src/lib/editorGrid.ts` +
+`components/panels/shared/ViewControls.tsx` — and is not itself duplicated per-panel today. Adopting
+Konva would change the rendering primitive underneath that existing shared layer, not newly deduplicate
+anything.
+
+- [ ] **Convert `NavMeshEditor.tsx`** to real `react-konva` nodes (`<Line closed>` per polygon, `<Circle
+    draggable>` per vertex, `onDragMove` replacing the current hand-rolled `dragState`/hit-test math
+      around its `handlePointerDown`/`handlePointerMove`). Best-fit candidate: small object counts
+      (editor-authored, tens not thousands), heavy drag-interaction code that Konva's node model replaces
+      close to 1:1. Do this one first — smallest, cleanest, lowest-risk proof that the pattern works
+      before touching the other two.
+- [ ] **Convert `UIPlacementPanel.tsx`.** Good fit (small widget counts, real Konva win on
+      `Rect`/`Text`/`Image` nodes with `onDragMove`), medium-large effort: the panel mixes native HTML5
+      drag-and-drop (palette → canvas) with pointer events for ghost-preview, and Konva's `<Stage>` owns
+      its own canvas — the native `onDragOver`/`onDrop` handlers need to stay on a wrapper element with
+      `stage.getPointerPosition()` used for hit-testing on drop, not a drop-in replacement. Do this
+      second, after `NavMeshEditor.tsx` has proven the shared pattern.
+- [ ] **`TilemapEditor.tsx` — partial conversion only, decide the boundary explicitly before starting.**
+      A large tile grid (hundreds/thousands of cells) as one real `Konva.Rect` node per tile is a real
+      perf risk the audit could not fully quantify against Konva's own documented ceiling (worth a fresh
+      web search for a citable number before committing to an approach, not assumed from either the audit
+      or this note). The likely right split: keep the tile layer itself as a custom `Konva.Shape` with a
+      hand-drawn `sceneFunc` (i.e., still imperative canvas drawing, just hosted inside Konva's tree so it
+      composes with real Konva nodes for everything else), and convert only the selection/cursor overlay
+      to real Konva nodes. If that split turns out to deliver too little real benefit to justify touching
+      this file at all, it is acceptable to leave `TilemapEditor.tsx` exactly as it is and say so plainly
+      here — this item is explicitly allowed to resolve as "not worth converting," unlike the two above.
+- [ ] **Explicitly do NOT convert** (verified by the audit, re-confirm before touching any of these if a
+      future session is tempted to "finish the job"): `CanvasPreview.tsx` (its overlay canvas draws only
+      IDE grid/ruler chrome via the same shared `editorGrid.ts` the panels above use; the actual game
+      frame is a separate live `<iframe>` running the real engine bundle via `PlayRunner.ts` — Konva has
+      nothing to do with that), `ParticleEditor.tsx` (previews the real `ParticleEmitter` engine
+      simulation frame-by-frame — rendering simulation output, not IDE-authored shapes), `ShaderEditor.tsx`
+      (pipes real pixi `Sprite`/filter output to canvas, same category), `ImageEditor.tsx` (genuine
+      pixel-level raster editing — `drawImage`/`toDataURL` pixel manipulation, outside Konva's vector
+      model entirely), `Profiler.tsx` (a real-time strip chart fully repainted every frame — Konva's
+      retained-mode diffing is pure overhead here, zero benefit), `VNPreviewPanel.tsx` and
+      `vn-editor/VNMinimap.tsx` (both small, low-interaction, one-shot or rarely-redrawn renders — no
+      interaction to gain, not worth the migration cost in isolation).
+- [ ] **After the three conversions above land** (or are explicitly resolved as "not converting," in
+      `TilemapEditor.tsx`'s case): re-audit whether `react-konva` earns its place as a real dependency.
+      If all three land, it clearly does. If `NavMeshEditor.tsx` and/or `UIPlacementPanel.tsx` conversion
+      is deprioritized or abandoned partway, revisit whether keeping an unused-or-barely-used
+      `react-konva` dependency in `package.json` is worse than dropping it until real conversion work is
+      actually scheduled — an honest "not adopted, dependency removed" beats a dependency sitting unused
+      indefinitely.
+- [ ] Update CLAUDE.md once this track closes: add a "Canvas panels: react-konva where it's a real fit,
+      plain canvas where it isn't" entry to "Non-obvious decisions," naming the actual boundary this track
+      settles on (which panels converted, which didn't and why) — the same "state the design directly,
+      don't leave a future reader to reconstruct it from diffs" bar every other entry in that section
+      meets.
+
+**Confirmed clean, no action needed here** (from the same 2026-09-24 audit, re-verified against the
+current tip after today's QueryChannel/physics/NavMesh Editor work): a fresh
+`grep -rniE "classic|the ECS version|used to be|previously (was|had)"` sweep across `packages/*/src`
+and `apps/*/src` returns only 3 matches, all legitimate, accurate, non-stale historical-rationale
+comments (`InputSystem.ts:12`, `gms2-codegen.ts:49`, `UIPlacementPanel.tsx:334`) — not leftover
+contrasts against the deleted classic engine. `NavMeshEditor.tsx`/`navMeshStore.ts` were also checked
+against established conventions (shared `useHistory` hook, real zustand store, no local `useState` for
+editor data) and found consistent; `QueryChannel.attach()`'s new optional third parameter doesn't clash
+with either pre-existing call shape; no dead code was found left behind by the physics import-map fix or
+the bridge wiring. Nothing further needed on the "no classic wiring, no mishmash" front until new work
+lands that would need its own fresh check.
+
+---
+
 ## Track: close every stub/not-wired gap found in the 2026-09-23 wiring audit
 
 **Written 2026-09-23.** The wiring audit (an artifact, not a repo file) found one root cause behind
@@ -149,7 +230,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
 - [x] **Extend `QueryChannel`'s `EngineQuery` union with navmesh, `ActorSystem`, and entity-creation
       query kinds — done 2026-09-23.** Seven new `EngineQuery` kinds landed in
       `packages/engine/src/bridge/QueryChannel.ts`: - `{ kind: "createEntity", tag?: string, components?: string[] }` → `CreateEntityData { entityId:
-      number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
+    number, tag?: string, components: string[], skipped: string[] }`. `scene.spawn()`s a bare
       entity, `entity.add()`s each named already-registered component (defaults only), writes `tag`
       into `Meta.name`/`Meta.tags` if given (adding `Meta` if absent). Names in `components` that
       don't resolve to a registered `ComponentDef` land in `skipped`, not a hard error. Only error:
@@ -160,7 +241,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
       not an error). - `{ kind: "navmeshNearestNode", point: Vec2 }` → `Vec2 | null`. - Both navmesh kinds: `"no-live-instance"` if nothing attached, new code **`"no-navmesh"`** if a
       scene is attached but no navmesh source was passed to `attach()`.
       `attach(scene, physics?, options?)` grew a third optional `{ actors?: ActorSystem; navmesh?:
-    NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
+  NavMeshQuerySource }` param — existing two-arg call sites are unchanged.
       `NavMeshQuerySource` (new exported interface, `QueryChannel.ts`) is a narrow structural shape —
       `findPath(from, to): Vec2[] | null` / `nearestNode(point): Vec2 | null` — since `NavMeshSystem`
       lives in `@emptysock/tilemap`, which depends on `@emptysock/engine`, never the reverse; mirrors
@@ -171,7 +252,7 @@ not-yet-scoped follow-up surfaced by closing the bridge item earlier in this tra
       native to `@emptysock/engine` — but `Actor` gained a public `inboxSize` getter (previously
       private-only) for `actorInboxSize` to read.
       `apps/ide/src/services/PlayRunner.ts`'s preview bootstrap now passes `{ actors: lifecycle.actors
-    }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
+  }` (the current scene's real `ActorSystem`) to `attach()`, but **no `navmesh`** — `apps/ide` has no
       live tilemap/navmesh panel anywhere today exposing a loaded `NavMeshSystem` instance to attach, so
       `navmeshFindPath`/`navmeshNearestNode` answer `"no-navmesh"` in the live preview; that is the
       honest current state, not a gap this item left open by accident.
