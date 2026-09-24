@@ -881,6 +881,10 @@ Do not start this track until Track 9 is fully checked off. Writing docs against
 
 ---
 
+**2026-09-24 — architecture review of today's diff (QueryChannel extension through GML Begin/Step/End-Step + Draw/DrawGui dispatch).** Explored: `QueryChannel.ts`, `GmlBehaviorSystem.ts`, `compat/gmlActions.ts`, `gms2-transpile.ts`/`gms2-codegen.ts`, `EntityProperties.tsx`'s new multi-select. Two `Strong` findings, both fixed and verified (`npx turbo run typecheck lint test --force` green): (1) `EntityProperties.tsx`'s single-select `ComponentSection` and today's new multi-select `MultiEntityProperties` had independently duplicated the same component-header row markup — extracted a shared `ComponentHeaderRow`. (2) `gms2-transpile.ts` was missing the `draw_*` → `_ctx.drawTarget?.*(...)` rewrite rules CLAUDE.md's "What draw\_\* actually draws into now" entry documents as shipped — found already written and tested but uncommitted in the working tree, verified against `compat/gml.ts`'s real `GmlDrawTarget` shape, and committed; without it a GMS2 object with a real Draw event would generate an unresolved `draw_rectangle(...)` reference. One `Speculative` finding left report-only: `gms2-transpile.ts`'s sequential regex pipeline looks shallow on its face but the deletion test says otherwise — inlining a real GML parser would trade a working, honestly-scoped, fully-tested transpiler for a much larger surface with no evidence of a real blocking gap yet. `QueryChannel`/`GmlBehaviorSystem`/`gmlActions.ts` were reviewed as the most likely places for cross-seam leaks and found genuinely deep — no changes made. Report: `/tmp/architecture-review-1758715800.html`.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
