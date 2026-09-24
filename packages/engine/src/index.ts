@@ -368,6 +368,41 @@ export {
 } from "./compat/gmlParticles.js";
 
 /**
+ * GameMaker Studio 2 camera/view-function compat (`camera_*`/`view_*`) —
+ * see `compat/gmlCamera.ts`'s module doc comment for the real relationship
+ * between GameMaker's legacy 8-slot `view_*` array system and its modern
+ * handle-based `camera_*` API, and for why these take
+ * `(ctx: GmlCameraContext, ...)` rather than `gmlActions.ts`'s
+ * `(entity, ctx, ...)` shape — none of GameMaker's own camera/view functions
+ * take an instance argument either.
+ */
+export type { GmlCameraContext } from "./compat/gmlCamera.js";
+export {
+  camera_create,
+  camera_create_view,
+  camera_destroy,
+  camera_get_active,
+  camera_get_view_x,
+  camera_get_view_y,
+  camera_get_view_width,
+  camera_get_view_height,
+  camera_get_view_angle,
+  camera_get_view_speed_x,
+  camera_get_view_speed_y,
+  camera_set_view_pos,
+  camera_set_view_size,
+  camera_set_view_angle,
+  camera_set_view_speed,
+  view_get_camera,
+  view_set_camera,
+  view_get_visible,
+  view_set_visible,
+  view_get_enabled,
+  view_set_enabled,
+  clearGmlCameraState,
+} from "./compat/gmlCamera.js";
+
+/**
  * Pure/global GML scripting-function compat (~50 of GameMaker's most-used
  * built-ins — `ds_map_*`/`ds_list_*`, `string_*`, `draw_*`, math/random
  * helpers) — the sibling to the entity-affecting DnD action library above.
@@ -453,3 +488,27 @@ export {
   checkGmlAabbOverlap,
   dispatchGmlCollision,
 } from "./systems/GmlCollision.js";
+
+export {
+  TimelineState,
+  registerGmlTimeline,
+  getGmlTimeline,
+  unregisterGmlTimeline,
+} from "./components/Timeline.js";
+export type { TimelineModule, TimelineMoment } from "./components/Timeline.js";
+export { TimelineSystem } from "./systems/TimelineSystem.js";
+
+export {
+  SequenceState,
+  registerGmlSequence,
+  getGmlSequence,
+  unregisterGmlSequence,
+} from "./components/Sequence.js";
+export type {
+  SequenceData,
+  SequenceTrack,
+  SequenceTrackTarget,
+  SequenceKeyframe,
+  SequenceInterpolation,
+} from "./components/Sequence.js";
+export { SequenceSystem } from "./systems/SequenceSystem.js";
