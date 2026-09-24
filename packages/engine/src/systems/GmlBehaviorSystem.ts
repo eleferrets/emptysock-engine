@@ -10,6 +10,7 @@ import {
   type GmlBehaviorModule,
 } from "../components/GmlBehavior.js";
 import { checkGmlAabbOverlap, dispatchGmlCollision } from "./GmlCollision.js";
+import { vkMethodName } from "../compat/gmlKeys.js";
 
 /**
  * Real, automatic dispatch for GMS2-imported `.behavior.ts` modules — the
@@ -149,6 +150,55 @@ export class GmlBehaviorSystem {
     this.safeCall(`onAlarm${index}`, state.behaviorId, () =>
       handler(entity, ctx),
     );
+  }
+
+  /**
+   * Dispatches `onKeyPress<Name>` (GameMaker's KeyPress event for vk code
+   * `vkCode`) for one entity, if its compiled module exports one — the
+   * real integration point `GmsProjectRuntime`'s per-frame key-transition
+   * poll calls into once a tracked key transitions from up to down. Handler
+   * names are generated per-project (`gms2-codegen.ts`'s `vkMethodName`),
+   * so this resolves the same way `dispatchAlarm`/`onCollideWith<Other>`
+   * dispatch already do — `getGmlBehaviorHandler` by name, not a static
+   * `GmlBehaviorModule` field — via `compat/gmlKeys.ts`'s `vkMethodName`,
+   * a hand-kept-in-sync mirror of the toolchain's own naming (see that
+   * module's doc comment for why the engine can't import the toolchain's
+   * copy directly). A no-op, not an error, for a missing `GmlBehaviorState`,
+   * an unresolvable module, or a vk code this entity's module has no
+   * handler for — most real objects only ever handle a couple of keys.
+   * Routed through `safeCall` like every other dispatch in this class.
+   */
+  dispatchKeyPress(
+    entity: Entity,
+    vkCode: number,
+    ctx: GmlActionContext,
+  ): void {
+    this.dispatchKeyEvent("onKeyPress", entity, vkCode, ctx);
+  }
+
+  /** See `dispatchKeyPress` — the down-to-up counterpart, `onKeyRelease<Name>`. */
+  dispatchKeyRelease(
+    entity: Entity,
+    vkCode: number,
+    ctx: GmlActionContext,
+  ): void {
+    this.dispatchKeyEvent("onKeyRelease", entity, vkCode, ctx);
+  }
+
+  private dispatchKeyEvent(
+    prefix: "onKeyPress" | "onKeyRelease",
+    entity: Entity,
+    vkCode: number,
+    ctx: GmlActionContext,
+  ): void {
+    const state = entity.get(GmlBehaviorState);
+    if (state === undefined) return;
+    const module = this.moduleFor(state);
+    if (module === undefined) return;
+    const methodName = vkMethodName(prefix, vkCode);
+    const handler = getGmlBehaviorHandler(module, methodName);
+    if (handler === undefined) return;
+    this.safeCall(methodName, state.behaviorId, () => handler(entity, ctx));
   }
 
   /**

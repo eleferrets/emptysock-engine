@@ -433,3 +433,166 @@ describe("GmsProjectRuntime — alarm dispatch (real onAlarm<N> wiring)", () => 
     }).not.toThrow();
   });
 });
+
+describe("GmsProjectRuntime — key dispatch (real onKeyPress<Name>/onKeyRelease<Name> wiring)", () => {
+  // Proves the previously-uncalled onKeyPress<Name>/onKeyRelease<Name>
+  // exports gms2-codegen.ts's buildKeyFns() generates actually fire, once
+  // per real up-down/down-up transition — not every frame a key is held —
+  // exactly the class of gap the onAlarm fix above already found and fixed
+  // for the Alarm event family. vk 32 = space (GameMaker's vk_space,
+  // confirmed against a real generated obj_game_start.behavior.ts's
+  // onKeyPressSpace export from a real GMS2 project import).
+  let game: InstanceType<typeof Game>;
+
+  function buildKeyFixture(): GmsProjectData {
+    const lookup: Record<string, ComponentDef> = {
+      Transform,
+      Meta,
+      GmlBehaviorState,
+    };
+    const prefab: PrefabDef = definePrefab("objKeyed", [
+      { def: Transform },
+      { def: Meta },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objKeyed" } },
+    ]);
+    const room0: SceneFile = {
+      sceneName: "room0",
+      prefabInstances: [{ prefab: "objKeyed", props: { x: 0, y: 0 } }],
+    };
+    return {
+      rooms: { room0 },
+      roomOrder: ["room0"],
+      prefabs: { objKeyed: prefab },
+      lookup: (name) => lookup[name],
+    };
+  }
+
+  beforeEach(() => {
+    game = new Game();
+  });
+
+  afterEach(() => {
+    unregisterGmlBehavior("objKeyed");
+    game.input.simulateKeyUp("Space");
+  });
+
+  it("dispatches onKeyPressSpace exactly once on the up-to-down transition, not while held", async () => {
+    let pressCount = 0;
+    const module: GmlBehaviorModule & Record<string, unknown> = {};
+    module["onKeyPressSpace"] = (() => {
+      pressCount += 1;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objKeyed", module);
+
+    const runtime = new GmsProjectRuntime(game, buildKeyFixture());
+    await runtime.loadRoom("room0");
+
+    // Not down yet.
+    runtime.update(1 / 60);
+    expect(pressCount).toBe(0);
+
+    // Press: the transition frame fires it once.
+    game.input.simulateKeyDown("Space");
+    runtime.update(1 / 60);
+    expect(pressCount).toBe(1);
+
+    // Still held — no re-fire while it stays down.
+    for (let i = 0; i < 5; i++) runtime.update(1 / 60);
+    expect(pressCount).toBe(1);
+  });
+
+  it("dispatches onKeyReleaseSpace exactly once on the down-to-up transition", async () => {
+    let releaseCount = 0;
+    const module: GmlBehaviorModule & Record<string, unknown> = {};
+    module["onKeyReleaseSpace"] = (() => {
+      releaseCount += 1;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objKeyed", module);
+
+    const runtime = new GmsProjectRuntime(game, buildKeyFixture());
+    await runtime.loadRoom("room0");
+
+    game.input.simulateKeyDown("Space");
+    runtime.update(1 / 60);
+    expect(releaseCount).toBe(0);
+
+    game.input.simulateKeyUp("Space");
+    runtime.update(1 / 60);
+    expect(releaseCount).toBe(1);
+
+    // Stays up — no re-fire.
+    for (let i = 0; i < 5; i++) runtime.update(1 / 60);
+    expect(releaseCount).toBe(1);
+  });
+
+  it("a key with no transition this frame dispatches nothing", async () => {
+    let pressCount = 0;
+    let releaseCount = 0;
+    const module: GmlBehaviorModule & Record<string, unknown> = {};
+    module["onKeyPressSpace"] = (() => {
+      pressCount += 1;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    module["onKeyReleaseSpace"] = (() => {
+      releaseCount += 1;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objKeyed", module);
+
+    const runtime = new GmsProjectRuntime(game, buildKeyFixture());
+    await runtime.loadRoom("room0");
+
+    // Never touched — no transitions ever occur.
+    for (let i = 0; i < 10; i++) runtime.update(1 / 60);
+    expect(pressCount).toBe(0);
+    expect(releaseCount).toBe(0);
+  });
+
+  it("a throwing onKeyPress<Name> handler does not abort dispatch for other entities", async () => {
+    let otherFired = false;
+    const throwing: GmlBehaviorModule & Record<string, unknown> = {};
+    throwing["onKeyPressSpace"] = (() => {
+      throw new Error("boom — synthetic onKeyPressSpace failure");
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objKeyed", throwing);
+    registerGmlBehavior("objKeyedOther", {
+      onKeyPressSpace: () => {
+        otherFired = true;
+      },
+    } as GmlBehaviorModule & Record<string, unknown>);
+
+    const lookup: Record<string, ComponentDef> = {
+      Transform,
+      Meta,
+      GmlBehaviorState,
+    };
+    const prefabA: PrefabDef = definePrefab("objKeyed", [
+      { def: Transform },
+      { def: Meta },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objKeyed" } },
+    ]);
+    const prefabB: PrefabDef = definePrefab("objKeyedOther", [
+      { def: Transform },
+      { def: Meta },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objKeyedOther" } },
+    ]);
+    const room0: SceneFile = {
+      sceneName: "room0",
+      prefabInstances: [
+        { prefab: "objKeyed", props: { x: 0, y: 0 } },
+        { prefab: "objKeyedOther", props: { x: 10, y: 0 } },
+      ],
+    };
+    const runtime = new GmsProjectRuntime(game, {
+      rooms: { room0 },
+      roomOrder: ["room0"],
+      prefabs: { objKeyed: prefabA, objKeyedOther: prefabB },
+      lookup: (name) => lookup[name],
+    });
+    await runtime.loadRoom("room0");
+
+    game.input.simulateKeyDown("Space");
+    expect(() => runtime.update(1 / 60)).not.toThrow();
+    expect(otherFired).toBe(true);
+
+    unregisterGmlBehavior("objKeyedOther");
+  });
+});

@@ -13,6 +13,7 @@ import { TimelineSystem } from "./systems/TimelineSystem.js";
 import { GmlSequenceSystem } from "./systems/GmlSequenceSystem.js";
 import { gmlActionsStep } from "./compat/gmlActions.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
+import { KNOWN_VK_CODES, vkToDomCode } from "./compat/gmlKeys.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
 import type { GmlParticleContext } from "./compat/gmlParticles.js";
 import type { CameraSystem } from "./systems/CameraSystem.js";
@@ -140,6 +141,14 @@ export class GmsProjectRuntime {
   private readonly _timelines = new TimelineSystem();
   private readonly _sequences = new GmlSequenceSystem();
   private _currentRoom: string | undefined;
+  /**
+   * Previous frame's down/up state for every vk code `dispatchKeyTransitions`
+   * polls — keyboard state is genuinely global (one physical keyboard, not
+   * per-entity/per-`World` state the way `PhysicsBody`'s callback side-table
+   * or `VisualScriptState`'s evaluation scope are), so a single instance
+   * field is the right shape here, not a `(World, eid)`-keyed side-table.
+   */
+  private readonly _prevKeyDown = new Map<number, boolean>();
 
   constructor(
     private readonly game: Game,
@@ -272,6 +281,8 @@ export class GmsProjectRuntime {
     if (scene === undefined) return;
     const ctx = this.buildContext();
 
+    this.dispatchKeyTransitions(scene, ctx);
+
     this._behaviors.update(scene, dt, ctx);
 
     scene.each(GmlBehaviorState, (_state, entity) => {
@@ -288,6 +299,54 @@ export class GmsProjectRuntime {
     // instances), so this pass runs over every GmlSequenceState entity, not
     // just the ones gmlActionsStep/timelines just touched.
     this._sequences.update(scene, dt);
+  }
+
+  /**
+   * Polls every vk code `compat/gmlKeys.ts`'s `KNOWN_VK_CODES` tracks
+   * against `game.input.keyboard` (the frozen-per-frame snapshot `Game.
+   * update()` already takes as its own first step, before this class's
+   * `onUpdate` hook ever runs — see CLAUDE.md's "Input snapshot: frozen by
+   * copy, not by timing" entry) and dispatches GameMaker's real KeyPress/
+   * KeyRelease semantics: fired once on the frame a key transitions
+   * up-to-down or down-to-up, never every frame it's simply held. This is
+   * the real integration point CLAUDE.md's `GmsProjectRuntime` entry names
+   * for `gms2-codegen.ts`'s generated `onKeyPress<Name>`/
+   * `onKeyRelease<Name>` handlers, which — before this pass — nothing ever
+   * called, the same class of previously-undiscovered gap the `onAlarm`
+   * dispatch fix above already found and fixed for the Alarm event family.
+   *
+   * Runs once per frame, not once per entity: the up/down transition itself
+   * is a single, global fact about the keyboard, so it's computed once here
+   * and then offered to every `GmlBehaviorState` entity — most will have no
+   * handler for a given vk code, which `GmlBehaviorSystem.dispatchKeyPress`/
+   * `dispatchKeyRelease` already treats as a safe no-op (the same "try the
+   * dispatch, let a missing handler no-op" shape `dispatchAlarm` uses for a
+   * missing alarm index), so there is no need to inspect which handlers a
+   * module actually exports before offering it a transition.
+   */
+  private dispatchKeyTransitions(scene: Scene, ctx: GmsRuntimeContext): void {
+    const keyboard = this.game.input.keyboard;
+    const pressed: number[] = [];
+    const released: number[] = [];
+    for (const vkCode of KNOWN_VK_CODES) {
+      const domCode = vkToDomCode(vkCode);
+      if (domCode === undefined) continue;
+      const isDown = keyboard.isDown(domCode);
+      const wasDown = this._prevKeyDown.get(vkCode) === true;
+      if (isDown && !wasDown) pressed.push(vkCode);
+      else if (!isDown && wasDown) released.push(vkCode);
+      this._prevKeyDown.set(vkCode, isDown);
+    }
+    if (pressed.length === 0 && released.length === 0) return;
+
+    scene.each(GmlBehaviorState, (_state, entity) => {
+      for (const vkCode of pressed) {
+        this._behaviors.dispatchKeyPress(entity, vkCode, ctx);
+      }
+      for (const vkCode of released) {
+        this._behaviors.dispatchKeyRelease(entity, vkCode, ctx);
+      }
+    });
   }
 
   /**
