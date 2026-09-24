@@ -72,12 +72,33 @@ logic factored out of every grid panel) **already exists** — `apps/ide/src/lib
 Konva would change the rendering primitive underneath that existing shared layer, not newly deduplicate
 anything.
 
-- [ ] **Convert `NavMeshEditor.tsx`** to real `react-konva` nodes (`<Line closed>` per polygon, `<Circle
-  draggable>` per vertex, `onDragMove` replacing the current hand-rolled `dragState`/hit-test math
+- [x] **Convert `NavMeshEditor.tsx`** to real `react-konva` nodes (`<Line closed>` per polygon, `<Circle
+draggable>` per vertex, `onDragMove` replacing the current hand-rolled `dragState`/hit-test math
       around its `handlePointerDown`/`handlePointerMove`). Best-fit candidate: small object counts
       (editor-authored, tens not thousands), heavy drag-interaction code that Konva's node model replaces
       close to 1:1. Do this one first — smallest, cleanest, lowest-risk proof that the pattern works
       before touching the other two.
+      **Done 2026-09-24**, commit `4b72bdc`. Each polygon is a `<Group draggable>` (whole-polygon
+      translate) wrapping a `<Line closed>` body and one `<Circle draggable>` per vertex (per-vertex
+      drag); both levels snap via `dragBoundFunc` calling `editorGrid.ts`'s `snapPoint`. Neighbour links
+      are plain non-interactive `<Line>`s. The draw-tool's click-to-place-vertices flow stays on the
+      `<Stage>`'s own `onPointerDown`/`onDblClick` (nothing to drag while drawing). The shared grid/ruler
+      chrome is unchanged in behaviour — it now paints to a plain background `<canvas>` layered under
+      the Konva `<Stage>` instead of sharing one canvas with the polygons.
+      Gotcha verification, done for real (not just read): Konva's real drag events bubble
+      (`bubble: true`) from the actually-dragged node up through ancestors, so a vertex's own
+      dragstart/dragmove/dragend also fire on its parent Group. Every Group handler guards with
+      `e.target !== e.currentTarget` to ignore that bubbled copy. Confirmed via two new tests in
+      `NavMeshEditor.test.tsx` that drive real Konva node instances directly (found via `Konva.stages` + each shape's stable `id`, then `.fire()` — vitest-canvas-mock gives Konva a constructible canvas
+      under jsdom but no real pixel-based hit-testing, so raw pointer-coordinate simulation can't resolve
+      to the right shape for these cases): dragging a single vertex changes only that vertex in the
+      store (the other three vertices and the centroid untouched); dragging the polygon body translates
+      every vertex, and the centroid, by the same delta. All 9 pre-existing tests kept passing (one
+      updated only to target the Konva stage's own canvas, now that a second background canvas exists
+      in the DOM). Added `vitest-canvas-mock` as an `apps/ide` devDependency plus a `resolve.mainFields:
+    ["browser", "module", "main"]` override in `vitest.config.ts` (Konva's package.json `main` points
+      at a Node build requiring the real `canvas` native module; jsdom already gives a — mocked —
+      `<canvas>`, so the fix is resolving Konva's own `browser` entry instead, not installing `canvas`).
 - [ ] **Convert `UIPlacementPanel.tsx`.** Good fit (small widget counts, real Konva win on
       `Rect`/`Text`/`Image` nodes with `onDragMove`), medium-large effort: the panel mixes native HTML5
       drag-and-drop (palette → canvas) with pointer events for ghost-preview, and Konva's `<Stage>` owns
