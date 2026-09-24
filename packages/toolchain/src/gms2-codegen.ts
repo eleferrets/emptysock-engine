@@ -362,7 +362,53 @@ export async function buildObjectBehavior(
     "KeyRelease event",
   );
 
-  const extraFns = [...collisionFns, ...keyPressFns, ...keyReleaseFns];
+  // -- Everything else on disk -------------------------------------------
+  // GameMaker objects carry plenty of real, common event kinds this pass
+  // has no dedicated mapping for — Alarm_<n>.gml (the Alarm event family),
+  // CleanUp_0.gml, Other_<n>.gml (the "Other" category: room-start/end,
+  // animation-end, User Event 0-15, and more, keyed by GameMaker's own
+  // eventnum — see GameMaker's manual's Event Order/constants pages for the
+  // full table), and Draw sub-events beyond plain Draw/Draw GUI (Draw_72,
+  // GameMaker's ev_draw_pre "Pre Draw" being one real example). Silently
+  // leaving a `.gml` file on disk with no corresponding generated function
+  // at all — as opposed to a `// TODO: migrate ...` stub, which every
+  // *recognised* event kind gets when its own file is missing — would be
+  // real GML logic vanishing from the generated output with no trace and
+  // no report entry, the opposite of the "surface for manual review, don't
+  // silently drop" rule this importer follows everywhere else (stale
+  // objects, unconvertible resource kinds, genuinely unmodelled GML
+  // functions). Every `.gml` file not already claimed by one of the named
+  // event kinds above gets its own generated function instead, transpiled
+  // the same way and named directly after the source file (`Alarm_0.gml` →
+  // `onAlarm0`, `Other_7.gml` → `onOther7`, `Draw_72.gml` → `onDraw72`) —
+  // this doesn't know or guess GameMaker's specific eventnum semantics for
+  // a given "Other" sub-event, but it guarantees the code itself is never
+  // lost, and the generated name makes clear it needs a human to look up
+  // what that specific event actually means and wire it up accordingly.
+  const knownEventFile =
+    /^(Create_|Step_[012]\.gml$|Draw_(0|64)\.gml$|Destroy_|Collision_|KeyPress_|KeyRelease_)/i;
+  const leftoverFiles = gmlFiles.filter((f) => !knownEventFile.test(f));
+  const leftoverFns: string[] = [];
+  for (const gmlFile of leftoverFiles) {
+    const baseName = gmlFile.replace(/\.gml$/i, "");
+    const methodName = `on${toPascalCase(baseName)}`;
+    const gmlPath = path.join(objectDir, gmlFile);
+    const transpiled = await readAndTranspileGML(gmlPath);
+    const body =
+      transpiled !== null
+        ? indent(transpiled.trimEnd(), 2)
+        : `  // TODO: migrate ${baseName}`;
+    leftoverFns.push(
+      `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully; unmapped event kind, verify its real GameMaker semantics before wiring it up]\n${body}\n}`,
+    );
+  }
+
+  const extraFns = [
+    ...collisionFns,
+    ...keyPressFns,
+    ...keyReleaseFns,
+    ...leftoverFns,
+  ];
   const extraBlock = extraFns.length > 0 ? "\n\n" + extraFns.join("\n\n") : "";
 
   return `// Auto-generated GMS2 behavior for object: ${name}

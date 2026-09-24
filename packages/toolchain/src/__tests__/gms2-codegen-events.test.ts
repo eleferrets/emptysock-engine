@@ -168,4 +168,59 @@ describe("gms2-codegen buildObjectBehavior — draw_* calls thread through _ctx.
       await fs.rm(dir, { recursive: true, force: true });
     }
   });
+
+  // GameMaker objects carry real, common event kinds this codegen pass has
+  // no dedicated mapping for at all — Alarm_<n>.gml, CleanUp_0.gml,
+  // Other_<n>.gml (the "Other" category — room-start/end, User Event 0-15,
+  // and more), and Draw sub-events beyond plain Draw/Draw GUI (e.g. a
+  // "Pre Draw" event written as Draw_72.gml). A `.gml` file for one of
+  // these used to vanish from the generated output entirely — not even a
+  // `// TODO: migrate ...` stub — which is real GML logic silently lost,
+  // unlike every other unmapped-but-recognised event kind (which always
+  // gets at least a stub). Each such file must now get its own generated
+  // function, named after the file, so nothing is ever dropped without a
+  // trace.
+  it("generates a function for every .gml file with no dedicated event mapping, instead of silently dropping it", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-codegen-leftover-"),
+    );
+    const objectName = "obj_misc_events";
+    const objectDir = path.join(dir, "objects", objectName);
+    await fs.mkdir(objectDir, { recursive: true });
+    await fs.writeFile(
+      path.join(objectDir, "Alarm_0.gml"),
+      "hp -= 1;",
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(objectDir, "Other_7.gml"),
+      "play_footstep_sound();",
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(objectDir, "CleanUp_0.gml"),
+      "cleanup_resources();",
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(objectDir, "Draw_72.gml"),
+      "pre_draw_setup();",
+      "utf-8",
+    );
+
+    try {
+      const behavior = await buildObjectBehavior(objectName, dir);
+
+      expect(behavior).toContain("export function onAlarm0(");
+      expect(behavior).toContain("hp -= 1;");
+      expect(behavior).toContain("export function onOther7(");
+      expect(behavior).toContain("play_footstep_sound();");
+      expect(behavior).toContain("export function onCleanUp0(");
+      expect(behavior).toContain("cleanup_resources();");
+      expect(behavior).toContain("export function onDraw72(");
+      expect(behavior).toContain("pre_draw_setup();");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });
