@@ -38,6 +38,7 @@ import type { GmlActionContext } from "./gmlActions.js";
 import {
   ParticleEmitter,
   type ParticleEmitterOptions,
+  type ParticleBlendMode,
 } from "../systems/ParticleSystem.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
@@ -123,10 +124,15 @@ function stepsToSeconds(steps: number): number {
  * The GameMaker fields this compat layer can genuinely translate onto
  * `ParticleEmitterOptions`. Fields GameMaker exposes but `ParticleEmitter`
  * has no equivalent for at all (particle shape *bitmaps* — `pt_shape_*` —
- * blend mode, per-step size/speed/direction wiggle, orientation/spin-vs-
- * direction locking) are stored here anyway so `part_type_*` calls that set
- * them don't throw, but are never read by `_configToEmitterOptions` — see
- * that function's doc comment for the honest list of what's dropped.
+ * and orientation/spin-vs-direction locking) are stored here anyway so
+ * `part_type_*` calls that set them don't throw, but are never read by
+ * `_configToEmitterOptions` — see that function's doc comment for the
+ * honest list of what's dropped. Size/speed/direction "wiggle" and blend
+ * mode *are* real now — `ParticleEmitter` gained a per-step wiggle hook and
+ * `RenderPipeline.mountParticles()` reads `blendMode` onto the mounted
+ * `ParticleContainer`; see `sizeWiggle`/`speedWiggle`/`dirWiggle`/`blend`
+ * below and `part_type_size`/`part_type_speed`/`part_type_direction`/
+ * `part_type_blend`'s doc comments.
  */
 interface ParticleTypeConfig {
   shapeConstant: number | undefined; // pt_shape_* — stored, never rendered; see _configToEmitterOptions
@@ -134,17 +140,21 @@ interface ParticleTypeConfig {
   sizeMin: number;
   sizeMax: number;
   sizeIncr: number; // per-step growth — see _configToEmitterOptions for the seconds conversion
+  sizeWiggle: number; // per-step random fluctuation — translated straight onto ParticleEmitterOptions.sizeWiggle
   colours: number[]; // 1-3 gradient stops, set by colour1/2/3
   alphaStart: number;
   alphaEnd: number; // alpha3's middle stop has no 3-point equivalent on ParticleEmitter — see part_type_alpha3
   speedMin: number;
   speedMax: number;
+  speedWiggle: number; // per-step random fluctuation — translated straight onto ParticleEmitterOptions.speedWiggle
   dirMin: number;
   dirMax: number;
+  dirWiggle: number; // per-step random fluctuation, in degrees — translated straight onto ParticleEmitterOptions.dirWiggle
   gravityAmount: number;
   gravityDirection: number;
   lifeMinSteps: number;
   lifeMaxSteps: number;
+  blend: ParticleBlendMode; // pt_blend_normal/pt_blend_add — see part_type_blend
 }
 
 function defaultTypeConfig(): ParticleTypeConfig {
@@ -154,17 +164,21 @@ function defaultTypeConfig(): ParticleTypeConfig {
     sizeMin: 1,
     sizeMax: 1,
     sizeIncr: 0,
+    sizeWiggle: 0,
     colours: [0xffffff],
     alphaStart: 1,
     alphaEnd: 1,
     speedMin: 0,
     speedMax: 0,
+    speedWiggle: 0,
     dirMin: 0,
     dirMax: 0,
+    dirWiggle: 0,
     gravityAmount: 0,
     gravityDirection: 90, // GameMaker's own part_type_gravity default direction is "down"
     lifeMinSteps: 60,
     lifeMaxSteps: 60,
+    blend: "normal",
   };
 }
 
@@ -256,10 +270,11 @@ export function part_type_sprite(
 
 /**
  * GMS2 `part_type_size(ind, size_min, size_max, size_incr, size_wiggle)`.
- * `size_wiggle` (a per-step random fluctuation) has no equivalent on
- * `ParticleEmitter` (its scale ramp is a fixed, deterministic start->end
- * interpolation) and is accepted but not applied — an honest gap, not a
- * fabricated approximation. `size_incr` (per-step linear growth) *is*
+ * `size_wiggle` (a per-step random fluctuation, redrawn every step) is a
+ * real, exact translation onto `ParticleEmitter.options.sizeWiggle` —
+ * `ParticleEmitter.update()` adds a fresh `[-sizeWiggle, sizeWiggle]`
+ * random offset to the particle's scale every step, on top of the
+ * deterministic ramp below. `size_incr` (per-step linear growth) is
  * translated, in `_configToEmitterOptions`, into `endScale` once the type's
  * life is known.
  */
@@ -268,12 +283,13 @@ export function part_type_size(
   sizeMin: number,
   sizeMax: number,
   sizeIncr = 0,
-  _sizeWiggle = 0,
+  sizeWiggle = 0,
 ): void {
   withType("part_type_size", ind, (cfg) => {
     cfg.sizeMin = sizeMin;
     cfg.sizeMax = sizeMax;
     cfg.sizeIncr = sizeIncr;
+    cfg.sizeWiggle = sizeWiggle;
   });
 }
 
@@ -359,21 +375,24 @@ export function part_type_alpha3(
 
 /**
  * GMS2 `part_type_speed(ind, speed_min, speed_max, speed_incr, speed_wiggle)`.
- * `speed_incr`/`speed_wiggle` (per-step acceleration/random fluctuation of
- * speed alone) have no `ParticleEmitter` equivalent beyond the constant
- * `acceleration` vector `part_type_gravity` already provides, and are
- * accepted but not applied.
+ * `speed_wiggle` (a per-step random fluctuation of speed alone, redrawn
+ * every step) is a real, exact translation onto
+ * `ParticleEmitter.options.speedWiggle`. `speed_incr` (per-step
+ * acceleration) has no `ParticleEmitter` equivalent beyond the constant
+ * `acceleration` vector `part_type_gravity` already provides, and is still
+ * accepted but not applied — an honest, narrower gap than before.
  */
 export function part_type_speed(
   ind: number,
   speedMin: number,
   speedMax: number,
   _speedIncr = 0,
-  _speedWiggle = 0,
+  speedWiggle = 0,
 ): void {
   withType("part_type_speed", ind, (cfg) => {
     cfg.speedMin = speedMin;
     cfg.speedMax = speedMax;
+    cfg.speedWiggle = speedWiggle;
   });
 }
 
@@ -382,19 +401,39 @@ export function part_type_speed(
  * initial launch direction range, in GameMaker's own degrees convention
  * (converted to this codebase's convention — see `dirToUnit`'s doc comment —
  * at emitter-build time, not here, so the stored config stays in GameMaker's
- * own units for anyone inspecting it). `dir_incr`/`dir_wiggle` (per-step
- * direction drift) have no equivalent and are accepted but not applied.
+ * own units for anyone inspecting it). `dir_wiggle` (per-step direction
+ * drift, redrawn every step, in degrees) is a real, exact translation onto
+ * `ParticleEmitter.options.dirWiggle`. `dir_incr` (per-step steady
+ * rotation of the launch direction) has no equivalent and is still
+ * accepted but not applied.
  */
 export function part_type_direction(
   ind: number,
   dirMin: number,
   dirMax: number,
   _dirIncr = 0,
-  _dirWiggle = 0,
+  dirWiggle = 0,
 ): void {
   withType("part_type_direction", ind, (cfg) => {
     cfg.dirMin = dirMin;
     cfg.dirMax = dirMax;
+    cfg.dirWiggle = dirWiggle;
+  });
+}
+
+/**
+ * GMS2 `part_type_blend(ind, additive)` — sets the particle type's blend
+ * mode: normal alpha blending (`additive` falsy) or additive blending
+ * (`additive` truthy, GameMaker's `pt_blend_add`/the common glowing-embers
+ * look). Translated exactly onto `ParticleEmitterOptions.blendMode`, which
+ * `RenderPipeline.mountParticles()` applies to the mounted
+ * `ParticleContainer`'s own `blendMode` — pixi batches every particle in a
+ * container under one blend mode, matching GameMaker's own per-type (not
+ * per-particle) blend setting.
+ */
+export function part_type_blend(ind: number, additive: boolean): void {
+  withType("part_type_blend", ind, (cfg) => {
+    cfg.blend = additive ? "add" : "normal";
   });
 }
 
@@ -440,10 +479,11 @@ export function part_type_life(
  *
  * Fields genuinely dropped here, honestly, with no equivalent on
  * `ParticleEmitter` at all: `shapeConstant` (built-in shape bitmaps —
- * see `part_type_shape`), size/speed/direction "wiggle" (per-step random
- * fluctuation — `ParticleEmitter` has no per-step hook to apply one),
- * sprite `animate`/`stretch`/`random` sub-image options, and `alpha2`'s
- * middle stop (see `part_type_alpha3`).
+ * see `part_type_shape`), `size_incr`/`speed_incr`/`dir_incr` (per-step
+ * steady drift, as opposed to `size_wiggle`/`speed_wiggle`/`dir_wiggle`'s
+ * per-step *random* fluctuation, which *is* translated below), sprite
+ * `animate`/`stretch`/`random` sub-image options, and `alpha2`'s middle
+ * stop (see `part_type_alpha3`).
  */
 function _configToEmitterOptions(
   cfg: ParticleTypeConfig,
@@ -495,9 +535,13 @@ function _configToEmitterOptions(
     },
     startScale: cfg.sizeMin,
     endScale,
+    sizeWiggle: cfg.sizeWiggle,
     startAlpha: cfg.alphaStart,
     endAlpha: cfg.alphaEnd,
     colorGradient: cfg.colours,
+    speedWiggle: cfg.speedWiggle,
+    dirWiggle: cfg.dirWiggle,
+    blendMode: cfg.blend,
   };
 }
 

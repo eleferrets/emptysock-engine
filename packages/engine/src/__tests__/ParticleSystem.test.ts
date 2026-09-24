@@ -87,6 +87,118 @@ describe("ParticleSystem", () => {
     expect(p.x).toBeLessThanOrEqual(100 + 20);
     expect(p.y).toBeGreaterThanOrEqual(50 - 5);
     expect(p.y).toBeLessThanOrEqual(50 + 5);
-    expect(e.options).toEqual({ ...options, shapeRadius: 0 });
+    expect(e.options).toEqual({
+      ...options,
+      shapeRadius: 0,
+      sizeWiggle: 0,
+      speedWiggle: 0,
+      dirWiggle: 0,
+      blendMode: "normal",
+    });
+  });
+
+  describe("wiggle", () => {
+    it("size wiggle varies a particle's scale step-to-step beyond the deterministic ramp", () => {
+      const e = new ParticleEmitter({
+        emissionRate: 0,
+        lifetime: { min: 10, max: 10 },
+        startScale: 1,
+        endScale: 1, // flat ramp — any scale variation must come from wiggle alone
+        sizeWiggle: 0.5,
+      });
+      e.emit(1);
+      const scales: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        e.update(0.1);
+        const [p] = e.getParticles();
+        if (p === undefined) throw new Error("expected a live particle");
+        scales.push(p.scale);
+        // Bounded: base scale (1) +/- sizeWiggle (0.5), clamped at 0.
+        expect(p.scale).toBeGreaterThanOrEqual(0);
+        expect(p.scale).toBeLessThanOrEqual(1.5);
+      }
+      const distinct = new Set(scales);
+      expect(distinct.size).toBeGreaterThan(1);
+    });
+
+    it("speed wiggle varies a particle's velocity magnitude step-to-step", () => {
+      const e = new ParticleEmitter({
+        emissionRate: 0,
+        lifetime: { min: 10, max: 10 },
+        velocity: { x: { min: 100, max: 100 }, y: { min: 0, max: 0 } },
+        acceleration: { x: 0, y: 0 },
+        speedWiggle: 20,
+      });
+      e.emit(1);
+      const speeds: number[] = [];
+      // Wiggle perturbs the *current* velocity every step (a real
+      // step-to-step random walk, matching GameMaker's own semantic, not a
+      // bounded jitter around the emitter's original spawn speed), so only
+      // a single-step bound is meaningful — assert that, plus real
+      // step-to-step variation over the run.
+      let lastSpeed = 100;
+      for (let i = 0; i < 10; i++) {
+        e.update(0.1);
+        const [p] = e.getParticles();
+        if (p === undefined) throw new Error("expected a live particle");
+        const speed = Math.hypot(p.vx, p.vy);
+        expect(speed).toBeGreaterThanOrEqual(0);
+        expect(speed).toBeLessThanOrEqual(lastSpeed + 20);
+        speeds.push(speed);
+        lastSpeed = speed;
+      }
+      const distinct = new Set(speeds.map((s) => Math.round(s)));
+      expect(distinct.size).toBeGreaterThan(1);
+    });
+
+    it("direction wiggle varies a particle's travel angle step-to-step", () => {
+      const e = new ParticleEmitter({
+        emissionRate: 0,
+        lifetime: { min: 10, max: 10 },
+        velocity: { x: { min: 100, max: 100 }, y: { min: 0, max: 0 } },
+        acceleration: { x: 0, y: 0 },
+        dirWiggle: 30,
+      });
+      e.emit(1);
+      const angles: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        e.update(0.1);
+        const [p] = e.getParticles();
+        if (p === undefined) throw new Error("expected a live particle");
+        angles.push(Math.atan2(p.vy, p.vx));
+      }
+      const distinct = new Set(angles.map((a) => Math.round(a * 1000)));
+      expect(distinct.size).toBeGreaterThan(1);
+    });
+
+    it("zero wiggle (the default) never perturbs scale or velocity", () => {
+      const e = new ParticleEmitter({
+        emissionRate: 0,
+        lifetime: { min: 10, max: 10 },
+        velocity: { x: { min: 50, max: 50 }, y: { min: 0, max: 0 } },
+        acceleration: { x: 0, y: 0 },
+        startScale: 1,
+        endScale: 1,
+      });
+      e.emit(1);
+      e.update(0.1);
+      const [p] = e.getParticles();
+      if (p === undefined) throw new Error("expected a live particle");
+      expect(p.scale).toBe(1);
+      expect(p.vx).toBe(50);
+      expect(p.vy).toBe(0);
+    });
+  });
+
+  describe("blend mode", () => {
+    it("defaults to normal blend", () => {
+      const e = new ParticleEmitter();
+      expect(e.options.blendMode).toBe("normal");
+    });
+
+    it("accepts an explicit additive blend mode", () => {
+      const e = new ParticleEmitter({ blendMode: "add" });
+      expect(e.options.blendMode).toBe("add");
+    });
   });
 });

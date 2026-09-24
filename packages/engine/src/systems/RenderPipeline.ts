@@ -343,6 +343,11 @@ export class RenderPipeline implements SceneRenderer {
         scale: true,
         color: true,
       },
+      // GameMaker's `part_type_blend` maps directly onto pixi's own
+      // per-container `blendMode` — every particle in a `ParticleContainer`
+      // shares one blend mode (they're batched together), which is exactly
+      // the granularity `ParticleEmitterOptions.blendMode` already models.
+      blendMode: emitter.options.blendMode === "add" ? "add" : "normal",
     });
     this._render.getLayerContainer(layerName).addChild(container);
     this._particleContainers.set(emitter, container);

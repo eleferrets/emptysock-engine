@@ -95,4 +95,28 @@ describe("ECS RenderPipeline — particle wiring", () => {
     const emitter = particles.create(); // options.texture defaults to ""
     await expect(pipeline.mountParticles(emitter)).resolves.not.toThrow();
   });
+
+  it("mounts a normal-blend emitter's container with pixi's default blend mode", async () => {
+    const emitter = particles.create({ emissionRate: 0 });
+    await pipeline.mountParticles(emitter);
+    let mounted: InstanceType<typeof ParticleContainer> | undefined;
+    for (const child of pipeline.stage.children) {
+      for (const grandchild of child.children) {
+        if (grandchild instanceof ParticleContainer) mounted = grandchild;
+      }
+    }
+    expect(mounted?.blendMode).toBe("normal");
+  });
+
+  it("mounts an additive-blend emitter's container with pixi's 'add' blend mode", async () => {
+    const emitter = particles.create({ emissionRate: 0, blendMode: "add" });
+    await pipeline.mountParticles(emitter);
+    let mounted: InstanceType<typeof ParticleContainer> | undefined;
+    for (const child of pipeline.stage.children) {
+      for (const grandchild of child.children) {
+        if (grandchild instanceof ParticleContainer) mounted = grandchild;
+      }
+    }
+    expect(mounted?.blendMode).toBe("add");
+  });
 });

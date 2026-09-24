@@ -29,6 +29,18 @@ function sampleGradient(colours: number[], t: number): number {
 
 export type EmitterShape = "point" | "circle" | "rectangle" | "line";
 
+/**
+ * Renderer-agnostic blend mode, mirroring GameMaker's `part_type_blend`
+ * (`pt_blend_normal` / `pt_blend_add`, called via `bm_normal`/`bm_add`
+ * equivalents elsewhere in GML). `ParticleEmitter` itself never touches
+ * pixi — this is a plain string tag a render layer (`RenderPipeline`'s
+ * `mountParticles()`) reads and translates into a real pixi `BLEND_MODES`
+ * value on the mounted `ParticleContainer`, the same "engine defines the
+ * shape, the render layer applies it" split every other emitter field
+ * already follows.
+ */
+export type ParticleBlendMode = "normal" | "add";
+
 export interface ParticleEmitterOptions {
   /** Texture / sprite name for each particle (display layer handles actual rendering). */
   texture?: string;
@@ -41,6 +53,17 @@ export interface ParticleEmitterOptions {
   acceleration?: { x?: number; y?: number };
   startScale?: number;
   endScale?: number;
+  /**
+   * Per-step random fluctuation applied to a particle's scale, on top of
+   * the deterministic `startScale`->`endScale` ramp — GameMaker's
+   * `part_type_size`'s `size_wiggle` parameter. Each step, a fresh random
+   * offset in `[-sizeWiggle, sizeWiggle]` is added to the particle's
+   * interpolated scale; the offset itself is redrawn every step (real
+   * step-to-step randomness, not a fixed per-particle phase), matching
+   * GameMaker's own "wiggle" semantic of continuous jitter rather than a
+   * smooth oscillation. `0` (the default) disables it entirely.
+   */
+  sizeWiggle?: number;
   startAlpha?: number;
   endAlpha?: number;
   colorGradient?: number[];
@@ -50,6 +73,29 @@ export interface ParticleEmitterOptions {
   shapeHeight?: number;
   rotationSpeed?: number;
   maxParticles?: number;
+  /**
+   * Per-step random fluctuation applied to a particle's current speed
+   * (its velocity vector's magnitude), on top of `acceleration` —
+   * GameMaker's `part_type_speed`'s `speed_wiggle` parameter. Same
+   * "redrawn every step" semantic as `sizeWiggle`. `0` (the default)
+   * disables it.
+   */
+  speedWiggle?: number;
+  /**
+   * Per-step random fluctuation applied to a particle's current direction
+   * of travel, in degrees — GameMaker's `part_type_direction`'s
+   * `dir_wiggle` parameter. Same "redrawn every step" semantic as
+   * `sizeWiggle`. `0` (the default) disables it.
+   */
+  dirWiggle?: number;
+  /**
+   * Blend mode every particle in this emitter renders with — see
+   * `ParticleBlendMode`'s doc comment. `"normal"` (the default) is
+   * ordinary alpha blending; `"add"` is additive blending, the common
+   * "glowing embers/fire" look GameMaker's `part_type_blend(ind, true)`
+   * produces.
+   */
+  blendMode?: ParticleBlendMode;
 }
 
 // ─── Particle ─────────────────────────────────────────────────────────────────
@@ -104,6 +150,7 @@ export class ParticleEmitter {
       acceleration: options.acceleration ?? { x: 0, y: 100 },
       startScale: options.startScale ?? 1,
       endScale: options.endScale ?? 0,
+      sizeWiggle: options.sizeWiggle ?? 0,
       startAlpha: options.startAlpha ?? 1,
       endAlpha: options.endAlpha ?? 0,
       colorGradient: options.colorGradient ?? [0xffffff],
@@ -113,6 +160,9 @@ export class ParticleEmitter {
       shapeHeight: options.shapeHeight ?? 0,
       rotationSpeed: options.rotationSpeed ?? 0,
       maxParticles: options.maxParticles ?? 500,
+      speedWiggle: options.speedWiggle ?? 0,
+      dirWiggle: options.dirWiggle ?? 0,
+      blendMode: options.blendMode ?? "normal",
     };
   }
 
@@ -208,10 +258,47 @@ export class ParticleEmitter {
       const t = 1 - p.life / p.maxLife;
       p.vx += p.ax * deltaTime;
       p.vy += p.ay * deltaTime;
+
+      // Speed/direction wiggle: a fresh random offset drawn every step (not
+      // a fixed per-particle phase), applied on top of the deterministic
+      // acceleration integration above — GameMaker's own `speed_wiggle`/
+      // `dir_wiggle` semantic. Recomputing the polar form each step is
+      // deliberate: it lets the wiggle perturb the velocity vector that
+      // acceleration/gravity has already shaped this step, rather than
+      // fighting it.
+      if (this.options.speedWiggle > 0 || this.options.dirWiggle > 0) {
+        const speed = Math.hypot(p.vx, p.vy);
+        const angle = Math.atan2(p.vy, p.vx);
+        const speedOffset =
+          this.options.speedWiggle > 0
+            ? rng(-this.options.speedWiggle, this.options.speedWiggle)
+            : 0;
+        const dirOffsetRad =
+          this.options.dirWiggle > 0
+            ? (rng(-this.options.dirWiggle, this.options.dirWiggle) * Math.PI) /
+              180
+            : 0;
+        const newSpeed = Math.max(0, speed + speedOffset);
+        const newAngle = angle + dirOffsetRad;
+        p.vx = Math.cos(newAngle) * newSpeed;
+        p.vy = Math.sin(newAngle) * newSpeed;
+      }
+
       p.x += p.vx * deltaTime;
       p.y += p.vy * deltaTime;
       p.rotation += p.rotationSpeed * deltaTime;
       p.scale = p.startScale + (p.endScale - p.startScale) * t;
+      // Size wiggle: same "redrawn every step" random offset, added on top
+      // of the deterministic start->end scale ramp — never applied to
+      // `startScale`/`endScale` themselves, matching GameMaker's own
+      // `size_wiggle` acting as continuous jitter around the interpolated
+      // curve rather than perturbing the curve's endpoints.
+      if (this.options.sizeWiggle > 0) {
+        p.scale = Math.max(
+          0,
+          p.scale + rng(-this.options.sizeWiggle, this.options.sizeWiggle),
+        );
+      }
       p.alpha = p.startAlpha + (p.endAlpha - p.startAlpha) * t;
       p.colour = sampleGradient(this.options.colorGradient, t);
     }

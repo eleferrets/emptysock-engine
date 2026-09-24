@@ -25,6 +25,7 @@ import {
   part_type_direction,
   part_type_gravity,
   part_type_life,
+  part_type_blend,
   part_system_create,
   part_system_exists,
   part_system_destroy,
@@ -148,6 +149,37 @@ describe("gmlParticles — part_type_* handle lifecycle", () => {
     expect(cfg?.lifeMinSteps).toBe(30);
     expect(cfg?.lifeMaxSteps).toBe(60);
   });
+
+  it("size/speed/direction wiggle are recorded onto the type config", () => {
+    const t = part_type_create();
+    part_type_size(t, 2, 3, 0.1, 0.5);
+    part_type_speed(t, 10, 20, 0, 4);
+    part_type_direction(t, 0, 90, 0, 15);
+    const cfg = _getParticleTypeConfig(t);
+    expect(cfg?.sizeWiggle).toBe(0.5);
+    expect(cfg?.speedWiggle).toBe(4);
+    expect(cfg?.dirWiggle).toBe(15);
+  });
+
+  it("wiggle defaults to 0 when not given", () => {
+    const t = part_type_create();
+    part_type_size(t, 2, 3);
+    part_type_speed(t, 10, 20);
+    part_type_direction(t, 0, 90);
+    const cfg = _getParticleTypeConfig(t);
+    expect(cfg?.sizeWiggle).toBe(0);
+    expect(cfg?.speedWiggle).toBe(0);
+    expect(cfg?.dirWiggle).toBe(0);
+  });
+
+  it("part_type_blend records normal by default and additive when set", () => {
+    const t = part_type_create();
+    expect(_getParticleTypeConfig(t)?.blend).toBe("normal");
+    part_type_blend(t, true);
+    expect(_getParticleTypeConfig(t)?.blend).toBe("add");
+    part_type_blend(t, false);
+    expect(_getParticleTypeConfig(t)?.blend).toBe("normal");
+  });
 });
 
 describe("gmlParticles — part_system_* handle lifecycle", () => {
@@ -173,13 +205,14 @@ describe("gmlParticles — part_particles_create actually produces a live Partic
 
   beforeEach(() => {
     typeId = part_type_create();
-    part_type_size(typeId, 2, 2, 0);
+    part_type_size(typeId, 2, 2, 0, 0.3);
     part_type_colour2(typeId, 0xff0000, 0x0000ff);
     part_type_alpha2(typeId, 1, 0);
-    part_type_speed(typeId, 100, 100);
-    part_type_direction(typeId, 0, 0); // straight right in this codebase's convention
+    part_type_speed(typeId, 100, 100, 0, 7);
+    part_type_direction(typeId, 0, 0, 0, 12); // straight right in this codebase's convention
     part_type_gravity(typeId, 50, 90); // straight down
     part_type_life(typeId, 60, 60); // 1 second at the assumed 60 steps/sec
+    part_type_blend(typeId, true);
 
     systemId = part_system_create();
     ctx = makeCtx();
@@ -210,6 +243,10 @@ describe("gmlParticles — part_particles_create actually produces a live Partic
     expect(opts?.velocity.x?.max).toBeCloseTo(100, 5);
     // gravity 50 at direction 90 (screen-down) -> ay = 50.
     expect(opts?.acceleration.y).toBeCloseTo(50, 5);
+    expect(opts?.sizeWiggle).toBe(0.3);
+    expect(opts?.speedWiggle).toBe(7);
+    expect(opts?.dirWiggle).toBe(12);
+    expect(opts?.blendMode).toBe("add");
   });
 
   it("respects part_system_position's offset for subsequent spawns", () => {
