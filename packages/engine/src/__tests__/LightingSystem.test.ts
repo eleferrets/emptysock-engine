@@ -2,7 +2,27 @@ import { describe, expect, it } from "vitest";
 import { Scene } from "../Scene.js";
 import { Transform } from "../components/Transform.js";
 import { LightSource } from "../components/LightSource.js";
-import { LightingSystem } from "../systems/LightingSystem.js";
+import { LightOccluder } from "../components/LightOccluder.js";
+import { LightingSystem, type LightSample } from "../systems/LightingSystem.js";
+import { pointInPolygon } from "../systems/LightOcclusion.js";
+
+/** `noUncheckedIndexedAccess`-safe "the one light this test expects" accessor. */
+function firstLight(lights: LightSample[]): LightSample {
+  const light = lights[0];
+  if (light === undefined) throw new Error("expected at least one light");
+  return light;
+}
+
+function spawnOccluder(
+  scene: Scene,
+  x: number,
+  y: number,
+  overrides: Partial<ReturnType<typeof LightOccluder.createDefaults>> = {},
+): void {
+  const entity = scene.spawn();
+  entity.add(Transform, { x, y });
+  entity.add(LightOccluder, overrides);
+}
 
 function spawnLight(
   scene: Scene,
@@ -114,5 +134,74 @@ describe("LightingSystem.collectLights", () => {
   it("ambient defaults to pitch black (level 0) with a white/neutral tint", () => {
     const lighting = new LightingSystem();
     expect(lighting.ambient).toEqual({ colour: 0xffffff, level: 0 });
+  });
+
+  it("a light with no LightOccluder nearby has visibility: null (backward-compatible fast path)", () => {
+    const scene = new Scene();
+    spawnLight(scene, 0, 0, { radius: 200 });
+
+    const lighting = new LightingSystem();
+    const lights = lighting.collectLights(scene);
+
+    expect(firstLight(lights).visibility).toBeNull();
+  });
+
+  it("a torch on one side of a wall does not illuminate a point directly behind it", () => {
+    const scene = new Scene();
+    spawnLight(scene, 0, 0, { radius: 200 });
+    // A wall segment 50px to the right of the light, spanning y in [-100, 100].
+    spawnOccluder(scene, 50, 0, { width: 10, height: 200 });
+
+    const lighting = new LightingSystem();
+    const light = firstLight(lighting.collectLights(scene));
+
+    expect(light.visibility).not.toBeNull();
+    const visibility = light.visibility;
+    if (visibility === null) throw new Error("expected a visibility polygon");
+    // Directly behind the wall from the light's perspective.
+    expect(pointInPolygon({ x: 150, y: 0 }, visibility)).toBe(false);
+    // Beside the wall — outside its shadow, inside the light's radius.
+    expect(pointInPolygon({ x: 50, y: 150 }, visibility)).toBe(true);
+  });
+
+  it("an occluder outside the light's radius does not affect it (spatial culling)", () => {
+    const scene = new Scene();
+    spawnLight(scene, 0, 0, { radius: 50 });
+    spawnOccluder(scene, 500, 0, { width: 10, height: 200 });
+
+    const lighting = new LightingSystem();
+    const light = firstLight(lighting.collectLights(scene));
+
+    expect(light.visibility).toBeNull();
+  });
+
+  it("a disabled occluder is skipped entirely", () => {
+    const scene = new Scene();
+    spawnLight(scene, 0, 0, { radius: 200 });
+    spawnOccluder(scene, 50, 0, { width: 10, height: 200, enabled: false });
+
+    const lighting = new LightingSystem();
+    const light = firstLight(lighting.collectLights(scene));
+
+    expect(light.visibility).toBeNull();
+  });
+
+  it("a light close enough to a short occluder still illuminates the area beyond its ends", () => {
+    const scene = new Scene();
+    spawnLight(scene, 0, 0, { radius: 150 });
+    // A short wall — only 20 units tall — 30 units away.
+    spawnOccluder(scene, 30, 0, { width: 10, height: 20 });
+
+    const lighting = new LightingSystem();
+    const light = firstLight(lighting.collectLights(scene));
+
+    expect(light.visibility).not.toBeNull();
+    const visibility = light.visibility;
+    if (visibility === null) throw new Error("expected a visibility polygon");
+    // Directly behind the short wall: shadowed.
+    expect(pointInPolygon({ x: 100, y: 0 }, visibility)).toBe(false);
+    // Past the wall's ends: lit again (wrap-around).
+    expect(pointInPolygon({ x: 100, y: 80 }, visibility)).toBe(true);
+    expect(pointInPolygon({ x: 100, y: -80 }, visibility)).toBe(true);
   });
 });

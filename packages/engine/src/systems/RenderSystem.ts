@@ -55,6 +55,22 @@ const LIGHT_FALLOFF_RINGS = 8;
  * approximating a `(1 - t)^falloff` radial intensity curve. `originX`/`originY`
  * shift world-space light coordinates into the lightmap texture's local
  * space (the lightmap only ever covers `viewport`, not the whole world).
+ *
+ * When `light.visibility` is set (real occlusion — see
+ * `LightingSystem.collectLights()`'s doc comment and `LightOcclusion.ts`),
+ * the returned `Graphics`' `.mask` is set to a second `Graphics` filling the
+ * light's real visible-region polygon, in the same local coordinate space —
+ * a genuine pixi geometric mask, not a CSS/filter approximation, which is
+ * what makes a point directly behind an occluder receive none of this
+ * light's contribution to the lightmap texture rather than a merely dimmer
+ * one. The mask `Graphics` is deliberately never added to
+ * `_lightMapContainer` — pixi masks a display object against another
+ * display object's geometry without requiring the mask to be in the scene
+ * graph itself, as long as both share the same coordinate space, which
+ * local-origin-relative light/mask coordinates here already guarantee.
+ * `light.visibility === null` (no occluder was within this light's radius —
+ * the common case) skips masking entirely, so an unoccluded light renders
+ * byte-for-byte the same un-masked circle this function always drew.
  */
 function buildLightGraphics(
   light: LightSample,
@@ -80,6 +96,17 @@ function buildLightGraphics(
       .circle(localX, localY, light.radius * t)
       .fill({ color: light.colour, alpha });
   }
+
+  if (light.visibility !== null && light.visibility.length >= 3) {
+    const mask = new Graphics();
+    const points: number[] = [];
+    for (const p of light.visibility) {
+      points.push(p.x - originX, p.y - originY);
+    }
+    mask.poly(points).fill(0xffffff);
+    graphics.mask = mask;
+  }
+
   return graphics;
 }
 

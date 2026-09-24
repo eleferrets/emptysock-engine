@@ -137,12 +137,21 @@ export type {
 export type { Serializable, SerializableRecord } from "./Serializable.js";
 export { Transform } from "./components/Transform.js";
 export { LightSource } from "./components/LightSource.js";
+export { LightOccluder } from "./components/LightOccluder.js";
 export {
   LightingSystem,
   type AmbientLight,
   type LightSample,
   type LightingSystemOptions,
 } from "./systems/LightingSystem.js";
+export {
+  computeVisibilityPolygon,
+  pointInPolygon,
+  boxOccluderSegments,
+  boxWithinReach,
+  type Point,
+  type Segment,
+} from "./systems/LightOcclusion.js";
 export { Meta } from "./components/Meta.js";
 export type { MetaShape } from "./components/Meta.js";
 export { Sprite } from "./components/Sprite.js";
