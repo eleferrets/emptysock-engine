@@ -15,11 +15,29 @@ export function transpileGML(gml: string): string {
   let out = gml;
 
   // -- Variable declarations -------------------------------------------------
-  // global.x = expr  →  export let x = expr; // was global.x
+  // global.x = expr  →  a TODO comment, not an active statement.
+  //
+  // GML's `global.x = expr` can legally appear anywhere a statement can —
+  // inside onCreate, inside onUpdate, inside a nested if/switch — and GML
+  // itself makes no syntactic distinction between "first declaration" and
+  // "later reassignment" of a global: both are just `global.x = expr`. A
+  // previous version of this pass emitted `export let x = expr;`, which is
+  // invalid TypeScript the moment it appears inside a function body (every
+  // generated event handler is one), and would also throw a duplicate-
+  // declaration error if the same global were assigned more than once in
+  // the same file — both real, common shapes in real GML source. There is
+  // also no single "the shared global store" concept this engine defines to
+  // route it through automatically (unlike `VariableStore`'s numbered
+  // switches, a GML global is an arbitrary named value). Left as a
+  // commented-out TODO instead, the same "surface for manual review, don't
+  // fake it" rule genuinely unmodelled GML already follows elsewhere in
+  // this file — it keeps the emitted file syntactically valid TypeScript
+  // and doesn't silently misrepresent global (cross-object) state as a
+  // function-local variable.
   out = out.replace(
-    /\bglobal\.(\w+)\s*=\s*([^;\n]+)/g,
+    /\bglobal\.(\w+)\s*=\s*([^;\n]+);?/g,
     (_m, varName: string, expr: string) =>
-      `export let ${varName} = ${expr.trimEnd()}; // was global.${varName}`,
+      `// TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state.`,
   );
   // var x = expr  →  let x = expr;
   out = out.replace(/\bvar\b(\s+\w+\s*=)/g, "let$1");
@@ -35,17 +53,98 @@ export function transpileGML(gml: string): string {
   // exit  →  return;
   out = out.replace(/\bexit\b/g, "return;");
 
+  // #region / #endregion — GameMaker's IDE code-folding directives. `#` has
+  // no meaning as a line-comment marker in JS/TS (only a `#!` shebang on a
+  // file's very first line is special-cased, and this never appears there),
+  // so left as-is these are a hard parse failure, not just an "unresolved
+  // identifier" type error — the same severity `with` (above) has, and for
+  // the same reason: it can take down parsing of the entire file, not just
+  // flag the one line for review. Rewritten to the `//` comment form so the
+  // region name/marker is preserved for a human reader, just without a
+  // meaning the TS parser tries to interpret.
+  out = out.replace(/^([ \t]*)#region\b(.*)$/gm, "$1// #region$2");
+  out = out.replace(/^([ \t]*)#endregion\b(.*)$/gm, "$1// #endregion$2");
+
+  // if (a) && (b) [&& (c) ...]  →  if ((a) && (b) [&& (c) ...])
+  //
+  // GML's `if` never requires its condition to be one single parenthesised
+  // group — `if a && b { ... }` and `if (a) && (b) { ... }` are both valid
+  // GML, since GML only requires *an* expression, parenthesised however the
+  // author liked, right after `if`. JS/TS's `if` syntax is stricter: the
+  // entire condition must be one parenthesised group immediately after
+  // `if`. Left untouched, `if (a) && (b) { ... }` parses in JS as `if (a)`
+  // followed by a dangling `&& (b) { ... }` expression statement — not a
+  // parse error, so this shape doesn't even surface as an "unresolved
+  // identifier" the way genuinely unmodelled GML does; it silently changes
+  // which branch runs. Only handles conditions without their own nested
+  // parens (the overwhelmingly common real shape — a flat chain of
+  // `(x > y) && (a < b)`-style clauses); a condition with nested parens
+  // inside one of the chained groups is rare enough, and safe enough to
+  // leave for manual review, that this doesn't try to handle it.
+  out = out.replace(
+    /\bif\s*(\([^()]*\)(?:\s*(?:&&|\|\|)\s*\([^()]*\))+)/g,
+    (_m, cond: string) => `if (${cond})`,
+  );
+
+  // GML's `div` (integer division) infix operator has no JS/TS equivalent
+  // operator — `a div b` must become `Math.floor(a / b)`. Handles both a
+  // parenthesised left/right operand (`(x - y) div (z * 1.5)`) and a bare
+  // identifier/number/member-access operand (`total div count`); a more
+  // complex operand shape (a full nested expression on one side with no
+  // enclosing parens) is left for manual review rather than risking eating
+  // the wrong operand boundary.
+  const OPERAND = String.raw`(?:\([^()]*\)|[\w.]+(?:\([^()]*\))?)`;
+  out = out.replace(
+    new RegExp(`(${OPERAND})\\s+div\\s+(${OPERAND})`, "g"),
+    (_m, a: string, b: string) => `Math.floor(${a} / ${b})`,
+  );
+
+  // GML's `with (instances) { body }` iterates every instance matching
+  // `instances`, running `body` with `self`/bare-identifier scope switched
+  // to each one in turn — there's no bare-identifier-rescoping mechanism to
+  // fake that in generated TypeScript, and `with` also happens to be a real
+  // JS/TS *reserved word*: every generated event handler lives inside an ES
+  // module, which is always strict mode, and the `with` statement is a
+  // syntax error in strict mode regardless of what's inside its parens.
+  // Left untouched, this isn't just an honestly-surfaced "unresolved
+  // identifier" (a type error) the way other unmodelled GML is — it's a
+  // hard parse failure that breaks the *entire* file, including every
+  // other, unrelated, successfully-transpiled function in it. `if (true)`
+  // keeps the block's braces (and its body, for manual review) syntactically
+  // valid without claiming to run the real per-instance iteration. The
+  // target expression is deliberately not echoed into the comment: an
+  // earlier pass (instance_create_layer, above) can itself have already
+  // rewritten part of that expression into a `/* ... */` block comment, and
+  // embedding that inside a second `/* ... */` would produce a nested block
+  // comment — invalid in JS/TS, since the first `*/` closes the outer
+  // comment early and leaves the rest as bare, unparseable code.
+  out = out.replace(
+    /\bwith\s*\(((?:[^()]|\([^()]*\))*)\)/g,
+    () =>
+      `if (true) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`,
+  );
+
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
 
-  // instance_create_layer
+  // instance_create_layer / instance_destroy — GML allows both to appear as
+  // a sub-expression, not just a standalone statement: `my_gun =
+  // instance_create_layer(...)` (assigned) and `with
+  // (instance_create_layer(...))` (passed as an argument) are both real,
+  // common shapes. A line-comment substitution (`// ...`) is only safe when
+  // the call is the entire statement — used inside `with(...)` or an
+  // assignment's right-hand side, it comments out everything after it on
+  // the same line, corrupting the enclosing statement's syntax (e.g.
+  // leaving `with(` with no matching `)`). A block comment wrapped around a
+  // real `undefined` expression stays valid in both statement and
+  // expression position.
   out = out.replace(
-    /\binstance_create_layer\s*\([^)]*\)\s*;?/g,
-    "// TODO: scene.createEntity() and add ObjX component",
+    /\binstance_create_layer\s*\([^)]*\)(\s*;)?/g,
+    (_m, semi?: string) =>
+      `(undefined /* TODO: scene.createEntity() and add ObjX component */)${semi ?? ""}`,
   );
-  // instance_destroy
   out = out.replace(
-    /\binstance_destroy\s*\(\s*\)\s*;?/g,
-    "// entity.destroy();",
+    /\binstance_destroy\s*\(\s*\)(\s*;)?/g,
+    (_m, semi?: string) => `(undefined /* entity.destroy(); */)${semi ?? ""}`,
   );
 
   // audio_play_sound(snd, priority, loop)
