@@ -14,7 +14,8 @@ export type MigrationEntryKind =
   | "sound"
   | "tileset"
   | "font"
-  | "note";
+  | "note"
+  | "shader";
 
 /**
  * "copied" is distinct from "converted": a `note` resource's real text
@@ -60,6 +61,8 @@ const CATEGORY_LABELS: Partial<
   "font:manual": "Fonts (manual)",
   "note:copied": "Notes (copied)",
   "note:manual": "Notes (manual)",
+  "shader:converted": "Shaders (converted)",
+  "shader:manual": "Shaders (manual)",
 };
 
 // The rows to always render, in this order, even when a category is empty
@@ -78,6 +81,8 @@ const SUMMARY_ROWS: Array<[MigrationEntryKind, MigrationEntryStatus]> = [
   ["font", "manual"],
   ["note", "copied"],
   ["note", "manual"],
+  ["shader", "converted"],
+  ["shader", "manual"],
   ["tileset", "manual"],
 ];
 
@@ -99,6 +104,8 @@ function labelFor(kind: MigrationEntryKind): string {
       return "Font";
     case "note":
       return "Note";
+    case "shader":
+      return "Shader";
   }
 }
 
@@ -161,8 +168,14 @@ Each sound was emitted as \`assets/<name>.sound.ts\`, its real audio file
 copied alongside it, ready for \`AudioSystem.load\`/\`.play\`. Each font was
 emitted as \`assets/<name>.font.ts\` — family/size/style metadata only, since
 this engine renders text via Canvas/CSS fonts, not bitmap glyph atlases; the
-source glyph atlas image itself was not copied. See \`project-manifest.json\`
-for the full list of prefab/behavior/scene files this import produced.
+source glyph atlas image itself was not copied. Each GLSL ES shader was
+mechanically translated to \`assets/<name>.shader.ts\` for
+\`CustomShaderFilter\`/\`RenderSystem.addLayerShaderFilter\` — GPU compilation
+was not verified (no headless WebGL context available at import time); an
+HLSL11 shader (DirectX-only, structurally different from GLSL) or a shader
+with non-passthrough per-vertex logic this importer can't safely reproduce is
+reported manual instead. See \`project-manifest.json\` for the full list of
+prefab/behavior/scene files this import produced.
 ${warningSection}
 ## Reference Material Copied (Not Engine Assets)
 
@@ -192,5 +205,6 @@ ${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 8. **Tilesets** — recreate tilesets and wire them to your scenes.
 9. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
 10. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).
+11. **Shaders** — each converted shader's \`assets/<name>.shader.ts\` gives the \`vertexSrc\`/\`fragmentSrc\` to pass to \`createCustomShaderFilter\`; GPU compilation was not verified during import, so test it in-engine before shipping. A shader reported manual (HLSL11, or non-passthrough vertex logic) needs to be rewritten by hand against \`CustomShaderFilter\`'s GLSL ES 3.00 contract.
 `;
 }

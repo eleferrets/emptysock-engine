@@ -21,6 +21,11 @@ import {
 import { buildSoundAsset } from "./gms2-sound-import.js";
 import { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
 import { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
+import {
+  convertGms2Shader,
+  buildShaderAsset,
+  ShaderTranslationError,
+} from "./gms2-shader-import.js";
 
 // Re-exported for backward compatibility — some callers (and the test
 // suite) import `parseGmsJson` directly from this module.
@@ -87,6 +92,7 @@ export async function importGMS2Project(
   const tilesets: string[] = [];
   const fonts: string[] = [];
   const notes: string[] = [];
+  const shaders: string[] = [];
 
   const resources = normalizeYypResources(project.resources);
   for (const res of resources) {
@@ -115,6 +121,8 @@ export async function importGMS2Project(
       // GameMaker's own auto-generated compatibility-report resources are
       // also plain GMNote notes under notes/, so this one bucket covers both.
       notes.push(name);
+    } else if (resPath.startsWith("shaders/")) {
+      shaders.push(name);
     } else {
       // A resource type this importer has no migration path for at all
       // (extensions, timelines, and any other kind this importer has never
@@ -359,6 +367,59 @@ export async function importGMS2Project(
       skipped.push(name);
       reportEntries.push({
         kind: "note",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+  for (const name of shaders) {
+    if (verbose) console.log(`  [shader] ${name}`);
+    try {
+      const shader = await convertGms2Shader(
+        path.join(projectRoot, "shaders", name),
+      );
+      if (shader.language === "hlsl11") {
+        const reason =
+          "written in HLSL11 (DirectX-only, structurally different from GLSL) — this importer only translates GLSL ES shaders; recreate this shader manually against CustomShaderFilter";
+        warnings.push(`Shader "${name}" could not be converted (${reason}).`);
+        skipped.push(name);
+        reportEntries.push({
+          kind: "shader",
+          name,
+          status: "manual",
+          note: reason,
+        });
+        continue;
+      }
+      if (shader.language === "unknown") {
+        const reason =
+          "could not determine whether this shader is GLSL ES or HLSL11 from its source — recreate manually";
+        warnings.push(`Shader "${name}" could not be converted (${reason}).`);
+        skipped.push(name);
+        reportEntries.push({
+          kind: "shader",
+          name,
+          status: "manual",
+          note: reason,
+        });
+        continue;
+      }
+      const content = buildShaderAsset(shader);
+      filesToWrite.push({ rel: `assets/${name}.shader.ts`, content });
+      reportEntries.push({ kind: "shader", name, status: "converted" });
+      warnings.push(
+        `Shader "${name}" converted mechanically from GameMaker's GLSL ES convention to @emptysock/engine's CustomShaderFilter contract — GPU compilation was not verified (no headless WebGL context available at import time); review the generated assets/${name}.shader.ts before shipping.`,
+      );
+    } catch (err) {
+      const reason =
+        err instanceof ShaderTranslationError
+          ? err.message
+          : `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(`Shader "${name}" could not be converted (${reason}).`);
+      skipped.push(name);
+      reportEntries.push({
+        kind: "shader",
         name,
         status: "manual",
         note: reason,
