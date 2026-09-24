@@ -27,6 +27,8 @@ const { GmlBehaviorSystem } = await import("../systems/GmlBehaviorSystem.js");
 const { GmlBehaviorState, registerGmlBehavior, unregisterGmlBehavior } =
   await import("../components/GmlBehavior.js");
 import type { GmlBehaviorModule } from "../components/GmlBehavior.js";
+const { Transform } = await import("../components/Transform.js");
+const { Meta } = await import("../components/Meta.js");
 
 describe("GmlBehaviorSystem — Begin Step / Step / End Step ordering", () => {
   let scene: InstanceType<typeof Scene>;
@@ -103,6 +105,92 @@ describe("GmlBehaviorSystem — Begin Step / Step / End Step ordering", () => {
 
     unregisterGmlBehavior("slow-update");
     unregisterGmlBehavior("end-reader");
+  });
+});
+
+describe("GmlBehaviorSystem — step-based Collision dispatch (4th pass, AABB overlap)", () => {
+  let scene: InstanceType<typeof Scene>;
+  let system: InstanceType<typeof GmlBehaviorSystem>;
+
+  beforeEach(() => {
+    scene = new Scene();
+    system = new GmlBehaviorSystem();
+  });
+
+  it("fires the matching onCollideWith<Type> handler when two entities' AABBs overlap", () => {
+    const hits: number[] = [];
+    registerGmlBehavior("player", {
+      onCollideWithEnemy: (_entity, other: { eid: number }) => {
+        hits.push(other.eid);
+      },
+    } satisfies GmlBehaviorModule);
+
+    const player = scene.spawn();
+    player.add(GmlBehaviorState, { behaviorId: "player" });
+    player.add(Transform, { x: 0, y: 0 });
+
+    const enemy = scene.spawn();
+    enemy.add(Transform, { x: 0, y: 0 }); // same position — guaranteed overlap
+    enemy.add(Meta, { name: "Enemy" });
+
+    system.update(scene, 1 / 60, { scene } as never);
+
+    expect(hits).toEqual([enemy.eid]);
+
+    unregisterGmlBehavior("player");
+  });
+
+  it("does not fire when the two entities' AABBs don't overlap", () => {
+    let fired = false;
+    registerGmlBehavior("player2", {
+      onCollideWithEnemy: () => {
+        fired = true;
+      },
+    } satisfies GmlBehaviorModule);
+
+    const player = scene.spawn();
+    player.add(GmlBehaviorState, { behaviorId: "player2" });
+    player.add(Transform, { x: 0, y: 0 });
+
+    const enemy = scene.spawn();
+    // Fallback sprite half-extent is 16px each side, so 1000px away is nowhere close.
+    enemy.add(Transform, { x: 1000, y: 1000 });
+    enemy.add(Meta, { name: "Enemy" });
+
+    system.update(scene, 1 / 60, { scene } as never);
+
+    expect(fired).toBe(false);
+
+    unregisterGmlBehavior("player2");
+  });
+
+  it("does not fire a handler for a type the other entity isn't — only the specifically-named handler fires", () => {
+    let enemyFired = false;
+    let npcFired = false;
+    registerGmlBehavior("player3", {
+      onCollideWithEnemy: () => {
+        enemyFired = true;
+      },
+      onCollideWithNPC: () => {
+        npcFired = true;
+      },
+    } satisfies GmlBehaviorModule);
+
+    const player = scene.spawn();
+    player.add(GmlBehaviorState, { behaviorId: "player3" });
+    player.add(Transform, { x: 0, y: 0 });
+
+    // Overlapping, but typed "NPC" — only onCollideWithNPC should fire.
+    const npc = scene.spawn();
+    npc.add(Transform, { x: 0, y: 0 });
+    npc.add(Meta, { name: "NPC" });
+
+    system.update(scene, 1 / 60, { scene } as never);
+
+    expect(npcFired).toBe(true);
+    expect(enemyFired).toBe(false);
+
+    unregisterGmlBehavior("player3");
   });
 });
 

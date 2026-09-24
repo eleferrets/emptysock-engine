@@ -405,3 +405,8 @@ export {
 } from "./components/GmlBehavior.js";
 export type { GmlBehaviorModule } from "./components/GmlBehavior.js";
 export { GmlBehaviorSystem } from "./systems/GmlBehaviorSystem.js";
+export {
+  resolveGmlObjectType,
+  checkGmlAabbOverlap,
+  dispatchGmlCollision,
+} from "./systems/GmlCollision.js";

@@ -2,6 +2,7 @@ import type { ComponentDef } from "./Component.js";
 import { definePrefab, type PrefabDef } from "./Prefab.js";
 import type { Scene, SpawnOptions } from "./Scene.js";
 import type { SerializableRecord } from "./Serializable.js";
+import { Meta } from "./components/Meta.js";
 
 /**
  * ENGINE_DESIGN.md §13.4 — "scene/prefab files: JSON with generated `.d.ts`
@@ -175,6 +176,31 @@ export interface LoadSceneFileOptions {
   onSpawned?: (entity: ReturnType<Scene["spawn"]>) => void;
 }
 
+/**
+ * Stamps a spawned prefab instance's `Meta.name` with the `PrefabDef` it was
+ * spawned from, when nothing already gave it a name — this is what lets
+ * `systems/GmlCollision.ts`'s `resolveGmlObjectType()` (and anything else
+ * that wants "which object type is this instance") resolve a GMS2-imported
+ * room's prefab instances back to their GameMaker object name, reusing the
+ * one existing "this entity has an editor/tooling-visible name" component
+ * (`Meta`, see CLAUDE.md's `QueryChannel`/`Meta.name`/`Meta.tags` note)
+ * rather than inventing a second identity concept just for this. A prefab
+ * whose own `.prefab.json` already includes a `Meta` component with a real
+ * `name` override wins — this only fills in the gap, it never overwrites an
+ * explicitly-authored name.
+ */
+function stampPrefabNameOntoMeta(
+  entity: ReturnType<Scene["spawn"]>,
+  prefabName: string,
+): void {
+  const meta = entity.get(Meta);
+  if (meta === undefined) {
+    entity.add(Meta, { name: prefabName });
+  } else if (meta.name === "") {
+    meta.name = prefabName;
+  }
+}
+
 export function loadSceneFile(
   scene: Scene,
   file: SceneFile,
@@ -194,6 +220,7 @@ export function loadSceneFile(
     const spawnOptions: SpawnOptions | undefined =
       instance.pool === true ? { pool: true } : undefined;
     const entity = scene.spawn(prefab, instance.props, spawnOptions);
+    stampPrefabNameOntoMeta(entity, prefab.prefabName);
     options?.onSpawned?.(entity);
     spawned.push(entity);
   }

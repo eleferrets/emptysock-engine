@@ -2,11 +2,13 @@ import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
 import type { GmlDrawTarget } from "../compat/gml.js";
+import { Transform } from "../components/Transform.js";
 import {
   GmlBehaviorState,
   getGmlBehavior,
   type GmlBehaviorModule,
 } from "../components/GmlBehavior.js";
+import { checkGmlAabbOverlap, dispatchGmlCollision } from "./GmlCollision.js";
 
 /**
  * Real, automatic dispatch for GMS2-imported `.behavior.ts` modules — the
@@ -101,6 +103,50 @@ export class GmlBehaviorSystem {
     scene.each(GmlBehaviorState, (state, entity) => {
       this.moduleFor(state)?.onStepEnd?.(entity, ctx);
     });
+    this.resolveCollisions(scene, ctx);
+  }
+
+  /**
+   * A 4th, separate pass after the three Step-family passes above —
+   * GameMaker's real per-frame event order runs Collision checks after Step
+   * (Begin/normal/End) completes and before Draw, so this always runs last
+   * within `update()`, once every `GmlBehaviorState` entity's Step-family
+   * handlers have already had their say for this frame.
+   *
+   * GameMaker's real default (non-physics) instance collision model is
+   * plain bounding-box overlap, checked every step, firing each instance's
+   * Collision event specific to the *other* instance's object type — an
+   * object can declare separate `Collision_A`/`Collision_B` handlers,
+   * independently triggered only by overlap with that specific type. This
+   * is a broad-phase-then-narrow-phase sweep: the broad phase collects
+   * every `GmlBehaviorState` entity (a potential collision *source* — only
+   * a source needs a compiled module to dispatch through) and every
+   * `Transform`-bearing entity (a potential collision *target* — a target
+   * needs no `GmlBehaviorState` of its own, since GameMaker's own Collision
+   * event can be triggered by any instance, not just other
+   * behavior-carrying ones), then the narrow phase is `checkGmlAabbOverlap`
+   * (real AABB overlap, only computed for pairs that could plausibly
+   * matter — see `GmlCollision.ts`).
+   */
+  private resolveCollisions(scene: Scene, ctx: GmlActionContext): void {
+    const sources: Entity[] = [];
+    scene.each(GmlBehaviorState, (_state, entity) => {
+      sources.push(entity);
+    });
+    if (sources.length === 0) return;
+
+    const targets: Entity[] = [];
+    scene.each(Transform, (_transform, entity) => {
+      targets.push(entity);
+    });
+
+    for (const source of sources) {
+      for (const target of targets) {
+        if (target.eid === source.eid) continue;
+        if (!checkGmlAabbOverlap(source, target)) continue;
+        dispatchGmlCollision(source, target, ctx);
+      }
+    }
   }
 
   /**

@@ -456,13 +456,18 @@ export function action_if_collision(
   );
 }
 
-function spriteHalfExtents(_entity: Entity): { x: number; y: number } {
-  // No real texture-size lookup is available from pure engine-side compat
-  // code (that lives with the renderer/asset loader) — a fixed 16px default
-  // half-extent (32px square) is used when no better data exists. Good
-  // enough for a DnD compat check; a project that needs pixel-accurate
-  // collision should use PhysicsBody instead, same as GameMaker itself
-  // recommends once "precise" collision checking matters.
+/**
+ * No real texture-size lookup is available from pure engine-side compat
+ * code (that lives with the renderer/asset loader) — a fixed 16px default
+ * half-extent (32px square) is used when no better data exists. Good enough
+ * for a DnD/GML compat check; a project that needs pixel-accurate collision
+ * should use `PhysicsBody` instead, same as GameMaker itself recommends once
+ * "precise" collision checking matters. Exported so `systems/GmlCollision.ts`
+ * shares this exact fallback rather than defining a second one — see that
+ * file's own doc comment for why it's the reused source of AABB extents for
+ * GML `onCollideWith<Type>` dispatch too.
+ */
+export function spriteHalfExtents(_entity: Entity): { x: number; y: number } {
   return { x: 16, y: 16 };
 }
 
