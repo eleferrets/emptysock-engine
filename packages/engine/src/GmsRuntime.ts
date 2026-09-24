@@ -101,7 +101,11 @@ export type GmsRuntimeContext = GmlActionContext &
  *   1. `GmlBehaviorSystem.update()` — the three Step passes plus Collision.
  *   2. `gmlActionsStep()` for every `GmlBehaviorState` entity — applies any
  *      `action_move`/`action_set_alarm` motion/alarm state that entity's
- *      transpiled GML wrote this frame or an earlier one.
+ *      transpiled GML wrote this frame or an earlier one, and passes a real
+ *      `onAlarm` callback wired to `GmlBehaviorSystem.dispatchAlarm()` — an
+ *      alarm reaching zero this frame dispatches that entity's compiled
+ *      `onAlarm<index>` export (if it has one), the same dynamic-lookup-by-
+ *      name mechanism `onCollideWith<Other>` dispatch already uses.
  *   3. `TimelineSystem.update()`.
  *   4. `GmlSequenceSystem.update()`.
  *
@@ -271,7 +275,9 @@ export class GmsProjectRuntime {
     this._behaviors.update(scene, dt, ctx);
 
     scene.each(GmlBehaviorState, (_state, entity) => {
-      gmlActionsStep(entity);
+      gmlActionsStep(entity, (index) => {
+        this._behaviors.dispatchAlarm(entity, index, ctx);
+      });
     });
 
     this._timelines.update(scene, ctx);

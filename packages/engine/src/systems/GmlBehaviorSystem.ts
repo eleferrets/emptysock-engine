@@ -6,6 +6,7 @@ import { Transform } from "../components/Transform.js";
 import {
   GmlBehaviorState,
   getGmlBehavior,
+  getGmlBehaviorHandler,
   type GmlBehaviorModule,
 } from "../components/GmlBehavior.js";
 import { checkGmlAabbOverlap, dispatchGmlCollision } from "./GmlCollision.js";
@@ -119,6 +120,35 @@ export class GmlBehaviorSystem {
       }
     }
     scene.destroy(entity);
+  }
+
+  /**
+   * Dispatches `onAlarm<index>` (if the entity's compiled module exports
+   * one) for a GM8.1 alarm reaching zero — the real integration point for
+   * `compat/gmlActions.ts`'s `gmlActionsStep(entity, onAlarm)` callback
+   * parameter, per CLAUDE.md's `GmsProjectRuntime` entry. `gms2-codegen.ts`
+   * names these handlers `onAlarm0`..`onAlarm11` (GameMaker has 12 alarm
+   * slots), a dynamically-named export `GmlBehaviorModule`'s fixed fields
+   * can't type directly — the same reason `onCollideWith<Other>` dispatch
+   * already goes through `getGmlBehaviorHandler` rather than a static field
+   * lookup, reused here rather than reinvented. A no-op, not an error, when
+   * the entity has no `GmlBehaviorState`, no resolvable module, or no
+   * handler for this particular alarm index — most real objects only ever
+   * arm a couple of the 12 possible slots. Routed through `safeCall` like
+   * every other dispatch in this class, so one throwing alarm handler can't
+   * abort dispatch for any other entity or any other alarm firing the same
+   * frame.
+   */
+  dispatchAlarm(entity: Entity, index: number, ctx: GmlActionContext): void {
+    const state = entity.get(GmlBehaviorState);
+    if (state === undefined) return;
+    const module = this.moduleFor(state);
+    if (module === undefined) return;
+    const handler = getGmlBehaviorHandler(module, `onAlarm${index}`);
+    if (handler === undefined) return;
+    this.safeCall(`onAlarm${index}`, state.behaviorId, () =>
+      handler(entity, ctx),
+    );
   }
 
   /**

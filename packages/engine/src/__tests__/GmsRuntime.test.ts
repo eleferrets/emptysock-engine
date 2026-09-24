@@ -306,3 +306,130 @@ describe("GmsProjectRuntime — timeline_index wiring (real onCreate dispatch)",
     expect(entity.has(TimelineState)).toBe(false);
   });
 });
+
+describe("GmsProjectRuntime — alarm dispatch (real onAlarm<N> wiring)", () => {
+  // Proves gmlActionsStep()'s onAlarm callback, wired by runGmlPasses() to
+  // GmlBehaviorSystem.dispatchAlarm(), actually fires a generated
+  // onAlarm<index> export once the alarm's countdown reaches zero — not
+  // just that action_set_alarm's countdown ticks (that part already
+  // worked; the dispatch on top of it did not, until this pass).
+  let game: InstanceType<typeof Game>;
+
+  function buildAlarmFixture(): GmsProjectData {
+    const lookup: Record<string, ComponentDef> = {
+      Transform,
+      Meta,
+      GmlBehaviorState,
+    };
+    const prefab: PrefabDef = definePrefab("objAlarmed", [
+      { def: Transform },
+      { def: Meta },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objAlarmed" } },
+    ]);
+    const room0: SceneFile = {
+      sceneName: "room0",
+      prefabInstances: [{ prefab: "objAlarmed", props: { x: 0, y: 0 } }],
+    };
+    return {
+      rooms: { room0 },
+      roomOrder: ["room0"],
+      prefabs: { objAlarmed: prefab },
+      lookup: (name) => lookup[name],
+    };
+  }
+
+  beforeEach(() => {
+    game = new Game();
+  });
+
+  afterEach(() => {
+    unregisterGmlBehavior("objAlarmed");
+  });
+
+  it("dispatches onAlarm0 once the armed alarm reaches zero, with the correct entity/ctx", async () => {
+    const { action_set_alarm } = await import("../compat/gmlActions.js");
+    let alarm0Fired = 0;
+    let firedEntity: Entity | undefined;
+    const module: GmlBehaviorModule & Record<string, unknown> = {
+      onCreate: (entity, ctx) => {
+        action_set_alarm(entity, ctx, 0, 3); // fires 3 steps from now
+      },
+    };
+    module["onAlarm0"] = ((entity: Entity) => {
+      alarm0Fired += 1;
+      firedEntity = entity;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objAlarmed", module);
+
+    const runtime = new GmsProjectRuntime(game, buildAlarmFixture());
+    await runtime.loadRoom("room0");
+
+    let entity: Entity | undefined;
+    runtime.scene?.each(GmlBehaviorState, (_state, e) => {
+      entity = e;
+    });
+    expect(entity).toBeDefined();
+
+    // Not fired yet — the countdown needs a few Step passes first.
+    expect(alarm0Fired).toBe(0);
+
+    for (let i = 0; i < 5; i++) {
+      runtime.update(1 / 60);
+    }
+
+    expect(alarm0Fired).toBe(1); // one-shot, matching GameMaker
+    expect(firedEntity?.eid).toBe(entity?.eid);
+
+    // Ticking further does not re-fire it — GameMaker alarms are one-shot
+    // unless explicitly re-armed.
+    for (let i = 0; i < 10; i++) {
+      runtime.update(1 / 60);
+    }
+    expect(alarm0Fired).toBe(1);
+  });
+
+  it("a throwing onAlarm handler does not abort dispatch for other entities/alarms in the same frame", async () => {
+    const { action_set_alarm } = await import("../compat/gmlActions.js");
+    let otherAlarmFired = false;
+
+    const module: GmlBehaviorModule & Record<string, unknown> = {
+      onCreate: (entity, ctx) => {
+        action_set_alarm(entity, ctx, 0, 1);
+        action_set_alarm(entity, ctx, 1, 1);
+      },
+    };
+    module["onAlarm0"] = (() => {
+      throw new Error("boom — synthetic onAlarm0 failure");
+    }) satisfies GmlBehaviorModule["onCreate"];
+    module["onAlarm1"] = (() => {
+      otherAlarmFired = true;
+    }) satisfies GmlBehaviorModule["onCreate"];
+    registerGmlBehavior("objAlarmed", module);
+
+    const runtime = new GmsProjectRuntime(game, buildAlarmFixture());
+    await runtime.loadRoom("room0");
+
+    expect(() => {
+      for (let i = 0; i < 3; i++) runtime.update(1 / 60);
+    }).not.toThrow();
+
+    // alarm 1's handler still ran even though alarm 0's threw.
+    expect(otherAlarmFired).toBe(true);
+  });
+
+  it("an alarm index with no matching handler on the module is a safe no-op", async () => {
+    const { action_set_alarm } = await import("../compat/gmlActions.js");
+    registerGmlBehavior("objAlarmed", {
+      onCreate: (entity, ctx) => {
+        action_set_alarm(entity, ctx, 5, 1); // no onAlarm5 export below
+      },
+    } satisfies GmlBehaviorModule);
+
+    const runtime = new GmsProjectRuntime(game, buildAlarmFixture());
+    await runtime.loadRoom("room0");
+
+    expect(() => {
+      for (let i = 0; i < 5; i++) runtime.update(1 / 60);
+    }).not.toThrow();
+  });
+});
