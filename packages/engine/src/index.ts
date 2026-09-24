@@ -515,3 +515,11 @@ export type {
   GmlSequenceInterpolation,
 } from "./components/GmlSequence.js";
 export { GmlSequenceSystem } from "./systems/GmlSequenceSystem.js";
+
+export { GmsProjectRuntime } from "./GmsRuntime.js";
+export type {
+  GmsProjectManifest,
+  GmsProjectData,
+  GmsProjectRuntimeOptions,
+  GmsRuntimeContext,
+} from "./GmsRuntime.js";
