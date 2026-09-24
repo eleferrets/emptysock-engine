@@ -183,6 +183,125 @@ describe("convertGms2Tileset — real GMTileset .yy format", () => {
   });
 });
 
+describe("convertGms2Tileset — prefers a baked output_tileset.png over chasing spriteId", () => {
+  let dir: string;
+
+  beforeAll(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-tileset-baked-"));
+  });
+
+  afterAll(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("converts using output_tileset.png directly when present, deriving columns/rows/margin/spacing from .yy fields (not from any sprite)", async () => {
+    // Real-world-shaped fixture: tileWidth/tileHeight 8, out_tilehborder/
+    // out_tilevborder 2, out_columns 8, tile_count 64 — matches a real
+    // GameMaker tileset's own baked-atlas layout (96x96px, confirmed
+    // against a real project's output_tileset.png). spriteId points at a
+    // sprite resource that deliberately does NOT exist on disk, proving
+    // this path never needs it.
+    const tilesetDir = path.join(dir, "tilesets", "ts_baked");
+    await fs.mkdir(tilesetDir, { recursive: true });
+    await fs.writeFile(path.join(tilesetDir, "output_tileset.png"), TINY_PNG);
+    await fs.writeFile(
+      path.join(tilesetDir, "ts_baked.yy"),
+      `{
+        "$GMTileSet":"v1",
+        "name":"ts_baked",
+        "resourceType":"GMTileSet",
+        "spriteId":{"name":"spr_does_not_exist","path":"sprites/spr_does_not_exist/spr_does_not_exist.yy",},
+        "tileWidth":8,
+        "tileHeight":8,
+        "tilehsep":0,
+        "tilevsep":0,
+        "tilexoff":0,
+        "tileyoff":0,
+        "out_tilehborder":2,
+        "out_tilevborder":2,
+        "out_columns":8,
+        "tile_count":64,
+      }`,
+      "utf-8",
+    );
+
+    const tileset = await convertGms2Tileset(tilesetDir, dir);
+
+    expect(tileset.name).toBe("ts_baked");
+    expect(tileset.imagePath).toBe(path.join(tilesetDir, "output_tileset.png"));
+    expect(tileset.tileWidth).toBe(8);
+    expect(tileset.tileHeight).toBe(8);
+    // out_columns is the real column count for the baked atlas.
+    expect(tileset.columns).toBe(8);
+    // rows = ceil(tile_count / out_columns) = ceil(64/8) = 8.
+    expect(tileset.rows).toBe(8);
+    // margin = out_tilehborder, spacing = 2 * out_tilehborder.
+    expect(tileset.margin).toBe(2);
+    expect(tileset.spacing).toBe(4);
+    // Hand-verified against the real project: (8 + 2*2) * 8 = 96.
+    expect(tileset.imageWidth).toBe(96);
+    expect(tileset.imageHeight).toBe(96);
+    expect(tileset.asymmetryWarning).toBeUndefined();
+  });
+
+  it("reports an honest asymmetry warning when out_tilehborder/out_tilevborder differ", async () => {
+    const tilesetDir = path.join(dir, "tilesets", "ts_baked_asym");
+    await fs.mkdir(tilesetDir, { recursive: true });
+    await fs.writeFile(path.join(tilesetDir, "output_tileset.png"), TINY_PNG);
+    await fs.writeFile(
+      path.join(tilesetDir, "ts_baked_asym.yy"),
+      `{
+        "name":"ts_baked_asym",
+        "spriteId":{"name":"spr_x",},
+        "tileWidth":8,"tileHeight":8,
+        "out_tilehborder":2,"out_tilevborder":5,
+        "out_columns":4,"tile_count":16,
+      }`,
+      "utf-8",
+    );
+
+    const tileset = await convertGms2Tileset(tilesetDir, dir);
+    expect(tileset.asymmetryWarning).toBeDefined();
+    expect(tileset.asymmetryWarning).toContain("out_tilehborder=2");
+    expect(tileset.asymmetryWarning).toContain("out_tilevborder=5");
+  });
+
+  it("falls back to chasing spriteId when output_tileset.png is genuinely missing but spriteId resolves", async () => {
+    // No output_tileset.png in this tileset's directory at all — the real
+    // sprite fixture must be used instead, preserving pre-existing
+    // behaviour for whichever real case needs it.
+    await writeTilesetFixture(dir, "ts_fallback", "spr_ts_fallback", {
+      tileWidth: 16,
+      tileHeight: 16,
+      spriteWidth: 32,
+      spriteHeight: 16,
+    });
+
+    const tileset = await convertGms2Tileset(
+      path.join(dir, "tilesets", "ts_fallback"),
+      dir,
+    );
+
+    expect(tileset.imagePath).toContain("spr_ts_fallback");
+    expect(tileset.columns).toBe(2);
+    expect(tileset.rows).toBe(1);
+  });
+
+  it("fails with a clear, honest error when neither output_tileset.png nor a real spriteId is present", async () => {
+    const tilesetDir = path.join(dir, "tilesets", "ts_neither");
+    await fs.mkdir(tilesetDir, { recursive: true });
+    await fs.writeFile(
+      path.join(tilesetDir, "ts_neither.yy"),
+      `{"name":"ts_neither","spriteId":null,"tileWidth":8,"tileHeight":8,}`,
+      "utf-8",
+    );
+
+    await expect(convertGms2Tileset(tilesetDir, dir)).rejects.toThrow(
+      /no baked "output_tileset.png".*no real "spriteId"/,
+    );
+  });
+});
+
 describe("buildTilesetAsset — real TilesetConfig descriptor + image copy", () => {
   it("copies the real source image and emits a real TilesetConfig-shaped module", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-tileset-asset-"));

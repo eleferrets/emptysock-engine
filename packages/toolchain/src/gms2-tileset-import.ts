@@ -34,7 +34,8 @@ export interface TilesetAsset {
 
 /**
  * Real GMS2 `GMTileset` `.yy` fields (confirmed against a real fixture, see
- * `NPC-Studio/yy-typings`'s `data/tileset/test.yy` and `src/tileset.rs`):
+ * `NPC-Studio/yy-typings`'s `data/tileset/test.yy` and `src/tileset.rs`, and
+ * against a real full GameMaker export's own tileset resources):
  *
  * ```json
  * {
@@ -49,18 +50,51 @@ export interface TilesetAsset {
  *   "tilexoff": 0,
  *   "tileyoff": 0,
  *   "tile_count": 7,
- *   "out_columns": 3
+ *   "out_columns": 3,
+ *   "out_tilehborder": 2,
+ *   "out_tilevborder": 2
  * }
  * ```
  *
- * Notably: a GMTileset resource has **no image of its own** — its tile
- * sheet is a real `Sprite` resource referenced by `spriteId`, and the
- * tileset's own `.yy` only carries the slicing metadata (tile size,
- * separation, offset). `out_columns` is GameMaker's own internal runtime
- * texture-page packing width, not the source sheet's natural column count,
- * so it is deliberately not used here — the real column/row count is
- * derived from the referenced sprite's actual pixel dimensions (see
- * `convertGms2Tileset`).
+ * A GMTileset resource's own `spriteId` references a real `Sprite`
+ * resource that (in GameMaker's IDE) holds the source tile-sheet image —
+ * but GameMaker's own IDE *also* bakes a ready-to-use tile-sheet atlas
+ * directly into the tileset resource's own directory, alongside its `.yy`,
+ * named `output_tileset.png`. This is confirmed against a real, full
+ * GameMaker project export: every real `GMTileset` resource directory
+ * examined there had this file, laid out on a real, verifiable grid
+ * derived entirely from this same `.yy`'s own fields — `out_columns` is
+ * the atlas's real column count (`rows = ceil(tile_count / out_columns)`),
+ * and `output_tileset.png`'s real pixel dimensions confirm it exactly:
+ * `(tileWidth + 2*out_tilehborder) * out_columns` wide,
+ * `(tileHeight + 2*out_tilevborder) * rows` tall — e.g. a real tileset with
+ * `tileWidth: 8`, `out_tilehborder: 2`, `out_columns: 8` produces a
+ * `96`-pixel-wide PNG (`(8 + 2*2) * 8 = 96`), confirmed byte-for-byte
+ * against the real file. `out_tilehborder`/`out_tilevborder` is a per-tile
+ * padding/bleed border baked around *every* tile cell in this atlas (not a
+ * single sheet-wide margin, and not inter-tile spacing in the usual
+ * "gap with nothing in it" sense) — each cell occupies
+ * `tileWidth + 2*out_tilehborder` pixels, with the real tile's pixels
+ * centred inside it. Working through `@emptysock/tilemap`'s own tile
+ * sampling formula (`RenderPipeline.mountTilemap()`:
+ * `sx = margin + col * (tileWidth + spacing)`) against this layout shows
+ * `margin = out_tilehborder` and `spacing = 2 * out_tilehborder` reproduce
+ * the real per-cell pixel offsets exactly (col 0 starts at `out_tilehborder`
+ * — the first cell's own border; col 1 starts at
+ * `out_tilehborder + (tileWidth + 2*out_tilehborder)`, i.e. two adjacent
+ * cells' borders back-to-back) — so this is the correct source for
+ * `TilesetConfig.margin`/`.spacing` once `output_tileset.png` is the
+ * chosen image, genuinely distinct from the sprite-pixel-dimension-derived
+ * `tilehsep`/`tilevsep`/`tilexoff`/`tileyoff` formula the fallback path
+ * below still uses (those describe the *separate, un-atlased* source
+ * sprite referenced by `spriteId`, a different image entirely).
+ *
+ * `out_columns` was previously documented here as "GameMaker's own internal
+ * runtime texture-page packing width, not the source sheet's natural
+ * column count" — that was true of the *referenced sprite's* packing, but
+ * is not the right description of what it means for `output_tileset.png`
+ * specifically: for this baked atlas, `out_columns` is exactly its real
+ * column count, confirmed against real pixel dimensions above.
  */
 interface YyTileset {
   name?: string;
@@ -71,6 +105,10 @@ interface YyTileset {
   tilevsep?: number;
   tilexoff?: number;
   tileyoff?: number;
+  out_columns?: number;
+  out_tilehborder?: number;
+  out_tilevborder?: number;
+  tile_count?: number;
   [key: string]: unknown;
 }
 
@@ -80,15 +118,31 @@ function isYyTileset(val: unknown): val is YyTileset {
 
 /**
  * Convert a GMS2 tileset resource directory (containing a `.yy` file) into a
- * `TilesetAsset` — reads the tileset's own slicing metadata, then follows
- * its `spriteId` reference to the real sprite resource that actually holds
- * the tile-sheet image (via `convertGms2Sprite`, the same converter
- * `convertGms2RoomBackgrounds` already reuses for its own sprite lookups),
- * and derives columns/rows from that sprite's real pixel dimensions.
+ * `TilesetAsset`.
  *
- * Throws a descriptive Error if the directory, `.yy` file, referenced
- * sprite, or its image cannot be found/read — matching every other resource
- * converter's honest-failure shape in this importer.
+ * Preferred path: the tileset's own baked `output_tileset.png`, sitting
+ * directly in this same directory alongside the `.yy` — GameMaker's IDE
+ * writes this file for every real tileset resource (see this file's
+ * `YyTileset` doc comment for the real, byte-verified grid derivation). This
+ * is strictly more direct than chasing `spriteId` to a second resource
+ * directory: no second resource to locate, no formula derived from an
+ * unrelated image's pixel dimensions, and the resulting `columns`/`rows`
+ * come straight from `.yy` fields (`out_columns`, `tile_count`) rather than
+ * being inferred.
+ *
+ * Fallback path: when `output_tileset.png` is missing (an older GameMaker
+ * workflow, a manually-assembled project, or a resource that was never
+ * re-baked after editing), this follows the tileset's `spriteId` reference
+ * to the real sprite resource that holds a tile-sheet image instead (via
+ * `convertGms2Sprite`, the same converter `convertGms2RoomBackgrounds`
+ * already reuses for its own sprite lookups) and derives columns/rows from
+ * that sprite's real pixel dimensions, exactly as this function used to
+ * unconditionally do.
+ *
+ * Throws a descriptive Error only when *neither* path has anything to
+ * convert — no baked atlas and no resolvable `spriteId`/sprite directory —
+ * matching every other resource converter's honest-failure shape in this
+ * importer.
  */
 export async function convertGms2Tileset(
   tilesetYyDir: string,
@@ -138,10 +192,31 @@ export async function convertGms2Tileset(
   const name =
     typeof parsed.name === "string" ? parsed.name : path.basename(tilesetYyDir);
 
+  const tileWidth =
+    typeof parsed.tileWidth === "number" ? parsed.tileWidth : 16;
+  const tileHeight =
+    typeof parsed.tileHeight === "number" ? parsed.tileHeight : 16;
+
+  const bakedImagePath = path.join(tilesetYyDir, "output_tileset.png");
+  const hasBakedAtlas = await fileExists(bakedImagePath);
+
+  if (hasBakedAtlas) {
+    return buildFromBakedAtlas(
+      name,
+      parsed,
+      bakedImagePath,
+      tileWidth,
+      tileHeight,
+    );
+  }
+
+  // Fallback: no baked atlas in this tileset's own directory — chase
+  // spriteId to a separate Sprite resource, exactly as this function used
+  // to unconditionally do (see this function's own doc comment).
   const spriteName = parsed.spriteId?.name;
   if (typeof spriteName !== "string" || spriteName.length === 0) {
     throw new Error(
-      `convertGms2Tileset: tileset "${name}" has no real "spriteId" reference in "${yyPath}" — a GMTileset with no source sprite has no image to convert.`,
+      `convertGms2Tileset: tileset "${name}" has no baked "output_tileset.png" in "${tilesetYyDir}" and no real "spriteId" reference in "${yyPath}" — a GMTileset with neither has no image to convert.`,
     );
   }
 
@@ -154,10 +229,6 @@ export async function convertGms2Tileset(
     );
   }
 
-  const tileWidth =
-    typeof parsed.tileWidth === "number" ? parsed.tileWidth : 16;
-  const tileHeight =
-    typeof parsed.tileHeight === "number" ? parsed.tileHeight : 16;
   const tilehsep = typeof parsed.tilehsep === "number" ? parsed.tilehsep : 0;
   const tilevsep = typeof parsed.tilevsep === "number" ? parsed.tilevsep : 0;
   const tilexoff = typeof parsed.tilexoff === "number" ? parsed.tilexoff : 0;
@@ -167,10 +238,13 @@ export async function convertGms2Tileset(
   const imageHeight = sprite.height > 0 ? sprite.height : tileHeight;
 
   // Real column/row count is derived from the sheet's actual pixel size,
-  // not read from any field in the .yy (see this file's header comment on
-  // why `out_columns` is not it): each tile occupies tileWidth/tileHeight
-  // pixels, offset from the sheet's edge by tilexoff/tileyoff and separated
-  // from its neighbours by tilehsep/tilevsep.
+  // not read from any field in the .yy: each tile occupies
+  // tileWidth/tileHeight pixels, offset from the sheet's edge by
+  // tilexoff/tileyoff and separated from its neighbours by
+  // tilehsep/tilevsep. (`out_columns` describes the baked-atlas layout the
+  // preferred path above already used when available — see this file's
+  // `YyTileset` doc comment — not this separately-referenced sprite's
+  // layout, so it is deliberately not used here.)
   const columns = Math.max(
     1,
     Math.floor((imageWidth - tilexoff + tilehsep) / (tileWidth + tilehsep)),
@@ -196,6 +270,77 @@ export async function convertGms2Tileset(
     rows,
     spacing: tilehsep,
     margin: tilexoff,
+    ...(asymmetryWarning !== undefined ? { asymmetryWarning } : {}),
+  };
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build a `TilesetAsset` straight from a tileset's own baked
+ * `output_tileset.png`, using only the `.yy`'s own fields — no second
+ * resource, no pixel-dimension-derived column/row count. See this file's
+ * `YyTileset` doc comment for the real, byte-verified grid this atlas
+ * follows and the `margin`/`spacing` derivation from
+ * `out_tilehborder`/`out_tilevborder`.
+ */
+function buildFromBakedAtlas(
+  name: string,
+  parsed: YyTileset,
+  imagePath: string,
+  tileWidth: number,
+  tileHeight: number,
+): TilesetAsset {
+  const columns =
+    typeof parsed.out_columns === "number" && parsed.out_columns > 0
+      ? parsed.out_columns
+      : 1;
+  const tileCount =
+    typeof parsed.tile_count === "number" && parsed.tile_count > 0
+      ? parsed.tile_count
+      : columns;
+  const rows = Math.max(1, Math.ceil(tileCount / columns));
+
+  const hborder =
+    typeof parsed.out_tilehborder === "number" ? parsed.out_tilehborder : 0;
+  const vborder =
+    typeof parsed.out_tilevborder === "number" ? parsed.out_tilevborder : 0;
+
+  // Each baked cell is tileWidth/tileHeight plus a border on every side;
+  // @emptysock/tilemap's real sampling formula is
+  // `sx = margin + col * (tileWidth + spacing)` (RenderPipeline.mountTilemap()),
+  // which this atlas's real per-cell layout satisfies exactly when
+  // margin = border (the first cell's own border) and
+  // spacing = 2 * border (two adjacent cells' borders, back-to-back).
+  const margin = hborder;
+  const spacing = 2 * hborder;
+
+  const imageWidth = (tileWidth + 2 * hborder) * columns;
+  const imageHeight = (tileHeight + 2 * vborder) * rows;
+
+  let asymmetryWarning: string | undefined;
+  if (hborder !== vborder) {
+    asymmetryWarning = `Tileset "${name}" has asymmetric baked border (out_tilehborder=${hborder}, out_tilevborder=${vborder}) — @emptysock/tilemap's TilesetConfig has only one spacing/margin value each, so the horizontal border was used and the vertical one was dropped.`;
+  }
+
+  return {
+    name,
+    imagePath,
+    imageWidth,
+    imageHeight,
+    tileWidth,
+    tileHeight,
+    columns,
+    rows,
+    spacing,
+    margin,
     ...(asymmetryWarning !== undefined ? { asymmetryWarning } : {}),
   };
 }
