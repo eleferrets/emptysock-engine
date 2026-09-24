@@ -125,3 +125,47 @@ describe("gms2-codegen buildObjectBehavior — Step/Draw sub-event mapping", () 
     expect(behavior).not.toContain("export function onDrawGui(");
   });
 });
+
+describe("gms2-codegen buildObjectBehavior — draw_* calls thread through _ctx.drawTarget", () => {
+  // Regression test: Draw_0.gml/Draw_64.gml's real draw_* calls used to pass
+  // straight through untouched (a bare, unresolved `draw_rectangle(...)` /
+  // `draw_text(...)` identifier reference in the generated .behavior.ts —
+  // compat/gml.ts's draw_* functions are not part of @emptysock/engine's one
+  // export surface, so nothing named `draw_rectangle` is even importable).
+  // `GmlBehaviorSystem.renderDraw`/`renderDrawGui` set `ctx.drawTarget` for
+  // exactly the duration of one dispatch call — the generated code must call
+  // through that, not a bare unresolved function name.
+  it("rewrites draw_set_colour/draw_rectangle/draw_text into _ctx.drawTarget calls in onDraw and onDrawGui", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-codegen-draw-"));
+    const objectName = "obj_hud2";
+    const objectDir = path.join(dir, "objects", objectName);
+    await fs.mkdir(objectDir, { recursive: true });
+    await fs.writeFile(
+      path.join(objectDir, "Draw_0.gml"),
+      "draw_set_colour(0xff0000);\ndraw_rectangle(10, 10, 20, 20, false);",
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(objectDir, "Draw_64.gml"),
+      'draw_text(5, 5, "score");',
+      "utf-8",
+    );
+
+    try {
+      const behavior = await buildObjectBehavior(objectName, dir);
+
+      expect(behavior).toContain("_ctx.drawTarget?.setColor(0xff0000);");
+      expect(behavior).toContain(
+        "_ctx.drawTarget?.rect(10, 10, 20, 20, false);",
+      );
+      expect(behavior).toContain('_ctx.drawTarget?.text(5, 5, "score");');
+
+      // Never left as a bare, unresolved GML function-name reference.
+      expect(behavior).not.toMatch(/[^.]\bdraw_rectangle\s*\(/);
+      expect(behavior).not.toMatch(/[^.]\bdraw_set_colour\s*\(/);
+      expect(behavior).not.toMatch(/[^.]\bdraw_text\s*\(/);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});

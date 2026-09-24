@@ -67,6 +67,42 @@ export function transpileGML(gml: string): string {
     "// Sprite component handles drawing declaratively",
   );
 
+  // draw_set_colour/draw_rectangle/draw_circle/draw_text/draw_line — real
+  // targets during a GmlBehaviorSystem onDraw/onDrawGui dispatch (see
+  // CLAUDE.md's "What draw_* actually draws into now"): `GmlActionContext`
+  // carries a `drawTarget: GmlDrawTarget | undefined` set only for the
+  // duration of one draw dispatch call. Rewritten to call straight into
+  // `_ctx.drawTarget` (optional-chained, so a `draw_*` call left in a
+  // non-draw event — Create/Step/Destroy — is a safe, honest no-op instead
+  // of an unresolved-identifier crash) rather than a bare `GmlActions.*`
+  // call — `compat/gml.ts`'s draw_* functions themselves aren't part of
+  // @emptysock/engine's one export surface, only the `GmlDrawTarget`
+  // interface type is, so there is nothing importable to call there.
+  out = out.replace(
+    /\bdraw_set_colour\s*\(\s*([^)]+)\s*\)\s*;?/g,
+    (_m, hex: string) => `_ctx.drawTarget?.setColor(${hex.trim()});`,
+  );
+  out = out.replace(
+    /\bdraw_rectangle\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
+    (_m, x1: string, y1: string, x2: string, y2: string, outline: string) =>
+      `_ctx.drawTarget?.rect(${x1.trim()}, ${y1.trim()}, ${x2.trim()}, ${y2.trim()}, ${outline.trim()});`,
+  );
+  out = out.replace(
+    /\bdraw_circle\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
+    (_m, x: string, y: string, r: string, outline: string) =>
+      `_ctx.drawTarget?.circle(${x.trim()}, ${y.trim()}, ${r.trim()}, ${outline.trim()});`,
+  );
+  out = out.replace(
+    /\bdraw_text\s*\(\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
+    (_m, x: string, y: string, text: string) =>
+      `_ctx.drawTarget?.text(${x.trim()}, ${y.trim()}, ${text.trim()});`,
+  );
+  out = out.replace(
+    /\bdraw_line\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
+    (_m, x1: string, y1: string, x2: string, y2: string) =>
+      `_ctx.drawTarget?.line(${x1.trim()}, ${y1.trim()}, ${x2.trim()}, ${y2.trim()});`,
+  );
+
   // alarm[n] = expr
   out = out.replace(
     /\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
