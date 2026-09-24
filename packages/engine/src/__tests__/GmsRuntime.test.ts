@@ -197,3 +197,112 @@ describe("GmsProjectRuntime", () => {
     expect(runtime.currentRoom).toBe("room1");
   });
 });
+
+describe("GmsProjectRuntime — timeline_index wiring (real onCreate dispatch)", () => {
+  // Proves the *exact* code shape `gms2-transpile.ts` emits for a
+  // `timeline_index = tmJiggle;` assignment (see
+  // `packages/toolchain/src/__tests__/gms2-timeline-codegen.test.ts` for the
+  // companion proof that a real object's Create event actually produces
+  // this text) genuinely attaches/re-targets/removes a live `TimelineState`
+  // when run as a real `onCreate` handler through `GmsProjectRuntime`, end
+  // to end — not just that the regex rewrite looks right in isolation.
+  let game: InstanceType<typeof Game>;
+
+  beforeEach(() => {
+    game = new Game();
+  });
+
+  afterEach(() => {
+    unregisterGmlBehavior("objJiggler");
+  });
+
+  it("attaches TimelineState on create, re-targets on a second assignment, and removes it on timeline_index = -1", async () => {
+    // The literal text `gms2-transpile.ts`'s timeline_index rewrite pass
+    // produces for `timeline_index = tmJiggle;` — executed for real via
+    // `new Function`, exactly like the generated `.behavior.ts`'s compiled
+    // JS would run it, with `_entity`/`GmlActions` bound the same way a
+    // real generated onCreate/onUpdate function receives them.
+    const attachCall =
+      '(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmJiggle"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmJiggle", position: 0, running: true }); } })();';
+    const retargetCall =
+      '(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmOther"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmOther", position: 0, running: true }); } })();';
+    const removeCall = "_entity.remove(GmlActions.TimelineState);";
+
+    const EmptySockEngine = await import("../index.js");
+
+    const attachFn = new Function("_entity", "GmlActions", attachCall) as (
+      entity: Entity,
+      actions: typeof EmptySockEngine,
+    ) => void;
+    const retargetFn = new Function("_entity", "GmlActions", retargetCall) as (
+      entity: Entity,
+      actions: typeof EmptySockEngine,
+    ) => void;
+    const removeFn = new Function("_entity", "GmlActions", removeCall) as (
+      entity: Entity,
+      actions: typeof EmptySockEngine,
+    ) => void;
+
+    const module: GmlBehaviorModule = {
+      onCreate: (entity) => attachFn(entity, EmptySockEngine),
+    };
+    registerGmlBehavior("objJiggler", module);
+
+    const lookup: Record<string, ComponentDef> = {
+      Transform,
+      Meta,
+      GmlBehaviorState,
+    };
+    const jigglerPrefab: PrefabDef = definePrefab("objJiggler", [
+      { def: Transform },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objJiggler" } },
+    ]);
+    const room0: SceneFile = {
+      sceneName: "room0",
+      prefabInstances: [{ prefab: "objJiggler", props: {} }],
+    };
+    const data: GmsProjectData = {
+      rooms: { room0 },
+      roomOrder: ["room0"],
+      prefabs: { objJiggler: jigglerPrefab },
+      lookup: (name) => lookup[name],
+    };
+
+    const runtime = new GmsProjectRuntime(game, data);
+    await runtime.loadRoom("room0");
+
+    let entity: Entity | undefined;
+    runtime.scene?.each(GmlBehaviorState, (_state, e) => {
+      entity = e;
+    });
+    expect(entity).toBeDefined();
+    if (entity === undefined) return;
+
+    // onCreate already ran during loadRoom() — the attach already happened.
+    const TimelineState = (
+      EmptySockEngine as unknown as {
+        TimelineState: ComponentDef<{
+          timelineId: string;
+          position: number;
+          speed: number;
+          running: boolean;
+          loop: boolean;
+        }>;
+      }
+    ).TimelineState;
+    expect(entity.has(TimelineState)).toBe(true);
+    expect(entity.get(TimelineState)?.timelineId).toBe("tmJiggle");
+    expect(entity.get(TimelineState)?.running).toBe(true);
+
+    // Re-targeting writes fields in place rather than calling
+    // `Entity.add()` a second time (which throws — "one shot" semantics).
+    expect(() => retargetFn(entity as Entity, EmptySockEngine)).not.toThrow();
+    expect(entity.get(TimelineState)?.timelineId).toBe("tmOther");
+    expect(entity.has(TimelineState)).toBe(true);
+
+    // timeline_index = -1 removes the component entirely — GameMaker's own
+    // "no timeline assigned" sentinel.
+    removeFn(entity, EmptySockEngine);
+    expect(entity.has(TimelineState)).toBe(false);
+  });
+});

@@ -25,6 +25,62 @@ describe("transpileGML — place_meeting/collision query family", () => {
   });
 });
 
+describe("transpileGML — GMS2 timelines (timeline_index/timeline_running/...)", () => {
+  it("rewrites timeline_index = <asset name>; into a real TimelineState attach", () => {
+    const out = transpileGML("timeline_index = tmJiggle;");
+    expect(out).toContain(
+      'const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmJiggle"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmJiggle", position: 0, running: true }); }',
+    );
+  });
+
+  it("rewrites timeline_index = -1; into removing TimelineState (GameMaker's real 'no timeline' sentinel)", () => {
+    const out = transpileGML("timeline_index = -1;");
+    expect(out).toContain("_entity.remove(GmlActions.TimelineState);");
+    expect(out).not.toContain("_entity.add(GmlActions.TimelineState");
+  });
+
+  it("rewrites timeline_running/timeline_speed/timeline_loop/timeline_position writes", () => {
+    const out = transpileGML(
+      "timeline_running = true;\ntimeline_speed = 2;\ntimeline_loop = true;\ntimeline_position = 0;",
+    );
+    expect(out).toContain(
+      "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.running = true;",
+    );
+    expect(out).toContain(
+      "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.speed = 2;",
+    );
+    expect(out).toContain(
+      "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.loop = true;",
+    );
+    expect(out).toContain(
+      "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.position = 0;",
+    );
+  });
+
+  it("rewrites a bare read of timeline_running/timeline_position to a safe optional-chained default", () => {
+    const out = transpileGML(
+      "if (timeline_running && timeline_position > 30) { x += 1; }",
+    );
+    expect(out).toContain(
+      "(_entity.get(GmlActions.TimelineState)?.running ?? false)",
+    );
+    expect(out).toContain(
+      "(_entity.get(GmlActions.TimelineState)?.position ?? 0) > 30",
+    );
+  });
+
+  it("leaves a bare read of timeline_index untouched as an honestly-unresolved identifier", () => {
+    const out = transpileGML("if (timeline_index != -1) { x += 1; }");
+    expect(out).toContain("timeline_index != -1");
+  });
+
+  it("resolves a re-targeting write before a read, both against the same live GmlActions.TimelineState", () => {
+    const out = transpileGML("timeline_index = tmA;\ntimeline_index = tmB;");
+    expect(out).toContain('timelineId: "tmA"');
+    expect(out).toContain('timelineId: "tmB"');
+  });
+});
+
 describe("transpileGML", () => {
   it("does not emit `export` inside a function body for a global assignment", () => {
     const out = transpileGML("global.kills = 1;");

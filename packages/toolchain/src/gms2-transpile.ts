@@ -1151,6 +1151,109 @@ export function transpileGML(gml: string): string {
   }
   out = nested.join("\n");
 
+  // -- GMS2 Timelines: timeline_index / timeline_running / timeline_speed /
+  // timeline_loop / timeline_position -----------------------------------
+  //
+  // Real GameMaker semantics (manual.gamemaker.io's `timeline_index`/
+  // `timeline_running` reference pages, confirmed live for this pass):
+  // `timeline_index` is a genuine plain instance variable, not a function —
+  // assigning it a timeline asset (in real GML source this is always a bare
+  // identifier, e.g. `timeline_index = tmJiggle;`) targets that timeline for
+  // the instance, but per `timeline_running`'s own doc page this does *not*
+  // start it playing on its own ("Note that this does not start the
+  // timeline - for that use the variable timeline_running"). Assigning `-1`
+  // is GameMaker's own documented sentinel for "no timeline" ("set it to -1
+  // to stop using a timeline for the instance"). `timeline_running`/
+  // `timeline_speed`/`timeline_loop`/`timeline_position` are separate real
+  // instance variables controlling playback and map 1:1 onto
+  // `TimelineState`'s own fields (`components/GmlTimeline.ts`, itself
+  // sourced from the same manual pages).
+  //
+  // (`sequence_index` was researched for this same pass and does not exist
+  // as a GML instance variable — GameMaker's real Sequence API is
+  // asset/layer-scoped (`layer_sequence_create(layer, x, y, sequence)`),
+  // never a per-instance assignment the way timelines work. There is
+  // therefore no GML source shape to rewrite here for `GmlSequenceState` —
+  // see CLAUDE.md's `GmsProjectRuntime` entry for the honest, unchanged gap
+  // this leaves.)
+  //
+  // `timeline_index = -1;` maps onto `entity.remove(TimelineState)` — "no
+  // timeline assigned" is a real, distinct state from "assigned but not
+  // running", and the component's absence already means exactly that
+  // everywhere else in the engine (`TimelineSystem.update()` only ever
+  // iterates entities that HAVE `TimelineState`).
+  //
+  // A non -1 assignment resolves its bare-identifier RHS the exact same way
+  // this importer resolves every other GML asset-name reference into a real
+  // id: `gms2-timeline-import.ts`'s `registerGmlTimeline(${JSON.stringify(
+  // name)}, ...)` registers the timeline under its own resource name, so a
+  // bare `tmJiggle` here is quoted into that exact string — not left as an
+  // unresolved bare reference the way `action_create_object`'s object-name
+  // argument still is (a real, separate, already-documented gap for that
+  // family — see CLAUDE.md's "GMS2 DnD action-library compat" — but not one
+  // this timeline id has any reason to repeat, since the two importers'
+  // registries are keyed identically on the resource's own name).
+  //
+  // `Entity.add()` has one-shot semantics (throws if the component is
+  // already present), so re-targeting an entity's timeline later in the
+  // same event (or in a later event) can't just call `.add()` again — this
+  // emits exactly the "entity.add(TimelineState, {...}) (or a field write
+  // via .get() if the component is already present)" shape CLAUDE.md's own
+  // `GmsProjectRuntime` "Honest gaps" paragraph names as the real operation
+  // this rewrite needs to produce. `GmlActions.TimelineState` (not a bare
+  // `TimelineState` import) reuses the exact `import * as GmlActions from
+  // '@emptysock/engine'` line every generated `.behavior.ts` module already
+  // carries unconditionally — no new conditional import bookkeeping needed,
+  // and it's the same access style every other compat call in this pass
+  // (`GmlActions.place_meeting`, `GmlActions.action_move`, …) already uses.
+  out = out.replace(
+    /\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) => {
+      const expr = exprRaw.trim();
+      if (/^\(?\s*-1\s*\)?$/.test(expr)) {
+        return "_entity.remove(GmlActions.TimelineState);";
+      }
+      const idLiteral = /^[A-Za-z_]\w*$/.test(expr)
+        ? JSON.stringify(expr)
+        : expr;
+      return `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = ${idLiteral}; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: ${idLiteral}, position: 0, running: true }); } })();`;
+    },
+  );
+
+  // Writes to the remaining, already-distinct timeline_* instance
+  // variables — every one maps 1:1 onto a `TimelineState` field. Handled
+  // before the bare-read pass below so a write isn't first mistaken for a
+  // read; `entity.get()` returning `undefined` (no timeline assigned yet)
+  // makes this a safe, honest no-op rather than a crash.
+  out = out.replace(
+    /\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, field: string, exprRaw: string) =>
+      `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.${field} = ${exprRaw.trim()}; })();`,
+  );
+
+  // Reads of the same four variables — anything left after the write pass
+  // above already consumed every assignment form. `timeline_index` itself
+  // is deliberately NOT given a read-side rewrite: `TimelineState.timelineId`
+  // is a string (the timeline's registered resource name), while
+  // GameMaker's real `timeline_index` reads back a numeric asset index with
+  // `-1` as its sentinel — there's no lossless way to answer
+  // `timeline_index != -1` from a string id without inventing a fake
+  // numeric encoding, so a bare read of `timeline_index` is left as a
+  // genuinely unresolved identifier (the same "surface it, don't fake it"
+  // rule this transpiler already applies elsewhere) rather than silently
+  // misrepresenting the comparison.
+  const TIMELINE_READ_DEFAULTS: Record<string, string> = {
+    running: "false",
+    speed: "1",
+    loop: "false",
+    position: "0",
+  };
+  out = out.replace(
+    /\btimeline_(running|speed|loop|position)\b/g,
+    (_m, field: string) =>
+      `(_entity.get(GmlActions.TimelineState)?.${field} ?? ${TIMELINE_READ_DEFAULTS[field]})`,
+  );
+
   // GameMaker instance variables (both its own built-ins — image_speed,
   // image_index, visible, ... — and any project-defined one, e.g. a plain
   // `mywall = instance_create_layer(...)`) need no declaration in GML — a
