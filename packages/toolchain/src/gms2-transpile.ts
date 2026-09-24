@@ -1254,6 +1254,147 @@ export function transpileGML(gml: string): string {
       `(_entity.get(GmlActions.TimelineState)?.${field} ?? ${TIMELINE_READ_DEFAULTS[field]})`,
   );
 
+  // -- GMS2 rendering built-ins: sprite_index / image_angle / image_xscale /
+  // image_yscale / image_alpha / image_blend --------------------------------
+  //
+  // See CLAUDE.md's "GMS2 rendering built-ins: sprite_index / image_*" entry
+  // for the full field-mapping table and the honest image_index/image_speed
+  // gap (no per-frame animation is modelled anywhere in this importer — see
+  // that entry for why). Before this pass, every one of these fell through
+  // to the generic "auto-declare on first bare assignment" pass below, which
+  // silently turned e.g. `sprite_index = spr_walk;` into a *local* variable
+  // write whose right-hand side, `spr_walk`, is itself a bare, undeclared
+  // identifier — a hard `ReferenceError` at runtime, not just a no-op,
+  // confirmed by reading a real generated `.behavior.ts` file end to end.
+  // `sprite_index`/`image_angle`/`image_xscale`/`image_yscale`/
+  // `image_alpha` are real GameMaker per-instance variables that directly
+  // control what's drawn (manual.gamemaker.io's Sprites/Instance Variables
+  // reference pages), and this engine already has real fields to receive
+  // them: `Sprite.texturePath`/`.alpha`/`.tint` (`components/Sprite.ts`) and
+  // `Transform.rotation`/`.scaleX`/`.scaleY` (`components/Transform.ts`,
+  // confirmed against `RenderPipeline._syncOne()`, which is what actually
+  // reads `Transform.rotation`/`scale*` onto the rendered PixiJS sprite —
+  // `Sprite` itself has no rotation/scale fields of its own).
+
+  const SPRITE_ASSET_RE = /^[A-Za-z_]\w*$/;
+
+  /**
+   * Resolve a GML sprite-asset reference to this importer's own real
+   * texture-path convention — `./assets/sprites/<name>/frame_0.png`, the
+   * exact one `gms2-codegen.ts`'s `buildObjectPrefabJSON`/`buildSpriteAsset`
+   * already use for an object's own initial `spriteId`, so a `sprite_index`
+   * assignment and that initial sprite can never disagree on what a
+   * sprite's texture path is. A bare identifier (the overwhelmingly common
+   * real shape — `sprite_index = spr_dad_hug;`) is a literal GameMaker
+   * asset name and gets quoted into that path. GameMaker's own documented
+   * sentinel, `sprite_index = -1` ("remove the sprite from an instance"),
+   * resolves to `""` — `Sprite.texturePath`'s own default, already meaning
+   * "no texture" everywhere else in this engine. Anything else (a variable,
+   * a ternary, another instance's `sprite_index`) is assumed to already
+   * evaluate to a real texture-path string and is passed through unchanged
+   * — this importer has no way to resolve an arbitrary runtime expression
+   * to an asset name ahead of time, and doesn't pretend to.
+   */
+  function resolveSpriteAssetExpr(exprRaw: string): string {
+    const expr = exprRaw.trim();
+    if (/^\(?\s*-1\s*\)?$/.test(expr)) return `""`;
+    if (SPRITE_ASSET_RE.test(expr)) {
+      return JSON.stringify(`./assets/sprites/${expr}/frame_0.png`);
+    }
+    return expr;
+  }
+
+  out = out.replace(
+    /\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = ${resolveSpriteAssetExpr(exprRaw)}; })();`,
+  );
+  // Equality comparisons against a bare sprite-asset identifier (the other
+  // extremely common real shape — `if (sprite_index == spr_dad_idle)`)
+  // resolve that identifier the same way the write side does, before the
+  // generic bare-read rewrite below turns `sprite_index` itself into a
+  // `.texturePath` read — otherwise the identifier on the other side of
+  // `==`/`!=` would be left unresolved and crash the same way the write
+  // side used to.
+  out = out.replace(
+    /\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
+    (_m, op: string, rhs: string) =>
+      `sprite_index ${op} ${resolveSpriteAssetExpr(rhs)}`,
+  );
+  out = out.replace(
+    /\b([A-Za-z_]\w*|-1)\s*(==|!=)\s*sprite_index\b/g,
+    (_m, lhs: string, op: string) =>
+      `${resolveSpriteAssetExpr(lhs)} ${op} sprite_index`,
+  );
+  out = out.replace(
+    /\bsprite_index\b/g,
+    `(_entity.get(GmlActions.Sprite)?.texturePath ?? "")`,
+  );
+
+  // `image_angle` — GameMaker degrees, this engine's `Transform.rotation`
+  // radians (matching pixi's own convention — see `RenderPipeline`'s
+  // `pixiSprite.rotation = transform.rotation`). Converted both ways with
+  // the exact `* Math.PI / 180` factor `gmlCamera.ts`/`gmlProjection.ts`
+  // already use for every other GML-degrees-to-engine-radians field.
+  out = out.replace(
+    /\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) =>
+      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
+  );
+  out = out.replace(
+    /\bimage_angle\b/g,
+    `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
+  );
+
+  // `image_xscale`/`image_yscale` — GameMaker's per-instance sprite scale
+  // multipliers map straight onto `Transform.scaleX`/`.scaleY`, no unit
+  // conversion needed (both default to `1`).
+  const IMAGE_SCALE_FIELDS: ReadonlyArray<readonly [string, string]> = [
+    ["image_xscale", "scaleX"],
+    ["image_yscale", "scaleY"],
+  ];
+  for (const [gmlName, field] of IMAGE_SCALE_FIELDS) {
+    const writeRe = new RegExp(`\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`, "g");
+    out = out.replace(
+      writeRe,
+      (_m, exprRaw: string) =>
+        `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} = ${exprRaw.trim()}; })();`,
+    );
+    const readRe = new RegExp(`\\b${gmlName}\\b`, "g");
+    out = out.replace(
+      readRe,
+      `(_entity.get(GmlActions.Transform)?.${field} ?? 1)`,
+    );
+  }
+
+  // `image_alpha` — maps straight onto `Sprite.alpha` (both default to `1`,
+  // GameMaker's "fully opaque").
+  out = out.replace(
+    /\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha = ${exprRaw.trim()}; })();`,
+  );
+  out = out.replace(
+    /\bimage_alpha\b/g,
+    `(_entity.get(GmlActions.Sprite)?.alpha ?? 1)`,
+  );
+
+  // `image_blend` — GameMaker's per-instance blend colour, same
+  // `0xBBGGRR`-ordered value `action_sprite_color` (`gmlActions.ts`)
+  // already converts for the DnD "Set Sprite Colour/Blending" action;
+  // reused here, not reimplemented, on both the write side (BGR -> RGB into
+  // `Sprite.tint`) and the read side (RGB -> BGR back out, a real, exact
+  // round trip, not an approximation).
+  out = out.replace(
+    /\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
+    (_m, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _bl = (${exprRaw.trim()}); const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb; } })();`,
+  );
+  out = out.replace(
+    /\bimage_blend\b/g,
+    `(() => { const _t = _entity.get(GmlActions.Sprite)?.tint ?? 0xffffff; return ((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff); })()`,
+  );
+
   // GameMaker instance variables (both its own built-ins — image_speed,
   // image_index, visible, ... — and any project-defined one, e.g. a plain
   // `mywall = instance_create_layer(...)`) need no declaration in GML — a

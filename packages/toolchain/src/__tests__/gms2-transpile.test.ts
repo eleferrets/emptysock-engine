@@ -81,6 +81,96 @@ describe("transpileGML — GMS2 timelines (timeline_index/timeline_running/...)"
   });
 });
 
+describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () => {
+  it("rewrites sprite_index = <bare asset name>; into a real Sprite.texturePath write using the shared texture-path convention", () => {
+    const out = transpileGML("sprite_index = spr_dad_hug;");
+    expect(out).toContain(
+      'const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = "./assets/sprites/spr_dad_hug/frame_0.png";',
+    );
+  });
+
+  it("rewrites sprite_index = -1; to the empty-string 'no sprite' sentinel (GameMaker's own documented sentinel for removing an instance's sprite)", () => {
+    const out = transpileGML("sprite_index = -1;");
+    expect(out).toContain(
+      'const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = "";',
+    );
+  });
+
+  it("does not leave the sprite-asset identifier as an unresolved bare read (the real reported bug)", () => {
+    const out = transpileGML(
+      "if (hug) {\n  sprite_index = spr_dad_hug;\n}\nelse {\n  sprite_index = spr_dad_idle;\n}",
+    );
+    expect(out).not.toMatch(/=\s*spr_dad_hug\s*;/);
+    expect(out).not.toMatch(/=\s*spr_dad_idle\s*;/);
+  });
+
+  it("resolves a bare sprite-asset identifier compared against sprite_index on either side of ==/!=", () => {
+    const out = transpileGML(
+      "if (sprite_index == spr_dad_hug) { x += 1; }\nif (spr_dad_idle != sprite_index) { x += 1; }",
+    );
+    expect(out).toContain('== "./assets/sprites/spr_dad_hug/frame_0.png"');
+    expect(out).toContain('"./assets/sprites/spr_dad_idle/frame_0.png" !=');
+  });
+
+  it("rewrites a bare read of sprite_index to a safe optional-chained Sprite.texturePath read", () => {
+    const out = transpileGML(
+      "if (sprite_index == other.sprite_index) { x += 1; }",
+    );
+    expect(out).toContain(
+      '(_entity.get(GmlActions.Sprite)?.texturePath ?? "")',
+    );
+  });
+
+  it("rewrites image_angle writes/reads onto Transform.rotation with a degrees<->radians conversion", () => {
+    const out = transpileGML("image_angle = 45;\ny = image_angle;");
+    expect(out).toContain(
+      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (45) * Math.PI / 180;",
+    );
+    expect(out).toContain(
+      "((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)",
+    );
+  });
+
+  it("rewrites image_xscale/image_yscale writes/reads onto Transform.scaleX/scaleY with no unit conversion", () => {
+    const out = transpileGML(
+      "image_xscale = sign(hsp);\nimage_yscale = -1;\ny = image_xscale + image_yscale;",
+    );
+    expect(out).toContain(
+      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleX = sign(hsp);",
+    );
+    expect(out).toContain(
+      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleY = -1;",
+    );
+    expect(out).toContain("(_entity.get(GmlActions.Transform)?.scaleX ?? 1)");
+    expect(out).toContain("(_entity.get(GmlActions.Transform)?.scaleY ?? 1)");
+  });
+
+  it("rewrites image_alpha writes/reads onto Sprite.alpha", () => {
+    const out = transpileGML("image_alpha = 0.5;\ny = image_alpha;");
+    expect(out).toContain(
+      "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha = 0.5;",
+    );
+    expect(out).toContain("(_entity.get(GmlActions.Sprite)?.alpha ?? 1)");
+  });
+
+  it("rewrites image_blend writes/reads onto Sprite.tint with the same BGR<->RGB conversion action_sprite_color uses", () => {
+    const out = transpileGML("image_blend = c_red;\ny = image_blend;");
+    expect(out).toContain("const _bl = (c_red);");
+    expect(out).toContain(
+      "const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb;",
+    );
+    expect(out).toContain(
+      "((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff)",
+    );
+  });
+
+  it("leaves image_index/image_speed as honest, safe local-variable no-ops (no per-frame animation is modelled by this importer)", () => {
+    const out = transpileGML("image_index = 0;\nimage_speed = 1;");
+    expect(out).toContain("var image_index = 0;");
+    expect(out).toContain("var image_speed = 1;");
+  });
+});
+
 describe("transpileGML", () => {
   it("does not emit `export` inside a function body for a global assignment", () => {
     const out = transpileGML("global.kills = 1;");
