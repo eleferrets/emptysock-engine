@@ -258,7 +258,38 @@ export async function importGMS2Project(
 
       filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
       convertedRooms.push(name);
-      reportEntries.push({ kind: "room", name, status: "converted" });
+
+      // convertGms2Room's parseTiles() already parses every GMRTileLayer's
+      // placed tile data into RoomLayer.tiles, but buildRoomSceneJSON has no
+      // way to carry it into the generated .scene.json — @emptysock/tilemap's
+      // TilemapSystem.register() needs a real TilesetConfig (image path,
+      // tile size, column/row count) that would have to come from actually
+      // converting the referenced *tileset* resource, and tilesets are
+      // currently reported "manual" (no import path at all — see the
+      // tilesets loop below), so there is no real converted tileset asset to
+      // point a generated Tilemap at yet. Rather than let this be silent
+      // data loss (an asset invisible in migration-report.md is effectively
+      // undocumented, per this importer's rule for every other asset kind),
+      // surface it as a real, honest warning and report note naming exactly
+      // how many tiles/tile layers were dropped, so nobody discovers a
+      // "converted" room is actually missing its tile-based level geometry
+      // only by noticing it's missing in-game.
+      const tileLayers = room.layers.filter((layer) => layer.tiles.length > 0);
+      const totalTiles = tileLayers.reduce(
+        (sum, layer) => sum + layer.tiles.length,
+        0,
+      );
+      let roomNote: string | undefined;
+      if (totalTiles > 0) {
+        roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) parsed but not converted — this importer has no Tilemap-asset conversion path yet (would need the referenced tileset resource converted first). Recreate tile layers manually with @emptysock/tilemap.`;
+        warnings.push(`Room "${name}": ${roomNote}`);
+      }
+      reportEntries.push({
+        kind: "room",
+        name,
+        status: "converted",
+        ...(roomNote !== undefined ? { note: roomNote } : {}),
+      });
     } catch (err) {
       const note = "conversion failed — see warnings";
       warnings.push(

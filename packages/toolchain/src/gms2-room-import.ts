@@ -243,11 +243,24 @@ export async function convertGms2RoomBackgrounds(
       await fs.copyFile(firstFrame.imagePath, path.join(assetDir, destName));
 
       const texturePath = `./assets/backgrounds/${spriteName}/${destName}`;
+      // Sprite has no width/height field of its own (see Sprite.ts) — the
+      // only way to make the image actually cover the room is to scale the
+      // Transform so the sprite's *native* pixel size maps onto the room's
+      // width/height. Without this the background renders at its native
+      // texture size regardless of room dimensions, which is not "sized to
+      // cover the room" as documented above.
+      const nativeWidth = sprite.width > 0 ? sprite.width : room.width;
+      const nativeHeight = sprite.height > 0 ? sprite.height : room.height;
       entities.push({
         components: [
           {
             component: "Transform",
-            overrides: { x: room.width / 2, y: room.height / 2 },
+            overrides: {
+              x: room.width / 2,
+              y: room.height / 2,
+              scaleX: room.width / nativeWidth,
+              scaleY: room.height / nativeHeight,
+            },
           },
           {
             component: "Sprite",

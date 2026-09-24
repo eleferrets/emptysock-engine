@@ -871,6 +871,148 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
     }
   });
 
+  it("scales the background Transform so a non-room-sized sprite actually covers the room (regression: it used to render at native sprite size regardless of room size)", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-scale-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-room-bg-scale-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "room.yyp"),
+        `{
+          "%Name":"Room Background Scale Test",
+          "resources":[
+            {"id":{"name":"rm_bg3","path":"rooms/rm_bg3/rm_bg3.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const roomDir = path.join(dir, "rooms", "rm_bg3");
+      await fs.mkdir(roomDir, { recursive: true });
+      // Room is 1600x1200 but the tile/background sprite is a small 400x300
+      // tile — a real, common case (a tiling background sprite far smaller
+      // than the room it's meant to cover).
+      await fs.writeFile(
+        path.join(roomDir, "rm_bg3.yy"),
+        `{
+          "name":"rm_bg3",
+          "roomSettings":{"Width":1600,"Height":1200,},
+          "layers":[
+            {"name":"Background","resourceType":"GMRBackgroundLayer","spriteId":{"name":"bg_tile",},},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      const tinyPng = Buffer.from(
+        "89504e470d0a1a0a0000000d49484452000000010000000108020000009077" +
+          "53de0000000a49444154789c6300010000050001a5f645400000000049454e" +
+          "44ae426082",
+        "hex",
+      );
+      const spriteDir = path.join(dir, "sprites", "bg_tile");
+      await fs.mkdir(spriteDir, { recursive: true });
+      await fs.writeFile(path.join(spriteDir, "tile-frame-uuid.png"), tinyPng);
+      await fs.writeFile(
+        path.join(spriteDir, "bg_tile.yy"),
+        `{
+          "name":"bg_tile",
+          "width":400,
+          "height":300,
+          "frames":[{"name":"tile-frame-uuid",},],
+        }`,
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "room.yyp"), out, {
+        verbose: false,
+      });
+
+      const raw = await fs.readFile(
+        path.join(out, "rooms", "rm_bg3.scene.json"),
+        "utf-8",
+      );
+      const scene = JSON.parse(raw) as {
+        entities?: Array<{
+          components: Array<{
+            component: string;
+            overrides?: Record<string, unknown>;
+          }>;
+        }>;
+      };
+      const entity = scene.entities?.[0];
+      if (entity === undefined) throw new Error("expected one entity");
+      const transform = entity.components.find(
+        (c) => c.component === "Transform",
+      );
+      // 1600/400 = 4, 1200/300 = 4 — the Transform's scale must actually
+      // stretch the sprite's native size to cover the room, not just
+      // center it at native size.
+      expect(transform?.overrides?.["scaleX"]).toBe(4);
+      expect(transform?.overrides?.["scaleY"]).toBe(4);
+      expect(transform?.overrides?.["x"]).toBe(800);
+      expect(transform?.overrides?.["y"]).toBe(600);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("warns honestly (does not silently drop) when a room has real placed tile data with no Tilemap conversion path", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-tiles-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-room-tiles-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "room.yyp"),
+        `{
+          "%Name":"Room Tiles Test",
+          "resources":[
+            {"id":{"name":"rm_tiles","path":"rooms/rm_tiles/rm_tiles.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const roomDir = path.join(dir, "rooms", "rm_tiles");
+      await fs.mkdir(roomDir, { recursive: true });
+      await fs.writeFile(
+        path.join(roomDir, "rm_tiles.yy"),
+        `{
+          "name":"rm_tiles",
+          "roomSettings":{"Width":256,"Height":256,},
+          "layers":[
+            {"name":"Ground","resourceType":"GMRTileLayer","tiles":{
+              "tilesetId":{"name":"ts_ground",},
+              "TileData":[[1,1,0],[0,2,3],],
+            },},
+          ],
+        }`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "room.yyp"), out, {
+        verbose: false,
+      });
+
+      // 4 non-zero cells in the TileData grid above: (0,0)=1,(0,1)=1,(1,1)=2,(1,2)=3.
+      expect(result.warnings).toEqual([
+        expect.stringContaining(
+          'Room "rm_tiles": 4 tile(s) across 1 tile layer(s) parsed but not converted',
+        ) as string,
+      ]);
+
+      const report = await fs.readFile(
+        path.join(out, "migration-report.md"),
+        "utf-8",
+      );
+      expect(report).toContain("tile(s) across 1 tile layer(s)");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
   it("warns (and omits the entity) when a room's background sprite can't actually be found on disk", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-fail-"));
     const out = await fs.mkdtemp(
