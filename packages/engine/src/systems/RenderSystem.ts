@@ -36,6 +36,23 @@ export interface RenderSystemOptions {
 export class RenderSystem {
   private _renderer: Renderer | null = null;
   private _stage: Container | null = null;
+  /**
+   * The actual pixi tree root passed to `renderer.render()`. Contains
+   * `_stage` (the camera-transformable container `CameraSystem.attach()`
+   * targets — see `stage`'s getter, unchanged) and `_guiStage` as siblings.
+   * `CameraSystem` only ever writes `_stage.x`/`.y`/`.scale`/`.rotation`, so
+   * a sibling container is never touched by that transform no matter what
+   * the camera does — this is what makes Draw GUI's screen-space guarantee
+   * a structural property of the render tree, not a per-call check. See
+   * CLAUDE.md's "GML behavior dispatch..." entry for the full rationale.
+   */
+  private _root: Container | null = null;
+  /**
+   * Camera-independent overlay root, rendered after (i.e. on top of)
+   * `_stage`. `RenderPipeline.guiLayer` exposes this for `GmlBehaviorSystem`
+   * Draw GUI dispatch; nothing else mounts into it today.
+   */
+  private _guiStage: Container | null = null;
   private _canvas: HTMLCanvasElement | null = null;
   private _layerSystem: LayerSystem | null = null;
   /** Per-layer PixiJS containers keyed by layer name. */
@@ -67,6 +84,10 @@ export class RenderSystem {
 
     this._canvas = this._renderer.canvas as HTMLCanvasElement;
     this._stage = new Container();
+    this._guiStage = new Container();
+    this._root = new Container();
+    this._root.addChild(this._stage);
+    this._root.addChild(this._guiStage);
 
     if (options.layerSystem) {
       this.setLayerSystem(options.layerSystem);
@@ -392,11 +413,23 @@ export class RenderSystem {
     return this._canvas;
   }
 
+  /**
+   * Camera-independent overlay container — a sibling of `stage`, never a
+   * descendant of it, so `CameraSystem.attach(stage)`'s pan/zoom/rotate
+   * writes to `stage` never reach anything mounted here. See `_guiStage`'s
+   * doc comment.
+   */
+  get guiStage(): Container {
+    if (this._guiStage === null)
+      throw new Error("RenderSystem not initialized");
+    return this._guiStage;
+  }
+
   render(): void {
-    if (this._renderer === null || this._stage === null) return;
+    if (this._renderer === null || this._root === null) return;
     // Sync visibility each frame so setVisible() changes are reflected.
     this.syncLayerVisibility();
-    this._renderer.render(this._stage);
+    this._renderer.render(this._root);
   }
 
   resize(width: number, height: number): void {
@@ -414,6 +447,8 @@ export class RenderSystem {
     this._renderer?.destroy();
     this._renderer = null;
     this._stage = null;
+    this._guiStage = null;
+    this._root = null;
     this._canvas = null;
   }
 }

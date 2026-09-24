@@ -6,10 +6,12 @@ import {
   ParticleContainer,
   Rectangle,
   Sprite as PixiSprite,
+  Text,
   Texture,
 } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import type { Scene } from "../Scene.js";
+import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
 import { Sprite } from "../components/Sprite.js";
 import { Transform } from "../components/Transform.js";
@@ -17,6 +19,9 @@ import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
+import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
+import type { GmlActionContext } from "../compat/gmlActions.js";
+import type { GmlDrawTarget } from "../compat/gml.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /**
@@ -66,6 +71,55 @@ export interface TileLayerSource {
       >;
     }>;
   };
+}
+
+/**
+ * The real `GmlDrawTarget` implementation (`compat/gml.ts`'s structural
+ * interface) — a pixi `Graphics` wrapper, rebuilt from scratch on every
+ * `onDraw`/`onDrawGui` call. Construction itself clears the previous call's
+ * vector drawing and removes any `Text` children a previous `draw_text` call
+ * added (pixi's `Graphics` has no text primitive of its own, so `draw_text`
+ * appends a real `Text` child instead — removed here rather than left to
+ * accumulate, since a `Graphics` object persists across frames for a given
+ * entity while its drawing content does not).
+ */
+class PixiGmlDrawTarget implements GmlDrawTarget {
+  private _color = 0x000000;
+
+  constructor(private readonly _graphics: Graphics) {
+    this._graphics.clear();
+    this._graphics.removeChildren();
+  }
+
+  setColor(hex: number): void {
+    this._color = hex;
+  }
+
+  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void {
+    this._graphics.rect(x1, y1, x2 - x1, y2 - y1);
+    if (outline) this._graphics.stroke({ color: this._color, width: 1 });
+    else this._graphics.fill({ color: this._color });
+  }
+
+  circle(x: number, y: number, r: number, outline: boolean): void {
+    this._graphics.circle(x, y, r);
+    if (outline) this._graphics.stroke({ color: this._color, width: 1 });
+    else this._graphics.fill({ color: this._color });
+  }
+
+  text(x: number, y: number, text: string): void {
+    const label = new Text({ text, style: { fill: this._color } });
+    label.x = x;
+    label.y = y;
+    this._graphics.addChild(label);
+  }
+
+  line(x1: number, y1: number, x2: number, y2: number): void {
+    this._graphics
+      .moveTo(x1, y1)
+      .lineTo(x2, y2)
+      .stroke({ color: this._color, width: 1 });
+  }
 }
 
 /** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
@@ -195,6 +249,18 @@ export class RenderPipeline implements SceneRenderer {
   private _postProcess: PostProcessSystem | null = null;
 
   /**
+   * Set via `attachGmlBehaviors()`. When present, `renderFrame()` dispatches
+   * the main scene's `GmlBehaviorState` entities' `onDraw`/`onDrawGui` once
+   * per frame — see `_renderGmlDraw()`'s doc comment for the real mechanism
+   * (a genuine second render pass, not a per-sprite special case).
+   */
+  private _gmlBehaviors: GmlBehaviorSystem | null = null;
+  private _gmlCtx: GmlActionContext | null = null;
+  /** Per-entity pixi `Graphics`, rebuilt (cleared + redrawn) every call — one map per draw kind, keyed by eid, scoped to whichever `Scene` is currently the main scene (mirrors `_tracking`'s per-`Scene` scoping; GML Draw/Draw GUI dispatch only ever covers the main scene today). */
+  private readonly _gmlDrawGraphics = new Map<number, Graphics>();
+  private readonly _gmlDrawGuiGraphics = new Map<number, Graphics>();
+
+  /**
    * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
    * own doc comment) with zero pixi dependency — it was never actually
@@ -223,6 +289,25 @@ export class RenderPipeline implements SceneRenderer {
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._loadTexture = options.textureLoader ?? defaultTextureLoader;
+  }
+
+  /**
+   * Attach (or detach, with `null`) a `GmlBehaviorSystem` and the
+   * `GmlActionContext` its dispatch calls should receive. `ctx.drawTarget`
+   * is overwritten per-call by `_renderGmlDraw()` — whatever `drawTarget` is
+   * set on the `ctx` passed here is ignored.
+   */
+  attachGmlBehaviors(
+    system: GmlBehaviorSystem | null,
+    ctx: GmlActionContext | null,
+  ): void {
+    this._gmlBehaviors = system;
+    this._gmlCtx = ctx;
+  }
+
+  /** The camera-independent overlay container `GmlBehaviorSystem`'s Draw GUI dispatch draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
+  get guiLayer(): Container {
+    return this._render.guiStage;
   }
 
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
@@ -350,7 +435,88 @@ export class RenderPipeline implements SceneRenderer {
       this.renderTransitionOverlay(this._postProcess);
     }
     this._syncParticles();
+    this._renderGmlDraw(main);
     this._render.render();
+  }
+
+  /**
+   * Runs `GmlBehaviorSystem.renderDraw()`/`renderDrawGui()` for the main
+   * scene, once per frame — a genuine second (well, third counting the
+   * sprite sync) pass through `renderFrame()`, not a conditional bolted into
+   * `_syncOne()`'s per-sprite loop. It has to be a separate pass because the
+   * two draw kinds target structurally different containers: `onDraw`'s
+   * `Graphics` are parented under the `"foreground"` layer container (a
+   * child of `RenderSystem.stage`, so `CameraSystem`'s pan/zoom/rotate
+   * reaches it exactly like any world sprite), while `onDrawGui`'s are
+   * parented under `RenderSystem.guiStage` (a sibling of `stage`, never a
+   * descendant — see that getter's doc comment for why that alone is what
+   * gives Draw GUI its camera independence, with no per-call camera check
+   * anywhere in this method). A per-sprite special case in `_syncOne()`
+   * could not express "draw into a different container tree" at all, since
+   * that method only ever writes to one sprite's existing container.
+   *
+   * Each call's `Graphics` are cleared and redrawn from scratch (never
+   * diffed) — the same rebuild-every-frame tradeoff CLAUDE.md's
+   * "ParticleEmitter renders through a real pixi ParticleContainer" entry
+   * already accepts for particles. `_gmlDrawGraphics`/`_gmlDrawGuiGraphics`
+   * prune any entity that didn't draw this frame (destroyed, or its
+   * behavior module has no `onDraw`/`onDrawGui` this call), so a
+   * `GmlBehaviorState` entity that stops drawing doesn't leave a stale
+   * `Graphics` node in the tree.
+   */
+  private _renderGmlDraw(main: Scene): void {
+    if (this._gmlBehaviors === null || this._gmlCtx === null) return;
+    const worldContainer = this._containerFor("foreground");
+    const guiContainer = this._render.guiStage;
+
+    const drawnWorld = new Set<number>();
+    this._gmlBehaviors.renderDraw(main, this._gmlCtx, (entity) =>
+      this._acquireGmlGraphics(
+        this._gmlDrawGraphics,
+        worldContainer,
+        entity,
+        drawnWorld,
+      ),
+    );
+    this._pruneGmlGraphics(this._gmlDrawGraphics, drawnWorld);
+
+    const drawnGui = new Set<number>();
+    this._gmlBehaviors.renderDrawGui(main, this._gmlCtx, (entity) =>
+      this._acquireGmlGraphics(
+        this._gmlDrawGuiGraphics,
+        guiContainer,
+        entity,
+        drawnGui,
+      ),
+    );
+    this._pruneGmlGraphics(this._gmlDrawGuiGraphics, drawnGui);
+  }
+
+  private _acquireGmlGraphics(
+    table: Map<number, Graphics>,
+    container: Container,
+    entity: Entity,
+    drawnThisFrame: Set<number>,
+  ): GmlDrawTarget {
+    drawnThisFrame.add(entity.eid);
+    let graphics = table.get(entity.eid);
+    if (graphics === undefined) {
+      graphics = new Graphics();
+      container.addChild(graphics);
+      table.set(entity.eid, graphics);
+    }
+    return new PixiGmlDrawTarget(graphics);
+  }
+
+  private _pruneGmlGraphics(
+    table: Map<number, Graphics>,
+    drawnThisFrame: Set<number>,
+  ): void {
+    for (const [eid, graphics] of table) {
+      if (drawnThisFrame.has(eid)) continue;
+      graphics.destroy();
+      table.delete(eid);
+    }
   }
 
   /**
