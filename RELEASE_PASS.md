@@ -20,6 +20,128 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+**2026-09-24.** IDE Inspector/AssetBrowser pass — four features, landed as four commits
+(71a8814, 811adf4, e42fa2f, ea36974):
+
+1. Per-field inspector icons (`EntityProperties.tsx`'s `iconForField`/`FieldIcon`) — a lucide icon
+   per schema field kind, plus name-based heuristics (position/vector -> move, colour -> palette,
+   asset/path -> link). An unmapped field or component keeps the pre-existing plain fallback exactly,
+   per CLAUDE.md's component-metadata rule.
+2. Multi-select — lifted SceneInspector's local click/ctrl/shift selection state into ideStore's new
+   `selectedEntityIds` (additive; `selectedEntityId`/`selectedEntity` still work for single-select
+   consumers). `MultiEntityProperties` shows entity count, an N/M share count per component type, and
+   for schema'd components every selected entity shares, real editable fields fetched live per entity
+   via `engineChannel`'s `getComponent`, with a "Mixed" placeholder for values that differ and edits
+   applying to the whole selection via `setComponent` called once per entity (fine at realistic
+   selection sizes — no new QueryChannel batch kind was needed).
+3. Per-asset-type "open in" dispatch in AssetBrowser (`openAssetInEditor`) — image -> Image Editor,
+   script/json -> Code tab (via a new generic `openPanelRequest` store field, generalising the
+   existing `openImageEditorRequest` pattern to any panel id), scene -> the Scene panel (closest thing
+   this IDE has to a scene-file editor; no per-scene-file loader exists). **Scope cut, stated
+   honestly:** audio and font assets have no dedicated editor anywhere in this IDE — double-clicking
+   one leaves it selected rather than opening the wrong panel or fabricating an editor.
+4. Asset preview: extended `AssetPreviewPopover`'s scene/json branch with an entity-count and
+   component-type-count summary, parsed from the asset's JSON when it's already open in a Code tab
+   (no offline asset-content reader exists to parse an unopened file). **Scope cut:** the audio
+   preview is still the pre-existing fake waveform placeholder with an explicit "no duration data"
+   label — a real waveform renderer is its own multi-day feature and out of scope here.
+
+Verification: `npx turbo run typecheck lint test --filter=./apps/ide --force` green (143/143 tests,
+including new coverage for selection collapse/clear semantics, the multi-select summary view, and the
+per-type open-in dispatch's audio/font no-op case). Not manually clicked through in a live browser —
+automated coverage plus this note is the fallback per the task's own stated bar. Updated
+`docs/manual/07-ide-reference.md` (Inspector section + new Asset Browser section) per CLAUDE.md's
+"keeping docs in sync" rule.
+
+---
+
+**2026-09-24.** Implemented real GM8.1 DnD action-library compat (Phase 1 of a two-phase task; Phase 2
+below). `packages/engine/src/compat/gmlActions.ts` is a new sibling to `compat/gml.ts` covering
+`action_move`/`action_move_to`/`action_snap`/`action_set_friction`/`action_set_relative`,
+`action_sprite_set`/`action_sprite_color`, `action_next_room`/`action_another_room`,
+`action_create_object`/`instance_create`/`action_kill_object`, `action_set_alarm`, `action_sound`, and
+`action_if_collision`/`action_if_aligned`/`action_if_empty`/`action_if_mouse`/`action_if_question` — see
+CLAUDE.md's new "GMS2 DnD action-library compat" entry for exactly how each works and the two
+(`action_if_mouse`/`action_if_question`) that stay untranspiled for a real, documented reason (need a
+live predicate callback a bare GML text argument can't supply). `gms2-codegen.ts` now threads a
+`_ctx: GmlActionContext` through every generated event handler; `gms2-transpile.ts` rewrites plain-data
+action calls to real `GmlActions.*` calls and nests `action_if_*` conditionals around their following
+statement as a real `if (...) { ... }` block instead of a flat sequence. Tests: 17 new behavioral unit
+tests in `packages/engine/src/__tests__/gmlActions.test.ts` (real `Entity`/`Scene` assertions — position
+deltas, alarm one-shot firing, pooled-entity state clearing) plus 4 new/updated synthetic-fixture
+regression tests in `packages/toolchain/src/__tests__/gms2-import.test.ts` (move+sprite_set, if_collision
+nesting around kill_object, create_object+next_room). `npx turbo run typecheck lint test --force` green
+except the pre-existing, already-flagged parallel-session issue in the same test file (an
+unrelated background-layer test's `entity.components` possibly-undefined — not touched, not caused by
+this work).
+
+- [ ] Phase 2 (scope extension, requested mid-task) — automatic GML behavior dispatch (an engine-side
+      system that actually calls a GMS2-imported prefab's `onCreate`/`onStepBegin`/`onUpdate`/
+      `onStepEnd`/`onDestroy` once wired to a live entity, in three separate global passes across all
+      entities: Begin Step, then Step, then End Step, never interleaved per-entity) plus a real
+      Draw/Draw GUI render-pass split in `RenderPipeline` (world-space vs. camera-reset screen-space).
+      **Not started** — Phase 1 (the actual DnD action semantics this task was assigned) was completed
+      and verified first, per the coordinator's own instruction to finish and land Phase 1 as a clean
+      commit before picking up Phase 2. Whether Phase 2 gets attempted in this same session depends on
+      remaining time/budget; if it doesn't, a future session should scope it as its own pass — it touches
+      `RenderPipeline.renderFrame()` (one of the most sensitive files in the engine per its own doc
+      comments) and needs the same "read fully before changing" discipline as this file describes for
+      GMS2 codegen.
+
+---
+
+**2026-09-24.** Closed the three real GMS2-import gaps confirmed against the (deleted) real test
+project: sound, font, and room-background-layer import all now actually convert instead of reporting
+"manual work required." Scoped to sound/font/room-background per the coordinator, later folded in a
+fourth: notes/compatibility-report resources (see below).
+
+- **Sounds**: new `packages/toolchain/src/gms2-sound-import.ts` — `convertGms2Sound` reads a sound's
+  `.yy` (via the shared `parseGmsJson`, same trailing-comma tolerance as everything else) for
+  `volume`/`loop`/`audioGroupId`, locates the real audio file next to it (`soundFile` field if it
+  actually exists on disk, else scans for a recognised audio extension), and `buildSoundAsset` copies
+  it into `assets/sounds/` plus emits `assets/<name>.sound.ts` shaped for the real
+  `AudioSystem.load(id, src, options)`/`.play(id)` API (no separate "AssetManifest" concept exists in
+  this engine — verified by reading `AudioSystem.ts` directly rather than assuming a shape).
+- **Fonts**: new `packages/toolchain/src/gms2-font-import.ts` — `convertGms2Font` reads the real
+  `fontName`/`size`/`bold`/`italic` `.yy` fields. Verified `ui/UISystem.ts` first: this engine renders
+  text via plain Canvas/CSS font strings (`Label`/`ButtonState`/`Checkbox`), not a bitmap-font/
+  glyph-atlas system, so the honest conversion is metadata-only — `buildFontAsset` emits family/size/
+  style (plus a precomposed `cssFont` string folding in bold/italic, since `Label` has no separate
+  fields for those) and the import emits a warning that the source glyph atlas PNG was intentionally
+  not copied, rather than silently dropping it.
+- **Room background layers**: `gms2-room-import.ts` gained `convertGms2RoomBackgrounds`, producing a
+  real `Transform`+`Sprite` `SceneFileEntity` per real background sprite, on `@emptysock/engine`'s
+  built-in `"background"` `LayerSystem` layer, sized to cover the room. **Architectural call**: this is
+  a direct `SceneFile.entities` entry, not a `prefabInstances` entry — a GMS2 background image has no
+  corresponding GameMaker object and therefore no `.prefab.json` to reference, and `SceneFile.entities`
+  exists precisely for "an entity this scene needs that isn't spawned from a named prefab" (confirmed by
+  reading `SceneFile.ts`'s `loadSceneFile` in full). Rejected the alternative of adding a dedicated
+  backdrop field to `SceneFile`/`RenderPipeline`: `LayerSystem` already ships a `"background"` layer
+  drawn behind everything else, so a plain `Sprite` entity on that layer is the existing, correct
+  mechanism — no engine changes needed at all. Wired into `gms2-import.ts` by merging the entity into
+  the already-built `.scene.json` (parse → append to `entities` → re-stringify) rather than threading it
+  through `buildRoomSceneJSON` itself, since `gms2-codegen.ts` had the parallel DnD-compat work above in
+  flight.
+- **Notes** (folded in mid-task per the coordinator, to actually reach "zero manual-only assets" against
+  the real 202-asset project): new `packages/toolchain/src/gms2-note-import.ts`. A GMS2 "note"
+  (`resourceType: "GMNote"`, including GameMaker's own auto-generated compatibility-report notes) is
+  IDE-only documentation with no engine-side equivalent and none was invented — `convertGms2Note` reads
+  the note's real `.txt` content and `buildNoteMarkdown` copies it verbatim into `notes/<name>.md`.
+  `gms2-report.ts` gained a distinct `"copied"` status (separate from `"converted"`) specifically so the
+  report never overclaims a documentation file as the same kind of conversion a sprite/sound/font/room
+  gets — it's real, complete preservation of the content, not a fabricated engine asset.
+- `gms2-report.ts`: added `font`/`note` kinds, `sound`/`font` now report `"converted"` (not `"manual"`),
+  added the `"copied"` status, new report sections ("Reference Material Copied") and updated Next Steps.
+- `CLAUDE.md`'s GMS2 quirks entry rewritten to describe all of this as real, implemented behavior.
+- Tests: new synthetic-fixture regression tests for sound (happy path + broken/missing-audio-file path),
+  font (happy path + glyph-atlas-not-copied assertion), notes (happy path + missing-.txt path), and
+  background layers (real conversion producing a real Transform+Sprite entity in the generated
+  `.scene.json`, plus a genuinely-missing-sprite failure path) in `gms2-import.test.ts`, plus report
+  assertions in `gms2-report.test.ts`. All synthetic — no reference to the real deleted project.
+  `npx turbo run typecheck lint test --force` green.
+
+---
+
 **2026-09-24.** Built the NavMesh Editor panel (`apps/ide/src/components/panels/NavMeshEditor.tsx`,
 `apps/ide/src/store/navMeshStore.ts`, docs at `docs/manual/07-ide-reference.md` §7.20). Scope call:
 
