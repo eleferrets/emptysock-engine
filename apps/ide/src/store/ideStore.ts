@@ -100,6 +100,13 @@ interface IDEState {
   selectedEntityId: string | null;
   selectedEntity: SelectedEntity | null;
 
+  // Multi-select: every currently-selected entity id, in click order.
+  // `selectedEntityId`/`selectedEntity` stay the single-selection source of
+  // truth for panels that haven't been taught about multi-select yet — this
+  // is purely additive. When exactly one id is selected the two stay in
+  // sync; EntityProperties reads `selectedEntityIds` to detect the >1 case.
+  selectedEntityIds: string[];
+
   // Live entity data from the running engine
   liveEntities: EntitySnapshot[];
 
@@ -167,6 +174,11 @@ interface IDEState {
   addLog: (level: LogLevel, message: string, source?: string) => void;
   clearLogs: () => void;
   selectEntity: (id: string | null) => void;
+  // Sets the full multi-selection. Pass an empty array to clear. This also
+  // keeps `selectedEntityId`/`selectedEntity` in sync (single entity ->
+  // normal single-select behaviour; 0 or 2+ -> cleared, per the "collapse
+  // to null on multi/none" convention SceneInspector already used locally).
+  setSelectedEntityIds: (ids: string[]) => void;
   selectFile: (path: string | null) => void;
   setEditorCode: (code: string) => void;
   updateEntityTransform: (
@@ -463,6 +475,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   entities: [],
   selectedEntityId: null,
   selectedEntity: null,
+  selectedEntityIds: [],
   liveEntities: [],
   liveComponentFields: null,
   projectRoot: null,
@@ -560,6 +573,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   },
 
   clearLogs: () => set({ logs: [] }),
+
+  setSelectedEntityIds: (ids) => {
+    set({ selectedEntityIds: ids });
+    if (ids.length === 1) {
+      get().selectEntity(ids[0] ?? null);
+    } else {
+      get().selectEntity(null);
+    }
+  },
 
   selectEntity: (id) => {
     if (id === null) {

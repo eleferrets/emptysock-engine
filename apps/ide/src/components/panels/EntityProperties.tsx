@@ -1,5 +1,18 @@
 import React from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Hash,
+  ToggleLeft,
+  Type as TypeIcon,
+  List,
+  Palette,
+  Link as LinkIcon,
+  Move,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useIDEStore } from "../../store/ideStore";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -61,6 +74,58 @@ const V2_COMPONENT_METADATA: Readonly<Record<string, ComponentInspectorMeta>> =
     CameraSystem: { color: "var(--es-blue)" },
   };
 
+/**
+ * Feature: per-field icons in the Inspector. Maps a field's schema kind
+ * (plus a small set of name-based semantic heuristics — "x"/"position",
+ * "color", "src"/"texture"/"asset") to a `lucide-react` icon. This only
+ * ever runs for fields that already resolved a schema entry — a field
+ * with no schema keeps the exact pre-existing plain-`Input` fallback
+ * (CLAUDE.md's "component not in the map / field not in that component's
+ * schema" rule), so an unmapped field never renders a blank or broken
+ * icon slot, it just renders the way it always has.
+ */
+function iconForField(
+  fieldKey: string,
+  fieldSchema: NonNullable<ComponentSchema<SerializableRecord>[string]>,
+): LucideIcon {
+  const key = fieldKey.toLowerCase();
+  if (/(^|[_-])(x|y|z)$|position|scale|rotation|offset|velocity/.test(key)) {
+    return Move;
+  }
+  if (/colou?r/.test(key)) return Palette;
+  if (/src|path|texture|sprite|asset|sound|audio|icon|file/.test(key)) {
+    return LinkIcon;
+  }
+  switch (fieldSchema.kind) {
+    case "boolean":
+      return ToggleLeft;
+    case "enum":
+      return List;
+    case "number":
+      return Hash;
+    case "string":
+    default:
+      return TypeIcon;
+  }
+}
+
+function FieldIcon({
+  fieldKey,
+  fieldSchema,
+}: {
+  fieldKey: string;
+  fieldSchema: NonNullable<ComponentSchema<SerializableRecord>[string]>;
+}): React.ReactElement {
+  const Icon = iconForField(fieldKey, fieldSchema);
+  return (
+    <Icon
+      size={10}
+      style={{ color: "var(--es-text-muted)", flexShrink: 0 }}
+      aria-hidden="true"
+    />
+  );
+}
+
 function SchemaFieldControl({
   fieldKey,
   fieldSchema,
@@ -95,7 +160,10 @@ function SchemaFieldControl({
       typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0);
     return (
       <div className="flex flex-col gap-1">
-        <label style={labelStyle}>{fieldKey}</label>
+        <label style={labelStyle} className="flex items-center gap-1">
+          <FieldIcon fieldKey={fieldKey} fieldSchema={fieldSchema} />
+          {fieldKey}
+        </label>
         <input
           type="number"
           value={Number.isNaN(numValue) ? 0 : numValue}
@@ -119,7 +187,10 @@ function SchemaFieldControl({
           checked={boolValue}
           onChange={(e) => onCommit(e.target.checked)}
         />
-        <span style={labelStyle}>{fieldKey}</span>
+        <span style={labelStyle} className="flex items-center gap-1">
+          <FieldIcon fieldKey={fieldKey} fieldSchema={fieldSchema} />
+          {fieldKey}
+        </span>
       </label>
     );
   }
@@ -131,7 +202,10 @@ function SchemaFieldControl({
     const strValue = typeof rawValue === "string" ? rawValue : "";
     return (
       <div className="flex flex-col gap-1">
-        <label style={labelStyle}>{fieldKey}</label>
+        <label style={labelStyle} className="flex items-center gap-1">
+          <FieldIcon fieldKey={fieldKey} fieldSchema={fieldSchema} />
+          {fieldKey}
+        </label>
         <select
           value={strValue}
           onChange={(e) => onCommit(e.target.value)}

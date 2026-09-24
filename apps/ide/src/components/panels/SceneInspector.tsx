@@ -50,7 +50,6 @@ function EntityRow({
   isFiltering?: boolean;
 }): React.ReactElement {
   const [expanded, setExpanded] = React.useState(true);
-  const selectEntity = useIDEStore((s) => s.selectEntity);
   const setRightPanelOpen = useIDEStore((s) => s.setRightPanelOpen);
   const toggleEntityActive = useIDEStore((s) => s.toggleEntityActive);
   const isMobile = useIsMobile();
@@ -62,7 +61,6 @@ function EntityRow({
     <div>
       <button
         onClick={(e) => {
-          selectEntity(entity.id);
           if (isMobile) setRightPanelOpen(true);
           onEntityClick(e, entity);
         }}
@@ -182,14 +180,28 @@ export function SceneInspector(): React.ReactElement {
   const liveEntities = useIDEStore((s) => s.liveEntities);
   const addEntity = useIDEStore((s) => s.addEntity);
   const deleteEntity = useIDEStore((s) => s.deleteEntity);
-  const selectEntity = useIDEStore((s) => s.selectEntity);
+  const selectedEntityIds = useIDEStore((s) => s.selectedEntityIds);
+  const setSelectedEntityIds = useIDEStore((s) => s.setSelectedEntityIds);
 
   // Prefer live entity data from the running game; fall back to editor entities
   const displayEntities: EntityItem[] =
     liveEntities.length > 0 ? liveEntities.map(snapshotToEntityItem) : entities;
 
   const [filter, setFilter] = React.useState("");
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  // Selection lives in the store (`selectedEntityIds`) so EntityProperties
+  // can react to a multi-selection, not just local component state.
+  const selectedIds = React.useMemo(
+    () => new Set(selectedEntityIds),
+    [selectedEntityIds],
+  );
+  const setSelectedIds = React.useCallback(
+    (updater: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+      const next =
+        typeof updater === "function" ? updater(selectedIds) : updater;
+      setSelectedEntityIds(Array.from(next));
+    },
+    [selectedIds, setSelectedEntityIds],
+  );
   const [lastClickedId, setLastClickedId] = React.useState<string | null>(null);
 
   // Stable quip picked once per session
@@ -212,27 +224,6 @@ export function SceneInspector(): React.ReactElement {
     const name = `Entity${displayEntities.length + 1}`;
     addEntity(name);
   };
-
-  // When selection changes: signal store so EntityProperties can react.
-  // useEngineChannel's poll loop reads useIDEStore's selectedEntity directly
-  // and queries the live preview for its fields on the next tick — nothing
-  // needs to be pushed to the engine iframe here.
-  React.useEffect(() => {
-    if (selectedIds.size === 0) {
-      selectEntity(null);
-    } else if (selectedIds.size === 1) {
-      const [id] = selectedIds;
-      if (id !== undefined) {
-        selectEntity(id);
-        // Clear stale live fields until the next poll tick fetches fresh ones.
-        useIDEStore.getState().setLiveComponentFields(null);
-      }
-    } else {
-      // Multiple selected — clear the store selection so EntityProperties
-      // shows its empty/multi state
-      selectEntity(null);
-    }
-  }, [selectedIds, selectEntity]);
 
   // Keyboard undo/redo + Delete
   React.useEffect(() => {
