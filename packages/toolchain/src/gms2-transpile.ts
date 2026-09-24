@@ -1062,14 +1062,44 @@ export function transpileGML(gml: string): string {
     "action_kill_object",
     "action_set_alarm",
     "action_sound",
+    // GameMaker's "hypothetical position" collision-query family (see
+    // CLAUDE.md's "GMS2 DnD action-library compat" section) — real
+    // GameMaker solid-wall collision code (`if (place_meeting(x+4, y,
+    // obj_wall)) { ... }`) calls these as plain GML function calls, not DnD
+    // actions, but they need the exact same entity+ctx threading every
+    // other `gmlActions.ts`/`gmlCollisionQueries.ts` export does, so they're
+    // threaded the same way rather than needing a second rewrite pass.
+    "place_meeting",
+    "place_free",
+    "place_snapped",
+    "position_meeting",
+    "position_free",
+    "instance_place",
+    "instance_position",
+    "collision_rectangle",
+    "collision_circle",
+    "collision_line",
+    "collision_point",
   ];
   for (const fn of THREADED_ACTIONS) {
-    const re = new RegExp(`\\b${fn}\\s*\\(([^)]*)\\)\\s*;?`, "g");
-    out = out.replace(re, (_m, args: string) => {
+    // The trailing `;` is captured, not just optionally consumed — DnD
+    // actions (`action_move(...)`) are always their own statement and
+    // always end in one, but the collision-query family
+    // (`place_meeting`/`instance_place`/`collision_*`) is real GML
+    // *expression* syntax, just as commonly called as a sub-expression
+    // inside `if (...)`, `&&`, or an assignment's right-hand side, with no
+    // trailing `;` of its own at all. Unconditionally appending `;` (the
+    // previous behaviour) corrupted exactly that case — it injected a
+    // semicolon *inside* the enclosing `if (...)`'s parens, e.g.
+    // `if (GmlActions.place_meeting(...);)`. Echoing back only the
+    // semicolon (if any) this specific call actually had keeps both shapes
+    // correct.
+    const re = new RegExp(`\\b${fn}\\s*\\(([^)]*)\\)(\\s*;)?`, "g");
+    out = out.replace(re, (_m, args: string, semi: string | undefined) => {
       const trimmed = args.trim();
       const threaded =
         trimmed.length > 0 ? `_entity, _ctx, ${trimmed}` : "_entity, _ctx";
-      return `GmlActions.${fn}(${threaded});`;
+      return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
     });
   }
 

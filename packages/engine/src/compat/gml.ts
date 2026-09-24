@@ -359,15 +359,15 @@ export function mouse_button_released(_button: number): boolean {
   return false;
 }
 
-/** GML place_free(x, y) — legacy collision-check action. No-op stub: always reports free. */
-export function place_free(_x: number, _y: number): boolean {
-  console.warn(
-    "place_free() is a no-op stub — implement collision checks via PhysicsSystem or manual bounds checks.",
-  );
-  return true;
-}
-
-/** GML place_empty(x, y) — legacy collision-check action. No-op stub: always reports empty. */
+/**
+ * GML `place_empty(x, y)` — legacy collision-check action; kept as a no-op
+ * stub. Note this is distinct from `place_free`, which is now real (see
+ * `compat/gmlCollisionQueries.ts`'s `place_free` — GameMaker's own
+ * `place_free`, checked against `solid`-flagged instances). `place_empty` is
+ * an older, less-common GM8-era alias with slightly different semantics
+ * (checks against every instance, not just solid ones) that hasn't been
+ * ported yet — a real, separate, tracked gap.
+ */
 export function place_empty(_x: number, _y: number): boolean {
   console.warn(
     "place_empty() is a no-op stub — implement collision checks via PhysicsSystem or manual bounds checks.",

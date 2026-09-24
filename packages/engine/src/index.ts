@@ -325,6 +325,28 @@ export {
 export type { GmlDrawTarget } from "./compat/gml.js";
 
 /**
+ * GameMaker's "hypothetical position" collision-query family
+ * (`place_meeting`/`place_free`/`position_meeting`/`instance_place`/
+ * `collision_*`, see CLAUDE.md's "GMS2 DnD action-library compat" section)
+ * — real GameMaker solid-wall collision code calls these directly from
+ * transpiled GML; none of them move the calling instance.
+ */
+export type { GmlObjectRef } from "./compat/gmlCollisionQueries.js";
+export {
+  place_meeting,
+  place_free,
+  place_snapped,
+  position_meeting,
+  position_free,
+  instance_place,
+  instance_position,
+  collision_rectangle,
+  collision_circle,
+  collision_line,
+  collision_point,
+} from "./compat/gmlCollisionQueries.js";
+
+/**
  * GameMaker Studio 2 particle-function compat (`part_type_*`/`part_system_*`)
  * — see `compat/gmlParticles.ts`'s module doc comment for why these take
  * `(ctx: GmlParticleContext, ...)` rather than `gmlActions.ts`'s
@@ -465,7 +487,6 @@ export {
   keyboard_wait,
   mouse_button_down,
   mouse_button_released,
-  place_free,
   place_empty,
 } from "./compat/gml.js";
 

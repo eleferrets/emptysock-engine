@@ -35,6 +35,7 @@ interface YyObject {
   physicsFriction?: number;
   physicsRestitution?: number;
   physicsKinematic?: boolean;
+  solid?: boolean;
   [key: string]: unknown;
 }
 
@@ -146,6 +147,17 @@ export async function buildObjectPrefabJSON(
           overrides["restitution"] = parsed.physicsRestitution;
         }
         components.push({ component: "PhysicsBody", overrides });
+      }
+
+      // GameMaker's own per-object "Solid" checkbox — independent of
+      // `physicsObject`, since a classic non-physics DnD/GML game's solid
+      // walls are plain `Meta.solid`-flagged instances that
+      // `place_free`/`position_free` (`compat/gmlCollisionQueries.ts`) check
+      // against, not `PhysicsBody`. Only emitted when actually `true` — the
+      // component's own `false` default already covers the common case, and
+      // this keeps a non-solid object's prefab unchanged.
+      if (parsed.solid === true) {
+        components.push({ component: "Meta", overrides: { solid: true } });
       }
     }
   }

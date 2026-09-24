@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { transpileGML } from "../gms2-transpile.js";
 
+describe("transpileGML — place_meeting/collision query family", () => {
+  it("transpiles a bare-condition place_meeting call, entity-threaded", () => {
+    const out = transpileGML(
+      "if place_meeting(x + 4, y, obj_wall)\n{\n  x -= 4;\n}",
+    );
+    expect(out).toContain(
+      "if (GmlActions.place_meeting(_entity, _ctx, x + 4, y, obj_wall))",
+    );
+  });
+
+  it("threads instance_place/collision_rectangle the same way as other query functions", () => {
+    const out = transpileGML(
+      "other_wall = instance_place(x, y, obj_wall);\n" +
+        "hit = collision_rectangle(x, y, x + 32, y + 32, obj_enemy, false, true);",
+    );
+    expect(out).toContain(
+      "GmlActions.instance_place(_entity, _ctx, x, y, obj_wall)",
+    );
+    expect(out).toContain(
+      "GmlActions.collision_rectangle(_entity, _ctx, x, y, x + 32, y + 32, obj_enemy, false, true)",
+    );
+  });
+});
+
 describe("transpileGML", () => {
   it("does not emit `export` inside a function body for a global assignment", () => {
     const out = transpileGML("global.kills = 1;");
@@ -74,16 +98,16 @@ describe("transpileGML", () => {
 
   it("wraps a bare (unparenthesised) if condition anchored by a following brace", () => {
     const out = transpileGML(
-      "if place_meeting(x, y, obj_wall)\n{\n  foo();\n}",
+      "if my_condition_fn(x, y, obj_wall)\n{\n  foo();\n}",
     );
-    expect(out).toContain("if (place_meeting(x, y, obj_wall))");
+    expect(out).toContain("if (my_condition_fn(x, y, obj_wall))");
   });
 
   it("wraps a bare if !expr condition (not just the already-parenthesised if !(expr) case)", () => {
     const out = transpileGML(
-      "if !place_meeting(x, y, obj) && cond2\n{\n  foo();\n}",
+      "if !my_condition_fn(x, y, obj) && cond2\n{\n  foo();\n}",
     );
-    expect(out).toContain("if (!place_meeting(x, y, obj) && cond2)");
+    expect(out).toContain("if (!my_condition_fn(x, y, obj) && cond2)");
   });
 
   it("does not treat the word 'if' inside a // comment as a condition to wrap", () => {
