@@ -424,6 +424,24 @@ export function transpileGML(gml: string): string {
     },
   );
 
+  // GML's `$RRGGBB`/`$AABBGGRR` hex-colour literal syntax (`$fff0ee`) has no
+  // JS/TS equivalent — `$` is not a valid numeric-literal prefix in either
+  // language. Real, confirmed regression: `ltng_color = $fff0ee` left the
+  // `$fff0ee` token completely untouched, which parses as a bare
+  // JS identifier (`$` is a legal identifier character) — a
+  // `ReferenceError: $fff0ee is not defined` at runtime, not a compile-time
+  // signal. GML's hex-colour literal is otherwise byte-for-byte the same
+  // digit sequence JS's own `0x` hex-numeric-literal syntax accepts, so
+  // this is a real, mechanical, lossless rewrite (`$fff0ee` → `0xfff0ee`),
+  // not a "leave it unresolved" case. Six or eight hex digits only (GML's
+  // real two accepted widths — 0xRRGGBB or 0xAABBGGRR) avoids misfiring on
+  // an unrelated `$name` some other, genuinely unmodelled GML construct
+  // might contain.
+  out = out.replace(
+    /\$([0-9a-fA-F]{8}|[0-9a-fA-F]{6})\b/g,
+    (_m, hex: string) => `0x${hex}`,
+  );
+
   // GML's `div` (integer division) and `mod` (modulo) infix operators have
   // no JS/TS operator equivalent — `a div b` must become
   // `Math.floor(a / b)`, `a mod b` must become `a % b`. Handles both a
@@ -749,6 +767,35 @@ export function transpileGML(gml: string): string {
     /\bwith\s*\(((?:[^()]|\([^()]*\))*)\)/g,
     () =>
       `if (false) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`,
+  );
+
+  // GML's `with` also allows a bare, paren-less target — `with obj_solid {
+  // ... }` (a real, confirmed pattern; `if`/`while` allow the same bare
+  // form in GML) — which the parenthesised-only pass above never matches
+  // at all, leaving the real `with` keyword untouched in the output: a
+  // hard strict-mode `SyntaxError` ("Strict mode code may not include a
+  // with statement") at module load, for the exact same reason the comment
+  // above already explains for the parenthesised form. Only fires when the
+  // pass above hasn't already consumed this `with` (its target isn't
+  // wrapped in `(...)`).
+  //
+  // Two guards a first version of this pass was missing, both confirmed
+  // against a real project: (1) a negative lookbehind excluding "with"
+  // inside a `//` comment — ordinary GML commentary routinely contains the
+  // plain English word "with" ("// Draw the shadow with all the
+  // calculations"), and without this guard the pass matched that comment's
+  // own "with", then swallowed everything up to the *next* unrelated `{`
+  // (a following `if (...) {`, potentially many real statements away) as
+  // its supposed "target"; (2) the target itself is restricted to a single
+  // bare identifier/dotted-chain (optionally one call), not an unbounded
+  // `[\s\S]+?` span — GML's real `with` target is always exactly that
+  // shape (an object/instance reference), and bounding it this way is what
+  // stops a runaway match from ever reaching past the real, intended `{`
+  // in the first place, comment guard or not.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)\bwith\s+(?!\()[A-Za-z_]\w*(?:\.\w+)*(?:\([^()]*\))?\s*(?=\r?\n\s*\{|[ \t]*\{)/g,
+    () =>
+      `if (false) /* TODO: migrate this GML "with ..." block — iterate matching instances yourself */`,
   );
 
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------

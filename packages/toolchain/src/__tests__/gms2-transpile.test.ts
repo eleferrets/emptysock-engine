@@ -346,4 +346,117 @@ describe("transpileGML", () => {
       expect(out.match(/var list/g)?.length).toBe(1);
     });
   });
+
+  describe("real-project regressions found exercising GmsProjectRuntime end to end", () => {
+    it("keeps GML `var` as `var`, not `let`, so a redeclared local in the same event does not throw", () => {
+      // Real, confirmed regression: a compiled/unrolled Step event with
+      // several near-identical blocks, each starting `var _pNumber = 0;` /
+      // `var _pNumber = 1;` / ... (one per player index). GML's `var` is
+      // function-scoped and explicitly tolerates redeclaring the same
+      // local more than once in the same function body; JS `let` does not
+      // — rewriting to `let` produced a hard `SyntaxError: Identifier
+      // '_pNumber' has already been declared` at module load.
+      const out = transpileGML(
+        "var _pNumber = 0;\n_pNumber += 1;\nvar _pNumber = 1;\n_pNumber += 1;\n",
+      );
+      expect(out).not.toMatch(/\blet\b/);
+      expect(out.match(/var _pNumber/g)?.length).toBe(2);
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("wraps an if condition that starts with one balanced clause but keeps going past its closing paren", () => {
+      // Real, confirmed regression: `if (_xAxis*_xAxis + _yAxis*+_yAxis) >=
+      // gamepadDeadzoneSquared { ... }` — valid GML (the `if`'s condition
+      // needs no single enclosing paren group), but left as-is this parses
+      // in JS as `if (a)` followed by a dangling `>= gamepadDeadzoneSquared`
+      // expression statement — a hard `SyntaxError`, not just a silent
+      // misbehaviour.
+      const out = transpileGML(
+        "if (_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}\n",
+      );
+      expect(out).toContain(
+        "if ((_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared)",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("wraps a bare if condition whose comment sits before the condition, not after it", () => {
+      // Real, confirmed regression: `if // LEFT TOGGLE HIGHLIGHTED\n(cond)\n{
+      // ... }` — a comment on the `if`'s own line, with the real condition
+      // only starting on the next line. The naive "find the first `//` in
+      // the captured span" approach misfiled the *entire* condition as a
+      // trailing comment (nothing precedes the `//`), emitting a hard
+      // `if ()` followed by the real condition as a dangling, never
+      // -evaluated expression statement — a `SyntaxError: Unexpected token
+      // ')'` at module load.
+      const out = transpileGML(
+        "if // LEFT TOGGLE HIGHLIGHTED\n(mouseX > left)\n{\n  foo();\n}\n",
+      );
+      expect(out).toMatch(/if \(\(?mouseX > left\)?\)/);
+      expect(out).not.toContain("if ()");
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("converts a GML $RRGGBB hex-colour literal to a real JS 0x hex literal", () => {
+      // Real, confirmed regression: `ltng_color = $fff0ee;` — GML's hex
+      // colour literal syntax. Left untouched, `$fff0ee` parses as a bare
+      // JS identifier (`$` is a legal identifier character), throwing
+      // `ReferenceError: $fff0ee is not defined` at runtime.
+      const out = transpileGML("ltng_color = $fff0ee;\n");
+      expect(out).toContain("0xfff0ee");
+      expect(out).not.toContain("$fff0ee");
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("converts an 8-digit GML $AABBGGRR hex-colour literal too", () => {
+      const out = transpileGML("c = $80fff0ee;\n");
+      expect(out).toContain("0x80fff0ee");
+    });
+
+    it("does not mangle a dotted alarm assignment on another instance (creator.alarm[n] = ...)", () => {
+      // Real, confirmed regression: `creator.alarm[1] = 1;` — GML's alarm-
+      // migration-comment rewrite matched starting mid-expression at
+      // "alarm" (ignoring the `creator.` prefix), leaving `creator.`
+      // dangling with nothing after its `.` once the rest of the line
+      // became a `//` comment — a hard `SyntaxError: Unexpected token ';'`.
+      const out = transpileGML("creator.alarm[1] = 1;\n");
+      expect(out).not.toMatch(/creator\.\s*(\r?\n|$)/);
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("still migrates a bare (this-instance) alarm assignment to the coroutine TODO comment", () => {
+      const out = transpileGML("alarm[1] = 1;\n");
+      expect(out).toContain("entity.startCoroutine(waitFrames(1))");
+    });
+
+    it("does not treat the plain English word 'with' inside a // comment as a with-statement to rewrite", () => {
+      // Real, confirmed regression: `// Draw the shadow with all the
+      // calculations` is ordinary GML commentary, not a `with` statement.
+      // The first version of the bare-`with` rewrite matched "with" inside
+      // this comment and then swallowed everything up to the *next*
+      // unrelated `{` — a real, later `if (...) {` several statements away
+      // — as its supposed target, corrupting the whole span in between.
+      const out = transpileGML(
+        "// Draw the shadow with all the calculations\nshadow_size = 1;\nif (i < 64) {\n  foo();\n}\n",
+      );
+      expect(out).not.toContain("with ...");
+      expect(out).toContain("shadow_size = 1;");
+      expect(out).toContain("if (i < 64) {");
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("rewrites a bare (paren-less) GML `with` target, not just `with (...)`", () => {
+      // Real, confirmed regression: `with obj_solid { ... }` — GML allows
+      // `with`'s target with no enclosing parens, same as `if`/`while`.
+      // The parenthesised-only rewrite pass never matched this shape at
+      // all, leaving the real `with` keyword in the output — a hard
+      // `SyntaxError: Strict mode code may not include a with statement`
+      // at module load (every generated event handler lives inside an ES
+      // module, always strict mode).
+      const out = transpileGML("with obj_solid {\n  foo();\n}\n");
+      expect(out).not.toMatch(/\bwith\s+obj_solid\b/);
+      expect(out).toContain("if (false)");
+      expect(() => new Function(out)).not.toThrow();
+    });
+  });
 });
