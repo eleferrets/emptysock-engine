@@ -91,25 +91,25 @@ export async function buildObjectBehavior(
   const onCreate = await buildMethod(
     "onCreate",
     "Create event",
-    "_entity: Entity",
+    "_entity: Entity, _ctx: GmlActionContext",
     /^Create_/i,
   );
   const onUpdate = await buildMethod(
     "onUpdate",
     "Step event",
-    "_entity: Entity, _dt: number",
+    "_entity: Entity, _dt: number, _ctx: GmlActionContext",
     /^Step_/i,
   );
   const onDraw = await buildMethod(
     "onDraw",
     "Draw event",
-    "_entity: Entity",
+    "_entity: Entity, _ctx: GmlActionContext",
     /^Draw_/i,
   );
   const onDestroy = await buildMethod(
     "onDestroy",
     "Destroy event",
-    "_entity: Entity",
+    "_entity: Entity, _ctx: GmlActionContext",
     /^Destroy_/i,
   );
 
@@ -130,7 +130,7 @@ export async function buildObjectBehavior(
         ? indent(transpiled.trimEnd(), 2)
         : `  // TODO: migrate collision with ${otherName}`;
     collisionFns.push(
-      `export function onCollideWith${otherClass}(_entity: Entity, _other: Entity): void {\n  // [GML auto-transpiled from Collision_${otherName}.gml — review carefully]\n${body}\n}`,
+      `export function onCollideWith${otherClass}(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from Collision_${otherName}.gml — review carefully]\n${body}\n}`,
     );
   }
 
@@ -172,7 +172,7 @@ export async function buildObjectBehavior(
           ? indent(transpiled.trimEnd(), 2)
           : `  // TODO: migrate ${eventLabel} (vk ${code})`;
       fns.push(
-        `export function ${methodName}(_entity: Entity): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully]\n${body}\n}`,
+        `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully]\n${body}\n}`,
       );
     }
     return fns;
@@ -197,7 +197,15 @@ export async function buildObjectBehavior(
 // functions up to your own prefab instances however your game dispatches
 // per-prefab behavior — see ${name}.prefab.json for this object's
 // structural (component) data.
-import type { Entity } from '@emptysock/engine';
+//
+// Every generated event handler takes a trailing \`_ctx: GmlActionContext\`
+// so transpiled GameMaker 8.1 drag-and-drop actions (action_move,
+// action_create_object, action_if_collision, ...) have a live Scene/Game to
+// act against — see @emptysock/engine's GmlActionContext for what a real
+// game needs to wire into it (at minimum { scene }; room/prefab/sound
+// actions need more, see that type's own doc comment).
+import type { Entity, GmlActionContext } from '@emptysock/engine';
+import * as GmlActions from '@emptysock/engine';
 
 ${onCreate}
 

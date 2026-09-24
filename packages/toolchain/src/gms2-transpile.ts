@@ -153,6 +153,99 @@ export function transpileGML(gml: string): string {
     (_m, v: string) => `String(${v.trim()})`,
   );
 
+  // -- GM8.1 drag-and-drop action-library compat ----------------------------
+  // Real implementations live in `@emptysock/engine`'s `compat/gmlActions.ts`
+  // (see CLAUDE.md's "GMS2 DnD action-library compat" entry) — every action
+  // is imperative and entity-affecting, so it needs the entity plus a
+  // `GmlActionContext` threaded to it. `gms2-codegen.ts` gives every
+  // generated event handler a trailing `_ctx: GmlActionContext` parameter
+  // specifically so these calls have something to receive.
+  //
+  // Actions that take only plain-data arguments (numbers/strings/booleans —
+  // no callback) are threaded and rewritten in place. `action_if_mouse` and
+  // `action_if_question` are deliberately excluded from this list — their
+  // real signature needs a live predicate callback (`isDown`/`ask`) that a
+  // bare GML source argument (an identifier or literal) cannot supply by
+  // text substitution alone; those two are left untranspiled, the same
+  // "surface as unresolved identifiers, don't fake it" rule this
+  // transpiler already applies to genuinely unmodelled GML (e.g.
+  // `gml_pragma`) — a developer wires those two calls to
+  // `GmlActions.action_if_mouse`/`action_if_question` by hand, supplying a
+  // real callback.
+  const THREADED_ACTIONS = [
+    "action_move_to",
+    "action_move",
+    "action_snap",
+    "action_set_friction",
+    "action_set_relative",
+    "action_sprite_set",
+    "action_sprite_color",
+    "action_next_room",
+    "action_another_room",
+    "action_create_object",
+    "instance_create",
+    "action_kill_object",
+    "action_set_alarm",
+    "action_sound",
+  ];
+  for (const fn of THREADED_ACTIONS) {
+    const re = new RegExp(`\\b${fn}\\s*\\(([^)]*)\\)\\s*;?`, "g");
+    out = out.replace(re, (_m, args: string) => {
+      const trimmed = args.trim();
+      const threaded =
+        trimmed.length > 0 ? `_entity, _ctx, ${trimmed}` : "_entity, _ctx";
+      return `GmlActions.${fn}(${threaded});`;
+    });
+  }
+
+  // -- GM8.1 "if" actions: real conditional nesting -------------------------
+  // GameMaker's if-actions (action_if_collision/action_if_aligned/
+  // action_if_empty) gate whether the *next* action in the original DnD
+  // action list runs — a real control-flow feature, not just a boolean
+  // helper (see CLAUDE.md). The transpiler emits one statement per line
+  // (matching how a compiled DnD action list reads), so nesting is done as
+  // a dedicated line-based pass: an if-action line consumes the next
+  // non-empty line as its guarded body and wraps it in a real `if (...) {
+  // ... }` block, rather than emitting a flat, non-conditional sequence.
+  const NESTING_IF_ACTIONS: Record<string, true> = {
+    action_if_collision: true,
+    action_if_aligned: true,
+    action_if_empty: true,
+  };
+  const lines = out.split("\n");
+  const nested: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+    const ifMatch = /^(action_if_\w+)\s*\(([^)]*)\)\s*;?$/.exec(trimmed);
+    const fn = ifMatch?.[1];
+    if (
+      ifMatch !== null &&
+      fn !== undefined &&
+      NESTING_IF_ACTIONS[fn] === true
+    ) {
+      const argsStr = (ifMatch[2] ?? "").trim();
+      const threaded =
+        argsStr.length > 0 ? `_entity, _ctx, ${argsStr}` : "_entity, _ctx";
+      const indentMatch = /^(\s*)/.exec(line);
+      const pad = indentMatch?.[1] ?? "";
+      let j = i + 1;
+      while (j < lines.length && (lines[j] ?? "").trim() === "") j++;
+      nested.push(`${pad}if (GmlActions.${fn}(${threaded})) {`);
+      if (j < lines.length) {
+        nested.push(`${pad}  ${(lines[j] ?? "").trim()}`);
+        nested.push(`${pad}}`);
+        i = j;
+      } else {
+        nested.push(`${pad}  // TODO: no following action found to gate`);
+        nested.push(`${pad}}`);
+      }
+      continue;
+    }
+    nested.push(line);
+  }
+  out = nested.join("\n");
+
   return out;
 }
 

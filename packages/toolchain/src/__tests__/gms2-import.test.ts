@@ -157,12 +157,14 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     ).toBe(false);
   });
 
-  it("leaves legacy GameMaker 8.1 DnD-compat symbols untranspiled rather than faking them", async () => {
+  it("transpiles action_move to a real, entity-threaded GmlActions call, while still leaving genuinely unmodelled GM8.1 compatibility symbols (gml_pragma) untranspiled", async () => {
     // Real GMS2 2.3+ projects can still carry legacy DnD-compatibility
     // symbols (e.g. from ported GM8.1 content) in compiled action lists.
-    // The transpiler has no rule for these and must not silently invent
-    // a fake implementation — they should surface verbatim as unresolved
-    // identifiers for the developer to migrate by hand.
+    // `action_move` now has a real implementation (see
+    // packages/engine/src/compat/gmlActions.ts) and gets rewritten to a
+    // threaded call; `gml_pragma` (a compiler directive, not a DnD action)
+    // has no engine-side equivalent at all and must still surface verbatim
+    // for the developer to migrate by hand.
     const dndDir = await fs.mkdtemp(
       path.join(os.tmpdir(), "gms2-synthetic-dnd-"),
     );
@@ -196,11 +198,150 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         path.join(dndOutDir, "obj_legacy.behavior.ts"),
         "utf-8",
       );
-      expect(content).toContain("action_move(direction, 4);");
+      expect(content).toContain(
+        "GmlActions.action_move(_entity, _ctx, direction, 4);",
+      );
       expect(content).toContain("gml_pragma('forceinline');");
+      expect(content).toContain(
+        "import * as GmlActions from '@emptysock/engine';",
+      );
+      expect(content).toContain("_ctx: GmlActionContext");
     } finally {
       await fs.rm(dndDir, { recursive: true, force: true });
       await fs.rm(dndOutDir, { recursive: true, force: true });
+    }
+  });
+
+  it("transpiles action_move + action_sprite_set together in one Create event, both entity-threaded", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-move-sprite-"),
+    );
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-move-sprite-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"DnD Move Sprite Test",
+          "resources":[
+            {"id":{"name":"obj_walker","path":"objects/obj_walker/obj_walker.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_walker");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Create_0.gml"),
+        "action_move(32, 4);\naction_sprite_set(spr_walk, 0, 1);",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, { verbose: false });
+      const content = await fs.readFile(
+        path.join(out, "obj_walker.behavior.ts"),
+        "utf-8",
+      );
+      expect(content).toContain(
+        "GmlActions.action_move(_entity, _ctx, 32, 4);",
+      );
+      expect(content).toContain(
+        "GmlActions.action_sprite_set(_entity, _ctx, spr_walk, 0, 1);",
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("nests action_if_collision around the following action_kill_object as a real if block", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-if-kill-"),
+    );
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-if-kill-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"DnD If Collision Kill Test",
+          "resources":[
+            {"id":{"name":"obj_hazard","path":"objects/obj_hazard/obj_hazard.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_hazard");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Step_0.gml"),
+        "action_if_collision(other)\naction_kill_object();",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, { verbose: false });
+      const content = await fs.readFile(
+        path.join(out, "obj_hazard.behavior.ts"),
+        "utf-8",
+      );
+      expect(content).toContain(
+        "if (GmlActions.action_if_collision(_entity, _ctx, other)) {",
+      );
+      expect(content).toContain(
+        "GmlActions.action_kill_object(_entity, _ctx);",
+      );
+      // The kill call must be nested inside the if-block, not a flat sibling statement.
+      const ifIndex = content.indexOf("if (GmlActions.action_if_collision");
+      const killIndex = content.indexOf("GmlActions.action_kill_object");
+      const closeBraceIndex = content.indexOf("}", ifIndex);
+      expect(killIndex).toBeGreaterThan(ifIndex);
+      expect(killIndex).toBeLessThan(closeBraceIndex);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("transpiles action_create_object and action_next_room, entity-threaded", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-create-room-"),
+    );
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-dnd-create-room-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"DnD Create Object Next Room Test",
+          "resources":[
+            {"id":{"name":"obj_spawner","path":"objects/obj_spawner/obj_spawner.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_spawner");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Create_0.gml"),
+        "action_create_object(obj_pickup, 10, 20);\naction_next_room();",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, { verbose: false });
+      const content = await fs.readFile(
+        path.join(out, "obj_spawner.behavior.ts"),
+        "utf-8",
+      );
+      expect(content).toContain(
+        "GmlActions.action_create_object(_entity, _ctx, obj_pickup, 10, 20);",
+      );
+      expect(content).toContain("GmlActions.action_next_room(_entity, _ctx);");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
     }
   });
 });
