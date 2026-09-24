@@ -289,3 +289,35 @@ export const COMPONENT_REGISTRY: readonly string[] = [
   "PhysicsBody",
   "Meta",
 ] as const;
+
+/**
+ * GameMaker 8.1 drag-and-drop action-library compat (see CLAUDE.md's
+ * "GMS2 DnD action-library compat" entry) — a GMS2-imported `.behavior.ts`
+ * module calls these directly, threaded a `GmlActionContext` by
+ * `gms2-codegen.ts`.
+ */
+export type { GmlActionContext } from "./compat/gmlActions.js";
+export {
+  action_move,
+  action_move_to,
+  action_snap,
+  action_set_friction,
+  action_set_relative,
+  consumeRelativeFlag,
+  action_sprite_set,
+  action_sprite_color,
+  action_next_room,
+  action_another_room,
+  action_create_object,
+  instance_create,
+  action_kill_object,
+  action_set_alarm,
+  action_sound,
+  action_if_collision,
+  action_if_aligned,
+  action_if_empty,
+  action_if_mouse,
+  action_if_question,
+  gmlActionsStep,
+  clearGmlActionState,
+} from "./compat/gmlActions.js";

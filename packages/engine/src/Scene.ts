@@ -20,6 +20,7 @@ import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
 import { clearVisualScriptScope } from "./components/VisualScript.js";
 import { clearCoroutines } from "./Coroutines.js";
+import { clearGmlActionState } from "./compat/gmlActions.js";
 
 /**
  * A `scene.each(...)` callback receives one live component object per
@@ -189,6 +190,9 @@ export class Scene {
     // Same reasoning again for a Visual Script run's per-entity evaluation
     // scope — see `clearVisualScriptScope`'s doc comment.
     clearVisualScriptScope(this.world, entity.eid);
+    // Same reasoning again for GML DnD-action compat state (velocity,
+    // friction, alarms) — see `clearGmlActionState`'s doc comment.
+    clearGmlActionState(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {
