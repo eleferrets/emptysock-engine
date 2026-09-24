@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act } from "react-dom/test-utils";
 import { createRoot, type Root } from "react-dom/client";
+import Konva from "konva";
+import type { Circle } from "konva/lib/shapes/Circle";
+import type { Group } from "konva/lib/Group";
 import {
   NavMeshEditor,
   polygonCentroid,
@@ -203,7 +206,11 @@ describe("NavMeshEditor component", () => {
       drawBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const canvas = container.querySelector("canvas");
+    const stageContainer = container.querySelector(
+      '[data-testid="navmesh-stage-container"]',
+    );
+    expect(stageContainer).not.toBeNull();
+    const canvas = stageContainer?.querySelector("canvas") ?? null;
     expect(canvas).not.toBeNull();
     if (canvas === null) return;
 
@@ -259,5 +266,96 @@ describe("NavMeshEditor component", () => {
     // once `FileReader.onload` fires.
     const data = { polygons: useNavMeshStore.getState().navMeshPolygons };
     expect(isNavMeshData(data)).toBe(true);
+  });
+
+  // ── Konva drag-isolation gotcha ──────────────────────────────────────────
+  //
+  // react-konva's underlying <canvas> gives no real pixel-based hit-testing
+  // under jsdom/vitest-canvas-mock (fills/strokes are stubbed, not actually
+  // rastered), so shape-level interaction here is driven directly through
+  // real Konva node instances — found via `Konva.stages` (every live Stage)
+  // and the stable `id`s NavMeshEditor assigns each polygon Group/vertex
+  // Circle — rather than by dispatching raw pointer coordinates and hoping
+  // Konva's intersection test resolves them to the right shape. This is
+  // Konva's own recommended way to drive its event/drag system
+  // programmatically in a test: mutate the node's position, then `.fire()`
+  // the drag event with `bubble: true` (matching exactly how Konva's real
+  // drag manager fires it), so both the node's own handler and any
+  // ancestor's bubbled handler run for real.
+
+  function currentStage(): Konva.Stage {
+    const stage = Konva.stages[Konva.stages.length - 1];
+    expect(stage).toBeDefined();
+    if (stage === undefined) throw new Error("no live Konva stage");
+    return stage;
+  }
+
+  it("dragging a single vertex moves only that vertex, not the whole polygon", async () => {
+    const polygons: EditorNavPolygon[] = [
+      makePolygon(1, [
+        { x: 0, y: 0 },
+        { x: 32, y: 0 },
+        { x: 32, y: 32 },
+        { x: 0, y: 32 },
+      ]),
+    ];
+    useNavMeshStore.getState().setNavMeshPolygons(polygons);
+    await renderPanel();
+
+    const stage = currentStage();
+    const vertex = stage.findOne<Circle>("#navmesh-vertex-1-0");
+    expect(vertex).toBeDefined();
+    if (vertex === undefined) return;
+
+    await act(async () => {
+      vertex.position({ x: 40, y: 40 });
+      vertex.fire("dragstart", { type: "dragstart", target: vertex }, true);
+      vertex.fire("dragmove", { type: "dragmove", target: vertex }, true);
+      vertex.fire("dragend", { type: "dragend", target: vertex }, true);
+      await Promise.resolve();
+    });
+
+    const result = useNavMeshStore.getState().navMeshPolygons[0];
+    expect(result?.vertices).toEqual([
+      { x: 40, y: 40 },
+      { x: 32, y: 0 },
+      { x: 32, y: 32 },
+      { x: 0, y: 32 },
+    ]);
+  });
+
+  it("dragging the polygon body translates every vertex together", async () => {
+    const polygons: EditorNavPolygon[] = [
+      makePolygon(1, [
+        { x: 0, y: 0 },
+        { x: 32, y: 0 },
+        { x: 32, y: 32 },
+        { x: 0, y: 32 },
+      ]),
+    ];
+    useNavMeshStore.getState().setNavMeshPolygons(polygons);
+    await renderPanel();
+
+    const stage = currentStage();
+    const group = stage.findOne<Group>("#navmesh-poly-1");
+    expect(group).toBeDefined();
+    if (group === undefined) return;
+
+    await act(async () => {
+      group.fire("dragstart", { type: "dragstart", target: group }, true);
+      group.position({ x: 10, y: 5 });
+      group.fire("dragmove", { type: "dragmove", target: group }, true);
+      group.fire("dragend", { type: "dragend", target: group }, true);
+      await Promise.resolve();
+    });
+
+    const result = useNavMeshStore.getState().navMeshPolygons[0];
+    expect(result?.vertices).toEqual([
+      { x: 10, y: 5 },
+      { x: 42, y: 5 },
+      { x: 42, y: 37 },
+      { x: 10, y: 37 },
+    ]);
+    expect(result?.centroid).toEqual({ x: 26, y: 21 });
   });
 });

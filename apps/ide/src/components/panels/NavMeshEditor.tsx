@@ -1,4 +1,8 @@
 import React from "react";
+import { Stage, Layer, Line, Circle, Group, Text } from "react-konva";
+import type { Stage as KonvaStage } from "konva/lib/Stage";
+import type { KonvaEventObject } from "konva/lib/Node";
+import type { Vector2d } from "konva/lib/types";
 import { useIDEStore } from "../../store/ideStore";
 import {
   useNavMeshStore,
@@ -51,10 +55,6 @@ export function pointInPolygon(p: NavMeshVec2, verts: NavMeshVec2[]): boolean {
     }
   }
   return inside;
-}
-
-function dist(a: NavMeshVec2, b: NavMeshVec2): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 /** Toggle a bidirectional neighbour link between two polygons in place. */
@@ -114,9 +114,18 @@ export function isNavMeshData(value: unknown): value is EditorNavMeshData {
   });
 }
 
+function flattenPoints(vertices: NavMeshVec2[]): number[] {
+  const out: number[] = [];
+  for (const v of vertices) {
+    out.push(v.x, v.y);
+  }
+  return out;
+}
+
 export function NavMeshEditor(): React.ReactElement {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const gridCanvasRef = React.useRef<HTMLCanvasElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const stageRef = React.useRef<KonvaStage | null>(null);
   const [tool, setTool] = React.useState<Tool>("select");
   const [canvasSize, setCanvasSize] = React.useState({ w: 800, h: 600 });
   const quipRef = React.useRef(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
@@ -181,11 +190,16 @@ export function NavMeshEditor(): React.ReactElement {
     null,
   );
   const [draftVertices, setDraftVertices] = React.useState<NavMeshVec2[]>([]);
-  const [dragState, setDragState] = React.useState<
-    | { kind: "vertex"; polyId: number; vertexIndex: number }
-    | { kind: "polygon"; polyId: number; lastPos: NavMeshVec2 }
-    | null
-  >(null);
+
+  // Snapshot of a polygon's vertices taken at the start of a whole-polygon
+  // (Group) drag — the Group's own x/y prop always resets to 0 on every
+  // render, so the current pointer delta IS the Group's live x()/y(); we
+  // translate this snapshot by that delta rather than accumulating onto
+  // already-moved vertices, which would double-apply the motion.
+  const groupDragSnapshotRef = React.useRef<{
+    polyId: number;
+    vertices: NavMeshVec2[];
+  } | null>(null);
 
   // Keyboard shortcuts: undo/redo, Enter to finish a polygon, Escape to
   // cancel the in-progress draft.
@@ -223,6 +237,8 @@ export function NavMeshEditor(): React.ReactElement {
 
   const { rulerSize } = getRulerMetrics();
   const rulerOffset = showRuler ? rulerSize : 0;
+  const stageW = Math.max(0, canvasSize.w - rulerOffset);
+  const stageH = Math.max(0, canvasSize.h - rulerOffset);
 
   function finishDraftPolygon(): void {
     if (draftVertices.length < 3) {
@@ -244,7 +260,7 @@ export function NavMeshEditor(): React.ReactElement {
   // ResizeObserver
   React.useEffect(() => {
     const container = containerRef.current;
-    const canvas = canvasRef.current;
+    const canvas = gridCanvasRef.current;
     if (!container || !canvas) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -259,9 +275,10 @@ export function NavMeshEditor(): React.ReactElement {
     return () => observer.disconnect();
   }, []);
 
-  // Draw
+  // Draw the grid + ruler chrome only — polygons/neighbours/draft are real
+  // Konva nodes now, rendered by the <Stage> below this canvas.
   React.useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = gridCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -294,96 +311,6 @@ export function NavMeshEditor(): React.ReactElement {
       }
     }
 
-    // Neighbour links, drawn under the polygons.
-    ctx.strokeStyle = "rgba(120,200,255,0.55)";
-    ctx.lineWidth = 1.5;
-    const seen = new Set<string>();
-    for (const poly of polygons) {
-      for (const nId of poly.neighbours) {
-        const key = [poly.id, nId].sort((a, b) => a - b).join(":");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const other = polygons.find((p) => p.id === nId);
-        if (other === undefined) continue;
-        ctx.beginPath();
-        ctx.moveTo(poly.centroid.x, poly.centroid.y);
-        ctx.lineTo(other.centroid.x, other.centroid.y);
-        ctx.stroke();
-      }
-    }
-
-    // Polygons
-    for (const poly of polygons) {
-      if (poly.vertices.length < 2) continue;
-      const isSelected = poly.id === selectedId || poly.id === connectFirstId;
-      ctx.beginPath();
-      const first = poly.vertices[0];
-      if (first === undefined) continue;
-      ctx.moveTo(first.x, first.y);
-      for (let i = 1; i < poly.vertices.length; i++) {
-        const v = poly.vertices[i];
-        if (v === undefined) continue;
-        ctx.lineTo(v.x, v.y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = isSelected
-        ? "rgba(124,106,247,0.35)"
-        : "rgba(80,220,150,0.18)";
-      ctx.fill();
-      ctx.strokeStyle = isSelected
-        ? "rgba(124,106,247,0.95)"
-        : "rgba(80,220,150,0.8)";
-      ctx.lineWidth = isSelected ? 2 : 1.5;
-      ctx.stroke();
-
-      // Centroid marker
-      ctx.fillStyle = "rgba(255,255,255,0.7)";
-      ctx.beginPath();
-      ctx.arc(poly.centroid.x, poly.centroid.y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Vertex handles (only interactable in select mode, but always shown)
-      for (const v of poly.vertices) {
-        ctx.fillStyle = isSelected
-          ? "rgba(124,106,247,1)"
-          : "rgba(80,220,150,0.9)";
-        ctx.beginPath();
-        ctx.arc(v.x, v.y, VERTEX_RADIUS - 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Polygon id label
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.font = "9px monospace";
-      ctx.fillText(`#${poly.id}`, poly.centroid.x + 5, poly.centroid.y - 5);
-    }
-
-    // In-progress draft polygon (draw tool)
-    if (draftVertices.length > 0) {
-      ctx.strokeStyle = "rgba(255,210,100,0.9)";
-      ctx.fillStyle = "rgba(255,210,100,0.15)";
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      const first = draftVertices[0];
-      if (first !== undefined) {
-        ctx.moveTo(first.x, first.y);
-        for (let i = 1; i < draftVertices.length; i++) {
-          const v = draftVertices[i];
-          if (v === undefined) continue;
-          ctx.lineTo(v.x, v.y);
-        }
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-      for (const v of draftVertices) {
-        ctx.fillStyle = "rgba(255,210,100,1)";
-        ctx.beginPath();
-        ctx.arc(v.x, v.y, VERTEX_RADIUS - 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
     ctx.restore();
 
     drawRulers(ctx, lw, lh, {
@@ -394,160 +321,150 @@ export function NavMeshEditor(): React.ReactElement {
       showGuides: false,
       zoom: 1,
     });
-  }, [
-    polygons,
-    tileSize,
-    showGrid,
-    showRuler,
-    snapToGridOn,
-    rulerOffset,
-    canvasSize,
-    selectedId,
-    connectFirstId,
-    draftVertices,
-  ]);
+  }, [tileSize, showGrid, showRuler, snapToGridOn, rulerOffset, canvasSize]);
 
-  function toWorldPos(e: React.PointerEvent<HTMLCanvasElement>): NavMeshVec2 {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const raw = {
-      x: e.clientX - rect.left - rulerOffset,
-      y: e.clientY - rect.top - rulerOffset,
-    };
+  const dragBound = React.useCallback(
+    (pos: Vector2d): Vector2d =>
+      snapToGridOn ? snapPoint(pos.x, pos.y, tileSize) : pos,
+    [snapToGridOn, tileSize],
+  );
+
+  function toStagePos(e: KonvaEventObject<PointerEvent>): NavMeshVec2 {
+    const pos = e.target.getStage()?.getPointerPosition();
+    const raw = pos ?? { x: 0, y: 0 };
     return snapToGridOn ? snapPoint(raw.x, raw.y, tileSize) : raw;
   }
 
-  function findPolygonAt(pos: NavMeshVec2): EditorNavPolygon | null {
-    for (let i = liveRef.current.length - 1; i >= 0; i--) {
-      const poly = liveRef.current[i];
-      if (poly !== undefined && pointInPolygon(pos, poly.vertices)) {
-        return poly;
-      }
-    }
-    return null;
-  }
-
-  function findVertexAt(
-    pos: NavMeshVec2,
-  ): { polyId: number; vertexIndex: number } | null {
-    for (const poly of liveRef.current) {
-      for (let i = 0; i < poly.vertices.length; i++) {
-        const v = poly.vertices[i];
-        if (v !== undefined && dist(pos, v) <= VERTEX_RADIUS) {
-          return { polyId: poly.id, vertexIndex: i };
-        }
-      }
-    }
-    return null;
-  }
-
-  const handlePointerDown = (
-    e: React.PointerEvent<HTMLCanvasElement>,
-  ): void => {
-    const pos = toWorldPos(e);
+  const handleStagePointerDown = (e: KonvaEventObject<PointerEvent>): void => {
+    const pos = toStagePos(e);
 
     if (tool === "draw") {
       setDraftVertices((prev) => [...prev, pos]);
       return;
     }
 
+    const stage = e.target.getStage();
+    const clickedOnEmpty = stage !== null && e.target === stage;
+    if (clickedOnEmpty && tool === "select") {
+      setSelectedId(null);
+    }
+  };
+
+  const handleStageDoubleClick = (): void => {
+    if (tool === "draw") finishDraftPolygon();
+  };
+
+  /** Click handling shared by a polygon's body (Line) and its vertices. */
+  function handlePolygonInteract(poly: EditorNavPolygon): void {
     if (tool === "connect") {
-      const hit = findPolygonAt(pos);
-      if (hit === null) return;
       if (connectFirstId === null) {
-        setConnectFirstId(hit.id);
+        setConnectFirstId(poly.id);
         return;
       }
-      if (connectFirstId === hit.id) {
+      if (connectFirstId === poly.id) {
         setConnectFirstId(null);
         return;
       }
       setPolygonsAndCommit(
-        toggleNeighbourLink(liveRef.current, connectFirstId, hit.id),
+        toggleNeighbourLink(liveRef.current, connectFirstId, poly.id),
       );
       addLog(
         "info",
-        `Toggled neighbour link between #${connectFirstId} and #${hit.id}`,
+        `Toggled neighbour link between #${connectFirstId} and #${poly.id}`,
       );
       setConnectFirstId(null);
       return;
     }
 
     if (tool === "delete") {
-      const hit = findPolygonAt(pos);
-      if (hit === null) return;
-      setPolygonsAndCommit(removePolygon(liveRef.current, hit.id));
-      if (selectedId === hit.id) setSelectedId(null);
-      addLog("info", `Deleted nav polygon #${hit.id}`);
+      setPolygonsAndCommit(removePolygon(liveRef.current, poly.id));
+      if (selectedId === poly.id) setSelectedId(null);
+      addLog("info", `Deleted nav polygon #${poly.id}`);
       return;
     }
 
-    // select tool
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const vertexHit = findVertexAt(pos);
-    if (vertexHit !== null) {
-      setSelectedId(vertexHit.polyId);
-      setDragState({ kind: "vertex", ...vertexHit });
-      return;
+    if (tool === "select") {
+      setSelectedId(poly.id);
     }
-    const polyHit = findPolygonAt(pos);
-    if (polyHit !== null) {
-      setSelectedId(polyHit.id);
-      setDragState({ kind: "polygon", polyId: polyHit.id, lastPos: pos });
-      return;
-    }
-    setSelectedId(null);
-  };
+  }
 
-  const handlePointerMove = (
-    e: React.PointerEvent<HTMLCanvasElement>,
-  ): void => {
-    if (dragState === null) return;
-    const pos = toWorldPos(e);
-
-    if (dragState.kind === "vertex") {
-      const next = liveRef.current.map((poly) => {
-        if (poly.id !== dragState.polyId) return poly;
-        const vertices = poly.vertices.map((v, i) =>
-          i === dragState.vertexIndex ? pos : v,
-        );
-        return { ...poly, vertices, centroid: polygonCentroid(vertices) };
-      });
-      setPolygons(next);
-      return;
-    }
-
-    // translate the whole polygon
-    const dx = pos.x - dragState.lastPos.x;
-    const dy = pos.y - dragState.lastPos.y;
-    if (dx === 0 && dy === 0) return;
+  function handleVertexDragMove(
+    e: KonvaEventObject<DragEvent>,
+    polyId: number,
+    vertexIndex: number,
+  ): void {
+    // A vertex's own 'dragmove' bubbles to its ancestor Group (see
+    // handleGroupDragMove's matching guard) — ignore that bubbled copy here
+    // too so a vertex drag never gets double-processed.
+    if (e.target !== e.currentTarget) return;
+    const node = e.target;
+    const pos = { x: node.x(), y: node.y() };
     const next = liveRef.current.map((poly) => {
-      if (poly.id !== dragState.polyId) return poly;
-      const vertices = poly.vertices.map((v) => ({
-        x: v.x + dx,
-        y: v.y + dy,
-      }));
-      return {
-        ...poly,
-        vertices,
-        centroid: { x: poly.centroid.x + dx, y: poly.centroid.y + dy },
-      };
+      if (poly.id !== polyId) return poly;
+      const vertices = poly.vertices.map((v, i) =>
+        i === vertexIndex ? pos : v,
+      );
+      return { ...poly, vertices, centroid: polygonCentroid(vertices) };
     });
     setPolygons(next);
-    setDragState({ ...dragState, lastPos: pos });
-  };
+  }
 
-  const handlePointerUp = (): void => {
-    if (dragState !== null) {
-      commitToHistory(liveRef.current);
-      setDragState(null);
-    }
-  };
+  function handleVertexDragEnd(
+    e: KonvaEventObject<DragEvent>,
+    polyId: number,
+    vertexIndex: number,
+  ): void {
+    if (e.target !== e.currentTarget) return;
+    handleVertexDragMove(e, polyId, vertexIndex);
+    commitToHistory(liveRef.current);
+  }
 
-  const handleCanvasDoubleClick = (): void => {
-    if (tool === "draw") finishDraftPolygon();
-  };
+  function handleGroupDragStart(
+    e: KonvaEventObject<DragEvent>,
+    polyId: number,
+  ): void {
+    // Ignore a vertex's 'dragstart' bubbling up through this Group — only
+    // react when the Group itself (the polygon body) is the actual target.
+    if (e.target !== e.currentTarget) return;
+    const poly = liveRef.current.find((p) => p.id === polyId);
+    if (poly === undefined) return;
+    groupDragSnapshotRef.current = {
+      polyId,
+      vertices: poly.vertices.map((v) => ({ ...v })),
+    };
+  }
+
+  function handleGroupDragMove(
+    e: KonvaEventObject<DragEvent>,
+    polyId: number,
+  ): void {
+    if (e.target !== e.currentTarget) return;
+    const snap = groupDragSnapshotRef.current;
+    if (snap === null || snap.polyId !== polyId) return;
+    const node = e.target;
+    const dx = node.x();
+    const dy = node.y();
+    const next = liveRef.current.map((poly) => {
+      if (poly.id !== polyId) return poly;
+      const vertices = snap.vertices.map((v) => ({ x: v.x + dx, y: v.y + dy }));
+      return { ...poly, vertices, centroid: polygonCentroid(vertices) };
+    });
+    setPolygons(next);
+  }
+
+  function handleGroupDragEnd(
+    e: KonvaEventObject<DragEvent>,
+    polyId: number,
+  ): void {
+    if (e.target !== e.currentTarget) return;
+    handleGroupDragMove(e, polyId);
+    commitToHistory(liveRef.current);
+    groupDragSnapshotRef.current = null;
+    // The Group is a pure delta transform — reset it now (the next render's
+    // explicit x={0} y={0} prop would do this anyway, but resetting
+    // immediately avoids a one-frame flash of the un-reset delta).
+    e.target.position({ x: 0, y: 0 });
+  }
 
   // ── Load / export ──────────────────────────────────────────────────────
 
@@ -627,6 +544,30 @@ export function NavMeshEditor(): React.ReactElement {
   };
 
   const selectedPolygon = polygons.find((p) => p.id === selectedId) ?? null;
+
+  // Neighbour links, drawn under the polygons.
+  const neighbourLines: Array<{ key: string; points: number[] }> = [];
+  {
+    const seen = new Set<string>();
+    for (const poly of polygons) {
+      for (const nId of poly.neighbours) {
+        const key = [poly.id, nId].sort((a, b) => a - b).join(":");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const other = polygons.find((p) => p.id === nId);
+        if (other === undefined) continue;
+        neighbourLines.push({
+          key,
+          points: [
+            poly.centroid.x,
+            poly.centroid.y,
+            other.centroid.x,
+            other.centroid.y,
+          ],
+        });
+      }
+    }
+  }
 
   return (
     <div
@@ -821,25 +762,147 @@ export function NavMeshEditor(): React.ReactElement {
               }`}
         </div>
         <canvas
-          ref={canvasRef}
+          ref={gridCanvasRef}
           style={{
+            position: "absolute",
+            inset: 0,
             display: "block",
             width: "100%",
             height: "100%",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          data-testid="navmesh-stage-container"
+          style={{
+            position: "absolute",
+            top: rulerOffset,
+            left: rulerOffset,
+            right: 0,
+            bottom: 0,
+            touchAction: "none",
             cursor:
               tool === "delete"
                 ? "not-allowed"
                 : tool === "draw"
                   ? "crosshair"
                   : "default",
-            touchAction: "none",
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onDoubleClick={handleCanvasDoubleClick}
-        />
+        >
+          <Stage
+            ref={stageRef}
+            width={stageW}
+            height={stageH}
+            onPointerDown={handleStagePointerDown}
+            onDblClick={handleStageDoubleClick}
+          >
+            <Layer>
+              {neighbourLines.map((line) => (
+                <Line
+                  key={line.key}
+                  points={line.points}
+                  stroke="rgba(120,200,255,0.55)"
+                  strokeWidth={1.5}
+                  listening={false}
+                />
+              ))}
+
+              {polygons.map((poly) => {
+                if (poly.vertices.length < 2) return null;
+                const isSelected =
+                  poly.id === selectedId || poly.id === connectFirstId;
+                return (
+                  <Group
+                    key={poly.id}
+                    id={`navmesh-poly-${poly.id}`}
+                    x={0}
+                    y={0}
+                    draggable={tool === "select"}
+                    dragBoundFunc={dragBound}
+                    onDragStart={(e) => handleGroupDragStart(e, poly.id)}
+                    onDragMove={(e) => handleGroupDragMove(e, poly.id)}
+                    onDragEnd={(e) => handleGroupDragEnd(e, poly.id)}
+                  >
+                    <Line
+                      points={flattenPoints(poly.vertices)}
+                      closed
+                      fill={
+                        isSelected
+                          ? "rgba(124,106,247,0.35)"
+                          : "rgba(80,220,150,0.18)"
+                      }
+                      stroke={
+                        isSelected
+                          ? "rgba(124,106,247,0.95)"
+                          : "rgba(80,220,150,0.8)"
+                      }
+                      strokeWidth={isSelected ? 2 : 1.5}
+                      onPointerDown={() => handlePolygonInteract(poly)}
+                    />
+                    <Circle
+                      x={poly.centroid.x}
+                      y={poly.centroid.y}
+                      radius={2.5}
+                      fill="rgba(255,255,255,0.7)"
+                      listening={false}
+                    />
+                    <Text
+                      x={poly.centroid.x + 5}
+                      y={poly.centroid.y - 12}
+                      text={`#${poly.id}`}
+                      fontSize={9}
+                      fontFamily="monospace"
+                      fill="rgba(255,255,255,0.85)"
+                      listening={false}
+                    />
+                    {poly.vertices.map((v, i) => (
+                      <Circle
+                        key={i}
+                        id={`navmesh-vertex-${poly.id}-${i}`}
+                        x={v.x}
+                        y={v.y}
+                        radius={VERTEX_RADIUS - 2}
+                        fill={
+                          isSelected
+                            ? "rgba(124,106,247,1)"
+                            : "rgba(80,220,150,0.9)"
+                        }
+                        draggable={tool === "select"}
+                        dragBoundFunc={dragBound}
+                        onPointerDown={() => handlePolygonInteract(poly)}
+                        onDragMove={(e) => handleVertexDragMove(e, poly.id, i)}
+                        onDragEnd={(e) => handleVertexDragEnd(e, poly.id, i)}
+                      />
+                    ))}
+                  </Group>
+                );
+              })}
+
+              {draftVertices.length > 0 && (
+                <>
+                  <Line
+                    points={flattenPoints(draftVertices)}
+                    stroke="rgba(255,210,100,0.9)"
+                    fill="rgba(255,210,100,0.15)"
+                    strokeWidth={1.5}
+                    dash={[4, 3]}
+                    listening={false}
+                  />
+                  {draftVertices.map((v, i) => (
+                    <Circle
+                      key={i}
+                      x={v.x}
+                      y={v.y}
+                      radius={VERTEX_RADIUS - 2}
+                      fill="rgba(255,210,100,1)"
+                      listening={false}
+                    />
+                  ))}
+                </>
+              )}
+            </Layer>
+          </Stage>
+        </div>
         {polygons.length === 0 && draftVertices.length === 0 && (
           <div
             style={{
