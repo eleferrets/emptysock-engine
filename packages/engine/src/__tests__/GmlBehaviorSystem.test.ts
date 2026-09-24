@@ -120,10 +120,10 @@ describe("GmlBehaviorSystem — step-based Collision dispatch (4th pass, AABB ov
   it("fires the matching onCollideWith<Type> handler when two entities' AABBs overlap", () => {
     const hits: number[] = [];
     registerGmlBehavior("player", {
-      onCollideWithEnemy: (_entity, other: { eid: number }) => {
+      onCollideWithEnemy: (_entity: unknown, other: { eid: number }) => {
         hits.push(other.eid);
       },
-    } satisfies GmlBehaviorModule);
+    } as GmlBehaviorModule);
 
     const player = scene.spawn();
     player.add(GmlBehaviorState, { behaviorId: "player" });
@@ -146,7 +146,7 @@ describe("GmlBehaviorSystem — step-based Collision dispatch (4th pass, AABB ov
       onCollideWithEnemy: () => {
         fired = true;
       },
-    } satisfies GmlBehaviorModule);
+    } as GmlBehaviorModule);
 
     const player = scene.spawn();
     player.add(GmlBehaviorState, { behaviorId: "player2" });
@@ -174,7 +174,7 @@ describe("GmlBehaviorSystem — step-based Collision dispatch (4th pass, AABB ov
       onCollideWithNPC: () => {
         npcFired = true;
       },
-    } satisfies GmlBehaviorModule);
+    } as GmlBehaviorModule);
 
     const player = scene.spawn();
     player.add(GmlBehaviorState, { behaviorId: "player3" });

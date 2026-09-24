@@ -177,10 +177,10 @@ describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
 
       const hits: number[] = [];
       registerGmlBehavior("physics-floor", {
-        onCollideWithBall: (_entity, other: { eid: number }) => {
+        onCollideWithBall: (_entity: unknown, other: { eid: number }) => {
           hits.push(other.eid);
         },
-      } satisfies GmlBehaviorModule);
+      } as GmlBehaviorModule);
 
       const ball = scene.spawn();
       ball.add(PhysicsBody, {
@@ -220,7 +220,7 @@ describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
         onCollideWithBall: () => {
           fired = true;
         },
-      } satisfies GmlBehaviorModule);
+      } as GmlBehaviorModule);
 
       const ball = scene.spawn();
       ball.add(PhysicsBody, {
