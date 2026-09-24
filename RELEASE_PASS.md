@@ -20,6 +20,89 @@ once a pass's items are all `[x]` and anything worth keeping has been migrated t
 
 ---
 
+## HOW TO: verify GMS2 import end-to-end against a new real project
+
+**Written 2026-09-24, for whichever session picks this up next.** The project owner's stated goal for
+this importer: convert real, messy, years-old GameMaker projects onto this engine, fully working, with
+nothing silently faked. Two real projects have been tested this way so far (both since deleted per the
+rule below) and both surfaced real bugs that no synthetic fixture had caught — this playbook exists so
+the next test doesn't have to rediscover the method from scratch. This section is a standing reference,
+not a dated task — keep it updated with whatever the next real-project test teaches, don't archive it.
+
+**This is explicitly separate from Track 10** (the `docs/`/`docs/manual/` rewrite and the
+`emptysock-ai-skills`/`emptysock-mcp` companion-repo sweep, tracked further down this file). Testing more
+GMS2 projects does not require or imply starting that rewrite — don't conflate the two.
+
+### The non-negotiable rule: nothing from the uploaded project ever touches the repo or git history
+
+A real project a user uploads for this purpose is their own property, often unfinished/unreleased work.
+
+1. Extract the uploaded archive (`.yyp` root, `.yyz`, or a `.zip` wrapping either) into your **scratchpad
+   directory only** — never anywhere under the repo working tree.
+2. Build the toolchain once if `packages/toolchain/dist/` is stale: `pnpm --filter @emptysock/toolchain run build`.
+3. Run the real CLI against the scratch extraction, output also to scratch:
+   `node packages/toolchain/dist/cli.js import --from gms2 --project <scratch>/<proj>/<Name>.yyp --out <scratch>/out --verbose`.
+4. Do all inspection/verification (below) by reading files under `<scratch>/out` and the extraction —
+   never copy anything from either into the repo.
+5. **Before finishing your turn**, `rm -rf` both the extraction and the output directory, then confirm
+   `git status` in the repo shows nothing related. If you find a real bug and want a regression test,
+   build a small, clearly-synthetic fixture from scratch (following `gms2-import.test.ts`'s existing
+   house style) — never a trimmed-down copy of the real project, and never use any name, asset name, or
+   string that appeared in the real project anywhere in a comment, test name, or commit message.
+
+### What to actually check — informed by the two real bugs found so far, not just "did it crash"
+
+A clean CLI exit and a migration report full of green-sounding words is not sufficient evidence the
+import is correct — both real bugs found so far (2026-09-24) produced a **successful exit and a report
+that looked complete**, and were only caught by looking past the summary numbers:
+
+1. **Cross-check every "converted" count against the real file count on disk**, don't trust the report's
+   own arithmetic. `grep -c '"objects/[^"]*\.yy"' <Name>.yyp` (etc. per category) gives the `.yyp`'s
+   real resource-list count; `find <scratch>/<proj>/objects -iname '*.yy' | wc -l` gives what's actually
+   present on disk. A real, long-lived GameMaker project routinely has FAR more entries in its resource
+   list than exist on disk (stale/orphaned references — assets deleted from disk without being removed
+   from the project file) — this is normal and not itself a bug, but every one of those must show up as
+   a named, honest failure in the report, never a silent "converted." This exact gap (objects specifically
+   were being silently faked as "converted" with a fabricated empty prefab when their `.yy` didn't exist)
+   was the second real bug found — check whether it's still fixed, and apply the same "does this resource
+   category check for real existence before claiming success" scrutiny to any resource kind you haven't
+   personally re-verified recently.
+2. **Read the actual generated file contents for a handful of real, successfully-converted assets** —
+   don't just confirm the file exists and the report says "converted." Does a `.prefab.json` for an
+   object with a real sprite actually have a `Sprite` component with the real texture path, or just
+   `Transform`? Does an object with `physicsObject: true` actually get a `PhysicsBody`? This exact
+   category of bug (`buildObjectPrefabJSON` silently emitting only `Transform` for every object,
+   regardless of its real data, because it never read the source `.yy` at all) was the first real bug
+   found, and it passed every existing synthetic-fixture test because none of those fixtures happened to
+   assert on the specific fields that were missing.
+3. **Actually run the generated behavior through the engine, don't just read the generated TypeScript
+   text.** Build a small real runtime harness: construct a headless `Scene`, `registerGmlBehavior()` a
+   generated `.behavior.ts` module, spawn its prefab via `loadSceneFile()`'s `onSpawned` hook (dispatches
+   `onCreate`), step several frames via `GmlBehaviorSystem.update()`, and assert on real resulting state
+   — did a `Transform` position genuinely change the way an `action_move` call in the source should cause?
+   Does cross-entity Begin/Step/End-Step ordering hold? This is what caught `gmlActionsStep()` never
+   actually being called by codegen despite its own doc comment claiming it was — a bug invisible from
+   reading generated text alone, since the generated code was syntactically fine and merely didn't do
+   anything.
+4. **Every resource category the project actually contains, converted or not.** A big real project may
+   exercise resource types no test has hit yet (tilesets, shaders, sequences, timelines, extensions) —
+   confirm each either has a real conversion path or produces a clean, named "no import path in this
+   tool" warning (never a crash, never a silent `skipped`-array-only entry with no report line).
+5. **Read the migration report's own summary table** and sanity-check its arithmetic against the
+   category-by-category counts above — a report that's internally inconsistent (converted + manual ≠
+   found) is itself a signal something upstream miscounted.
+
+### If you find a real bug
+
+Fix it for real (not a report-only finding), add a synthetic regression test proving it (in whichever of
+`gms2-import.test.ts` / `gms2-codegen-events.test.ts` / `GmlBehaviorSystem.test.ts` / a new file fits),
+verify `npx turbo run typecheck lint test --force` green, update the relevant CLAUDE.md entry to describe
+the real fixed behavior (not the old broken one), and add a dated bullet to this file describing exactly
+what was wrong — the two entries already here (search "gms2 object prefab and stale-reference bugs") are
+the model to follow: precise, with before/after examples, not vague.
+
+---
+
 **2026-09-24.** IDE Inspector/AssetBrowser pass — four features, landed as four commits
 (71a8814, 811adf4, e42fa2f, ea36974):
 
