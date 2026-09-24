@@ -55,8 +55,29 @@ interface YyLayer {
   // (e.g. "GMRInstanceLayer", "GMRTileLayer", "GMRBackgroundLayer"), not a
   // "layerType" field — that field does not exist in the real format.
   resourceType?: string;
+  /**
+   * A real `GMRTileLayer`'s `tilesetId` reference lives directly on the
+   * layer object itself, as a sibling of `tiles` — confirmed against real
+   * project data (see `parseTiles`'s doc comment). This module's own
+   * pre-existing synthetic test fixtures instead nest it under
+   * `tiles.tilesetId`, which no real GameMaker export has been observed to
+   * use; `parseTiles` checks this real, top-level field first and falls
+   * back to the nested one for that back-compat case.
+   */
+  tilesetId?: { name?: string };
   tiles?: {
     TileData?: number[][];
+    /**
+     * The real format every GMS2 room `.yy` actually writes (confirmed
+     * against real project data — see `parseTiles`'s doc comment): a flat,
+     * row-major array of `SerialiseWidth * SerialiseHeight` raw cell values,
+     * not the nested `TileData` shape above. `TileData` is kept only for
+     * this module's own pre-existing synthetic test fixtures/back-compat;
+     * no real GameMaker export has ever been observed to use it.
+     */
+    TileSerialiseData?: number[];
+    SerialiseWidth?: number;
+    SerialiseHeight?: number;
     tilesetId?: { name?: string };
     [key: string]: unknown;
   };
@@ -75,21 +96,87 @@ function isYyRoom(val: unknown): val is YyRoom {
   return typeof val === "object" && val !== null;
 }
 
+/**
+ * GameMaker's real per-cell tile value packs the tile index into the low
+ * bits and three placement flags (rotate/mirror/flip) into the top three
+ * bits — confirmed empirically against a real GameMaker project's exported
+ * room data (no published byte-level spec was available to check this
+ * against offline; see this function's own doc comment for exactly how it
+ * was verified). `TileCell` (`@emptysock/tilemap`'s real shape) has no
+ * rotate/mirror/flip field, so those three bits are read (to correctly
+ * recover the real tile index) but not preserved anywhere — the same
+ * "honestly read, then honestly not representable" shape
+ * `convertGms2Tileset`'s `asymmetryWarning` already uses for a different
+ * field this engine's types don't carry.
+ */
+const TILE_INDEX_MASK = 0x1fffffff;
+
+/**
+ * Parse one tile layer's real placed-tile data.
+ *
+ * GameMaker's actual `.yy` room format (confirmed against a real, full
+ * GameMaker project's exported rooms — every one of that project's tile
+ * layers used this shape, none used the nested `TileData` array this
+ * function used to assume) is `tiles.TileSerialiseData`: a flat, row-major
+ * array of `SerialiseWidth * SerialiseHeight` raw cell values — not a 2D
+ * `TileData` array (which does not appear anywhere in real GameMaker
+ * exports observed so far; `TileData` support is kept only for this
+ * module's pre-existing synthetic test fixtures).
+ *
+ * A raw cell value's low 29 bits (`TILE_INDEX_MASK`) are the tile's index
+ * into its tileset; the top 3 bits (`TILE_FLAG_MASK`) are GameMaker's
+ * rotate/mirror/flip placement flags. A cell whose *masked* index is `0` is
+ * treated as empty — this is the standard behaviour of GameMaker's tile grid
+ * (background/unfilled cells serialise as a value whose masked index is `0`;
+ * an actual, real project's fully-populated ground layers verified this:
+ * the overwhelming majority of their cells share one exact raw value
+ * (`0x80000000` — flip flag set, index 0) that only ever appears where no
+ * tile is visually placed, while every other observed, genuinely-placed
+ * tile in that same real data carried a small raw value with none of the
+ * flag bits set at all). This mirrors the pre-existing nested-`TileData`
+ * behaviour, which already treated a raw `0` as empty — the same
+ * "index 0 renders as background, not as a real placed tile" limitation now
+ * applies uniformly to both formats, not a new regression introduced by
+ * flag-masking.
+ */
 function parseTiles(layer: YyLayer): TileEntry[] {
   const tiles = layer.tiles;
   if (tiles === undefined || typeof tiles !== "object") return [];
 
   const tilesetId =
-    typeof tiles.tilesetId === "object" &&
-    typeof (tiles.tilesetId as Record<string, unknown>)["name"] === "string"
-      ? ((tiles.tilesetId as Record<string, unknown>)["name"] as string)
-      : "";
+    typeof layer.tilesetId === "object" &&
+    typeof (layer.tilesetId as Record<string, unknown>)["name"] === "string"
+      ? ((layer.tilesetId as Record<string, unknown>)["name"] as string)
+      : typeof tiles.tilesetId === "object" &&
+          typeof (tiles.tilesetId as Record<string, unknown>)["name"] ===
+            "string"
+        ? ((tiles.tilesetId as Record<string, unknown>)["name"] as string)
+        : "";
 
+  const result: TileEntry[] = [];
+
+  const flat = tiles.TileSerialiseData;
+  const width = tiles.SerialiseWidth;
+  if (Array.isArray(flat) && typeof width === "number" && width > 0) {
+    flat.forEach((raw, i) => {
+      if (typeof raw !== "number") return;
+      const tileIndex = raw & TILE_INDEX_MASK;
+      if (tileIndex === 0) return;
+      result.push({
+        tilesetId,
+        x: i % width,
+        y: Math.floor(i / width),
+        tileIndex,
+      });
+    });
+    return result;
+  }
+
+  // Back-compat / synthetic-fixture path: the nested TileData shape no real
+  // GameMaker export has been observed to use.
   const tileData = Array.isArray(tiles["TileData"])
     ? (tiles["TileData"] as number[][])
     : [];
-
-  const result: TileEntry[] = [];
   tileData.forEach((row, rowIdx) => {
     if (!Array.isArray(row)) return;
     row.forEach((tileIndex, colIdx) => {

@@ -271,12 +271,20 @@ export interface RoomTilemapResult {
  * `RoomLayer.tiles` data (`convertGms2Room`'s `parseTiles()`) plus one
  * already-converted tileset — the two previously-honest-but-unused halves
  * CLAUDE.md's GMS2 tileset entry used to describe as "parsed but not
- * converted". Only tile layers whose `TileEntry.tilesetId` matches
- * `tilesetName` are included (a room's other tile layers, if any reference a
- * *different* tileset, are reported separately by the caller via
- * `tilesDropped`/its own migration-report note — `TilemapData` has exactly
- * one `tileset` field, so one room only ever gets one generated tilemap
- * module per converted tileset).
+ * converted". Only tiles whose `TileEntry.tilesetId` matches `tilesetName`
+ * are placed into the generated grid — every other placed tile (whether it
+ * references a genuinely different tileset, or falls outside the room's
+ * computed grid bounds) is counted in `tilesDropped`, not silently lost or
+ * fabricated. `TilemapData` has exactly one `tileset` field, so this
+ * function only ever produces one tileset's worth of tile data per call —
+ * the caller (`importGMS2Project`, `gms2-import.ts`) is what calls this once
+ * per distinct tileset a room's tile layers actually reference, emitting one
+ * sibling `.tilemap.ts` module per tileset for a room that uses more than
+ * one (see that call site's own doc comment for the real multi-tileset
+ * file-naming scheme). A room's tile layers referencing a *different*
+ * tileset than `tilesetName` here is therefore an entirely expected,
+ * non-error case from this function's own point of view — those tiles are
+ * simply this call's business, not this call's to place.
  *
  * The generated grid's `cols`/`rows` are derived from the room's own
  * `width`/`height` divided by the tileset's `tileWidth`/`tileHeight`

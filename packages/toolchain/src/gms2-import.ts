@@ -330,12 +330,22 @@ export async function importGMS2Project(
       // tile data into RoomLayer.tiles; now that tilesets themselves convert
       // (see the tilesets loop above), a room's tile layer(s) get a real
       // <room>.tilemap.ts module — a TilemapData `@emptysock/tilemap`'s
-      // TilemapSystem.register() can load directly — whenever they
-      // reference a tileset that actually converted. TilemapData carries
-      // exactly one `tileset`, so only the (real-world overwhelmingly
-      // common) single-tileset-per-room case converts automatically; a room
-      // whose tile layers reference more than one distinct tileset gets a
-      // real, honest note instead of a silently-incomplete tilemap.
+      // TilemapSystem.register() can load directly — for every distinct
+      // tileset its tile layers reference that actually converted.
+      // TilemapData carries exactly one `tileset` (it's `@emptysock/tilemap`'s
+      // real, unchanged shape — see gms2-tileset-import.ts), so a room with
+      // N distinct tilesets gets N sibling TilemapData modules, one per
+      // tileset, each holding only the cells that reference it (a real
+      // GameMaker room legitimately draws several tile layers against
+      // different tilesets, e.g. a ground tileset plus a separate props/
+      // decoration tileset — this is common real data, not a hypothetical
+      // edge case). A room with exactly one distinct tileset keeps the
+      // original single-file naming (`rooms/<name>.tilemap.ts`) for
+      // backward compatibility; a room with more than one gets
+      // `rooms/<name>.<tileset>.tilemap.ts` per tileset, so multiple
+      // sibling files never collide. A tileset that itself failed to
+      // convert still gets a real, honest per-tileset note rather than
+      // silently dropping that portion of the room's tile data.
       const tileLayers = room.layers.filter((layer) => layer.tiles.length > 0);
       const totalTiles = tileLayers.reduce(
         (sum, layer) => sum + layer.tiles.length,
@@ -343,41 +353,67 @@ export async function importGMS2Project(
       );
       let roomNote: string | undefined;
       if (totalTiles > 0) {
-        const distinctTilesetIds = new Set(
-          tileLayers.flatMap((layer) =>
-            layer.tiles.map((tile) => tile.tilesetId),
+        const distinctTilesetIds = [
+          ...new Set(
+            tileLayers.flatMap((layer) =>
+              layer.tiles.map((tile) => tile.tilesetId),
+            ),
           ),
-        );
-        if (distinctTilesetIds.size > 1) {
-          roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) reference ${distinctTilesetIds.size} different tilesets (${[...distinctTilesetIds].join(", ")}) — this importer's generated TilemapData carries only one tileset per room, so no tilemap was generated for this room. Recreate tile layers manually with @emptysock/tilemap, or split this room's tile layers across separate tilesets in GameMaker before re-importing.`;
-          warnings.push(`Room "${name}": ${roomNote}`);
-        } else {
-          const [tilesetName] = distinctTilesetIds;
+        ];
+        const multi = distinctTilesetIds.length > 1;
+        const noteParts: string[] = [];
+
+        for (const tilesetName of distinctTilesetIds) {
+          const tilesForThisTileset = tileLayers.reduce(
+            (sum, layer) =>
+              sum +
+              layer.tiles.filter((tile) => tile.tilesetId === tilesetName)
+                .length,
+            0,
+          );
           const tileset =
-            tilesetName !== undefined && tilesetName !== ""
-              ? convertedTilesets.get(tilesetName)
-              : undefined;
+            tilesetName !== "" ? convertedTilesets.get(tilesetName) : undefined;
+
           if (tileset === undefined) {
-            roomNote = `${totalTiles} tile(s) across ${tileLayers.length} tile layer(s) reference tileset "${tilesetName ?? ""}", which was not converted (see the Tilesets section above) — no tilemap was generated for this room. Recreate tile layers manually with @emptysock/tilemap once the tileset converts.`;
-            warnings.push(`Room "${name}": ${roomNote}`);
-          } else {
-            const tilesetNameResolved = tilesetName as string;
-            const tilemapResult = buildRoomTilemapModule(
-              name,
-              room,
-              tilesetNameResolved,
-              tileset,
-            );
-            filesToWrite.push({
-              rel: `rooms/${name}.tilemap.ts`,
-              content: tilemapResult.content,
-            });
-            roomNote = `${tilemapResult.tilesPlaced} tile(s) across ${tileLayers.length} tile layer(s) converted to rooms/${name}.tilemap.ts (tileset "${tilesetNameResolved}") — register it with @emptysock/tilemap's TilemapSystem.register()/.loadInto().`;
-            if (tilemapResult.tilesDropped > 0) {
-              roomNote += ` ${tilemapResult.tilesDropped} tile(s) were dropped (out of the room's computed tile grid bounds).`;
-            }
+            const part = `${tilesForThisTileset} tile(s) reference tileset "${tilesetName}", which was not converted (see the Tilesets section above) — no tilemap was generated for that tileset. Recreate those tile layers manually with @emptysock/tilemap once the tileset converts.`;
+            noteParts.push(part);
+            warnings.push(`Room "${name}": ${part}`);
+            continue;
           }
+
+          const tilesetNameResolved = tilesetName;
+          const tilemapResult = buildRoomTilemapModule(
+            name,
+            room,
+            tilesetNameResolved,
+            tileset,
+          );
+          const rel = multi
+            ? `rooms/${name}.${tilesetNameResolved}.tilemap.ts`
+            : `rooms/${name}.tilemap.ts`;
+          filesToWrite.push({ rel, content: tilemapResult.content });
+
+          // buildRoomTilemapModule's own tilesDropped is deliberately a
+          // combined count (tiles referencing a *different* tileset than
+          // this one, plus tiles genuinely out of the room's computed grid
+          // bounds) — that's the correct count for its own single-tileset
+          // regression tests. Here, the "different tileset" component is
+          // expected (those tiles are converted by this same loop's other
+          // iteration, not lost) and would be misleading to report as
+          // "dropped" — the note only ever surfaces a real, genuine
+          // out-of-bounds count.
+          const otherTilesetCount = totalTiles - tilesForThisTileset;
+          const outOfBounds = tilemapResult.tilesDropped - otherTilesetCount;
+
+          let part = `${tilemapResult.tilesPlaced} tile(s) converted to ${rel} (tileset "${tilesetNameResolved}") — register it with @emptysock/tilemap's TilemapSystem.register()/.loadInto().`;
+          if (outOfBounds > 0) {
+            part += ` ${outOfBounds} tile(s) were dropped (out of the room's computed tile grid bounds).`;
+            warnings.push(`Room "${name}": ${part}`);
+          }
+          noteParts.push(part);
         }
+
+        roomNote = noteParts.join(" ");
       }
       reportEntries.push({
         kind: "room",

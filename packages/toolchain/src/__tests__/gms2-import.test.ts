@@ -1008,7 +1008,7 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       // 4 non-zero cells in the TileData grid above: (0,0)=1,(0,1)=1,(1,1)=2,(1,2)=3.
       expect(result.warnings).toEqual([
         expect.stringContaining(
-          'Room "rm_tiles": 4 tile(s) across 1 tile layer(s) reference tileset "ts_ground", which was not converted',
+          'Room "rm_tiles": 4 tile(s) reference tileset "ts_ground", which was not converted',
         ) as string,
       ]);
 
@@ -1016,7 +1016,9 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
         path.join(out, "migration-report.md"),
         "utf-8",
       );
-      expect(report).toContain("tile(s) across 1 tile layer(s)");
+      expect(report).toContain(
+        'reference tileset "ts_ground", which was not converted',
+      );
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
