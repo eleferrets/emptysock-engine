@@ -325,6 +325,49 @@ export {
 export type { GmlDrawTarget } from "./compat/gml.js";
 
 /**
+ * GameMaker Studio 2 particle-function compat (`part_type_*`/`part_system_*`)
+ * — see `compat/gmlParticles.ts`'s module doc comment for why these take
+ * `(ctx: GmlParticleContext, ...)` rather than `gmlActions.ts`'s
+ * `(entity, ctx, ...)` shape: GameMaker's own particle API is handle-based,
+ * not tied to a specific instance.
+ */
+export type {
+  GmlParticleContext,
+  ParticleMountTarget,
+} from "./compat/gmlParticles.js";
+export {
+  part_type_create,
+  part_type_destroy,
+  part_type_exists,
+  part_type_clear,
+  part_type_shape,
+  part_type_sprite,
+  part_type_size,
+  part_type_colour1,
+  part_type_color1,
+  part_type_colour2,
+  part_type_color2,
+  part_type_colour3,
+  part_type_color3,
+  part_type_alpha1,
+  part_type_alpha2,
+  part_type_alpha3,
+  part_type_speed,
+  part_type_direction,
+  part_type_gravity,
+  part_type_life,
+  part_system_create,
+  part_system_exists,
+  part_system_destroy,
+  part_system_position,
+  part_system_depth,
+  part_particles_create,
+  part_particles_create_colour,
+  part_particles_create_color,
+  part_particles_clear,
+} from "./compat/gmlParticles.js";
+
+/**
  * Pure/global GML scripting-function compat (~50 of GameMaker's most-used
  * built-ins — `ds_map_*`/`ds_list_*`, `string_*`, `draw_*`, math/random
  * helpers) — the sibling to the entity-affecting DnD action library above.
