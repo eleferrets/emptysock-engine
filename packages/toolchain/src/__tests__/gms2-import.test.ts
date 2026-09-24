@@ -144,7 +144,13 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       components: { component: string }[];
     };
     expect(prefab.prefabName).toBe("obj_hero");
-    expect(prefab.components).toEqual([{ component: "Transform" }]);
+    expect(prefab.components).toEqual([
+      { component: "Transform" },
+      {
+        component: "GmlBehaviorState",
+        overrides: { behaviorId: "obj_hero" },
+      },
+    ]);
   });
 
   it("does not warn about defaultScriptType: 1 alone (it is not a reliable GML Visual signal)", async () => {
@@ -411,6 +417,10 @@ describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only
       };
       expect(prefab.components).toEqual([
         { component: "Transform" },
+        {
+          component: "GmlBehaviorState",
+          overrides: { behaviorId: "obj_crate" },
+        },
         {
           component: "Sprite",
           overrides: { texturePath: "./assets/sprites/spr_crate/frame_0.png" },

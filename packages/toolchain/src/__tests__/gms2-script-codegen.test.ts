@@ -148,8 +148,12 @@ describe("buildObjectBehavior imports scripts it calls", () => {
       const behavior = await buildObjectBehavior("obj_thing", dir, [
         "scr_double",
       ]);
+      // `${name}.behavior.ts` and `${script}.ts` are both written at the
+      // import output directory's root by `importGMS2Project` — a sibling
+      // import, not a parent-directory one (a real bug this regression
+      // test now guards against).
       expect(behavior).toContain(
-        "import { scr_double } from '../scr_double.js';",
+        "import { scr_double } from './scr_double.js';",
       );
       expect(behavior).toContain("scr_double(5)");
     } finally {
@@ -235,7 +239,7 @@ describe("importGMS2Project end-to-end: script + object-calling-script wiring", 
         "utf-8",
       );
       expect(behaviorOut).toContain(
-        "import { scr_triple } from '../scr_triple.js';",
+        "import { scr_triple } from './scr_triple.js';",
       );
       expect(behaviorOut).toContain("scr_triple(7)");
     } finally {

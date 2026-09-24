@@ -82,10 +82,21 @@ export async function buildObjectPrefabJSON(
 ): Promise<string> {
   const yyPath = path.join(projectRoot, "objects", name, `${name}.yy`);
 
+  // Every object gets a companion `.behavior.ts` module unconditionally
+  // (see `buildObjectBehavior`'s own doc comment), and `GmlBehaviorSystem`/
+  // `GmsProjectRuntime` only ever dispatch onCreate/Step/Collision/Draw/
+  // onDestroy against an entity that actually carries `GmlBehaviorState` —
+  // without this component, a GMS2-imported prefab's generated behavior
+  // functions are dead code no dispatcher can ever reach (see CLAUDE.md's
+  // "GML behavior dispatch" entry). `behaviorId` matches the same object
+  // name `registerGmlBehavior(name, module)` is keyed on.
   const components: Array<{
     component: string;
     overrides?: Record<string, unknown>;
-  }> = [{ component: "Transform" }];
+  }> = [
+    { component: "Transform" },
+    { component: "GmlBehaviorState", overrides: { behaviorId: name } },
+  ];
 
   let raw: string | undefined;
   try {
@@ -430,8 +441,11 @@ export async function buildObjectBehavior(
   const calledScripts = knownScripts.filter((script) =>
     new RegExp(`\\b${escapeRegExp(script)}\\s*\\(`).test(allEventBodies),
   );
+  // `${name}.behavior.ts` and `${script}.ts` are both written at the
+  // import output directory's root (see `importGMS2Project`'s
+  // `filesToWrite` calls) — a sibling import, never a parent-directory one.
   const scriptImportLines = calledScripts
-    .map((script) => `import { ${script} } from '../${script}.js';`)
+    .map((script) => `import { ${script} } from './${script}.js';`)
     .join("\n");
 
   return `// Auto-generated GMS2 behavior for object: ${name}
@@ -514,9 +528,10 @@ export async function buildRoomSceneJSON(
   name: string,
   projectRoot: string,
   objects: string[],
+  guidToObjectName: Readonly<Record<string, string>> = {},
 ): Promise<string> {
   const roomYyPath = path.join(projectRoot, "rooms", name, `${name}.yy`);
-  const room = await convertGms2Room(roomYyPath);
+  const room = await convertGms2Room(roomYyPath, guidToObjectName);
   const knownObjects = new Set(objects);
 
   const prefabInstances = room.layers.flatMap((layer) =>
