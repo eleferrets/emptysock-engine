@@ -172,6 +172,7 @@ export type {
   TileLayerSource,
   AutoTileResolver,
 } from "./systems/RenderPipeline.js";
+export type { CameraViewport } from "./systems/RenderSystem.js";
 export { ServiceRegistry } from "./Services.js";
 export type { ServiceConstructor } from "./Services.js";
 export { SaveSystem } from "./systems/SaveSystem.js";
@@ -430,6 +431,29 @@ export {
   view_set_enabled,
   clearGmlCameraState,
 } from "./compat/gmlCamera.js";
+export type { GmlCameraViewport } from "./compat/gmlCamera.js";
+export { buildActiveGmlCameraViewports } from "./compat/gmlCamera.js";
+
+/**
+ * GameMaker's legacy `d3d_*` pseudo-3D projection compat — see
+ * `compat/gmlProjection.ts`'s module doc comment and CLAUDE.md's "Pseudo-3D
+ * projection" entry for the full mechanism (four corners written onto
+ * `Projection3D`, consumed by `RenderPipeline`'s sprite-sync pass via a
+ * real pixi `PerspectiveMesh`).
+ */
+export {
+  d3d_set_projection_ortho,
+  d3d_set_projection_perspective,
+  d3d_transform_clear,
+  d3d_transform_set_identity,
+  d3d_transform_set_rotation_x,
+  d3d_transform_set_rotation_y,
+  d3d_transform_set_rotation_z,
+  d3d_transform_set_scaling,
+  d3d_transform_set_translation,
+  clearGmlProjectionState,
+} from "./compat/gmlProjection.js";
+export { Projection3D } from "./components/Projection3D.js";
 
 /**
  * Pure/global GML scripting-function compat (~50 of GameMaker's most-used

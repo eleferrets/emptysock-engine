@@ -4,6 +4,7 @@ import {
   Graphics,
   Particle,
   ParticleContainer,
+  PerspectiveMesh,
   Rectangle,
   Sprite as PixiSprite,
   Text,
@@ -15,6 +16,7 @@ import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
 import { Sprite } from "../components/Sprite.js";
 import { Transform } from "../components/Transform.js";
+import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
@@ -141,12 +143,19 @@ export interface RenderPipelineOptions extends Omit<
 interface SceneTracking {
   /** entity eid -> its PixiJS sprite. */
   sprites: Map<number, PixiSprite>;
-  /** entity eid -> the texturePath last applied, so we only reload on change. */
+  /**
+   * entity eid -> its `PerspectiveMesh`, for a `Transform`+`Sprite` entity
+   * that also carries an *active* `Projection3D` — see `_syncOne()`'s doc
+   * comment. Disjoint from `sprites`: an eid is tracked in exactly one of
+   * the two maps at a time, never both.
+   */
+  meshes: Map<number, PerspectiveMesh>;
+  /** entity eid -> the texturePath last applied, so we only reload on change. Shared by both `sprites` and `meshes` — an eid is only ever in one of those two maps at a time, so there's no ambiguity about which renderable a cached path belongs to. */
   texturePaths: Map<number, string>;
 }
 
 function createTracking(): SceneTracking {
-  return { sprites: new Map(), texturePaths: new Map() };
+  return { sprites: new Map(), meshes: new Map(), texturePaths: new Map() };
 }
 
 interface MountedTilemap {
@@ -420,6 +429,21 @@ export class RenderPipeline implements SceneRenderer {
     return this._render.canvas;
   }
 
+  /**
+   * Thin passthrough to `RenderSystem.renderMultiCamera()` — game code
+   * (and `GmsProjectRuntime`, once wired) talks to `RenderPipeline`, never
+   * the lower-level `RenderSystem` directly, so this is the real call site
+   * for GameMaker-style multi-view compositing. Does not itself call
+   * `syncEntities()`/`renderFrame()` — call this *instead of*
+   * `renderFrame()` for a frame that wants every active camera slot
+   * composited, after the usual entity sync.
+   */
+  renderMultiCamera(
+    viewports: Parameters<RenderSystem["renderMultiCamera"]>[0],
+  ): void {
+    this._render.renderMultiCamera(viewports);
+  }
+
   resize(width: number, height: number): void {
     this._render.resize(width, height);
   }
@@ -610,13 +634,11 @@ export class RenderPipeline implements SceneRenderer {
     const seen = new Set<number>();
     scene.each(Transform, Sprite, (transform, sprite, entity) => {
       seen.add(entity.eid);
-      this._syncOne(tracking, entity.eid, transform, sprite, (layer) =>
+      this._syncOne(tracking, entity, transform, sprite, (layer) =>
         this._containerFor(layer),
       );
     });
-    for (const id of tracking.sprites.keys()) {
-      if (!seen.has(id)) this._removeSprite(tracking, id);
-    }
+    this._pruneUnseen(tracking, seen);
   }
 
   /** Fully tear down the current main scene's tracking — same per-sprite teardown `releaseOverlay` uses. */
@@ -627,6 +649,9 @@ export class RenderPipeline implements SceneRenderer {
     if (tracking !== undefined) {
       for (const id of Array.from(tracking.sprites.keys())) {
         this._removeSprite(tracking, id);
+      }
+      for (const id of Array.from(tracking.meshes.keys())) {
+        this._removeMesh(tracking, id);
       }
       this._tracking.delete(scene);
     }
@@ -640,16 +665,49 @@ export class RenderPipeline implements SceneRenderer {
     const seen = new Set<number>();
     scene.each(Transform, Sprite, (transform, sprite, entity) => {
       seen.add(entity.eid);
-      this._syncOne(tracking, entity.eid, transform, sprite, () => container);
+      this._syncOne(tracking, entity, transform, sprite, () => container);
     });
-    for (const id of tracking.sprites.keys()) {
+    this._pruneUnseen(tracking, seen);
+  }
+
+  /**
+   * Removes tracking (and destroys the renderable) for any eid this frame's
+   * `scene.each()` pass didn't see — covers both `sprites` and `meshes`,
+   * since an entity can move between the two across frames (its
+   * `Projection3D.active` flag flipping) and either map could hold a stale
+   * entry for a destroyed entity.
+   */
+  private _pruneUnseen(tracking: SceneTracking, seen: Set<number>): void {
+    for (const id of [...tracking.sprites.keys()]) {
       if (!seen.has(id)) this._removeSprite(tracking, id);
+    }
+    for (const id of [...tracking.meshes.keys()]) {
+      if (!seen.has(id)) this._removeMesh(tracking, id);
     }
   }
 
+  /**
+   * Per-`(Transform, Sprite)` entity sync. An entity with no `Projection3D`
+   * component, or one whose `Projection3D.active` is `false` (the default),
+   * renders exactly as before this method learned about `Projection3D` at
+   * all — a plain `PixiSprite` positioned from `Transform`. An entity with
+   * an *active* `Projection3D` instead renders through `_syncProjected()` —
+   * a real pixi core `PerspectiveMesh` whose four corners are copied
+   * straight from `Projection3D.x0..y3` (see that component's doc comment
+   * for why this copy needs no reinterpretation: both sides already agree
+   * on "clockwise from top-left"). Those corners are `gmlProjection.ts`'s
+   * derived *result* — already-absolute positions (a `d3d_transform_set_*`
+   * call bakes in translation itself) — so a projected entity's `Transform`
+   * is deliberately not applied on top of them; applying both would
+   * double-position the mesh. Whichever branch didn't run this call has its
+   * stale tracked renderable (if any) torn down, cheaply — `_removeSprite`/
+   * `_removeMesh` are no-ops when nothing is tracked for that eid, which is
+   * the overwhelmingly common case (an entity practically never flips
+   * `Projection3D.active` every frame).
+   */
   private _syncOne(
     tracking: SceneTracking,
-    eid: number,
+    entity: Entity,
     transform: {
       x: number;
       y: number;
@@ -669,6 +727,24 @@ export class RenderPipeline implements SceneRenderer {
     },
     containerFor: (layer: string) => Container,
   ): void {
+    const eid = entity.eid;
+    const projection = entity.has(Projection3D)
+      ? entity.get(Projection3D)
+      : undefined;
+
+    if (projection !== undefined && projection.active) {
+      this._removeSprite(tracking, eid);
+      this._syncProjected(
+        tracking,
+        eid,
+        sprite,
+        projection,
+        containerFor(sprite.layer),
+      );
+      return;
+    }
+    this._removeMesh(tracking, eid);
+
     let pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) {
       pixiSprite = new PixiSprite(Texture.EMPTY);
@@ -692,6 +768,66 @@ export class RenderPipeline implements SceneRenderer {
     pixiSprite.visible = sprite.visible;
     pixiSprite.anchor.set(sprite.anchorX, sprite.anchorY);
     pixiSprite.zIndex = sprite.depth;
+  }
+
+  /**
+   * `_syncOne()`'s `Projection3D`-active branch — a real `PerspectiveMesh`
+   * per entity, corners copied straight from the component, texture/tint/
+   * alpha/visibility/depth kept in sync the same way `_syncOne()` keeps a
+   * plain `PixiSprite` in sync. `verticesX`/`verticesY` are left at
+   * `PerspectiveMesh.defaultOptions`'s own 10x10 grid — no per-entity
+   * quality knob exists on `Projection3D` today.
+   */
+  private _syncProjected(
+    tracking: SceneTracking,
+    eid: number,
+    sprite: {
+      texturePath: string;
+      tint: number;
+      alpha: number;
+      layer: string;
+      depth: number;
+      visible: boolean;
+    },
+    projection: {
+      x0: number;
+      y0: number;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      x3: number;
+      y3: number;
+    },
+    container: Container,
+  ): void {
+    let mesh = tracking.meshes.get(eid);
+    if (mesh === undefined) {
+      mesh = new PerspectiveMesh({ texture: Texture.EMPTY });
+      tracking.meshes.set(eid, mesh);
+    }
+
+    if (tracking.texturePaths.get(eid) !== sprite.texturePath) {
+      tracking.texturePaths.set(eid, sprite.texturePath);
+      this._applyTexture(tracking, eid, mesh, sprite.texturePath);
+    }
+
+    if (mesh.parent !== container) container.addChild(mesh);
+
+    mesh.setCorners(
+      projection.x0,
+      projection.y0,
+      projection.x1,
+      projection.y1,
+      projection.x2,
+      projection.y2,
+      projection.x3,
+      projection.y3,
+    );
+    mesh.tint = sprite.tint;
+    mesh.alpha = sprite.alpha;
+    mesh.visible = sprite.visible;
+    mesh.zIndex = sprite.depth;
   }
 
   // ─── Tilemaps ────────────────────────────────────────────────────────────
@@ -812,19 +948,24 @@ export class RenderPipeline implements SceneRenderer {
     return container;
   }
 
+  /**
+   * Shared texture-apply path for both `PixiSprite` and `PerspectiveMesh` —
+   * both expose a settable `.texture`, so `target` takes that minimal
+   * structural shape rather than one concrete pixi class.
+   */
   private _applyTexture(
     tracking: SceneTracking,
     eid: number,
-    pixiSprite: PixiSprite,
+    target: { texture: Texture },
     path: string,
   ): void {
     if (path === "") {
-      pixiSprite.texture = Texture.WHITE;
+      target.texture = Texture.WHITE;
       return;
     }
     const cached = this._textureCache.get(path);
     if (cached !== undefined) {
-      pixiSprite.texture = cached;
+      target.texture = cached;
       return;
     }
     this._loadTexture(path)
@@ -834,7 +975,7 @@ export class RenderPipeline implements SceneRenderer {
         // a different texture, by the time the load resolves; only apply if
         // still current for this (tracking, eid) pair.
         if (tracking.texturePaths.get(eid) === path) {
-          pixiSprite.texture = texture;
+          target.texture = texture;
         }
       })
       .catch((err: unknown) => {
@@ -851,6 +992,15 @@ export class RenderPipeline implements SceneRenderer {
     pixiSprite.parent?.removeChild(pixiSprite);
     pixiSprite.destroy();
     tracking.sprites.delete(eid);
+    tracking.texturePaths.delete(eid);
+  }
+
+  private _removeMesh(tracking: SceneTracking, eid: number): void {
+    const mesh = tracking.meshes.get(eid);
+    if (mesh === undefined) return;
+    mesh.parent?.removeChild(mesh);
+    mesh.destroy();
+    tracking.meshes.delete(eid);
     tracking.texturePaths.delete(eid);
   }
 
@@ -876,6 +1026,9 @@ export class RenderPipeline implements SceneRenderer {
     if (tracking !== undefined) {
       for (const id of Array.from(tracking.sprites.keys())) {
         this._removeSprite(tracking, id);
+      }
+      for (const id of Array.from(tracking.meshes.keys())) {
+        this._removeMesh(tracking, id);
       }
       this._tracking.delete(scene);
     }
