@@ -75,18 +75,32 @@ except the pre-existing, already-flagged parallel-session issue in the same test
 unrelated background-layer test's `entity.components` possibly-undefined — not touched, not caused by
 this work).
 
-- [ ] Phase 2 (scope extension, requested mid-task) — automatic GML behavior dispatch (an engine-side
-      system that actually calls a GMS2-imported prefab's `onCreate`/`onStepBegin`/`onUpdate`/
-      `onStepEnd`/`onDestroy` once wired to a live entity, in three separate global passes across all
-      entities: Begin Step, then Step, then End Step, never interleaved per-entity) plus a real
-      Draw/Draw GUI render-pass split in `RenderPipeline` (world-space vs. camera-reset screen-space).
-      **Not started** — Phase 1 (the actual DnD action semantics this task was assigned) was completed
-      and verified first, per the coordinator's own instruction to finish and land Phase 1 as a clean
-      commit before picking up Phase 2. Whether Phase 2 gets attempted in this same session depends on
-      remaining time/budget; if it doesn't, a future session should scope it as its own pass — it touches
-      `RenderPipeline.renderFrame()` (one of the most sensitive files in the engine per its own doc
-      comments) and needs the same "read fully before changing" discipline as this file describes for
-      GMS2 codegen.
+- [x] Phase 2 (scope extension, requested mid-task) — automatic GML behavior dispatch. Landed as
+      `packages/engine/src/components/GmlBehavior.ts` (`GmlBehaviorState` component +
+      `registerGmlBehavior`/`getGmlBehavior`/`getGmlBehaviorHandler` registry, mirroring
+      `VisualScriptState`'s shape) and `packages/engine/src/systems/GmlBehaviorSystem.ts`
+      (`update()` — three full `scene.each()` passes, Begin Step then Step then End Step, never
+      interleaved per-entity; `dispatchCreate()`/`destroy()` for onCreate/onDestroy; `renderDraw()`/
+      `renderDrawGui()` for the draw split). `RenderSystem.ts` gained a `guiStage` — a sibling of
+      `stage`, not a descendant, so `CameraSystem.attach(stage)`'s pan/zoom/rotate structurally cannot
+      reach it — and `RenderPipeline._renderGmlDraw()` is a genuine third pass in `renderFrame()`
+      (not a per-sprite special case) dispatching onDraw into a world-space `"foreground"`-layer
+      `Graphics` and onDrawGui into `guiStage`. `compat/gml.ts`'s `draw_*` functions now take a
+      structural `GmlDrawTarget` (no `CanvasRenderingContext2D`/DOM type) that `RenderPipeline`'s new
+      `PixiGmlDrawTarget` implements over a real pixi `Graphics`+`Text`, rebuilt every call.
+      `gms2-codegen.ts` now emits `onStepBegin`/`onUpdate`/`onStepEnd` from `Step_1`/`Step_0`/`Step_2`
+      and `onDraw`/`onDrawGui` from `Draw_0`/`Draw_64` as separate exported functions (verified real
+      GameMaker eventnum values — see CLAUDE.md's new entry). See CLAUDE.md's "GML behavior dispatch:
+      three Step passes, a separate Draw GUI pass" entry for the full mechanism and the honest limits
+      (onCreate/onDestroy dispatch needs a real hook call site — `loadSceneFile()`'s new `onSpawned`
+      option and `GmlBehaviorSystem.destroy()` respectively — not something `Scene.spawn()`/`destroy()`
+      do on their own, since core `Scene`/`Entity` must not grow a required dependency on this optional
+      compat layer). Tests: `packages/engine/src/__tests__/GmlBehaviorSystem.test.ts` (real
+      cross-entity Begin Step/Step/End Step ordering assertions, real camera-vs-gui-layer
+      independence assertion against the actual pixi render tree) and
+      `packages/toolchain/src/__tests__/gms2-codegen-events.test.ts` (synthetic `.yy`-style fixtures
+      proving the Step/Draw sub-event mapping). `npx turbo run typecheck lint test --force` green,
+      all 29 tasks.
 
 ---
 
