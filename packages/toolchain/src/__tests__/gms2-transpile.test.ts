@@ -125,4 +125,187 @@ describe("transpileGML", () => {
     );
     expect(out).not.toMatch(/\(\s*\/\//);
   });
+
+  it("draw_text with a nested-call, multi-concatenation string argument", () => {
+    const out = transpileGML(
+      'draw_text(15, 15, "a: " + string(hp) + "\\n" + "b: " + string(mp));',
+    );
+    expect(out).toContain(
+      '_ctx.drawTarget?.text(15, 15, "a: " + String(hp) + "\\n" + "b: " + String(mp));',
+    );
+  });
+
+  it("strips a stray trailing semicolon in a for-loop header", () => {
+    const out = transpileGML(
+      "for (var i = array_length_1d(arr) - 1; i >= 0; --i;)\n{\n  foo();\n}",
+    );
+    expect(out).toContain(
+      "for (let i = array_length_1d(arr) - 1; i >= 0; --i)",
+    );
+  });
+
+  it("keeps a trailing // comment outside a wrapped bare-if condition's parens", () => {
+    const out = transpileGML("if a == 1 // a comment\n{\n  foo();\n}");
+    expect(out).toContain("if (a == 1) // a comment");
+  });
+
+  it("wraps a bare if condition that directly touches its brace with no space", () => {
+    const out = transpileGML("if a <= 0{\n  foo();\n}");
+    expect(out).toContain("if (a <= 0)");
+  });
+
+  it("transpiles and/or/not/xor word operators", () => {
+    const out = transpileGML(
+      "if (a == 1 and b == 2) { x = 1; }\nif (a or b) { y = 1; }\nif (not a) { z = 1; }",
+    );
+    expect(out).toContain("a == 1 && b == 2");
+    expect(out).toContain("if (a || b)");
+    expect(out).toContain("if (!a)");
+  });
+
+  it("transpiles legacy globalvar declarations without leaving a hard parse error", () => {
+    const out = transpileGML("globalvar a, b, c;\na = 1;");
+    expect(out).not.toMatch(/^\s*globalvar\b/m);
+    expect(out).toContain('TODO: migrate legacy "globalvar');
+  });
+
+  it("transpiles #macro directives to a comment", () => {
+    const out = transpileGML("#macro VIEW view_camera[0]\nx = VIEW;");
+    expect(out).not.toMatch(/^\s*#macro/m);
+    expect(out).toContain('TODO: migrate GML macro "VIEW"');
+  });
+
+  it("does not double-wrap Math.floor produced by a div rewrite", () => {
+    const out = transpileGML("x = width div 2;");
+    expect(out).not.toContain("Math.Math.floor");
+    expect(out).toContain("Math.floor(width / 2)");
+  });
+
+  it("keeps room_goto valid with a nested-call room argument", () => {
+    const out = transpileGML("room_goto(room_next(room));");
+    expect(out).not.toMatch(/\(\s*\/\//);
+    expect(out).toContain("room_next(room)");
+  });
+
+  it("keeps instance_create_layer valid with a nested-call argument", () => {
+    const out = transpileGML(
+      "instance_create_layer(random(room_width), 0, layer, obj_x);",
+    );
+    expect(out).not.toMatch(/,\s*0,\s*layer,\s*obj_x\);\s*$/m);
+  });
+
+  describe("ds_list", () => {
+    it("transpiles create/add/find_value/size/delete/destroy to real Array ops", () => {
+      const out = transpileGML(
+        [
+          "var list = ds_list_create();",
+          "ds_list_add(list, 1);",
+          "var v = ds_list_find_value(list, 0);",
+          "var n = ds_list_size(list);",
+          "ds_list_delete(list, 0);",
+          "ds_list_destroy(list);",
+        ].join("\n"),
+      );
+      expect(out).toContain("let list = [];");
+      expect(out).toContain("list.push(1);");
+      expect(out).toContain("let v = list[0];");
+      expect(out).toContain("let n = list.length;");
+      expect(out).toContain("list.splice(0, 1);");
+      expect(out).not.toMatch(/\bds_list_destroy\(/);
+    });
+
+    it("transpiles the [| i] accessor to plain indexing in both read and write position", () => {
+      const readOut = transpileGML("var v = list[| 0];");
+      expect(readOut).toContain("let v = list[0];");
+      const writeOut = transpileGML("list[| 0] = 5;");
+      expect(writeOut).toContain("list[0] = 5;");
+    });
+  });
+
+  describe("ds_map", () => {
+    it("transpiles create/add/find_value/exists/delete/size/destroy to real Map ops", () => {
+      const out = transpileGML(
+        [
+          "var map = ds_map_create();",
+          'ds_map_add(map, "hp", 10);',
+          'var v = ds_map_find_value(map, "hp");',
+          'var e = ds_map_exists(map, "hp");',
+          'ds_map_delete(map, "hp");',
+          "var n = ds_map_size(map);",
+          "ds_map_destroy(map);",
+        ].join("\n"),
+      );
+      expect(out).toContain("let map = new Map();");
+      expect(out).toContain('map.set("hp", 10);');
+      expect(out).toContain('let v = map.get("hp");');
+      expect(out).toContain('let e = map.has("hp");');
+      expect(out).toContain('map.delete("hp");');
+      expect(out).toContain("let n = map.size;");
+      expect(out).not.toMatch(/\bds_map_destroy\(/);
+    });
+
+    it("transpiles the [? key] accessor to .get in read position and .set in write position", () => {
+      const readOut = transpileGML('var v = map[? "hp"];');
+      expect(readOut).toContain('let v = map.get("hp");');
+      const writeOut = transpileGML('map[? "hp"] = 5;');
+      expect(writeOut).toContain('map.set("hp", 5);');
+      expect(writeOut).not.toContain(".get(");
+    });
+
+    it("does not confuse a comparison (==) inside an accessor write scan for an assignment", () => {
+      const out = transpileGML('if (map[? "hp"] == 5) { x = 1; }');
+      expect(out).toContain('map.get("hp") == 5');
+    });
+  });
+
+  describe("ds_grid", () => {
+    it("transpiles create/get/set/width/height/destroy to a nested-Array grid", () => {
+      const out = transpileGML(
+        [
+          "var grid = ds_grid_create(4, 4);",
+          "ds_grid_set(grid, 0, 0, 1);",
+          "var v = ds_grid_get(grid, 0, 0);",
+          "var w = ds_grid_width(grid);",
+          "var h = ds_grid_height(grid);",
+          "ds_grid_destroy(grid);",
+        ].join("\n"),
+      );
+      expect(out).toContain(
+        "let grid = Array.from({ length: (4) }, () => new Array(4).fill(0));",
+      );
+      expect(out).toContain("(grid[0][0] = 1);");
+      expect(out).toContain("let v = grid[0][0];");
+      expect(out).toContain("let w = grid.length;");
+      expect(out).not.toMatch(/\bds_grid_destroy\(/);
+    });
+
+    it("transpiles the [# c, r] accessor to nested indexing in both read and write position", () => {
+      const readOut = transpileGML("var v = grid[# 1, 2];");
+      expect(readOut).toContain("let v = grid[1][2];");
+      const writeOut = transpileGML("grid[# 1, 2] = 5;");
+      expect(writeOut).toContain("grid[1][2] = 5;");
+    });
+  });
+
+  describe("GML structs", () => {
+    it("leaves a struct literal untouched (already valid JS object-literal syntax)", () => {
+      const out = transpileGML("var s = {a: 1, b: 2};");
+      expect(out).toContain("let s = {a: 1, b: 2};");
+    });
+
+    it("transpiles variable_struct_get/set/exists/remove to plain bracket access", () => {
+      const out = transpileGML(
+        [
+          'var v = variable_struct_get(s, "a");',
+          'variable_struct_set(s, "a", 5);',
+          'var e = variable_struct_exists(s, "a");',
+          'variable_struct_remove(s, "a");',
+        ].join("\n"),
+      );
+      expect(out).toContain('let v = s["a"];');
+      expect(out).toContain('(s["a"] = 5);');
+      expect(out).toContain('let e = ("a" in s);');
+      expect(out).toContain('delete s["a"];');
+    });
+  });
 });

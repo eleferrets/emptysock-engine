@@ -5,6 +5,79 @@ import fs from "fs/promises";
 // ---------------------------------------------------------------------------
 
 /**
+ * Splits a GML call's argument-list text (already captured up to the call's
+ * own balanced closing paren — see `BALANCED_PARENS_ONE_LEVEL` below) into
+ * up to `maxParts` top-level arguments, on commas that are not nested inside
+ * their own parens or brackets. Real GML call sites routinely nest a further
+ * call or array/ds accessor inside one argument (`draw_text(x, y, "a: " +
+ * string(a) + "\n" + "b: " + string(b))`), so a naive split on every comma
+ * would cut a nested call's own argument list apart. The trailing part
+ * (index `maxParts - 1`) absorbs everything remaining, exactly like the
+ * final capture group in a regex with a `$` argument.
+ */
+function splitTopLevelArgs(text: string, maxParts: number): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth--;
+    if (ch === "," && depth === 0 && parts.length < maxParts - 1) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts.map((p) => p.trim());
+}
+
+// Matches a call's argument-list text tolerating exactly one level of
+// nested parens — enough for the common "a call as one argument" shape real
+// GML source uses (`string(x)`, `choose(a, b)`, …) without needing a real
+// parser. Two independently-nested calls inside the same argument list (e.g.
+// two separate `string(...)` calls concatenated together, as in
+// `draw_text(x, y, string(a) + string(b))`) both match fine here because
+// each is its own top-level `(...)` group, not nested inside the other.
+const BALANCED_PARENS_ONE_LEVEL = "(?:[^()]|\\([^()]*\\))*";
+
+/**
+ * Finds every `for (...)` header in `src` (by scanning with real paren-depth
+ * tracking, since a header's own clauses can contain nested calls) and
+ * strips one trailing `;` immediately before the header's closing paren, if
+ * present. See the call site's comment for why this is needed at all.
+ */
+function stripTrailingSemicolonInForHeaders(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const forMatch = /\bfor\s*\(/.exec(src.slice(i));
+    if (!forMatch) {
+      out += src.slice(i);
+      break;
+    }
+    const forStart = i + forMatch.index;
+    const parenOpen = forStart + forMatch[0].length - 1;
+    out += src.slice(i, parenOpen + 1);
+    let depth = 1;
+    let j = parenOpen + 1;
+    while (j < src.length && depth > 0) {
+      if (src[j] === "(") depth++;
+      else if (src[j] === ")") depth--;
+      if (depth > 0) j++;
+    }
+    // src[parenOpen+1..j) is the header body; src[j] is the closing paren.
+    let header = src.slice(parenOpen + 1, j);
+    header = header.replace(/;\s*$/, "");
+    out += header + (j < src.length ? src[j] : "");
+    i = j + 1;
+  }
+  return out;
+}
+
+/**
  * Apply regex-based pattern replacements to a GML source string and return
  * the resulting TypeScript snippet.
  *
@@ -88,8 +161,47 @@ export function transpileGML(gml: string): string {
     (_m, varName: string, expr: string) =>
       `// TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state.`,
   );
+  // GameMaker 8.1's legacy `globalvar a, b, c;` declaration statement (as
+  // opposed to the modern `global.x = ...` assignment form handled just
+  // above) declares one or more names as globals that every *other* line of
+  // GML in the project then refers to bare (`a = 1;`, not `global.a = 1;`).
+  // `globalvar` itself is not a JS/TS keyword at all — left alone it's a
+  // hard parse error ("Unknown keyword or identifier"), not just an
+  // unresolved-identifier warning. There's no reliable way for this
+  // regex-based, single-file-at-a-time transpiler to also rewrite every
+  // *other* bare reference to `a`/`b`/`c` across the whole project into
+  // `global.a`/etc — that needs real cross-file symbol resolution — so this
+  // only fixes the syntax at the declaration site itself and leaves an
+  // honest TODO naming exactly which identifiers need manual global wiring,
+  // the same "don't fake it" rule the `global.x = ...` rewrite above
+  // already follows.
+  out = out.replace(
+    /\bglobalvar\s+([^;\n]+);?/g,
+    (_m, names: string) =>
+      `// TODO: migrate legacy "globalvar ${names.trim()};" declaration — every bare reference to ${names
+        .split(",")
+        .map((n) => `"${n.trim()}"`)
+        .join(
+          ", ",
+        )} elsewhere in this project's GML needs to become real shared state.`,
+  );
+
   // var x = expr  →  let x = expr;
   out = out.replace(/\bvar\b(\s+\w+\s*=)/g, "let$1");
+
+  // GML's word-form boolean operators (`and`/`or`/`xor`/`not`, kept as
+  // aliases for `&&`/`||`/`!==` (boolean-only in GameMaker — the closest
+  // strict equivalent using only values already coerced boolean-ish by
+  // surrounding comparisons)/`!` since GameMaker 8.1) have no meaning as
+  // JS/TS operators at all — `and`/`or`/`not` parse as bare identifiers,
+  // and `a and b` is a syntax error (two expressions with no operator
+  // between them), not merely an unresolved-identifier warning. Run this
+  // before the `if`-chain/bare-condition passes below so they see the real
+  // `&&`/`||` operators when anchoring a condition's extent.
+  out = out.replace(/(?<![\w.])\bnot\b[ \t]*/g, "!");
+  out = out.replace(/\band\b/g, "&&");
+  out = out.replace(/\bor\b/g, "||");
+  out = out.replace(/\bxor\b/g, "!==");
 
   // -- Control flow ----------------------------------------------------------
   // repeat(n) { ... }  →  for (let _i = 0; _i < n; _i++) { ... }
@@ -99,6 +211,18 @@ export function transpileGML(gml: string): string {
   );
   // for loops: var → let inside for initialiser
   out = out.replace(/\bfor\s*\(\s*var\b/g, "for (let");
+
+  // GameMaker tolerates (and real-world GML sometimes has) a stray trailing
+  // `;` after a `for` header's third (increment) clause, e.g.
+  // `for (var i = 0; i >= 0; --i;)` — the loop still runs fine in GameMaker
+  // (an empty statement after the last real one), but JS/TS's `for` grammar
+  // is exactly `for (init; cond; update)` with no fourth clause, so a
+  // trailing `;` right before the closing paren is a hard parse error.
+  // Scanned with explicit paren-depth tracking, not a single regex, because
+  // a real for-header's own clauses routinely contain function calls with
+  // their own parens (`for (var i = array_length_1d(arr) - 1; ...)`), which
+  // a naive `[^)]*` match would stop at the first inner `)`.
+  out = stripTrailingSemicolonInForHeaders(out);
   // exit  →  return;
   out = out.replace(/\bexit\b/g, "return;");
 
@@ -113,6 +237,24 @@ export function transpileGML(gml: string): string {
   // meaning the TS parser tries to interpret.
   out = out.replace(/^([ \t]*)#region\b(.*)$/gm, "$1// #region$2");
   out = out.replace(/^([ \t]*)#endregion\b(.*)$/gm, "$1// #endregion$2");
+
+  // #macro NAME value — GameMaker's textual-substitution compile-time
+  // constant directive (define once, every other line in the project that
+  // references NAME gets `value` substituted in at compile time — the same
+  // idea as a C preprocessor `#define`). Like `#region`, a bare `#` is a
+  // hard JS/TS parse error, not just an unresolved identifier. Unlike
+  // `#region`, faithfully "migrating" a macro would mean finding and
+  // rewriting every other reference to NAME across the whole project into
+  // its substituted value or a real shared constant — real cross-file work
+  // this single-file, regex-based transpiler pass has no way to do. Rewrite
+  // the directive itself to a `//` comment (fixing the syntax error) and
+  // leave a TODO naming the macro, the same "fix the syntax, be honest
+  // about what still needs a human" rule `globalvar` (above) follows.
+  out = out.replace(
+    /^([ \t]*)#macro\s+(\S+)\s+(.*)$/gm,
+    (_m, indent: string, name: string, value: string) =>
+      `${indent}// TODO: migrate GML macro "${name}" (was: #macro ${name} ${value.trim()}) — every other reference to "${name}" in this project needs to become a real shared constant.`,
+  );
 
   // if (a) && (b) [&& (c) ...]  →  if ((a) && (b) [&& (c) ...])
   //
@@ -182,8 +324,22 @@ export function transpileGML(gml: string): string {
   // already collapsed every one of those to fixed placeholder text with no
   // "if" in it, before this pass ever runs.)
   out = out.replace(
-    /(?<!\/\/[^\n]*)\bif\s+(?!\()([\s\S]+?)(?=\r?\n\s*\{|[ \t]+\{)/g,
-    (_m, cond: string) => `if (${cond.trim()})`,
+    /(?<!\/\/[^\n]*)\bif\s+(?!\()([\s\S]+?)(?=\r?\n\s*\{|[ \t]*\{)/g,
+    (_m, cond: string) => {
+      // A trailing `// comment` on the condition's own line (real, common
+      // GML — `if _argument == NULLVALUE // NO ARGUMENT PASSED`) must land
+      // *after* the closing paren this pass adds, not inside it: a `//`
+      // comments out everything to the end of its physical line, including
+      // a `)` placed after it, which left the condition permanently
+      // unclosed and broke the whole generated file (the exact bug that
+      // motivated this fix). Keep it as a trailing comment on the emitted
+      // `if (...)` line instead of silently dropping it.
+      const commentIdx = cond.indexOf("//");
+      if (commentIdx === -1) return `if (${cond.trim()})`;
+      const realCond = cond.slice(0, commentIdx).trim();
+      const comment = cond.slice(commentIdx).trimEnd();
+      return `if (${realCond}) ${comment}`;
+    },
   );
 
   // GML's `div` (integer division) and `mod` (modulo) infix operators have
@@ -204,18 +360,276 @@ export function transpileGML(gml: string): string {
     (_m, a: string, b: string) => `(${a} % ${b})`,
   );
 
-  // GML's data-structure accessor syntax — `arr[| i]` (ds_list), `arr[# c,
-  // r]` (ds_grid), `arr[? key]` (ds_map) — uses a marker character right
-  // after `[` that has no meaning in JS/TS array/member indexing at all,
-  // and is a hard parse error left in place. There's no real ds_list/
-  // ds_grid/ds_map runtime behind a plain JS array in this engine to
-  // preserve the original semantics of, so this only fixes the syntax
-  // (plain index access) and leaves a comment flagging the original
-  // accessor kind for manual review, rather than silently reinterpreting
-  // "list accessor" as "array index" without saying so.
-  out = out.replace(/\[\s*\|\s*/g, "[/* was ds_list accessor: arr[| i] */ ");
-  out = out.replace(/\[\s*#\s*/g, "[/* was ds_grid accessor: arr[# c, r] */ ");
-  out = out.replace(/\[\s*\?\s*/g, "[/* was ds_map accessor: arr[? key] */ ");
+  // GML's ds_list/ds_map/ds_grid data structures and struct accessors get
+  // real, working JS/TS equivalents, not a comment stub — GameMaker's own
+  // documented semantics for each:
+  //   ds_list: an ordered, numerically-indexed, growable list — a plain JS
+  //   `Array` is a drop-in equivalent (`ds_list_add` ~ `.push`, the `[| i]`
+  //   accessor ~ plain `arr[i]` indexing, which already supports both read
+  //   and write natively, so the list accessor needs no position-aware
+  //   handling at all).
+  //   ds_map: an arbitrary key -> value store — a JS `Map` is the direct
+  //   equivalent (`ds_map_add`/`ds_map_find_value` ~ `.set`/`.get`). Unlike
+  //   a plain array, `Map` has no bracket-assignment syntax, so the `[? key]`
+  //   accessor *is* position-sensitive: a read becomes `.get(key)`, a write
+  //   becomes `.set(key, value)` — never `.get(key) = value`, which isn't
+  //   valid JS (you cannot assign to a function call's return value).
+  //   ds_grid: a fixed-size 2D grid, addressed `grid[# col, row]` — modelled
+  //   as a plain nested `Array<Array<T>>` (`grid[col][row]`), which — like
+  //   the list accessor — supports both read and write with the same plain
+  //   indexing syntax, so it also needs no position-aware handling.
+  //   GML struct literals (`{a: 1, b: 2}`, native syntax since GMS 2.3) are
+  //   already valid JS object-literal syntax and pass through unchanged;
+  //   only the `variable_struct_*` *function* API needs rewriting to plain
+  //   bracket property access.
+  //
+  // Every ds_* function below is dispatched purely by name (`ds_list_add`,
+  // `ds_map_set`, …), and every accessor purely by its own bracket marker
+  // (`[|`/`[#`/`[?`) — never by inferring the base variable's declared type,
+  // which this regex-based transpiler has no way to know. This is safe
+  // because GameMaker's own accessor syntax already encodes which structure
+  // kind it addresses in the bracket marker itself; two different ds kinds
+  // never share a marker.
+
+  // -- ds_list: real Array-backed replacements --------------------------
+  out = out.replace(/\bds_list_create\s*\(\s*\)\s*/g, "[]");
+  out = out.replace(
+    new RegExp(`\\bds_list_add\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [list, ...values] = splitTopLevelArgs(args, 99);
+      return `${list}.push(${values.join(", ")})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bds_list_insert\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [list, pos, value] = splitTopLevelArgs(args, 3);
+      return `${list}.splice(${pos}, 0, ${value})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bds_list_delete\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [list, pos] = splitTopLevelArgs(args, 2);
+      return `${list}.splice(${pos}, 1)`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bds_list_find_value\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [list, pos] = splitTopLevelArgs(args, 2);
+      return `${list}[${pos}]`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_list_set\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [list, pos, value] = splitTopLevelArgs(args, 3);
+      return `(${list}[${pos}] = ${value})`;
+    },
+  );
+  out = out.replace(
+    /\bds_list_size\s*\(\s*([^()]+)\s*\)/g,
+    (_m, list: string) => `${list.trim()}.length`,
+  );
+  out = out.replace(
+    /\bds_list_clear\s*\(\s*([^()]+)\s*\)/g,
+    (_m, list: string) => `(${list.trim()}.length = 0)`,
+  );
+  // JS's garbage collector reclaims a plain Array on its own — ds_list_
+  // destroy's manual-memory-management purpose has nothing left to do.
+  out = out.replace(
+    /\bds_list_destroy\s*\(\s*([^()]+)\s*\)\s*;?/g,
+    () =>
+      `(undefined /* ds_list_destroy: plain Array is GC'd automatically */);`,
+  );
+
+  // -- ds_map: real Map-backed replacements ------------------------------
+  out = out.replace(/\bds_map_create\s*\(\s*\)\s*/g, "new Map()");
+  out = out.replace(
+    new RegExp(`\\bds_map_add\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [map, key, value] = splitTopLevelArgs(args, 3);
+      return `${map}.set(${key}, ${value})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bds_map_replace\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [map, key, value] = splitTopLevelArgs(args, 3);
+      return `${map}.set(${key}, ${value})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bds_map_find_value\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [map, key] = splitTopLevelArgs(args, 2);
+      return `${map}.get(${key})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_map_exists\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [map, key] = splitTopLevelArgs(args, 2);
+      return `${map}.has(${key})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_map_delete\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [map, key] = splitTopLevelArgs(args, 2);
+      return `${map}.delete(${key})`;
+    },
+  );
+  out = out.replace(
+    /\bds_map_size\s*\(\s*([^()]+)\s*\)/g,
+    (_m, map: string) => `${map.trim()}.size`,
+  );
+  out = out.replace(
+    /\bds_map_clear\s*\(\s*([^()]+)\s*\)/g,
+    (_m, map: string) => `${map.trim()}.clear()`,
+  );
+  out = out.replace(
+    /\bds_map_destroy\s*\(\s*([^()]+)\s*\)\s*;?/g,
+    () => `(undefined /* ds_map_destroy: Map is GC'd automatically */);`,
+  );
+
+  // -- ds_grid: real nested-Array-backed replacements --------------------
+  out = out.replace(
+    new RegExp(
+      `\\bds_grid_create\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [w, h] = splitTopLevelArgs(args, 2);
+      return `Array.from({ length: (${w}) }, () => new Array(${h}).fill(0))`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_grid_get\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [grid, c, r] = splitTopLevelArgs(args, 3);
+      return `${grid}[${c}][${r}]`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_grid_set\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [grid, c, r, value] = splitTopLevelArgs(args, 4);
+      return `(${grid}[${c}][${r}] = ${value})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(`\\bds_grid_clear\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, args: string) => {
+      const [grid, value] = splitTopLevelArgs(args, 2);
+      return `${grid}.forEach((_col) => _col.fill(${value}))`;
+    },
+  );
+  out = out.replace(
+    /\bds_grid_width\s*\(\s*([^()]+)\s*\)/g,
+    (_m, grid: string) => `${grid.trim()}.length`,
+  );
+  out = out.replace(
+    /\bds_grid_height\s*\(\s*([^()]+)\s*\)/g,
+    (_m, grid: string) => `(${grid.trim()}[0]?.length ?? 0)`,
+  );
+  out = out.replace(
+    /\bds_grid_destroy\s*\(\s*([^()]+)\s*\)\s*;?/g,
+    () =>
+      `(undefined /* ds_grid_destroy: nested Array is GC'd automatically */);`,
+  );
+
+  // -- GML struct function API (struct *literal* syntax needs no rewrite) -
+  out = out.replace(
+    new RegExp(
+      `\\bvariable_struct_get\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [struct, name] = splitTopLevelArgs(args, 2);
+      return `${struct}[${name}]`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bvariable_struct_set\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [struct, name, value] = splitTopLevelArgs(args, 3);
+      return `(${struct}[${name}] = ${value})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bvariable_struct_exists\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [struct, name] = splitTopLevelArgs(args, 2);
+      return `(${name} in ${struct})`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bvariable_struct_remove\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [struct, name] = splitTopLevelArgs(args, 2);
+      return `delete ${struct}[${name}]`;
+    },
+  );
+
+  // -- Accessor syntax: `arr[| i]` (ds_list), `arr[# c, r]` (ds_grid),
+  // `arr[? key]` (ds_map) -- dispatched purely by bracket marker, per the
+  // doc comment above.
+  //
+  // The ds_map `[? key]` accessor must be handled write-position-first:
+  // `map[? key] = value` becomes `map.set(key, value)`, never
+  // `map.get(key) = value` (not valid JS — you cannot assign into a
+  // function call's result). Only a plain `=` counts as a write (the
+  // negative lookahead excludes `==`); anything left after this write pass
+  // runs is a read, and becomes `.get(key)`.
+  out = out.replace(
+    /([A-Za-z_$][\w.]*)\s*\[\s*\?\s*([^\]]+)\]\s*=(?!=)\s*([^;\n]+)/g,
+    (_m, map: string, key: string, value: string) =>
+      `${map}.set(${key.trim()}, ${value.trim()})`,
+  );
+  out = out.replace(
+    /([A-Za-z_$][\w.]*)\s*\[\s*\?\s*([^\]]+)\]/g,
+    (_m, map: string, key: string) => `${map}.get(${key.trim()})`,
+  );
+
+  // The ds_list `[| i]` and ds_grid `[# c, r]` accessors both resolve to
+  // plain indexing syntax that JS/TS already supports natively as an
+  // lvalue, so — unlike the ds_map accessor above — neither needs
+  // position-aware (read vs write) handling: `list[i] = v` and
+  // `grid[c][r] = v` are both already valid JS assignment targets as-is.
+  out = out.replace(
+    /\[\s*\|\s*([^\]]+)\]/g,
+    (_m, i: string) => `[${i.trim()}]`,
+  );
+  out = out.replace(
+    /\[\s*#\s*([^,\]]+),\s*([^\]]+)\]/g,
+    (_m, c: string, r: string) => `[${c.trim()}][${r.trim()}]`,
+  );
 
   // GML's `with (instances) { body }` iterates every instance matching
   // `instances`, running `body` with `self`/bare-identifier scope switched
@@ -256,7 +670,10 @@ export function transpileGML(gml: string): string {
   // real `undefined` expression stays valid in both statement and
   // expression position.
   out = out.replace(
-    /\binstance_create_layer\s*\([^)]*\)(\s*;)?/g,
+    new RegExp(
+      `\\binstance_create_layer\\s*\\(${BALANCED_PARENS_ONE_LEVEL}\\)(\\s*;)?`,
+      "g",
+    ),
     (_m, semi?: string) =>
       `(undefined /* TODO: scene.createEntity() and add ObjX component */)${semi ?? ""}`,
   );
@@ -289,12 +706,18 @@ export function transpileGML(gml: string): string {
       `(undefined /* audioSystem.play('sound_name', { ...(${args.trim()}) }); */)${semi ?? ""}`,
   );
   out = out.replace(
-    /\broom_goto\s*\(\s*([^)]+)\s*\)(\s*;)?/g,
+    new RegExp(
+      `\\broom_goto\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      "g",
+    ),
     (_m, rm: string, semi?: string) =>
       `(undefined /* sceneManager.load('${rm.trim()}'); */)${semi ?? ""}`,
   );
   out = out.replace(
-    /\bdraw_sprite\s*\([^)]*\)(\s*;)?/g,
+    new RegExp(
+      `\\bdraw_sprite\\s*\\(${BALANCED_PARENS_ONE_LEVEL}\\)(\\s*;)?`,
+      "g",
+    ),
     (_m, semi?: string) =>
       `(undefined /* Sprite component handles drawing declaratively */)${semi ?? ""}`,
   );
@@ -311,28 +734,51 @@ export function transpileGML(gml: string): string {
   // @emptysock/engine's one export surface, only the `GmlDrawTarget`
   // interface type is, so there is nothing importable to call there.
   out = out.replace(
-    /\bdraw_set_colour\s*\(\s*([^)]+)\s*\)\s*;?/g,
+    new RegExp(
+      `\\bdraw_set_colour\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
     (_m, hex: string) => `_ctx.drawTarget?.setColor(${hex.trim()});`,
   );
   out = out.replace(
-    /\bdraw_rectangle\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
-    (_m, x1: string, y1: string, x2: string, y2: string, outline: string) =>
-      `_ctx.drawTarget?.rect(${x1.trim()}, ${y1.trim()}, ${x2.trim()}, ${y2.trim()}, ${outline.trim()});`,
+    new RegExp(
+      `\\bdraw_rectangle\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x1, y1, x2, y2, outline] = splitTopLevelArgs(args, 5);
+      return `_ctx.drawTarget?.rect(${x1}, ${y1}, ${x2}, ${y2}, ${outline});`;
+    },
   );
   out = out.replace(
-    /\bdraw_circle\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
-    (_m, x: string, y: string, r: string, outline: string) =>
-      `_ctx.drawTarget?.circle(${x.trim()}, ${y.trim()}, ${r.trim()}, ${outline.trim()});`,
+    new RegExp(
+      `\\bdraw_circle\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x, y, r, outline] = splitTopLevelArgs(args, 4);
+      return `_ctx.drawTarget?.circle(${x}, ${y}, ${r}, ${outline});`;
+    },
   );
   out = out.replace(
-    /\bdraw_text\s*\(\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
-    (_m, x: string, y: string, text: string) =>
-      `_ctx.drawTarget?.text(${x.trim()}, ${y.trim()}, ${text.trim()});`,
+    new RegExp(
+      `\\bdraw_text\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x, y, text] = splitTopLevelArgs(args, 3);
+      return `_ctx.drawTarget?.text(${x}, ${y}, ${text});`;
+    },
   );
   out = out.replace(
-    /\bdraw_line\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)\s*;?/g,
-    (_m, x1: string, y1: string, x2: string, y2: string) =>
-      `_ctx.drawTarget?.line(${x1.trim()}, ${y1.trim()}, ${x2.trim()}, ${y2.trim()});`,
+    new RegExp(
+      `\\bdraw_line\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x1, y1, x2, y2] = splitTopLevelArgs(args, 4);
+      return `_ctx.drawTarget?.line(${x1}, ${y1}, ${x2}, ${y2});`;
+    },
   );
 
   // alarm[n] = expr
@@ -373,24 +819,32 @@ export function transpileGML(gml: string): string {
     (_m, v: string, lo: string, hi: string) =>
       `Math.min(Math.max(${v.trim()}, ${lo.trim()}), ${hi.trim()})`,
   );
+  // Each of these GML math functions shares its bare name with the real
+  // JS/TS `Math.*` method this pass rewrites it to call — a negative
+  // lookbehind excludes a call already qualified with `Math.` (including
+  // one this same transpiler already produced earlier in this file, e.g.
+  // `div`'s own `Math.floor(a / b)` rewrite above: `\bfloor\b`'s word
+  // boundary doesn't care that a `.` precedes it, so without this guard a
+  // `floor(...)`-shaped substring inside an already-rewritten `Math.floor(
+  // ...)` call gets wrapped a second time into `Math.Math.floor(...)`).
   out = out.replace(
-    /\babs\s*\(\s*([^)]+)\s*\)/g,
+    /(?<!Math\.)\babs\s*\(\s*([^)]+)\s*\)/g,
     (_m, x: string) => `Math.abs(${x.trim()})`,
   );
   out = out.replace(
-    /\bfloor\s*\(\s*([^)]+)\s*\)/g,
+    /(?<!Math\.)\bfloor\s*\(\s*([^)]+)\s*\)/g,
     (_m, x: string) => `Math.floor(${x.trim()})`,
   );
   out = out.replace(
-    /\bceil\s*\(\s*([^)]+)\s*\)/g,
+    /(?<!Math\.)\bceil\s*\(\s*([^)]+)\s*\)/g,
     (_m, x: string) => `Math.ceil(${x.trim()})`,
   );
   out = out.replace(
-    /\bround\s*\(\s*([^)]+)\s*\)/g,
+    /(?<!Math\.)\bround\s*\(\s*([^)]+)\s*\)/g,
     (_m, x: string) => `Math.round(${x.trim()})`,
   );
   out = out.replace(
-    /\bsqrt\s*\(\s*([^)]+)\s*\)/g,
+    /(?<!Math\.)\bsqrt\s*\(\s*([^)]+)\s*\)/g,
     (_m, x: string) => `Math.sqrt(${x.trim()})`,
   );
   out = out.replace(
