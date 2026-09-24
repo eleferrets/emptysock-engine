@@ -119,7 +119,7 @@ export async function buildObjectBehavior(
     /^Step_1\.gml$/i,
     true,
   );
-  const onUpdate = await buildMethod(
+  let onUpdate = await buildMethod(
     "onUpdate",
     "Step event",
     "_entity: Entity, _dt: number, _ctx: GmlActionContext",
@@ -158,6 +158,30 @@ export async function buildObjectBehavior(
     "_entity: Entity, _ctx: GmlActionContext",
     /^Destroy_/i,
   );
+
+  // `gmlActionsStep` applies any pending `action_move`/`action_move_to`
+  // velocity and ticks `action_set_alarm` timers for one entity — meant to
+  // be called once per entity per Step (see that function's own doc
+  // comment in @emptysock/engine's compat/gmlActions.ts, which already
+  // documents this as "codegen calls this once per generated
+  // onUpdate/Step handler for any object that uses a motion action"). Wire
+  // that call in for real here whenever this object's transpiled events
+  // actually use one of those actions — otherwise `action_move`/
+  // `action_set_alarm` write into the per-entity side-table but nothing
+  // ever reads it back out, and the object silently never moves/never
+  // fires its alarm.
+  const usesMotionOrAlarm = [onCreate, onStepBegin, onUpdate, onStepEnd].some(
+    (fn) =>
+      /GmlActions\.action_move\(|GmlActions\.action_move_to\(|GmlActions\.action_set_alarm\(/.test(
+        fn,
+      ),
+  );
+  if (usesMotionOrAlarm) {
+    onUpdate = onUpdate.replace(
+      /\n\}$/,
+      "\n  GmlActions.gmlActionsStep(_entity);\n}",
+    );
+  }
 
   // -- Collision events -------------------------------------------------------
   // GMS2 names one file per colliding object: Collision_<other object>.gml.

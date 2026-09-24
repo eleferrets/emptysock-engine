@@ -346,6 +346,109 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
   });
 });
 
+describe("gms2-codegen wires gmlActionsStep into onUpdate for objects that use action_move/action_set_alarm", () => {
+  // Regression test: action_move/action_move_to/action_set_alarm write into
+  // a per-entity side-table (packages/engine/src/compat/gmlActions.ts) that
+  // only gmlActionsStep() ever reads back out. Nothing in gms2-codegen.ts
+  // used to call it, so a generated object using action_move would
+  // silently never actually move, despite gmlActionsStep's own doc comment
+  // already claiming "codegen calls this once per generated onUpdate/Step
+  // handler for any object that uses a motion action."
+  it("appends a GmlActions.gmlActionsStep(_entity) call to onUpdate when Step_1 uses action_move", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-motion-wire-"),
+    );
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-motion-wire-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"Motion Wire Test",
+          "resources":[
+            {"id":{"name":"obj_mover","path":"objects/obj_mover/obj_mover.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_mover");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Step_1.gml"),
+        "action_move(128, 2);",
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(objDir, "Step_0.gml"),
+        "show_message('tick');",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+      const content = await fs.readFile(
+        path.join(out, "obj_mover.behavior.ts"),
+        "utf-8",
+      );
+      const updateStart = content.indexOf("export function onUpdate(");
+      const updateEnd = content.indexOf(
+        "export function onStepEnd(",
+        updateStart,
+      );
+      const updateBody =
+        updateEnd === -1
+          ? content.slice(updateStart)
+          : content.slice(updateStart, updateEnd);
+      expect(updateBody).toContain("GmlActions.gmlActionsStep(_entity);");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("does not add a gmlActionsStep call for an object that never uses a motion/alarm action", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-motion-wire-neg-"),
+    );
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-synthetic-motion-wire-neg-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"Motion Wire Negative Test",
+          "resources":[
+            {"id":{"name":"obj_still","path":"objects/obj_still/obj_still.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_still");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Step_0.gml"),
+        "show_message('tick');",
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+      const content = await fs.readFile(
+        path.join(out, "obj_still.behavior.ts"),
+        "utf-8",
+      );
+      expect(content).not.toContain("gmlActionsStep");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
   it("writes prefabInstances for every known-object room instance, omitting unknown ones", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-json-"));
@@ -748,9 +851,7 @@ describe("GMS2 sound import produces a real, loadable AudioSystem asset", () => 
       expect(content).toContain("audio.play(");
 
       // The real audio file itself was copied, not just referenced.
-      await fs.access(
-        path.join(out, "assets", "sounds", "snd_jump.ogg"),
-      );
+      await fs.access(path.join(out, "assets", "sounds", "snd_jump.ogg"));
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
@@ -785,7 +886,9 @@ describe("GMS2 sound import produces a real, loadable AudioSystem asset", () => 
       });
       expect(result.skipped).toContain("snd_broken");
       expect(
-        result.warnings.some((w) => /Sound "snd_broken" could not be converted/.test(w)),
+        result.warnings.some((w) =>
+          /Sound "snd_broken" could not be converted/.test(w),
+        ),
       ).toBe(true);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -844,9 +947,7 @@ describe("GMS2 font import emits family/size/style metadata for this engine's Ca
       expect(content).toContain("Label");
 
       expect(
-        result.warnings.some((w) =>
-          /glyph atlas image was not used/.test(w),
-        ),
+        result.warnings.some((w) => /glyph atlas image was not used/.test(w)),
       ).toBe(true);
 
       // The glyph atlas PNG must not have been copied anywhere in the output.
@@ -932,7 +1033,9 @@ describe("GMS2 note import preserves content instead of demanding a from-scratch
       });
       expect(result.skipped).toContain("BadNote");
       expect(
-        result.warnings.some((w) => /Note "BadNote" could not be copied/.test(w)),
+        result.warnings.some((w) =>
+          /Note "BadNote" could not be copied/.test(w),
+        ),
       ).toBe(true);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
