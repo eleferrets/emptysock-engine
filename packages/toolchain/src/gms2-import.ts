@@ -136,12 +136,47 @@ export async function importGMS2Project(
   const filesToWrite: { rel: string; content: string }[] = [];
   const reportEntries: MigrationReportEntry[] = [];
 
+  const convertedObjects: string[] = [];
   for (const name of objects) {
     if (verbose) console.log(`  [object] ${name}`);
-    const prefabJSON = buildObjectPrefabJSON(name);
+    // A stale/orphaned resource-list entry (common in long-lived real GMS2
+    // projects — a resource deleted from disk without being fully removed
+    // from the .yyp) must be reported honestly, not silently treated as a
+    // successful conversion with a fabricated empty prefab. This mirrors
+    // convertGms2Sound/convertGms2Font/convertGms2Note's existing "check the
+    // real file/directory exists, fail honestly if not" pattern. An object
+    // directory that exists but has zero .gml files is a real, valid,
+    // different case (an object with only a sprite/properties and no code)
+    // and must still convert — only a genuinely missing .yy is a failure.
+    const objectYyPath = path.join(projectRoot, "objects", name, `${name}.yy`);
+    let objectExists = true;
+    try {
+      await fs.access(objectYyPath);
+    } catch {
+      objectExists = false;
+    }
+
+    if (!objectExists) {
+      const reason =
+        "object's .yy not found on disk, likely a stale/orphaned project reference";
+      warnings.push(
+        `Object "${name}" could not be converted (${reason}) — skipped, needs manual import.`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "object",
+        name,
+        status: "manual",
+        note: reason,
+      });
+      continue;
+    }
+
+    const prefabJSON = await buildObjectPrefabJSON(name, projectRoot);
     const behavior = await buildObjectBehavior(name, projectRoot);
     filesToWrite.push({ rel: `${name}.prefab.json`, content: prefabJSON });
     filesToWrite.push({ rel: `${name}.behavior.ts`, content: behavior });
+    convertedObjects.push(name);
     reportEntries.push({ kind: "object", name, status: "converted" });
   }
 
@@ -178,7 +213,11 @@ export async function importGMS2Project(
   for (const name of rooms) {
     if (verbose) console.log(`  [room] ${name}`);
     try {
-      const sceneJSON = await buildRoomSceneJSON(name, projectRoot, objects);
+      const sceneJSON = await buildRoomSceneJSON(
+        name,
+        projectRoot,
+        convertedObjects,
+      );
       const room = await convertGms2Room(
         path.join(projectRoot, "rooms", name, `${name}.yy`),
       );
@@ -297,7 +336,7 @@ export async function importGMS2Project(
 
   filesToWrite.push({
     rel: "project-manifest.json",
-    content: projectManifestJSON(objects, convertedRooms),
+    content: projectManifestJSON(convertedObjects, convertedRooms),
   });
   filesToWrite.push({
     rel: "migration-report.md",

@@ -66,6 +66,7 @@ const CATEGORY_LABELS: Partial<
 // (count 0) — matches the original report's fixed table shape.
 const SUMMARY_ROWS: Array<[MigrationEntryKind, MigrationEntryStatus]> = [
   ["object", "converted"],
+  ["object", "manual"],
   ["script", "converted"],
   ["room", "converted"],
   ["room", "manual"],

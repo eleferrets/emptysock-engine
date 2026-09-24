@@ -3,6 +3,7 @@ import path from "path";
 import { convertGms2Sprite } from "./gms2-sprite-import.js";
 import { convertGms2Room } from "./gms2-room-import.js";
 import { indent, readAndTranspileGML } from "./gms2-transpile.js";
+import { parseGmsJson } from "./gms2-parse.js";
 
 // ---------------------------------------------------------------------------
 // Per-asset-kind codegen — RELEASE_PASS.md Track 7 / ground rule 15:
@@ -24,21 +25,123 @@ export function toPascalCase(name: string): string {
     .join("");
 }
 
+/** On-disk shape of the object-relevant fields of a GMS2 object `.yy` file. */
+interface YyObject {
+  spriteId?: { name?: string } | null;
+  physicsObject?: boolean;
+  physicsSensor?: boolean;
+  physicsShape?: number;
+  physicsDensity?: number;
+  physicsFriction?: number;
+  physicsRestitution?: number;
+  physicsKinematic?: boolean;
+  [key: string]: unknown;
+}
+
+function isYyObject(val: unknown): val is YyObject {
+  return typeof val === "object" && val !== null;
+}
+
 /**
  * Builds the `.prefab.json` contents for a GMS2 object — the *structural*
  * half of the object, in `@emptysock/engine`'s real `PrefabFile` shape
- * (`packages/engine/src/ecs/SceneFile.ts`). Every GameMaker object instance
- * has a position, so every prefab gets a `Transform` component; richer
- * structural mapping (a `sprite_id` → `Sprite`, physics settings →
- * `PhysicsBody`) is a real, separate extension to make once a project
- * actually needs it — not assumed here without a real `.yy` sample to
- * verify the field names against (the same "audit before assuming"
- * discipline that caught the `.yy`/`.yyp` quirks in the first place).
+ * (`packages/engine/src/SceneFile.ts`). Every GameMaker object instance has
+ * a position, so every prefab gets a `Transform` component. This reads the
+ * object's real `<name>.yy` (via the shared trailing-comma-tolerant
+ * `parseGmsJson`, same as every other real `.yy` read in this codebase) and
+ * layers on real structural data when it's present:
+ *
+ * - A real `spriteId` (not `null`, which GameMaker writes for a spriteless
+ *   object) adds a `Sprite` component, wired to that sprite's generated
+ *   asset the same `./assets/sprites/<name>/frame_0.png` convention
+ *   `buildSpriteAsset`/`convertGms2RoomBackgrounds` already use, since the
+ *   sprite is expected to have been imported by the same run's sprite loop.
+ * - `physicsObject: true` adds a `PhysicsBody` component (see
+ *   `packages/engine/src/components/PhysicsBody.ts` for its real field
+ *   shape) — only the fields that shape actually has are ever emitted:
+ *   `type` (`"kinematic"` when `physicsKinematic` is true, else
+ *   `"dynamic"` — GameMaker's physics has no static/kinematic distinction
+ *   this importer can reliably read, so a static-in-GameMaker object still
+ *   comes through as `"dynamic"` and is a real, documented gap, not silently
+ *   wrong data), `isSensor` (from `physicsSensor`), and `density`/
+ *   `friction`/`restitution` (from their `physics*` equivalents) when
+ *   present. `PhysicsBody.shape` is deliberately never overridden here —
+ *   GameMaker's `physicsShape` enum (circle/rectangle/custom-polygon) has no
+ *   confident, verified mapping onto `PhysicsBody`'s `"box"|"circle"|
+ *   "capsule"` without a real project's `.yy` to check the enum values
+ *   against, so the component's own `"box"` default is left in place rather
+ *   than guessing.
+ *
+ * An object whose `.yy` has neither a real `spriteId` nor `physicsObject:
+ * true` still gets exactly the previous `Transform`-only prefab — this is
+ * additive, not a behavior change for objects that don't use either.
  */
-export function buildObjectPrefabJSON(name: string): string {
+export async function buildObjectPrefabJSON(
+  name: string,
+  projectRoot: string,
+): Promise<string> {
+  const yyPath = path.join(projectRoot, "objects", name, `${name}.yy`);
+
+  const components: Array<{
+    component: string;
+    overrides?: Record<string, unknown>;
+  }> = [{ component: "Transform" }];
+
+  let raw: string | undefined;
+  try {
+    raw = await fs.readFile(yyPath, "utf-8");
+  } catch {
+    raw = undefined;
+  }
+
+  if (raw !== undefined) {
+    let parsed: unknown;
+    try {
+      parsed = parseGmsJson(raw);
+    } catch {
+      parsed = undefined;
+    }
+
+    if (isYyObject(parsed)) {
+      const spriteName =
+        parsed.spriteId !== null &&
+        parsed.spriteId !== undefined &&
+        typeof parsed.spriteId.name === "string"
+          ? parsed.spriteId.name
+          : undefined;
+      if (spriteName !== undefined) {
+        components.push({
+          component: "Sprite",
+          overrides: {
+            texturePath: `./assets/sprites/${spriteName}/frame_0.png`,
+          },
+        });
+      }
+
+      if (parsed.physicsObject === true) {
+        const overrides: Record<string, unknown> = {
+          type: parsed.physicsKinematic === true ? "kinematic" : "dynamic",
+        };
+        if (typeof parsed.physicsSensor === "boolean") {
+          overrides["isSensor"] = parsed.physicsSensor;
+        }
+        if (typeof parsed.physicsDensity === "number") {
+          overrides["density"] = parsed.physicsDensity;
+        }
+        if (typeof parsed.physicsFriction === "number") {
+          overrides["friction"] = parsed.physicsFriction;
+        }
+        if (typeof parsed.physicsRestitution === "number") {
+          overrides["restitution"] = parsed.physicsRestitution;
+        }
+        components.push({ component: "PhysicsBody", overrides });
+      }
+    }
+  }
+
   const prefab = {
     prefabName: name,
-    components: [{ component: "Transform" }],
+    components,
   };
   return JSON.stringify(prefab, null, 2) + "\n";
 }

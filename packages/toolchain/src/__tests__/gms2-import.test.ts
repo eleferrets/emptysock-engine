@@ -74,6 +74,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     const objDir = path.join(projectDir, "objects", "obj_hero");
     await fs.mkdir(objDir, { recursive: true });
     await fs.writeFile(
+      path.join(objDir, "obj_hero.yy"),
+      `{"name":"obj_hero","spriteId":null,"physicsObject":false,}`,
+      "utf-8",
+    );
+    await fs.writeFile(
       path.join(objDir, "Create_0.gml"),
       "var x = 0;",
       "utf-8",
@@ -186,6 +191,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       const objDir = path.join(dndDir, "objects", "obj_legacy");
       await fs.mkdir(objDir, { recursive: true });
       await fs.writeFile(
+        path.join(objDir, "obj_legacy.yy"),
+        `{"name":"obj_legacy",}`,
+        "utf-8",
+      );
+      await fs.writeFile(
         path.join(objDir, "Create_0.gml"),
         "action_move(direction, 4);\ngml_pragma('forceinline');",
         "utf-8",
@@ -233,6 +243,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       const objDir = path.join(dir, "objects", "obj_walker");
       await fs.mkdir(objDir, { recursive: true });
       await fs.writeFile(
+        path.join(objDir, "obj_walker.yy"),
+        `{"name":"obj_walker",}`,
+        "utf-8",
+      );
+      await fs.writeFile(
         path.join(objDir, "Create_0.gml"),
         "action_move(32, 4);\naction_sprite_set(spr_walk, 0, 1);",
         "utf-8",
@@ -275,6 +290,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       );
       const objDir = path.join(dir, "objects", "obj_hazard");
       await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "obj_hazard.yy"),
+        `{"name":"obj_hazard",}`,
+        "utf-8",
+      );
       await fs.writeFile(
         path.join(objDir, "Step_0.gml"),
         "action_if_collision(other)\naction_kill_object();",
@@ -325,6 +345,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       const objDir = path.join(dir, "objects", "obj_spawner");
       await fs.mkdir(objDir, { recursive: true });
       await fs.writeFile(
+        path.join(objDir, "obj_spawner.yy"),
+        `{"name":"obj_spawner",}`,
+        "utf-8",
+      );
+      await fs.writeFile(
         path.join(objDir, "Create_0.gml"),
         "action_create_object(obj_pickup, 10, 20);\naction_next_room();",
         "utf-8",
@@ -339,6 +364,246 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         "GmlActions.action_create_object(_entity, _ctx, obj_pickup, 10, 20);",
       );
       expect(content).toContain("GmlActions.action_next_room(_entity, _ctx);");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only ever emit Transform)", () => {
+  it("adds a Sprite component when the object's .yy has a real spriteId", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-sprite-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-obj-sprite-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"Object Sprite Test",
+          "resources":[
+            {"id":{"name":"obj_crate","path":"objects/obj_crate/obj_crate.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_crate");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "obj_crate.yy"),
+        `{"name":"obj_crate","spriteId":{"name":"spr_crate",},"physicsObject":false,}`,
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+      const raw = await fs.readFile(
+        path.join(out, "obj_crate.prefab.json"),
+        "utf-8",
+      );
+      const prefab = JSON.parse(raw) as {
+        components: {
+          component: string;
+          overrides?: Record<string, unknown>;
+        }[];
+      };
+      expect(prefab.components).toEqual([
+        { component: "Transform" },
+        {
+          component: "Sprite",
+          overrides: { texturePath: "./assets/sprites/spr_crate/frame_0.png" },
+        },
+      ]);
+      // No physicsObject set — no fabricated PhysicsBody component.
+      expect(prefab.components.some((c) => c.component === "PhysicsBody")).toBe(
+        false,
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("adds a PhysicsBody component with real fields when the object's .yy has physicsObject: true", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-physics-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-obj-physics-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"Object Physics Test",
+          "resources":[
+            {"id":{"name":"obj_crate2","path":"objects/obj_crate2/obj_crate2.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_crate2");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "obj_crate2.yy"),
+        `{
+          "name":"obj_crate2",
+          "spriteId":null,
+          "physicsObject":true,
+          "physicsKinematic":false,
+          "physicsSensor":true,
+          "physicsDensity":0.5,
+          "physicsFriction":0.2,
+          "physicsRestitution":0.1,
+        }`,
+        "utf-8",
+      );
+
+      await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+      const raw = await fs.readFile(
+        path.join(out, "obj_crate2.prefab.json"),
+        "utf-8",
+      );
+      const prefab = JSON.parse(raw) as {
+        components: {
+          component: string;
+          overrides?: Record<string, unknown>;
+        }[];
+      };
+      const physics = prefab.components.find(
+        (c) => c.component === "PhysicsBody",
+      );
+      expect(physics?.overrides).toEqual({
+        type: "dynamic",
+        isSensor: true,
+        density: 0.5,
+        friction: 0.2,
+        restitution: 0.1,
+      });
+      // No spriteId set — no fabricated Sprite component.
+      expect(prefab.components.some((c) => c.component === "Sprite")).toBe(
+        false,
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a stale/orphaned object reference (no .yy on disk) as an honest manual failure, not a fabricated conversion", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-stale-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-stale-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"Stale Object Reference Test",
+          "resources":[
+            {"id":{"name":"obj_ghost","path":"objects/obj_ghost/obj_ghost.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      // Deliberately no objects/obj_ghost directory at all — a stale entry
+      // left in the .yyp's resource list after the resource was deleted
+      // from disk.
+
+      const result = await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.includes("obj_ghost") &&
+            /stale|orphaned/i.test(w) &&
+            /not found on disk/i.test(w),
+        ),
+      ).toBe(true);
+      expect(result.skipped).toContain("obj_ghost");
+
+      const report = await fs.readFile(
+        path.join(out, "migration-report.md"),
+        "utf-8",
+      );
+      expect(report).toContain(
+        "- Object: `obj_ghost` (object's .yy not found on disk, likely a stale/orphaned project reference)",
+      );
+      expect(report).toContain("| Objects (manual) | 1 |");
+      expect(report).toContain("| Objects (converted) | 0 |");
+
+      await expect(
+        fs.access(path.join(out, "obj_ghost.prefab.json")),
+      ).rejects.toThrow();
+      await expect(
+        fs.access(path.join(out, "obj_ghost.behavior.ts")),
+      ).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("still converts an object whose directory exists but has zero .gml files (no code, just properties — a real, valid case)", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-nocode-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-obj-nocode-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "p.yyp"),
+        `{
+          "%Name":"No Code Object Test",
+          "resources":[
+            {"id":{"name":"obj_prop","path":"objects/obj_prop/obj_prop.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const objDir = path.join(dir, "objects", "obj_prop");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "obj_prop.yy"),
+        `{"name":"obj_prop","spriteId":{"name":"spr_prop",},"physicsObject":false,}`,
+        "utf-8",
+      );
+      // Deliberately no .gml files — a real, valid "object with no custom
+      // code, just properties" case that must not be treated as missing.
+
+      const result = await importGMS2Project(path.join(dir, "p.yyp"), out, {
+        verbose: false,
+      });
+      expect(
+        result.warnings.some(
+          (w) => /obj_prop/i.test(w) && /stale|orphaned/i.test(w),
+        ),
+      ).toBe(false);
+
+      const prefabRaw = await fs.readFile(
+        path.join(out, "obj_prop.prefab.json"),
+        "utf-8",
+      );
+      const prefab = JSON.parse(prefabRaw) as {
+        components: { component: string }[];
+      };
+      expect(prefab.components.some((c) => c.component === "Sprite")).toBe(
+        true,
+      );
+
+      const behavior = await fs.readFile(
+        path.join(out, "obj_prop.behavior.ts"),
+        "utf-8",
+      );
+      expect(behavior).toContain("export function onCreate(");
+      expect(behavior).toContain("TODO: migrate Create event");
+
+      const report = await fs.readFile(
+        path.join(out, "migration-report.md"),
+        "utf-8",
+      );
+      expect(report).toContain("| Objects (converted) | 1 |");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
@@ -374,6 +639,11 @@ describe("gms2-codegen wires gmlActionsStep into onUpdate for objects that use a
       );
       const objDir = path.join(dir, "objects", "obj_mover");
       await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "obj_mover.yy"),
+        `{"name":"obj_mover",}`,
+        "utf-8",
+      );
       await fs.writeFile(
         path.join(objDir, "Step_1.gml"),
         "action_move(128, 2);",
@@ -429,6 +699,11 @@ describe("gms2-codegen wires gmlActionsStep into onUpdate for objects that use a
       const objDir = path.join(dir, "objects", "obj_still");
       await fs.mkdir(objDir, { recursive: true });
       await fs.writeFile(
+        path.join(objDir, "obj_still.yy"),
+        `{"name":"obj_still",}`,
+        "utf-8",
+      );
+      await fs.writeFile(
         path.join(objDir, "Step_0.gml"),
         "show_message('tick');",
         "utf-8",
@@ -465,9 +740,13 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
         }`,
         "utf-8",
       );
-      await fs.mkdir(path.join(dir, "objects", "obj_player"), {
-        recursive: true,
-      });
+      const objPlayerDir = path.join(dir, "objects", "obj_player");
+      await fs.mkdir(objPlayerDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objPlayerDir, "obj_player.yy"),
+        `{"name":"obj_player",}`,
+        "utf-8",
+      );
       const roomDir = path.join(dir, "rooms", "rm_main");
       await fs.mkdir(roomDir, { recursive: true });
       await fs.writeFile(
