@@ -325,6 +325,73 @@ export {
 export type { GmlDrawTarget } from "./compat/gml.js";
 
 /**
+ * Pure/global GML scripting-function compat (~50 of GameMaker's most-used
+ * built-ins — `ds_map_*`/`ds_list_*`, `string_*`, `draw_*`, math/random
+ * helpers) — the sibling to the entity-affecting DnD action library above.
+ * A GMS2-imported `.behavior.ts` module or hand-written game code calls
+ * these directly off this one export surface; there is no
+ * `@emptysock/engine/compat` subpath (per this package's "one export
+ * surface" rule) despite an older `gms2-codegen.ts` comment template once
+ * suggesting one.
+ */
+export {
+  setRoomSize,
+  room_width,
+  room_height,
+  lerp,
+  clamp,
+  sign,
+  frac,
+  lengthdir_x,
+  lengthdir_y,
+  point_distance,
+  point_direction,
+  degtorad,
+  radtodeg,
+  irandom,
+  irandom_range,
+  random,
+  random_range,
+  choose,
+  string,
+  string_length,
+  string_copy,
+  string_pos,
+  string_lower,
+  string_upper,
+  string_repeat,
+  string_delete,
+  ds_map_create,
+  ds_map_destroy,
+  ds_map_set,
+  ds_map_find_value,
+  ds_map_exists,
+  ds_map_delete,
+  ds_list_create,
+  ds_list_destroy,
+  ds_list_add,
+  ds_list_find_value,
+  ds_list_size,
+  ds_list_delete,
+  draw_set_colour,
+  draw_rectangle,
+  draw_circle,
+  draw_text,
+  draw_line,
+  show_message,
+  game_end,
+  object_exists,
+  asset_get_index,
+  array_length_1d,
+  string_char_at,
+  keyboard_wait,
+  mouse_button_down,
+  mouse_button_released,
+  place_free,
+  place_empty,
+} from "./compat/gml.js";
+
+/**
  * Real, automatic dispatch for GMS2-imported `.behavior.ts` modules — see
  * CLAUDE.md's "GML behavior dispatch: three Step passes, a separate Draw GUI
  * pass" entry.

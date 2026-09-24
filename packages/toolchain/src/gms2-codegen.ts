@@ -366,7 +366,7 @@ export async function buildRoomSceneJSON(
 export function scriptStub(name: string): string {
   return `// Auto-generated from GMS2 script: ${name}
 // Migrate GML functions to TypeScript below.
-// Import GML compat helpers if needed: import * as GML from '@emptysock/engine/compat';
+// Import GML compat helpers if needed: import * as GML from '@emptysock/engine';
 
 export function placeholder_${name}(): void {
   // TODO: migrate GML script body
