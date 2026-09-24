@@ -119,6 +119,11 @@ interface GmlCameraRegistry {
   nextId: number;
   readonly viewCamera: number[]; // length VIEW_SLOT_COUNT, camera id per viewport slot, -1 = none
   readonly viewVisible: boolean[]; // length VIEW_SLOT_COUNT
+  /** Screen-space rectangle each viewport slot draws into — `view_xport`/`view_yport`/`view_wport`/`view_hport`, added for real multi-camera compositing (see `buildActiveGmlCameraViewports`). Defaults to a full-1280x720-screen rect per slot, same as this file's other defaults. */
+  readonly viewPortX: number[];
+  readonly viewPortY: number[];
+  readonly viewPortWidth: number[];
+  readonly viewPortHeight: number[];
   viewEnabled: boolean;
   /** The camera id `camera_get_active()` reports — see that function's doc comment for the real, narrower GameMaker semantics this approximates. */
   activeCamera: number;
@@ -153,6 +158,10 @@ function ensureRegistry(scene: Scene): GmlCameraRegistry {
       nextId: DEFAULT_CAMERA_ID + 1,
       viewCamera,
       viewVisible: new Array<boolean>(VIEW_SLOT_COUNT).fill(false),
+      viewPortX: new Array<number>(VIEW_SLOT_COUNT).fill(0),
+      viewPortY: new Array<number>(VIEW_SLOT_COUNT).fill(0),
+      viewPortWidth: new Array<number>(VIEW_SLOT_COUNT).fill(1280),
+      viewPortHeight: new Array<number>(VIEW_SLOT_COUNT).fill(720),
       viewEnabled: false,
       activeCamera: DEFAULT_CAMERA_ID,
     };
@@ -450,6 +459,120 @@ export function view_set_enabled(
   enabled: boolean,
 ): void {
   ensureRegistry(ctx.scene).viewEnabled = enabled;
+}
+
+// ---------------------------------------------------------------------------
+// view_xport / view_yport / view_wport / view_hport — the screen rectangle
+// each viewport slot draws into. Added for real multi-camera compositing
+// (RELEASE_PASS.md's 2026-09-24 multi-camera entry) — GameMaker's real
+// `view_wport[idx]`/`view_hport[idx]` etc. built-in array variables, the
+// piece this file's own module doc comment noted was previously untracked
+// ("only camera id 0 ... driving real per-camera rendering"). Modelled as
+// get/set function-pairs, same convention `view_get_camera`/`view_set_camera`
+// and `view_get_visible`/`view_set_visible` already use.
+// ---------------------------------------------------------------------------
+
+export function view_get_xport(ctx: GmlCameraContext, idx: number): number {
+  return ensureRegistry(ctx.scene).viewPortX[clampSlot(idx)] ?? 0;
+}
+export function view_set_xport(
+  ctx: GmlCameraContext,
+  idx: number,
+  value: number,
+): void {
+  ensureRegistry(ctx.scene).viewPortX[clampSlot(idx)] = value;
+}
+export function view_get_yport(ctx: GmlCameraContext, idx: number): number {
+  return ensureRegistry(ctx.scene).viewPortY[clampSlot(idx)] ?? 0;
+}
+export function view_set_yport(
+  ctx: GmlCameraContext,
+  idx: number,
+  value: number,
+): void {
+  ensureRegistry(ctx.scene).viewPortY[clampSlot(idx)] = value;
+}
+export function view_get_wport(ctx: GmlCameraContext, idx: number): number {
+  return ensureRegistry(ctx.scene).viewPortWidth[clampSlot(idx)] ?? 0;
+}
+export function view_set_wport(
+  ctx: GmlCameraContext,
+  idx: number,
+  value: number,
+): void {
+  ensureRegistry(ctx.scene).viewPortWidth[clampSlot(idx)] = value;
+}
+export function view_get_hport(ctx: GmlCameraContext, idx: number): number {
+  return ensureRegistry(ctx.scene).viewPortHeight[clampSlot(idx)] ?? 0;
+}
+export function view_set_hport(
+  ctx: GmlCameraContext,
+  idx: number,
+  value: number,
+): void {
+  ensureRegistry(ctx.scene).viewPortHeight[clampSlot(idx)] = value;
+}
+
+/**
+ * A single active camera's full render state — one entry per enabled,
+ * visible view slot — ready to hand to `RenderSystem.renderMultiCamera()`.
+ * `id` is the view slot index (0-7), not the camera handle id, since a
+ * screen region is owned by the *slot*, not the camera (the same slot can
+ * be reassigned to a different camera handle at runtime via
+ * `view_set_camera`).
+ */
+export interface GmlCameraViewport {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+  readonly rotation: number;
+  readonly viewWidth: number;
+  readonly viewHeight: number;
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
+}
+
+/**
+ * Builds the list of `GmlCameraViewport`s that should actually render this
+ * frame: `view_enabled` must be on room-wide, and each slot must have
+ * `view_visible[idx]` true and a real camera assigned (`view_camera[idx]
+ * !== -1`). This is the one place that reads *every* view slot (0-7), not
+ * just slot 0/the default camera — closing the "only camera 0 has a live
+ * rendering effect" gap this file's own introduction used to document as
+ * permanent. A GML game (or `GmsProjectRuntime`, once wired) calls this once
+ * per frame and passes the result straight to `RenderSystem.renderMultiCamera()`.
+ */
+export function buildActiveGmlCameraViewports(
+  ctx: GmlCameraContext,
+): GmlCameraViewport[] {
+  const registry = ensureRegistry(ctx.scene);
+  if (!registry.viewEnabled) return [];
+  const out: GmlCameraViewport[] = [];
+  for (let idx = 0; idx < VIEW_SLOT_COUNT; idx++) {
+    if (registry.viewVisible[idx] !== true) continue;
+    const camid = registry.viewCamera[idx] ?? -1;
+    if (camid < 0) continue;
+    const handle = registry.handles.get(camid);
+    if (handle === undefined) continue;
+    syncDefaultFromLive(ctx, handle);
+    out.push({
+      id: idx,
+      x: handle.x,
+      y: handle.y,
+      zoom: 1,
+      rotation: (handle.angle * Math.PI) / 180,
+      viewWidth: handle.width,
+      viewHeight: handle.height,
+      screenX: registry.viewPortX[idx] ?? 0,
+      screenY: registry.viewPortY[idx] ?? 0,
+      screenWidth: registry.viewPortWidth[idx] ?? handle.width,
+      screenHeight: registry.viewPortHeight[idx] ?? handle.height,
+    });
+  }
+  return out;
 }
 
 /** @internal — test-only accessor for a camera handle's full stored state. */
