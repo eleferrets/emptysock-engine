@@ -186,8 +186,18 @@ export function transpileGML(gml: string): string {
         )} elsewhere in this project's GML needs to become real shared state.`,
   );
 
-  // var x = expr  →  let x = expr;
-  out = out.replace(/\bvar\b(\s+\w+\s*=)/g, "let$1");
+  // var x = expr  →  var x = expr (kept as `var`, not rewritten to `let`).
+  // GML's `var` is function-scoped and — unlike JS `let` — explicitly
+  // tolerates redeclaring the same local more than once in the same
+  // function body (a real, common pattern: a compiled/unrolled event with
+  // several near-identical blocks each starting `var _i = 0;`). A real
+  // GMS2 project (a per-controller-index input-polling event, one `var
+  // _pNumber = 0;`/`var _pNumber = 1;`/... block per player index in the
+  // same Step event) hit exactly this: rewriting to `let` produced
+  // `SyntaxError: Identifier '_pNumber' has already been declared` at
+  // module load, since JS `let` forbids redeclaration within the same
+  // block/function scope. `var` has the closest matching semantics.
+  out = out.replace(/\bvar\b(\s+\w+\s*=)/g, "var$1");
 
   // GML's word-form boolean operators (`and`/`or`/`xor`/`not`, kept as
   // aliases for `&&`/`||`/`!==` (boolean-only in GameMaker — the closest
@@ -334,11 +344,83 @@ export function transpileGML(gml: string): string {
       // unclosed and broke the whole generated file (the exact bug that
       // motivated this fix). Keep it as a trailing comment on the emitted
       // `if (...)` line instead of silently dropping it.
+      //
+      // A *leading* comment — real GML has `if // LEFT TOGGLE HIGHLIGHTED`
+      // on the `if`'s own line, with the actual condition only starting on
+      // the *next* line (`(_mouseX > ... )`) — needs separate handling
+      // first: naively looking for the first `//` anywhere in `cond` (the
+      // approach above alone) finds this leading comment before any real
+      // condition text, so `realCond` came out empty and the whole
+      // condition got misfiled as "trailing comment" — confirmed against a
+      // real project, emitting a hard-broken `if ()` followed by the actual
+      // condition as a dangling, never-evaluated expression statement.
+      let working = cond;
+      let leadingComment = "";
+      const leadingCommentMatch = /^[ \t]*\/\/[^\n]*\n/.exec(working);
+      if (leadingCommentMatch !== null) {
+        leadingComment = leadingCommentMatch[0].trim();
+        working = working.slice(leadingCommentMatch[0].length);
+      }
+      const commentIdx = working.indexOf("//");
+      const realCond =
+        commentIdx === -1
+          ? working.trim()
+          : working.slice(0, commentIdx).trim();
+      const trailingComment =
+        commentIdx === -1 ? "" : working.slice(commentIdx).trimEnd();
+      const comments = [leadingComment, trailingComment]
+        .filter((c) => c.length > 0)
+        .join(" ");
+      return comments === ""
+        ? `if (${realCond})`
+        : `if (${realCond}) ${comments}`;
+    },
+  );
+
+  // if (a) <trailing operator + rhs, no further parens> { ... }
+  //   →  if ((a) <trailing...>) { ... }
+  //
+  // A real GML condition can begin with one balanced parenthesised clause
+  // and then keep going past its closing paren with more of the condition
+  // — not joined by `&&`/`||` (the chain pass above already covers that),
+  // just a plain trailing comparison against the rest of the expression.
+  // Real, confirmed example: `if (_xAxis*_xAxis + _yAxis*+_yAxis) >=
+  // gamepadDeadzoneSquared { ... }`. The three passes above all skip this
+  // shape: the `&&`/`||`-chain pass needs a second parenthesised clause,
+  // the `!(...)` pass needs a leading `!`, and the bare-expr pass
+  // explicitly excludes anything starting with `(` (its `(?!\()`) since
+  // that shape is exactly what looked, on its own, like an
+  // already-complete `if (cond)`. Left unwrapped, this parses in JS as
+  // `if (a)` followed by a dangling `>= gamepadDeadzoneSquared { ... }`
+  // expression statement — a hard `SyntaxError` (an errant `>=` with no
+  // preceding operand at statement position), not a silent misbehaviour,
+  // but it still crashes the whole generated module at load time. Only
+  // fires when there IS real trailing content between the clause and the
+  // `{` — a plain `if (a) { ... }` has nothing to match here and is left
+  // alone.
+  out = out.replace(
+    new RegExp(
+      `\\bif\\s*(${IF_CLAUSE}[ \\t]*[^{\\s][\\s\\S]*?)(?=\\r?\\n\\s*\\{|[ \\t]*\\{)`,
+      "g",
+    ),
+    (m: string, cond: string) => {
+      // A trailing `//` line comment on the same line as the condition is
+      // not part of the expression — wrapping it inside the new parens
+      // (`if ((a == 1) // a comment)`) would swallow the closing paren
+      // into the comment and break the generated syntax. Split it off and
+      // only wrap the code portion; if nothing but the comment trails the
+      // already-complete clause (an earlier pass, e.g. the bare-if wrap
+      // above, may have already produced a fully valid `if (cond)` with
+      // just a comment after it), there is no real trailing expression to
+      // wrap at all — leave the match untouched.
       const commentIdx = cond.indexOf("//");
-      if (commentIdx === -1) return `if (${cond.trim()})`;
-      const realCond = cond.slice(0, commentIdx).trim();
-      const comment = cond.slice(commentIdx).trimEnd();
-      return `if (${realCond}) ${comment}`;
+      const code = (
+        commentIdx === -1 ? cond : cond.slice(0, commentIdx)
+      ).trim();
+      const comment =
+        commentIdx === -1 ? "" : ` ${cond.slice(commentIdx).trimEnd()}`;
+      if (new RegExp(`^${IF_CLAUSE}$`).test(code)) return m;
+      return `if (${code})${comment}`;
     },
   );
 
@@ -650,10 +732,23 @@ export function transpileGML(gml: string): string {
   // embedding that inside a second `/* ... */` would produce a nested block
   // comment — invalid in JS/TS, since the first `*/` closes the outer
   // comment early and leaves the rest as bare, unparseable code.
+  //
+  // `if (false)`, not `if (true)`: the block's *body* is left completely
+  // untouched for manual review (it can freely reference GML-only
+  // rescoping constructs this pass has no way to translate — `other.foo`,
+  // a bare identifier now meaning a different instance's field, etc.), and
+  // those references are only valid GML inside a real `with` block, not
+  // plain JS. `if (true)` would actually execute that untranslated body
+  // and throw at runtime (confirmed against a real project: `with (mywall)
+  // { image_xscale = other.sprite_width / sprite_width; }` throws
+  // `ReferenceError: other is not defined`) — the opposite of this pass's
+  // own documented intent ("without claiming to run the real per-instance
+  // iteration"). `if (false)` keeps the block syntactically present and
+  // reviewable without ever executing its untranslated body.
   out = out.replace(
     /\bwith\s*\(((?:[^()]|\([^()]*\))*)\)/g,
     () =>
-      `if (true) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`,
+      `if (false) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`,
   );
 
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
@@ -782,8 +877,19 @@ export function transpileGML(gml: string): string {
   );
 
   // alarm[n] = expr
+  //
+  // Only a *bare* `alarm[n] = expr` (this instance's own alarm) is safe to
+  // turn into the coroutine-migration comment below. GML also allows
+  // `other.alarm[n] = expr`/`creator.alarm[n] = expr` — setting a
+  // *different* instance's alarm through a dot-access reference (a real,
+  // confirmed pattern: `creator.alarm[1] = 1;`) — and the negative
+  // lookbehind here (`(?<!\.\s*)`) excludes that case rather than matching
+  // starting mid-expression at "alarm": matching there left the dotted
+  // prefix (`creator.`) dangling with nothing after its `.` once the rest
+  // of the line became a `//` comment, a hard `SyntaxError` at module load,
+  // not just a wrong migration comment.
   out = out.replace(
-    /\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
+    /(?<!\.\s*)\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
     (_m, expr: string) =>
       `// entity.startCoroutine(waitFrames(${expr.trimEnd()}));`,
   );
@@ -967,6 +1073,92 @@ export function transpileGML(gml: string): string {
     nested.push(line);
   }
   out = nested.join("\n");
+
+  // GameMaker instance variables (both its own built-ins — image_speed,
+  // image_index, visible, ... — and any project-defined one, e.g. a plain
+  // `mywall = instance_create_layer(...)`) need no declaration in GML — a
+  // bare `name = expr;` implicitly creates/writes that instance's own
+  // field the first time it's assigned. The rest of this transpiler emits
+  // that assignment completely unchanged (a bare identifier target), which
+  // is valid GML but not valid JS/TS: each generated event handler is its
+  // own function (see gms2-codegen.ts), and an undeclared bare-identifier
+  // assignment throws `ReferenceError` in a strict-mode ES module at
+  // runtime — confirmed against two real projects (`obj_checkpoint`'s
+  // `Create_0.gml`: `image_speed = 0;`, a built-in; `obj_crate`'s
+  // `Create_0.gml`: `mywall = instance_create_layer(...)`, a project-
+  // defined name), not a hypothetical. `transpileGML` is called once per
+  // GML event file (`gms2-codegen.ts`'s `readAndTranspileGML` call sites),
+  // and each event becomes exactly one generated function — so "first bare
+  // assignment in this call's output" is exactly "first assignment in this
+  // function's scope", the same boundary GML itself uses. This does not
+  // attempt real instance-variable persistence *across* events (each
+  // generated function is still its own scope, and a later event reading a
+  // value an earlier event set will see its GML default, not that stored
+  // value — a real, separate, tracked gap); it only prevents the hard
+  // crash within one event's own body.
+  {
+    const RESERVED = new Set([
+      "if",
+      "else",
+      "for",
+      "while",
+      "do",
+      "function",
+      "return",
+      "var",
+      "let",
+      "const",
+      "new",
+      "typeof",
+      "instanceof",
+      "in",
+      "of",
+      "break",
+      "continue",
+      "switch",
+      "case",
+      "default",
+      "try",
+      "catch",
+      "finally",
+      "throw",
+      "delete",
+      "void",
+      "this",
+      "class",
+      "extends",
+      "super",
+      "import",
+      "export",
+      "yield",
+      "async",
+      "await",
+      "null",
+      "undefined",
+      "true",
+      "false",
+      "with",
+    ]);
+    const declared = new Set<string>();
+    for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
+      declared.add(m[1] as string);
+    }
+    const bareAssign = /^(\s*)([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
+    out = out
+      .split("\n")
+      .map((line) => {
+        const match = bareAssign.exec(line);
+        if (match === null) return line;
+        const indent = match[1] ?? "";
+        const name = match[2] ?? "";
+        const eq = match[3] ?? "";
+        if (name === "" || RESERVED.has(name) || declared.has(name))
+          return line;
+        declared.add(name);
+        return `${indent}var ${name}${eq}${line.slice(match[0].length)}`;
+      })
+      .join("\n");
+  }
 
   return out;
 }

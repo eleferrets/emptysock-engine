@@ -30,7 +30,12 @@ describe("transpileGML", () => {
     // legitimately mentions "with (" as plain text.
     const code = out.replace(/\/\*.*?\*\//gs, "");
     expect(code).not.toMatch(/\bwith\s*\(/);
-    expect(out).toContain("if (true)");
+    // `if (false)`, not `if (true)`: the untranslated body can reference
+    // GML-only rescoping (e.g. `other.foo`) that only makes sense inside a
+    // real `with` block — actually executing it would throw at runtime. A
+    // real, confirmed regression (see gms2-transpile.ts's own comment on
+    // this pass): `if (true)` here used to run the untranslated body.
+    expect(out).toContain("if (false)");
   });
 
   it("wraps an if condition chained with bare && / || GML allows without an outer paren", () => {
@@ -206,17 +211,17 @@ describe("transpileGML", () => {
           "ds_list_destroy(list);",
         ].join("\n"),
       );
-      expect(out).toContain("let list = [];");
+      expect(out).toContain("var list = [];");
       expect(out).toContain("list.push(1);");
-      expect(out).toContain("let v = list[0];");
-      expect(out).toContain("let n = list.length;");
+      expect(out).toContain("var v = list[0];");
+      expect(out).toContain("var n = list.length;");
       expect(out).toContain("list.splice(0, 1);");
       expect(out).not.toMatch(/\bds_list_destroy\(/);
     });
 
     it("transpiles the [| i] accessor to plain indexing in both read and write position", () => {
       const readOut = transpileGML("var v = list[| 0];");
-      expect(readOut).toContain("let v = list[0];");
+      expect(readOut).toContain("var v = list[0];");
       const writeOut = transpileGML("list[| 0] = 5;");
       expect(writeOut).toContain("list[0] = 5;");
     });
@@ -235,18 +240,18 @@ describe("transpileGML", () => {
           "ds_map_destroy(map);",
         ].join("\n"),
       );
-      expect(out).toContain("let map = new Map();");
+      expect(out).toContain("var map = new Map();");
       expect(out).toContain('map.set("hp", 10);');
-      expect(out).toContain('let v = map.get("hp");');
-      expect(out).toContain('let e = map.has("hp");');
+      expect(out).toContain('var v = map.get("hp");');
+      expect(out).toContain('var e = map.has("hp");');
       expect(out).toContain('map.delete("hp");');
-      expect(out).toContain("let n = map.size;");
+      expect(out).toContain("var n = map.size;");
       expect(out).not.toMatch(/\bds_map_destroy\(/);
     });
 
     it("transpiles the [? key] accessor to .get in read position and .set in write position", () => {
       const readOut = transpileGML('var v = map[? "hp"];');
-      expect(readOut).toContain('let v = map.get("hp");');
+      expect(readOut).toContain('var v = map.get("hp");');
       const writeOut = transpileGML('map[? "hp"] = 5;');
       expect(writeOut).toContain('map.set("hp", 5);');
       expect(writeOut).not.toContain(".get(");
@@ -271,17 +276,17 @@ describe("transpileGML", () => {
         ].join("\n"),
       );
       expect(out).toContain(
-        "let grid = Array.from({ length: (4) }, () => new Array(4).fill(0));",
+        "var grid = Array.from({ length: (4) }, () => new Array(4).fill(0));",
       );
       expect(out).toContain("(grid[0][0] = 1);");
-      expect(out).toContain("let v = grid[0][0];");
-      expect(out).toContain("let w = grid.length;");
+      expect(out).toContain("var v = grid[0][0];");
+      expect(out).toContain("var w = grid.length;");
       expect(out).not.toMatch(/\bds_grid_destroy\(/);
     });
 
     it("transpiles the [# c, r] accessor to nested indexing in both read and write position", () => {
       const readOut = transpileGML("var v = grid[# 1, 2];");
-      expect(readOut).toContain("let v = grid[1][2];");
+      expect(readOut).toContain("var v = grid[1][2];");
       const writeOut = transpileGML("grid[# 1, 2] = 5;");
       expect(writeOut).toContain("grid[1][2] = 5;");
     });
@@ -290,7 +295,7 @@ describe("transpileGML", () => {
   describe("GML structs", () => {
     it("leaves a struct literal untouched (already valid JS object-literal syntax)", () => {
       const out = transpileGML("var s = {a: 1, b: 2};");
-      expect(out).toContain("let s = {a: 1, b: 2};");
+      expect(out).toContain("var s = {a: 1, b: 2};");
     });
 
     it("transpiles variable_struct_get/set/exists/remove to plain bracket access", () => {
@@ -302,10 +307,43 @@ describe("transpileGML", () => {
           'variable_struct_remove(s, "a");',
         ].join("\n"),
       );
-      expect(out).toContain('let v = s["a"];');
+      expect(out).toContain('var v = s["a"];');
       expect(out).toContain('(s["a"] = 5);');
-      expect(out).toContain('let e = ("a" in s);');
+      expect(out).toContain('var e = ("a" in s);');
       expect(out).toContain('delete s["a"];');
+    });
+  });
+
+  describe("GML built-in instance variables", () => {
+    it("declares a bare assignment to a known built-in (e.g. image_speed) as `var` instead of leaving an undeclared identifier", () => {
+      const out = transpileGML("image_speed = 0;\nimage_index = 0;");
+      expect(out).toContain("var image_speed = 0;");
+      expect(out).toContain("var image_index = 0;");
+      // A real, confirmed regression: without this, a generated event
+      // handler assigning a bare built-in throws `ReferenceError` at
+      // runtime in a strict-mode ES module.
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("also auto-declares a first bare assignment to a project-defined (non-built-in) instance variable", () => {
+      // Real, confirmed regression: `obj_crate`'s Create event does
+      // `mywall = instance_create_layer(...);` — GML implicitly declares
+      // `mywall` on this first assignment; the generated JS must too.
+      const out = transpileGML("mywall = 5;\nmywall = mywall + 1;");
+      expect(out).toContain("var mywall = 5;");
+      // The second assignment must NOT redeclare (that would shadow, and
+      // with `let`/`const` would throw — `var` is used precisely because
+      // GML tolerates redeclaring the same local, per the `var` pass
+      // above).
+      expect(out).not.toMatch(/var mywall = mywall/);
+      expect(out).toContain("mywall = mywall + 1;");
+    });
+
+    it("does not redeclare a name that was already declared by an earlier pass (e.g. ds_list/ds_map/ds_grid create)", () => {
+      const out = transpileGML("var list = ds_list_create();\nlist = list;");
+      expect(out).toContain("var list = [];");
+      // Second assignment must stay a plain assignment, not `var list = list;`.
+      expect(out.match(/var list/g)?.length).toBe(1);
     });
   });
 });
