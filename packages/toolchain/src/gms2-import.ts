@@ -12,8 +12,11 @@ import {
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
-  droppedBackgroundSprites,
+  convertGms2RoomBackgrounds,
 } from "./gms2-room-import.js";
+import { buildSoundAsset } from "./gms2-sound-import.js";
+import { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
+import { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
 
 // Re-exported for backward compatibility — some callers (and the test
 // suite) import `parseGmsJson` directly from this module.
@@ -78,6 +81,8 @@ export async function importGMS2Project(
   const sprites: string[] = [];
   const sounds: string[] = [];
   const tilesets: string[] = [];
+  const fonts: string[] = [];
+  const notes: string[] = [];
 
   for (const res of project.resources) {
     const name = res.id.name;
@@ -99,14 +104,20 @@ export async function importGMS2Project(
       sounds.push(name);
     } else if (resPath.startsWith("tilesets/")) {
       tilesets.push(name);
+    } else if (resPath.startsWith("fonts/")) {
+      fonts.push(name);
+    } else if (resPath.startsWith("notes/")) {
+      // GameMaker's own auto-generated compatibility-report resources are
+      // also plain GMNote notes under notes/, so this one bucket covers both.
+      notes.push(name);
     } else {
       // A resource type this importer has no migration path for at all
-      // (fonts, notes, extensions, GameMaker's own compatibility reports,
-      // …) — not one of the categories above that get their own
-      // report-table row and manual-work note. Still surfaced as a real
-      // warning so it shows up in migration-report.md, rather than only
-      // living in the returned `skipped` array where a caller reading just
-      // the generated report file would never learn it exists.
+      // (extensions, timelines, and any other kind this importer has never
+      // been audited against) — not one of the categories above that get
+      // their own report-table row. Still surfaced as a real warning so it
+      // shows up in migration-report.md, rather than only living in the
+      // returned `skipped` array where a caller reading just the generated
+      // report file would never learn it exists.
       skipped.push(name);
       warnings.push(
         `"${name}" (${resPath}) has no import path in this tool and was skipped entirely — recreate it manually.`,
@@ -167,19 +178,43 @@ export async function importGMS2Project(
   for (const name of rooms) {
     if (verbose) console.log(`  [room] ${name}`);
     try {
-      const content = await buildRoomSceneJSON(name, projectRoot, objects);
-      filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
-      convertedRooms.push(name);
-      reportEntries.push({ kind: "room", name, status: "converted" });
-
+      const sceneJSON = await buildRoomSceneJSON(name, projectRoot, objects);
       const room = await convertGms2Room(
         path.join(projectRoot, "rooms", name, `${name}.yy`),
       );
-      for (const sprite of droppedBackgroundSprites(room)) {
+
+      // Real background images (a GMRBackgroundLayer with a real spriteId)
+      // now get a genuine runtime representation: a Transform+Sprite entity
+      // on the engine's built-in "background" render layer, sized to cover
+      // the room — see convertGms2RoomBackgrounds's doc comment for why this
+      // is a direct SceneFileEntity rather than a prefab instance. Merged
+      // into the already-built .scene.json rather than threading this
+      // through buildRoomSceneJSON itself (gms2-codegen.ts has ongoing
+      // parallel work in flight this pass avoids touching).
+      const { entities: backgroundEntities, failed: failedBackgrounds } =
+        await convertGms2RoomBackgrounds(room, projectRoot, outDir);
+
+      let content = sceneJSON;
+      if (backgroundEntities.length > 0) {
+        const scene = JSON.parse(sceneJSON) as {
+          entities?: unknown[];
+          [key: string]: unknown;
+        };
+        scene.entities = [...(scene.entities ?? []), ...backgroundEntities];
+        content = JSON.stringify(scene, null, 2) + "\n";
+      }
+      // A background sprite that failed to convert (missing on disk, bad
+      // frame data, …) is reported here — convertGms2RoomBackgrounds already
+      // explains why per-sprite, so there's nothing further to add.
+      for (const failure of failedBackgrounds) {
         warnings.push(
-          `Room "${name}" has a background layer using sprite "${sprite}" — background images have no equivalent in the generated .scene.json yet and must be recreated manually.`,
+          `${failure} It has been left out of the generated .scene.json — recreate it manually.`,
         );
       }
+
+      filesToWrite.push({ rel: `rooms/${name}.scene.json`, content });
+      convertedRooms.push(name);
+      reportEntries.push({ kind: "room", name, status: "converted" });
     } catch (err) {
       const note = "conversion failed — see warnings";
       warnings.push(
@@ -190,9 +225,69 @@ export async function importGMS2Project(
     }
   }
   for (const name of sounds) {
-    if (verbose) console.log(`  [skip/manual] sound: ${name}`);
-    skipped.push(name);
-    reportEntries.push({ kind: "sound", name, status: "manual" });
+    if (verbose) console.log(`  [sound] ${name}`);
+    try {
+      const content = await buildSoundAsset(name, projectRoot, outDir);
+      filesToWrite.push({ rel: `assets/${name}.sound.ts`, content });
+      reportEntries.push({ kind: "sound", name, status: "converted" });
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Sound "${name}" could not be converted (${String(err)}) — skipped, needs manual import.`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "sound",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+  for (const name of fonts) {
+    if (verbose) console.log(`  [font] ${name}`);
+    try {
+      const font = await convertGms2Font(path.join(projectRoot, "fonts", name));
+      const content = buildFontAsset(font);
+      filesToWrite.push({ rel: `assets/${name}.font.ts`, content });
+      reportEntries.push({ kind: "font", name, status: "converted" });
+      warnings.push(
+        `Font "${name}" converted as family/size/style metadata only — its pre-rendered glyph atlas image was not used, since @emptysock/engine renders text via Canvas/CSS fonts, not bitmap glyph atlases.`,
+      );
+    } catch (err) {
+      const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Font "${name}" could not be converted (${String(err)}) — skipped, needs manual import.`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "font",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
+  }
+  for (const name of notes) {
+    if (verbose) console.log(`  [note] ${name}`);
+    try {
+      const note = await convertGms2Note(path.join(projectRoot, "notes", name));
+      const content = buildNoteMarkdown(note);
+      filesToWrite.push({ rel: `notes/${name}.md`, content });
+      reportEntries.push({ kind: "note", name, status: "copied" });
+    } catch (err) {
+      const reason = `could not be read (${String(err)}) — skipped, needs manual import`;
+      warnings.push(
+        `Note "${name}" could not be copied (${String(err)}) — skipped, needs manual import.`,
+      );
+      skipped.push(name);
+      reportEntries.push({
+        kind: "note",
+        name,
+        status: "manual",
+        note: reason,
+      });
+    }
   }
   for (const name of tilesets) {
     if (verbose) console.log(`  [skip/manual] tileset: ${name}`);
@@ -230,10 +325,8 @@ export async function importGMS2Project(
     }
   }
 
-  converted =
-    objects.length +
-    scripts.length +
-    convertedRooms.length +
-    convertedSprites.length;
+  converted = reportEntries.filter(
+    (e) => e.status === "converted" || e.status === "copied",
+  ).length;
   return { converted, skipped, warnings };
 }

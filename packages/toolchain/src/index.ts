@@ -22,13 +22,27 @@ export type {
 export { convertGms2Sprite } from "./gms2-sprite-import.js";
 export type { SpriteAsset } from "./gms2-sprite-import.js";
 
-export { convertGms2Room } from "./gms2-room-import.js";
+export {
+  convertGms2Room,
+  convertGms2RoomBackgrounds,
+  droppedBackgroundSprites,
+} from "./gms2-room-import.js";
 export type {
   RoomData,
   RoomLayer,
   TileEntry,
   InstanceEntry,
+  RoomBackgroundEntity,
 } from "./gms2-room-import.js";
+
+export { convertGms2Sound, buildSoundAsset } from "./gms2-sound-import.js";
+export type { SoundAsset } from "./gms2-sound-import.js";
+
+export { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
+export type { FontAsset } from "./gms2-font-import.js";
+
+export { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
+export type { NoteAsset } from "./gms2-note-import.js";
 
 export {
   readWindowConfig,

@@ -402,7 +402,7 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
     }
   });
 
-  it("warns when a room's background layer references a real sprite, instead of silently dropping it", async () => {
+  it("renders a room's real background sprite as a Transform+Sprite entity on the background layer", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-"));
     const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-out-"));
     try {
@@ -421,6 +421,7 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       await fs.writeFile(
         path.join(roomDir, "rm_bg.yy"),
         `{
+          "name":"rm_bg",
           "roomSettings":{"Width":800,"Height":600,},
           "layers":[
             {"name":"Background","resourceType":"GMRBackgroundLayer","spriteId":{"name":"bg_grass",},},
@@ -430,14 +431,110 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
         "utf-8",
       );
 
+      // A real background sprite lives under sprites/, same as any other
+      // GMS2 sprite — one PNG per frame, named by frame UUID.
+      const tinyPng = Buffer.from(
+        "89504e470d0a1a0a0000000d49484452000000010000000108020000009077" +
+          "53de0000000a49444154789c6300010000050001a5f645400000000049454e" +
+          "44ae426082",
+        "hex",
+      );
+      const spriteDir = path.join(dir, "sprites", "bg_grass");
+      await fs.mkdir(spriteDir, { recursive: true });
+      await fs.writeFile(path.join(spriteDir, "bg-frame-uuid.png"), tinyPng);
+      await fs.writeFile(
+        path.join(spriteDir, "bg_grass.yy"),
+        `{
+          "name":"bg_grass",
+          "width":800,
+          "height":600,
+          "frames":[{"name":"bg-frame-uuid",},],
+        }`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "room.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.warnings).toEqual([]);
+
+      const raw = await fs.readFile(
+        path.join(out, "rooms", "rm_bg.scene.json"),
+        "utf-8",
+      );
+      const scene = JSON.parse(raw) as {
+        entities?: Array<{
+          components: Array<{
+            component: string;
+            overrides?: Record<string, unknown>;
+          }>;
+        }>;
+      };
+      expect(scene.entities).toHaveLength(1);
+      const entities = scene.entities as NonNullable<typeof scene.entities>;
+      const entity = entities[0];
+      if (entity === undefined) throw new Error("expected one entity");
+      const sprite = entity.components.find((c) => c.component === "Sprite");
+      expect(sprite?.overrides?.["layer"]).toBe("background");
+      expect(sprite?.overrides?.["texturePath"]).toContain(
+        "assets/backgrounds/bg_grass/",
+      );
+
+      await fs.access(
+        path.join(out, "assets", "backgrounds", "bg_grass", "frame_0.png"),
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("warns (and omits the entity) when a room's background sprite can't actually be found on disk", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-bg-fail-"));
+    const out = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-room-bg-fail-out-"),
+    );
+    try {
+      await fs.writeFile(
+        path.join(dir, "room.yyp"),
+        `{
+          "%Name":"Room Background Fail Test",
+          "resources":[
+            {"id":{"name":"rm_bg2","path":"rooms/rm_bg2/rm_bg2.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const roomDir = path.join(dir, "rooms", "rm_bg2");
+      await fs.mkdir(roomDir, { recursive: true });
+      await fs.writeFile(
+        path.join(roomDir, "rm_bg2.yy"),
+        `{
+          "name":"rm_bg2",
+          "roomSettings":{"Width":800,"Height":600,},
+          "layers":[
+            {"name":"Background","resourceType":"GMRBackgroundLayer","spriteId":{"name":"bg_missing",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      // No sprites/bg_missing directory exists at all.
+
       const result = await importGMS2Project(path.join(dir, "room.yyp"), out, {
         verbose: false,
       });
       expect(result.warnings).toEqual([
         expect.stringContaining(
-          'Room "rm_bg" has a background layer using sprite "bg_grass"',
+          'Room "rm_bg2" background sprite "bg_missing" could not be converted',
         ) as string,
       ]);
+
+      const raw = await fs.readFile(
+        path.join(out, "rooms", "rm_bg2.scene.json"),
+        "utf-8",
+      );
+      const scene = JSON.parse(raw) as { entities?: unknown[] };
+      expect(scene.entities ?? []).toHaveLength(0);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
@@ -566,7 +663,7 @@ describe("convertGms2Room (synthetic resourceType-based layers)", () => {
   });
 });
 
-describe("a resource type with no import path (fonts, notes, compatibility reports, …)", () => {
+describe("a resource type with no import path (extensions, timelines, …)", () => {
   it("warns by name instead of vanishing silently into the skipped list", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-unknown-res-"));
     const out = await fs.mkdtemp(
@@ -578,7 +675,7 @@ describe("a resource type with no import path (fonts, notes, compatibility repor
         `{
           "%Name":"Unknown Resource Test",
           "resources":[
-            {"id":{"name":"font0","path":"fonts/font0/font0.yy",},},
+            {"id":{"name":"ext0","path":"extensions/ext0/ext0.yy",},},
           ],
         }`,
         "utf-8",
@@ -587,12 +684,256 @@ describe("a resource type with no import path (fonts, notes, compatibility repor
       const result = await importGMS2Project(path.join(dir, "test.yyp"), out, {
         verbose: false,
       });
-      expect(result.skipped).toContain("font0");
+      expect(result.skipped).toContain("ext0");
       expect(result.warnings).toEqual([
         expect.stringContaining(
-          '"font0" (fonts/font0/font0.yy) has no import path',
+          '"ext0" (extensions/ext0/ext0.yy) has no import path',
         ) as string,
       ]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 sound import produces a real, loadable AudioSystem asset", () => {
+  it("copies the real audio file and emits a descriptor matching AudioSystem.load/.play", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-sound-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-sound-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "snd.yyp"),
+        `{
+          "%Name":"Sound Test",
+          "resources":[
+            {"id":{"name":"snd_jump","path":"sounds/snd_jump/snd_jump.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const soundDir = path.join(dir, "sounds", "snd_jump");
+      await fs.mkdir(soundDir, { recursive: true });
+      // A tiny fake .ogg — the importer only copies bytes, never decodes.
+      await fs.writeFile(
+        path.join(soundDir, "snd_jump.ogg"),
+        Buffer.from([0x4f, 0x67, 0x67, 0x53]),
+      );
+      await fs.writeFile(
+        path.join(soundDir, "snd_jump.yy"),
+        `{
+          "name":"snd_jump",
+          "volume":0.8,
+          "loop":false,
+          "soundFile":"snd_jump.ogg",
+          "audioGroupId":{"name":"audiogroup_sfx",},
+        }`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "snd.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).not.toContain("snd_jump");
+
+      const content = await fs.readFile(
+        path.join(out, "assets", "snd_jump.sound.ts"),
+        "utf-8",
+      );
+      expect(content).toContain("SndJumpSound");
+      expect(content).toContain("./assets/sounds/snd_jump.ogg");
+      expect(content).toContain("volume: 0.8");
+      expect(content).toContain("audiogroup_sfx");
+      expect(content).toContain("audio.load(");
+      expect(content).toContain("audio.play(");
+
+      // The real audio file itself was copied, not just referenced.
+      await fs.access(
+        path.join(out, "assets", "sounds", "snd_jump.ogg"),
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a genuinely broken sound resource as manual, not converted", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-sound-bad-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-sound-bad-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "snd.yyp"),
+        `{
+          "%Name":"Broken Sound Test",
+          "resources":[
+            {"id":{"name":"snd_broken","path":"sounds/snd_broken/snd_broken.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const soundDir = path.join(dir, "sounds", "snd_broken");
+      await fs.mkdir(soundDir, { recursive: true });
+      // .yy exists but references no real audio file, and none is on disk.
+      await fs.writeFile(
+        path.join(soundDir, "snd_broken.yy"),
+        `{"name":"snd_broken","volume":1,}`,
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "snd.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).toContain("snd_broken");
+      expect(
+        result.warnings.some((w) => /Sound "snd_broken" could not be converted/.test(w)),
+      ).toBe(true);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 font import emits family/size/style metadata for this engine's Canvas/CSS text rendering", () => {
+  it("emits a font descriptor usable with Label's font/fontSize fields, without copying the glyph atlas", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-font-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-font-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "font.yyp"),
+        `{
+          "%Name":"Font Test",
+          "resources":[
+            {"id":{"name":"font_title","path":"fonts/font_title/font_title.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const fontDir = path.join(dir, "fonts", "font_title");
+      await fs.mkdir(fontDir, { recursive: true });
+      await fs.writeFile(
+        path.join(fontDir, "font_title.yy"),
+        `{
+          "name":"font_title",
+          "fontName":"Verdana",
+          "size":24,
+          "bold":true,
+          "italic":false,
+        }`,
+        "utf-8",
+      );
+      // A real GMS2 font resource also ships a pre-rendered glyph atlas PNG
+      // — present here to prove the importer deliberately does not copy it.
+      await fs.writeFile(
+        path.join(fontDir, "font_title.png"),
+        Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      );
+
+      const result = await importGMS2Project(path.join(dir, "font.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).not.toContain("font_title");
+
+      const content = await fs.readFile(
+        path.join(out, "assets", "font_title.font.ts"),
+        "utf-8",
+      );
+      expect(content).toContain('family: "Verdana"');
+      expect(content).toContain("size: 24");
+      expect(content).toContain("bold: true");
+      expect(content).toContain("Label");
+
+      expect(
+        result.warnings.some((w) =>
+          /glyph atlas image was not used/.test(w),
+        ),
+      ).toBe(true);
+
+      // The glyph atlas PNG must not have been copied anywhere in the output.
+      await expect(
+        fs.access(path.join(out, "assets", "font_title.png")),
+      ).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 note import preserves content instead of demanding a from-scratch recreation", () => {
+  it("copies a note's real text content into notes/<name>.md and reports it as copied, not manual", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "note.yyp"),
+        `{
+          "%Name":"Note Test",
+          "resources":[
+            {"id":{"name":"TODO","path":"notes/TODO/TODO.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const noteDir = path.join(dir, "notes", "TODO");
+      await fs.mkdir(noteDir, { recursive: true });
+      await fs.writeFile(
+        path.join(noteDir, "TODO.yy"),
+        `{"name":"TODO","resourceType":"GMNote",}`,
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(noteDir, "TODO.txt"),
+        "Remember to balance the boss fight.",
+        "utf-8",
+      );
+
+      const result = await importGMS2Project(path.join(dir, "note.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).not.toContain("TODO");
+
+      const content = await fs.readFile(
+        path.join(out, "notes", "TODO.md"),
+        "utf-8",
+      );
+      expect(content).toContain("Remember to balance the boss fight.");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a note with no readable .txt file as manual, not silently lost", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-bad-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-bad-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "note.yyp"),
+        `{
+          "%Name":"Broken Note Test",
+          "resources":[
+            {"id":{"name":"BadNote","path":"notes/BadNote/BadNote.yy",},},
+          ],
+        }`,
+        "utf-8",
+      );
+      const noteDir = path.join(dir, "notes", "BadNote");
+      await fs.mkdir(noteDir, { recursive: true });
+      await fs.writeFile(
+        path.join(noteDir, "BadNote.yy"),
+        `{"name":"BadNote","resourceType":"GMNote",}`,
+        "utf-8",
+      );
+      // No .txt file present.
+
+      const result = await importGMS2Project(path.join(dir, "note.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).toContain("BadNote");
+      expect(
+        result.warnings.some((w) => /Note "BadNote" could not be copied/.test(w)),
+      ).toBe(true);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });

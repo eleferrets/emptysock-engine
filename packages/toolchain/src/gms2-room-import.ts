@@ -1,4 +1,6 @@
 import { promises as fs } from "node:fs";
+import path from "node:path";
+import { convertGms2Sprite } from "./gms2-sprite-import.js";
 
 export interface TileEntry {
   tilesetId: string;
@@ -186,4 +188,83 @@ export function droppedBackgroundSprites(room: RoomData): string[] {
   return room.layers
     .map((layer) => layer.backgroundSprite)
     .filter((sprite): sprite is string => sprite !== undefined);
+}
+
+/** On-disk shape of a directly-declared entity, matching @emptysock/engine's `SceneFileEntity`. */
+export interface RoomBackgroundEntity {
+  components: Array<{ component: string; overrides?: Record<string, unknown> }>;
+}
+
+/**
+ * Convert every real background image a room's `GMRBackgroundLayer`s
+ * reference into a real, renderable `SceneFileEntity`: a plain
+ * `Transform`+`Sprite` entity, sized to cover the room and placed on
+ * `@emptysock/engine`'s built-in `"background"` render layer (`LayerSystem`
+ * already defines one, drawn behind `"default"`/`"foreground"`/`"ui"` —
+ * see `packages/engine/src/systems/LayerSystem.ts`). This is a direct
+ * `SceneFileEntity`, not a `prefabInstances` entry, because a GMS2
+ * background image has no corresponding GameMaker *object* and therefore no
+ * `.prefab.json` to reference — `SceneFile.entities` exists precisely for
+ * "an entity this scene needs that isn't spawned from a named prefab" (see
+ * `SceneFile.ts`'s `loadSceneFile`).
+ *
+ * Copies each referenced sprite's first frame into
+ * `<outDir>/assets/backgrounds/<spriteName>/` (mirroring `buildSpriteAsset`'s
+ * PNG-copying convention in `gms2-codegen.ts`) and returns one entity
+ * descriptor per background layer that had a real `spriteId` set. A
+ * `GMRBackgroundLayer` with `spriteId: null` (a plain solid-colour
+ * compatibility layer) is not represented here — no image to render — and
+ * a background sprite that fails to convert (a real conversion failure or a
+ * genuinely missing sprite) is skipped with an entry in `failed`.
+ */
+export async function convertGms2RoomBackgrounds(
+  room: RoomData,
+  projectRoot: string,
+  outDir: string,
+): Promise<{ entities: RoomBackgroundEntity[]; failed: string[] }> {
+  const entities: RoomBackgroundEntity[] = [];
+  const failed: string[] = [];
+
+  for (const layer of room.layers) {
+    const spriteName = layer.backgroundSprite;
+    if (spriteName === undefined) continue;
+
+    try {
+      const spriteDir = path.join(projectRoot, "sprites", spriteName);
+      const sprite = await convertGms2Sprite(spriteDir);
+      const firstFrame = sprite.frames[0];
+      if (firstFrame === undefined) {
+        throw new Error(`sprite "${spriteName}" has no frames`);
+      }
+
+      const assetDir = path.join(outDir, "assets", "backgrounds", spriteName);
+      await fs.mkdir(assetDir, { recursive: true });
+      const destName = "frame_0.png";
+      await fs.copyFile(firstFrame.imagePath, path.join(assetDir, destName));
+
+      const texturePath = `./assets/backgrounds/${spriteName}/${destName}`;
+      entities.push({
+        components: [
+          {
+            component: "Transform",
+            overrides: { x: room.width / 2, y: room.height / 2 },
+          },
+          {
+            component: "Sprite",
+            overrides: {
+              texturePath,
+              layer: "background",
+              depth: -1000,
+            },
+          },
+        ],
+      });
+    } catch (err) {
+      failed.push(
+        `Room "${room.name}" background sprite "${spriteName}" could not be converted (${String(err)}).`,
+      );
+    }
+  }
+
+  return { entities, failed };
 }

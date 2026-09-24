@@ -49,6 +49,29 @@ describe("migrationReport (pure formatting, no filesystem)", () => {
     );
   });
 
+  it("counts a converted sound/font and a copied note distinctly from manual", () => {
+    const report = migrationReport({
+      projectName: "Fixture Project 2",
+      entries: [
+        { kind: "sound", name: "snd_jump", status: "converted" },
+        { kind: "font", name: "font_title", status: "converted" },
+        { kind: "note", name: "TODO", status: "copied" },
+        { kind: "note", name: "BadNote", status: "manual" },
+      ],
+      warnings: [],
+    });
+
+    expect(report).toContain("| Sounds (converted) | 1 |");
+    expect(report).toContain("| Fonts (converted) | 1 |");
+    expect(report).toContain("| Notes (copied) | 1 |");
+    expect(report).toContain("| Notes (manual) | 1 |");
+    expect(report).toContain("| **Total found** | **4** |");
+    // "copied" counts toward the converted total alongside real conversions.
+    expect(report).toContain("| **Total converted** | **3** |");
+    expect(report).toContain("- Note: `TODO`");
+    expect(report).toContain("- Note: `BadNote`");
+  });
+
   it("omits the Warnings section entirely when there are no warnings", () => {
     const report = migrationReport({
       projectName: "No Warnings",

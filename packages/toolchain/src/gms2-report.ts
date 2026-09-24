@@ -12,9 +12,20 @@ export type MigrationEntryKind =
   | "room"
   | "sprite"
   | "sound"
-  | "tileset";
+  | "tileset"
+  | "font"
+  | "note";
 
-export type MigrationEntryStatus = "converted" | "manual";
+/**
+ * "copied" is distinct from "converted": a `note` resource's real text
+ * content is preserved verbatim (copied) into the import output, but it
+ * never becomes a real `@emptysock/engine`-native asset the way a
+ * sprite/sound/room/font does — there is no engine-side "note" concept and
+ * there shouldn't be one. Keeping the two statuses separate lets the report
+ * say "content preserved as reference material" for notes without
+ * overclaiming the same kind of conversion a gameplay asset gets.
+ */
+export type MigrationEntryStatus = "converted" | "manual" | "copied";
 
 export interface MigrationReportEntry {
   kind: MigrationEntryKind;
@@ -30,9 +41,8 @@ export interface MigrationReportOptions {
   warnings: string[];
 }
 
-const CATEGORY_LABELS: Record<
-  `${MigrationEntryKind}:${MigrationEntryStatus}`,
-  string
+const CATEGORY_LABELS: Partial<
+  Record<`${MigrationEntryKind}:${MigrationEntryStatus}`, string>
 > = {
   "object:converted": "Objects (converted)",
   "object:manual": "Objects (manual)",
@@ -46,6 +56,10 @@ const CATEGORY_LABELS: Record<
   "sound:manual": "Sounds (manual)",
   "tileset:converted": "Tilesets (converted)",
   "tileset:manual": "Tilesets (manual)",
+  "font:converted": "Fonts (converted)",
+  "font:manual": "Fonts (manual)",
+  "note:copied": "Notes (copied)",
+  "note:manual": "Notes (manual)",
 };
 
 // The rows to always render, in this order, even when a category is empty
@@ -57,7 +71,12 @@ const SUMMARY_ROWS: Array<[MigrationEntryKind, MigrationEntryStatus]> = [
   ["room", "manual"],
   ["sprite", "converted"],
   ["sprite", "manual"],
+  ["sound", "converted"],
   ["sound", "manual"],
+  ["font", "converted"],
+  ["font", "manual"],
+  ["note", "copied"],
+  ["note", "manual"],
   ["tileset", "manual"],
 ];
 
@@ -75,6 +94,10 @@ function labelFor(kind: MigrationEntryKind): string {
       return "Sound";
     case "tileset":
       return "Tileset";
+    case "font":
+      return "Font";
+    case "note":
+      return "Note";
   }
 }
 
@@ -93,8 +116,15 @@ export function migrationReport(opts: MigrationReportOptions): string {
     return `- ${label}: \`${e.name}\`${note}`;
   });
 
+  const copiedEntries = entries.filter((e) => e.status === "copied");
+  const copiedAssets = copiedEntries.map(
+    (e) => `- ${labelFor(e.kind)}: \`${e.name}\``,
+  );
+
   const totalFound = entries.length;
-  const totalConverted = entries.filter((e) => e.status === "converted").length;
+  const totalConverted = entries.filter(
+    (e) => e.status === "converted" || e.status === "copied",
+  ).length;
 
   const warningSection =
     warnings.length > 0
@@ -124,9 +154,25 @@ Each object was emitted as a \`<name>.prefab.json\` (a real \`PrefabFile\` every
 \`Scene.spawn()\` can load directly) plus a companion \`<name>.behavior.ts\`
 holding its transpiled GML event handlers as plain exported functions. Each
 room was emitted as a \`rooms/<name>.scene.json\` (a real \`SceneFile\`) listing
-its prefab instances. See \`project-manifest.json\` for the full list of
-prefab/behavior/scene files this import produced.
+its prefab instances — including a real \`Transform\`+\`Sprite\` entity on the
+engine's built-in \`"background"\` render layer for any room background image.
+Each sound was emitted as \`assets/<name>.sound.ts\`, its real audio file
+copied alongside it, ready for \`AudioSystem.load\`/\`.play\`. Each font was
+emitted as \`assets/<name>.font.ts\` — family/size/style metadata only, since
+this engine renders text via Canvas/CSS fonts, not bitmap glyph atlases; the
+source glyph atlas image itself was not copied. See \`project-manifest.json\`
+for the full list of prefab/behavior/scene files this import produced.
 ${warningSection}
+## Reference Material Copied (Not Engine Assets)
+
+GMS2 "note" resources (including GameMaker's own auto-generated
+compatibility-report notes) are IDE-only documentation with no equivalent
+concept in \`@emptysock/engine\` — nothing was fabricated to call these
+"converted" the way a sprite or sound is. Their real text content was copied
+verbatim into \`notes/<name>.md\` so it's still available to read, not lost:
+
+${copiedAssets.length > 0 ? copiedAssets.join("\n") : "_None_"}
+
 ## Assets Needing Manual Work
 
 The following asset types have no automatic migration path and must be recreated manually:
@@ -139,9 +185,11 @@ ${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 2. **Scripts** — open each \`<name>.ts\` script stub and migrate the GML function bodies. See [Language Reference](/manual/10-language-reference.md).
 3. **Rooms** — open each \`rooms/<name>.scene.json\` and load it via \`loadSceneFile\`/\`Scene.spawn()\`; adjust prefab instance placement as needed. See [Architecture](/manual/03-architecture.md).
 4. **Sprites** — import sprite sheets into the IDE asset panel. See [IDE Reference](/manual/07-ide-reference.md).
-5. **Sounds** — add audio files via the IDE. See [Systems Reference](/manual/05-systems-reference.md).
-6. **Tilesets** — recreate tilesets and wire them to your scenes.
-7. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
-8. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).
+5. **Sounds** — each converted sound's \`assets/<name>.sound.ts\` shows the exact \`AudioSystem.load\`/\`.play\` call to wire it up; the real audio file is already copied alongside it.
+6. **Fonts** — each converted font's \`assets/<name>.font.ts\` gives the \`Label\`/\`ButtonState\`/\`Checkbox\` \`font\`/\`fontSize\` values to use; make sure the family is actually installed wherever the game runs.
+7. **Notes** — read \`notes/<name>.md\` for any GMS2 note content (including auto-generated compatibility reports) worth carrying into your project's own docs.
+8. **Tilesets** — recreate tilesets and wire them to your scenes.
+9. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
+10. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).
 `;
 }
