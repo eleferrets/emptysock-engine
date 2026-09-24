@@ -362,6 +362,27 @@ export function App(): React.ReactElement {
     layout.dockMove(makeImageEditorTab(req.assetId), null, "float");
   }, [openImageEditorRequest]);
 
+  // Bring an existing panel tab into view when AssetBrowser's "open in"
+  // dispatch (or anything else) requests one by id. This never floats a
+  // new tab type — it only focuses/docks a tab `ALL_PANEL_TABS` already
+  // knows how to build, via the same anchor-tab-aware `openPanelInLayout`
+  // module toggling already uses.
+  const openPanelRequest = useIDEStore((s) => s.openPanelRequest);
+  const prevPanelReqRef = React.useRef<{ panelId: string; ts: number } | null>(
+    null,
+  );
+  React.useEffect(() => {
+    const req = openPanelRequest;
+    if (req === null) return;
+    if (
+      prevPanelReqRef.current !== null &&
+      prevPanelReqRef.current.ts === req.ts
+    )
+      return;
+    prevPanelReqRef.current = req;
+    openPanelInLayout(req.panelId);
+  }, [openPanelRequest, openPanelInLayout]);
+
   // Auto-open a module's panel when enabled, and close its tab when disabled
   const enabledModules = useIDEStore((s) => s.enabledModules);
   const prevModulesRef = React.useRef<string[]>(enabledModules);

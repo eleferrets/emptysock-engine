@@ -163,6 +163,14 @@ interface IDEState {
   dropImportFolder: "root" | "last";
   openImageEditorRequest: { assetId: string; ts: number } | null;
 
+  // Generic "bring this rc-dock tab into view" request — the same
+  // fire-and-consume pattern `openImageEditorRequest` already uses, for
+  // AssetBrowser's per-asset-type "open in" dispatch (CLAUDE.md's rc-dock
+  // "dock by anchor tab" entry: this docks/focuses an existing tab id via
+  // App.tsx's openPanelInLayout, it never floats a brand-new tab type).
+  openPanelRequest: { panelId: string; ts: number } | null;
+  requestOpenPanel: (panelId: string) => void;
+
   // Actions
   setActiveTab: (tab: ActiveTab) => void;
   setBottomTab: (tab: BottomTab) => void;
@@ -442,6 +450,7 @@ function initialProjectState() {
     debugBreakpoints: [] as string[],
     dropImportFolder: "root" as const,
     openImageEditorRequest: null as { assetId: string; ts: number } | null,
+    openPanelRequest: null as { panelId: string; ts: number } | null,
   };
 }
 
@@ -533,6 +542,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Image editor
   dropImportFolder: "root" as const,
   openImageEditorRequest: null,
+  openPanelRequest: null,
 
   // Editor grid / ruler / alignment guides
   editorGridSize: 32,
@@ -770,6 +780,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setDropImportFolder: (folder) => set({ dropImportFolder: folder }),
   openImageEditor: (assetId) =>
     set({ openImageEditorRequest: { assetId, ts: Date.now() } }),
+  requestOpenPanel: (panelId) =>
+    set({ openPanelRequest: { panelId, ts: Date.now() } }),
 
   setLiveEntities: (entities) => set({ liveEntities: entities }),
   setLiveComponentFields: (fields) => set({ liveComponentFields: fields }),

@@ -35,6 +35,8 @@ export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
   const setAssets = useIDEStore((s) => s.setAssets);
   const openImageEditor = useIDEStore((s) => s.openImageEditor);
+  const openFile = useIDEStore((s) => s.openFile);
+  const requestOpenPanel = useIDEStore((s) => s.requestOpenPanel);
   const openFiles = useIDEStore((s) => s.openFiles);
   const recentIds = useIDEStore((s) => s.recentAssetIds);
   const setRecentIds = useIDEStore((s) => s.setRecentAssetIds);
@@ -247,13 +249,53 @@ export function AssetBrowser(): React.ReactElement {
     setStripDialog(null);
   };
 
+  // Per-asset-type "open in" dispatch. image -> Image Editor (a real,
+  // dedicated editor); script/json -> the Code tab, loaded with that
+  // file's content; scene -> the Scene panel (there's no per-scene-file
+  // loader yet — this just brings the Scene tab into view, the closest
+  // real thing this IDE has for a "scene" asset today). audio and font
+  // have no dedicated editor anywhere in this IDE, so they intentionally
+  // fall through to "just select it" rather than fabricating a target.
+  const openAssetInEditor = (asset: AssetItem): void => {
+    switch (asset.type) {
+      case "image":
+        openImageEditor(asset.id);
+        return;
+      case "script":
+      case "json":
+        openFile(asset.path);
+        requestOpenPanel("code");
+        return;
+      case "scene":
+        requestOpenPanel("scene");
+        return;
+      case "audio":
+      case "font":
+      default:
+        // No dedicated editor exists for this asset type yet — leave the
+        // asset selected (already handled by the click above) rather than
+        // silently doing nothing or opening the wrong panel.
+        return;
+    }
+  };
+
   const buildContextMenuItems = (asset: AssetItem): ContextMenuEntry[] => {
     const items: ContextMenuEntry[] = [];
-    if (asset.type === "image") {
+    if (
+      asset.type === "image" ||
+      asset.type === "script" ||
+      asset.type === "json" ||
+      asset.type === "scene"
+    ) {
       items.push({
-        label: "Open in Image Editor",
+        label:
+          asset.type === "image"
+            ? "Open in Image Editor"
+            : asset.type === "scene"
+              ? "Open in Scene panel"
+              : "Open in Code Editor",
         onClick: () => {
-          openImageEditor(asset.id);
+          openAssetInEditor(asset);
           setContextMenu(null);
         },
       });
@@ -566,9 +608,7 @@ export function AssetBrowser(): React.ReactElement {
               setSelectedId((id) => (id === asset.id ? null : asset.id));
               trackRecent(asset.id);
             }}
-            onDoubleClick={() => {
-              if (asset.type === "image") openImageEditor(asset.id);
-            }}
+            onDoubleClick={() => openAssetInEditor(asset)}
             onContextMenu={(e) => {
               e.preventDefault();
               setContextMenu({

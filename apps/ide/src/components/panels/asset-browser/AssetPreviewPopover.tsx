@@ -140,6 +140,96 @@ export function AssetPreviewPopover({
         {lines}
       </pre>
     );
+  } else if (asset.type === "scene" || asset.type === "json") {
+    // Metadata-only preview for a scene/prefab JSON asset: this counts
+    // entities/prefab instances and distinct component types when the
+    // file happens to already be open in the editor (`openFiles`) and
+    // parses as a real SceneFile/PrefabFile shape. There is no offline
+    // asset-content reader here, so a scene/prefab that isn't currently
+    // open in a Code tab falls back to the plain path+size metadata below
+    // — an honest v1, not a full asset-database preview.
+    const fileContent = openFiles[asset.path];
+    let summary: React.ReactElement | null = null;
+    if (fileContent !== undefined) {
+      try {
+        const parsed: unknown = JSON.parse(fileContent);
+        if (parsed !== null && typeof parsed === "object") {
+          const obj = parsed as Record<string, unknown>;
+          const instances = Array.isArray(obj["prefabInstances"])
+            ? (obj["prefabInstances"] as unknown[])
+            : Array.isArray(obj["components"])
+              ? [obj]
+              : [];
+          const componentTypes = new Set<string>();
+          for (const inst of instances) {
+            if (inst !== null && typeof inst === "object") {
+              const comps = (inst as Record<string, unknown>)["components"];
+              if (Array.isArray(comps)) {
+                for (const c of comps) {
+                  if (c !== null && typeof c === "object" && "type" in c) {
+                    componentTypes.add(String((c as { type: unknown }).type));
+                  }
+                }
+              }
+            }
+          }
+          summary = (
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--es-text-muted)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              <span>
+                {instances.length}{" "}
+                {instances.length === 1 ? "entity" : "entities"}
+              </span>
+              <span>
+                {componentTypes.size}{" "}
+                {componentTypes.size === 1
+                  ? "component type"
+                  : "component types"}
+              </span>
+            </div>
+          );
+        }
+      } catch {
+        summary = null;
+      }
+    }
+    previewContent = (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          padding: "8px 0",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <AssetIcon type={asset.type} />
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--es-text-muted)",
+              wordBreak: "break-all",
+            }}
+          >
+            {asset.path}
+          </span>
+        </div>
+        {summary ?? (
+          <span
+            style={{ fontSize: 9, color: "var(--es-text-muted)", opacity: 0.7 }}
+          >
+            Open it in the Code tab for an entity/component count.
+          </span>
+        )}
+      </div>
+    );
   } else {
     previewContent = (
       <div
