@@ -41,7 +41,7 @@ import {
 function makeCtx(particles?: ParticleMountTarget): GmlParticleContext {
   const scene = new Scene();
   const base: GmlActionContext = { scene };
-  return { ...base, particles };
+  return particles === undefined ? { ...base } : { ...base, particles };
 }
 
 function fakeMountTarget(): ParticleMountTarget & {
