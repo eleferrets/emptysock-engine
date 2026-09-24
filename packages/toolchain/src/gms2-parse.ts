@@ -23,6 +23,89 @@ export interface YYProject {
 }
 
 /**
+ * Older/legacy real `.yyp` files (predating the `resources: [{ id: { name,
+ * path } }]` shape the rest of this importer assumes) instead serialise the
+ * resources list as a plain key/value dictionary array:
+ * `resources: [{ Key: <guid>, Value: { id: <guid>, resourcePath: "objects\\
+ * obj_foo\\obj_foo.yy", resourceType: "GMObject" } }]` — there is no `name`
+ * field anywhere in the entry at all; the resource's name has to be derived
+ * from its own path (the file's basename, minus the `.yy` extension).
+ * `resourcePath` also uses Windows-style backslashes regardless of which OS
+ * exported the project, which the rest of the importer's `startsWith("objects/
+ * ")`-style checks need forward slashes for.
+ */
+interface LegacyYypResourceEntry {
+  Key?: string;
+  Value?: { id?: string; resourcePath?: string; resourceType?: string };
+}
+
+function isLegacyResourceEntry(
+  entry: unknown,
+): entry is LegacyYypResourceEntry {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "Value" in entry &&
+    typeof (entry as { Value?: unknown }).Value === "object"
+  );
+}
+
+/**
+ * Normalises a raw, already trailing-comma-stripped `.yyp`'s `resources`
+ * array into the one shape the rest of the importer understands
+ * (`{ id: { name, path } }`), regardless of which of the two real on-disk
+ * shapes it was written in. An entry this function cannot make sense of
+ * (neither shape) is dropped rather than thrown on — callers already treat a
+ * missing/empty name as a "resource with missing name" warning.
+ */
+/**
+ * `resourceType`s that are real entries in a legacy `.yyp`'s `resources`
+ * array but are not GML resources at all — an IDE-only asset-browser folder
+ * grouping (`GMFolder`, one per view in the tree, with a real but
+ * meaningless `views/<guid>.yy` file on disk) or a per-platform build
+ * options blob (`GMWindowsOptions`/`GMMacOptions`/`GMLinuxOptions`/etc,
+ * always exactly one per project per platform). Newer `.yyp` versions never
+ * list these in `resources` at all (folders live in a separate top-level
+ * `Folders` array instead), so surfacing them as a per-project "no import
+ * path" warning here would be pure noise on every legacy-format project —
+ * they were never a candidate GML asset to import in the first place.
+ */
+const NON_ASSET_RESOURCE_TYPES = new Set(["GMFolder"]);
+function isNonAssetResourceType(resourceType: string | undefined): boolean {
+  if (!resourceType) return false;
+  return (
+    NON_ASSET_RESOURCE_TYPES.has(resourceType) ||
+    /^GM\w+Options$/.test(resourceType)
+  );
+}
+
+export function normalizeYypResources(raw: unknown[]): YYPResource[] {
+  const out: YYPResource[] = [];
+  for (const entry of raw) {
+    if (isLegacyResourceEntry(entry)) {
+      if (isNonAssetResourceType(entry.Value?.resourceType)) continue;
+      const resourcePath = entry.Value?.resourcePath ?? "";
+      const forwardPath = resourcePath.replace(/\\/g, "/");
+      const base = forwardPath.split("/").pop() ?? "";
+      const name = base.replace(/\.yy$/i, "");
+      out.push({ id: { name, path: forwardPath }, order: 0 });
+      continue;
+    }
+    const typed = entry as { id?: { name?: string; path?: string } };
+    if (typed.id) {
+      out.push({
+        id: {
+          name: typed.id.name ?? "",
+          path: (typed.id.path ?? "").replace(/\\/g, "/"),
+        },
+        order: 0,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Real GMS2 .yy/.yyp files are not strict JSON: GameMaker's IDE writes a
  * trailing comma before every closing `}`/`]`. JSON.parse rejects this
  * outright. Strip trailing commas before parsing so real project files

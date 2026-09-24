@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
-import { parseGmsJson, type YYProject } from "./gms2-parse.js";
+import {
+  parseGmsJson,
+  normalizeYypResources,
+  type YYProject,
+} from "./gms2-parse.js";
 import {
   buildObjectBehavior,
   buildObjectPrefabJSON,
@@ -84,7 +88,8 @@ export async function importGMS2Project(
   const fonts: string[] = [];
   const notes: string[] = [];
 
-  for (const res of project.resources) {
+  const resources = normalizeYypResources(project.resources);
+  for (const res of resources) {
     const name = res.id.name;
     const resPath = res.id.path;
     if (!name) {
