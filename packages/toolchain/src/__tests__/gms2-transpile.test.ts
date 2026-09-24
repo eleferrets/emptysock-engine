@@ -599,6 +599,141 @@ describe("transpileGML", () => {
       expect(out).toContain("entity.startCoroutine(waitFrames(1))");
     });
 
+    describe("bare single-line if whose body is a rewritten GML built-in", () => {
+      // Real, confirmed regression against a real GameMaker object's
+      // Step_1.gml: `if (sign(hsp) != 0) image_xscale = sign(hsp) *
+      // other.size;` — a bare (brace-less) single-line `if` whose already-
+      // parenthesised condition is followed directly by an assignment that
+      // this session's own `image_xscale`/`image_yscale`/etc. rewrite turns
+      // into a multi-statement IIFE. The pre-existing "if (a) <trailing
+      // condition continuation>" pass has no `{` on the same line to anchor
+      // against, so its lazy match kept expanding *past* the body's own
+      // `;`, across unrelated following statements, until it found some
+      // later, wholly unrelated `{` — fusing the if's condition, its own
+      // body, and an unrelated following statement into one broken,
+      // unclosed `if (...)`. Confirmed via a real `tsc --noEmit` run
+      // (`TS1005`/`TS1128`) before this fix; every case here is checked via
+      // `new Function()` as a real syntax-validity proof, matching this
+      // file's own existing pattern for the same class of bug.
+      it("does not corrupt a bare if whose body rewrites to an image_xscale/image_yscale IIFE, with a later unrelated braced if in the same file", () => {
+        const gml =
+          "if (sign(hsp) != 0) image_xscale = sign(hsp) * other.size;\n" +
+          "image_yscale = other.size;\n" +
+          "if (place_meeting(x, y, obj_wall))\n{\n  hsp = 0;\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+        // The condition keeps its own, single set of parens — no extra
+        // unbalanced paren merged in from the (unrelated) following
+        // statements.
+        expect(out).toMatch(/^if \(sign\(hsp\) != 0\) /);
+      });
+
+      it("does not corrupt a bare if whose body rewrites to a sprite_index IIFE", () => {
+        const gml =
+          "if (a) sprite_index = spr_walk;\n" + "if (b)\n{\n  foo();\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+      });
+
+      it("does not corrupt a bare if whose body rewrites to an image_blend IIFE", () => {
+        const gml = "if (a) image_blend = $ff00ff;\nif (b)\n{\n  foo();\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+      });
+
+      it("does not corrupt a bare if whose body rewrites to a timeline_index IIFE", () => {
+        const gml = "if (a) timeline_index = tmFoo;\nif (b)\n{\n  foo();\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+      });
+
+      it("does not corrupt a bare if whose body is a threaded place_meeting call", () => {
+        const gml =
+          "if (a) place_meeting(x, y, obj_wall);\nif (b)\n{\n  foo();\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+      });
+
+      it("does not corrupt a bare if whose body is a threaded DnD action call", () => {
+        const gml = "if (a) action_move(2, 4);\nif (b)\n{\n  foo();\n}\n";
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+      });
+
+      it("still wraps a genuine trailing-condition continuation (no semicolon in the trailing span)", () => {
+        // Make sure the semicolon guard doesn't regress the original case
+        // this pass exists for.
+        const out = transpileGML(
+          "if (_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}\n",
+        );
+        expect(out).toContain(
+          "if ((_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared)",
+        );
+        expect(() => new Function(out)).not.toThrow();
+      });
+    });
+
+    describe("a dotted reference to another instance's rewritten GML built-in is left untouched", () => {
+      // Real, confirmed regression against a real GameMaker project's own
+      // script (`scr_kill_player.gml`): `inst.image_xscale = imgx;` — GML
+      // allows writing/reading *another* instance's field through a dot
+      // reference, a real, common shape (`with`-created instances, a stored
+      // instance-id variable). This transpiler has no way to resolve which
+      // other entity a dotted reference targets, so — mirroring the
+      // pre-existing `creator.alarm[n] = ...` guard above — it must leave a
+      // dotted `sprite_index`/`image_*`/`timeline_*` reference alone rather
+      // than rewriting it against `_entity` (the *current* instance). Left
+      // unguarded, `inst.image_xscale = imgx;` became
+      // `inst.(() => { ... })();` — a dangling `.` with no property name, a
+      // hard `SyntaxError` confirmed via a real `tsc --noEmit` run against
+      // the real project's generated output.
+      it.each([
+        ["inst.sprite_index = spr_walk;\n", "inst."],
+        ["inst.image_angle = 90;\n", "inst."],
+        ["inst.image_xscale = imgx;\n", "inst."],
+        ["inst.image_yscale = imgx;\n", "inst."],
+        ["inst.image_alpha = 0.5;\n", "inst."],
+        ["inst.image_blend = $ff00ff;\n", "inst."],
+        ["inst.timeline_index = tmFoo;\n", "inst."],
+        ["inst.timeline_running = true;\n", "inst."],
+        ["x = other.sprite_index;\n", "other."],
+        ["x = other.image_xscale;\n", "other."],
+      ])("does not corrupt %s", (gml, dottedPrefix) => {
+        const out = transpileGML(gml);
+        expect(() => new Function(out)).not.toThrow();
+        expect(out).toContain(dottedPrefix);
+        expect(out).not.toMatch(/\w\.\(\(\)\s*=>/);
+      });
+
+      it("still rewrites a bare (current-instance) sprite_index/image_*/timeline_index reference", () => {
+        const out = transpileGML(
+          "sprite_index = spr_walk;\nimage_xscale = 2;\ntimeline_index = tmFoo;\n",
+        );
+        expect(out).toContain("GmlActions.Sprite");
+        expect(out).toContain("GmlActions.Transform");
+        expect(out).toContain("GmlActions.TimelineState");
+        expect(() => new Function(out)).not.toThrow();
+      });
+    });
+
+    it("does not double-declare the second declarator of a comma-continued multi-line var statement", () => {
+      // Real, confirmed regression against a real GameMaker project's own
+      // `scr_kill_player.gml`: `var x_ = x,\n        y_ = y;` — GML's real
+      // multi-declarator `var` syntax, byte-for-byte the same as standard
+      // JS/TS's own comma-separated declarator list and already valid
+      // output on its own. The generic "auto-declare on first bare
+      // assignment" pass, scanning purely line-by-line with no memory of
+      // the previous line, mistook the continuation line `y_ = y;` for its
+      // own fresh statement and re-prefixed it with a second `var`,
+      // producing `var x_ = x,\n  var y_ = y;` — a `var` keyword sitting
+      // right after a trailing comma, a hard `SyntaxError: Trailing comma
+      // not allowed`.
+      const out = transpileGML("var x_ = 1,\n    y_ = 2;\nfoo(x_, y_);\n");
+      expect(out.match(/\bvar\s+y_/g)).toBeNull();
+      expect(out).not.toMatch(/,\s*\n\s*var\b/);
+      expect(() => new Function(out)).not.toThrow();
+    });
+
     it("does not treat the plain English word 'with' inside a // comment as a with-statement to rewrite", () => {
       // Real, confirmed regression: `// Draw the shadow with all the
       // calculations` is ordinary GML commentary, not a `with` statement.

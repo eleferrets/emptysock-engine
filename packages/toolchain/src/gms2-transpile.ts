@@ -420,6 +420,28 @@ export function transpileGML(gml: string): string {
       const comment =
         commentIdx === -1 ? "" : ` ${cond.slice(commentIdx).trimEnd()}`;
       if (new RegExp(`^${IF_CLAUSE}$`).test(code)) return m;
+      // A bare, brace-less `if (cond) stmt;` (GML's own single-statement
+      // if, no braces at all) has no `{` anywhere on its own line for the
+      // lookahead above to anchor against — the lazy `[\s\S]*?` then keeps
+      // expanding *past* the body statement's own `;`, across any number of
+      // following lines, until it finds some later, wholly unrelated `{`
+      // (e.g. the next real braced `if`/block in the same event). That
+      // over-reach doesn't just wrongly wrap the (already-valid) bare if —
+      // for a body that a later pass turns into an IIFE (`sprite_index =
+      // ...`, `place_meeting(...)`, `timeline_index = ...`, …), it also cuts
+      // the IIFE's own text in half and reassembles it, and any *other*
+      // intervening statement, inside one broken outer paren, producing a
+      // hard `SyntaxError` (confirmed against a real project:
+      // `if (sign(hsp) != 0) image_xscale = sign(hsp) * other.size;`
+      // followed by an unrelated `image_yscale = other.size;` and a later
+      // braced `if`, all fused into one corrupted `if (...)`). A genuine
+      // trailing-condition continuation (the case this pass exists for,
+      // `if (a) >= b { ... }`) is always itself an expression — it never
+      // contains a `;` — so bailing out whenever the captured span contains
+      // one is a safe, general guard: it only ever excludes cases that were
+      // actually a full statement (or several), never a real dangling
+      // condition clause.
+      if (code.includes(";")) return m;
       return `if (${code})${comment}`;
     },
   );
@@ -1206,8 +1228,13 @@ export function transpileGML(gml: string): string {
   // carries unconditionally — no new conditional import bookkeeping needed,
   // and it's the same access style every other compat call in this pass
   // (`GmlActions.place_meeting`, `GmlActions.action_move`, …) already uses.
+  // Guarded with `(?<!\.\s*)`, the same guard `alarm[n] = expr`/the
+  // `sprite_index`/`image_*` rewrites above already use: a dotted reference
+  // to another instance's timeline (`inst.timeline_index = tmFoo;`) is left
+  // untouched rather than rewritten against the current entity — without
+  // this, it became `inst.(() => { ... })();`, a hard `SyntaxError`.
   out = out.replace(
-    /\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) => {
       const expr = exprRaw.trim();
       if (/^\(?\s*-1\s*\)?$/.test(expr)) {
@@ -1226,7 +1253,7 @@ export function transpileGML(gml: string): string {
   // read; `entity.get()` returning `undefined` (no timeline assigned yet)
   // makes this a safe, honest no-op rather than a crash.
   out = out.replace(
-    /\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, field: string, exprRaw: string) =>
       `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.${field} = ${exprRaw.trim()}; })();`,
   );
@@ -1249,7 +1276,7 @@ export function transpileGML(gml: string): string {
     position: "0",
   };
   out = out.replace(
-    /\btimeline_(running|speed|loop|position)\b/g,
+    /(?<!\.\s*)\btimeline_(running|speed|loop|position)\b/g,
     (_m, field: string) =>
       `(_entity.get(GmlActions.TimelineState)?.${field} ?? ${TIMELINE_READ_DEFAULTS[field]})`,
   );
@@ -1304,8 +1331,21 @@ export function transpileGML(gml: string): string {
     return expr;
   }
 
+  // Every rewrite below is guarded with `(?<!\.\s*)` — the same guard
+  // `alarm[n] = expr` (above) already uses for the identical reason: GML
+  // allows a *different* instance's field to be read/written through a dot
+  // reference (`inst.sprite_index = spr_x;`, `other.image_xscale`, a real,
+  // confirmed shape in a real project's script — `inst.image_xscale =
+  // imgx;`). This transpiler has no way to resolve which other entity
+  // `inst`/`other` refers to, so a dotted reference is deliberately left
+  // untouched (an honest unresolved-identifier case) rather than rewritten
+  // as if it were the current entity's own field. Without this guard,
+  // `inst.image_xscale = imgx;` became `inst.(() => { ... })();` — a
+  // dangling `.` followed by an expression, not a property name — a hard
+  // `SyntaxError`, confirmed via a real `tsc --noEmit` run against a real
+  // project's generated output.
   out = out.replace(
-    /\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = ${resolveSpriteAssetExpr(exprRaw)}; })();`,
   );
@@ -1317,17 +1357,17 @@ export function transpileGML(gml: string): string {
   // `==`/`!=` would be left unresolved and crash the same way the write
   // side used to.
   out = out.replace(
-    /\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
+    /(?<!\.\s*)\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
     (_m, op: string, rhs: string) =>
       `sprite_index ${op} ${resolveSpriteAssetExpr(rhs)}`,
   );
   out = out.replace(
-    /\b([A-Za-z_]\w*|-1)\s*(==|!=)\s*sprite_index\b/g,
+    /\b([A-Za-z_]\w*|-1)\s*(==|!=)\s*(?<!\.\s*)sprite_index\b/g,
     (_m, lhs: string, op: string) =>
       `${resolveSpriteAssetExpr(lhs)} ${op} sprite_index`,
   );
   out = out.replace(
-    /\bsprite_index\b/g,
+    /(?<!\.\s*)\bsprite_index\b/g,
     `(_entity.get(GmlActions.Sprite)?.texturePath ?? "")`,
   );
 
@@ -1337,12 +1377,12 @@ export function transpileGML(gml: string): string {
   // the exact `* Math.PI / 180` factor `gmlCamera.ts`/`gmlProjection.ts`
   // already use for every other GML-degrees-to-engine-radians field.
   out = out.replace(
-    /\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
   out = out.replace(
-    /\bimage_angle\b/g,
+    /(?<!\.\s*)\bimage_angle\b/g,
     `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
   );
 
@@ -1354,13 +1394,16 @@ export function transpileGML(gml: string): string {
     ["image_yscale", "scaleY"],
   ];
   for (const [gmlName, field] of IMAGE_SCALE_FIELDS) {
-    const writeRe = new RegExp(`\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`, "g");
+    const writeRe = new RegExp(
+      `(?<!\\.\\s*)\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`,
+      "g",
+    );
     out = out.replace(
       writeRe,
       (_m, exprRaw: string) =>
         `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} = ${exprRaw.trim()}; })();`,
     );
-    const readRe = new RegExp(`\\b${gmlName}\\b`, "g");
+    const readRe = new RegExp(`(?<!\\.\\s*)\\b${gmlName}\\b`, "g");
     out = out.replace(
       readRe,
       `(_entity.get(GmlActions.Transform)?.${field} ?? 1)`,
@@ -1370,12 +1413,12 @@ export function transpileGML(gml: string): string {
   // `image_alpha` — maps straight onto `Sprite.alpha` (both default to `1`,
   // GameMaker's "fully opaque").
   out = out.replace(
-    /\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha = ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
-    /\bimage_alpha\b/g,
+    /(?<!\.\s*)\bimage_alpha\b/g,
     `(_entity.get(GmlActions.Sprite)?.alpha ?? 1)`,
   );
 
@@ -1386,12 +1429,12 @@ export function transpileGML(gml: string): string {
   // `Sprite.tint`) and the read side (RGB -> BGR back out, a real, exact
   // round trip, not an approximation).
   out = out.replace(
-    /\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\.\s*)\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _bl = (${exprRaw.trim()}); const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb; } })();`,
   );
   out = out.replace(
-    /\bimage_blend\b/g,
+    /(?<!\.\s*)\bimage_blend\b/g,
     `(() => { const _t = _entity.get(GmlActions.Sprite)?.tint ?? 0xffffff; return ((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff); })()`,
   );
 
@@ -1465,9 +1508,33 @@ export function transpileGML(gml: string): string {
       declared.add(m[1] as string);
     }
     const bareAssign = /^(\s*)([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
+    // Real, confirmed regression: GML's real multi-declarator `var` syntax
+    // (`var x_ = x,\n        y_ = y;` — a single statement, comma-
+    // continued onto the next line, byte-for-byte identical to standard
+    // JS/TS multi-declarator syntax) was already valid output on its own.
+    // This pass, scanning purely line-by-line with no memory of the
+    // previous line, didn't know `y_ = y;` was a *continuation* of that
+    // same `var` statement rather than its own new statement — it matched
+    // `y_ = y` as a fresh bare assignment and prefixed it with its own
+    // `var`, producing `var x_ = x,\n  var y_ = y;`: a `var` keyword
+    // sitting right after a trailing comma, a hard `SyntaxError: Trailing
+    // comma not allowed`. A line whose *previous* non-empty line (with any
+    // trailing `//` comment stripped first, so a comment after the comma
+    // doesn't hide it) ends in a top-level `,` is exactly that
+    // continuation case — its own identifier is already declared by the
+    // statement it continues, so it's added to `declared` and the line is
+    // left alone rather than re-prefixed with a second `var`.
+    let prevEndsWithComma = false;
     out = out
       .split("\n")
       .map((line) => {
+        const trimmedForComma = (
+          line.includes("//") ? line.slice(0, line.indexOf("//")) : line
+        ).trimEnd();
+        const continuesPrevDeclaration = prevEndsWithComma;
+        if (trimmedForComma.length > 0) {
+          prevEndsWithComma = trimmedForComma.endsWith(",");
+        }
         const match = bareAssign.exec(line);
         if (match === null) return line;
         const indent = match[1] ?? "";
@@ -1475,6 +1542,10 @@ export function transpileGML(gml: string): string {
         const eq = match[3] ?? "";
         if (name === "" || RESERVED.has(name) || declared.has(name))
           return line;
+        if (continuesPrevDeclaration) {
+          declared.add(name);
+          return line;
+        }
         declared.add(name);
         return `${indent}var ${name}${eq}${line.slice(match[0].length)}`;
       })
