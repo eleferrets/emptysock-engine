@@ -75,6 +75,7 @@ export async function buildObjectBehavior(
     eventLabel: string,
     paramStr: string,
     prefixRe: RegExp,
+    optional = false,
   ): Promise<string> {
     const gmlFile = gmlFiles.find((f) => prefixRe.test(f));
     if (gmlFile) {
@@ -85,6 +86,14 @@ export async function buildObjectBehavior(
         return `export function ${methodName}(${paramStr}): void {\n  // [GML auto-transpiled — review carefully]\n${body}\n}`;
       }
     }
+    // Begin Step/End Step/Draw GUI are genuinely optional — GameMaker's own
+    // default is a plain Step/Draw event only, and `GmlBehaviorSystem`
+    // (@emptysock/engine) treats a missing export as "this entity has no
+    // handler for this pass", not an error. Emitting an empty stub for every
+    // object that never used Begin/End Step or Draw GUI would bloat every
+    // generated `.behavior.ts` file for no reason — see that module's own
+    // doc comment for how a missing handler is treated at dispatch time.
+    if (optional) return "";
     return `export function ${methodName}(${paramStr}): void {\n  // TODO: migrate ${eventLabel}\n}`;
   }
 
@@ -94,17 +103,54 @@ export async function buildObjectBehavior(
     "_entity: Entity, _ctx: GmlActionContext",
     /^Create_/i,
   );
+  // GameMaker's real Step-family eventnum suffixes, confirmed against
+  // GameMaker's own manual (manual.gamemaker.io/lts/.../Event_Order.htm —
+  // "First all Begin Step events are executed, then all Step events are
+  // executed, after that all End Step events are executed") and its GML
+  // constants (ev_step_normal = 0, ev_step_begin = 1, ev_step_end = 2, which
+  // is exactly what `Step_<n>.gml`'s on-disk suffix is built from). A real
+  // GMS2 object only ever has at most one file per suffix — `buildMethod`'s
+  // per-suffix regex naturally yields at most one match each, so there's no
+  // "multiple Step_0.gml files" case to worry about.
+  const onStepBegin = await buildMethod(
+    "onStepBegin",
+    "Begin Step event",
+    "_entity: Entity, _ctx: GmlActionContext",
+    /^Step_1\.gml$/i,
+    true,
+  );
   const onUpdate = await buildMethod(
     "onUpdate",
     "Step event",
     "_entity: Entity, _dt: number, _ctx: GmlActionContext",
-    /^Step_/i,
+    /^Step_0\.gml$/i,
   );
+  const onStepEnd = await buildMethod(
+    "onStepEnd",
+    "End Step event",
+    "_entity: Entity, _ctx: GmlActionContext",
+    /^Step_2\.gml$/i,
+    true,
+  );
+  // Draw's real eventnum suffixes: 0 = plain Draw (world-space, affected by
+  // the room camera), 64 = Draw GUI (screen-space, camera-independent) — the
+  // "64" value is GameMaker's own long-standing, community- and
+  // manual-confirmed constant for `ev_draw_gui` (GameMaker reserves eventnum
+  // 64+ for the GUI-layer draw sub-events). Draw Begin/End and Draw GUI
+  // Begin/End sub-variants are a real, separate gap — not covered here, same
+  // as this pass's own scope note.
   const onDraw = await buildMethod(
     "onDraw",
     "Draw event",
     "_entity: Entity, _ctx: GmlActionContext",
-    /^Draw_/i,
+    /^Draw_0\.gml$/i,
+  );
+  const onDrawGui = await buildMethod(
+    "onDrawGui",
+    "Draw GUI event",
+    "_entity: Entity, _ctx: GmlActionContext",
+    /^Draw_64\.gml$/i,
+    true,
   );
   const onDestroy = await buildMethod(
     "onDestroy",
@@ -208,11 +254,11 @@ import type { Entity, GmlActionContext } from '@emptysock/engine';
 import * as GmlActions from '@emptysock/engine';
 
 ${onCreate}
-
+${onStepBegin ? `\n${onStepBegin}\n` : ""}
 ${onUpdate}
-
+${onStepEnd ? `\n${onStepEnd}\n` : ""}
 ${onDraw}
-
+${onDrawGui ? `\n${onDrawGui}\n` : ""}
 ${onDestroy}${extraBlock}
 `;
 }
