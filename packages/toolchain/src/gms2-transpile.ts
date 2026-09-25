@@ -1608,10 +1608,25 @@ export function transpileGML(gml: string): string {
   // before the bare-read pass below so a write isn't first mistaken for a
   // read; `entity.get()` returning `undefined` (no timeline assigned yet)
   // makes this a safe, honest no-op rather than a crash.
+  // Compound-assignment forms (`timeline_speed += 0.1;`) are just as real
+  // as plain `=` for a numeric field like this — the operator capture group
+  // (`OP`, reused by every rendering-built-in write-pass below) lets the
+  // emitted code use the exact same operator rather than only ever
+  // supporting `=`. Real, confirmed regression this pattern fixes: a plain
+  // `=`-only write regex left `+=`/`-=`/etc. completely unmatched, so the
+  // *read*-side bare-identifier pass below matched instead — turning
+  // `image_yscale += x;` (a real, confirmed shape from a real project's
+  // `obj_playerw`'s `Step_0.gml`) into `(_entity.get(...)?.scaleY ?? 1) +=
+  // x;`, a hard SyntaxError (the left side of `+=` must be a real
+  // assignment target, not an arbitrary expression).
+  const OP = "(?:\\+=|-=|\\*=|/=|%=|=(?!=))";
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
-    (_m, field: string, exprRaw: string) =>
-      `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.${field} = ${exprRaw.trim()}; })();`,
+    new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\btimeline_(running|speed|loop|position)\\s*(${OP})\\s*([^;\\n]+);?`,
+      "g",
+    ),
+    (_m, field: string, op: string, exprRaw: string) =>
+      `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.${field} ${op} ${exprRaw.trim()}; })();`,
   );
 
   // Reads of the same four variables — anything left after the write pass
@@ -1750,6 +1765,22 @@ export function transpileGML(gml: string): string {
     (_m, exprRaw: string) =>
       `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
+  // `+=`/`-=` add/subtract a *degree* delta — converting that same delta to
+  // radians and applying it with the identical `+=`/`-=` operator is exact,
+  // the same reasoning the plain-`=` case above already uses. `*=`/`/=` are
+  // deliberately NOT given the same treatment: GML's `image_angle *= 2`
+  // means "scale my current angle value by a unitless factor," but scaling
+  // `Transform.rotation` (already in radians) by `(expr) * Math.PI / 180`
+  // would incorrectly also apply the degrees-to-radians conversion factor
+  // to what should be a plain multiplier — a real, distinct formula this
+  // pass doesn't have a confirmed real-source example to derive/verify
+  // against yet, so it's left as an honest gap (falls through to the
+  // bare-read rewrite below) rather than guessed at.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\s*(\+=|-=)\s*([^;\n]+);?/g,
+    (_m, op: string, exprRaw: string) =>
+      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation ${op} (${exprRaw.trim()}) * Math.PI / 180; })();`,
+  );
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\b/g,
     `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
@@ -1763,14 +1794,19 @@ export function transpileGML(gml: string): string {
     ["image_yscale", "scaleY"],
   ];
   for (const [gmlName, field] of IMAGE_SCALE_FIELDS) {
+    // `OP` (defined above, next to the `timeline_*` compound-assignment
+    // fix) covers every real GML assignment operator, not just plain `=` —
+    // `image_xscale`/`image_yscale` have no unit conversion at all, so the
+    // exact same operator can be applied directly to `Transform.scaleX`/
+    // `.scaleY` with no further translation needed.
     const writeRe = new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     );
     out = out.replace(
       writeRe,
-      (_m, exprRaw: string) =>
-        `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} = ${exprRaw.trim()}; })();`,
+      (_m, op: string, exprRaw: string) =>
+        `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} ${op} ${exprRaw.trim()}; })();`,
     );
     const readRe = new RegExp(
       `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\b`,
@@ -1783,11 +1819,16 @@ export function transpileGML(gml: string): string {
   }
 
   // `image_alpha` — maps straight onto `Sprite.alpha` (both default to `1`,
-  // GameMaker's "fully opaque").
+  // GameMaker's "fully opaque"). No unit conversion, so — like
+  // `image_xscale`/`image_yscale` above — every real assignment operator
+  // (`OP`) applies directly with no further translation.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
-    (_m, exprRaw: string) =>
-      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha = ${exprRaw.trim()}; })();`,
+    new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_alpha\\s*(${OP})\\s*([^;\\n]+);?`,
+      "g",
+    ),
+    (_m, op: string, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha ${op} ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_alpha\b/g,
@@ -1837,6 +1878,27 @@ export function transpileGML(gml: string): string {
     /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(${exprRaw.trim()}); })();`,
+  );
+  // Compound assignment (`depth += 5;`) needs its own formula, not just the
+  // plain-`=` one with the operator swapped in: the sign flip means GML's
+  // `+=` doesn't become this engine's `+=` on the stored field — it becomes
+  // a `-=` (`gmlDepth_new = gmlDepth_old + 5` implies `engineDepth_new =
+  // -(gmlDepth_old + 5) = -gmlDepth_old - 5 = engineDepth_old - 5`).
+  // Rather than hand-deriving the flipped operator for each of `+=`/`-=`/
+  // `*=`/`/=`/`%=` (multiplication/division don't even flip the same way
+  // addition/subtraction do), this reads the field back through the exact
+  // same un-flip the read-side rewrite below already applies, performs the
+  // compound update in GML's own sign convention, then re-applies the exact
+  // same flip the plain-`=` write above uses — correct for every operator
+  // by construction, since it's built entirely out of already-correct,
+  // already-tested single-direction conversions rather than a new one.
+  out = out.replace(
+    new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bdepth\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+      "g",
+    ),
+    (_m, op: string, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth ${op} (${exprRaw.trim()})); } })();`,
   );
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\b/g,

@@ -212,6 +212,54 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       expect(() => new Function(out)).not.toThrow();
     });
   });
+
+  describe("compound assignment (+=/-=/etc.) — real gap found in obj_playerw/obj_bullet/obj_footstep", () => {
+    it("image_yscale += is a real Transform.scaleY += write, not a broken read-side assignment target — real bug found in obj_playerw's Step_0.gml", () => {
+      const out = transpileGML("image_yscale += (a - b)/100;");
+      expect(out).toContain(
+        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleY += (a - b)/100;",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("image_xscale -= works the same way", () => {
+      const out = transpileGML("image_xscale -= 0.1;");
+      expect(out).toContain(
+        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleX -= 0.1;",
+      );
+    });
+
+    it("image_alpha -= is a real Sprite.alpha -= write — real gap found in obj_footstep's Step_0.gml", () => {
+      const out = transpileGML("image_alpha -= 0.01;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha -= 0.01;",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("depth += correctly flips to a Sprite.depth -= in engine space — real gap found in obj_bullet's Step_0.gml", () => {
+      const out = transpileGML("depth += 1;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth += (1)); }",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("image_angle += converts the degree delta to radians with the same operator", () => {
+      const out = transpileGML("image_angle += 5;");
+      expect(out).toContain(
+        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation += (5) * Math.PI / 180;",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("timeline_speed += is a real TimelineState.speed += write", () => {
+      const out = transpileGML("timeline_speed += 0.5;");
+      expect(out).toContain(
+        "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.speed += 0.5;",
+      );
+    });
+  });
 });
 
 describe("transpileGML", () => {
