@@ -197,6 +197,58 @@ function eachOtherMatching(
 }
 
 // ---------------------------------------------------------------------------
+// instance_exists / instance_number
+// ---------------------------------------------------------------------------
+//
+// Unlike every query above, these two are not "hypothetical position"
+// checks at all — no `x`/`y`, no mask, no AABB — just "does at least one
+// instance of this type exist anywhere in the scene right now" and "how
+// many." They live in this file rather than `gmlActions.ts` because they
+// share the exact same object-type resolution (`objectRefMatches`/
+// `resolveGmlObjectType`) this file's whole query family is already built
+// on, not because they're position-hypothetical the way the rest are.
+// Real, confirmed common usage (`if (!instance_exists(obj_guardboss))
+// GmlActions.instance_destroy(...)`, from a real project's
+// `obj_spikepillar.behavior.ts`) — previously entirely unhandled by this
+// importer, a genuine `ReferenceError` at runtime rather than a silent
+// no-op, but a real, common, and cleanly implementable gap all the same.
+//
+// Unlike `eachOtherMatching`, the calling instance itself is never
+// excluded — GameMaker's real semantic is "does any instance of this type
+// exist," and the caller counts as one if it matches.
+
+/** GML `instance_exists(obj)` — real, honest scene-wide existence check. `all` always returns `true` if the scene has at least one `Transform`-bearing entity; `noone` always returns `false`. */
+export function instance_exists(
+  entity: Entity,
+  ctx: GmlActionContext,
+  obj: GmlObjectRef,
+): boolean {
+  if (obj === "noone") return false;
+  if (objectRefMatches(entity, obj)) return true;
+  let found = false;
+  ctx.scene.each(Transform, (_t, other) => {
+    if (found || other.eid === entity.eid) return;
+    if (objectRefMatches(other, obj)) found = true;
+  });
+  return found;
+}
+
+/** GML `instance_number(obj)` — real, honest scene-wide count of instances matching `obj`. */
+export function instance_number(
+  entity: Entity,
+  ctx: GmlActionContext,
+  obj: GmlObjectRef,
+): number {
+  if (obj === "noone") return 0;
+  let count = objectRefMatches(entity, obj) ? 1 : 0;
+  ctx.scene.each(Transform, (_t, other) => {
+    if (other.eid === entity.eid) return;
+    if (objectRefMatches(other, obj)) count++;
+  });
+  return count;
+}
+
+// ---------------------------------------------------------------------------
 // place_meeting / place_free / place_snapped
 // ---------------------------------------------------------------------------
 

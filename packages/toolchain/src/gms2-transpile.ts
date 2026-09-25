@@ -1536,36 +1536,32 @@ export function transpileGML(gml: string): string {
     "instance_destroy",
     "action_set_alarm",
     "action_sound",
-    // GameMaker's "hypothetical position" collision-query family (see
-    // CLAUDE.md's "GMS2 DnD action-library compat" section) — real
-    // GameMaker solid-wall collision code (`if (place_meeting(x+4, y,
-    // obj_wall)) { ... }`) calls these as plain GML function calls, not DnD
-    // actions, but they need the exact same entity+ctx threading every
-    // other `gmlActions.ts`/`gmlCollisionQueries.ts` export does, so they're
-    // threaded the same way rather than needing a second rewrite pass.
-    "place_meeting",
+    // `place_free`/`place_snapped`/`position_free` take no object-type
+    // argument at all (`place_free` matches any `Meta.solid`-flagged
+    // instance, `place_snapped` and `position_free` have no object concept
+    // whatsoever — see CLAUDE.md's "GameMaker's hypothetical position
+    // collision-query family" entry), so generic threading is correct and
+    // sufficient for these three. Every *other* member of this family
+    // (`place_meeting`, `position_meeting`, `instance_place`,
+    // `instance_position`, `collision_*`, `instance_exists`,
+    // `instance_number`) takes a real object-name argument and gets its own
+    // dedicated pass below instead — see that pass's own doc comment for
+    // why generic threading was a real, severe, previously-undiscovered bug
+    // for those.
     "place_free",
     "place_snapped",
-    "position_meeting",
     "position_free",
-    "instance_place",
-    "instance_position",
-    "collision_rectangle",
-    "collision_circle",
-    "collision_line",
-    "collision_point",
   ];
   for (const fn of THREADED_ACTIONS) {
     // The trailing `;` is captured, not just optionally consumed — DnD
     // actions (`action_move(...)`) are always their own statement and
-    // always end in one, but the collision-query family
-    // (`place_meeting`/`instance_place`/`collision_*`) is real GML
-    // *expression* syntax, just as commonly called as a sub-expression
-    // inside `if (...)`, `&&`, or an assignment's right-hand side, with no
-    // trailing `;` of its own at all. Unconditionally appending `;` (the
-    // previous behaviour) corrupted exactly that case — it injected a
-    // semicolon *inside* the enclosing `if (...)`'s parens, e.g.
-    // `if (GmlActions.place_meeting(...);)`. Echoing back only the
+    // always end in one, but `place_free`/`place_snapped`/`position_free`
+    // are real GML *expression* syntax, just as commonly called as a
+    // sub-expression inside `if (...)`, `&&`, or an assignment's right-hand
+    // side, with no trailing `;` of its own at all. Unconditionally
+    // appending `;` (the previous behaviour) corrupted exactly that case —
+    // it injected a semicolon *inside* the enclosing `if (...)`'s parens,
+    // e.g. `if (GmlActions.place_free(...);)`. Echoing back only the
     // semicolon (if any) this specific call actually had keeps both shapes
     // correct.
     const re = new RegExp(`\\b${fn}\\s*\\(([^)]*)\\)(\\s*;)?`, "g");
@@ -1574,6 +1570,68 @@ export function transpileGML(gml: string): string {
       const threaded =
         trimmed.length > 0 ? `_entity, _ctx, ${trimmed}` : "_entity, _ctx";
       return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
+    });
+  }
+
+  // The rest of GameMaker's object-type-taking collision-query family
+  // (`place_meeting`/`position_meeting`/`instance_place`/`instance_position`
+  // /`collision_*`) plus `instance_exists`/`instance_number` — a real,
+  // severe, previously-undiscovered bug: generic `THREADED_ACTIONS`
+  // threading has no bare-identifier-to-quoted-string logic at all, so
+  // every one of these calls' object-name argument (almost always a bare
+  // asset identifier in real source — `place_meeting(x, y, obj_wall)`) was
+  // passed straight through as an *undeclared bare JS identifier*, not the
+  // string `GmlObjectRef` these functions actually expect. Confirmed by
+  // reading real generated output: `GmlActions.place_meeting(_entity, _ctx,
+  // x, y, obj_wall)` — a hard `ReferenceError: obj_wall is not defined` at
+  // runtime, for the exact solid-wall-collision mechanism CLAUDE.md's own
+  // "GameMaker's hypothetical position collision-query family" entry calls
+  // out as "THE mechanism a huge fraction of real GameMaker platformers/
+  // top-down games use." This was never caught earlier because nothing
+  // previously exercised these functions against real, unquoted-identifier
+  // GML source — only synthetic fixtures that happened to already pass a
+  // quoted string.
+  //
+  // Each function's object-argument position is fixed but differs by
+  // function (`OBJ_ARG_INDEX`, 0-based among the function's own GML-visible
+  // arguments) — `collision_*`'s shape is `(..., obj, prec, notme)`, the
+  // rest are `(..., obj)` or, for `instance_exists`/`instance_number`,
+  // `(obj)` alone — so this can't be one fixed-position rule the way
+  // `image_xscale`'s always-first-argument rewrite can be; a small map
+  // drives it instead. Args are split with `splitTopLevelArgs` (comma-
+  // aware of nested calls, e.g. `place_meeting(x + lengthdir_x(4, dir), y,
+  // obj_wall)`) and only the object-argument index is passed through
+  // `bareOrQuoted` — every other argument (including `prec`/`notme`, which
+  // are already real booleans in source) is left exactly as written.
+  const OBJ_ARG_INDEX: Record<string, number> = {
+    place_meeting: 2,
+    position_meeting: 2,
+    instance_place: 2,
+    instance_position: 2,
+    collision_rectangle: 4,
+    collision_circle: 3,
+    collision_line: 4,
+    collision_point: 2,
+    instance_exists: 0,
+    instance_number: 0,
+  };
+  for (const [fn, objIndex] of Object.entries(OBJ_ARG_INDEX)) {
+    const re = new RegExp(
+      `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+      "g",
+    );
+    out = out.replace(re, (_m, argsRaw: string, semi: string | undefined) => {
+      // `maxParts` generously covers every real argument this family can
+      // have (`collision_*`'s longest real shape is 7: x1,y1,x2,y2,obj,
+      // prec,notme) — too few parts would let the object-argument split
+      // absorb trailing `prec`/`notme` text into itself instead of leaving
+      // them as their own, separately-quotable-or-passthrough arguments.
+      const args = splitTopLevelArgs(argsRaw, 10).map((a) => a.trim());
+      if (args[objIndex] !== undefined && args[objIndex].length > 0) {
+        args[objIndex] = bareOrQuoted(args[objIndex]);
+      }
+      const threaded = args.filter((a) => a.length > 0);
+      return `GmlActions.${fn}(_entity, _ctx${threaded.length > 0 ? ", " : ""}${threaded.join(", ")})${semi ?? ""}`;
     });
   }
 

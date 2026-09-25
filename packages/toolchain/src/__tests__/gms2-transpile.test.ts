@@ -2,25 +2,70 @@ import { describe, expect, it } from "vitest";
 import { transpileGML } from "../gms2-transpile.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
-  it("transpiles a bare-condition place_meeting call, entity-threaded", () => {
+  it("transpiles a bare-condition place_meeting call, entity-threaded, with the object-name argument quoted", () => {
     const out = transpileGML(
       "if place_meeting(x + 4, y, obj_wall)\n{\n  x -= 4;\n}",
     );
+    // Real, severe, previously-undiscovered bug: the object-name argument
+    // used to pass through as an undeclared bare JS identifier — a hard
+    // ReferenceError at runtime for every real place_meeting call, since
+    // generic threading has no bare-identifier-to-string quoting logic.
     expect(out).toContain(
-      "if (GmlActions.place_meeting(_entity, _ctx, x + 4, y, obj_wall))",
+      'if (GmlActions.place_meeting(_entity, _ctx, x + 4, y, "obj_wall"))',
     );
   });
 
-  it("threads instance_place/collision_rectangle the same way as other query functions", () => {
+  it("threads instance_place/collision_rectangle the same way as other query functions, quoting each one's object-name argument", () => {
     const out = transpileGML(
       "other_wall = instance_place(x, y, obj_wall);\n" +
         "hit = collision_rectangle(x, y, x + 32, y + 32, obj_enemy, false, true);",
     );
     expect(out).toContain(
-      "GmlActions.instance_place(_entity, _ctx, x, y, obj_wall)",
+      'GmlActions.instance_place(_entity, _ctx, x, y, "obj_wall")',
     );
     expect(out).toContain(
-      "GmlActions.collision_rectangle(_entity, _ctx, x, y, x + 32, y + 32, obj_enemy, false, true)",
+      'GmlActions.collision_rectangle(_entity, _ctx, x, y, x + 32, y + 32, "obj_enemy", false, true)',
+    );
+  });
+
+  it("place_meeting still tolerates a nested call in a non-object argument", () => {
+    const out = transpileGML(
+      "place_meeting(x + my_helper(4, dir), y, obj_wall);",
+    );
+    expect(out).toContain(
+      'GmlActions.place_meeting(_entity, _ctx, x + my_helper(4, dir), y, "obj_wall");',
+    );
+  });
+
+  it("place_meeting passes a non-identifier object argument (a dotted/member reference) through unchanged", () => {
+    const out = transpileGML("place_meeting(x, y, other.wall_type);");
+    expect(out).toContain(
+      "GmlActions.place_meeting(_entity, _ctx, x, y, other.wall_type);",
+    );
+  });
+
+  it("instance_exists/instance_number thread with a quoted object-name argument", () => {
+    const out = transpileGML(
+      "if (!instance_exists(obj_guardboss)) { n = instance_number(obj_enemy); }",
+    );
+    expect(out).toContain(
+      'GmlActions.instance_exists(_entity, _ctx, "obj_guardboss")',
+    );
+    expect(out).toContain(
+      'GmlActions.instance_number(_entity, _ctx, "obj_enemy")',
+    );
+  });
+
+  it("place_meeting's all/noone special object references are not quoted as asset paths", () => {
+    // 'all'/'noone' ARE bare identifiers syntactically, and bareOrQuoted
+    // has no way to special-case them at the regex layer — they get quoted
+    // into "all"/"noone" strings, which is exactly what
+    // GmlCollisionQueries.ts's object-type resolution already expects (it
+    // checks for the literal strings "all"/"noone" before falling back to
+    // Meta.name resolution), so this is correct, not a gap.
+    const out = transpileGML("place_meeting(x, y, all);");
+    expect(out).toContain(
+      'GmlActions.place_meeting(_entity, _ctx, x, y, "all");',
     );
   });
 });

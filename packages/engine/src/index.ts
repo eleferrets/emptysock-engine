@@ -365,6 +365,8 @@ export {
   collision_circle,
   collision_line,
   collision_point,
+  instance_exists,
+  instance_number,
 } from "./compat/gmlCollisionQueries.js";
 
 /**

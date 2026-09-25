@@ -14,6 +14,8 @@ import {
   collision_circle,
   collision_line,
   collision_point,
+  instance_exists,
+  instance_number,
 } from "../compat/gmlCollisionQueries.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
 
@@ -191,5 +193,37 @@ describe("gmlCollisionQueries — GameMaker's hypothetical-position query family
     expect(
       collision_point(player, ctx, 0, 0, "obj_player", false, false)?.eid,
     ).toBe(player.eid);
+  });
+
+  describe("instance_exists / instance_number", () => {
+    it("instance_exists finds another instance of the given type, and includes the caller itself when it matches", () => {
+      const scene = new Scene();
+      const ctx = makeCtx(scene);
+      const player = spawnAt(scene, 0, 0, "obj_player");
+      spawnAt(scene, 500, 500, "obj_guardboss");
+
+      expect(instance_exists(player, ctx, "obj_guardboss")).toBe(true);
+      expect(instance_exists(player, ctx, "obj_missing")).toBe(false);
+      expect(instance_exists(player, ctx, "obj_player")).toBe(true);
+    });
+
+    it("instance_exists 'noone' always returns false", () => {
+      const scene = new Scene();
+      const ctx = makeCtx(scene);
+      const player = spawnAt(scene, 0, 0, "obj_player");
+      expect(instance_exists(player, ctx, "noone")).toBe(false);
+    });
+
+    it("instance_number counts every matching instance, including the caller itself", () => {
+      const scene = new Scene();
+      const ctx = makeCtx(scene);
+      const enemy1 = spawnAt(scene, 0, 0, "obj_enemy");
+      spawnAt(scene, 10, 10, "obj_enemy");
+      spawnAt(scene, 20, 20, "obj_enemy");
+      spawnAt(scene, 30, 30, "obj_player");
+
+      expect(instance_number(enemy1, ctx, "obj_enemy")).toBe(3);
+      expect(instance_number(enemy1, ctx, "obj_missing")).toBe(0);
+    });
   });
 });
