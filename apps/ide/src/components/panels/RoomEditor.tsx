@@ -63,6 +63,32 @@ function withPos(
   return { ...inst, props: { ...(inst.props ?? {}), x, y } };
 }
 
+/** Rotation (degrees, matching `Transform.rotation`'s on-disk convention elsewhere in this
+ * importer's prefab props) and non-uniform scale — mirrors `Transform`'s own field names
+ * (`rotation`/`scaleX`/`scaleY`) so a room-editor edit round-trips through `loadSceneFile()`
+ * without a translation step. */
+function instanceTransform(inst: SceneFilePrefabInstance): {
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+} {
+  const props = inst.props as
+    | { rotation?: unknown; scaleX?: unknown; scaleY?: unknown }
+    | undefined;
+  return {
+    rotation: typeof props?.rotation === "number" ? props.rotation : 0,
+    scaleX: typeof props?.scaleX === "number" ? props.scaleX : 1,
+    scaleY: typeof props?.scaleY === "number" ? props.scaleY : 1,
+  };
+}
+
+function withTransform(
+  inst: SceneFilePrefabInstance,
+  patch: Partial<{ rotation: number; scaleX: number; scaleY: number }>,
+): SceneFilePrefabInstance {
+  return { ...inst, props: { ...(inst.props ?? {}), ...patch } };
+}
+
 export function RoomEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const openFiles = useIDEStore((s) => s.openFiles);
@@ -161,31 +187,31 @@ export function RoomEditor(): React.ReactElement {
 
     liveInstances.forEach((inst, i) => {
       const { x, y } = instancePos(inst);
+      const { rotation, scaleX, scaleY } = instanceTransform(inst);
       const selected = i === selectedIndex;
+      const w = INSTANCE_SIZE * scaleX;
+      const h = INSTANCE_SIZE * scaleY;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((rotation * Math.PI) / 180);
+
       ctx.fillStyle = selected
         ? computed.getPropertyValue("--es-accent").trim() || "#818cf8"
         : "#4a4a7c";
       ctx.globalAlpha = selected ? 0.9 : 0.6;
-      ctx.fillRect(
-        x - INSTANCE_SIZE / 2,
-        y - INSTANCE_SIZE / 2,
-        INSTANCE_SIZE,
-        INSTANCE_SIZE,
-      );
+      ctx.fillRect(-w / 2, -h / 2, w, h);
       ctx.globalAlpha = 1;
       ctx.strokeStyle = selected ? "#ffffff" : "#00000080";
       ctx.lineWidth = selected ? 2 : 1;
-      ctx.strokeRect(
-        x - INSTANCE_SIZE / 2,
-        y - INSTANCE_SIZE / 2,
-        INSTANCE_SIZE,
-        INSTANCE_SIZE,
-      );
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
+      ctx.restore();
+
       ctx.fillStyle = "#ffffff";
       ctx.font = "10px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillText(inst.prefab, x, y + INSTANCE_SIZE / 2 + 2);
+      ctx.fillText(inst.prefab, x, y + h / 2 + 2);
     });
   }, [liveInstances, selectedIndex, showGrid, gridSize]);
 
@@ -439,6 +465,79 @@ export function RoomEditor(): React.ReactElement {
                   const next = liveInstances.map((inst, i) =>
                     i === selectedIndex
                       ? withPos(inst, x, Number(e.target.value))
+                      : inst,
+                  );
+                  setLiveInstances(next);
+                  commit(next);
+                }}
+                style={{
+                  background: "var(--es-surface)",
+                  color: "var(--es-text)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              Rotation (deg)
+              <input
+                type="number"
+                value={instanceTransform(selected).rotation}
+                onChange={(e) => {
+                  const next = liveInstances.map((inst, i) =>
+                    i === selectedIndex
+                      ? withTransform(inst, {
+                          rotation: Number(e.target.value),
+                        })
+                      : inst,
+                  );
+                  setLiveInstances(next);
+                  commit(next);
+                }}
+                style={{
+                  background: "var(--es-surface)",
+                  color: "var(--es-text)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              Scale X
+              <input
+                type="number"
+                step="0.1"
+                value={instanceTransform(selected).scaleX}
+                onChange={(e) => {
+                  const next = liveInstances.map((inst, i) =>
+                    i === selectedIndex
+                      ? withTransform(inst, { scaleX: Number(e.target.value) })
+                      : inst,
+                  );
+                  setLiveInstances(next);
+                  commit(next);
+                }}
+                style={{
+                  background: "var(--es-surface)",
+                  color: "var(--es-text)",
+                  border: "1px solid var(--es-border)",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              Scale Y
+              <input
+                type="number"
+                step="0.1"
+                value={instanceTransform(selected).scaleY}
+                onChange={(e) => {
+                  const next = liveInstances.map((inst, i) =>
+                    i === selectedIndex
+                      ? withTransform(inst, { scaleY: Number(e.target.value) })
                       : inst,
                   );
                   setLiveInstances(next);

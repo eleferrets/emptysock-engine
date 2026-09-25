@@ -100,6 +100,10 @@ describe("RoomEditor — loading and editing a real .scene.json", () => {
       moveTo: () => undefined,
       lineTo: () => undefined,
       stroke: () => undefined,
+      save: () => undefined,
+      restore: () => undefined,
+      translate: () => undefined,
+      rotate: () => undefined,
     };
     canvas.getContext = (() =>
       fakeContext) as unknown as typeof canvas.getContext;
@@ -147,5 +151,76 @@ describe("RoomEditor — loading and editing a real .scene.json", () => {
       (i) => i.prefab === "obj_camera",
     );
     expect(camera?.props).toEqual({ x: 200, y: 150 });
+  });
+
+  it("editing rotation/scale fields via the side panel writes back to openFiles", async () => {
+    act(() => {
+      useIDEStore.setState({
+        openFiles: { "rooms/rm_test.scene.json": SCENE_JSON },
+      });
+    });
+    await renderPanel();
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas).not.toBeNull();
+    if (canvas === null) return;
+    canvas.getContext = (() => ({
+      fillRect: () => undefined,
+      strokeRect: () => undefined,
+      fillText: () => undefined,
+      beginPath: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      stroke: () => undefined,
+      save: () => undefined,
+      restore: () => undefined,
+      translate: () => undefined,
+      rotate: () => undefined,
+    })) as unknown as typeof canvas.getContext;
+
+    // Select the first instance (obj_player at 100,100).
+    act(() => {
+      canvas.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          clientX: 100,
+          clientY: 100,
+          bubbles: true,
+        }),
+      );
+    });
+    act(() => {
+      canvas.dispatchEvent(
+        new MouseEvent("pointerup", {
+          clientX: 100,
+          clientY: 100,
+          bubbles: true,
+        }),
+      );
+    });
+
+    const labels = Array.from(container.querySelectorAll("label"));
+    const rotationInput = labels
+      .find((l) => l.textContent.startsWith("Rotation"))
+      ?.querySelector("input");
+    expect(rotationInput).toBeDefined();
+    if (rotationInput === undefined || rotationInput === null) return;
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(rotationInput, "45");
+      rotationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const saved = useIDEStore.getState().openFiles["rooms/rm_test.scene.json"];
+    const parsed = JSON.parse(saved ?? "{}") as {
+      prefabInstances: { prefab: string; props: { rotation?: number } }[];
+    };
+    const player = parsed.prefabInstances.find(
+      (i) => i.prefab === "obj_player",
+    );
+    expect(player?.props.rotation).toBe(45);
   });
 });

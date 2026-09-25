@@ -82,14 +82,16 @@ A canvas-based editor for placing and moving a scene's instances — the visual 
 - **File picker** (top-left): every open `*.scene.json` file is listed; pick one to edit its room layout.
 - **Canvas**: each placed instance renders as a labeled box at its `(x, y)` position. Click to select, drag to move.
 - **Grid/snap/ruler** (top-right, per the IDE's per-tool convention): toggle the grid overlay and snap-to-grid; dragging with snap enabled rounds to the current grid size.
-- **Position panel** (right, appears once an instance is selected): numeric X/Y fields for precise placement.
+- **Position panel** (right, appears once an instance is selected): numeric X/Y, Rotation (degrees), and Scale X/Scale Y fields for precise placement — the same field names `Transform` uses, written straight into the instance's `props` so they round-trip through `loadSceneFile()` with no translation step.
 - **Undo/Redo**: toolbar buttons, also bound to Ctrl+Z / Ctrl+Shift+Z, capped at 50 steps per the IDE's shared `useHistory` convention.
 
-Every edit (drag or typed X/Y) writes the updated `.scene.json` straight back into the IDE's open-file store — the same file a GMS2-imported room's `prefabInstances` array lives in, so a room built by the importer is immediately editable here with no conversion step.
+Every edit (drag, or a typed X/Y/Rotation/Scale field) writes the updated `.scene.json` straight back into the IDE's open-file store — the same file a GMS2-imported room's `prefabInstances` array lives in, so a room built by the importer is immediately editable here with no conversion step.
+
+There is no camera-viewport overlay: `@emptysock/toolchain`'s GMS2 room importer (`gms2-room-import.ts`) does not currently capture a room's view/camera data from the `.yy` file, so there is nothing for this editor to visualise yet. Capturing that data during import is the prerequisite for adding the overlay, not a RoomEditor-side gap.
 
 ---
 
-## 7.7 Particle Editor
+## 7.8 Particle Editor
 
 The panel edits a real `ParticleEmitterOptions` object (see `packages/engine/src/systems/ParticleSystem.ts`) — the exact shape `new ParticleEmitter(options)` accepts in code. There is no separate editor-only format and no translation step: copy the options straight into `particleSystem.create(options)`.
 
