@@ -267,14 +267,154 @@ function wrapBareSingleStatementIf(src: string): string {
   return out;
 }
 
+function escapeRegExpTranspile(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const GML_RESERVED_IDENTIFIERS = new Set([
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "function",
+  "return",
+  "var",
+  "let",
+  "const",
+  "new",
+  "typeof",
+  "instanceof",
+  "in",
+  "of",
+  "break",
+  "continue",
+  "switch",
+  "case",
+  "default",
+  "try",
+  "catch",
+  "finally",
+  "throw",
+  "delete",
+  "void",
+  "this",
+  "class",
+  "extends",
+  "super",
+  "import",
+  "export",
+  "yield",
+  "async",
+  "await",
+  "null",
+  "undefined",
+  "true",
+  "false",
+  "with",
+]);
+
+/**
+ * Identify every name GML would treat as an implicit (undeclared-`var`)
+ * instance field within `text` — a line-start bare assignment (`name =
+ * expr;`) whose name isn't a reserved word, an already-`var`/`let`/`const`-
+ * declared real local, or in `extraReserved` (a script's own real named
+ * parameters, when scanning a script body). Shared by `transpileGML`'s own
+ * final rewrite pass and `scanGmlImplicitVars` (the pre-scan
+ * `gms2-codegen.ts` runs across every one of one object's sibling event
+ * files, so a name assigned in Create and only ever *read* in Step is still
+ * recognised as implicit in Step — see `scanGmlImplicitVars`'s own doc
+ * comment for the real regression this closes).
+ */
+function identifyGmlImplicitVars(
+  text: string,
+  extraReserved: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const declared = new Set<string>();
+  for (const m of text.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
+    declared.add(m[1] as string);
+  }
+  const bareAssign = /^(\s*)([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
+  let prevEndsWithComma = false;
+  const implicitVars = new Set<string>();
+  for (const line of text.split("\n")) {
+    const trimmedForComma = (
+      line.includes("//") ? line.slice(0, line.indexOf("//")) : line
+    ).trimEnd();
+    const continuesPrevDeclaration = prevEndsWithComma;
+    if (trimmedForComma.length > 0) {
+      prevEndsWithComma = trimmedForComma.endsWith(",");
+    }
+    const match = bareAssign.exec(line);
+    if (match === null) continue;
+    const name = match[2] ?? "";
+    if (
+      name === "" ||
+      GML_RESERVED_IDENTIFIERS.has(name) ||
+      extraReserved.has(name) ||
+      declared.has(name)
+    )
+      continue;
+    declared.add(name);
+    if (continuesPrevDeclaration) continue;
+    implicitVars.add(name);
+  }
+  return implicitVars;
+}
+
+/**
+ * Pre-scans a single raw (untranspiled) GML event file for the names it
+ * would identify as implicit instance variables, on its own. Real GameMaker
+ * instance state routinely gets *set* in one event (Create) and only *read*
+ * — never assigned — in another (Step): Freedom Backup's obj_camera sets
+ * `cam`/`view_w_half`/`buff`/etc. once in Create and reads them every frame
+ * in Step. Since `transpileGML` processes one event file per call (each
+ * becomes its own generated function — gms2-codegen.ts), a name never
+ * *assigned* within Step's own body text was invisible to Step's own
+ * implicit-variable detection, no matter how many other events set it —
+ * `gms2-codegen.ts` calls this once per sibling event file, unions the
+ * results, and passes that whole-object set into every `transpileGML` call
+ * for that object (its `knownImplicitVars` parameter) so a read-only
+ * occurrence in any one event still resolves through `GmlInstanceVars`
+ * instead of being left as a bare, undeclared (and hard-`ReferenceError`-
+ * throwing) identifier.
+ */
+export function scanGmlImplicitVars(gml: string): Set<string> {
+  return identifyGmlImplicitVars(gml);
+}
+
 /**
  * Apply regex-based pattern replacements to a GML source string and return
  * the resulting TypeScript snippet.
  *
  * Transformations are applied in order; later passes do not re-process text
  * produced by earlier ones (single-pass sequential replacement).
+ *
+ * `knownParams` are identifier names this call's *wrapping* function already
+ * declares as real parameters — a real GML script's own named parameters
+ * (`function scr_add(a, b) { ... }`, extracted separately by
+ * `gms2-codegen.ts`'s `extractScriptSignature` before this function ever
+ * sees the body text). Without this, the implicit-instance-variable pass
+ * near the end of this function has no way to know `a`/`b` are already
+ * real, already-scoped-correctly function parameters — not a GML instance's
+ * own implicit field — and would incorrectly persist them through
+ * `GmlActions.getGmlVar`/`setGmlVar` instead of leaving them as plain local
+ * reads/writes.
+ *
+ * `knownImplicitVars` are names already known (via `scanGmlImplicitVars`
+ * across an object's *other* event files) to be that object's own implicit
+ * instance variables even if this specific call's own body never assigns
+ * them — see that function's own doc comment for the real cross-event read
+ * regression this closes. They're treated exactly like a name this body
+ * assigns itself, except a real local `var`/`let`/`const` declaration (or a
+ * `knownParams` entry) inside *this* body still takes precedence, the same
+ * shadowing GML's own per-event `var` scoping already implies.
  */
-export function transpileGML(gml: string): string {
+export function transpileGML(
+  gml: string,
+  knownParams: readonly string[] = [],
+  knownImplicitVars: ReadonlySet<string> = new Set(),
+): string {
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
   // never added the closing `*/` (GameMaker's own parser is lenient about
@@ -1694,6 +1834,98 @@ export function transpileGML(gml: string): string {
     });
   }
 
+  // GameMaker's real camera/view function family (compat/gmlCamera.ts) —
+  // confirmed a real, previously-untranspiled gap against Freedom Backup's
+  // own obj_camera (a real GML camera-follow controller: cam =
+  // view_camera[0]; view_w_half = camera_get_view_width(cam); ...
+  // camera_set_view_pos(cam, ...)). None of these are entity-affecting —
+  // GameMaker's camera/view state is room-global, not per-instance — so
+  // every one of `compat/gmlCamera.ts`'s real exported functions takes only
+  // `(ctx, ...)`, never `(entity, ctx, ...)`, the same shape
+  // `camera_get_active`/`camera_get_view_x` etc. already declare.
+  // `GmlCameraContext extends GmlActionContext` with only optional fields
+  // added, so passing the generated function's own `_ctx: GmlActionContext`
+  // straight through type-checks with no cast needed.
+  const THREADED_CTX_ONLY = [
+    "camera_create",
+    "camera_create_view",
+    "camera_destroy",
+    "camera_get_active",
+    "camera_get_view_x",
+    "camera_get_view_y",
+    "camera_get_view_width",
+    "camera_get_view_height",
+    "camera_get_view_angle",
+    "camera_get_view_speed_x",
+    "camera_get_view_speed_y",
+    "camera_set_view_pos",
+    "camera_set_view_size",
+    "camera_set_view_angle",
+    "camera_set_view_speed",
+    "view_get_camera",
+    "view_set_camera",
+    "view_get_visible",
+    "view_set_visible",
+    "view_get_enabled",
+    "view_set_enabled",
+    "view_get_xport",
+    "view_set_xport",
+    "view_get_yport",
+    "view_set_yport",
+    "view_get_wport",
+    "view_set_wport",
+    "view_get_hport",
+    "view_set_hport",
+  ];
+  for (const fn of THREADED_CTX_ONLY) {
+    const re = new RegExp(
+      `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+      "g",
+    );
+    out = out.replace(re, (_m, args: string, semi: string | undefined) => {
+      const trimmed = args.trim();
+      const threaded = trimmed.length > 0 ? `_ctx, ${trimmed}` : "_ctx";
+      return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
+    });
+  }
+
+  // GameMaker's `view_camera[idx]`/`view_visible[idx]`/etc. built-in array
+  // variables (as opposed to the function-call twins just above, which
+  // handle an explicit `view_get_camera(idx)`/`view_set_camera(idx, v)`
+  // call) — real GML source overwhelmingly uses the array-subscript form
+  // (confirmed: Freedom Backup's obj_camera reads `view_camera[0]`, never
+  // `view_get_camera(0)`). `view_visible`/`view_enabled`/`view_xport`/
+  // `view_yport`/`view_wport`/`view_hport` are GameMaker's other real
+  // `view_*[idx]` built-in arrays, given the identical treatment for the
+  // same reason. A write (`view_camera[idx] = v;`) routes to the setter
+  // twin; a bare read routes to the getter twin — mirroring exactly how
+  // `image_blend`/`depth` etc. already split write vs. read above.
+  const VIEW_ARRAYS: Record<string, string> = {
+    view_camera: "camera",
+    view_visible: "visible",
+    view_xport: "xport",
+    view_yport: "yport",
+    view_wport: "wport",
+    view_hport: "hport",
+  };
+  for (const [arrayName, suffix] of Object.entries(VIEW_ARRAYS)) {
+    out = out.replace(
+      new RegExp(
+        `(?<!\\.\\s*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]\\s*=(?!=)\\s*([^;\\n]+);?`,
+        "g",
+      ),
+      (_m, idx: string, expr: string) =>
+        `GmlActions.view_set_${suffix}(_ctx, ${idx.trim()}, ${expr.trim()});`,
+    );
+    out = out.replace(
+      new RegExp(
+        `(?<!\\.\\s*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]`,
+        "g",
+      ),
+      (_m, idx: string) => `GmlActions.view_get_${suffix}(_ctx, ${idx.trim()})`,
+    );
+  }
+
   // The rest of GameMaker's object-type-taking collision-query family
   // (`place_meeting`/`position_meeting`/`instance_place`/`instance_position`
   // /`collision_*`) plus `instance_exists`/`instance_number` — a real,
@@ -1736,6 +1968,25 @@ export function transpileGML(gml: string): string {
     instance_exists: 0,
     instance_number: 0,
   };
+  // Real, confirmed bug: `bareOrQuoted` above always quotes a bare
+  // identifier into an object-*type*-name string — correct for
+  // `place_meeting(x, y, obj_wall)`, but this same argument position can
+  // equally hold a real GML variable that *references* a live instance
+  // (`follow = obj_player;` earlier, then `instance_exists(follow)` later —
+  // Freedom Backup's own obj_camera). A known implicit-instance-variable
+  // name (this event's own, or another sibling event's via
+  // `knownImplicitVars`/`scanGmlImplicitVars`) is left bare instead of
+  // quoted, so it resolves through `GmlInstanceVars` like any other
+  // instance-variable read rather than being coerced into a literal object-
+  // type-name string that happens to share the variable's spelling.
+  const knownVarsForObjArgs = new Set(
+    identifyGmlImplicitVars(out, new Set(knownParams)),
+  );
+  for (const name of knownImplicitVars) knownVarsForObjArgs.add(name);
+  const bareOrQuotedUnlessVar = (expr: string): string =>
+    /^[A-Za-z_]\w*$/.test(expr) && knownVarsForObjArgs.has(expr)
+      ? expr
+      : bareOrQuoted(expr);
   for (const [fn, objIndex] of Object.entries(OBJ_ARG_INDEX)) {
     const re = new RegExp(
       `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
@@ -1749,7 +2000,7 @@ export function transpileGML(gml: string): string {
       // them as their own, separately-quotable-or-passthrough arguments.
       const args = splitTopLevelArgs(argsRaw, 10).map((a) => a.trim());
       if (args[objIndex] !== undefined && args[objIndex].length > 0) {
-        args[objIndex] = bareOrQuoted(args[objIndex]);
+        args[objIndex] = bareOrQuotedUnlessVar(args[objIndex]);
       }
       const threaded = args.filter((a) => a.length > 0);
       return `GmlActions.${fn}(_entity, _ctx${threaded.length > 0 ? ", " : ""}${threaded.join(", ")})${semi ?? ""}`;
@@ -2222,117 +2473,166 @@ export function transpileGML(gml: string): string {
   );
 
   // GameMaker instance variables (both its own built-ins — image_speed,
-  // image_index, visible, ... — and any project-defined one, e.g. a plain
-  // `mywall = instance_create_layer(...)`) need no declaration in GML — a
-  // bare `name = expr;` implicitly creates/writes that instance's own
-  // field the first time it's assigned. The rest of this transpiler emits
-  // that assignment completely unchanged (a bare identifier target), which
-  // is valid GML but not valid JS/TS: each generated event handler is its
-  // own function (see gms2-codegen.ts), and an undeclared bare-identifier
-  // assignment throws `ReferenceError` in a strict-mode ES module at
-  // runtime — confirmed against two real projects (`obj_checkpoint`'s
-  // `Create_0.gml`: `image_speed = 0;`, a built-in; `obj_crate`'s
-  // `Create_0.gml`: `mywall = instance_create_layer(...)`, a project-
-  // defined name), not a hypothetical. `transpileGML` is called once per
-  // GML event file (`gms2-codegen.ts`'s `readAndTranspileGML` call sites),
-  // and each event becomes exactly one generated function — so "first bare
-  // assignment in this call's output" is exactly "first assignment in this
-  // function's scope", the same boundary GML itself uses. This does not
-  // attempt real instance-variable persistence *across* events (each
-  // generated function is still its own scope, and a later event reading a
-  // value an earlier event set will see its GML default, not that stored
-  // value — a real, separate, tracked gap); it only prevents the hard
-  // crash within one event's own body.
+  // image_index, visible, ... not already special-cased above — and any
+  // project-defined one, e.g. a plain `mywall = instance_create_layer(...)`,
+  // or `cam`/`follow`/`shake_remain` in a camera-follow controller) need no
+  // declaration in GML — a bare `name = expr;` implicitly creates/writes
+  // that instance's own field the first time it's assigned, and that field
+  // is real per-instance state that persists for the instance's whole
+  // lifetime, read back by name in any later event.
+  //
+  // This used to be handled by prefixing the first bare assignment with a
+  // plain JS `var` — which made the crash-on-undeclared-identifier problem
+  // go away, but was a real, severe, previously-undiscovered bug of its
+  // own: a JS `var` is scoped to *that one generated function*, and every
+  // GML event becomes its own separate function (gms2-codegen.ts), so a
+  // value an instance's Create event set was silently gone the instant
+  // Create's function returned — a later event reading the same bare name
+  // saw a fresh, re-initialized local, never the value Create actually
+  // stored. Confirmed against a real, full GameMaker project: Freedom
+  // Backup's obj_camera sets `cam`/`follow`/`view_w_half`/`view_h_half` once
+  // in Create and reads every one of them every frame in Step — exactly the
+  // "must survive across events" shape the old `var` behavior silently
+  // broke, camera-following (and by the same mechanism, any object with
+  // meaningful Create-then-Step state) throughout the whole game.
+  //
+  // The real fix: every bare-assigned name not already declared with a real
+  // `var`/`let`/`const` anywhere in this event's own body (i.e. every name
+  // GML itself would treat as an implicit instance field, not a true local)
+  // routes through `GmlActions.getGmlVar`/`setGmlVar` — a real per-`(World,
+  // eid)` side-table keyed by name (`compat/gmlInstanceVars.ts`), the exact
+  // "engine defines a `Map`, since a GML instance's implicit fields are
+  // arbitrarily named and arbitrarily typed" pattern `GlobalStore` already
+  // uses for GML's *global* variables. This closes the "does not attempt
+  // real instance-variable persistence across events" gap this same block
+  // used to document as a known, deliberate limitation.
   {
-    const RESERVED = new Set([
-      "if",
-      "else",
-      "for",
-      "while",
-      "do",
-      "function",
-      "return",
-      "var",
-      "let",
-      "const",
-      "new",
-      "typeof",
-      "instanceof",
-      "in",
-      "of",
-      "break",
-      "continue",
-      "switch",
-      "case",
-      "default",
-      "try",
-      "catch",
-      "finally",
-      "throw",
-      "delete",
-      "void",
-      "this",
-      "class",
-      "extends",
-      "super",
-      "import",
-      "export",
-      "yield",
-      "async",
-      "await",
-      "null",
-      "undefined",
-      "true",
-      "false",
-      "with",
-    ]);
-    const declared = new Set<string>();
-    for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
-      declared.add(m[1] as string);
+    const implicitVars = identifyGmlImplicitVars(out, new Set(knownParams));
+    // Merge in names known from an object's *other* event files
+    // (`knownImplicitVars`, from `scanGmlImplicitVars` — see its own doc
+    // comment) that this specific body never itself assigns, only reads. A
+    // real local `var`/`let`/`const` declared in *this* body, or a real
+    // script parameter, still shadows it — GML's own per-event `var` scope
+    // takes precedence over another event's implicit field of the same
+    // name, the rare but real case of a locally-scoped name that happens to
+    // collide with a sibling event's instance field.
+    if (knownImplicitVars.size > 0) {
+      const declaredHere = new Set<string>();
+      for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
+        declaredHere.add(m[1] as string);
+      }
+      for (const name of knownImplicitVars) {
+        if (
+          !declaredHere.has(name) &&
+          !knownParams.includes(name) &&
+          !GML_RESERVED_IDENTIFIERS.has(name)
+        ) {
+          implicitVars.add(name);
+        }
+      }
     }
-    const bareAssign = /^(\s*)([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
-    // Real, confirmed regression: GML's real multi-declarator `var` syntax
-    // (`var x_ = x,\n        y_ = y;` — a single statement, comma-
-    // continued onto the next line, byte-for-byte identical to standard
-    // JS/TS multi-declarator syntax) was already valid output on its own.
-    // This pass, scanning purely line-by-line with no memory of the
-    // previous line, didn't know `y_ = y;` was a *continuation* of that
-    // same `var` statement rather than its own new statement — it matched
-    // `y_ = y` as a fresh bare assignment and prefixed it with its own
-    // `var`, producing `var x_ = x,\n  var y_ = y;`: a `var` keyword
-    // sitting right after a trailing comma, a hard `SyntaxError: Trailing
-    // comma not allowed`. A line whose *previous* non-empty line (with any
-    // trailing `//` comment stripped first, so a comment after the comma
-    // doesn't hide it) ends in a top-level `,` is exactly that
-    // continuation case — its own identifier is already declared by the
-    // statement it continues, so it's added to `declared` and the line is
-    // left alone rather than re-prefixed with a second `var`.
-    let prevEndsWithComma = false;
-    out = out
-      .split("\n")
-      .map((line) => {
-        const trimmedForComma = (
-          line.includes("//") ? line.slice(0, line.indexOf("//")) : line
-        ).trimEnd();
-        const continuesPrevDeclaration = prevEndsWithComma;
-        if (trimmedForComma.length > 0) {
-          prevEndsWithComma = trimmedForComma.endsWith(",");
-        }
-        const match = bareAssign.exec(line);
-        if (match === null) return line;
-        const indent = match[1] ?? "";
-        const name = match[2] ?? "";
-        const eq = match[3] ?? "";
-        if (name === "" || RESERVED.has(name) || declared.has(name))
-          return line;
-        if (continuesPrevDeclaration) {
-          declared.add(name);
-          return line;
-        }
-        declared.add(name);
-        return `${indent}var ${name}${eq}${line.slice(match[0].length)}`;
-      })
-      .join("\n");
+
+    // Real, confirmed regression: a bare-word regex has no notion of string
+    // boundaries, and a real GML source string literal routinely contains
+    // text that happens to match an implicit variable's own name —
+    // confirmed against Freedom Backup's obj_trans:
+    // `trans_intro0 = load_string("trans_intro0");` (a save-key string that
+    // happens to equal the variable's own name is a common, ordinary
+    // naming convention, not a contrived edge case). Without masking,
+    // `\btrans_intro0\b` matched *inside* that string literal too, splicing
+    // a whole `GmlActions.getGmlVar(...)` call into the middle of a quoted
+    // string — a hard `SyntaxError`. Every double- or single-quoted string
+    // literal in `out` is replaced with a placeholder before any of the
+    // four rewrite passes run (for every identified name, not just this
+    // one), and restored verbatim once the whole loop below is done, the
+    // standard "protect literals during regex-based rewriting" technique.
+    const maskedStrings: string[] = [];
+    out = out.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => {
+      maskedStrings.push(m);
+      return `\u0000GMLSTR${maskedStrings.length - 1}\u0000`;
+    });
+
+    // Every identified implicit instance variable gets the exact same
+    // increment/decrement → compound-assign → plain-assign → bare-read
+    // rewrite order `global.x` already uses above, routed through
+    // `GmlActions.getGmlVar`/`setGmlVar` instead of `_ctx.game?.globals`.
+    // The `(?<!\.\s*)` guard on every pattern excludes a dotted reference to
+    // *another* instance's field (`other.cam`, `follow.x`) — this transpiler
+    // has no way to resolve that to a different entity, and rewriting it
+    // against the *current* entity would silently corrupt the wrong
+    // instance's state, the same dotted-reference exclusion `sprite_index`/
+    // `image_*`/`alarm[n]` already establish elsewhere in this file.
+    let implicitVarCounter = 0;
+    for (const name of implicitVars) {
+      const esc = escapeRegExpTranspile(name);
+      // A placeholder token, not the real quoted key text, is used as the
+      // replacement's own key argument for all four passes below — the
+      // real quoted key (`"name"`) contains the bare word `name` itself, so
+      // if it were inserted directly, the *next* pass's own `\bname\b`
+      // search (in particular the final bare-read catch-all) would match
+      // back into the key string of a call this same loop iteration just
+      // produced, corrupting it. A placeholder built from characters that
+      // can never equal a real GML identifier sidesteps this self-collision
+      // entirely; it's swapped for the real quoted key exactly once, after
+      // all four passes for this name have finished.
+      const placeholder = `__GML_IVAR_${implicitVarCounter++}__`;
+      // The three *assignment*-shaped passes (increment/decrement, compound,
+      // plain) are anchored to a real statement start (`^\s*`, multiline) —
+      // exactly as conservative as the identification loop above, which
+      // only ever recognised a line-start bare assignment in the first
+      // place. Real, confirmed regression without this anchor: GML's `=`
+      // means *equality* inside an `if (...)` condition, not assignment
+      // (`if argument4 = 0` is a real, valid GML comparison, already
+      // rewritten to `if (argument4 = 0)` by an earlier pass) — an
+      // unanchored `\bname\s*=(?!=)` matches that `=` too, since plain
+      // regex text-search has no notion of "inside a condition". Anchoring
+      // to statement start means it can only ever match a genuine
+      // assignment *statement*, never an equality test sitting inside a
+      // parenthesised condition or any other expression position. The
+      // bare-read catch-all below stays unanchored/global — a real read can
+      // legitimately appear anywhere in an expression, including inside a
+      // condition, and by this point every genuine assignment occurrence
+      // has already been consumed by one of the three anchored passes.
+      out = out.replace(
+        new RegExp(`^(\\s*)${esc}\\s*(\\+\\+|--)`, "gm"),
+        (_m, indent: string, op: string) =>
+          `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ((GmlActions.getGmlVar(_entity, _ctx, ${placeholder}) as number | undefined) ?? 0) ${op === "++" ? "+" : "-"} 1)`,
+      );
+      out = out.replace(
+        new RegExp(
+          `^(\\s*)${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          "gm",
+        ),
+        (_m, indent: string, op: string, exprRaw: string) => {
+          const jsOp = op[0];
+          return `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ((GmlActions.getGmlVar(_entity, _ctx, ${placeholder}) as number | undefined) ?? 0) ${jsOp} (${exprRaw.trim()}));`;
+        },
+      );
+      out = out.replace(
+        new RegExp(`^(\\s*)${esc}\\s*=(?!=)\\s*([^;\\n]+);?`, "gm"),
+        (_m, indent: string, expr: string) =>
+          `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ${expr.trim()});`,
+      );
+      // Excludes an occurrence immediately followed by a single `=` (not
+      // `==`) — GML's real condition-position `=` means equality, not
+      // assignment, and a name reaching this final catch-all still
+      // followed by one wasn't consumed by any of the three anchored
+      // assignment passes above (real, confirmed case: `if argument4 = 0`,
+      // a brace-less if whose bare condition an earlier pass wraps in
+      // parens without touching its `=` — bare-read-wrapping the name here
+      // would produce `(GmlActions.getGmlVar(...)) = 0`, an invalid
+      // assignment target and a hard SyntaxError).
+      out = out.replace(
+        new RegExp(`(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
+        `(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
+      );
+      out = out.split(placeholder).join(JSON.stringify(name));
+    }
+
+    out = out.replace(
+      /\u0000GMLSTR(\d+)\u0000/g,
+      (_m, i: string) => maskedStrings[Number(i)] ?? "",
+    );
   }
 
   return out;
@@ -2344,10 +2644,11 @@ export function transpileGML(gml: string): string {
  */
 export async function readAndTranspileGML(
   gmlPath: string,
+  knownImplicitVars: ReadonlySet<string> = new Set(),
 ): Promise<string | null> {
   try {
     const source = await fs.readFile(gmlPath, "utf-8");
-    return transpileGML(source);
+    return transpileGML(source, [], knownImplicitVars);
   } catch {
     return null;
   }

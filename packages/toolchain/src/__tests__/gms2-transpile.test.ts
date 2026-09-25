@@ -209,10 +209,14 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     );
   });
 
-  it("leaves image_index/image_speed as honest, safe local-variable no-ops (no per-frame animation is modelled by this importer)", () => {
+  it("leaves image_index/image_speed as honest per-instance state (no per-frame animation is modelled by this importer, but the value itself now really persists)", () => {
     const out = transpileGML("image_index = 0;\nimage_speed = 1;");
-    expect(out).toContain("var image_index = 0;");
-    expect(out).toContain("var image_speed = 1;");
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "image_index", 0);',
+    );
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 1);',
+    );
   });
 
   describe("depth — GameMaker draw-order variable, sign-flipped onto Sprite.depth", () => {
@@ -494,8 +498,12 @@ describe("transpileGML", () => {
     const out = transpileGML(
       "movement += value;\n\nif movement >= pi*2\nmovement = 0;\n\nx += 1;",
     );
-    expect(out).toContain("if (movement >= pi*2)");
-    expect(out).toContain("movement = 0;");
+    expect(out).toContain(
+      'if ((GmlActions.getGmlVar(_entity, _ctx, "movement")) >= pi*2)',
+    );
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "movement", 0);',
+    );
     expect(out).toContain("x += 1;");
   });
 
@@ -573,8 +581,17 @@ describe("transpileGML", () => {
 
   it("does not treat a bare = equality inside a brace-less if's own condition as the body boundary — real gap found in scr_wave.gml", () => {
     const out = transpileGML("if argument4 = 0\nargument4 = current_time;");
+    // The condition's own `=` (real GML equality, not assignment) is left
+    // completely untouched — it's never a statement-start assignment, so
+    // the implicit-instance-variable pass never treats it as one.
     expect(out).toContain("if (argument4 = 0)");
-    expect(out).toContain("argument4 = current_time;");
+    // The real statement-start assignment on the next line *is* a genuine
+    // implicit instance variable and now persists via GmlInstanceVars
+    // rather than a function-scoped `var` — see "GML built-in instance
+    // variables" below for the full rationale.
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "argument4", current_time);',
+    );
     expect(out).not.toContain("if ()");
   });
 
@@ -582,7 +599,9 @@ describe("transpileGML", () => {
     const out = transpileGML(
       "do {\n  xx = random(room_width);\n} until (position_empty(xx, yy));",
     );
-    expect(out).toContain("} while (!(position_empty(xx, yy)))");
+    expect(out).toContain(
+      '} while (!(position_empty((GmlActions.getGmlVar(_entity, _ctx, "xx")), yy)));',
+    );
     expect(out).not.toContain("until");
   });
 
@@ -622,7 +641,7 @@ describe("transpileGML", () => {
     const out = transpileGML("/* room_goto(target); */\nx = 1;");
     expect(out).not.toContain("room_goto");
     expect(out).toContain("GML comment/dead code omitted");
-    expect(out).toContain("x = 1;");
+    expect(out).toContain('GmlActions.setGmlVar(_entity, _ctx, "x", 1);');
   });
 
   it("the comment-neutralisation placeholder contains no ] or ) — real bug found in keyboard_init.gml", () => {
@@ -968,28 +987,39 @@ describe("transpileGML", () => {
   });
 
   describe("GML built-in instance variables", () => {
-    it("declares a bare assignment to a known built-in (e.g. image_speed) as `var` instead of leaving an undeclared identifier", () => {
+    it("routes a bare assignment to a known built-in (e.g. image_speed) through real per-instance persistence, not a function-scoped var", () => {
       const out = transpileGML("image_speed = 0;\nimage_index = 0;");
-      expect(out).toContain("var image_speed = 0;");
-      expect(out).toContain("var image_index = 0;");
-      // A real, confirmed regression: without this, a generated event
-      // handler assigning a bare built-in throws `ReferenceError` at
-      // runtime in a strict-mode ES module.
+      // A real, severe, previously-undiscovered regression this replaces:
+      // a plain `var image_speed = 0;` is scoped to *this one generated
+      // event function* — a later event reading `image_speed` would see a
+      // fresh, undeclared identifier, never the value Create actually set.
+      // GmlInstanceVars (compat/gmlInstanceVars.ts) is the real fix: a
+      // per-(World, eid) side-table that genuinely persists for the whole
+      // entity lifetime, the same way a real GameMaker instance field does.
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 0);',
+      );
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "image_index", 0);',
+      );
       expect(() => new Function(out)).not.toThrow();
     });
 
-    it("also auto-declares a first bare assignment to a project-defined (non-built-in) instance variable", () => {
+    it("also routes a first bare assignment to a project-defined (non-built-in) instance variable through real persistence", () => {
       // Real, confirmed regression: `obj_crate`'s Create event does
       // `mywall = instance_create_layer(...);` — GML implicitly declares
-      // `mywall` on this first assignment; the generated JS must too.
+      // `mywall` on this first assignment, and Freedom Backup's own
+      // obj_camera reads several such implicit fields (cam, follow,
+      // shake_remain, ...) every frame in Step after Create sets them —
+      // real cross-event persistence, not just within-one-event validity.
       const out = transpileGML("mywall = 5;\nmywall = mywall + 1;");
-      expect(out).toContain("var mywall = 5;");
-      // The second assignment must NOT redeclare (that would shadow, and
-      // with `let`/`const` would throw — `var` is used precisely because
-      // GML tolerates redeclaring the same local, per the `var` pass
-      // above).
-      expect(out).not.toMatch(/var mywall = mywall/);
-      expect(out).toContain("mywall = mywall + 1;");
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "mywall", 5);',
+      );
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "mywall", (GmlActions.getGmlVar(_entity, _ctx, "mywall")) + 1);',
+      );
+      expect(() => new Function(out)).not.toThrow();
     });
 
     it("does not redeclare a name that was already declared by an earlier pass (e.g. ds_list/ds_map/ds_grid create)", () => {
@@ -997,6 +1027,21 @@ describe("transpileGML", () => {
       expect(out).toContain("var list = [];");
       // Second assignment must stay a plain assignment, not `var list = list;`.
       expect(out.match(/var list/g)?.length).toBe(1);
+    });
+
+    it("does not rewrite an implicit variable's name when it appears inside an unrelated string literal — real gap found in obj_trans.gml", () => {
+      // Real, confirmed regression: `trans_intro0 = load_string("trans_intro0");`
+      // — a save-key string literal that happens to equal the variable's own
+      // name, an ordinary naming convention, not a contrived edge case. A
+      // bare-word regex has no notion of string boundaries, so without
+      // masking, the bare-read pass matched *inside* the string literal too,
+      // splicing a GmlActions.getGmlVar(...) call into the middle of a
+      // quoted string — a hard SyntaxError.
+      const out = transpileGML('trans_intro0 = load_string("trans_intro0");');
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "trans_intro0", load_string("trans_intro0"));',
+      );
+      expect(() => new Function(out)).not.toThrow();
     });
   });
 
@@ -1107,8 +1152,12 @@ describe("transpileGML", () => {
         expect(() => new Function(out)).not.toThrow();
         // The condition keeps its own, single set of parens — no extra
         // unbalanced paren merged in from the (unrelated) following
-        // statements.
-        expect(out).toMatch(/^if \(sign\(hsp\) != 0\) /);
+        // statements. `hsp` is a real implicit instance variable (assigned
+        // later via `hsp = 0;`), so its read here routes through
+        // GmlInstanceVars like any other genuine read.
+        expect(out).toMatch(
+          /^if \(sign\(\(GmlActions\.getGmlVar\(_entity, _ctx, "hsp"\)\)\) != 0\) /,
+        );
       });
 
       it("does not corrupt a bare if whose body rewrites to a sprite_index IIFE", () => {
@@ -1230,7 +1279,9 @@ describe("transpileGML", () => {
         "// Draw the shadow with all the calculations\nshadow_size = 1;\nif (i < 64) {\n  foo();\n}\n",
       );
       expect(out).not.toContain("with ...");
-      expect(out).toContain("shadow_size = 1;");
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "shadow_size", 1);',
+      );
       expect(out).toContain("if (i < 64) {");
       expect(() => new Function(out)).not.toThrow();
     });

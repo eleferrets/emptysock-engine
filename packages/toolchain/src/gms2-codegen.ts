@@ -2,7 +2,12 @@ import fs from "fs/promises";
 import path from "path";
 import { convertGms2Sprite } from "./gms2-sprite-import.js";
 import { convertGms2Room } from "./gms2-room-import.js";
-import { indent, readAndTranspileGML, transpileGML } from "./gms2-transpile.js";
+import {
+  indent,
+  readAndTranspileGML,
+  transpileGML,
+  scanGmlImplicitVars,
+} from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
 
 // ---------------------------------------------------------------------------
@@ -197,6 +202,27 @@ export async function buildObjectBehavior(
     // directory doesn't exist — no GML available, emit pure stubs
   }
 
+  // A real GML instance variable can be *set* in one event (Create) and
+  // only ever *read* — never assigned — in another (Step): Freedom Backup's
+  // obj_camera sets cam/view_w_half/buff/etc. once in Create and reads them
+  // every frame in Step. `transpileGML` processes one event file per call,
+  // each becoming its own generated function, so a name never assigned
+  // within that one file's own text is invisible to its own detection no
+  // matter how many sibling event files set it. Pre-scanning every one of
+  // this object's own .gml files up front and unioning the results (passed
+  // as `knownImplicitVars` into every `readAndTranspileGML` call below)
+  // closes that gap — see `scanGmlImplicitVars`'s own doc comment.
+  const objectImplicitVars = new Set<string>();
+  for (const gmlFile of gmlFiles) {
+    try {
+      const source = await fs.readFile(path.join(objectDir, gmlFile), "utf-8");
+      for (const v of scanGmlImplicitVars(source)) objectImplicitVars.add(v);
+    } catch {
+      // unreadable — skip; the per-file readAndTranspileGML call below
+      // will report this the same honest way it always has.
+    }
+  }
+
   async function buildMethod(
     methodName: string,
     eventLabel: string,
@@ -207,7 +233,7 @@ export async function buildObjectBehavior(
     const gmlFile = gmlFiles.find((f) => prefixRe.test(f));
     if (gmlFile) {
       const gmlPath = path.join(objectDir, gmlFile);
-      const transpiled = await readAndTranspileGML(gmlPath);
+      const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
       if (transpiled !== null) {
         const body = indent(
           injectContextArgs(transpiled, knownScripts).trimEnd(),
@@ -324,7 +350,7 @@ export async function buildObjectBehavior(
       .replace(/\.gml$/i, "");
     const otherClass = toPascalCase(otherName);
     const gmlPath = path.join(objectDir, gmlFile);
-    const transpiled = await readAndTranspileGML(gmlPath);
+    const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
     const body =
       transpiled !== null
         ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
@@ -366,7 +392,7 @@ export async function buildObjectBehavior(
       const code = match?.[1] ?? "0";
       const methodName = vkMethodName(methodPrefix, code);
       const gmlPath = path.join(objectDir, gmlFile);
-      const transpiled = await readAndTranspileGML(gmlPath);
+      const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
       const body =
         transpiled !== null
           ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
@@ -420,7 +446,7 @@ export async function buildObjectBehavior(
     const baseName = gmlFile.replace(/\.gml$/i, "");
     const methodName = `on${toPascalCase(baseName)}`;
     const gmlPath = path.join(objectDir, gmlFile);
-    const transpiled = await readAndTranspileGML(gmlPath);
+    const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
     const body =
       transpiled !== null
         ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
@@ -694,7 +720,7 @@ export function ${name}(
   }
 
   const { paramNames, body, isLegacyArgStyle } = extractScriptSignature(source);
-  let transpiled = transpileGML(body);
+  let transpiled = transpileGML(body, paramNames);
   if (isLegacyArgStyle) {
     transpiled = transpiled.replace(/\bargument(\d+)\b/g, "args[$1]");
   }

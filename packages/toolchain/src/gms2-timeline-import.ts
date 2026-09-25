@@ -137,6 +137,7 @@ export const ${toPascalCase(name)}Timeline: TimelineModule = { moments: [] };
 //   registerGmlTimeline(${JSON.stringify(name)}, ${toPascalCase(name)}Timeline);
 //   entity.add(TimelineState, { timelineId: ${JSON.stringify(name)}, running: true });
 import type { Entity, GmlActionContext, TimelineModule } from "@emptysock/engine";
+import * as GmlActions from "@emptysock/engine";
 
 ${fnsBlock}export const ${toPascalCase(name)}Timeline: TimelineModule = {
   moments: [

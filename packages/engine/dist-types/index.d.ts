@@ -331,6 +331,12 @@ export {
   clearGmlActionState,
 } from "./compat/gmlActions.js";
 export type { GmlDrawTarget } from "./compat/gml.js";
+export {
+  getGmlVar,
+  setGmlVar,
+  hasGmlVar,
+  clearGmlInstanceVars,
+} from "./compat/gmlInstanceVars.js";
 /**
  * GameMaker's "hypothetical position" collision-query family
  * (`place_meeting`/`place_free`/`position_meeting`/`instance_place`/

@@ -21,6 +21,7 @@ import { clearPhysicsBody } from "./components/PhysicsBody.js";
 import { clearVisualScriptScope } from "./components/VisualScript.js";
 import { clearCoroutines } from "./Coroutines.js";
 import { clearGmlActionState } from "./compat/gmlActions.js";
+import { clearGmlInstanceVars } from "./compat/gmlInstanceVars.js";
 
 /**
  * A `scene.each(...)` callback receives one live component object per
@@ -193,6 +194,9 @@ export class Scene {
     // Same reasoning again for GML DnD-action compat state (velocity,
     // friction, alarms) — see `clearGmlActionState`'s doc comment.
     clearGmlActionState(this.world, entity.eid);
+    // Same reasoning again for a GML instance's implicit (undeclared-var)
+    // per-instance fields — see `clearGmlInstanceVars`'s doc comment.
+    clearGmlInstanceVars(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {

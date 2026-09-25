@@ -178,6 +178,82 @@ describe("buildObjectBehavior imports scripts it calls", () => {
   });
 });
 
+describe("buildObjectBehavior: cross-event implicit instance variable persistence", () => {
+  // Real, confirmed regression against Freedom Backup's own obj_camera: a
+  // name set once in Create (cam = view_camera[0];) and only ever read —
+  // never assigned — in Step (camera_set_view_pos(cam, ...)) used to be
+  // left as a bare, undeclared identifier in Step's own generated function,
+  // since each event is transpiled independently and Step's own body never
+  // itself assigns "cam". scanGmlImplicitVars pre-scans every sibling event
+  // file so a read-only occurrence in one event still resolves through
+  // GmlInstanceVars, set by a sibling event.
+  it("routes a Step-only read of a Create-only-assigned name through GmlInstanceVars", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-crossevt-"));
+    try {
+      const objDir = path.join(dir, "objects", "obj_camera");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Create_0.gml"),
+        "cam = view_camera[0];",
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(objDir, "Step_0.gml"),
+        "camera_set_view_pos(cam, 0, 0);",
+        "utf-8",
+      );
+
+      const behavior = await buildObjectBehavior("obj_camera", dir, []);
+      expect(behavior).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "cam", GmlActions.view_get_camera(_ctx, 0));',
+      );
+      // The real point of this test: Step's own body never assigns "cam",
+      // yet its read here must not be a bare, undeclared identifier.
+      expect(behavior).toContain(
+        'GmlActions.camera_set_view_pos(_ctx, (GmlActions.getGmlVar(_entity, _ctx, "cam")), 0, 0);',
+      );
+      expect(behavior).not.toMatch(/[^.\w]cam[^"\w]/);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Real, confirmed regression, same object: instance_exists's object-
+  // argument quoting used to assume every bare identifier is an object-
+  // *type* name, quoting "follow" into the literal string "follow" instead
+  // of leaving it as a read of the real instance-reference variable Create
+  // set it to.
+  it("leaves a known implicit-variable argument to instance_exists bare, not quoted as an object-type name", async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "gms2-obj-instexists-"),
+    );
+    try {
+      const objDir = path.join(dir, "objects", "obj_camera2");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Create_0.gml"),
+        "follow = obj_player;",
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(objDir, "Step_0.gml"),
+        "if (instance_exists(follow))\n{\n  x = 1;\n}",
+        "utf-8",
+      );
+
+      const behavior = await buildObjectBehavior("obj_camera2", dir, []);
+      expect(behavior).toContain(
+        'GmlActions.instance_exists(_entity, _ctx, (GmlActions.getGmlVar(_entity, _ctx, "follow")))',
+      );
+      expect(behavior).not.toContain(
+        'instance_exists(_entity, _ctx, "follow")',
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("importGMS2Project end-to-end: script + object-calling-script wiring", () => {
   it("writes a real transpiled script module and a wired object behavior file", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-e2e-script-"));
