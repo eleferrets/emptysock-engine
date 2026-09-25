@@ -23,6 +23,7 @@ import type { Game, SceneDefinition } from "../Game.js";
 import type { PrefabDef } from "../Prefab.js";
 import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
+import { Meta } from "../components/Meta.js";
 import { getPhysicsBody } from "../components/PhysicsBody.js";
 import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 import type { GmlDrawTarget } from "./gml.js";
@@ -348,6 +349,27 @@ export function room(ctx: GmlActionContext): string {
   return ctx.currentRoom ?? "";
 }
 
+/**
+ * `room_exists(room)` — GameMaker's real function takes a numeric room
+ * asset index and answers whether it's a valid room in the project. This
+ * importer has no numeric room-index concept (rooms are addressed by their
+ * GameMaker name string throughout — see `GmlActionContext.rooms`'s own doc
+ * comment), so a bare room-name identifier used as this argument is quoted
+ * the same way `action_next_room`'s room-name argument already is (`gms2-
+ * transpile.ts`'s `THREADED_ACTIONS` quoting), and this checks membership in
+ * `ctx.rooms` — the exact map `action_next_room`/`GmsProjectRuntime` already
+ * treat as "every room this project actually has". A project that never
+ * wired `ctx.rooms` at all honestly answers `false` for everything (no
+ * fabricated "yes" for a room this context can't actually load), matching
+ * Freedom Backup's own real use (`obj_display_manager`'s `if
+ * (room_exists(i)) ...` display-mode scan, and `obj_player`'s `if
+ * (room_exists(_other.new_room))` before a door transition) — both are
+ * real existence checks before acting, not performance-sensitive hot loops.
+ */
+export function room_exists(ctx: GmlActionContext, roomName: string): boolean {
+  return ctx.rooms !== undefined && roomName in ctx.rooms;
+}
+
 function warnMissingRoomWiring(action: string): void {
   // Mirrors QueryChannel's "honest error over a fabricated result" rule —
   // a project that never wired ctx.game/ctx.rooms gets a clear, once-per-call
@@ -536,6 +558,68 @@ export function action_kill_object(
 }
 
 /**
+ * `instance_change(object, perform_events)` — GameMaker's real function
+ * turns the *calling* instance into a different object type in place,
+ * keeping its position (and, per the manual, most instance variables) while
+ * swapping its sprite and object identity, optionally running the new
+ * object's Create event (`perform_events`).
+ *
+ * This engine's ECS model has nothing structurally equivalent to "become a
+ * different prefab in place" — an entity's component set isn't tied to a
+ * single "object type" the way a GameMaker instance's `object_index` is,
+ * and there is no live `PrefabDef -> behaviorId` map this context carries
+ * (`GmlActionContext.prefabs` only maps a name to a spawnable `PrefabDef`,
+ * not to which compiled `.behavior.ts` module governs its own Step/Draw/
+ * Collision dispatch — see CLAUDE.md's "`GmsProjectRuntime`" entry, which
+ * documents that a `GmlBehaviorState.behaviorId` is resolved once, at
+ * spawn time, from the room's own prefab-instance data). Re-pointing an
+ * already-spawned entity's `GmlBehaviorState.behaviorId` at a *different*
+ * compiled module (so its own future Step/Draw/Collision events dispatch
+ * through the new object's code, not the old one's) is a real, deliberate,
+ * honest gap this function does not attempt to fake.
+ *
+ * What this function *does* do for real, matching the two parts of
+ * `instance_change`'s effect this engine can honestly represent: it stamps
+ * `Meta.name` to `objectName` (adding a `Meta` component if the entity has
+ * none) — the same field `onCollideWith<Type>` dispatch/`place_meeting`/
+ * `GmlCollision.ts` already resolve an instance's "object type" through
+ * (see CLAUDE.md's "GML behavior dispatch" entry's `resolveGmlObjectType`
+ * paragraph), so a collision/`place_meeting` check made against the new
+ * object name after this call sees the entity as that type, matching real
+ * GameMaker behaviour — and, if `ctx.prefabs[objectName]`'s own default
+ * `Sprite.texturePath` is known, updates the entity's own `Sprite`
+ * component to match, the same visual half of `instance_change` GameMaker
+ * performs. `perform_events` is accepted (so real call sites keep their
+ * real argument count) but honestly not applied — there is no `onCreate`
+ * dispatch this function can safely trigger without a resolved
+ * `GmlBehaviorState.behaviorId` for the *new* object, per the gap above.
+ */
+export function instance_change(
+  entity: Entity,
+  ctx: GmlActionContext,
+  objectName: string,
+  _performEvents: boolean,
+): void {
+  let meta = entity.get(Meta);
+  if (meta === undefined) {
+    entity.add(Meta, { name: objectName });
+  } else {
+    meta.name = objectName;
+  }
+  const prefab = ctx.prefabs?.[objectName];
+  const spriteEntry = prefab?.components.find((c) => c.def === Sprite);
+  const newTexturePath =
+    spriteEntry?.overrides?.["texturePath"] ??
+    (spriteEntry !== undefined
+      ? Sprite.createDefaults().texturePath
+      : undefined);
+  if (typeof newTexturePath === "string") {
+    const sprite = entity.get(Sprite);
+    if (sprite !== undefined) sprite.texturePath = newTexturePath;
+  }
+}
+
+/**
  * `instance_destroy()` — GML's function-call spelling of the same action
  * (destroy the calling instance), takes no arguments. Before this, a bare
  * `instance_destroy();` call transpiled to an inert, comment-only
@@ -626,6 +710,68 @@ export function audio_play_sound(
   _loop?: boolean,
 ): void {
   action_sound(entity, ctx, soundName);
+}
+
+/**
+ * `audio_sound_pitch(index, pitch)` — sets a loaded sound's playback rate
+ * (`1` = unchanged; GameMaker documents this as `1` = normal, `0.5` = half
+ * speed/an octave down, `2` = double speed/an octave up — matching Howler's
+ * own `rate()` convention exactly, see `AudioSystem.setPitch`'s own doc
+ * comment). A real, common GameMaker idiom for cheap sound variety — real,
+ * confirmed usage: Freedom Backup's own `audio_sound_pitch(snd_Shot,
+ * choose(0.8, 1.0, 1.2))`, a slightly different pitch every shot rather
+ * than needing several near-identical gunshot samples. `soundName` is
+ * resolved through `ctx.sounds` the same way `action_sound`'s own sound-id
+ * resolution already works. This is genuinely not entity-affecting — a
+ * sound's pitch is a property of the loaded sound asset, not of the calling
+ * instance — but is threaded `(entity, ctx, ...)` regardless of not needing
+ * `entity`, matching `action_sound`/`audio_play_sound`'s own shape rather
+ * than needing a second, `(ctx, ...)`-only sound function family.
+ */
+export function audio_sound_pitch(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  soundName: string,
+  pitch: number,
+): void {
+  if (ctx.game === undefined) {
+    console.warn(
+      `[gmlActions] audio_sound_pitch('${soundName}') called with no ctx.game wired — nothing was changed.`,
+    );
+    return;
+  }
+  const id = ctx.sounds?.[soundName] ?? soundName;
+  ctx.game.audio.setPitch(id, pitch);
+}
+
+// ---------------------------------------------------------------------------
+// draw_self() — draws the calling instance's own current sprite, entity-
+// aware (needs a real Entity, unlike compat/gml.ts's other draw_* functions,
+// which all take an explicit sprite/position argument — see that file's own
+// note pointing here). GameMaker draws an instance's sprite automatically
+// every step *unless* it has a Draw event, in which case the Draw event
+// fully replaces the default draw — draw_self() is what a real Draw event
+// calls to still get the default sprite drawn (typically first, before
+// anything else the event draws on top). This engine has no such
+// suppression: `RenderPipeline`'s ordinary per-frame sprite sync already
+// draws every `Transform`+`Sprite` entity's sprite unconditionally, every
+// frame, regardless of whether it also has a `GmlBehaviorState` with a Draw
+// handler (see CLAUDE.md's "Why Draw GUI's camera-independence is a
+// render-tree structural property" entry — `onDraw` renders into the
+// `"foreground"` layer, a real *second* draw on top of the always-on sprite
+// sync, not a replacement for it). So `draw_self()` genuinely draws the
+// sprite a second time here, at the entity's current position — a real,
+// honest difference from GameMaker (a GML game relying on draw_self() to
+// see a sprite it would otherwise not see already sees it via the ordinary
+// sprite sync in this engine, so a second draw is harmless double-drawing
+// at the exact same position, not a visual bug), documented rather than
+// silently "fixed" by making it a no-op that would misrepresent what the
+// call does everywhere else.
+export function draw_self(entity: Entity, ctx: GmlActionContext): void {
+  const sprite = entity.get(Sprite);
+  const transform = entity.get(Transform);
+  if (sprite === undefined || transform === undefined) return;
+  ctx.drawTarget?.sprite(sprite.texturePath, transform.x, transform.y);
 }
 
 // ---------------------------------------------------------------------------

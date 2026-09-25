@@ -1875,6 +1875,31 @@ export function transpileGML(
     },
   );
 
+  // instance_change(object, perform_events) — GameMaker's real function
+  // takes an object-*reference* argument (bare identifier, the overwhelming
+  // real-world shape — confirmed real usage: `instance_change(obj_hitSpark,
+  // true)`), so it needs the same "bare identifier -> quoted object-name
+  // string" treatment `instance_create_layer` above already gives its own
+  // object-name argument, rather than joining `THREADED_ACTIONS`'s generic
+  // (unquoted) threading — `THREADED_ACTIONS`'s existing lack of this
+  // quoting for `action_create_object`/`instance_create` is a real,
+  // already-documented gap (see the `bareOrQuoted` doc comment above and
+  // CLAUDE.md's "GMS2 DnD action-library compat" entry) this new function
+  // has no reason to repeat.
+  out = out.replace(
+    new RegExp(
+      `\\binstance_change\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      "g",
+    ),
+    (_m, argsRaw: string, semi?: string) => {
+      const args = splitTopLevelArgs(argsRaw, 2).map((a) => a.trim());
+      const objectName = bareOrQuoted(args[0] ?? "");
+      const rest = args.slice(1).filter((a) => a.length > 0);
+      const threaded = [objectName, ...rest].join(", ");
+      return `GmlActions.instance_change(_entity, _ctx, ${threaded})${semi ?? ";"}`;
+    },
+  );
+
   // audio_play_sound(snd, priority, loop) / room_goto(rm_next) — GML allows
   // either of these to be the sole (unbraced) body of an `if`/`else` with
   // no surrounding block: `if (cond) room_goto(rm_next);` is real, common
@@ -2153,6 +2178,8 @@ export function transpileGML(
     "instance_destroy",
     "action_set_alarm",
     "action_sound",
+    "audio_sound_pitch",
+    "draw_self",
     // `place_free`/`place_snapped`/`position_free` take no object-type
     // argument at all (`place_free` matches any `Meta.solid`-flagged
     // instance, `place_snapped` and `position_free` have no object concept
@@ -2284,8 +2311,22 @@ export function transpileGML(
     "mouse_check_button_pressed",
     "display_get_gui_width",
     "display_get_gui_height",
+    "display_get_width",
+    "display_get_height",
     "surface_get_width",
     "surface_get_height",
+    "window_set_size",
+    "surface_resize",
+    // `room_exists(room)` (compat/gmlActions.ts) — a real object-type-name-
+    // free function (its argument is either already a real expression like
+    // a loop index or a dotted field reference — Freedom Backup's own real
+    // usage is `room_exists(i)`/`room_exists(_other.new_room)`, neither a
+    // bare room-name identifier — or, on the rare occasion it *is* one,
+    // still resolves correctly since `room_exists` itself just checks
+    // string membership in `ctx.rooms`), so generic context-only threading
+    // (no quoting) is correct and sufficient, unlike `instance_change`'s
+    // object-name argument above.
+    "room_exists",
     // GMS2.3+ `layer_sequence_create(layer, x, y, sequence)`
     // (compat/gmlSequences.ts) — see CLAUDE.md's "GmsProjectRuntime" entry's
     // `sequence_index` research: this is the one real GML source shape a
@@ -2395,6 +2436,24 @@ export function transpileGML(
     "application_surface",
   ];
   for (const name of GML_INPUT_CONSTANTS) {
+    out = out.replace(
+      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      `GmlActions.${name}`,
+    );
+  }
+
+  // `fa_left`/`fa_center`/`fa_right`/`fa_top`/`fa_middle`/`fa_bottom`
+  // (compat/gml.ts) — GameMaker's text-alignment enum constants, same
+  // "plain value, not a call" rewrite as the two constant families above.
+  const GML_DRAW_CONSTANTS = [
+    "fa_left",
+    "fa_center",
+    "fa_right",
+    "fa_top",
+    "fa_middle",
+    "fa_bottom",
+  ];
+  for (const name of GML_DRAW_CONSTANTS) {
     out = out.replace(
       new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
@@ -3173,6 +3232,54 @@ export function transpileGML(
     `(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))`,
   );
 
+  // `image_index`/`image_speed` — GameMaker's real per-instance current-frame
+  // and playback-speed variables (manual.gamemaker.io's Image reference
+  // pages, confirmed live: `image_speed` is frames advanced per game-step,
+  // can be fractional; `image_index` can exceed the sprite's frame count and
+  // GameMaker wraps it via modulo when looping). These now map onto
+  // `Sprite.currentFrame`/`Sprite.frameSpeed` (`components/Sprite.ts`) and
+  // `SpriteAnimationSystem` (advances `currentFrame` by `frameSpeed` every
+  // tick the same way GameMaker's own runtime does) — this used to be this
+  // file's one deliberately-unwired honest gap (no multi-frame animation
+  // anywhere in this engine); it no longer is. Both fields are plain
+  // numbers, so — unlike `sprite_index`'s asset-name quoting or `depth`'s
+  // sign flip — this is a straight passthrough: no unit conversion, no
+  // equality-comparison special-casing, no round-trip formula to derive.
+  // A direct `image_index = 0;` assignment simply overrides this tick's
+  // displayed frame; `SpriteAnimationSystem` re-advances from wherever it's
+  // left on the next tick regardless, matching real GameMaker (writing
+  // `image_index` mid-step doesn't disable subsequent `image_speed`
+  // advancement). Every pass keeps the same `(?<!\.\s*)` dotted-reference
+  // guard and `(?<!\/\/[^\n]*)` comment guard every other built-in above
+  // uses, for the identical reason (a dotted reference to another
+  // instance's field can't be resolved by this transpiler, and a stray
+  // apostrophe in a nearby comment must never make the guard misfire — see
+  // `maskGmlStringLiterals` above).
+  out = out.replace(
+    new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_index\\s*(${OP})\\s*([^;\\n]+);?`,
+      "g",
+    ),
+    (_m, op: string, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.currentFrame ${op} ${exprRaw.trim()}; })();`,
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_index\b/g,
+    `(_entity.get(GmlActions.Sprite)?.currentFrame ?? 0)`,
+  );
+  out = out.replace(
+    new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_speed\\s*(${OP})\\s*([^;\\n]+);?`,
+      "g",
+    ),
+    (_m, op: string, exprRaw: string) =>
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.frameSpeed ${op} ${exprRaw.trim()}; })();`,
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_speed\b/g,
+    `(_entity.get(GmlActions.Sprite)?.frameSpeed ?? 1)`,
+  );
+
   // draw_sprite(sprite, subimg, x, y) — GameMaker's own argument order. The
   // sprite argument is resolved the same "bare identifier -> quoted texture
   // path" convention `sprite_index`'s own bare-identifier rewrite already
@@ -3211,6 +3318,109 @@ export function transpileGML(
         ? `"./assets/sprites/${(spriteArg ?? "").trim()}/frame_0.png"`
         : (spriteArg ?? "").trim();
       return `_ctx.drawTarget?.sprite(${texturePath}, ${x}, ${y});`;
+    },
+  );
+
+  // draw_set_halign/draw_set_valign/draw_set_font/draw_set_alpha — real
+  // GmlDrawTarget draw-state setters (see `@emptysock/engine`'s
+  // `compat/gml.ts` `GmlDrawTarget` interface doc comment). Freedom
+  // Backup's own real usage (`obj_pause_menu`/`obj_menu`/`obj_text`/
+  // `obj_text_fade`/`obj_typewriter`) is exclusively `draw_set_halign
+  // (fa_center)`/`draw_set_font(fnt_sign)` etc — the `fa_*` constant
+  // argument is already rewritten to `GmlActions.fa_*` by the
+  // `GML_DRAW_CONSTANTS` pass above (which runs before this one), and a
+  // `draw_set_font` argument is a real string (a font resource id) already
+  // resolved elsewhere, so neither needs its own quoting logic here.
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_set_halign\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, align: string) => `_ctx.drawTarget?.setHalign?.(${align.trim()});`,
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_set_valign\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, align: string) => `_ctx.drawTarget?.setValign?.(${align.trim()});`,
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_set_font\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, font: string) => `_ctx.drawTarget?.setFont?.(${font.trim()});`,
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_set_alpha\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, alpha: string) => `_ctx.drawTarget?.setAlpha?.(${alpha.trim()});`,
+  );
+
+  // draw_sprite_part_ext / draw_sprite_part / draw_sprite_ext — the same
+  // bare-identifier-sprite-name -> quoted-texture-path resolution
+  // `draw_sprite`'s own rewrite just above already establishes, reused
+  // here rather than duplicated as a separate helper — real, confirmed
+  // usage: Freedom Backup's own `draw_9slice.gml` script, a real 9-slice UI
+  // panel renderer built entirely out of `draw_sprite_part`/
+  // `draw_sprite_part_ext` calls slicing one panel sprite into 9 cells.
+  const spriteTexturePathExpr = (spriteArg: string): string => {
+    const trimmed = spriteArg.trim();
+    return /^[A-Za-z_]\w*$/.test(trimmed)
+      ? `"./assets/sprites/${trimmed}/frame_0.png"`
+      : trimmed;
+  };
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_sprite_part_ext\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [
+        spriteArg,
+        ,
+        left,
+        top,
+        width,
+        height,
+        x,
+        y,
+        xscale,
+        yscale,
+        colour,
+        alpha,
+      ] = splitTopLevelArgs(args, 12);
+      const texturePath = spriteTexturePathExpr(spriteArg ?? "");
+      return `_ctx.drawTarget?.spritePartExt?.(${texturePath}, ${left}, ${top}, ${width}, ${height}, ${x}, ${y}, ${xscale}, ${yscale}, ${colour}, ${alpha});`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_sprite_part\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [spriteArg, , left, top, width, height, x, y] = splitTopLevelArgs(
+        args,
+        8,
+      );
+      const texturePath = spriteTexturePathExpr(spriteArg ?? "");
+      return `_ctx.drawTarget?.spritePart?.(${texturePath}, ${left}, ${top}, ${width}, ${height}, ${x}, ${y});`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_sprite_ext\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [spriteArg, , x, y, xscale, yscale, rot, colour, alpha] =
+        splitTopLevelArgs(args, 9);
+      const texturePath = spriteTexturePathExpr(spriteArg ?? "");
+      return `_ctx.drawTarget?.spriteExt?.(${texturePath}, ${x}, ${y}, ${xscale}, ${yscale}, ${rot}, ${colour}, ${alpha});`;
     },
   );
 

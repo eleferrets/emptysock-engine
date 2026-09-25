@@ -327,7 +327,102 @@ export interface GmlDrawTarget {
    * frame 0.
    */
   sprite(texturePath: string, x: number, y: number): void;
+  /**
+   * `draw_set_font(font)` — sets the font subsequent `text()` calls render
+   * with, until changed again. Optional (a `GmlDrawTarget` implementation
+   * with no real font concept — e.g. a synthetic test double — can simply
+   * omit it, and `draw_set_font` becomes a safe, honest no-op rather than a
+   * hard error) for the same reason every other setter on this interface is
+   * a plain method rather than a constructor argument: GameMaker's draw
+   * state is mutable and call-order-dependent, and the real implementation
+   * (`RenderPipeline`'s `PixiGmlDrawTarget`) is rebuilt fresh on every
+   * `onDraw`/`onDrawGui` dispatch anyway (see this interface's own doc
+   * comment), so there's no persistent state to leak between draw calls.
+   */
+  setFont?(fontId: string): void;
+  /** `draw_set_halign(align)` — horizontal text alignment for subsequent `text()` calls (`fa_left`/`fa_center`/`fa_right`, see those constants' own doc comment below). Optional, same reasoning as `setFont`. */
+  setHalign?(align: number): void;
+  /** `draw_set_valign(align)` — vertical text alignment for subsequent `text()` calls (`fa_top`/`fa_middle`/`fa_bottom`). Optional, same reasoning as `setFont`. */
+  setValign?(align: number): void;
+  /** `draw_set_alpha(alpha)` — opacity (0-1) applied to every subsequent draw call until changed again — GameMaker's own persistent draw-state alpha, distinct from a per-call `alpha` argument (`spriteExt`/`spritePartExt` below still take their own explicit `alpha`, matching GameMaker's own real per-call override). Optional, same reasoning as `setFont`. */
+  setAlpha?(alpha: number): void;
+  /**
+   * `draw_sprite_ext(sprite, subimg, x, y, xscale, yscale, rot, colour, alpha)`
+   * — draws a sprite with a full per-call transform, unlike the plain
+   * `sprite()` above (position only). `rot` is degrees (GameMaker's own
+   * convention); `colour` is a plain `0xRRGGBB` tint (already converted from
+   * GameMaker's `$BBGGRR` by the caller, the same convention `image_blend`'s
+   * own rewrite already uses — see CLAUDE.md's "GMS2 rendering built-ins"
+   * entry). Optional — a `GmlDrawTarget` that only implements the base
+   * `sprite()` position-only draw still works; `draw_sprite_ext` degrades to
+   * a safe no-op (never scale/rotate/tint through it) rather than throwing.
+   */
+  spriteExt?(
+    texturePath: string,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    rotationDeg: number,
+    colour: number,
+    alpha: number,
+  ): void;
+  /**
+   * `draw_sprite_part(sprite, subimg, left, top, width, height, x, y)` —
+   * draws only a cropped sub-rectangle (in the sprite's own source-pixel
+   * space) of a sprite at a position, no scale/rotate/tint. Optional, same
+   * degrade-to-no-op reasoning as `spriteExt`.
+   */
+  spritePart?(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ): void;
+  /**
+   * `draw_sprite_part_ext(sprite, subimg, left, top, width, height, x, y,
+   * xscale, yscale, colour, alpha)` — `spritePart` plus a full per-call
+   * scale/tint/alpha transform, the same fields `spriteExt` applies (minus
+   * rotation — GameMaker's real function has no rotation parameter for the
+   * partial-sprite variant). Optional, same degrade-to-no-op reasoning.
+   */
+  spritePartExt?(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    colour: number,
+    alpha: number,
+  ): void;
 }
+
+/**
+ * `fa_left`/`fa_center`/`fa_right`/`fa_top`/`fa_middle`/`fa_bottom` —
+ * GameMaker's real, fixed text-alignment enum constants (manual.gamemaker.io's
+ * `draw_set_halign`/`draw_set_valign` reference pages), confirmed real
+ * values: horizontal alignment is `fa_left = 0`, `fa_center = 1`,
+ * `fa_right = 2`; vertical alignment is a numerically separate enum that
+ * happens to share the same three ordinal values, `fa_top = 0`,
+ * `fa_middle = 1`, `fa_bottom = 2`. Declared as plain numbers, the same
+ * "value constant, not a call" shape `c_white`/`vk_left`/`gp_face1` above
+ * already use — `gms2-transpile.ts`'s rewrite for these is the same
+ * `\bname\b` → `GmlActions.name` substitution `GML_COLOUR_CONSTANTS`/
+ * `GML_INPUT_CONSTANTS` already establish.
+ */
+export const fa_left = 0;
+export const fa_center = 1;
+export const fa_right = 2;
+export const fa_top = 0;
+export const fa_middle = 1;
+export const fa_bottom = 2;
 
 export function draw_set_colour(target: GmlDrawTarget, hex: number): void {
   target.setColor(hex);
@@ -391,6 +486,84 @@ export function draw_line(
   y2: number,
 ): void {
   target.line(x1, y1, x2, y2);
+}
+
+export function draw_set_font(target: GmlDrawTarget, fontId: string): void {
+  target.setFont?.(fontId);
+}
+
+export function draw_set_halign(target: GmlDrawTarget, align: number): void {
+  target.setHalign?.(align);
+}
+
+export function draw_set_valign(target: GmlDrawTarget, align: number): void {
+  target.setValign?.(align);
+}
+
+export function draw_set_alpha(target: GmlDrawTarget, alpha: number): void {
+  target.setAlpha?.(alpha);
+}
+
+/** See `GmlDrawTarget.spriteExt`'s own doc comment. `subimg` is honestly dropped for the same reason `draw_sprite`'s own `_subimg` parameter already is. */
+export function draw_sprite_ext(
+  target: GmlDrawTarget,
+  texturePath: string,
+  _subimg: number,
+  x: number,
+  y: number,
+  xscale: number,
+  yscale: number,
+  rot: number,
+  colour: number,
+  alpha: number,
+): void {
+  target.spriteExt?.(texturePath, x, y, xscale, yscale, rot, colour, alpha);
+}
+
+/** See `GmlDrawTarget.spritePart`'s own doc comment. `subimg` is honestly dropped, same as `draw_sprite`. */
+export function draw_sprite_part(
+  target: GmlDrawTarget,
+  texturePath: string,
+  _subimg: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): void {
+  target.spritePart?.(texturePath, left, top, width, height, x, y);
+}
+
+/** See `GmlDrawTarget.spritePartExt`'s own doc comment. `subimg` is honestly dropped, same as `draw_sprite`. */
+export function draw_sprite_part_ext(
+  target: GmlDrawTarget,
+  texturePath: string,
+  _subimg: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  xscale: number,
+  yscale: number,
+  colour: number,
+  alpha: number,
+): void {
+  target.spritePartExt?.(
+    texturePath,
+    left,
+    top,
+    width,
+    height,
+    x,
+    y,
+    xscale,
+    yscale,
+    colour,
+    alpha,
+  );
 }
 
 // ---------------------------------------------------------------------------

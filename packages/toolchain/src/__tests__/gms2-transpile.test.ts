@@ -209,13 +209,13 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     );
   });
 
-  it("leaves image_index/image_speed as honest per-instance state (no per-frame animation is modelled by this importer, but the value itself now really persists)", () => {
+  it("rewrites image_index/image_speed onto real Sprite.currentFrame/frameSpeed fields (superseding the old setGmlVar honest-gap behaviour — see CLAUDE.md's GMS2 rendering built-ins entry)", () => {
     const out = transpileGML("image_index = 0;\nimage_speed = 1;");
     expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "image_index", 0);',
+      "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.currentFrame = 0;",
     );
     expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 1);',
+      "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.frameSpeed = 1;",
     );
   });
 
@@ -307,6 +307,63 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       expect(out).toContain(
         "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.speed += 0.5;",
       );
+    });
+  });
+
+  describe("image_index / image_speed — multi-frame sprite animation", () => {
+    it("rewrites a plain image_index assignment onto Sprite.currentFrame", () => {
+      const out = transpileGML("image_index = 0;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.currentFrame = 0;",
+      );
+    });
+
+    it("rewrites a bare read of image_index", () => {
+      const out = transpileGML("var frame = image_index;");
+      expect(out).toContain(
+        "(_entity.get(GmlActions.Sprite)?.currentFrame ?? 0)",
+      );
+    });
+
+    it("rewrites image_index += with no unit conversion", () => {
+      const out = transpileGML("image_index += 1;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.currentFrame += 1;",
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("rewrites a plain image_speed assignment onto Sprite.frameSpeed", () => {
+      const out = transpileGML("image_speed = 0.5;");
+      expect(out).toContain(
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.frameSpeed = 0.5;",
+      );
+    });
+
+    it("rewrites a bare read of image_speed", () => {
+      const out = transpileGML("var s = image_speed;");
+      expect(out).toContain(
+        "(_entity.get(GmlActions.Sprite)?.frameSpeed ?? 1)",
+      );
+    });
+
+    it("leaves a dotted reference to another instance's image_index/image_speed unresolved", () => {
+      const out = transpileGML("other.image_index = 0;\ninst.image_speed = 1;");
+      expect(out).toContain("other.image_index = 0;");
+      expect(out).toContain("inst.image_speed = 1;");
+    });
+
+    it("does not misfire on a stray apostrophe in a nearby comment", () => {
+      const out = transpileGML(
+        "// The player's animation frame\nimage_index = 0;\nimage_speed = 1;",
+      );
+      expect(out).toContain("_sp.currentFrame = 0;");
+      expect(out).toContain("_sp.frameSpeed = 1;");
+    });
+
+    it("produces valid, runnable JS for a real image_index=0; image_speed=1; Create-event shape", () => {
+      const out = transpileGML("image_index = 0;\nimage_speed = 1;");
+      expect(() => new Function("_entity", "GmlActions", out)).not.toThrow();
     });
   });
 });
@@ -1013,20 +1070,29 @@ describe("transpileGML", () => {
   });
 
   describe("GML built-in instance variables", () => {
-    it("routes a bare assignment to a known built-in (e.g. image_speed) through real per-instance persistence, not a function-scoped var", () => {
-      const out = transpileGML("image_speed = 0;\nimage_index = 0;");
+    it("routes a bare assignment to a known built-in (e.g. shake_remain) through real per-instance persistence, not a function-scoped var", () => {
+      // `image_speed`/`image_index` used to be this test's example, but
+      // both are now rewritten onto real `Sprite.currentFrame`/`frameSpeed`
+      // fields by a dedicated earlier pass (see the "image_index /
+      // image_speed" describe block above) — by the time this generic
+      // implicit-var pass runs, neither bare identifier exists in the text
+      // any more to route through `setGmlVar`. `shake_remain` (a real,
+      // project-defined camera-shake field from Freedom Backup's own
+      // obj_camera) is a genuinely un-special-cased instance variable,
+      // exercising the same real regression this test documents.
+      const out = transpileGML("shake_remain = 0;\nvisible = true;");
       // A real, severe, previously-undiscovered regression this replaces:
-      // a plain `var image_speed = 0;` is scoped to *this one generated
-      // event function* — a later event reading `image_speed` would see a
+      // a plain `var shake_remain = 0;` is scoped to *this one generated
+      // event function* — a later event reading `shake_remain` would see a
       // fresh, undeclared identifier, never the value Create actually set.
       // GmlInstanceVars (compat/gmlInstanceVars.ts) is the real fix: a
       // per-(World, eid) side-table that genuinely persists for the whole
       // entity lifetime, the same way a real GameMaker instance field does.
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 0);',
+        'GmlActions.setGmlVar(_entity, _ctx, "shake_remain", 0);',
       );
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "image_index", 0);',
+        'GmlActions.setGmlVar(_entity, _ctx, "visible", true);',
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -1090,18 +1156,22 @@ describe("transpileGML", () => {
 
     it("does not merge a bare (semicolon-omitted) statement into the next line's own statement — real gap found in obj_enemy.gml", () => {
       // Real, confirmed regression: obj_enemy's Step event has
-      // `grounded = true\nimage_speed = 1;` — GML's `;` is optional, so the
+      // `grounded = true\nshake_remain = 1;` — GML's `;` is optional, so the
       // bare newline alone ends the first statement. The multi-line-RHS fix
       // above (which must keep scanning past a newline for a genuinely
       // open call like `choose(a,\n b)`) initially over-corrected: it kept
       // scanning past *any* newline regardless of paren depth, merging
-      // `image_speed = 1;` straight into `grounded`'s own expression.
-      const out = transpileGML("grounded = true\nimage_speed = 1;");
+      // `shake_remain = 1;` straight into `grounded`'s own expression.
+      // (`image_speed` was this test's original filler identifier; it now
+      // has its own dedicated rewrite — see the "image_index / image_speed"
+      // describe block above — so a genuinely un-special-cased built-in is
+      // used here instead, to keep exercising this pass, not that one.)
+      const out = transpileGML("grounded = true\nshake_remain = 1;");
       expect(out).toContain(
         'GmlActions.setGmlVar(_entity, _ctx, "grounded", true);',
       );
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 1);',
+        'GmlActions.setGmlVar(_entity, _ctx, "shake_remain", 1);',
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -1482,9 +1552,13 @@ describe("transpileGML — GML colour constants and pure built-in functions", ()
 
 describe("transpileGML — room_width/room_height bare built-in variables", () => {
   it("rewrites a bare room_width/room_height read to a GmlActions call", () => {
+    // `surface_resize` is itself a real, threaded GmlActions.surface_resize
+    // call now (see the "GMS2 transpiler..." CLAUDE.md follow-up pass), so
+    // this asserts the room_width/room_height rewrite fired *inside* it
+    // rather than the call site staying untouched.
     const out = transpileGML("surface_resize(surf, room_width, room_height);");
     expect(out).toContain(
-      "surface_resize(surf, GmlActions.room_width(), GmlActions.room_height());",
+      "GmlActions.surface_resize(_ctx, surf, GmlActions.room_width(), GmlActions.room_height());",
     );
     expect(() => new Function(out)).not.toThrow();
   });
@@ -1931,5 +2005,141 @@ describe("transpileGML — max/min/abs/ord and room", () => {
       "fn",
     );
     expect(out).toContain("GmlActions.room(_ctx)");
+  });
+});
+
+describe("transpileGML — draw_set_halign/draw_set_valign/draw_set_font/draw_set_alpha and fa_* constants", () => {
+  it("rewrites draw_set_halign(fa_center) to a drawTarget call with the fa_center constant threaded", () => {
+    const out = transpileGML("draw_set_halign(fa_center);");
+    expect(out).toContain(
+      "_ctx.drawTarget?.setHalign?.(GmlActions.fa_center);",
+    );
+  });
+
+  it("rewrites draw_set_valign(fa_bottom)", () => {
+    const out = transpileGML("draw_set_valign(fa_bottom);");
+    expect(out).toContain(
+      "_ctx.drawTarget?.setValign?.(GmlActions.fa_bottom);",
+    );
+  });
+
+  it("rewrites draw_set_font(fnt_sign)", () => {
+    const out = transpileGML("draw_set_font(fnt_sign);");
+    expect(out).toContain("_ctx.drawTarget?.setFont?.(fnt_sign);");
+  });
+
+  it("rewrites draw_set_alpha(0.5)", () => {
+    const out = transpileGML("draw_set_alpha(0.5);");
+    expect(out).toContain("_ctx.drawTarget?.setAlpha?.(0.5);");
+  });
+
+  it("rewrites every fa_* constant to a GmlActions reference", () => {
+    const out = transpileGML(
+      "a = fa_left; b = fa_center; c = fa_right; d = fa_top; e = fa_middle; f = fa_bottom;",
+    );
+    for (const name of [
+      "fa_left",
+      "fa_center",
+      "fa_right",
+      "fa_top",
+      "fa_middle",
+      "fa_bottom",
+    ]) {
+      expect(out).toContain(`GmlActions.${name}`);
+    }
+  });
+});
+
+describe("transpileGML — draw_sprite_ext/draw_sprite_part/draw_sprite_part_ext", () => {
+  it("rewrites draw_sprite_ext with a bare sprite identifier quoted to a texture path", () => {
+    const out = transpileGML(
+      "draw_sprite_ext(spr_marker, 0, x, y, 2, 2, 45, c_white, 1);",
+    );
+    expect(out).toContain(
+      '_ctx.drawTarget?.spriteExt?.("./assets/sprites/spr_marker/frame_0.png", ',
+    );
+  });
+
+  it("rewrites draw_sprite_part with a real 9-slice-shaped call", () => {
+    const out = transpileGML(
+      "draw_sprite_part(_sprite, _subimg, 0, 0, cellSize, cellSize, _x, _y);",
+    );
+    // `_sprite` is itself a bare identifier (GML's own real convention
+    // matches this too — Freedom Backup's own `draw_9slice.gml` script
+    // takes a `_sprite` argument and this rewrite quotes it the same way a
+    // named sprite constant would be), so it's quoted into a texture path
+    // just like `draw_sprite`'s own rewrite already does.
+    expect(out).toContain(
+      '_ctx.drawTarget?.spritePart?.("./assets/sprites/_sprite/frame_0.png", 0, 0, cellSize, cellSize, _x, _y);',
+    );
+  });
+
+  it("rewrites draw_sprite_part_ext with a real 9-slice-shaped call", () => {
+    const out = transpileGML(
+      "draw_sprite_part_ext(_sprite, _subimg, cellSize, cellSize, cellSize, cellSize, _x, _y, w, h, -1, 1);",
+    );
+    expect(out).toContain(
+      '_ctx.drawTarget?.spritePartExt?.("./assets/sprites/_sprite/frame_0.png", cellSize, cellSize, cellSize, cellSize, _x, _y, w, h, -1, 1);',
+    );
+  });
+
+  it("produces syntactically valid output", () => {
+    const out = transpileGML(
+      "draw_sprite_ext(spr_a, 0, x, y, 1, 1, 0, c_white, 1); draw_sprite_part(spr_a, 0, 0, 0, 8, 8, x, y); draw_sprite_part_ext(spr_a, 0, 0, 0, 8, 8, x, y, 1, 1, c_white, 1);",
+    );
+    expect(
+      () => new Function("GmlActions", "_entity", "_ctx", out),
+    ).not.toThrow();
+  });
+});
+
+describe("transpileGML — draw_self, instance_change, room_exists, audio_sound_pitch, display_get_width/height, window_set_size, surface_resize", () => {
+  it("threads draw_self() to GmlActions.draw_self(_entity, _ctx)", () => {
+    const out = transpileGML("draw_self();");
+    expect(out).toContain("GmlActions.draw_self(_entity, _ctx)");
+  });
+
+  it("quotes a bare object-name argument for instance_change", () => {
+    const out = transpileGML("instance_change(obj_hitSpark, true);");
+    expect(out).toContain(
+      'GmlActions.instance_change(_entity, _ctx, "obj_hitSpark", true);',
+    );
+  });
+
+  it("does not quote a non-identifier instance_change argument", () => {
+    const out = transpileGML("instance_change(other.new_object, false);");
+    expect(out).toContain(
+      "GmlActions.instance_change(_entity, _ctx, other.new_object, false);",
+    );
+  });
+
+  it("threads room_exists(i) with no quoting", () => {
+    const out = transpileGML("if (room_exists(i)) { x = 0; }");
+    expect(out).toContain("GmlActions.room_exists(_ctx, i)");
+  });
+
+  it("threads audio_sound_pitch", () => {
+    const out = transpileGML("audio_sound_pitch(snd_Shot, 1.2);");
+    expect(out).toContain(
+      "GmlActions.audio_sound_pitch(_entity, _ctx, snd_Shot, 1.2);",
+    );
+  });
+
+  it("threads display_get_width/display_get_height", () => {
+    const out = transpileGML(
+      'str = "Display: " + String(display_get_width()) + " x " + String(display_get_height());',
+    );
+    expect(out).toContain("GmlActions.display_get_width(_ctx)");
+    expect(out).toContain("GmlActions.display_get_height(_ctx)");
+  });
+
+  it("threads window_set_size and surface_resize", () => {
+    const out = transpileGML(
+      "window_set_size(w, h); surface_resize(application_surface, w, h);",
+    );
+    expect(out).toContain("GmlActions.window_set_size(_ctx, w, h)");
+    expect(out).toContain(
+      "GmlActions.surface_resize(_ctx, GmlActions.application_surface, w, h)",
+    );
   });
 });

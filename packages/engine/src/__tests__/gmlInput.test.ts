@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Game } from "../Game.js";
 import { ViewportSystem } from "../systems/ViewportSystem.js";
+import { WindowSystem } from "../systems/WindowSystem.js";
 import {
   keyboard_check,
   keyboard_check_pressed,
@@ -9,9 +10,13 @@ import {
   gamepad_is_connected,
   display_get_gui_width,
   display_get_gui_height,
+  display_get_width,
+  display_get_height,
   application_surface,
   surface_get_width,
   surface_get_height,
+  window_set_size,
+  surface_resize,
   vk_right,
   vk_up,
   type GmlInputContext,
@@ -92,5 +97,41 @@ describe("compat/gmlInput.ts — display_get_gui_width/height and application_su
     expect(surface_get_width(ctx, application_surface)).toBe(320);
     expect(surface_get_height(ctx, application_surface)).toBe(180);
     expect(surface_get_width(ctx, 42)).toBe(0);
+  });
+
+  it("display_get_width/display_get_height honestly alias the GUI design resolution", () => {
+    const game = new Game();
+    game.services.get(ViewportSystem).setDesignResolution(320, 180);
+    const ctx = ctxFor(game);
+    expect(display_get_width(ctx)).toBe(320);
+    expect(display_get_height(ctx)).toBe(180);
+  });
+});
+
+describe("compat/gmlInput.ts — window_set_size/surface_resize", () => {
+  it("window_set_size calls WindowSystem.setSize without awaiting it", () => {
+    const game = new Game();
+    const setSize = vi
+      .spyOn(game.services.get(WindowSystem), "setSize")
+      .mockResolvedValue();
+    const ctx = ctxFor(game);
+    window_set_size(ctx, 800, 600);
+    expect(setSize).toHaveBeenCalledWith(800, 600);
+  });
+
+  it("surface_resize(application_surface, w, h) resizes ViewportSystem's design resolution", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    surface_resize(ctx, application_surface, 640, 360);
+    expect(game.services.get(ViewportSystem).config.designWidth).toBe(640);
+    expect(game.services.get(ViewportSystem).config.designHeight).toBe(360);
+  });
+
+  it("surface_resize for any other surface id is an honest no-op", () => {
+    const game = new Game();
+    game.services.get(ViewportSystem).setDesignResolution(320, 180);
+    const ctx = ctxFor(game);
+    surface_resize(ctx, 42, 999, 999);
+    expect(game.services.get(ViewportSystem).config.designWidth).toBe(320);
   });
 });

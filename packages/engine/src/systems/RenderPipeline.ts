@@ -87,6 +87,11 @@ export interface TileLayerSource {
  */
 class PixiGmlDrawTarget implements GmlDrawTarget {
   private _color = 0x000000;
+  /** Persistent draw-state font/alignment/alpha — GameMaker's `draw_set_*` calls mutate these until changed again, applied to the next `text()`/sprite draw call. Reset to defaults on every construction (every `onDraw`/`onDrawGui` dispatch), matching this class's own "rebuilt fresh every call, no cross-frame leakage" doc comment above. */
+  private _fontFamily: string | undefined;
+  private _halign = 0; // fa_left
+  private _valign = 0; // fa_top
+  private _alpha = 1;
 
   constructor(
     private readonly _graphics: Graphics,
@@ -100,20 +105,52 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     this._color = hex;
   }
 
+  setFont(fontId: string): void {
+    this._fontFamily = fontId;
+  }
+
+  setHalign(align: number): void {
+    this._halign = align;
+  }
+
+  setValign(align: number): void {
+    this._valign = align;
+  }
+
+  setAlpha(alpha: number): void {
+    this._alpha = alpha;
+  }
+
   rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void {
     this._graphics.rect(x1, y1, x2 - x1, y2 - y1);
     if (outline) this._graphics.stroke({ color: this._color, width: 1 });
-    else this._graphics.fill({ color: this._color });
+    else this._graphics.fill({ color: this._color, alpha: this._alpha });
   }
 
   circle(x: number, y: number, r: number, outline: boolean): void {
     this._graphics.circle(x, y, r);
     if (outline) this._graphics.stroke({ color: this._color, width: 1 });
-    else this._graphics.fill({ color: this._color });
+    else this._graphics.fill({ color: this._color, alpha: this._alpha });
   }
 
   text(x: number, y: number, text: string): void {
-    const label = new Text({ text, style: { fill: this._color } });
+    const label = new Text({
+      text,
+      style: {
+        fill: this._color,
+        ...(this._fontFamily !== undefined
+          ? { fontFamily: this._fontFamily }
+          : {}),
+      },
+    });
+    // `fa_left`/`fa_top` (both 0) need no anchor at all — pixi's own default
+    // anchor (0,0) already puts (x,y) at the text's top-left corner, exactly
+    // matching GameMaker's own default alignment.
+    label.anchor.set(
+      this._halign === 1 ? 0.5 : this._halign === 2 ? 1 : 0,
+      this._valign === 1 ? 0.5 : this._valign === 2 ? 1 : 0,
+    );
+    label.alpha = this._alpha;
     label.x = x;
     label.y = y;
     this._graphics.addChild(label);
@@ -131,6 +168,90 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.anchor.set(0.5);
     pixiSprite.x = x;
     pixiSprite.y = y;
+    pixiSprite.alpha = this._alpha;
+    this._graphics.addChild(pixiSprite);
+  }
+
+  spriteExt(
+    texturePath: string,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    rotationDeg: number,
+    colour: number,
+    alpha: number,
+  ): void {
+    const pixiSprite = new PixiSprite(this._resolveTexture(texturePath));
+    pixiSprite.anchor.set(0.5);
+    pixiSprite.x = x;
+    pixiSprite.y = y;
+    pixiSprite.scale.set(scaleX, scaleY);
+    pixiSprite.rotation = (rotationDeg * Math.PI) / 180;
+    pixiSprite.tint = colour;
+    pixiSprite.alpha = alpha;
+    this._graphics.addChild(pixiSprite);
+  }
+
+  /** Crops a fresh `Texture` view onto the base texture's `(left, top, width, height)` source-pixel rectangle — real pixi `Texture`/`Rectangle` API, not an approximation. A crop rect that falls outside the base texture's own bounds is a real pixi runtime error, so callers should keep `left`/`top`/`width`/`height` inside the sprite's actual pixel dimensions, same as GameMaker's own function requires. */
+  private _cropTexture(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+  ): Texture {
+    const base = this._resolveTexture(texturePath);
+    return new Texture({
+      source: base.source,
+      frame: new Rectangle(
+        base.frame.x + left,
+        base.frame.y + top,
+        width,
+        height,
+      ),
+    });
+  }
+
+  spritePart(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ): void {
+    const pixiSprite = new PixiSprite(
+      this._cropTexture(texturePath, left, top, width, height),
+    );
+    pixiSprite.x = x;
+    pixiSprite.y = y;
+    pixiSprite.alpha = this._alpha;
+    this._graphics.addChild(pixiSprite);
+  }
+
+  spritePartExt(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    colour: number,
+    alpha: number,
+  ): void {
+    const pixiSprite = new PixiSprite(
+      this._cropTexture(texturePath, left, top, width, height),
+    );
+    pixiSprite.x = x;
+    pixiSprite.y = y;
+    pixiSprite.scale.set(scaleX, scaleY);
+    pixiSprite.tint = colour;
+    pixiSprite.alpha = alpha;
     this._graphics.addChild(pixiSprite);
   }
 }

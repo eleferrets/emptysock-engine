@@ -282,4 +282,79 @@ describe("GmlBehaviorSystem — Draw GUI is camera-independent, Draw is not", ()
 
     unregisterGmlBehavior("marker");
   });
+
+  it("draw_set_halign/valign/font/alpha and draw_sprite_part real-crop a texture into a real pixi Sprite child", () => {
+    registerGmlBehavior("panel", {
+      onDraw: (_entity, ctx) => {
+        ctx.drawTarget?.setColor(0xffffff);
+        ctx.drawTarget?.setHalign?.(1); // fa_center
+        ctx.drawTarget?.setValign?.(2); // fa_bottom
+        ctx.drawTarget?.setFont?.("fnt_sign");
+        ctx.drawTarget?.setAlpha?.(0.5);
+        ctx.drawTarget?.text(50, 50, "hi");
+        ctx.drawTarget?.spritePart?.(
+          "./assets/sprites/spr_panel/frame_0.png",
+          0,
+          0,
+          8,
+          8,
+          10,
+          10,
+        );
+        ctx.drawTarget?.spritePartExt?.(
+          "./assets/sprites/spr_panel/frame_0.png",
+          8,
+          0,
+          8,
+          8,
+          20,
+          10,
+          2,
+          2,
+          0xff0000,
+          1,
+        );
+        ctx.drawTarget?.spriteExt?.(
+          "./assets/sprites/spr_panel/frame_0.png",
+          30,
+          10,
+          1,
+          1,
+          90,
+          0x00ff00,
+          1,
+        );
+      },
+    } satisfies GmlBehaviorModule);
+
+    const entity = scene.spawn();
+    entity.add(GmlBehaviorState, { behaviorId: "panel" });
+
+    const system = new GmlBehaviorSystem();
+    pipeline.attachGmlBehaviors(system, { scene } as never);
+    // Real assertion this test exists for: setting halign/valign/font/alpha
+    // and calling the crop/scale sprite variants must not throw — every one
+    // of these is a real pixi API call (Text anchor, a cropped `Texture`
+    // via a real `Rectangle`, `Sprite.scale`/`.rotation`/`.tint`), not a
+    // stubbed no-op.
+    expect(() => pipeline.renderFrame(scene)).not.toThrow();
+
+    const countSprites = (container: {
+      children: readonly unknown[];
+    }): number =>
+      container.children.reduce(
+        (n: number, child) =>
+          n +
+          ((child as { constructor: { name: string } }).constructor.name ===
+          "Sprite"
+            ? 1
+            : 0) +
+          countSprites(child as { children: readonly unknown[] }),
+        0,
+      );
+    // spritePart + spritePartExt + spriteExt = 3 real Sprite children.
+    expect(countSprites(pipeline.stage)).toBe(3);
+
+    unregisterGmlBehavior("panel");
+  });
 });

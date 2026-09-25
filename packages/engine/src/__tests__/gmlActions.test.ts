@@ -3,6 +3,7 @@ import { Scene } from "../Scene.js";
 import { Game, defineScene } from "../Game.js";
 import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
+import { Meta } from "../components/Meta.js";
 import { definePrefab } from "../Prefab.js";
 import {
   action_move,
@@ -16,6 +17,7 @@ import {
   action_create_object,
   instance_create,
   instance_create_layer,
+  instance_change,
   action_set_alarm,
   action_if_collision,
   action_if_aligned,
@@ -23,7 +25,10 @@ import {
   action_another_room,
   room_goto,
   room,
+  room_exists,
   audio_play_sound,
+  audio_sound_pitch,
+  draw_self,
   gmlActionsStep,
   clearGmlActionState,
   _getGmlMotion,
@@ -200,6 +205,83 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     } as GmlActionContext;
     audio_play_sound(entity, ctx, "snd_Shot", 5, false);
     expect(play).toHaveBeenCalledWith("snd_Shot");
+  });
+
+  it("audio_sound_pitch() calls AudioSystem.setPitch through ctx.sounds resolution", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    const setPitch = vi.fn();
+    const ctx = {
+      scene,
+      game: { audio: { setPitch } } as unknown as GmlActionContext["game"],
+      sounds: { snd_Shot: "sound_shot_1" },
+    } as GmlActionContext;
+    audio_sound_pitch(entity, ctx, "snd_Shot", 1.2);
+    expect(setPitch).toHaveBeenCalledWith("sound_shot_1", 1.2);
+  });
+
+  it("room_exists() checks membership in ctx.rooms, honestly false with none wired", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = {
+      scene,
+      rooms: { rm_menu: defineScene({}) },
+    };
+    expect(room_exists(ctx, "rm_menu")).toBe(true);
+    expect(room_exists(ctx, "rm_nonexistent")).toBe(false);
+    expect(room_exists({ scene }, "rm_menu")).toBe(false);
+  });
+
+  it("instance_change() stamps Meta.name and swaps the Sprite texturePath from the target prefab", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(Sprite, { texturePath: "./assets/sprites/obj_old/frame_0.png" });
+    const targetPrefab = definePrefab("obj_hitSpark", [
+      {
+        def: Sprite,
+        overrides: { texturePath: "./assets/sprites/obj_hitSpark/frame_0.png" },
+      },
+    ]);
+    const ctx: GmlActionContext = {
+      scene,
+      prefabs: { obj_hitSpark: targetPrefab },
+    };
+    instance_change(entity, ctx, "obj_hitSpark", true);
+    expect(defined(entity.get(Meta)).name).toBe("obj_hitSpark");
+    expect(defined(entity.get(Sprite)).texturePath).toBe(
+      "./assets/sprites/obj_hitSpark/frame_0.png",
+    );
+  });
+
+  it("instance_change() with no matching prefab still stamps identity, leaves Sprite alone", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(Sprite, { texturePath: "./assets/sprites/obj_old/frame_0.png" });
+    const ctx: GmlActionContext = { scene };
+    instance_change(entity, ctx, "obj_unknown", false);
+    expect(defined(entity.get(Meta)).name).toBe("obj_unknown");
+    expect(defined(entity.get(Sprite)).texturePath).toBe(
+      "./assets/sprites/obj_old/frame_0.png",
+    );
+  });
+
+  it("draw_self() draws the entity's own sprite at its own transform position through ctx.drawTarget", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(Transform, { x: 5, y: 9 });
+    entity.add(Sprite, {
+      texturePath: "./assets/sprites/obj_player/frame_0.png",
+    });
+    const spriteFn = vi.fn();
+    const ctx = {
+      scene,
+      drawTarget: { sprite: spriteFn },
+    } as unknown as GmlActionContext;
+    draw_self(entity, ctx);
+    expect(spriteFn).toHaveBeenCalledWith(
+      "./assets/sprites/obj_player/frame_0.png",
+      5,
+      9,
+    );
   });
 
   it("action_create_object/instance_create spawn a registered prefab at a position", () => {

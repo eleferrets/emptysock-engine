@@ -29,6 +29,7 @@
 import type { Game } from "../Game.js";
 import { vkToDomCode } from "./gmlKeys.js";
 import { ViewportSystem } from "../systems/ViewportSystem.js";
+import { WindowSystem } from "../systems/WindowSystem.js";
 
 /** The one thing every function in this file needs: a live `Game` to read `input` from. Keyboard/gamepad/mouse state is genuinely game-global, never per-scene, so no `scene`/`entity` field is needed here at all — unlike `GmlActionContext`. */
 export interface GmlInputContext {
@@ -297,6 +298,79 @@ export function surface_get_height(
   surface: number,
 ): number {
   return surface === application_surface ? display_get_gui_height(ctx) : 0;
+}
+
+/**
+ * `display_get_width()`/`display_get_height()` — GameMaker's real functions
+ * read the *physical monitor's* pixel resolution, not the game's own
+ * window/room size. This engine has no access to that at all from inside
+ * the engine-environment boundary (no DOM/Tauri import allowed here — see
+ * CLAUDE.md's "Engine environment boundary" entry), the same class of gap
+ * `application_surface` already documents honestly rather than fakes. The
+ * one thing this compat layer *can* answer honestly is the game's own
+ * authored logical resolution (`ViewportSystem.config.designWidth`/
+ * `designHeight`, the same value `display_get_gui_width`/`_height` already
+ * read) — real GML code that calls this purely to log/derive an aspect
+ * ratio (Freedom Backup's own `display_write_specs.gml`: `"Display: " +
+ * String(display_get_width()) + " x " + String(display_get_height())`)
+ * gets a real, self-consistent number rather than a crash, at the honest
+ * cost of it being the game's design resolution, not the user's actual
+ * monitor.
+ */
+export function display_get_width(ctx: GmlInputContext): number {
+  return display_get_gui_width(ctx);
+}
+
+/** See `display_get_width`'s doc comment. */
+export function display_get_height(ctx: GmlInputContext): number {
+  return display_get_gui_height(ctx);
+}
+
+/**
+ * `window_set_size(w, h)` — resizes the real OS window (desktop) or the
+ * browser viewport's backing element. `WindowSystem` (one of `Game`'s five
+ * always-registered services, see CLAUDE.md's "PluginSystem, VariableStore,
+ * ..." entry) already owns exactly this via its own `setSize()`, which is
+ * `async` (it awaits a real Tauri `Window.setSize()` call on desktop). GML's
+ * own `window_set_size` is fire-and-forget/synchronous from the script's
+ * point of view, so this compat function does not await it either — the
+ * same "don't make the caller's site async just to satisfy a host API"
+ * shape `onUpdate` itself is documented as requiring (CLAUDE.md's "`onUpdate`
+ * must not be async" entry): a real resize eventually happens, this call
+ * just doesn't block the calling GML statement waiting for it.
+ */
+export function window_set_size(
+  ctx: GmlInputContext,
+  width: number,
+  height: number,
+): void {
+  void ctx.game?.services.get(WindowSystem).setSize(width, height);
+}
+
+/**
+ * `surface_resize(surface, w, h)` — real Surface API resizing this engine
+ * has no general implementation for (see `application_surface`'s own doc
+ * comment), *except* the same one honestly-supported case
+ * `surface_get_width`/`_height` already carve out: called with
+ * `application_surface`, which is what Freedom Backup's own zoom/scaling
+ * code (`obj_display_manager`) actually does — `surface_resize(
+ * application_surface, ideal_width * zoom, ideal_height * zoom)`, a classic
+ * GameMaker integer-zoom technique. The real, honest engine-side equivalent
+ * of "resize the surface the whole room draws to" is `ViewportSystem.
+ * setDesignResolution()` — changing the game's own logical design
+ * resolution, which is exactly what re-sizing `application_surface`
+ * achieves in real GameMaker (everything downstream, including the GUI
+ * layer, is defined relative to it). Called with any other surface id, this
+ * is a documented no-op — there is no real surface behind it to resize.
+ */
+export function surface_resize(
+  ctx: GmlInputContext,
+  surface: number,
+  width: number,
+  height: number,
+): void {
+  if (surface !== application_surface) return;
+  ctx.game?.services.get(ViewportSystem).setDesignResolution(width, height);
 }
 
 /** `mouse_check_button_pressed(button)` — edge-triggered mouse-button check. Reads `InputManager.pointers`' real per-pointer `buttons` bitmask (the standard `MouseEvent.buttons` convention — bit 0 left, bit 1 right, bit 2 middle, matching `mb_left`/`mb_right`/`mb_middle`'s own 0/1/2 numbering once shifted to a bit index), `true` while any live pointer has that button held. */
