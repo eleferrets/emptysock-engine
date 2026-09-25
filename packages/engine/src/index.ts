@@ -353,6 +353,7 @@ export {
   action_if_question,
   gmlActionsStep,
   clearGmlActionState,
+  gmlStatics,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"

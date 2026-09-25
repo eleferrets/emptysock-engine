@@ -271,6 +271,52 @@ function escapeRegExpTranspile(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Builds a cheap "how many `function(...) { ... }` literals textually
+ * enclose this character offset" probe over `source`, used by the
+ * `static`-variable rewrite pass to tell a top-level declaration (directly
+ * in the body being transpiled) apart from one nested inside a GML struct
+ * method's own inline `function() { ... }` literal.
+ *
+ * Not a real parser — a single linear brace-depth scan. Every `{` is
+ * classified as "opened by a function literal" only when it's the very
+ * next non-whitespace character after a `function ...(...)` signature
+ * (matched the same permissive way GMS2.3+ method literals already pass
+ * through this transpiler unchanged); every other `{` (an `if`/`for`/
+ * `while` block, a struct literal, ...) pushes a non-function frame. A `}`
+ * pops whatever frame is on top. Good enough for well-formed transpiler
+ * input (this runs after comment-neutralisation, so no stray braces inside
+ * comments can throw the count off).
+ */
+function buildFunctionDepthProbe(source: string): (offset: number) => number {
+  const functionBraceOffsets = new Set<number>();
+  const sigRe = /\bfunction\b[^{(]*\([^)]*\)\s*(?:\/\*[^*]*\*\/\s*)*\{/g;
+  let sm: RegExpExecArray | null;
+  while ((sm = sigRe.exec(source)) !== null) {
+    functionBraceOffsets.add(sm.index + sm[0].length - 1);
+  }
+
+  // depthAtOffset[i] = function-literal nesting depth *before* character i.
+  const depthAtOffset = new Int32Array(source.length + 1);
+  const isFunctionFrame: boolean[] = [];
+  let depth = 0;
+  for (let i = 0; i < source.length; i++) {
+    depthAtOffset[i] = depth;
+    const ch = source[i];
+    if (ch === "{") {
+      isFunctionFrame.push(functionBraceOffsets.has(i));
+      if (functionBraceOffsets.has(i)) depth++;
+    } else if (ch === "}") {
+      const wasFunction = isFunctionFrame.pop();
+      if (wasFunction) depth--;
+    }
+  }
+  depthAtOffset[source.length] = depth;
+
+  return (offset: number): number =>
+    depthAtOffset[Math.max(0, Math.min(offset, source.length))] ?? 0;
+}
+
 const GML_RESERVED_IDENTIFIERS = new Set([
   "if",
   "else",
@@ -613,12 +659,22 @@ export function scanGmlImplicitVars(gml: string): Set<string> {
  * assigns itself, except a real local `var`/`let`/`const` declaration (or a
  * `knownParams` entry) inside *this* body still takes precedence, the same
  * shadowing GML's own per-event `var` scoping already implies.
+ *
+ * `functionId` names the one generated function this specific call's body
+ * will become (e.g. `"onUpdate"`, `"onCreate"`, a script's own name) —
+ * used only to namespace this body's `static` declarations (see the
+ * "GML `static` variables" rewrite pass below) so two different generated
+ * functions in the same `.behavior.ts` module that each declare a
+ * same-named static never collide in `GmlActions.gmlStatics`'s shared,
+ * process-global store. Left at its default when a caller doesn't care
+ * (a bare unit test of one static declaration, for instance).
  */
 export function transpileGML(
   gml: string,
   knownParams: readonly string[] = [],
   knownImplicitVars: ReadonlySet<string> = new Set(),
   hasOtherParam = false,
+  functionId = "fn",
 ): string {
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
@@ -690,6 +746,128 @@ export function transpileGML(
   // object's own implicit field.
   if (hasOtherParam) {
     out = out.replace(/(?<!\.\s*)\bother\b/g, "_other");
+  }
+
+  // -- GML `static` variables -------------------------------------------------
+  // See CLAUDE.md's "GMS2.3+ syntax and array functions" entry for the full
+  // design writeup and the real GameMaker semantics this confirms
+  // (GameMaker manual + community docs on static-in-constructor-methods
+  // and static-in-object-events): `static x = 0;` persists across every
+  // call to the *one* function/method it's declared in — shared across
+  // every call to a script function, shared across every instance calling
+  // the same struct-constructor method, and shared across every instance
+  // of an object using the same compiled event handler. `static` is only
+  // valid JS syntax inside a `class` body, so it can't be emitted verbatim
+  // — a bare `static x = 0;` inside a plain function is a hard
+  // `SyntaxError` the moment the generated function actually runs.
+  //
+  // This rewrites each *top-level* `static <name> (= <expr>)?;`
+  // declaration — one that sits directly in this call's own body, not
+  // nested inside a further `function(...) { ... }` literal embedded in
+  // it (a GML struct method's own local static, declared inline within
+  // this event/script) — into a lazy-initialised slot in
+  // `GmlActions.gmlStatics`, a real process-global, string-keyed store
+  // (`compat/gmlActions.ts`) whose lifetime matches GameMaker's own
+  // "persists for the life of the running game" semantic exactly. Every
+  // bare reference to that name elsewhere in this same body is rewritten
+  // to read/write the same slot. `functionId` (this call's own generated
+  // function name) namespaces the slot key so two different generated
+  // functions declaring a same-named static never collide.
+  //
+  // The nested case (a static inside a `function(...) { ... }` literal
+  // embedded in this body) is deliberately left untouched — this
+  // transpiler is regex/line-based, not a real parser, and correctly
+  // scoping a rewrite to "only inside that one nested function literal,
+  // not this call's outer body" needs real lexical scope tracking this
+  // file doesn't have. Left unrewritten (still a genuine `SyntaxError` at
+  // runtime), the same "surface as broken rather than fake it" precedent
+  // `action_if_question`/`gml_pragma` already set — see CLAUDE.md for the
+  // honest, narrower remaining gap this leaves.
+  {
+    // Mask string literals first — the same "protect literals during
+    // regex-based rewriting" technique the implicit-instance-variable pass
+    // below already uses, needed here too since a static's own name could
+    // coincidentally appear inside an unrelated string literal elsewhere
+    // in this body.
+    const maskedStaticStrings: string[] = [];
+    out = out.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (mm) => {
+      maskedStaticStrings.push(mm);
+      return `\u0000GMLSTATICSTR${maskedStaticStrings.length - 1}\u0000`;
+    });
+
+    const funcDepthAt = buildFunctionDepthProbe(out);
+    // name -> { placeholder, slot } — the placeholder (never a real GML
+    // identifier, so it can't itself be caught by the bare-word passes
+    // below) stands in for the real quoted slot key during every rewrite
+    // pass, and is swapped for the real key text only once, at the very
+    // end — exactly the "protect the replacement's own key text from the
+    // next pass's own bare-word search" technique the implicit-instance-
+    // variable pass further below already establishes (see its own doc
+    // comment for the real regression this avoids: without it, a later
+    // pass's `\bname\b` search would match back into the key text this
+    // same loop just produced and corrupt it).
+    const declaredStatics = new Map<
+      string,
+      { placeholder: string; slot: string }
+    >();
+    let staticOccurrence = 0;
+
+    out = out.replace(
+      /^([ \t]*)static\s+([A-Za-z_]\w*)\s*(=\s*([^;\n]+))?;[ \t]*$/gm,
+      (
+        whole: string,
+        indent: string,
+        name: string,
+        _initClause,
+        initExpr: string | undefined,
+        offset: number,
+      ) => {
+        if (funcDepthAt(offset) > 0) return whole; // nested — honest gap, see above
+        const slot = `${functionId}::${name}::${staticOccurrence}`;
+        const placeholder = `__GML_STATIC_${staticOccurrence++}__`;
+        declaredStatics.set(name, { placeholder, slot });
+        const initText = initExpr !== undefined ? initExpr.trim() : "undefined";
+        return `${indent}if (!(${placeholder} in GmlActions.gmlStatics)) { GmlActions.gmlStatics[${placeholder}] = ${initText}; }`;
+      },
+    );
+
+    for (const [name, { placeholder }] of declaredStatics) {
+      const esc = escapeRegExpTranspile(name);
+      out = out.replace(
+        new RegExp(`^(\\s*)${esc}\\s*(\\+\\+|--)`, "gm"),
+        (_m, ind: string, op: string) =>
+          `${ind}GmlActions.gmlStatics[${placeholder}] = ((GmlActions.gmlStatics[${placeholder}] as number | undefined) ?? 0) ${op === "++" ? "+" : "-"} 1;`,
+      );
+      out = out.replace(
+        new RegExp(
+          `^(\\s*)${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          "gm",
+        ),
+        (_m, ind: string, op: string, exprRaw: string) => {
+          const jsOp = op[0];
+          return `${ind}GmlActions.gmlStatics[${placeholder}] = ((GmlActions.gmlStatics[${placeholder}] as number | undefined) ?? 0) ${jsOp} (${exprRaw.trim()});`;
+        },
+      );
+      out = replacePlainAssignmentMultiline(
+        out,
+        name,
+        (ind2, expr) =>
+          `${ind2}GmlActions.gmlStatics[${placeholder}] = ${expr};`,
+      );
+      out = out.replace(
+        new RegExp(`(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
+        `(GmlActions.gmlStatics[${placeholder}])`,
+      );
+    }
+
+    for (const { placeholder, slot } of declaredStatics.values()) {
+      out = out.split(placeholder).join(JSON.stringify(slot));
+    }
+
+    out = out.replace(
+      /\u0000GMLSTATICSTR(\d+)\u0000/g,
+      (_m, i: string) => maskedStaticStrings[Number(i)] ?? "",
+    );
   }
 
   // -- Variable declarations -------------------------------------------------
@@ -3032,10 +3210,17 @@ export async function readAndTranspileGML(
   gmlPath: string,
   knownImplicitVars: ReadonlySet<string> = new Set(),
   hasOtherParam = false,
+  functionId = "fn",
 ): Promise<string | null> {
   try {
     const source = await fs.readFile(gmlPath, "utf-8");
-    return transpileGML(source, [], knownImplicitVars, hasOtherParam);
+    return transpileGML(
+      source,
+      [],
+      knownImplicitVars,
+      hasOtherParam,
+      functionId,
+    );
   } catch {
     return null;
   }

@@ -233,7 +233,12 @@ export async function buildObjectBehavior(
     const gmlFile = gmlFiles.find((f) => prefixRe.test(f));
     if (gmlFile) {
       const gmlPath = path.join(objectDir, gmlFile);
-      const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
+      const transpiled = await readAndTranspileGML(
+        gmlPath,
+        objectImplicitVars,
+        false,
+        `${name}_${methodName}`,
+      );
       if (transpiled !== null) {
         const body = indent(
           injectContextArgs(transpiled, knownScripts).trimEnd(),
@@ -354,6 +359,7 @@ export async function buildObjectBehavior(
       gmlPath,
       objectImplicitVars,
       true,
+      `${name}_onCollideWith${otherClass}`,
     );
     const body =
       transpiled !== null
@@ -396,7 +402,12 @@ export async function buildObjectBehavior(
       const code = match?.[1] ?? "0";
       const methodName = vkMethodName(methodPrefix, code);
       const gmlPath = path.join(objectDir, gmlFile);
-      const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
+      const transpiled = await readAndTranspileGML(
+        gmlPath,
+        objectImplicitVars,
+        false,
+        `${name}_${methodName}`,
+      );
       const body =
         transpiled !== null
           ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
@@ -450,7 +461,12 @@ export async function buildObjectBehavior(
     const baseName = gmlFile.replace(/\.gml$/i, "");
     const methodName = `on${toPascalCase(baseName)}`;
     const gmlPath = path.join(objectDir, gmlFile);
-    const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
+    const transpiled = await readAndTranspileGML(
+      gmlPath,
+      objectImplicitVars,
+      false,
+      `${name}_${methodName}`,
+    );
     const body =
       transpiled !== null
         ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
@@ -724,7 +740,7 @@ export function ${name}(
   }
 
   const { paramNames, body, isLegacyArgStyle } = extractScriptSignature(source);
-  let transpiled = transpileGML(body, paramNames);
+  let transpiled = transpileGML(body, paramNames, new Set(), false, name);
   if (isLegacyArgStyle) {
     transpiled = transpiled.replace(/\bargument(\d+)\b/g, "args[$1]");
   }

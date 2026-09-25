@@ -1649,3 +1649,120 @@ describe("transpileGML — GMS2.3+ struct/static/function literal syntax", () =>
     );
   });
 });
+
+describe("transpileGML — GML `static` variable semantics", () => {
+  it("rewrites `static x = 0;` into a valid-JS lazy-init against GmlActions.gmlStatics, not a SyntaxError-prone class-body static", () => {
+    const out = transpileGML(
+      "static counter = 0;\nreturn counter;",
+      [],
+      new Set(),
+      false,
+      "onUpdate",
+    );
+    expect(out).not.toMatch(/^\s*static\s/m);
+    expect(out).toContain("GmlActions.gmlStatics");
+    expect(out).toContain(
+      'if (!("onUpdate::counter::0" in GmlActions.gmlStatics))',
+    );
+    // Must be real, executable JS — a direct `new Function` probe is the
+    // same technique CLAUDE.md's own gap-writeup used to confirm the
+    // *old* `SyntaxError`, so it's the right technique to prove the fix.
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("a static var persists its value across two separate calls to the same generated function", () => {
+    // Plain assignment (not `+=`) deliberately — the compound-assignment
+    // rewrite emits a TypeScript `as` cast (matching this file's existing
+    // GmlInstanceVars compound-assignment output), which real `new
+    // Function` can't parse as plain JS; every other execution-based test
+    // in this file sticks to plain assignment for the same reason.
+    const body = transpileGML(
+      "static counter = 0;\ncounter = counter + 1;\nreturn counter;",
+      [],
+      new Set(),
+      false,
+      "onUpdate",
+    );
+    const GmlActions = { gmlStatics: {} as Record<string, unknown> };
+    const fn = new Function("GmlActions", body);
+    expect(fn(GmlActions)).toBe(1);
+    expect(fn(GmlActions)).toBe(2);
+    expect(fn(GmlActions)).toBe(3);
+  });
+
+  it("a static var's initializer runs exactly once, not on every call", () => {
+    const body = transpileGML(
+      "static seen = 0;\nseen = seen + 1;\nreturn seen;",
+      [],
+      new Set(),
+      false,
+      "onCreate",
+    );
+    // `static seen = 0;` only ever assigns the literal `0` once, at
+    // first-call time — a naive re-run-every-call rewrite would reset
+    // `seen` back to 0 before the increment on every call, so this would
+    // never climb past 1. Asserted the same way the "persists" test above
+    // proves persistence, from the other direction.
+    const GmlActions = { gmlStatics: {} as Record<string, unknown> };
+    const fn = new Function("GmlActions", body);
+    fn(GmlActions);
+    fn(GmlActions);
+    const result = fn(GmlActions);
+    expect(result).toBe(3);
+  });
+
+  it("two different generated functions with a same-named static var don't collide", () => {
+    const bodyA = transpileGML(
+      "static x = 10;\nx = x + 1;\nreturn x;",
+      [],
+      new Set(),
+      false,
+      "onUpdate",
+    );
+    const bodyB = transpileGML(
+      "static x = 100;\nx = x + 1;\nreturn x;",
+      [],
+      new Set(),
+      false,
+      "onCreate",
+    );
+    const GmlActions = { gmlStatics: {} as Record<string, unknown> };
+    const fnA = new Function("GmlActions", bodyA);
+    const fnB = new Function("GmlActions", bodyB);
+    expect(fnA(GmlActions)).toBe(11);
+    expect(fnB(GmlActions)).toBe(101);
+    // Calling A again must not have been perturbed by B's own same-named
+    // static — proves the two slots are genuinely independent, keyed by
+    // `functionId`, not just by the bare variable name.
+    expect(fnA(GmlActions)).toBe(12);
+    expect(fnB(GmlActions)).toBe(102);
+  });
+
+  it("`static x;` (no initializer) defaults to undefined, matching GameMaker's own real default", () => {
+    const body = transpileGML(
+      "static x;\nreturn x;",
+      [],
+      new Set(),
+      false,
+      "onCreate",
+    );
+    const GmlActions = { gmlStatics: {} as Record<string, unknown> };
+    const fn = new Function("GmlActions", body);
+    expect(fn(GmlActions)).toBeUndefined();
+  });
+
+  it("a static declared inside a nested function() literal is left untouched — the documented, honest remaining gap", () => {
+    const out = transpileGML(
+      "var f = function() { static count = 0; count += 1; return count; };",
+      [],
+      new Set(),
+      false,
+      "onCreate",
+    );
+    // Still contains the raw, untranspiled `static` keyword — proves this
+    // narrower nested case was deliberately left alone rather than
+    // silently (and incorrectly) rewritten against the outer function's
+    // own scope.
+    expect(out).toContain("static count = 0;");
+  });
+});

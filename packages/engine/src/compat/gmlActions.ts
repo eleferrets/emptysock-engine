@@ -142,6 +142,42 @@ export function clearGmlActionState(world: World, eid: number): void {
   motionByWorld.get(world)?.delete(eid);
 }
 
+// ---------------------------------------------------------------------------
+// GML `static` variable storage
+// ---------------------------------------------------------------------------
+
+/**
+ * Backing store for a transpiled GML `static` declaration (see
+ * `gms2-transpile.ts`'s "GML `static` variables" rewrite pass, and
+ * CLAUDE.md's "GMS2.3+ syntax and array functions" entry for the full
+ * design writeup).
+ *
+ * GML's `static x = 0;` persists a variable across every call to the one
+ * specific function/method it's declared in — shared by every instance
+ * calling a struct-constructor method, shared across every call to a
+ * script function, and (confirmed against GameMaker's manual/community
+ * docs on object-event statics) shared across every instance of an object
+ * using that event's compiled code too, since GameMaker treats all three
+ * as "one function, one static slot" regardless of how many times that
+ * function is invoked or by how many different instances. `static` is only
+ * valid JS syntax inside a `class` body, so the transpiler can't emit it
+ * verbatim — instead it rewrites each declaration into a lazy-initialised
+ * slot in this one process-global, string-keyed store, and every bare
+ * reference to that name within the same declaration's function body into
+ * a read/write against that slot.
+ *
+ * A plain module-level object (not a `WeakMap`/`Map` keyed by `World`) is
+ * the semantically correct shape here — unlike per-entity state
+ * (`PhysicsBody`'s callbacks, `VisualScriptState`'s evaluation scope),
+ * GML's `static` is explicitly *not* per-instance or per-world: it's one
+ * slot per generated function for the whole lifetime of the running
+ * process, matching this object's own lifetime exactly. The transpiler
+ * gives each declaration a slot key unique per (generated function,
+ * declaration occurrence) so two different generated functions declaring
+ * a same-named static never collide.
+ */
+export const gmlStatics: Record<string, unknown> = {};
+
 /**
  * GM8.1 "Move Fixed" — set this entity's velocity from a 9-bit compass
  * bitmask (see `MOVE_DIRECTION_BITS`) and a speed, in pixels/step. Applied

@@ -336,6 +336,7 @@ export {
   action_if_question,
   gmlActionsStep,
   clearGmlActionState,
+  gmlStatics,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
@@ -594,6 +595,18 @@ export {
   object_exists,
   asset_get_index,
   array_length_1d,
+  array_length,
+  array_create,
+  array_resize,
+  array_push,
+  array_pop,
+  array_insert,
+  array_delete,
+  array_sort,
+  array_contains,
+  array_map,
+  array_filter,
+  array_reduce,
   string_char_at,
   keyboard_wait,
   mouse_button_down,

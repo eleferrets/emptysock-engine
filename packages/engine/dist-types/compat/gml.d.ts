@@ -200,3 +200,64 @@ export declare function mouse_button_released(_button: number): boolean;
  * ported yet — a real, separate, tracked gap.
  */
 export declare function place_empty(_x: number, _y: number): boolean;
+/** GML array_length — real GMS2.3+ name for array_length_1d. */
+export declare function array_length(arr: unknown[]): number;
+/** GML array_create(size, [value]) — a new array of `size` elements, each initialised to `value` (default 0). */
+export declare function array_create(size: number, value?: unknown): unknown[];
+/** GML array_resize(array, newSize) — grows (filling with 0) or truncates `array` in place. */
+export declare function array_resize(arr: unknown[], newSize: number): void;
+/** GML array_push(array, value, ...) — appends one or more values in place. */
+export declare function array_push(arr: unknown[], ...values: unknown[]): void;
+/** GML array_pop(array) — removes and returns the last element. */
+export declare function array_pop(arr: unknown[]): unknown;
+/** GML array_insert(array, index, value, ...) — inserts one or more values at `index`, shifting later elements up. */
+export declare function array_insert(
+  arr: unknown[],
+  index: number,
+  ...values: unknown[]
+): void;
+/** GML array_delete(array, index, [count]) — removes `count` (default 1) elements starting at `index`, in place. */
+export declare function array_delete(
+  arr: unknown[],
+  index: number,
+  count?: number,
+): void;
+/**
+ * GML array_sort(array, order) — sorts `array` in place. `order` is either
+ * a plain boolean (`true` ascending, `false` descending — GameMaker's own
+ * default numeric/string comparison) or a comparator function, matching
+ * `Array.prototype.sort`'s own `(a, b) => number` shape exactly.
+ */
+export declare function array_sort(
+  arr: unknown[],
+  order: boolean | ((a: unknown, b: unknown) => number),
+): unknown[];
+/** GML array_contains(array, value) — true if `value` is present (strict equality, matching GameMaker's own value comparison for primitives). */
+export declare function array_contains(arr: unknown[], value: unknown): boolean;
+/**
+ * GML array_map(array, fn) — returns a new array with `fn(value, index)`
+ * applied to every element. Never mutates `array`, matching GameMaker's own
+ * "returns a modified copy" semantics.
+ */
+export declare function array_map(
+  arr: unknown[],
+  fn: (value: unknown, index: number) => unknown,
+): unknown[];
+/**
+ * GML array_filter(array, fn) — returns a new array containing only the
+ * elements for which `fn(value, index)` is truthy.
+ */
+export declare function array_filter(
+  arr: unknown[],
+  fn: (value: unknown, index: number) => boolean,
+): unknown[];
+/**
+ * GML array_reduce(array, fn, [init]) — folds `array` down to a single
+ * value via `fn(accumulator, value)`, seeded with `init` when given (GML's
+ * own default seed, when omitted, is the array's first element).
+ */
+export declare function array_reduce(
+  arr: unknown[],
+  fn: (accumulator: unknown, value: unknown) => unknown,
+  init?: unknown,
+): unknown;

@@ -1138,6 +1138,20 @@ Three independent, user-requested pieces:
 
 ---
 
+## 2026-09-25 (cont'd): GML `static` variable transpile fix
+
+Closes the one gap the previous pass left honestly unfixed: `static x = 0;` inside a transpiled GML function body previously produced a hard `SyntaxError` at runtime (`static` is only valid JS inside a `class` body).
+
+- [x] Confirmed real GameMaker `static` scoping semantics (script functions, struct-constructor methods, and object-event handlers each get "one static slot for the life of the function," not per-call/per-instance).
+- [x] `packages/engine/src/compat/gmlActions.ts`: new `gmlStatics: Record<string, unknown>` — one process-global, string-keyed store (not per-`World`/per-entity, since GML `static` is genuinely process-lifetime scoped). Re-exported from `index.ts`.
+- [x] `packages/toolchain/src/gms2-transpile.ts`: new "GML `static` variables" rewrite pass. Each top-level `static <name> (= <expr>)?;` becomes a lazy-init read/write against `gmlStatics` keyed by `<functionId>::<name>::<occurrence>` (collision-safe across different generated functions with same-named statics); every bare reference to that name inside the same declaration's function body is rewritten to the same slot.
+- [x] `packages/toolchain/src/gms2-codegen.ts`: generated functions now carry a stable `functionId` for the rewrite pass to key off.
+- [x] Tests: new cases in `gms2-transpile.test.ts` proving persistence across calls, single-run initialization, and no cross-function collision.
+- [x] CLAUDE.md's "GMS2.3+ syntax and array functions" section rewritten from "not yet fixed, honest gap" to describe the real fix.
+- Full suites green: `packages/engine` 64 files / 599 tests. `packages/toolchain` 23 files / 339 tests (excluding the known-flaky android test).
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
