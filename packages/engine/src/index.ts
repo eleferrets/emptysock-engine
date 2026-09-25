@@ -520,6 +520,7 @@ export {
   draw_rectangle,
   draw_circle,
   draw_text,
+  draw_sprite,
   draw_line,
   show_message,
   game_end,

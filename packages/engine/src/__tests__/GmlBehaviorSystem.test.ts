@@ -251,4 +251,35 @@ describe("GmlBehaviorSystem — Draw GUI is camera-independent, Draw is not", ()
 
     unregisterGmlBehavior("hud");
   });
+
+  it("draw_sprite (ctx.drawTarget.sprite) draws a real pixi Sprite child into the draw target — real gap: this used to be an inert comment-only placeholder", () => {
+    registerGmlBehavior("marker", {
+      onDraw: (_entity, ctx) => {
+        ctx.drawTarget?.sprite(
+          "./assets/sprites/spr_marker/frame_0.png",
+          10,
+          20,
+        );
+      },
+    } satisfies GmlBehaviorModule);
+
+    const entity = scene.spawn();
+    entity.add(GmlBehaviorState, { behaviorId: "marker" });
+
+    const system = new GmlBehaviorSystem();
+    pipeline.attachGmlBehaviors(system, { scene } as never);
+    pipeline.renderFrame(scene);
+
+    // A real pixi Sprite child (not just a Graphics/Text node) was added
+    // somewhere under the foreground layer's subtree.
+    const findSprite = (container: { children: readonly unknown[] }): boolean =>
+      container.children.some(
+        (child) =>
+          (child as { constructor: { name: string } }).constructor.name ===
+            "Sprite" || findSprite(child as { children: readonly unknown[] }),
+      );
+    expect(findSprite(pipeline.stage)).toBe(true);
+
+    unregisterGmlBehavior("marker");
+  });
 });

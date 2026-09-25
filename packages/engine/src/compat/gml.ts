@@ -246,6 +246,22 @@ export interface GmlDrawTarget {
   circle(x: number, y: number, r: number, outline: boolean): void;
   text(x: number, y: number, text: string): void;
   line(x1: number, y1: number, x2: number, y2: number): void;
+  /**
+   * `draw_sprite(sprite, subimg, x, y)` — draws a specific sprite at an
+   * explicit position, independent of the drawing entity's own `Sprite`
+   * component (real, confirmed real-world usage: `draw_sprite(spr_marker,
+   * 0, x, y)` — a *different* sprite than the object's own default one,
+   * from a real project's `obj_text`'s `Draw_0.gml`; `draw_sprite(_image,
+   * 0, _drawX + _imageW / 2, _drawY + _imageH / 2)` — a dynamically chosen
+   * image at a *custom* offset position, from a real project's `oTextbox`'s
+   * `Draw_64.gml`). `subimg` (GameMaker's per-frame index) is honestly not
+   * modelled — this importer only ever copies a sprite's first frame (see
+   * CLAUDE.md's `image_index`/`image_speed` entry for the same,
+   * already-documented multi-frame-animation gap), so `subimg` is accepted
+   * for real call sites to keep their real argument count but always draws
+   * frame 0.
+   */
+  sprite(texturePath: string, x: number, y: number): void;
 }
 
 export function draw_set_colour(target: GmlDrawTarget, hex: number): void {
@@ -280,6 +296,23 @@ export function draw_text(
   text: string,
 ): void {
   target.text(x, y, text);
+}
+
+/**
+ * `draw_sprite(sprite, subimg, x, y)` — GameMaker's own argument order has
+ * `subimg` between the sprite reference and the position, but `subimg` is
+ * honestly not modelled (see `GmlDrawTarget.sprite`'s own doc comment), so
+ * it's accepted here purely to keep a real call site's argument count and
+ * position intact — it's never read.
+ */
+export function draw_sprite(
+  target: GmlDrawTarget,
+  texturePath: string,
+  _subimg: number,
+  x: number,
+  y: number,
+): void {
+  target.sprite(texturePath, x, y);
 }
 
 export function draw_line(

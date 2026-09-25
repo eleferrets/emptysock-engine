@@ -88,7 +88,10 @@ export interface TileLayerSource {
 class PixiGmlDrawTarget implements GmlDrawTarget {
   private _color = 0x000000;
 
-  constructor(private readonly _graphics: Graphics) {
+  constructor(
+    private readonly _graphics: Graphics,
+    private readonly _resolveTexture: (path: string) => Texture,
+  ) {
     this._graphics.clear();
     this._graphics.removeChildren();
   }
@@ -121,6 +124,14 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
       .moveTo(x1, y1)
       .lineTo(x2, y2)
       .stroke({ color: this._color, width: 1 });
+  }
+
+  sprite(texturePath: string, x: number, y: number): void {
+    const pixiSprite = new PixiSprite(this._resolveTexture(texturePath));
+    pixiSprite.anchor.set(0.5);
+    pixiSprite.x = x;
+    pixiSprite.y = y;
+    this._graphics.addChild(pixiSprite);
   }
 }
 
@@ -534,7 +545,9 @@ export class RenderPipeline implements SceneRenderer {
       container.addChild(graphics);
       table.set(entity.eid, graphics);
     }
-    return new PixiGmlDrawTarget(graphics);
+    return new PixiGmlDrawTarget(graphics, (path) =>
+      this._resolveTextureForDraw(path),
+    );
   }
 
   private _pruneGmlGraphics(
@@ -946,6 +959,37 @@ export class RenderPipeline implements SceneRenderer {
       this._render.stage.addChild(container);
     }
     return container;
+  }
+
+  /**
+   * Synchronous texture lookup for `draw_sprite` (`PixiGmlDrawTarget.
+   * sprite()`) — unlike `_applyTexture` above, there is no live tracked
+   * `PixiSprite`/`PerspectiveMesh` to update once an async load resolves:
+   * a `draw_sprite` call creates a brand-new `Sprite` fresh every dispatch
+   * (GML's own semantic — it's drawn this frame, not a persistent object),
+   * so there's nothing to retroactively re-texture. Returns the cached
+   * texture if already loaded, otherwise kicks off the same shared
+   * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`
+   * (so a *later* `draw_sprite` call for the same path is cache-hit) and
+   * returns `Texture.WHITE` for this frame only — the same "visible
+   * placeholder, not a blank hole" fallback `_applyTexture` already uses
+   * for an empty path.
+   */
+  private _resolveTextureForDraw(path: string): Texture {
+    if (path === "") return Texture.WHITE;
+    const cached = this._textureCache.get(path);
+    if (cached !== undefined) return cached;
+    this._loadTexture(path)
+      .then((texture) => {
+        this._textureCache.set(path, texture);
+      })
+      .catch((err: unknown) => {
+        console.error(
+          `[RenderPipeline] failed to load texture "${path}" for draw_sprite:`,
+          err,
+        );
+      });
+    return Texture.WHITE;
   }
 
   /**

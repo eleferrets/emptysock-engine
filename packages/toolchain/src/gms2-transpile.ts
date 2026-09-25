@@ -1189,17 +1189,16 @@ export function transpileGML(gml: string): string {
       `(undefined /* TODO: scene.createEntity() and add ObjX component */)${semi ?? ""}`,
   );
 
-  // audio_play_sound(snd, priority, loop) / room_goto(rm_next) / draw_sprite
-  // — GML allows any of these to be the sole (unbraced) body of an `if`/
-  // `else` with no surrounding block: `if (cond) room_goto(rm_next);` is
-  // real, common GML. A `// ...` line-comment substitution leaves that
-  // `if` with no statement body at all — a hard parse error, not the
-  // "honestly unresolved" case a bare identifier would be — the same
-  // expression-vs-statement issue `instance_create_layer`/
-  // `instance_destroy` (above) already had to be fixed for. A value-
-  // returning `(undefined /* ... */)` stays a valid statement (and a valid
-  // sub-expression, for the same reason) in every position a genuine
-  // function call could have appeared in.
+  // audio_play_sound(snd, priority, loop) / room_goto(rm_next) — GML allows
+  // either of these to be the sole (unbraced) body of an `if`/`else` with
+  // no surrounding block: `if (cond) room_goto(rm_next);` is real, common
+  // GML, which is exactly the shape both real rewrites below already
+  // produce (a real call, still a valid single statement either way).
+  // (`draw_sprite` used to be discussed in this same paragraph, back when
+  // all three were comment-only placeholders — it now has its own real
+  // rewrite further below, alongside `draw_rectangle`/`draw_text`/etc.,
+  // since it threads through `_ctx.drawTarget` instead of `GmlActions`.)
+  //
   // `audio_play_sound`/`room_goto` used to be comment-only placeholders
   // here — a severe, real gap, not a stylistic one: both are among the
   // single most common GameMaker calls in real projects (sound effects,
@@ -1244,13 +1243,40 @@ export function transpileGML(gml: string): string {
     (_m, rm: string, semi?: string) =>
       `GmlActions.room_goto(_entity, _ctx, ${bareOrQuoted(rm.trim())})${semi ?? ";"}`,
   );
+  // `draw_sprite` used to be an unconditional comment-only placeholder
+  // ("Sprite component handles drawing declaratively") — true for the
+  // narrow case of an object redrawing its own already-assigned sprite,
+  // but wrong for real, confirmed usage: `draw_sprite(spr_marker, 0, x,
+  // y)` draws a *different* sprite than the calling object's own
+  // `sprite_index` (`obj_text`'s real `Draw_0.gml`), and `draw_sprite
+  // (_image, 0, _drawX + _imageW / 2, _drawY + _imageH / 2)` draws a
+  // dynamically-chosen image at a *custom* offset position, not the
+  // entity's own transform (`oTextbox`'s real `Draw_64.gml`). Treating
+  // every `draw_sprite` call as a no-op silently dropped real visual
+  // content in both cases. See below for the real rewrite.
+
+  // draw_sprite(sprite, subimg, x, y) — GameMaker's own argument order.
+  // The sprite argument is resolved the same "bare identifier -> quoted
+  // texture path" convention `sprite_index`'s own bare-identifier rewrite
+  // already establishes (`./assets/sprites/<name>/frame_0.png`), so a
+  // `draw_sprite` call naming a real converted sprite asset draws the same
+  // texture that sprite's own `.prefab.json`/`sprite_index` assignment
+  // would. `subimg` is dropped — see `GmlDrawTarget.sprite`'s own doc
+  // comment in `@emptysock/engine`'s `compat/gml.ts` for why (this
+  // importer only ever converts a sprite's first frame, the same
+  // already-documented `image_index`/`image_speed` gap).
   out = out.replace(
     new RegExp(
-      `\\bdraw_sprite\\s*\\(${BALANCED_PARENS_ONE_LEVEL}\\)(\\s*;)?`,
+      `\\bdraw_sprite\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
       "g",
     ),
-    (_m, semi?: string) =>
-      `(undefined /* Sprite component handles drawing declaratively */)${semi ?? ""}`,
+    (_m, args: string) => {
+      const [spriteArg, , x, y] = splitTopLevelArgs(args, 4);
+      const texturePath = /^[A-Za-z_]\w*$/.test((spriteArg ?? "").trim())
+        ? `"./assets/sprites/${(spriteArg ?? "").trim()}/frame_0.png"`
+        : (spriteArg ?? "").trim();
+      return `_ctx.drawTarget?.sprite(${texturePath}, ${x}, ${y});`;
+    },
   );
 
   // draw_set_colour/draw_rectangle/draw_circle/draw_text/draw_line — real

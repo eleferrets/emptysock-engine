@@ -584,9 +584,32 @@ describe("transpileGML", () => {
     );
   });
 
-  it("draw_sprite still keeps an unbraced if-body valid (draws declaratively via the Sprite component, a real, deliberate no-op)", () => {
+  it("draw_sprite threads into a real _ctx.drawTarget.sprite() call — real gap found in obj_text/oTextbox, where a different sprite than the object's own is drawn", () => {
+    const out = transpileGML("draw_sprite(spr_marker, 0, x, y);");
+    expect(out).toContain(
+      '_ctx.drawTarget?.sprite("./assets/sprites/spr_marker/frame_0.png", x, y);',
+    );
+  });
+
+  it("draw_sprite passes a non-identifier sprite argument (a member expression) through unchanged", () => {
+    const out = transpileGML("draw_sprite(obj_x.spr, 0, _drawX, _drawY);");
+    expect(out).toContain(
+      "_ctx.drawTarget?.sprite(obj_x.spr, _drawX, _drawY);",
+    );
+  });
+
+  it("draw_sprite treats a bare identifier as an asset name, the same convention sprite_index already uses (including for a local-variable-shaped case, a real, pre-existing, accepted limitation — real project shape found in oTextbox's Draw_64.gml)", () => {
+    const out = transpileGML("draw_sprite(_image, 0, _drawX, _drawY);");
+    expect(out).toContain(
+      '_ctx.drawTarget?.sprite("./assets/sprites/_image/frame_0.png", _drawX, _drawY);',
+    );
+  });
+
+  it("draw_sprite keeps an unbraced if-body valid, now as a real threaded call", () => {
     const out = transpileGML("if (cond) draw_sprite(spr_foo, 0, x, y);");
-    expect(out).toMatch(/if \(cond\)\s*\(undefined/);
+    expect(out).toContain(
+      'if (cond) _ctx.drawTarget?.sprite("./assets/sprites/spr_foo/frame_0.png", x, y);',
+    );
   });
 
   it("audio_play_sound threads a bare sound-asset identifier into a real GmlActions.audio_play_sound call — real gap found in obj_player_dead/obj_Egun/obj_menu", () => {
