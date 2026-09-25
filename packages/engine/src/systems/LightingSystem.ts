@@ -57,6 +57,10 @@ export interface LightSample {
   colour: number;
   intensity: number;
   falloff: number;
+  /** Cone wedge angle, radians. `2*Math.PI` (a full circle) is an ordinary point light — see `LightSource.coneAngle`'s doc comment. */
+  coneAngle: number;
+  /** Cone direction, radians. Only matters when `coneAngle < 2*Math.PI`. See `LightSource.coneDirection`. */
+  coneDirection: number;
   /**
    * The light's real, occlusion-aware visible region, in world space —
    * `null` when no `LightOccluder` was within this light's radius (the
@@ -168,7 +172,16 @@ export class LightingSystem {
         colour: light.colour,
         intensity: light.intensity,
         falloff: light.falloff,
-        visibility: this._computeVisibility(x, y, light.radius, occluders),
+        coneAngle: (light.coneAngle * Math.PI) / 180,
+        coneDirection: (light.coneDirection * Math.PI) / 180,
+        visibility: this._computeVisibility(
+          x,
+          y,
+          light.radius,
+          occluders,
+          (light.coneAngle * Math.PI) / 180,
+          (light.coneDirection * Math.PI) / 180,
+        ),
       });
     });
 
@@ -206,6 +219,8 @@ export class LightingSystem {
     lightY: number,
     radius: number,
     occluders: readonly OccluderBox[],
+    coneAngle: number,
+    coneDirection: number,
   ): Point[] | null {
     const segments: Segment[] = [];
     for (const box of occluders) {
@@ -237,7 +252,12 @@ export class LightingSystem {
       }
     }
 
-    const polygon = computeVisibilityPolygon(radius, segments, this.raySamples);
+    const polygon = computeVisibilityPolygon(
+      radius,
+      segments,
+      this.raySamples,
+      { direction: coneDirection, angle: coneAngle },
+    );
     if (polygon === null) return null;
     return polygon.map((p) => ({ x: p.x + lightX, y: p.y + lightY }));
   }

@@ -15,6 +15,10 @@ export interface LightSample {
   colour: number;
   intensity: number;
   falloff: number;
+  /** Cone wedge angle, radians. `2*Math.PI` (a full circle) is an ordinary point light — see `LightSource.coneAngle`'s doc comment. */
+  coneAngle: number;
+  /** Cone direction, radians. Only matters when `coneAngle < 2*Math.PI`. See `LightSource.coneDirection`. */
+  coneDirection: number;
   /**
    * The light's real, occlusion-aware visible region, in world space —
    * `null` when no `LightOccluder` was within this light's radius (the

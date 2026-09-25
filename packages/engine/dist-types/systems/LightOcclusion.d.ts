@@ -18,16 +18,31 @@ export interface Segment {
  * light's own position first; this keeps every trig call in this function
  * origin-relative and avoids re-deriving it per ray.
  *
- * Returns `null` when `segments` is empty — the light is fully unoccluded,
- * and the caller should render its ordinary, un-masked circular falloff
- * (this is what keeps "no occluders present" behaviourally identical to the
- * pre-occlusion implementation: nobody has to special-case an "everything
- * visible" polygon shaped like a many-sided circle approximation).
+ * Returns `null` when `segments` is empty and `cone` is not given — the
+ * light is fully unoccluded, and the caller should render its ordinary,
+ * un-masked circular falloff (this is what keeps "no occluders present"
+ * behaviourally identical to the pre-occlusion implementation: nobody has
+ * to special-case an "everything visible" polygon shaped like a many-sided
+ * circle approximation).
+ *
+ * `cone`, when given, restricts the light to a spot/cone wedge —
+ * `direction`/`angle` in radians, the wedge spanning
+ * `[direction - angle/2, direction + angle/2]`. A cone light always returns
+ * a real polygon (never `null`, even with zero occluders) since a wedge is
+ * never "the ordinary un-masked circle" — the returned polygon is a real
+ * pie-slice: the origin `(0, 0)` itself (the light's own position, in the
+ * same origin-relative space every other point here is in) is included as
+ * the first and last vertex so the two straight cone edges are part of the
+ * polygon, not just its arc.
  */
 export declare function computeVisibilityPolygon(
   radius: number,
   segments: readonly Segment[],
   raySamples?: number,
+  cone?: {
+    direction: number;
+    angle: number;
+  },
 ): Point[] | null;
 /**
  * Even-odd point-in-polygon test (ray casting). Exported for tests that

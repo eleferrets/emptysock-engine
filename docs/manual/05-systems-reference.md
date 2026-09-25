@@ -499,6 +499,31 @@ UISystem.clear();
 
 ---
 
+## 5.12.1 FontRegistry
+
+`Game`-scoped registry mapping a font id string to a `FontDescriptor` (family/size/bold/italic) — the real component for working with named fonts. Reachable via `game.fonts` or `ctx.fonts` inside a scene's `onLoad`/`onUpdate`, the same `SceneLifecycle` convenience `ctx.audio`/`ctx.input` already use. See [FontRegistry reference](../reference/systems/font-registry.md) for the full API.
+
+```typescript
+import { FontRegistry, UISystem, Label } from "@emptysock/engine";
+
+game.fonts.register("fnt_menu", {
+  family: "Impact",
+  size: 24,
+  bold: true,
+  italic: false,
+});
+
+// Pass the registry into UISystem so fontId resolution is live:
+const ui = new UISystem(widgetTree, { fonts: game.fonts });
+
+// A widget references the font by id instead of spelling out font/fontSize:
+entity.add(Label, { text: "Play", fontId: "fnt_menu" });
+```
+
+`Label`, `ButtonState`, and `Checkbox` each carry a `fontId` field alongside their existing raw `font`/`fontSize` fields — `fontId` is resolved through the injected `FontRegistry` when set and registered, falling back to the widget's own raw `font`/`fontSize` otherwise. `@emptysock/toolchain`'s GMS2 importer emits a generated `assets/<name>.font.ts` module (family/size/style metadata only — no glyph atlas, since this engine's text rendering is plain Canvas/CSS, not a bitmap-font renderer) ready to hand straight to `game.fonts.register()`.
+
+---
+
 ## 5.13 PostProcessSystem
 
 Screen-space post-processing pipeline. Effects are applied as WebGL fragment shader passes after the scene is rendered to an offscreen framebuffer.
@@ -1771,3 +1796,31 @@ const seq = new SequenceSystem();
 seq.play(tweens, target, def);
 tweens.update(deltaTime); // per frame
 ```
+
+---
+
+## 5.38 LightingSystem
+
+Real 2D dynamic point/spot lights with shadow-casting occlusion, collected each frame from `LightSource`/`LightOccluder` components and rendered by `RenderSystem.syncLighting()` via a real offscreen lightmap texture composited with `pixi-filters`' `SimpleLightmapFilter`.
+
+- `LightSource` fields: `radius`, `colour` (`0xRRGGBB`), `intensity`, `falloff`, `offsetX`/`offsetY`, `enabled`, and `coneAngle`/`coneDirection` (degrees) — `coneAngle: 360` (the default) is an ordinary point light; a smaller value restricts the light to a real pie-slice wedge (a flashlight/spotlight), still fully shadow-cast against `LightOccluder`s within its radius.
+- `LightOccluder` fields: `width`/`height` (an axis-aligned box), `offsetX`/`offsetY`, `enabled`.
+- `LightingSystem.ambient: { colour, level }` — scene-wide darkness (`level: 0` = pitch black except lit areas, `1` = fully lit).
+- `LightingSystem.collectLights(scene, reference?)` returns a plain `LightSample[]` (`RenderSystem.syncLighting()`'s input) — capped at `maxLights`, nearest `reference` kept when over the cap.
+
+```typescript
+import { LightingSystem, LightSource, LightOccluder } from "@emptysock/engine";
+
+const torch = scene.spawn();
+torch.add(LightSource, { radius: 150, colour: 0xffaa33, intensity: 1.1 });
+
+const wall = scene.spawn();
+wall.add(LightOccluder, { width: 32, height: 96 });
+
+const lighting = new LightingSystem();
+lighting.ambient = { colour: 0xffffff, level: 0.1 };
+const lights = lighting.collectLights(scene, { x: cameraX, y: cameraY });
+renderSystem.syncLighting(lights, lighting.ambient, viewport);
+```
+
+**GML compat.** `compat/gmlLighting.ts` wires a real, custom GameMaker lighting system (a `lightrender`-style controller plus per-instance light objects — GameMaker itself has no built-in lighting API) onto `LightSource`/`LightOccluder`: `light_attach(entity, ctx, radius, colour, options?)`, `light_set_enabled`/`_colour`/`_radius`/`_intensity`, `light_remove`, `light_occluder_attach(entity, ctx, width?, height?)`, `light_occluder_set_enabled`/`_remove`, and `lighting_set_ambient(ctx, colour, level)`/`lighting_get_ambient(ctx)` against an optional `ctx.lighting: LightingSystem`. See [LightingSystem reference](../reference/systems/lighting-system.md).

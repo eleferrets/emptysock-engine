@@ -31,4 +31,20 @@ export declare const LightSource: import("../Component.js").ComponentDef<{
   offsetY: number;
   /** A disabled light is skipped by `LightingSystem.collectLights()` entirely — cheaper than removing/re-adding the component for a flickering torch, and a real on/off switch for gameplay (a torch that's been extinguished). */
   enabled: boolean;
+  /**
+   * Cone/spot-light wedge angle, in degrees, centred on `coneDirection`.
+   * `360` (the default) is an ordinary point light — every angle around
+   * the light is lit, matching this component's original point-light-only
+   * behaviour exactly, byte-for-byte (see `LightingSystem.collectLights()`
+   * / `LightOcclusion.computeVisibilityPolygon()`'s own doc comments for
+   * why a value `>= 360` never enters the cone-clipping path at all). A
+   * value `< 360` restricts the light to a real pie-slice wedge — a
+   * flashlight, a headlamp, a streetlamp's downward cone — the common
+   * "spot light" case real GameMaker lighting systems (e.g. the
+   * `Crystal`/`ED5` community lighting assets) support alongside plain
+   * point lights.
+   */
+  coneAngle: number;
+  /** Cone direction in degrees, `0` pointing along +X, increasing clockwise (screen-space convention, matching `Transform.rotation`'s degrees-vs-radians sibling fields elsewhere in this codebase). Only matters when `coneAngle < 360`. */
+  coneDirection: number;
 }>;

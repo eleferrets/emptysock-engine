@@ -76,26 +76,46 @@ function raySegmentIntersection(
  * angles evenly spaced around the full circle to keep an occluder-free arc
  * looking like an arc rather than a polygon chord. Deduplicated and sorted
  * ascending.
+ *
+ * When `coneStart`/`coneEnd` are given (a spot light — see
+ * `computeVisibilityPolygon`'s doc comment), every angle outside
+ * `[coneStart, coneEnd]` is dropped and the two cone-edge angles themselves
+ * are added, so the returned list only ever spans the cone's own wedge.
  */
 function buildAngleList(
   segments: readonly Segment[],
   raySamples: number,
+  coneStart?: number,
+  coneEnd?: number,
 ): number[] {
   const angles = new Set<number>();
+  const inCone = (a: number): boolean =>
+    coneStart === undefined || coneEnd === undefined
+      ? true
+      : a >= coneStart && a <= coneEnd;
 
   for (const seg of segments) {
     const a1 = Math.atan2(seg.ay, seg.ax);
     const a2 = Math.atan2(seg.by, seg.bx);
     for (const a of [a1, a2]) {
-      angles.add(a);
-      angles.add(a - CORNER_EPSILON);
-      angles.add(a + CORNER_EPSILON);
+      for (const candidate of [a, a - CORNER_EPSILON, a + CORNER_EPSILON]) {
+        if (inCone(candidate)) angles.add(candidate);
+      }
     }
   }
 
-  const samples = Math.max(3, raySamples);
-  for (let i = 0; i < samples; i++) {
-    angles.add((i / samples) * Math.PI * 2 - Math.PI);
+  if (coneStart !== undefined && coneEnd !== undefined) {
+    angles.add(coneStart);
+    angles.add(coneEnd);
+    const samples = Math.max(2, raySamples);
+    for (let i = 0; i <= samples; i++) {
+      angles.add(coneStart + (i / samples) * (coneEnd - coneStart));
+    }
+  } else {
+    const samples = Math.max(3, raySamples);
+    for (let i = 0; i < samples; i++) {
+      angles.add((i / samples) * Math.PI * 2 - Math.PI);
+    }
   }
 
   return Array.from(angles).sort((a, b) => a - b);
@@ -110,21 +130,38 @@ function buildAngleList(
  * light's own position first; this keeps every trig call in this function
  * origin-relative and avoids re-deriving it per ray.
  *
- * Returns `null` when `segments` is empty — the light is fully unoccluded,
- * and the caller should render its ordinary, un-masked circular falloff
- * (this is what keeps "no occluders present" behaviourally identical to the
- * pre-occlusion implementation: nobody has to special-case an "everything
- * visible" polygon shaped like a many-sided circle approximation).
+ * Returns `null` when `segments` is empty and `cone` is not given — the
+ * light is fully unoccluded, and the caller should render its ordinary,
+ * un-masked circular falloff (this is what keeps "no occluders present"
+ * behaviourally identical to the pre-occlusion implementation: nobody has
+ * to special-case an "everything visible" polygon shaped like a many-sided
+ * circle approximation).
+ *
+ * `cone`, when given, restricts the light to a spot/cone wedge —
+ * `direction`/`angle` in radians, the wedge spanning
+ * `[direction - angle/2, direction + angle/2]`. A cone light always returns
+ * a real polygon (never `null`, even with zero occluders) since a wedge is
+ * never "the ordinary un-masked circle" — the returned polygon is a real
+ * pie-slice: the origin `(0, 0)` itself (the light's own position, in the
+ * same origin-relative space every other point here is in) is included as
+ * the first and last vertex so the two straight cone edges are part of the
+ * polygon, not just its arc.
  */
 export function computeVisibilityPolygon(
   radius: number,
   segments: readonly Segment[],
   raySamples = 32,
+  cone?: { direction: number; angle: number },
 ): Point[] | null {
-  if (segments.length === 0) return null;
+  const isCone = cone !== undefined && cone.angle < Math.PI * 2 - 1e-6;
+  if (!isCone && segments.length === 0) return null;
 
-  const angles = buildAngleList(segments, raySamples);
+  const coneStart = isCone ? cone.direction - cone.angle / 2 : undefined;
+  const coneEnd = isCone ? cone.direction + cone.angle / 2 : undefined;
+  const angles = buildAngleList(segments, raySamples, coneStart, coneEnd);
   const points: Point[] = [];
+
+  if (isCone) points.push({ x: 0, y: 0 });
 
   for (const angle of angles) {
     const dirX = Math.cos(angle);
@@ -138,6 +175,8 @@ export function computeVisibilityPolygon(
 
     points.push({ x: dirX * closest, y: dirY * closest });
   }
+
+  if (isCone) points.push({ x: 0, y: 0 });
 
   return points;
 }

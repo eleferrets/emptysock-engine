@@ -353,6 +353,13 @@ export {
   gmlActionsStep,
   clearGmlActionState,
 } from "./compat/gmlActions.js";
+/**
+ * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
+ * entry's `sequence_index` research and `compat/gmlSequences.ts`'s own doc
+ * comment) — the one real GML source shape a Sequence-driven entity is
+ * spawned from.
+ */
+export { layer_sequence_create } from "./compat/gmlSequences.js";
 export type { GmlDrawTarget } from "./compat/gml.js";
 export {
   getGmlVar,
@@ -400,6 +407,29 @@ export {
   file_text_close,
   file_delete,
 } from "./compat/gmlFileText.js";
+
+/**
+ * Compat layer for a real, custom GameMaker lighting system
+ * (`lightrender`-style controller + per-instance light objects) onto this
+ * engine's own `LightingSystem`/`LightSource`/`LightOccluder` — see
+ * `compat/gmlLighting.ts`'s module doc comment for why GameMaker itself has
+ * no fixed API here to transpile from, and what a Create-event call site
+ * looks like once this exists.
+ */
+export type { GmlLightingContext } from "./compat/gmlLighting.js";
+export {
+  light_attach,
+  light_set_enabled,
+  light_set_colour,
+  light_set_radius,
+  light_set_intensity,
+  light_remove,
+  light_occluder_attach,
+  light_occluder_set_enabled,
+  light_occluder_remove,
+  lighting_set_ambient,
+  lighting_get_ambient,
+} from "./compat/gmlLighting.js";
 
 /**
  * GameMaker Studio 2 particle-function compat (`part_type_*`/`part_system_*`)

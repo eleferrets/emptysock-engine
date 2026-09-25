@@ -84,6 +84,63 @@ describe("boxWithinReach", () => {
   });
 });
 
+describe("computeVisibilityPolygon — cone/spot lights", () => {
+  it("a 90-degree cone facing +X (direction 0) never covers a point directly behind it (-X)", () => {
+    const polygon = requirePolygon(
+      computeVisibilityPolygon(200, [], 32, {
+        direction: 0,
+        angle: Math.PI / 2,
+      }),
+    );
+    expect(pointInPolygon({ x: -150, y: 0 }, polygon)).toBe(false);
+  });
+
+  it("that same cone DOES cover a point straight ahead, within its own radius", () => {
+    const polygon = requirePolygon(
+      computeVisibilityPolygon(200, [], 32, {
+        direction: 0,
+        angle: Math.PI / 2,
+      }),
+    );
+    expect(pointInPolygon({ x: 100, y: 0 }, polygon)).toBe(true);
+  });
+
+  it("a narrow cone excludes a point just outside its own half-angle", () => {
+    // 30-degree wide cone facing +X (=/- 15 degrees). A point at 45 degrees
+    // off-axis, well within radius, must be excluded.
+    const polygon = requirePolygon(
+      computeVisibilityPolygon(200, [], 64, {
+        direction: 0,
+        angle: (30 * Math.PI) / 180,
+      }),
+    );
+    const angle = (45 * Math.PI) / 180;
+    const point = { x: Math.cos(angle) * 100, y: Math.sin(angle) * 100 };
+    expect(pointInPolygon(point, polygon)).toBe(false);
+  });
+
+  it("a cone with angle >= 360 degrees (2*PI) is treated as an ordinary point light — returns null with no occluders", () => {
+    expect(
+      computeVisibilityPolygon(200, [], 32, {
+        direction: 0,
+        angle: Math.PI * 2,
+      }),
+    ).toBeNull();
+  });
+
+  it("a cone still respects real occlusion within its own wedge", () => {
+    // Wall directly ahead (+X) of a cone that's pointed at +X.
+    const segments: Segment[] = [{ ax: 50, ay: -100, bx: 50, by: 100 }];
+    const polygon = requirePolygon(
+      computeVisibilityPolygon(200, segments, 64, {
+        direction: 0,
+        angle: Math.PI / 2,
+      }),
+    );
+    expect(pointInPolygon({ x: 150, y: 0 }, polygon)).toBe(false);
+  });
+});
+
 describe("boxOccluderSegments", () => {
   it("produces four edges forming the expected rectangle", () => {
     const segs = boxOccluderSegments(0, 0, 10, 20);
