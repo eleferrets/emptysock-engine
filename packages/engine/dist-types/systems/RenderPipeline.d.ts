@@ -2,10 +2,12 @@ import { Container, Texture } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
-import { type RenderSystemOptions } from "./RenderSystem.js";
+import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
+import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
+import type { GmlActionContext } from "../compat/gmlActions.js";
 /**
  * The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
  * the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
@@ -70,13 +72,11 @@ export interface RenderPipelineOptions extends Omit<
   textureLoader?: TextureLoader;
 }
 /**
- * ECS-core equivalent of `../../systems/RenderPipeline.ts`, built on the `defineComponent`/
- * `Scene.each` object model, and `Game`'s `SceneRenderer` shape (ENGINE_DESIGN.md
- * §4 step 7 / §12.3). Reuses the classic `RenderSystem` (the raw PixiJS wrapper) and
- * `LayerSystem` (layer-level ordering/visibility, via `RenderSystem`'s
- * `getLayerContainer`/`syncLayerVisibility`) unchanged — neither imports the
- * classic `core/Entity.ts`/`Scene.ts`, so there was nothing incompatible
- * about them to begin with.
+ * Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
+ * `SceneRenderer` shape (ENGINE_DESIGN.md §4 step 7 / §12.3). Uses
+ * `RenderSystem` (the raw PixiJS wrapper) and `LayerSystem` (layer-level
+ * ordering/visibility, via `RenderSystem`'s `getLayerContainer`/
+ * `syncLayerVisibility`).
  *
  * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
  * after auditing the actual code:** the original plan called for rebuilding
@@ -87,23 +87,21 @@ export interface RenderPipelineOptions extends Omit<
  * transforms, and throws on `addChild()` itself — but this renderer already
  * writes sprites' `x`/`y` in absolute coordinates directly onto the sprite
  * (no nested world-transform hierarchy `RenderLayer` would decouple draw
- * order from), and `getLayerContainer(name)`'s callers (this class *and*
- * the classic `RenderPipeline`, both real, both staying) already do
+ * order from), and `getLayerContainer(name)`'s callers already do
  * `container.addChild(pixiSprite)` directly. Swapping to `RenderLayer`
- * would mean reworking `RenderSystem`'s shared public API (used by both
- * pipelines) for a decoupling this flat architecture has no actual use
- * for. The one real bug the original plan was chasing — `LayerSystem`'s
- * per-entity placement map (`addEntity`/`removeEntity`/`getEntityLayer`/
- * `getEntityDepth`) being raw-eid-keyed with no scene scoping — turned out
- * to have zero real readers anywhere in the codebase (confirmed by grep:
+ * would mean reworking `RenderSystem`'s shared public API for a decoupling
+ * this flat architecture has no actual use for. The one real bug the
+ * original plan was chasing — `LayerSystem`'s per-entity placement map
+ * (`addEntity`/`removeEntity`/`getEntityLayer`/`getEntityDepth`) being
+ * raw-eid-keyed with no scene scoping — turned out to have zero real
+ * readers anywhere in the codebase (confirmed by grep:
  * `getEntityLayer`/`getEntityDepth`/`getEntitiesOnLayer` are called
- * nowhere, not even by the classic pipeline that also writes to them) —
- * it was writing per-frame bookkeeping data that got read by nothing, not
- * a scoping bug actively corrupting real behavior. This class no longer
- * calls `addEntity`/`removeEntity` at all (dead write removed); the layer-
- * *level* concepts `LayerSystem` still provides (name → index/visibility)
- * remain real and unchanged, since `RenderSystem` genuinely needs those for
- * stage ordering and `syncLayerVisibility()`.
+ * nowhere) — it was writing per-frame bookkeeping data that got read by
+ * nothing, not a scoping bug actively corrupting real behavior. This class
+ * no longer calls `addEntity`/`removeEntity` at all (dead write removed);
+ * the layer-*level* concepts `LayerSystem` still provides (name →
+ * index/visibility) remain real and unchanged, since `RenderSystem`
+ * genuinely needs those for stage ordering and `syncLayerVisibility()`.
  *
  * On `renderFrame(main, overlays)` it:
  *
@@ -123,8 +121,7 @@ export interface RenderPipelineOptions extends Omit<
  * own bitECS `World`, and each `World`'s entity ids independently start from
  * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
  * therefore has several *different* entities that all report `eid === 3`.
- * Tracking sprites in one flat `Map<number, PixiSprite>` (what the classic
- * single-scene `RenderPipeline` does, and all it ever needed to do) would silently
+ * Tracking sprites in one flat `Map<number, PixiSprite>` would silently
  * alias an overlay's entity 3 onto the main scene's. This class instead keys
  * its sprite/texture-path tracking per `Scene` (`Map<Scene, SceneTracking>`)
  * — one level of scoping up from `ComponentRegistry`'s per-`World` scoping
@@ -166,6 +163,17 @@ export declare class RenderPipeline implements SceneRenderer {
    */
   private _postProcess;
   /**
+   * Set via `attachGmlBehaviors()`. When present, `renderFrame()` dispatches
+   * the main scene's `GmlBehaviorState` entities' `onDraw`/`onDrawGui` once
+   * per frame — see `_renderGmlDraw()`'s doc comment for the real mechanism
+   * (a genuine second render pass, not a per-sprite special case).
+   */
+  private _gmlBehaviors;
+  private _gmlCtx;
+  /** Per-entity pixi `Graphics`, rebuilt (cleared + redrawn) every call — one map per draw kind, keyed by eid, scoped to whichever `Scene` is currently the main scene (mirrors `_tracking`'s per-`Scene` scoping; GML Draw/Draw GUI dispatch only ever covers the main scene today). */
+  private readonly _gmlDrawGraphics;
+  private readonly _gmlDrawGuiGraphics;
+  /**
    * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
    * own doc comment) with zero pixi dependency — it was never actually
@@ -183,6 +191,18 @@ export declare class RenderPipeline implements SceneRenderer {
   /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
   private _transitionOverlay;
   constructor(options?: RenderPipelineOptions);
+  /**
+   * Attach (or detach, with `null`) a `GmlBehaviorSystem` and the
+   * `GmlActionContext` its dispatch calls should receive. `ctx.drawTarget`
+   * is overwritten per-call by `_renderGmlDraw()` — whatever `drawTarget` is
+   * set on the `ctx` passed here is ignored.
+   */
+  attachGmlBehaviors(
+    system: GmlBehaviorSystem | null,
+    ctx: GmlActionContext | null,
+  ): void;
+  /** The camera-independent overlay container `GmlBehaviorSystem`'s Draw GUI dispatch draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
+  get guiLayer(): Container;
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
   attachPostProcess(postProcess: PostProcessSystem | null): void;
   /**
@@ -218,6 +238,18 @@ export declare class RenderPipeline implements SceneRenderer {
   get renderer(): Renderer;
   get stage(): Container;
   get canvas(): HTMLCanvasElement;
+  /**
+   * Thin passthrough to `RenderSystem.renderMultiCamera()` — game code
+   * (and `GmsProjectRuntime`, once wired) talks to `RenderPipeline`, never
+   * the lower-level `RenderSystem` directly, so this is the real call site
+   * for GameMaker-style multi-view compositing. Does not itself call
+   * `syncEntities()`/`renderFrame()` — call this *instead of*
+   * `renderFrame()` for a frame that wants every active camera slot
+   * composited, after the usual entity sync.
+   */
+  renderMultiCamera(
+    viewports: Parameters<RenderSystem["renderMultiCamera"]>[0],
+  ): void;
   resize(width: number, height: number): void;
   /**
    * `Game.update()` step 7's entry point (via `Game.attachRenderer(this)` —
@@ -228,11 +260,38 @@ export declare class RenderPipeline implements SceneRenderer {
    */
   renderFrame(main: Scene, overlays?: readonly Scene[]): void;
   /**
+   * Runs `GmlBehaviorSystem.renderDraw()`/`renderDrawGui()` for the main
+   * scene, once per frame — a genuine second (well, third counting the
+   * sprite sync) pass through `renderFrame()`, not a conditional bolted into
+   * `_syncOne()`'s per-sprite loop. It has to be a separate pass because the
+   * two draw kinds target structurally different containers: `onDraw`'s
+   * `Graphics` are parented under the `"foreground"` layer container (a
+   * child of `RenderSystem.stage`, so `CameraSystem`'s pan/zoom/rotate
+   * reaches it exactly like any world sprite), while `onDrawGui`'s are
+   * parented under `RenderSystem.guiStage` (a sibling of `stage`, never a
+   * descendant — see that getter's doc comment for why that alone is what
+   * gives Draw GUI its camera independence, with no per-call camera check
+   * anywhere in this method). A per-sprite special case in `_syncOne()`
+   * could not express "draw into a different container tree" at all, since
+   * that method only ever writes to one sprite's existing container.
+   *
+   * Each call's `Graphics` are cleared and redrawn from scratch (never
+   * diffed) — the same rebuild-every-frame tradeoff CLAUDE.md's
+   * "ParticleEmitter renders through a real pixi ParticleContainer" entry
+   * already accepts for particles. `_gmlDrawGraphics`/`_gmlDrawGuiGraphics`
+   * prune any entity that didn't draw this frame (destroyed, or its
+   * behavior module has no `onDraw`/`onDrawGui` this call), so a
+   * `GmlBehaviorState` entity that stops drawing doesn't leave a stale
+   * `Graphics` node in the tree.
+   */
+  private _renderGmlDraw;
+  private _acquireGmlGraphics;
+  private _pruneGmlGraphics;
+  /**
    * Paints the scene-transition overlay described by `postProcess`'s
    * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
-   * the stage — the exact same overlay-based approach (a single colour
-   * rect, never two live scenes rendered simultaneously) as the classic
-   * `systems/RenderPipeline.ts`'s `renderTransitionOverlay()`. RELEASE_PASS.md
+   * the stage — an overlay-based approach (a single colour rect, never two
+   * live scenes rendered simultaneously). RELEASE_PASS.md
    * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
    * technically buildable (`renderer.render({ target: renderTexture,
    * container })`, pixi v8's real object-form API) but deliberately did
@@ -254,7 +313,43 @@ export declare class RenderPipeline implements SceneRenderer {
   /** Fully tear down the current main scene's tracking — same per-sprite teardown `releaseOverlay` uses. */
   private _releaseMain;
   private _syncOverlay;
+  /**
+   * Removes tracking (and destroys the renderable) for any eid this frame's
+   * `scene.each()` pass didn't see — covers both `sprites` and `meshes`,
+   * since an entity can move between the two across frames (its
+   * `Projection3D.active` flag flipping) and either map could hold a stale
+   * entry for a destroyed entity.
+   */
+  private _pruneUnseen;
+  /**
+   * Per-`(Transform, Sprite)` entity sync. An entity with no `Projection3D`
+   * component, or one whose `Projection3D.active` is `false` (the default),
+   * renders exactly as before this method learned about `Projection3D` at
+   * all — a plain `PixiSprite` positioned from `Transform`. An entity with
+   * an *active* `Projection3D` instead renders through `_syncProjected()` —
+   * a real pixi core `PerspectiveMesh` whose four corners are copied
+   * straight from `Projection3D.x0..y3` (see that component's doc comment
+   * for why this copy needs no reinterpretation: both sides already agree
+   * on "clockwise from top-left"). Those corners are `gmlProjection.ts`'s
+   * derived *result* — already-absolute positions (a `d3d_transform_set_*`
+   * call bakes in translation itself) — so a projected entity's `Transform`
+   * is deliberately not applied on top of them; applying both would
+   * double-position the mesh. Whichever branch didn't run this call has its
+   * stale tracked renderable (if any) torn down, cheaply — `_removeSprite`/
+   * `_removeMesh` are no-ops when nothing is tracked for that eid, which is
+   * the overwhelmingly common case (an entity practically never flips
+   * `Projection3D.active` every frame).
+   */
   private _syncOne;
+  /**
+   * `_syncOne()`'s `Projection3D`-active branch — a real `PerspectiveMesh`
+   * per entity, corners copied straight from the component, texture/tint/
+   * alpha/visibility/depth kept in sync the same way `_syncOne()` keeps a
+   * plain `PixiSprite` in sync. `verticesX`/`verticesY` are left at
+   * `PerspectiveMesh.defaultOptions`'s own 10x10 grid — no per-entity
+   * quality knob exists on `Projection3D` today.
+   */
+  private _syncProjected;
   /**
    * Build real tile sprites for `tilemap` and add them to `renderLayer`
    * (defaults to `"default"`). Pass an `AutoTileResolver` to resolve
@@ -271,8 +366,29 @@ export declare class RenderPipeline implements SceneRenderer {
   private _buildTilemapSprites;
   private _containerFor;
   private _overlayContainer;
+  /**
+   * Synchronous texture lookup for `draw_sprite` (`PixiGmlDrawTarget.
+   * sprite()`) — unlike `_applyTexture` above, there is no live tracked
+   * `PixiSprite`/`PerspectiveMesh` to update once an async load resolves:
+   * a `draw_sprite` call creates a brand-new `Sprite` fresh every dispatch
+   * (GML's own semantic — it's drawn this frame, not a persistent object),
+   * so there's nothing to retroactively re-texture. Returns the cached
+   * texture if already loaded, otherwise kicks off the same shared
+   * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`
+   * (so a *later* `draw_sprite` call for the same path is cache-hit) and
+   * returns `Texture.WHITE` for this frame only — the same "visible
+   * placeholder, not a blank hole" fallback `_applyTexture` already uses
+   * for an empty path.
+   */
+  private _resolveTextureForDraw;
+  /**
+   * Shared texture-apply path for both `PixiSprite` and `PerspectiveMesh` —
+   * both expose a settable `.texture`, so `target` takes that minimal
+   * structural shape rather than one concrete pixi class.
+   */
   private _applyTexture;
   private _removeSprite;
+  private _removeMesh;
   /**
    * Drop tracking (and destroy sprites) for any overlay scene not present in
    * `active` — called every `renderFrame()` with the caller's current

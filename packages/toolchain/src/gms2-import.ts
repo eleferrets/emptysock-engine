@@ -14,6 +14,7 @@ import {
   buildScriptModule,
   projectManifestJSON,
 } from "./gms2-codegen.js";
+import { scanGmlMacros, setGmlMacros } from "./gms2-transpile.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
@@ -84,6 +85,12 @@ export async function importGMS2Project(
     project.name ?? project["%Name"] ?? path.basename(path.dirname(yypPath));
   // Root of the GMS2 project — where objects/, scripts/ etc. live.
   const projectRoot = path.dirname(yypPath);
+
+  // Real, project-wide #macro resolution must happen before any file is
+  // transpiled — a macro defined in one script is routinely used in a
+  // dozen unrelated object/script files (see `scanGmlMacros`'s own doc
+  // comment in gms2-transpile.ts).
+  setGmlMacros(await scanGmlMacros(projectRoot));
 
   // NOTE: `defaultScriptType` in real .yyp files does NOT reliably indicate
   // "this project uses GML Visual (drag-and-drop)" — a real, fully

@@ -29,7 +29,7 @@ describe("buildScriptModule", () => {
       const content = await buildScriptModule("scr_add", dir, ["scr_add"]);
 
       expect(content).toContain(
-        "export function scr_add(a: unknown, b: unknown): unknown {",
+        "export function scr_add(_entity: Entity, _ctx: GmlActionContext, a: unknown, b: unknown): unknown {",
       );
       expect(content).toContain("return a + b;");
       expect(content).not.toContain("TODO: migrate GML script body");
@@ -54,7 +54,7 @@ describe("buildScriptModule", () => {
       ]);
 
       expect(content).toContain(
-        "export function scr_legacy_sum(...args: unknown[]): unknown {",
+        "export function scr_legacy_sum(_entity: Entity, _ctx: GmlActionContext, ...args: unknown[]): unknown {",
       );
       expect(content).toContain("return args[0] + args[1];");
     } finally {
@@ -75,7 +75,7 @@ describe("buildScriptModule", () => {
 
       const content = await buildScriptModule("scr_log", dir, ["scr_log"]);
       expect(content).toContain(
-        "export function scr_log(msg: unknown): void {",
+        "export function scr_log(_entity: Entity, _ctx: GmlActionContext, msg: unknown): void {",
       );
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -155,7 +155,7 @@ describe("buildObjectBehavior imports scripts it calls", () => {
       expect(behavior).toContain(
         "import { scr_double } from './scr_double.js';",
       );
-      expect(behavior).toContain("scr_double(5)");
+      expect(behavior).toContain("scr_double(_entity, _ctx, 5)");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
@@ -230,7 +230,7 @@ describe("importGMS2Project end-to-end: script + object-calling-script wiring", 
         "utf-8",
       );
       expect(scriptOut).toContain(
-        "export function scr_triple(n: unknown): unknown {",
+        "export function scr_triple(_entity: Entity, _ctx: GmlActionContext, n: unknown): unknown {",
       );
       expect(scriptOut).toContain("return n * 3;");
 
@@ -241,7 +241,7 @@ describe("importGMS2Project end-to-end: script + object-calling-script wiring", 
       expect(behaviorOut).toContain(
         "import { scr_triple } from './scr_triple.js';",
       );
-      expect(behaviorOut).toContain("scr_triple(7)");
+      expect(behaviorOut).toContain("scr_triple(_entity, _ctx, 7)");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });

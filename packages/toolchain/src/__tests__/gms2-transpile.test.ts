@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transpileGML } from "../gms2-transpile.js";
+import { transpileGML, setGmlMacros } from "../gms2-transpile.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
   it("transpiles a bare-condition place_meeting call, entity-threaded, with the object-name argument quoted", () => {
@@ -802,10 +802,35 @@ describe("transpileGML", () => {
     expect(out).toContain('TODO: migrate legacy "globalvar');
   });
 
-  it("transpiles #macro directives to a comment", () => {
+  it("turns the #macro directive line itself into a comment (fixing its own syntax error)", () => {
     const out = transpileGML("#macro VIEW view_camera[0]\nx = VIEW;");
     expect(out).not.toMatch(/^\s*#macro/m);
-    expect(out).toContain('TODO: migrate GML macro "VIEW"');
+    expect(out).toContain("// #macro VIEW");
+  });
+
+  it("substitutes a real project-wide macro value at every use site — real gap: this used to leave every use site an undeclared bare identifier (ReferenceError)", () => {
+    setGmlMacros(new Map([["SAVEFILE", '"freedom.sav"']]));
+    try {
+      const out = transpileGML(
+        "var file = file_text_open_write(working_directory + SAVEFILE);",
+      );
+      expect(out).toContain('working_directory + ("freedom.sav")');
+    } finally {
+      setGmlMacros(new Map());
+    }
+  });
+
+  it("does not substitute a macro name inside a dotted reference or a // comment", () => {
+    setGmlMacros(new Map([["SAVEFILE", '"freedom.sav"']]));
+    try {
+      const out = transpileGML(
+        "x = other.SAVEFILE;\n// SAVEFILE is the save file name",
+      );
+      expect(out).toContain("other.SAVEFILE");
+      expect(out).toContain("// SAVEFILE is the save file name");
+    } finally {
+      setGmlMacros(new Map());
+    }
   });
 
   it("does not double-wrap Math.floor produced by a div rewrite", () => {

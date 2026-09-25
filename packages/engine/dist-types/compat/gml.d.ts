@@ -72,12 +72,47 @@ export declare function ds_list_find_value(id: number, pos: number): unknown;
 export declare function ds_list_size(id: number): number;
 /** GML ds_list_delete(id, pos) — removes the element at position */
 export declare function ds_list_delete(id: number, pos: number): void;
+/**
+ * The minimal drawing surface a transpiled GML `draw_*` call needs. This is
+ * a plain structural interface, not `CanvasRenderingContext2D` — `gml.ts`
+ * stays inside the engine-environment boundary (no DOM import), and a real
+ * caller wires in whatever actually implements it. `GmlBehaviorSystem`
+ * (`systems/GmlBehaviorSystem.ts`) is the real implementation: a pixi
+ * `Graphics` object wrapped to satisfy this shape, rebuilt from scratch on
+ * every `onDraw`/`onDrawGui` call the same way `ParticleEmitter`'s pixi
+ * container is rebuilt every frame (see CLAUDE.md's "ParticleEmitter renders
+ * through a real pixi ParticleContainer" entry for the precedent this
+ * mirrors) — draw state does not need to persist between calls.
+ */
+export interface GmlDrawTarget {
+  setColor(hex: number): void;
+  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void;
+  circle(x: number, y: number, r: number, outline: boolean): void;
+  text(x: number, y: number, text: string): void;
+  line(x1: number, y1: number, x2: number, y2: number): void;
+  /**
+   * `draw_sprite(sprite, subimg, x, y)` — draws a specific sprite at an
+   * explicit position, independent of the drawing entity's own `Sprite`
+   * component (real, confirmed real-world usage: `draw_sprite(spr_marker,
+   * 0, x, y)` — a *different* sprite than the object's own default one,
+   * from a real project's `obj_text`'s `Draw_0.gml`; `draw_sprite(_image,
+   * 0, _drawX + _imageW / 2, _drawY + _imageH / 2)` — a dynamically chosen
+   * image at a *custom* offset position, from a real project's `oTextbox`'s
+   * `Draw_64.gml`). `subimg` (GameMaker's per-frame index) is honestly not
+   * modelled — this importer only ever copies a sprite's first frame (see
+   * CLAUDE.md's `image_index`/`image_speed` entry for the same,
+   * already-documented multi-frame-animation gap), so `subimg` is accepted
+   * for real call sites to keep their real argument count but always draws
+   * frame 0.
+   */
+  sprite(texturePath: string, x: number, y: number): void;
+}
 export declare function draw_set_colour(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   hex: number,
 ): void;
 export declare function draw_rectangle(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x1: number,
   y1: number,
   x2: number,
@@ -85,20 +120,34 @@ export declare function draw_rectangle(
   outline: boolean,
 ): void;
 export declare function draw_circle(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x: number,
   y: number,
   r: number,
   outline: boolean,
 ): void;
 export declare function draw_text(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x: number,
   y: number,
   text: string,
 ): void;
+/**
+ * `draw_sprite(sprite, subimg, x, y)` — GameMaker's own argument order has
+ * `subimg` between the sprite reference and the position, but `subimg` is
+ * honestly not modelled (see `GmlDrawTarget.sprite`'s own doc comment), so
+ * it's accepted here purely to keep a real call site's argument count and
+ * position intact — it's never read.
+ */
+export declare function draw_sprite(
+  target: GmlDrawTarget,
+  texturePath: string,
+  _subimg: number,
+  x: number,
+  y: number,
+): void;
 export declare function draw_line(
-  ctx: CanvasRenderingContext2D,
+  target: GmlDrawTarget,
   x1: number,
   y1: number,
   x2: number,
@@ -122,7 +171,13 @@ export declare function keyboard_wait(): void;
 export declare function mouse_button_down(_button: number): boolean;
 /** GML mouse_button_released (legacy GM8-style action) — no-op stub; use InputSystem. */
 export declare function mouse_button_released(_button: number): boolean;
-/** GML place_free(x, y) — legacy collision-check action. No-op stub: always reports free. */
-export declare function place_free(_x: number, _y: number): boolean;
-/** GML place_empty(x, y) — legacy collision-check action. No-op stub: always reports empty. */
+/**
+ * GML `place_empty(x, y)` — legacy collision-check action; kept as a no-op
+ * stub. Note this is distinct from `place_free`, which is now real (see
+ * `compat/gmlCollisionQueries.ts`'s `place_free` — GameMaker's own
+ * `place_free`, checked against `solid`-flagged instances). `place_empty` is
+ * an older, less-common GM8-era alias with slightly different semantics
+ * (checks against every instance, not just solid ones) that hasn't been
+ * ported yet — a real, separate, tracked gap.
+ */
 export declare function place_empty(_x: number, _y: number): boolean;

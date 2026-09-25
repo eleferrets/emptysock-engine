@@ -3,6 +3,8 @@ import { PluginSystem } from "./PluginSystem.js";
 import { AudioSystem } from "./systems/AudioSystem.js";
 import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
+import { GlobalStore } from "./systems/GlobalStore.js";
+import { GmlFileSystem } from "./systems/GmlFileSystem.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
@@ -52,6 +54,18 @@ export interface SceneLifecycle {
    * dialogue tree or map trigger expects.
    */
   readonly variables: VariableStore;
+  /**
+   * Game-owned, same reasoning as `audio`/`input`/`variables` — one
+   * `GlobalStore` for the lifetime of this `Game`. This is the real target
+   * for GameMaker's `global.x = expr` semantic (arbitrary named,
+   * arbitrary-typed values reachable from anywhere) — see
+   * `systems/GlobalStore.ts`'s own doc comment for why it's a distinct
+   * service from `variables` rather than reusing `VariableStore`'s
+   * numbered, integer-only shape.
+   */
+  readonly globals: GlobalStore;
+  /** Game-owned, same reasoning as `globals` — one `GmlFileSystem` for the lifetime of this `Game`, real handle-based file_text_* support. See `systems/GmlFileSystem.ts`'s own doc comment. */
+  readonly files: GmlFileSystem;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `PluginSystem` for the lifetime of this `Game`. Equivalent to
@@ -136,11 +150,12 @@ export interface LoadOverlayOptions {
  * inside the engine environment boundary (CLAUDE.md: "the engine package
  * must not import anything from the DOM"; pixi.js's renderer construction
  * needs a canvas) so it keeps running under the headless testing harness
- * with zero Pixi involvement, import included. This mirrors the classic pattern
- * documented in CLAUDE.md under "Scene transitions: SceneManager times them,
- * RenderPipeline paints them" — `SceneManager` drove a `TransitionEffectSink`
- * interface that `PostProcessSystem` satisfied structurally, never importing
- * pixi itself. `RenderPipeline` satisfies `SceneRenderer` the same way here.
+ * with zero Pixi involvement, import included. This mirrors the pattern
+ * documented in CLAUDE.md under "Scene transitions: SceneTransitionManager
+ * times them, RenderPipeline paints them" — `SceneTransitionManager` drives
+ * a `TransitionEffectSink` interface that `PostProcessSystem` satisfies
+ * structurally, never importing pixi itself. `RenderPipeline` satisfies
+ * `SceneRenderer` the same way here.
  */
 export interface SceneRenderer {
   /**
@@ -277,8 +292,12 @@ export declare class Game {
    * engine-environment-boundary rule).
    */
   get input(): InputManager;
-  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed, unchanged from the classic engine). */
+  /** The `Game`'s single `AudioSystem` (§18 — Howler-backed). */
   get audio(): AudioSystem;
+  /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  get globals(): GlobalStore;
+  /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
+  get files(): GmlFileSystem;
   /**
    * Load a scene: creates its `Scene` (bitECS world), its `ActorSystem` and
    * `PhysicsSystem` (unless `manageLifecycle: false`), and calls the

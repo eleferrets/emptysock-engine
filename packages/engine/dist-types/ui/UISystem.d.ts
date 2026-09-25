@@ -1,31 +1,39 @@
+import type { Texture } from "pixi.js";
 import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
 import type { WidgetTree } from "./WidgetTree.js";
+/** Resolves an `ImageWidget.src` path to a real pixi `Texture` — same shape as `RenderPipeline.ts`'s `TextureLoader`, defaulting to the same `Assets.load` pixi wraps. Overridable for tests/hosts that want a fake loader. */
+export type ImageLoader = (path: string) => Promise<Texture>;
+export interface UISystemOptions {
+  /** Overrides how `ImageWidget.src` paths resolve to pixi textures — defaults to `Assets.load`. */
+  imageLoader?: ImageLoader;
+}
 /**
- * ECS-native `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
+ * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
  * entity-per-widget layout foundation (ground rule 4a) and the widget-kind
- * components in `components/Widgets.ts`. Covers the classic
- * `systems/UISystem.ts`'s real, load-bearing contract — hit-testing,
- * press/drag/click/hover dispatch, and rendering — against a `Scene`'s live
- * widget tree instead of a `Widget[]` array. Deliberately does not port
- * per-widget animation, anchor resolution, or image bitmap loading/caching
- * (see `Widgets.ts`'s class doc comment) — those are real, separately
- * tracked follow-ups, not silently dropped.
+ * components in `components/Widgets.ts`. Covers hit-testing,
+ * press/drag/click/hover dispatch, and rendering against a `Scene`'s live
+ * widget tree. Deliberately does not implement per-widget animation, anchor
+ * resolution, or image bitmap loading/caching (see `Widgets.ts`'s class doc
+ * comment) — those are real, separately tracked follow-ups, not silently
+ * dropped.
  */
 export declare class UISystem {
   private readonly _tree;
   private readonly _presses;
-  constructor(_tree: WidgetTree);
+  private readonly _loadImage;
+  /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
+  private readonly _imageCache;
+  constructor(_tree: WidgetTree, options?: UISystemOptions);
   private _isVisible;
   private _contains;
   /**
    * Topmost widget under `(x, y)`, or `undefined`. `WidgetTree.orderedWidgets()`
    * returns root-first order; walking it in reverse visits the most
-   * recently added leaf-most widgets first, mirroring the classic
-   * `_findHit()`'s "children win over their own parent, later siblings win
-   * over earlier ones" behaviour without needing a second recursive
-   * per-level pass.
+   * recently added leaf-most widgets first, giving "children win over their
+   * own parent, later siblings win over earlier ones" without needing a
+   * second recursive per-level pass.
    */
   hitTest(scene: Scene, x: number, y: number): Entity | undefined;
   /** Begin a press on the topmost widget under `(x, y)`. Does not fire a click — see `dispatchPointerUp`. `pointerId` distinguishes simultaneous multi-touch presses (default 0 for a single mouse pointer). */
@@ -63,6 +71,17 @@ export declare class UISystem {
   private _renderSlider;
   private _renderProgress;
   private _renderLabel;
-  /** Image loading/caching (`ImageLoader`) isn't ported yet — draws a grey placeholder box, the same visual fallback the classic `ImageWidget` uses before its source resolves. */
+  /**
+   * Draws `src` (an `ImageWidget.src` path) via this system's `ImageLoader`
+   * (`Assets.load` by default, the same pixi loader `RenderPipeline` uses),
+   * cached by path in `_imageCache` so the same image is loaded once and
+   * reused by every widget instance that references it, never reloaded per
+   * frame or per instance. The grey placeholder box remains the fallback
+   * for both real "nothing to draw yet" states — no source set, or a load
+   * still in flight — and the error state, a failed load; it is not drawn
+   * once a source has actually resolved to a loaded texture.
+   */
+  private _renderImage;
+  /** Fallback for an `ImageWidget` with no source set yet, a source still loading, or a source that failed to load — a grey placeholder box. */
   private _renderImagePlaceholder;
 }

@@ -31,7 +31,7 @@ export interface CoroutineHandle {
  * Start a coroutine on `entity`. The coroutine is stopped automatically the
  * instant the entity is no longer alive (checked every `updateCoroutines()`
  * call) — game code never has to manually stop a coroutine on entity
- * destroy the way the classic `Entity.startCoroutine()` didn't either.
+ * destroy.
  *
  * @example
  * ```typescript

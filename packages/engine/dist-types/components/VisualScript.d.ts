@@ -139,11 +139,10 @@ export declare class VisualScriptGraphBuilder {
   build(): VisualScriptGraph;
 }
 /**
- * ECS port of the classic `VisualScriptComponent` (RELEASE_PASS.md's
- * "Visual Script Editor" gap — see CLAUDE.md for why the classic version
- * couldn't just be re-exported: it `extends` the classic `Component` base
- * class directly, which is structurally incompatible with `defineComponent`'s
- * `SerializableRecord` constraint).
+ * `VisualScriptState` (RELEASE_PASS.md's "Visual Script Editor" gap) is
+ * defined via `defineComponent`'s `SerializableRecord` constraint, which
+ * rules out storing the graph itself (nodes/connections, functions and all)
+ * directly on the component.
  *
  * Per the research that informed this design (production ECS engines —
  * Unity DOTS's `EntitiesBT`/`DOTS-BehaviorTree`, Bevy's `bevy_behavior` —

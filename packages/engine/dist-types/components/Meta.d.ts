@@ -14,10 +14,19 @@
  * Serializable[]`), not a comma-joined string — there's no reason to pay a
  * join/split serialization tax for something bitECS/`ComponentRegistry`
  * already stores as a plain field.
+ *
+ * `solid` mirrors GameMaker's own per-object "Solid" checkbox
+ * (`compat/gmlCollisionQueries.ts`'s `place_free`/`position_free` read it),
+ * independent of whether the entity also has a `PhysicsBody` — GameMaker's
+ * classic non-physics DnD/GML games use "solid" as a plain instance flag,
+ * not a physics-engine concept, and `Meta` is already the one component
+ * `gms2-codegen.ts`'s generated prefabs carry for exactly this kind of
+ * per-instance, editor-visible flag.
  */
 export declare const Meta: import("../Component.js").ComponentDef<{
   name: string;
   tags: string[];
   active: boolean;
+  solid: boolean;
 }>;
 export type MetaShape = ReturnType<typeof Meta.createDefaults>;

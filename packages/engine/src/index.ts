@@ -85,6 +85,7 @@ export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export { GlobalStore } from "./systems/GlobalStore.js";
+export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export type {
   VariableStoreData,
   VariableCondition,
@@ -369,6 +370,22 @@ export {
   instance_exists,
   instance_number,
 } from "./compat/gmlCollisionQueries.js";
+
+export {
+  file_exists,
+  file_text_open_read,
+  file_text_open_write,
+  file_text_open_append,
+  file_text_read_string,
+  file_text_read_real,
+  file_text_readln,
+  file_text_eof,
+  file_text_write_string,
+  file_text_write_real,
+  file_text_writeln,
+  file_text_close,
+  file_delete,
+} from "./compat/gmlFileText.js";
 
 /**
  * GameMaker Studio 2 particle-function compat (`part_type_*`/`part_system_*`)

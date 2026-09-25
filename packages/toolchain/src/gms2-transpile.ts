@@ -1,8 +1,78 @@
 import fs from "fs/promises";
+import path from "path";
 
 // ---------------------------------------------------------------------------
 // GML pattern-level transpiler
 // ---------------------------------------------------------------------------
+
+/**
+ * Real, project-wide `#macro NAME value` resolution. GameMaker's `#macro`
+ * is pure textual substitution at compile time, applied project-wide — a
+ * macro defined in one script routinely gets used in a dozen unrelated
+ * object/script files (real, confirmed: `#macro SAVEFILE "freedom.sav"` in
+ * one script, referenced throughout the game's own save/load system
+ * elsewhere). `transpileGML` itself only ever sees one file's text at a
+ * time, so this map has to be built once, project-wide, before any file is
+ * transpiled — `importGMS2Project` calls `scanGmlMacros()` then
+ * `setGmlMacros()` right at the start, before any `buildObjectBehavior`/
+ * `buildScriptModule` call. Module-level state (not threaded as a
+ * parameter through every codegen function) is a deliberate, scoped
+ * tradeoff: `importGMS2Project` runs one project through this module
+ * sequentially, never two projects concurrently in the same process, so
+ * this carries the same safety this file's other module-level `const`
+ * helpers already have.
+ */
+let _macros: ReadonlyMap<string, string> = new Map();
+
+/** Installs the project-wide macro map `transpileGML`'s own `#macro` substitution pass reads. Call once, before transpiling any file. */
+export function setGmlMacros(macros: ReadonlyMap<string, string>): void {
+  _macros = macros;
+}
+
+/**
+ * Walks every `.gml` file under `projectRoot` and extracts every real
+ * `#macro NAME value` declaration into a `name -> value` map. Real
+ * GameMaker macros are one value expression per line (GameMaker's own IDE
+ * doesn't support multi-line macro bodies without an explicit trailing
+ * `\`, which is rare enough in real projects to leave as an honest,
+ * undocumented edge case rather than build multi-line continuation
+ * handling with no real example to verify it against).
+ */
+export async function scanGmlMacros(
+  projectRoot: string,
+): Promise<Map<string, string>> {
+  const macros = new Map<string, string>();
+  const MACRO_RE = /^[ \t]*#macro\s+(\S+)\s+(.*)$/gm;
+
+  async function walk(dir: string): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry);
+      const stat = await fs.stat(full).catch(() => null);
+      if (stat === null) continue;
+      if (stat.isDirectory()) {
+        await walk(full);
+      } else if (entry.endsWith(".gml")) {
+        const content = await fs.readFile(full, "utf-8").catch(() => "");
+        for (const m of content.matchAll(MACRO_RE)) {
+          const name = m[1];
+          const value = m[2]?.trim();
+          if (name !== undefined && value !== undefined && value !== "") {
+            macros.set(name, value);
+          }
+        }
+      }
+    }
+  }
+
+  await walk(projectRoot);
+  return macros;
+}
 
 /**
  * Splits a GML call's argument-list text (already captured up to the call's
@@ -426,19 +496,40 @@ export function transpileGML(gml: string): string {
   // constant directive (define once, every other line in the project that
   // references NAME gets `value` substituted in at compile time — the same
   // idea as a C preprocessor `#define`). Like `#region`, a bare `#` is a
-  // hard JS/TS parse error, not just an unresolved identifier. Unlike
-  // `#region`, faithfully "migrating" a macro would mean finding and
-  // rewriting every other reference to NAME across the whole project into
-  // its substituted value or a real shared constant — real cross-file work
-  // this single-file, regex-based transpiler pass has no way to do. Rewrite
-  // the directive itself to a `//` comment (fixing the syntax error) and
-  // leave a TODO naming the macro, the same "fix the syntax, be honest
-  // about what still needs a human" rule `globalvar` (above) follows.
+  // hard JS/TS parse error, not just an unresolved identifier.
+  //
+  // Real, cross-file substitution now happens for real: `scanGmlMacros()`
+  // (called once by `importGMS2Project`, before any file is transpiled)
+  // walks every `.gml` file in the project and builds a real
+  // `name -> value` map, installed via `setGmlMacros()`. Real, confirmed,
+  // load-bearing shape: `#macro SAVEFILE "freedom.sav"` in one script,
+  // referenced as a bare `SAVEFILE` identifier throughout the game's own
+  // save/load system (`file_text_open_write(working_directory +
+  // SAVEFILE)`) — leaving the definition as a TODO comment (the old
+  // behaviour) meant `SAVEFILE` at every one of those *use* sites stayed a
+  // genuinely undeclared bare identifier, a hard `ReferenceError`.
+  //
+  // The directive line itself still becomes a `//` comment (fixing its own
+  // syntax error, and it's now purely informational — the value is already
+  // known project-wide via `_macros`); every bare *use* of the name
+  // elsewhere in this file is substituted with the macro's real value,
+  // parenthesised so it drops safely into any expression context
+  // (`working_directory + (SAVEFILE)`), guarded the same
+  // `(?<!\.\s*)`/`(?<!\/\/[^\n]*)` way every other bare-identifier rewrite
+  // in this file already is (a dotted reference to another instance's
+  // field, or a `//` comment mentioning the name in prose, must not be
+  // substituted).
   out = out.replace(
     /^([ \t]*)#macro\s+(\S+)\s+(.*)$/gm,
     (_m, indent: string, name: string, value: string) =>
-      `${indent}// TODO: migrate GML macro "${name}" (was: #macro ${name} ${value.trim()}) — every other reference to "${name}" in this project needs to become a real shared constant.`,
+      `${indent}// #macro ${name} ${value.trim()} — real value substituted at every use site below.`,
   );
+  for (const [name, value] of _macros) {
+    out = out.replace(
+      new RegExp(`(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      `(${value})`,
+    );
+  }
 
   // if (a) && (b) [&& (c) ...]  →  if ((a) && (b) [&& (c) ...])
   //
@@ -1547,6 +1638,26 @@ export function transpileGML(gml: string): string {
     "place_free",
     "place_snapped",
     "position_free",
+    // GameMaker's real file_text_* family (compat/gmlFileText.ts) — every
+    // argument here is a filename/handle/value, never an object-type
+    // reference, so generic threading (no bare-identifier quoting) is
+    // correct: a bare filename argument is either already a real string
+    // literal (`file_text_open_read("lang.txt")`) or, after this pass's
+    // own #macro substitution runs earlier in the pipeline, already a
+    // quoted string too (`working_directory + ("freedom.sav")`).
+    "file_exists",
+    "file_delete",
+    "file_text_open_read",
+    "file_text_open_write",
+    "file_text_open_append",
+    "file_text_read_string",
+    "file_text_read_real",
+    "file_text_readln",
+    "file_text_eof",
+    "file_text_write_string",
+    "file_text_write_real",
+    "file_text_writeln",
+    "file_text_close",
   ];
   for (const fn of THREADED_ACTIONS) {
     // The trailing `;` is captured, not just optionally consumed — DnD
@@ -1560,7 +1671,21 @@ export function transpileGML(gml: string): string {
     // e.g. `if (GmlActions.place_free(...);)`. Echoing back only the
     // semicolon (if any) this specific call actually had keeps both shapes
     // correct.
-    const re = new RegExp(`\\b${fn}\\s*\\(([^)]*)\\)(\\s*;)?`, "g");
+    //
+    // The argument capture tolerates two levels of nested parens
+    // (`BALANCED_PARENS_TWO_LEVELS`), not a bare `[^)]*` — real, confirmed
+    // regression: after `#macro` substitution (above) replaces a bare
+    // macro-name argument with its real, parenthesised value
+    // (`file_text_open_write(working_directory + SAVEFILE)` becomes
+    // `file_text_open_write(working_directory + ("freedom.sav"))`), a
+    // `[^)]*` capture stopped at that nested `)`, leaving the real outer
+    // `)` dangling — the exact same class of bug already fixed for
+    // `show_message`/`repeat` elsewhere in this file, newly triggered here
+    // by macro substitution's own output shape.
+    const re = new RegExp(
+      `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+      "g",
+    );
     out = out.replace(re, (_m, args: string, semi: string | undefined) => {
       const trimmed = args.trim();
       const threaded =

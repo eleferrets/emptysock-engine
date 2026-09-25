@@ -19,6 +19,8 @@ export declare abstract class Actor {
   /** Override to clean up listeners and resources. */
   destroy(): void;
   get isRunning(): boolean;
+  /** Number of messages currently queued, not yet drained by `flush()`. Read by `QueryChannel`'s `actorInboxSize` query. */
+  get inboxSize(): number;
   /** Called by ActorSystem.register(). */
   start(): void;
   /** Called by ActorSystem.unregister(). */

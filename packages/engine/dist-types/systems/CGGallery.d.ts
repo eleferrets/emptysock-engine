@@ -8,16 +8,15 @@ export interface CGGalleryOptions {
   entries: CGEntry[];
 }
 /**
- * ECS-core port of `../../systems/CGGallery.ts` (RELEASE_PASS.md Track 3 —
- * a real, confirmed-live IDE feature, not dead code). Persists unlock flags
- * through a `StorageAdapter`, the same interface `InputManager.saveBindings()`/
- * `loadBindings()` already use for a `Game`-level settings blob, not the
- * classic version's `SaveSystem` — a CG gallery's unlock flags are exactly
- * the same shape of problem `InputManager`'s bindings were: a small,
- * scene-independent blob, not per-entity component data, so `ecs/systems/
- * SaveSystem.ts`'s `Scene`/`ComponentDef`-bound save/load API (it
- * serializes a `Scene`'s live entities, not an arbitrary settings object)
- * is the wrong shape for it.
+ * RELEASE_PASS.md Track 3 — a real, confirmed-live IDE feature, not dead
+ * code. Persists unlock flags through a `StorageAdapter`, the same
+ * interface `InputManager.saveBindings()`/`loadBindings()` already use for
+ * a `Game`-level settings blob, not `SaveSystem` — a CG gallery's unlock
+ * flags are exactly the same shape of problem `InputManager`'s bindings
+ * were: a small, scene-independent blob, not per-entity component data, so
+ * `SaveSystem`'s `Scene`/`ComponentDef`-bound save/load API (it serializes
+ * a `Scene`'s live entities, not an arbitrary settings object) is the wrong
+ * shape for it.
  */
 export declare class CGGallery {
   private readonly _entries;

@@ -209,7 +209,10 @@ export async function buildObjectBehavior(
       const gmlPath = path.join(objectDir, gmlFile);
       const transpiled = await readAndTranspileGML(gmlPath);
       if (transpiled !== null) {
-        const body = indent(transpiled.trimEnd(), 2);
+        const body = indent(
+          injectContextArgs(transpiled, knownScripts).trimEnd(),
+          2,
+        );
         return `export function ${methodName}(${paramStr}): void {\n  // [GML auto-transpiled — review carefully]\n${body}\n}`;
       }
     }
@@ -324,7 +327,7 @@ export async function buildObjectBehavior(
     const transpiled = await readAndTranspileGML(gmlPath);
     const body =
       transpiled !== null
-        ? indent(transpiled.trimEnd(), 2)
+        ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
         : `  // TODO: migrate collision with ${otherName}`;
     collisionFns.push(
       `export function onCollideWith${otherClass}(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from Collision_${otherName}.gml — review carefully]\n${body}\n}`,
@@ -366,7 +369,7 @@ export async function buildObjectBehavior(
       const transpiled = await readAndTranspileGML(gmlPath);
       const body =
         transpiled !== null
-          ? indent(transpiled.trimEnd(), 2)
+          ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
           : `  // TODO: migrate ${eventLabel} (vk ${code})`;
       fns.push(
         `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully]\n${body}\n}`,
@@ -420,7 +423,7 @@ export async function buildObjectBehavior(
     const transpiled = await readAndTranspileGML(gmlPath);
     const body =
       transpiled !== null
-        ? indent(transpiled.trimEnd(), 2)
+        ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
         : `  // TODO: migrate ${baseName}`;
     leftoverFns.push(
       `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully; unmapped event kind, verify its real GameMaker semantics before wiring it up]\n${body}\n}`,
@@ -567,6 +570,37 @@ function escapeRegExp(str: string): string {
 }
 
 /**
+ * A real GMS2 script runs in the *caller's* instance scope — GameMaker has
+ * no per-script `self`, so `scr_foo()` called from `obj_player`'s Step event
+ * sees `obj_player`'s own instance variables, and `scr_foo` calling
+ * `action_move(...)`/`file_text_open_write(...)`/any other entity-affecting
+ * built-in acts on that same caller instance too. This engine models that by
+ * giving every generated script function its own leading
+ * `_entity`/`_ctx` parameters (see `buildScriptModule`) and rewriting every
+ * call site — inside another script's body, or inside an object behavior's
+ * event body, both already have `_entity`/`_ctx` in scope — to thread them
+ * through. Without this, a script whose body calls a GML action/query
+ * built-in (`GmlActions.*`) references `_entity`/`_ctx` as bare, undeclared
+ * identifiers that don't exist anywhere in that script's own generated
+ * module, a guaranteed `ReferenceError` at runtime — confirmed by a full
+ * `tsc --noEmit` sweep against a real, full GameMaker project's regenerated
+ * output (`scr_load_game`/`scr_save_game`/`scr_load_json`, among others).
+ */
+function injectContextArgs(
+  code: string,
+  knownScripts: readonly string[],
+): string {
+  let out = code;
+  for (const script of knownScripts) {
+    const re = new RegExp(`\\b${escapeRegExp(script)}\\s*\\(\\s*(\\))?`, "g");
+    out = out.replace(re, (_m, closeParen: string | undefined) =>
+      closeParen ? `${script}(_entity, _ctx)` : `${script}(_entity, _ctx, `,
+    );
+  }
+  return out;
+}
+
+/**
  * Real GMS2 2.3+ script files (`scripts/<name>/<name>.gml`) are literally
  * `function <name>(<params>) { ... }` — the script's own `.yy` carries no
  * parameter metadata at all, only the `.gml` source does, so parameter
@@ -648,7 +682,11 @@ export async function buildScriptModule(
 // The script's .gml source could not be read — likely a stale/orphaned
 // project reference. Migrate the GML function body manually.
 
-export function ${name}(...args: unknown[]): unknown {
+export function ${name}(
+  _entity: unknown,
+  _ctx: unknown,
+  ...args: unknown[]
+): unknown {
   // TODO: migrate GML script body
   return undefined;
 }
@@ -660,27 +698,42 @@ export function ${name}(...args: unknown[]): unknown {
   if (isLegacyArgStyle) {
     transpiled = transpiled.replace(/\bargument(\d+)\b/g, "args[$1]");
   }
+  // A GMS2 script runs in its caller's instance scope (see
+  // `injectContextArgs`'s own doc comment) — every call this script's body
+  // makes to another known script is rewritten to thread `_entity`/`_ctx`
+  // through, and this script's own signature gains those same two leading
+  // parameters below so a caller (another script, or an object behavior
+  // event, both of which already have `_entity`/`_ctx` in scope) has
+  // something real to pass.
+  transpiled = injectContextArgs(transpiled, knownScripts);
 
   const hasReturn = /\breturn\b[^;{}]*;/.test(transpiled);
   const returnType = hasReturn ? "unknown" : "void";
-  const paramStr =
+  const paramList =
     paramNames.length > 0
       ? paramNames.map((p) => `${p}: unknown`).join(", ")
       : "...args: unknown[]";
+  const paramStr = `_entity: Entity, _ctx: GmlActionContext, ${paramList}`;
 
   const calledScripts = knownScripts.filter(
     (other) =>
       other !== name &&
       new RegExp(`\\b${escapeRegExp(other)}\\s*\\(`).test(transpiled),
   );
-  const importLines = calledScripts
-    .map((other) => `import { ${other} } from "./${other}.js";`)
-    .join("\n");
+  const importLines = [
+    `import type { Entity, GmlActionContext } from "@emptysock/engine";`,
+    `import * as GmlActions from "@emptysock/engine";`,
+    ...calledScripts.map(
+      (other) => `import { ${other} } from "./${other}.js";`,
+    ),
+  ].join("\n");
 
   const indentedBody = indent(transpiled.trimEnd(), 2);
   const bodyBlock = indentedBody.length > 0 ? `\n${indentedBody}\n` : "\n";
   return `// Auto-generated from GMS2 script: ${name}
-${importLines ? importLines + "\n\n" : ""}export function ${name}(${paramStr}): ${returnType} {${bodyBlock}}
+${importLines}
+
+export function ${name}(${paramStr}): ${returnType} {${bodyBlock}}
 `;
 }
 

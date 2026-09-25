@@ -1,6 +1,7 @@
 import type RAPIER_TYPE from "@dimforge/rapier2d-compat";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
+import type { GmlActionContext } from "../compat/gmlActions.js";
 type RapierModule = typeof RAPIER_TYPE;
 type World = InstanceType<RapierModule["World"]>;
 export interface PhysicsSystemOptions {
@@ -74,6 +75,17 @@ export declare class PhysicsSystem {
   private readonly _colliderToEid;
   /** Active sensor pairs, key `min(eid1,eid2):max(eid1,eid2)` — drives sensorStay. */
   private readonly _activeSensorPairs;
+  /**
+   * Optional — set via `attachGmlDispatch()` by a game that wants physics
+   * contacts to also fire a GMS2-imported object's GML `onCollideWith<Type>`
+   * handler (CLAUDE.md's "GML behavior dispatch" entry: a `physicsObject:
+   * true` GameMaker object still has a real Collision event in GameMaker
+   * even though it also gets a `PhysicsBody`). `undefined` by default —
+   * `PhysicsSystem` has no GML concept otherwise and must not require one to
+   * function, the same "engine defines the interface, whoever has a live
+   * instance wires the concrete implementation" pattern as `StorageAdapter`.
+   */
+  private _gmlContext;
   init(options?: PhysicsSystemOptions): Promise<void>;
   get world(): World;
   /** How far (0..1) the current render frame sits between the last two physics steps. */
@@ -86,6 +98,16 @@ export declare class PhysicsSystem {
    * fixed timestep, and dispatches collision/sensor callbacks after each
    * step (ENGINE_DESIGN.md §4 steps 3–4). Called from `Game.update()`.
    */
+  /**
+   * Opts this `PhysicsSystem` into also dispatching a real physics contact
+   * to a `GmlBehaviorState` entity's `onCollideWith<Type>` handler, for GML
+   * fidelity on `physicsObject: true` GMS2-imported objects (see this
+   * field's own doc comment). Pass a `GmlActionContext` once, typically the
+   * same one a game already builds for `GmlBehaviorSystem`/`gmlActions.ts`
+   * calls; omit this call entirely for a project with no GML behaviors —
+   * `_drainCollisionEvents` no-ops the dispatch when this is unset.
+   */
+  attachGmlDispatch(ctx: GmlActionContext): void;
   update(scene: Scene, dt: number): void;
   private _registerNewBodies;
   private _registerEntity;

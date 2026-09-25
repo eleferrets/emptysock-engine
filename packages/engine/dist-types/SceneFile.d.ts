@@ -86,9 +86,27 @@ export declare function parsePrefabFiles(
  * order, for a caller that wants to keep references (e.g. tagging the
  * player entity).
  */
+/** Options for `loadSceneFile()`. */
+export interface LoadSceneFileOptions {
+  /**
+   * Called once per entity, immediately after it's fully spawned (every
+   * component attached, every prop applied) — the one real hook point for
+   * "run one-time post-spawn setup" without `Scene`/`SceneFile` growing a
+   * required dependency on any specific optional system. This is the
+   * integration point `GmlBehaviorSystem.dispatchCreate()` uses to fire a
+   * GMS2-imported prefab instance's `onCreate` (see that method's doc
+   * comment): a GMS2-imported room's `.scene.json` is loaded through exactly
+   * this function, and `onSpawned` is where a game calling `loadSceneFile()`
+   * dispatches per-entity setup that depends on data only available once the
+   * entity is live (its final component values), not at prefab-definition
+   * time.
+   */
+  onSpawned?: (entity: ReturnType<Scene["spawn"]>) => void;
+}
 export declare function loadSceneFile(
   scene: Scene,
   file: SceneFile,
   lookup: ComponentLookup,
   prefabsByName: ReadonlyMap<string, PrefabDef>,
+  options?: LoadSceneFileOptions,
 ): ReturnType<Scene["spawn"]>[];

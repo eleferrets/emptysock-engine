@@ -70,8 +70,7 @@ export declare class InputManager {
   private _actions;
   /**
    * The `actions` map this instance was constructed with, kept verbatim so
-   * `resetToDefaults()` has something real to restore to — the classic
-   * `InputBindings.resetToDefaults()`'s exact behaviour (ENGINE_DESIGN.md
+   * `resetToDefaults()` has something real to restore to (ENGINE_DESIGN.md
    * §15.3's accessibility primitive #1: a player can always get back to the
    * shipped control scheme after rebinding).
    */
