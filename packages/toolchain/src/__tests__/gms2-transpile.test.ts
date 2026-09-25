@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { transpileGML, setGmlMacros } from "../gms2-transpile.js";
+import {
+  transpileGML,
+  setGmlMacros,
+  setGmlEnumNames,
+  setGmlObjectNames,
+} from "../gms2-transpile.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
   it("transpiles a bare-condition place_meeting call, entity-threaded, with the object-name argument quoted", () => {
@@ -2141,5 +2146,76 @@ describe("transpileGML — draw_self, instance_change, room_exists, audio_sound_
     expect(out).toContain(
       "GmlActions.surface_resize(_ctx, GmlActions.application_surface, w, h)",
     );
+  });
+});
+
+describe("transpileGML — legacy e__VW view-script camera accessors", () => {
+  it("threads camera_get_view_border_x/_y, camera_set_view_border, camera_get/set_view_target", () => {
+    const out = transpileGML(
+      "camera_set_view_border(cam, camera_get_view_border_x(cam), v); t = camera_get_view_target(cam); camera_set_view_target(cam, v);",
+    );
+    expect(out).toContain(
+      "GmlActions.camera_set_view_border(_ctx, cam, GmlActions.camera_get_view_border_x(_ctx, cam), v)",
+    );
+    expect(out).toContain("GmlActions.camera_get_view_target(_ctx, cam)");
+    expect(out).toContain("GmlActions.camera_set_view_target(_ctx, cam, v)");
+  });
+
+  it("threads view_get_surface_id/view_set_surface_id and the full view_*port family", () => {
+    const out = transpileGML(
+      "sid = view_get_surface_id(0); view_set_surface_id(0, 5); x1 = view_get_xport(0); y1 = view_get_yport(0); w1 = view_get_wport(0); h1 = view_get_hport(0);",
+    );
+    expect(out).toContain("GmlActions.view_get_surface_id(_ctx, 0)");
+    expect(out).toContain("GmlActions.view_set_surface_id(_ctx, 0, 5)");
+    expect(out).toContain("GmlActions.view_get_xport(_ctx, 0)");
+    expect(out).toContain("GmlActions.view_get_yport(_ctx, 0)");
+    expect(out).toContain("GmlActions.view_get_wport(_ctx, 0)");
+    expect(out).toContain("GmlActions.view_get_hport(_ctx, 0)");
+  });
+});
+
+describe("transpileGML — real project-defined GML enum declarations", () => {
+  it("strips a known enum declaration and rewrites its dot-access references onto GmlEnums", () => {
+    setGmlEnumNames(new Set(["TRANS_MODE"]));
+    const out = transpileGML(
+      "enum TRANS_MODE\n{\n\tOFF,\n\tNEXT,\n\tGOTO\n}\nmode = TRANS_MODE.NEXT;",
+    );
+    expect(out).not.toContain("enum TRANS_MODE {");
+    expect(out).toContain("GmlEnums.TRANS_MODE.NEXT");
+    setGmlEnumNames(new Set());
+  });
+
+  it("leaves an unknown enum-shaped name untouched", () => {
+    setGmlEnumNames(new Set(["TRANS_MODE"]));
+    const out = transpileGML("mode = OTHER_ENUM.NEXT;");
+    expect(out).not.toContain("GmlEnums.OTHER_ENUM");
+    setGmlEnumNames(new Set());
+  });
+});
+
+describe("transpileGML — cross-instance dotted references (obj_x.field)", () => {
+  it("rewrites a bare cross-instance read onto getGmlObjectVar", () => {
+    setGmlObjectNames(new Set(["obj_input"]));
+    const out = transpileGML("d = obj_input.key_down;");
+    expect(out).toContain(
+      'GmlActions.getGmlObjectVar(_entity, _ctx, "obj_input", "key_down")',
+    );
+    setGmlObjectNames(new Set());
+  });
+
+  it("rewrites a cross-instance assignment onto setGmlObjectVar", () => {
+    setGmlObjectNames(new Set(["obj_player"]));
+    const out = transpileGML("obj_player.hsp = 4;");
+    expect(out).toContain(
+      'GmlActions.setGmlObjectVar(_entity, _ctx, "obj_player", "hsp", 4);',
+    );
+    setGmlObjectNames(new Set());
+  });
+
+  it("does not rewrite a dotted access whose LHS is not a known object name", () => {
+    setGmlObjectNames(new Set(["obj_player"]));
+    const out = transpileGML("v = inst.image_xscale;");
+    expect(out).not.toContain("GmlActions.getGmlObjectVar");
+    setGmlObjectNames(new Set());
   });
 });

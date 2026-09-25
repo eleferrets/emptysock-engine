@@ -14,7 +14,13 @@ import {
   buildScriptModule,
   projectManifestJSON,
 } from "./gms2-codegen.js";
-import { scanGmlMacros, setGmlMacros } from "./gms2-transpile.js";
+import {
+  scanGmlMacros,
+  setGmlMacros,
+  setGmlEnumNames,
+  setGmlObjectNames,
+} from "./gms2-transpile.js";
+import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
@@ -97,6 +103,15 @@ export async function importGMS2Project(
   // dozen unrelated object/script files (see `scanGmlMacros`'s own doc
   // comment in gms2-transpile.ts).
   setGmlMacros(await scanGmlMacros(projectRoot));
+
+  // Real, project-wide `enum Name { ... }` resolution — same "must happen
+  // before any file is transpiled" reasoning as #macro above (see
+  // `scanGmlEnums`'s own doc comment in gms2-enums.ts and CLAUDE.md's "Real
+  // project-defined GML enums" section). The shared generated module is
+  // written once, up front, so every object/script's own generated file
+  // can import from it regardless of import order.
+  const gmlEnums = await scanGmlEnums(projectRoot);
+  setGmlEnumNames(new Set(gmlEnums.keys()));
 
   // NOTE: `defaultScriptType` in real .yyp files does NOT reliably indicate
   // "this project uses GML Visual (drag-and-drop)" — a real, fully
@@ -183,6 +198,33 @@ export async function importGMS2Project(
   // only `filesToWrite`'s contents (built via the same loops) does.
   const filesToWrite: { rel: string; content: string }[] = [];
   const reportEntries: MigrationReportEntry[] = [];
+
+  // Always written, even when the project declares zero enums — every
+  // generated object/script file that (conditionally) imports
+  // `assets/gml-enums.generated.js` must find a real file there.
+  filesToWrite.push({
+    rel: "assets/gml-enums.generated.ts",
+    content: buildEnumsModule(gmlEnums),
+  });
+  if (gmlEnums.size > 0) {
+    reportEntries.push({
+      name: "gml-enums",
+      kind: "enum",
+      status: "converted",
+      note: `${gmlEnums.size} real GML enum(s) resolved project-wide (${[...gmlEnums.keys()].join(", ")}) — see assets/gml-enums.generated.ts.`,
+    });
+  }
+
+  // Real, project-wide object-type names for the cross-instance dotted-
+  // reference rewrite pass (`obj_x.field` — see gms2-transpile.ts's
+  // `setGmlObjectNames`/CLAUDE.md's "Cross-file symbol table..." section).
+  // Every object listed in the project, not just ones that end up
+  // successfully converted — a dotted reference to an object that itself
+  // fails to import still deserves the real runtime-lookup rewrite (it
+  // will simply find no live instance at runtime, the same honest
+  // "no-live-instance" no-op `getGmlObjectVar`/`setGmlObjectVar` already
+  // give any object type with zero active instances).
+  setGmlObjectNames(new Set(objects));
 
   const convertedObjects: string[] = [];
   for (const name of objects) {

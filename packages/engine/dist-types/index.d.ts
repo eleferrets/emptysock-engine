@@ -358,6 +358,7 @@ export {
   hasGmlVar,
   clearGmlInstanceVars,
 } from "./compat/gmlInstanceVars.js";
+export { getGmlObjectVar, setGmlObjectVar } from "./compat/gmlCrossInstance.js";
 /**
  * GameMaker's "hypothetical position" collision-query family
  * (`place_meeting`/`place_free`/`position_meeting`/`instance_place`/
@@ -487,12 +488,27 @@ export {
   camera_set_view_size,
   camera_set_view_angle,
   camera_set_view_speed,
+  camera_get_view_border_x,
+  camera_get_view_border_y,
+  camera_set_view_border,
+  camera_get_view_target,
+  camera_set_view_target,
   view_get_camera,
   view_set_camera,
   view_get_visible,
   view_set_visible,
   view_get_enabled,
   view_set_enabled,
+  view_get_surface_id,
+  view_set_surface_id,
+  view_get_xport,
+  view_set_xport,
+  view_get_yport,
+  view_set_yport,
+  view_get_wport,
+  view_set_wport,
+  view_get_hport,
+  view_set_hport,
   clearGmlCameraState,
 } from "./compat/gmlCamera.js";
 export type { GmlCameraViewport } from "./compat/gmlCamera.js";

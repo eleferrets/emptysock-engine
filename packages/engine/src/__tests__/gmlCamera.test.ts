@@ -30,6 +30,13 @@ import {
   view_set_enabled,
   view_get_xport,
   view_get_wport,
+  camera_get_view_border_x,
+  camera_get_view_border_y,
+  camera_set_view_border,
+  camera_get_view_target,
+  camera_set_view_target,
+  view_get_surface_id,
+  view_set_surface_id,
   clearGmlCameraState,
   configureGmlViewsFromRoom,
   stepGmlCameraFollow,
@@ -494,6 +501,39 @@ describe("gmlCamera", () => {
       stepAllGmlCameraFollows(ctx);
       expect(camera_get_view_x(ctx, 0)).not.toBe(0);
       expect(camera_get_view_x(ctx, camid1)).not.toBe(0);
+    });
+  });
+
+  describe("legacy e__VW view-script accessors — border/target/surface", () => {
+    it("camera_get/set_view_border round-trips per axis", () => {
+      const ctx = makeCtx();
+      camera_create_view(ctx, 0, 0, 100, 100);
+      camera_set_view_border(ctx, 0, 5, 9);
+      expect(camera_get_view_border_x(ctx, 0)).toBe(5);
+      expect(camera_get_view_border_y(ctx, 0)).toBe(9);
+    });
+
+    it("camera_get/set_view_target stores a numeric target faithfully", () => {
+      const ctx = makeCtx();
+      camera_create_view(ctx, 0, 0, 100, 100);
+      camera_set_view_target(ctx, 0, 7);
+      expect(camera_get_view_target(ctx, 0)).toBe(7);
+    });
+
+    it("camera_set_view_target(camid, -1) clears the follow-object-name too", () => {
+      const ctx = makeCtx();
+      camera_create_view(ctx, 0, 0, 100, 100);
+      camera_set_view_target(ctx, 0, "obj_player");
+      camera_set_view_target(ctx, 0, -1);
+      expect(camera_get_view_target(ctx, 0)).toBe(-1);
+    });
+
+    it("view_get/set_surface_id round-trips per view slot, honestly, with no backing surface", () => {
+      const ctx = makeCtx();
+      expect(view_get_surface_id(ctx, 0)).toBe(-1);
+      view_set_surface_id(ctx, 0, 3);
+      expect(view_get_surface_id(ctx, 0)).toBe(3);
+      expect(view_get_surface_id(ctx, 1)).toBe(-1);
     });
   });
 });

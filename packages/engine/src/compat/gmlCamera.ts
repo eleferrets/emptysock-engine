@@ -140,6 +140,8 @@ interface GmlCameraRegistry {
   readonly viewPortY: number[];
   readonly viewPortWidth: number[];
   readonly viewPortHeight: number[];
+  /** `view_get_surface_id`/`view_set_surface_id` — see that function pair's doc comment. */
+  readonly viewSurfaceId: number[];
   viewEnabled: boolean;
   /** The camera id `camera_get_active()` reports — see that function's doc comment for the real, narrower GameMaker semantics this approximates. */
   activeCamera: number;
@@ -178,6 +180,7 @@ function ensureRegistry(scene: Scene): GmlCameraRegistry {
       viewPortY: new Array<number>(VIEW_SLOT_COUNT).fill(0),
       viewPortWidth: new Array<number>(VIEW_SLOT_COUNT).fill(1280),
       viewPortHeight: new Array<number>(VIEW_SLOT_COUNT).fill(720),
+      viewSurfaceId: new Array<number>(VIEW_SLOT_COUNT).fill(-1),
       viewEnabled: false,
       activeCamera: DEFAULT_CAMERA_ID,
     };
@@ -413,6 +416,77 @@ export function camera_set_view_speed(
   if (handle === undefined) return;
   handle.speedX = xspeed;
   handle.speedY = yspeed;
+}
+
+/**
+ * `camera_get_view_border_x`/`_y` and `camera_set_view_border(camid, x, y)` —
+ * real GameMaker functions twin to the `hborder`/`vborder` fields
+ * `GmlCameraHandle`/`camera_create_view` already store. Added for the
+ * `__view_get`/`__view_set_internal` legacy-compat bridge (Freedom Backup's
+ * own GameMaker-generated `e__VW.HBorder`/`e__VW.VBorder` cases) — confirmed
+ * a real, previously-missing gap: `borderX`/`borderY` were written by
+ * `camera_create_view`/`configureGmlViewsFromRoom` and read by
+ * `stepGmlCameraFollow`, but had no real get/set function pair of their own.
+ */
+export function camera_get_view_border_x(
+  ctx: GmlCameraContext,
+  camid: number,
+): number {
+  return getHandle(ctx, camid)?.borderX ?? 0;
+}
+export function camera_get_view_border_y(
+  ctx: GmlCameraContext,
+  camid: number,
+): number {
+  return getHandle(ctx, camid)?.borderY ?? 0;
+}
+export function camera_set_view_border(
+  ctx: GmlCameraContext,
+  camid: number,
+  x: number,
+  y: number,
+): void {
+  const handle = getHandle(ctx, camid);
+  if (handle === undefined) return;
+  handle.borderX = x;
+  handle.borderY = y;
+}
+
+/**
+ * `camera_get_view_target`/`camera_set_view_target(camid, target)` — real
+ * GameMaker functions twin to `GmlCameraHandle.targetObject`/
+ * `followObjectName`. GameMaker's real `target` argument is an instance id
+ * (or an object-type index, `noone`/`-1` for none); this compat layer's
+ * follow mechanism (`stepGmlCameraFollow`) resolves by object-type *name*
+ * via `Meta.name` (see `resolveGmlObjectType`/`findFirstByObjectName`), not
+ * a numeric instance id, so `camera_set_view_target` accepts either a real
+ * numeric id (stored, faithfully read back, but does not drive follow — no
+ * numeric-instance-id space exists anywhere in this engine to resolve one
+ * against) or a bare object-type name string threaded through by the
+ * transpiler's existing object-name-quoting convention, which does drive
+ * real follow, mirroring `configureGmlViewsFromRoom`'s own
+ * `followObjectName` wiring exactly.
+ */
+export function camera_get_view_target(
+  ctx: GmlCameraContext,
+  camid: number,
+): number {
+  return getHandle(ctx, camid)?.targetObject ?? -1;
+}
+export function camera_set_view_target(
+  ctx: GmlCameraContext,
+  camid: number,
+  target: number | string,
+): void {
+  const handle = getHandle(ctx, camid);
+  if (handle === undefined) return;
+  if (typeof target === "string") {
+    handle.followObjectName = target;
+    handle.targetObject = -1;
+  } else {
+    handle.targetObject = target;
+    if (target < 0) delete handle.followObjectName;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -767,6 +841,31 @@ export function stepAllGmlCameraFollows(ctx: GmlCameraContext): void {
   for (const camid of registry.handles.keys()) {
     stepGmlCameraFollow(ctx, camid);
   }
+}
+
+/**
+ * `view_get_surface_id`/`view_set_surface_id(idx, id)` — real GameMaker
+ * functions that read/write a per-view-slot "application surface" id
+ * (GameMaker's real target: which offscreen Surface that viewport renders
+ * into, so it can later be drawn elsewhere with `draw_surface`). This
+ * engine has no general Surface API — see `compat/gmlInput.ts`'s
+ * `application_surface`/`surface_get_width`/`_height` for the same honest
+ * gap stated for the room-wide single application surface. Stored
+ * faithfully per-slot (read back exactly by a later `view_get_surface_id`
+ * call on the same slot) without backing a real renderable surface.
+ */
+export function view_get_surface_id(
+  ctx: GmlCameraContext,
+  idx: number,
+): number {
+  return ensureRegistry(ctx.scene).viewSurfaceId[clampSlot(idx)] ?? -1;
+}
+export function view_set_surface_id(
+  ctx: GmlCameraContext,
+  idx: number,
+  id: number,
+): void {
+  ensureRegistry(ctx.scene).viewSurfaceId[clampSlot(idx)] = id;
 }
 
 /** @internal — test-only accessor for a camera handle's full stored state. */

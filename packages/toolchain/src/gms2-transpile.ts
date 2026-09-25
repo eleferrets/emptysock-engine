@@ -30,6 +30,44 @@ export function setGmlMacros(macros: ReadonlyMap<string, string>): void {
 }
 
 /**
+ * Project-wide GML `enum Name { ... }` declaration names (see
+ * `gms2-enums.ts`'s `scanGmlEnums()`), installed the same way `_macros`
+ * is — a project-wide pre-scan before any per-file `transpileGML` call.
+ * `transpileGML`'s own `enumNames` parameter defaults to reading this
+ * module-level set (rather than requiring every call site to thread it
+ * through), the identical "installed once, read implicitly" shape
+ * `_macros` already establishes, while still accepting an explicit
+ * override for direct unit testing.
+ */
+let _enumNames: ReadonlySet<string> = new Set();
+
+/** Installs the project-wide enum-name set `transpileGML`'s own enum rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlEnumNames(names: ReadonlySet<string>): void {
+  _enumNames = names;
+}
+
+/**
+ * Project-wide real GameMaker object-type names (the `objects/` directory
+ * listing `gms2-import.ts` already builds) — installed the same way
+ * `_macros`/`_enumNames` are, and read by `transpileGML`'s cross-instance
+ * dotted-reference rewrite pass (see CLAUDE.md's "Cross-file symbol table +
+ * real cross-instance/cross-object reference resolution" section). Only a
+ * name that is a real, known object type is ever rewritten — this is
+ * exactly what keeps a *local* variable dotted-access
+ * (`inst.image_xscale`, `other.hsp`) from being misidentified as a
+ * cross-instance object reference: `inst`/`other` are never real object
+ * names, so they never match here and fall through to the pre-existing,
+ * deliberately-unresolved dotted-reference guard every other built-in
+ * rewrite already establishes.
+ */
+let _objectNames: ReadonlySet<string> = new Set();
+
+/** Installs the project-wide object-name set `transpileGML`'s own cross-instance rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlObjectNames(names: ReadonlySet<string>): void {
+  _objectNames = names;
+}
+
+/**
  * Walks every `.gml` file under `projectRoot` and extracts every real
  * `#macro NAME value` declaration into a `name -> value` map. Real
  * GameMaker macros are one value expression per line (GameMaker's own IDE
@@ -752,6 +790,7 @@ export function transpileGML(
   knownImplicitVars: ReadonlySet<string> = new Set(),
   hasOtherParam = false,
   functionId = "fn",
+  enumNames: ReadonlySet<string> = _enumNames,
 ): string {
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
@@ -2293,6 +2332,13 @@ export function transpileGML(
     "view_set_wport",
     "view_get_hport",
     "view_set_hport",
+    "view_get_surface_id",
+    "view_set_surface_id",
+    "camera_get_view_border_x",
+    "camera_get_view_border_y",
+    "camera_set_view_border",
+    "camera_get_view_target",
+    "camera_set_view_target",
     // GameMaker's real keyboard/gamepad/mouse polling functions
     // (compat/gmlInput.ts) — real, confirmed high-value gap: none of these
     // were wired anywhere despite `keyboard_check`/`keyboard_check_pressed`
@@ -3683,6 +3729,102 @@ export function transpileGML(
     }
 
     out = unmaskGmlStringLiterals(out, "GMLSTR", maskedStrings);
+  }
+
+  // GameMaker 2.3+ real project-defined `enum Name { ... }` declarations
+  // (confirmed real, e.g. Freedom Backup's own `TRANS_MODE`/`MSG` — see
+  // CLAUDE.md's "GML enum declarations" section). `enum` is TypeScript-only
+  // syntax in a plain generated .behavior.ts module (this codebase doesn't
+  // emit TS enums), so a real declaration site is stripped entirely — the
+  // enum's real values were already computed project-wide by
+  // `gms2-enums.ts`'s `scanGmlEnums()` and are emitted once into a shared
+  // generated module (`assets/gml-enums.generated.ts`), which every
+  // generated `.behavior.ts` file imports as `GmlEnums`. `enumNames` (every
+  // enum name discovered anywhere in the project, passed in by the codegen
+  // caller) is what lets this per-file pass recognise a bare reference to
+  // one without needing its own project-wide scan — the same "caller
+  // supplies project-wide knowledge a per-file pass can't derive on its
+  // own" shape `knownImplicitVars` already uses.
+  if (enumNames.size > 0) {
+    const { masked: enumMasked, store: enumStrings } = maskGmlStringLiterals(
+      out,
+      "GMLSTR2",
+    );
+    let enumOut = enumMasked;
+    // Strip every declaration for a *known* enum name outright — its real
+    // values live in the shared generated module now, so the declaration
+    // itself (invalid as plain JS/TS output syntax here) has nothing left
+    // to do at the call site.
+    for (const name of enumNames) {
+      const declRe = new RegExp(`enum\\s+${name}\\s*\\{[^}]*\\}\\s*;?`, "g");
+      enumOut = enumOut.replace(
+        declRe,
+        `// [enum ${name} — real values in gml-enums.generated.ts, imported as GmlEnums]`,
+      );
+    }
+    // Redirect every remaining bare reference to a known enum name (dot
+    // access like `TRANS_MODE.FADE`, or a bare read of the enum object
+    // itself) onto the shared generated module's real export — never a
+    // reference already qualified with `GmlEnums.` (idempotent against a
+    // second transpile pass over already-transpiled output) or a dotted
+    // *other-instance* reference this transpiler can't resolve (the exact
+    // guard `sprite_index`/`image_*`'s own dotted-reference exclusion
+    // already establishes).
+    for (const name of enumNames) {
+      const useRe = new RegExp(
+        `(?<!\\.\\s*)(?<!GmlEnums\\.)\\b${name}\\b`,
+        "g",
+      );
+      enumOut = enumOut.replace(useRe, `GmlEnums.${name}`);
+    }
+    out = unmaskGmlStringLiterals(enumOut, "GMLSTR2", enumStrings);
+  }
+
+  // Real, project-wide cross-instance dotted references — `obj_x.field`,
+  // where `obj_x` is a genuine, known GameMaker object *type* name (not a
+  // local variable holding a specific instance reference such as
+  // `inst`/`other`). Real, confirmed usage in Freedom Backup:
+  // `obj_player.x`/`.y` (11/12 occurrences), `obj_input.key_down` etc. — see
+  // CLAUDE.md's "Cross-file symbol table..." section. `_objectNames` (every
+  // real object directory name, installed by `gms2-import.ts` before any
+  // file is transpiled) is what disambiguates this safely: only a name
+  // that's genuinely a project object type is ever rewritten here, so a
+  // same-named local variable is never misidentified — see
+  // `setGmlObjectNames`'s own doc comment for why this is safe without a
+  // full per-file local-variable scope analysis.
+  if (_objectNames.size > 0) {
+    const { masked: coMasked, store: coStrings } = maskGmlStringLiterals(
+      out,
+      "GMLSTR3",
+    );
+    let coOut = coMasked;
+    for (const objName of _objectNames) {
+      const esc = escapeRegExpTranspile(objName);
+      // Assignment form first (`obj_x.field = expr;`) — must run before the
+      // bare-read pass below, or the bare-read pass would consume the LHS
+      // of the assignment too and produce an invalid assignment target
+      // (the exact ordering every other assignment-then-bare-read pass in
+      // this file already follows).
+      coOut = coOut.replace(
+        new RegExp(
+          `(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
+          "g",
+        ),
+        (_m: string, field: string, expr: string) =>
+          `GmlActions.setGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
+      );
+      // Bare read (`obj_x.field`, anywhere — a sub-expression, a condition,
+      // …). The `(?<!\.\s*)` guard excludes a *further* nested dotted
+      // access (`a.obj_x.field`, not real GML but defensive regardless) so
+      // this can't double-fire on its own rewritten output on a second
+      // transpile pass.
+      coOut = coOut.replace(
+        new RegExp(`(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
+        (_m: string, field: string) =>
+          `GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)})`,
+      );
+    }
+    out = unmaskGmlStringLiterals(coOut, "GMLSTR3", coStrings);
   }
 
   return out;

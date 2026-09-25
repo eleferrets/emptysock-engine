@@ -1170,6 +1170,20 @@ Builds real multi-frame sprite animation end to end, superseding the "honest gap
 
 ---
 
+## 2026-09-25 (cont'd): legacy e\_\_VW view scripts, real GML enums, real cross-instance references
+
+User explicitly rejected the prior pass's "e\_\_VW low priority"/"cross-instance references inherently unresolvable" framing — the real camera system now exists and the whole real Freedom Backup project source is available, so all three were built for real, not deferred again.
+
+- [x] **Part 1 — legacy `e__VW`/`__view_get`/`__view_set_internal`/`__init_view`.** Read the real scripts: not the guessed `view_xview[idx]` array shape (zero real occurrences, confirmed by grep) — a real `enum e__VW` plus a dispatch table already calling mostly-wired `compat/gmlCamera.ts` functions. Added the 6 genuinely missing ones: `camera_get_view_border_x`/`_y`, `camera_set_view_border`, `camera_get_view_target`/`camera_set_view_target`, `view_get_surface_id`/`view_set_surface_id` (new `viewSurfaceId` registry field). Found and fixed a separate real export gap: `view_get_xport`/`_yport`/`_wport`/`_hport` were transpiler-threaded but never exported from `packages/engine/src/index.ts`. Confirmed `__view_get`/`__view_set_internal`/`__init_view` need zero special-casing once their calls resolve.
+- [x] **Part 2 — real project-defined GML enums.** New `packages/toolchain/src/gms2-enums.ts`: `scanGmlEnums()` (project-wide, `#macro`-scan-shaped) + `buildEnumsModule()`. `TRANS_MODE` (Freedom's real shape: `{ OFF, NEXT, GOTO, RESTART, INTRO }`, plain sequential) and `MSG` (`{ TEXT, NAME, IMAGE }`) confirmed real. `gms2-transpile.ts` strips enum declarations and rewrites `Name.Member`/bare `Name` onto `GmlEnums.Name` from a new shared generated `assets/gml-enums.generated.ts`, conditionally imported per generated file.
+- [x] **Part 3 — cross-instance dotted references.** New `packages/engine/src/compat/gmlCrossInstance.ts`: `getGmlObjectVar`/`setGmlObjectVar`, real runtime `Meta.name` lookup (reusing `resolveGmlObjectType`'s matching rule), `x`/`y` specially routed to real `Transform` fields, everything else through the existing `gmlInstanceVars.ts` side-table. `gms2-transpile.ts`'s new pass only rewrites a dotted LHS that's a genuine, known project object name (from the real `objects/` directory listing) — confirmed real usage: `obj_player.x`/`.y` (11/12 occurrences), `obj_input.key_down` etc.
+- Real, concrete remaining gaps documented in CLAUDE.md (not the old blanket framing): a local var/param sharing an object's exact name would misfire (unobserved in Freedom Backup); a bare non-dotted object-type reference (`obj_player` alone, 3 occurrences) is a different, still-unresolved shape; a cross-instance write to a component-backed field (sprite/image/depth) other than x/y routes through the generic side-table, not the real component.
+- Real Freedom Backup sweep: 798 → 775 error lines; zero `e__VW`/`TRANS_MODE`/`MSG`-related errors remain (verified by grep against the fresh sweep, not assumed).
+- Tests: `gms2-enums.test.ts` (new), `gms2-transpile.test.ts` (3 new describe blocks), `gmlCamera.test.ts` (new describe block), `gmlCrossInstance.test.ts` (new). Full suites green: engine 638/638, toolchain 406/406 (android test included, no timeout issues this run).
+- `npm run build:types` (engine) and toolchain `npm run build` both clean; dist-types re-committed.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.

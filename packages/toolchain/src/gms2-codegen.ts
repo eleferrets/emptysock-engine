@@ -540,6 +540,26 @@ export async function buildObjectBehavior(
     .map((script) => `import { ${script} } from './${script}.js';`)
     .join("\n");
 
+  const bodyText = [
+    onCreate,
+    onStepBegin,
+    onUpdate,
+    onStepEnd,
+    onDraw,
+    onDrawGui,
+    onDestroy,
+    extraBlock,
+  ].join("\n");
+  // GML `enum Name { ... }` references (e.g. `TRANS_MODE.FADE`) get
+  // rewritten by `transpileGML`'s enum pass onto `GmlEnums.Name` — see
+  // CLAUDE.md's "Real project-defined GML enums" section. Only import the
+  // shared generated module when this object's own transpiled body
+  // actually references one, so an object that never touches an enum
+  // doesn't carry a dead import.
+  const enumImportLine = bodyText.includes("GmlEnums.")
+    ? "import * as GmlEnums from './assets/gml-enums.generated.js';\n"
+    : "";
+
   return `// Auto-generated GMS2 behavior for object: ${name}
 // Review and replace GML logic with EmptySock equivalents. Wire these
 // functions up to your own prefab instances however your game dispatches
@@ -554,7 +574,7 @@ export async function buildObjectBehavior(
 // actions need more, see that type's own doc comment).
 import type { Entity, GmlActionContext } from '@emptysock/engine';
 import * as GmlActions from '@emptysock/engine';
-${scriptImportLines ? scriptImportLines + "\n" : ""}
+${enumImportLine}${scriptImportLines ? scriptImportLines + "\n" : ""}
 ${onCreate}
 ${onStepBegin ? `\n${onStepBegin}\n` : ""}
 ${onUpdate}
@@ -817,6 +837,9 @@ export function ${name}(
   const importLines = [
     `import type { Entity, GmlActionContext } from "@emptysock/engine";`,
     `import * as GmlActions from "@emptysock/engine";`,
+    ...(transpiled.includes("GmlEnums.")
+      ? [`import * as GmlEnums from "./assets/gml-enums.generated.js";`]
+      : []),
     ...calledScripts.map(
       (other) => `import { ${other} } from "./${other}.js";`,
     ),

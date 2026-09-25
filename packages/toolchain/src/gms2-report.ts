@@ -19,7 +19,8 @@ export type MigrationEntryKind =
   | "timeline"
   | "sequence"
   | "extension"
-  | "includedFile";
+  | "includedFile"
+  | "enum";
 
 /**
  * "copied" is distinct from "converted": a `note` resource's real text
@@ -131,6 +132,8 @@ function labelFor(kind: MigrationEntryKind): string {
       return "Extension";
     case "includedFile":
       return "Included File(s)";
+    case "enum":
+      return "Enum";
   }
 }
 
