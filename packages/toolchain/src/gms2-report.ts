@@ -18,7 +18,8 @@ export type MigrationEntryKind =
   | "shader"
   | "timeline"
   | "sequence"
-  | "extension";
+  | "extension"
+  | "includedFile";
 
 /**
  * "copied" is distinct from "converted": a `note` resource's real text
@@ -128,6 +129,8 @@ function labelFor(kind: MigrationEntryKind): string {
       return "Sequence";
     case "extension":
       return "Extension";
+    case "includedFile":
+      return "Included File(s)";
   }
 }
 

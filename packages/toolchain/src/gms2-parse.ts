@@ -12,6 +12,18 @@ export interface YYPResource {
   order: number;
 }
 
+export interface YYIncludedFile {
+  name: string;
+  filePath?: string;
+  // GameMaker's real per-platform deploy bitmask. -1 means "all targets";
+  // any other value's bit-to-platform mapping is internal, per-install
+  // target-module state that GameMaker itself never documents publicly
+  // (confirmed: no public spec exists for individual platform bit
+  // positions) — see `convertGms2IncludedFiles`'s own doc comment for how
+  // this importer honestly handles that.
+  CopyToMask?: number;
+}
+
 export interface YYProject {
   resources: YYPResource[];
   defaultScriptType: number; // 0 = GML, 1 = GML Visual
@@ -20,6 +32,11 @@ export interface YYProject {
   // which redundantly carry both "%Name" and "name").
   name?: string;
   "%Name"?: string;
+  // GameMaker's "Included Files" feature — real, arbitrary files bundled
+  // with the build (data files, licence text, config, ...), physically
+  // stored at "<filePath>/<name>" relative to the project root (real
+  // GameMaker default: filePath is "datafiles", or "datafiles/<subfolder>").
+  IncludedFiles?: YYIncludedFile[];
 }
 
 /**

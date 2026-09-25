@@ -39,6 +39,10 @@ import {
   buildSequenceModule,
 } from "./gms2-sequence-import.js";
 import { convertGms2Extension } from "./gms2-extension-import.js";
+import {
+  convertGms2IncludedFiles,
+  includedFilesManifestJSON,
+} from "./gms2-includedfiles-import.js";
 
 // Re-exported for backward compatibility — some callers (and the test
 // suite) import `parseGmsJson` directly from this module.
@@ -658,6 +662,32 @@ export async function importGMS2Project(
         status: "manual",
         note: reason,
       });
+    }
+  }
+
+  if (!dryRun) {
+    await fs.mkdir(outDir, { recursive: true });
+    const includedResult = await convertGms2IncludedFiles(
+      project.IncludedFiles,
+      projectRoot,
+      outDir,
+    );
+    warnings.push(...includedResult.warnings);
+    if (includedResult.entries.length > 0) {
+      filesToWrite.push({
+        rel: "included-files.json",
+        content: includedFilesManifestJSON(includedResult.entries),
+      });
+      reportEntries.push({
+        kind: "includedFile",
+        name: `${includedResult.entries.length} file(s)`,
+        status: "converted",
+      });
+      if (verbose) {
+        for (const e of includedResult.entries) {
+          console.log(`  [included] ${e.name} -> ${e.outPath}`);
+        }
+      }
     }
   }
 
