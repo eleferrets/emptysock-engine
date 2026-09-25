@@ -181,7 +181,7 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       "image_xscale = sign(hsp);\nimage_yscale = -1;\ny = image_xscale + image_yscale;",
     );
     expect(out).toContain(
-      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleX = sign(hsp);",
+      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleX = GmlActions.sign(hsp);",
     );
     expect(out).toContain(
       "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleY = -1;",
@@ -200,7 +200,7 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
 
   it("rewrites image_blend writes/reads onto Sprite.tint with the same BGR<->RGB conversion action_sprite_color uses", () => {
     const out = transpileGML("image_blend = c_red;\ny = image_blend;");
-    expect(out).toContain("const _bl = (c_red);");
+    expect(out).toContain("const _bl = (GmlActions.c_red);");
     expect(out).toContain(
       "const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb;",
     );
@@ -420,7 +420,7 @@ describe("transpileGML", () => {
       "if (point_distance(a, 0) > 0.2) || (point_distance(b, 0) > 0.2)\n{\n  foo();\n}",
     );
     expect(out).toContain(
-      "if ((point_distance(a, 0) > 0.2) || (point_distance(b, 0) > 0.2))",
+      "if ((GmlActions.point_distance(a, 0) > 0.2) || (GmlActions.point_distance(b, 0) > 0.2))",
     );
   });
 
@@ -728,7 +728,7 @@ describe("transpileGML", () => {
       "audio_play_sound(choose(snd_Foot1, snd_Foot2), 1, false);",
     );
     expect(out).toContain(
-      "GmlActions.audio_play_sound(_entity, _ctx, choose(snd_Foot1, snd_Foot2), 1, false);",
+      "GmlActions.audio_play_sound(_entity, _ctx, GmlActions.choose(snd_Foot1, snd_Foot2), 1, false);",
     );
   });
 
@@ -803,7 +803,7 @@ describe("transpileGML", () => {
       "for (var i = array_length_1d(arr) - 1; i >= 0; --i;)\n{\n  foo();\n}",
     );
     expect(out).toContain(
-      "for (let i = array_length_1d(arr) - 1; i >= 0; --i)",
+      "for (let i = GmlActions.array_length_1d(arr) - 1; i >= 0; --i)",
     );
   });
 
@@ -1068,7 +1068,7 @@ describe("transpileGML", () => {
         "fin_msg = choose(a, b, c,\n  d, e,\n  f);\nx = 1;",
       );
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "fin_msg", choose(a, b, c,\n  d, e,\n  f));',
+        'GmlActions.setGmlVar(_entity, _ctx, "fin_msg", GmlActions.choose(a, b, c,\n  d, e,\n  f));',
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -1203,7 +1203,7 @@ describe("transpileGML", () => {
         // later via `hsp = 0;`), so its read here routes through
         // GmlInstanceVars like any other genuine read.
         expect(out).toMatch(
-          /^if \(sign\(\(GmlActions\.getGmlVar\(_entity, _ctx, "hsp"\)\)\) != 0\) /,
+          /^if \(GmlActions\.sign\(\(GmlActions\.getGmlVar\(_entity, _ctx, "hsp"\)\)\) != 0\) /,
         );
       });
 
@@ -1388,5 +1388,75 @@ describe("transpileGML", () => {
       );
       expect(() => new Function(out)).not.toThrow();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GameMaker's colour constants and pure (non-entity) built-in functions —
+// compat/gml.ts fully implements and exports ~20 of these (sign, lerp,
+// random_range, choose, point_distance, c_white, c_black, ...) but nothing
+// in this transpiler ever rewrote a bare call/reference to route through
+// them — a real, confirmed, severe gap: Freedom Backup's own obj_camera
+// calls sign(hsp)/random_range(...) every frame, and uses c_white/c_black/
+// c_gray roughly 48 times across 20 files, every one left as a bare,
+// undeclared identifier (a hard ReferenceError at runtime).
+// ---------------------------------------------------------------------------
+
+describe("transpileGML — GML colour constants and pure built-in functions", () => {
+  it("rewrites a bare colour constant to the real GmlActions export", () => {
+    const out = transpileGML("draw_set_colour(c_red);\nx = c_white;");
+    expect(out).toContain("GmlActions.c_red");
+    expect(out).toContain("GmlActions.c_white");
+  });
+
+  it("does not rewrite a colour-constant-named property access (dotted reference)", () => {
+    const out = transpileGML("x = other.c_red;");
+    expect(out).toContain("other.c_red");
+    expect(out).not.toContain("other.GmlActions.c_red");
+  });
+
+  it("rewrites pure built-in function calls (sign/random_range/choose/degtorad/array_length_1d/...) to real GmlActions calls", () => {
+    // lerp/point_distance/string already have their own dedicated,
+    // native-JS inline-translation passes elsewhere in this file (running
+    // *before* this generic pass, which correctly leaves their
+    // already-rewritten output alone rather than double-wrapping it) —
+    // covered separately below, not asserted here.
+    const out = transpileGML(
+      "a = sign(x);\n" +
+        "c = random_range(-5, 5);\n" +
+        "d = choose(1, 2, 3);\n" +
+        "f = degtorad(90);\n" +
+        "g = array_length_1d(arr);\n",
+    );
+    expect(out).toContain("GmlActions.sign(x)");
+    expect(out).toContain("GmlActions.random_range(-5, 5)");
+    expect(out).toContain("GmlActions.choose(1, 2, 3)");
+    expect(out).toContain("GmlActions.degtorad(90)");
+    expect(out).toContain("GmlActions.array_length_1d(arr)");
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("leaves lerp/point_distance/string alone, already handled by their own dedicated native-JS translation passes", () => {
+    const out = transpileGML(
+      "b = lerp(0, 10, 0.5);\ne = point_distance(0, 0, x, y);\nh = string(5);\n",
+    );
+    expect(out).not.toContain("GmlActions.lerp");
+    expect(out).not.toContain("GmlActions.point_distance");
+    expect(out).not.toContain("GmlActions.string(");
+    expect(out).toContain("0 + (10 - 0) * 0.5");
+    expect(out).toContain("Math.hypot(x - 0, y - 0)");
+    expect(out).toContain("String(5)");
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("does not rewrite a pure function call sitting behind a dotted reference", () => {
+    const out = transpileGML("x = other.sign(5);");
+    expect(out).toContain("other.sign(5)");
+    expect(out).not.toContain("other.GmlActions.sign");
+  });
+
+  it("does not mis-rewrite string_length, already handled by its own dedicated pass, as a bare `string` reference", () => {
+    const out = transpileGML("x = string_length(s);");
+    expect(out).not.toContain("GmlActions.string(");
   });
 });

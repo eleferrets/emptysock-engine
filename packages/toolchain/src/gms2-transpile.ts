@@ -2024,6 +2024,95 @@ export function transpileGML(
     });
   }
 
+  // GameMaker's real, fixed colour-constant palette (compat/gml.ts's
+  // c_white/c_black/etc. — see that module's own doc comment) — confirmed a
+  // real, common gap: Freedom Backup alone uses c_white/c_black/c_gray
+  // roughly 48 times across 20 files, every one a bare, undeclared
+  // identifier (a hard ReferenceError at runtime) since nothing recognised
+  // GML's colour-constant family at all. A plain `\bname\b` → `GmlActions.
+  // name` rewrite is all these need — they're pure values, not calls, and
+  // (unlike an object-type-name argument) never need quoting.
+  const GML_COLOUR_CONSTANTS = [
+    "c_aqua",
+    "c_black",
+    "c_blue",
+    "c_dkgray",
+    "c_fuchsia",
+    "c_gray",
+    "c_green",
+    "c_lime",
+    "c_ltgray",
+    "c_maroon",
+    "c_navy",
+    "c_olive",
+    "c_orange",
+    "c_purple",
+    "c_red",
+    "c_silver",
+    "c_teal",
+    "c_white",
+    "c_yellow",
+  ];
+  for (const name of GML_COLOUR_CONSTANTS) {
+    out = out.replace(
+      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      `GmlActions.${name}`,
+    );
+  }
+
+  // Pure, non-entity GML built-in functions (compat/gml.ts) that were fully
+  // implemented and exported but never actually wired into this transpiler
+  // at all — a real, confirmed, severe gap: `sign`/`random_range`/`choose`/
+  // `lengthdir_x`/`lengthdir_y`/`point_distance`/`degtorad` etc. are
+  // genuinely common in real GML (confirmed against Freedom Backup's own
+  // obj_camera: `random_range(-shake_remain, shake_remain)`, `sign(hsp)`),
+  // and every one of them was left as a bare, undeclared identifier. These
+  // take no `_entity`/`_ctx` (they're pure value functions, not
+  // entity-affecting actions) and no argument needs object-type-name
+  // quoting, so a plain `\bname\s*(\s*args\s*)` → `GmlActions.name(args)`
+  // rewrite is correct and sufficient — the same shape `THREADED_CTX_ONLY`
+  // above uses, minus the injected first argument.
+  const THREADED_PURE_FUNCTIONS = [
+    "sign",
+    "lerp",
+    "frac",
+    "lengthdir_x",
+    "lengthdir_y",
+    "point_distance",
+    "point_direction",
+    "degtorad",
+    "radtodeg",
+    "irandom",
+    "random",
+    "random_range",
+    "choose",
+    "string",
+    "string_copy",
+    "string_pos",
+    "string_lower",
+    "string_upper",
+    "string_repeat",
+    "string_delete",
+    "game_end",
+    "object_exists",
+    "asset_get_index",
+    "array_length_1d",
+    "string_char_at",
+    "keyboard_wait",
+    "mouse_button_down",
+    "mouse_button_released",
+    "place_empty",
+  ];
+  for (const fn of THREADED_PURE_FUNCTIONS) {
+    out = out.replace(
+      new RegExp(
+        `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+        "g",
+      ),
+      (_m, args: string) => `GmlActions.${fn}(${args})`,
+    );
+  }
+
   // GameMaker's `view_camera[idx]`/`view_visible[idx]`/etc. built-in array
   // variables (as opposed to the function-call twins just above, which
   // handle an explicit `view_get_camera(idx)`/`view_set_camera(idx, v)`

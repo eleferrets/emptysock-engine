@@ -24,6 +24,42 @@ export function room_height(): number {
 }
 
 // ---------------------------------------------------------------------------
+// Colour constants — GameMaker's real, fixed 19-constant named-colour
+// palette (manual.gamemaker.io's "Colour And Alpha" reference page; values
+// confirmed against the standard web-safe 16-colour palette GameMaker's own
+// constants reuse, plus c_orange). GameMaker's own internal representation
+// is $BBGGRR (confirmed: c_red is documented as $0000FF, blue-green-red
+// order), but every consumer in this engine — Sprite.tint, canvas
+// fillStyle, draw_set_colour's GmlDrawTarget — wants a plain 0xRRGGBB
+// value, so these are declared directly as their real RGB integer rather
+// than round-tripping through GameMaker's own BGR storage order. Confirmed
+// a real, common gap: Freedom Backup alone uses c_white/c_black/c_gray
+// roughly 48 times across 20 files, previously left as bare, undeclared
+// identifiers (a hard ReferenceError at runtime) since nothing in this
+// engine or its transpiler recognised GML's colour-constant family at all.
+// ---------------------------------------------------------------------------
+
+export const c_aqua = 0x00ffff;
+export const c_black = 0x000000;
+export const c_blue = 0x0000ff;
+export const c_dkgray = 0x404040;
+export const c_fuchsia = 0xff00ff;
+export const c_gray = 0x808080;
+export const c_green = 0x008000;
+export const c_lime = 0x00ff00;
+export const c_ltgray = 0xc0c0c0;
+export const c_maroon = 0x800000;
+export const c_navy = 0x000080;
+export const c_olive = 0x808000;
+export const c_orange = 0xffa500;
+export const c_purple = 0x800080;
+export const c_red = 0xff0000;
+export const c_silver = 0xc0c0c0;
+export const c_teal = 0x008080;
+export const c_white = 0xffffff;
+export const c_yellow = 0xffff00;
+
+// ---------------------------------------------------------------------------
 // Math functions
 // ---------------------------------------------------------------------------
 
