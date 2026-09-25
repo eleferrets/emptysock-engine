@@ -519,9 +519,15 @@ describe("transpileGML", () => {
       "if !surface_exists(surf) surf = surface_create(room_width, room_height);\nsurface_set_target(surf);\n\nif (other_thing)\n{\n  foo();\n}",
     );
     expect(out).toContain("if (!surface_exists(surf))");
-    expect(out).toContain("surf = surface_create(room_width, room_height);");
+    // `room_width`/`room_height` are now real, wired bare-built-in-variable
+    // rewrites (see the dedicated describe block below) — this assertion
+    // was updated to match rather than to keep asserting the pre-fix,
+    // unresolved-identifier output.
+    expect(out).toContain(
+      "surf = surface_create(GmlActions.room_width(), GmlActions.room_height());",
+    );
     expect(out).not.toContain(
-      "surf = surface_create(room_width, room_height);)",
+      "surf = surface_create(GmlActions.room_width(), GmlActions.room_height());)",
     );
   });
 
@@ -1458,5 +1464,115 @@ describe("transpileGML — GML colour constants and pure built-in functions", ()
   it("does not mis-rewrite string_length, already handled by its own dedicated pass, as a bare `string` reference", () => {
     const out = transpileGML("x = string_length(s);");
     expect(out).not.toContain("GmlActions.string(");
+  });
+});
+
+describe("transpileGML — room_width/room_height bare built-in variables", () => {
+  it("rewrites a bare room_width/room_height read to a GmlActions call", () => {
+    const out = transpileGML("surface_resize(surf, room_width, room_height);");
+    expect(out).toContain(
+      "surface_resize(surf, GmlActions.room_width(), GmlActions.room_height());",
+    );
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("does not double-rewrite an already-function-call-shaped occurrence", () => {
+    const out = transpileGML("surface_resize(surf, room_width, room_height);");
+    expect(out).not.toContain("room_width()()");
+  });
+
+  it("does not rewrite a dotted reference to another instance's room_width", () => {
+    const out = transpileGML("x = other.room_width;");
+    expect(out).toContain("other.room_width");
+    expect(out).not.toContain("other.GmlActions.room_width");
+  });
+});
+
+describe("transpileGML — GameMaker legacy d3d_* pseudo-3D projection compat", () => {
+  it("threads the calling entity through d3d_set_projection_ortho/perspective", () => {
+    const out = transpileGML(
+      "d3d_set_projection_ortho(x, y, 64, 64, 0);\n" +
+        "d3d_set_projection_perspective(x, y, 64, 64, 0);\n",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_set_projection_ortho(_entity, x, y, 64, 64, 0)",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_set_projection_perspective(_entity, x, y, 64, 64, 0)",
+    );
+  });
+
+  it("threads the calling entity through every d3d_transform_set_* call, including zero-argument ones", () => {
+    const out = transpileGML(
+      "d3d_transform_set_identity();\n" +
+        "d3d_transform_set_translation(x, y, 0);\n" +
+        "d3d_transform_set_rotation_z(45);\n" +
+        "d3d_transform_set_rotation_x(30);\n" +
+        "d3d_transform_set_rotation_y(30);\n" +
+        "d3d_transform_set_scaling(2, 2, 1);\n" +
+        "d3d_transform_clear();\n",
+    );
+    expect(out).toContain("GmlActions.d3d_transform_set_identity(_entity)");
+    expect(out).toContain(
+      "GmlActions.d3d_transform_set_translation(_entity, x, y, 0)",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_transform_set_rotation_z(_entity, 45)",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_transform_set_rotation_x(_entity, 30)",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_transform_set_rotation_y(_entity, 30)",
+    );
+    expect(out).toContain(
+      "GmlActions.d3d_transform_set_scaling(_entity, 2, 2, 1)",
+    );
+    expect(out).toContain("GmlActions.d3d_transform_clear(_entity)");
+  });
+});
+
+describe("transpileGML — GameMaker particle-function family (part_type_*/part_system_*/part_particles_*)", () => {
+  it("rewrites pure, non-context particle functions with no _entity/_ctx threading", () => {
+    const out = transpileGML(
+      "part_type_create();\n" +
+        "part_type_shape(1, 0);\n" +
+        "part_type_size(1, 0.1, 0.3, 0, 0);\n" +
+        "part_type_colour1(1, c_red);\n" +
+        "part_type_blend(1, true);\n" +
+        "part_system_create();\n" +
+        "part_system_position(1, 4, 5);\n" +
+        "part_particles_clear(1);\n",
+    );
+    expect(out).toContain("GmlActions.part_type_create()");
+    expect(out).toContain("GmlActions.part_type_shape(1, 0)");
+    expect(out).toContain("GmlActions.part_type_size(1, 0.1, 0.3, 0, 0)");
+    expect(out).toContain("GmlActions.part_type_colour1(1, GmlActions.c_red)");
+    expect(out).toContain("GmlActions.part_type_blend(1, true)");
+    expect(out).toContain("GmlActions.part_system_create()");
+    expect(out).toContain("GmlActions.part_system_position(1, 4, 5)");
+    expect(out).toContain("GmlActions.part_particles_clear(1)");
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("threads _ctx (not _entity) through part_system_destroy/part_particles_create/part_particles_create_colour", () => {
+    const out = transpileGML(
+      "part_particles_create(1, 4, 5, 2, 5);\n" +
+        "part_particles_create_colour(1, 4, 5, 2, c_red, 5);\n" +
+        "part_system_destroy(1);\n",
+    );
+    expect(out).toContain(
+      "GmlActions.part_particles_create(_ctx, 1, 4, 5, 2, 5)",
+    );
+    expect(out).toContain(
+      "GmlActions.part_particles_create_colour(_ctx, 1, 4, 5, 2, GmlActions.c_red, 5)",
+    );
+    expect(out).toContain("GmlActions.part_system_destroy(_ctx, 1)");
+  });
+
+  it("does not rewrite a dotted reference to another instance's particle-function-named field", () => {
+    const out = transpileGML("x = other.part_type_create();");
+    expect(out).toContain("other.part_type_create()");
+    expect(out).not.toContain("other.GmlActions.part_type_create");
   });
 });

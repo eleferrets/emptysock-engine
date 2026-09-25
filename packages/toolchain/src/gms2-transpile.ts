@@ -2113,6 +2113,138 @@ export function transpileGML(
     );
   }
 
+  // GameMaker's real `room_width`/`room_height` built-in read-only
+  // variables (compat/gml.ts's `room_width()`/`room_height()`) — a real,
+  // confirmed gap: both were fully implemented and exported but never
+  // wired into this transpiler at all, and real GML source uses them as
+  // bare identifiers with no parentheses (`random(room_width)`,
+  // `surface_create(room_width, room_height)` — both real shapes already
+  // named, as examples, in this file's own earlier comments about other
+  // passes, which is what surfaced this gap). Rewritten to a call, the same
+  // "bare read -> function call" shape `depth`'s/`image_blend`'s own
+  // bare-read rewrites already use.
+  out = out.replace(
+    /(?<!\.\s*)\broom_width\b(?!\s*\()/g,
+    "GmlActions.room_width()",
+  );
+  out = out.replace(
+    /(?<!\.\s*)\broom_height\b(?!\s*\()/g,
+    "GmlActions.room_height()",
+  );
+
+  // GameMaker's legacy `d3d_*` pseudo-3D projection compat
+  // (compat/gmlProjection.ts) — real, confirmed gap: every one of these was
+  // fully implemented (writing four corners onto `Projection3D`, consumed
+  // by `RenderPipeline`'s real `PerspectiveMesh` sprite-sync — see
+  // CLAUDE.md's "Pseudo-3D projection" entry) and exported from
+  // `@emptysock/engine`, but never referenced anywhere in this transpiler,
+  // so a real GML object using `d3d_transform_set_translation`/
+  // `d3d_set_projection_ortho`/etc. would generate an unresolved-identifier
+  // ReferenceError at runtime despite the feature being fully built.
+  // Every one of these functions takes only `(entity, ...)` — GameMaker's
+  // real `d3d_transform_set_*`/`d3d_set_projection_*` calls affect the
+  // *calling instance's own* transform, never a room-global or ctx-scoped
+  // concept the way `camera_*`/`view_*` are — so this threads `_entity`
+  // alone, never `_ctx`, the one new threading shape this pass needed.
+  const THREADED_ENTITY_ONLY = [
+    "d3d_set_projection_ortho",
+    "d3d_set_projection_perspective",
+    "d3d_transform_set_identity",
+    "d3d_transform_set_translation",
+    "d3d_transform_set_rotation_z",
+    "d3d_transform_set_rotation_x",
+    "d3d_transform_set_rotation_y",
+    "d3d_transform_set_scaling",
+    "d3d_transform_clear",
+  ];
+  for (const fn of THREADED_ENTITY_ONLY) {
+    const re = new RegExp(
+      `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+      "g",
+    );
+    out = out.replace(re, (_m, args: string, semi: string | undefined) => {
+      const trimmed = args.trim();
+      const threaded = trimmed.length > 0 ? `_entity, ${trimmed}` : "_entity";
+      return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
+    });
+  }
+
+  // GameMaker's real particle-function family (compat/gmlParticles.ts) —
+  // another real, confirmed gap of the exact same "fully implemented,
+  // never wired" shape as the `d3d_*` family just above: every
+  // `part_type_*`/`part_system_*`/`part_particles_*` function is a real,
+  // tested compat implementation (see `RenderPipelineParticles.test.ts`/
+  // `gmlParticles.test.ts`), but none were ever referenced by this
+  // transpiler, so a real GameMaker action/platformer object's particle
+  // effects (an extremely common real-GML pattern — explosion bursts,
+  // footstep dust, muzzle flashes) would fail with unresolved-identifier
+  // errors at runtime. GameMaker's own particle API is handle-based, not
+  // tied to any specific instance (a `part_type_*ind*` or `part_system_*ind*`
+  // handle is a plain number, passed around freely, often stored in a
+  // global/controller object rather than `self`), so — unlike `d3d_*` —
+  // none of these take `_entity` at all. They split into two threading
+  // shapes depending on whether the real function needs `ctx.particles` to
+  // actually mount an emitter (`GmlParticleContext extends
+  // GmlActionContext`, so passing this generated function's own
+  // `_ctx: GmlActionContext` straight through type-checks with no cast
+  // needed, the same shape `GmlCameraContext` already established):
+  const PARTICLE_CTX_FIRST = [
+    "part_system_destroy",
+    "part_particles_create",
+    "part_particles_create_colour",
+    "part_particles_create_color",
+  ];
+  for (const fn of PARTICLE_CTX_FIRST) {
+    const re = new RegExp(
+      `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+      "g",
+    );
+    out = out.replace(re, (_m, args: string, semi: string | undefined) => {
+      const trimmed = args.trim();
+      const threaded = trimmed.length > 0 ? `_ctx, ${trimmed}` : "_ctx";
+      return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
+    });
+  }
+  // The rest take no context at all — plain value/handle functions, the
+  // same shape `THREADED_PURE_FUNCTIONS` above uses.
+  const PARTICLE_PURE = [
+    "part_type_create",
+    "part_type_destroy",
+    "part_type_exists",
+    "part_type_clear",
+    "part_type_shape",
+    "part_type_sprite",
+    "part_type_size",
+    "part_type_colour1",
+    "part_type_color1",
+    "part_type_colour2",
+    "part_type_color2",
+    "part_type_colour3",
+    "part_type_color3",
+    "part_type_alpha1",
+    "part_type_alpha2",
+    "part_type_alpha3",
+    "part_type_speed",
+    "part_type_direction",
+    "part_type_blend",
+    "part_type_gravity",
+    "part_type_life",
+    "part_system_create",
+    "part_system_exists",
+    "part_system_position",
+    "part_system_depth",
+    "part_particles_clear",
+  ];
+  for (const fn of PARTICLE_PURE) {
+    out = out.replace(
+      new RegExp(
+        `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+        "g",
+      ),
+      (_m, args: string) => `GmlActions.${fn}(${args})`,
+    );
+  }
+
   // GameMaker's `view_camera[idx]`/`view_visible[idx]`/etc. built-in array
   // variables (as opposed to the function-call twins just above, which
   // handle an explicit `view_get_camera(idx)`/`view_set_camera(idx, v)`
