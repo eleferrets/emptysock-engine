@@ -67,6 +67,7 @@ export type {
   SequenceDefinition,
   SequenceTrackDef,
 } from "./systems/SequenceSystem.js";
+export { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
 export { ParticleEmitter } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
@@ -154,7 +155,7 @@ export {
 } from "./systems/LightOcclusion.js";
 export { Meta } from "./components/Meta.js";
 export type { MetaShape } from "./components/Meta.js";
-export { Sprite } from "./components/Sprite.js";
+export { Sprite, resolveSpriteFramePath } from "./components/Sprite.js";
 export { Layout, LayoutStyle } from "./components/Layout.js";
 export {
   WidgetAppearance,
@@ -320,16 +321,20 @@ export {
   action_next_room,
   action_another_room,
   room,
+  room_exists,
   room_goto,
   action_create_object,
   instance_create,
   instance_create_layer,
+  instance_change,
   with_each,
   action_kill_object,
   instance_destroy,
   action_set_alarm,
   action_sound,
   audio_play_sound,
+  audio_sound_pitch,
+  draw_self,
   action_if_collision,
   action_if_aligned,
   action_if_empty,
@@ -563,9 +568,13 @@ export {
   mouse_check_button_pressed,
   display_get_gui_width,
   display_get_gui_height,
+  display_get_width,
+  display_get_height,
   application_surface,
   surface_get_width,
   surface_get_height,
+  window_set_size,
+  surface_resize,
 } from "./compat/gmlInput.js";
 /**
  * GameMaker's legacy `d3d_*` pseudo-3D projection compat — see
@@ -617,6 +626,12 @@ export {
   c_teal,
   c_white,
   c_yellow,
+  fa_left,
+  fa_center,
+  fa_right,
+  fa_top,
+  fa_middle,
+  fa_bottom,
   setRoomSize,
   room_width,
   room_height,
@@ -666,6 +681,13 @@ export {
   draw_text,
   draw_sprite,
   draw_line,
+  draw_set_font,
+  draw_set_halign,
+  draw_set_valign,
+  draw_set_alpha,
+  draw_sprite_ext,
+  draw_sprite_part,
+  draw_sprite_part_ext,
   show_message,
   game_end,
   object_exists,

@@ -301,3 +301,56 @@ describe("ECS RenderPipeline transition overlay (RELEASE_PASS.md Track 6)", () =
     expect(() => pipeline.renderFrame(scene)).not.toThrow();
   });
 });
+
+describe("RenderPipeline — multi-frame Sprite animation", () => {
+  it("resolves the {n}-templated texturePath against currentFrame and reloads on advance", async () => {
+    const loaded: string[] = [];
+    const pipeline = new RenderPipeline({
+      textureLoader: vi.fn((path: string) => {
+        loaded.push(path);
+        const tex = new (Texture as unknown as new () => PixiJS.Texture)();
+        (tex as unknown as { __path: string }).__path = path;
+        return Promise.resolve(tex);
+      }),
+    });
+    await pipeline.init();
+    const scene = new Scene();
+
+    const entity = scene.spawn();
+    entity.add(Transform);
+    const sprite = entity.add(Sprite, {
+      texturePath: "./assets/sprites/foo/frame_{n}.png",
+      frameCount: 3,
+      currentFrame: 0,
+    });
+
+    pipeline.syncEntities(scene);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const pixiSprite = (
+      pipeline as unknown as {
+        _tracking: Map<
+          unknown,
+          {
+            sprites: Map<number, { texture: { __path?: string } }>;
+          }
+        >;
+      }
+    )._tracking
+      .get(scene)
+      ?.sprites.get(entity.eid);
+    expect(pixiSprite?.texture.__path).toBe("./assets/sprites/foo/frame_0.png");
+
+    sprite.currentFrame = 2;
+    pipeline.syncEntities(scene);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(pixiSprite?.texture.__path).toBe("./assets/sprites/foo/frame_2.png");
+    expect(loaded).toEqual([
+      "./assets/sprites/foo/frame_0.png",
+      "./assets/sprites/foo/frame_2.png",
+    ]);
+  });
+});

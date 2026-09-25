@@ -14,7 +14,7 @@ import type { Renderer } from "pixi.js";
 import type { Scene } from "../Scene.js";
 import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
-import { Sprite } from "../components/Sprite.js";
+import { Sprite, resolveSpriteFramePath } from "../components/Sprite.js";
 import { Transform } from "../components/Transform.js";
 import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
@@ -858,6 +858,8 @@ export class RenderPipeline implements SceneRenderer {
       layer: string;
       depth: number;
       visible: boolean;
+      frameCount: number;
+      currentFrame: number;
     },
     containerFor: (layer: string) => Container,
   ): void {
@@ -865,6 +867,11 @@ export class RenderPipeline implements SceneRenderer {
     const projection = entity.has(Projection3D)
       ? entity.get(Projection3D)
       : undefined;
+    // Multi-frame sprites resolve `texturePath`'s `"{n}"` template against
+    // the entity's current frame — `resolveSpriteFramePath` is a no-op for
+    // an ordinary `frameCount <= 1` sprite (see its own doc comment), so
+    // this is byte-for-byte the old single-path behaviour in that case.
+    const framePath = resolveSpriteFramePath(sprite);
 
     if (projection !== undefined && projection.active) {
       this._removeSprite(tracking, eid);
@@ -872,6 +879,7 @@ export class RenderPipeline implements SceneRenderer {
         tracking,
         eid,
         sprite,
+        framePath,
         projection,
         containerFor(sprite.layer),
       );
@@ -885,9 +893,9 @@ export class RenderPipeline implements SceneRenderer {
       tracking.sprites.set(eid, pixiSprite);
     }
 
-    if (tracking.texturePaths.get(eid) !== sprite.texturePath) {
-      tracking.texturePaths.set(eid, sprite.texturePath);
-      this._applyTexture(tracking, eid, pixiSprite, sprite.texturePath);
+    if (tracking.texturePaths.get(eid) !== framePath) {
+      tracking.texturePaths.set(eid, framePath);
+      this._applyTexture(tracking, eid, pixiSprite, framePath);
     }
 
     const container = containerFor(sprite.layer);
@@ -923,6 +931,7 @@ export class RenderPipeline implements SceneRenderer {
       depth: number;
       visible: boolean;
     },
+    framePath: string,
     projection: {
       x0: number;
       y0: number;
@@ -941,9 +950,9 @@ export class RenderPipeline implements SceneRenderer {
       tracking.meshes.set(eid, mesh);
     }
 
-    if (tracking.texturePaths.get(eid) !== sprite.texturePath) {
-      tracking.texturePaths.set(eid, sprite.texturePath);
-      this._applyTexture(tracking, eid, mesh, sprite.texturePath);
+    if (tracking.texturePaths.get(eid) !== framePath) {
+      tracking.texturePaths.set(eid, framePath);
+      this._applyTexture(tracking, eid, mesh, framePath);
     }
 
     if (mesh.parent !== container) container.addChild(mesh);

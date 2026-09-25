@@ -26,6 +26,21 @@ export declare class AudioSystem {
   load(id: string, src: string, options?: SoundOptions): Howl;
   play(id: string): number | null;
   stop(id: string): void;
+  /**
+   * Sets a loaded sound's playback rate (1 = unchanged, 0.5 = half speed/an
+   * octave down, 2 = double speed/an octave up) — Howler's own real,
+   * documented `Howl.rate()` API. This is the engine-side answer to
+   * GameMaker's `audio_sound_pitch(index, pitch)`, which is a real, common
+   * idiom for cheap sound variety (a slightly different pitch each time the
+   * same gunshot/footstep sample plays, rather than needing several
+   * near-identical audio files) — see `compat/gmlActions.ts`'s
+   * `audio_sound_pitch`. Applies to every currently-playing (and future)
+   * instance of this loaded sound id, matching GameMaker's own per-sound
+   * (not per-play-instance) pitch semantic. A `id` that was never `load()`ed
+   * is a safe, honest no-op — the same "warn, don't throw" shape `play()`
+   * already uses for a missing sound.
+   */
+  setPitch(id: string, rate: number): void;
   pause(id: string): void;
   unload(id: string): void;
   unloadAll(): void;

@@ -1152,6 +1152,24 @@ Closes the one gap the previous pass left honestly unfixed: `static x = 0;` insi
 
 ---
 
+## 2026-09-25 (cont'd): real multi-frame sprite animation (`image_index`/`image_speed` gap closed)
+
+Builds real multi-frame sprite animation end to end, superseding the "honest gap" this repo's CLAUDE.md previously documented for `image_index`/`image_speed`.
+
+- [x] `Sprite` (`packages/engine/src/components/Sprite.ts`) gained `frameCount`/`currentFrame`/`frameSpeed`/`loop` fields (all defaulting to no-op values, so an existing single-frame sprite is unaffected) and a shared `resolveSpriteFramePath()` helper that resolves a `"{n}"`-templated `texturePath` against the current frame.
+- [x] New `SpriteAnimationSystem` (`packages/engine/src/systems/SpriteAnimationSystem.ts`), general-purpose (not GML-specific), wired into `Game.ts`'s shared `runFrame()` helper — runs for every loaded scene (main + overlays) every tick, after physics, before coroutines/`onUpdate`.
+- [x] `RenderPipeline._syncOne()`/`_syncProjected()` resolve the current frame's texture path before touching the texture cache, so each frame is a real, separately cached `Texture`.
+- [x] `gms2-sprite-import.ts`: `SpriteAsset.frameSpeed`, read from a real `.yy` `sequence.playbackSpeed`/`playbackSpeedType` (confirmed against a real Freedom Backup sprite), with an honestly-documented 60-steps/second assumption for the `playbackSpeedType: 0` (fps) case.
+- [x] `gms2-codegen.ts`: `buildSpriteAsset` emits the `"{n}"`-templated path + `frameCount`/`frameSpeed` for a real multi-frame sprite (it already copied every frame's PNG — CLAUDE.md's prior "only copies frame_0.png" claim was stale/inaccurate, confirmed by reading the function); `buildObjectPrefabJSON` seeds `frameCount`/`frameSpeed` on an object's initial `Sprite` when its sprite is genuinely multi-frame.
+- [x] `gms2-transpile.ts`: real `image_index`/`image_speed` rewrites onto `Sprite.currentFrame`/`frameSpeed`, following the established bare/compound-assignment + dotted-reference-guard + comment-guard pattern.
+- [x] Tests: `SpriteAnimationSystem.test.ts` (new), `RenderPipeline.test.ts` (new multi-frame describe block), `gms2-sprite-animation.test.ts` (new — real `.yy` parsing, `buildSpriteAsset`/`buildObjectPrefabJSON` seeding, end-to-end `importGMS2Project`), `gms2-transpile.test.ts` (new `image_index`/`image_speed` describe block; three pre-existing tests that used `image_speed`/`image_index` as generic "un-special-cased built-in" filler examples updated to a different identifier, since both are now genuinely special-cased).
+- [x] CLAUDE.md's "GMS2 rendering built-ins" section's `image_index`/`image_speed` honest-gap paragraph replaced with a real description of the system.
+- Verified against the real, full Freedom Backup project: 63 sprites converted as genuinely multi-frame, 7 object prefabs seeded with real `frameCount`/`frameSpeed` overrides, frame PNGs confirmed on disk. Full-project `tsc --noEmit` sweep of the regenerated output: 862 error lines (this file's last documented count) → 798; the 2 remaining `image_index`/`image_speed`-adjacent lines are a real, already-documented dotted-reference case (`inst.image_speed`), not a regression.
+- Full suites green: `packages/engine` `vitest run` — 66 files / 629 tests passing. `packages/toolchain` `vitest run` — 25 files / 394 tests passing (android toolchain test included). `tsc --noEmit` clean in `packages/toolchain`. `npm run build:types` clean in `packages/engine`.
+- Follow-up, out of scope for this repo's commit: `eleferrets/emptysock-ai-skills`'s `ai/api-reference.json`/skill files should get a matching `Sprite.frameCount`/`currentFrame`/`frameSpeed`/`loop` + `SpriteAnimationSystem` entry — a companion-repo update, not attempted here per this file's own "do not duplicate RELEASE_PASS.md in companion repos" rule and the cross-repo scope boundary in this task's own instructions.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.

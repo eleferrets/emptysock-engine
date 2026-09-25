@@ -127,12 +127,43 @@ export async function buildObjectPrefabJSON(
           ? parsed.spriteId.name
           : undefined;
       if (spriteName !== undefined) {
-        components.push({
-          component: "Sprite",
-          overrides: {
-            texturePath: `./assets/sprites/${spriteName}/frame_0.png`,
-          },
-        });
+        // Read the sprite's own real frame count/playback rate (see
+        // `SpriteAsset.frameSpeed`'s doc comment) so a multi-frame object's
+        // initial `Sprite` component seeds a real, animated default instead
+        // of a bare single-frame guess — a GMS2 object whose sprite has
+        // more than one frame plays its idle/default animation from frame
+        // 0 the instant it spawns, matching GameMaker's own behaviour.
+        // Wrapped in try/catch: a sprite this object references but that
+        // failed to import for its own reasons (missing frames, bad `.yy`)
+        // must not also take the *object's* prefab down with it — the
+        // texture path convention below is still emitted either way, the
+        // same "honestly degrade, don't cascade-fail" shape this importer
+        // uses throughout (see CLAUDE.md's stale-object-reference entry).
+        let frameCount = 1;
+        let frameSpeed: number | undefined;
+        try {
+          const spriteAsset = await convertGms2Sprite(
+            path.join(projectRoot, "sprites", spriteName),
+          );
+          frameCount = spriteAsset.frameCount;
+          frameSpeed = spriteAsset.frameSpeed;
+        } catch {
+          // Left at the single-frame default — the sprite loop elsewhere in
+          // `importGMS2Project` is responsible for reporting the real
+          // failure by name in the migration report.
+        }
+
+        const overrides: Record<string, unknown> = {
+          texturePath:
+            frameCount > 1
+              ? `./assets/sprites/${spriteName}/frame_{n}.png`
+              : `./assets/sprites/${spriteName}/frame_0.png`,
+        };
+        if (frameCount > 1) {
+          overrides["frameCount"] = frameCount;
+          overrides["frameSpeed"] = frameSpeed ?? 1;
+        }
+        components.push({ component: "Sprite", overrides });
       }
 
       if (parsed.physicsObject === true) {
@@ -560,14 +591,31 @@ export async function buildSpriteAsset(
   }
 
   const relBase = `./assets/sprites/${name}/`;
+  // A multi-frame sprite's `Sprite.texturePath` is the `"{n}"`-templated
+  // convention `resolveSpriteFramePath` (`@emptysock/engine`'s
+  // `components/Sprite.ts`) resolves at render time; a single-frame sprite
+  // keeps the old literal `frame_0.png` path unchanged (`frameCount <= 1`
+  // is a no-op for `resolveSpriteFramePath`, so this stays byte-identical
+  // to pre-animation behaviour for every sprite that only ever had one
+  // frame).
+  const texturePath =
+    sprite.frameCount > 1
+      ? `${relBase}frame_{n}.png`
+      : relBase + (frameFiles[0] ?? "frame_0.png");
   return `// Auto-generated from GMS2 sprite: ${name}
 // Use with @emptysock/engine's Sprite component:
-//   new Sprite({ texturePath: ${JSON.stringify(relBase + (frameFiles[0] ?? "frame_0.png"))} })
+//   new Sprite({ texturePath: ${JSON.stringify(texturePath)}${
+    sprite.frameCount > 1
+      ? `, frameCount: ${sprite.frameCount}, frameSpeed: ${sprite.frameSpeed ?? 1}`
+      : ""
+  } })
 export const ${toPascalCase(name)}Sprite = {
   name: ${JSON.stringify(name)},
   width: ${sprite.width},
   height: ${sprite.height},
   frameCount: ${sprite.frameCount},
+  frameSpeed: ${sprite.frameSpeed ?? 1},
+  texturePath: ${JSON.stringify(texturePath)},
   frames: ${JSON.stringify(frameFiles.map((f) => relBase + f))},
 } as const;
 `;

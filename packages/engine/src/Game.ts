@@ -10,6 +10,7 @@ import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
+import { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
@@ -250,12 +251,19 @@ interface LoadedScene {
  * manually from their own `onUpdate` despite the option implying it "just
  * works").
  */
+const spriteAnimation = new SpriteAnimationSystem();
+
 function runFrame(loaded: LoadedScene, dt: number): void {
   loaded.lifecycle.actors.update(dt);
 
   if (loaded.physicsEnabled) {
     loaded.lifecycle.physics.update(loaded.lifecycle.scene, dt);
   }
+
+  // General-purpose, not GML-specific (see `SpriteAnimationSystem`'s own
+  // doc comment) — every loaded scene (main + overlays) gets its `Sprite`
+  // frames advanced every tick, the same reach `actors`/`physics` above get.
+  spriteAnimation.update(loaded.lifecycle.scene);
 
   // After physics settles, before onUpdate — a coroutine resuming this
   // frame sees this frame's post-physics state, and onUpdate sees whatever

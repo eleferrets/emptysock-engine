@@ -167,6 +167,27 @@ export declare function action_sprite_color(
  * room-name comparison agree with whatever room is really loaded.
  */
 export declare function room(ctx: GmlActionContext): string;
+/**
+ * `room_exists(room)` — GameMaker's real function takes a numeric room
+ * asset index and answers whether it's a valid room in the project. This
+ * importer has no numeric room-index concept (rooms are addressed by their
+ * GameMaker name string throughout — see `GmlActionContext.rooms`'s own doc
+ * comment), so a bare room-name identifier used as this argument is quoted
+ * the same way `action_next_room`'s room-name argument already is (`gms2-
+ * transpile.ts`'s `THREADED_ACTIONS` quoting), and this checks membership in
+ * `ctx.rooms` — the exact map `action_next_room`/`GmsProjectRuntime` already
+ * treat as "every room this project actually has". A project that never
+ * wired `ctx.rooms` at all honestly answers `false` for everything (no
+ * fabricated "yes" for a room this context can't actually load), matching
+ * Freedom Backup's own real use (`obj_display_manager`'s `if
+ * (room_exists(i)) ...` display-mode scan, and `obj_player`'s `if
+ * (room_exists(_other.new_room))` before a door transition) — both are
+ * real existence checks before acting, not performance-sensitive hot loops.
+ */
+export declare function room_exists(
+  ctx: GmlActionContext,
+  roomName: string,
+): boolean;
 /** GM8.1 "Next Room" — loads `ctx.roomOrder[currentIndex + 1]` via `ctx.game.loadScene`. Requires `ctx.game`, `ctx.rooms`, `ctx.roomOrder`, and `ctx.currentRoom` — see `GmlActionContext`'s doc comment for why the importer can't build this map itself. */
 export declare function action_next_room(
   _entity: Entity,
@@ -277,6 +298,49 @@ export declare function action_kill_object(
   ctx: GmlActionContext,
 ): void;
 /**
+ * `instance_change(object, perform_events)` — GameMaker's real function
+ * turns the *calling* instance into a different object type in place,
+ * keeping its position (and, per the manual, most instance variables) while
+ * swapping its sprite and object identity, optionally running the new
+ * object's Create event (`perform_events`).
+ *
+ * This engine's ECS model has nothing structurally equivalent to "become a
+ * different prefab in place" — an entity's component set isn't tied to a
+ * single "object type" the way a GameMaker instance's `object_index` is,
+ * and there is no live `PrefabDef -> behaviorId` map this context carries
+ * (`GmlActionContext.prefabs` only maps a name to a spawnable `PrefabDef`,
+ * not to which compiled `.behavior.ts` module governs its own Step/Draw/
+ * Collision dispatch — see CLAUDE.md's "`GmsProjectRuntime`" entry, which
+ * documents that a `GmlBehaviorState.behaviorId` is resolved once, at
+ * spawn time, from the room's own prefab-instance data). Re-pointing an
+ * already-spawned entity's `GmlBehaviorState.behaviorId` at a *different*
+ * compiled module (so its own future Step/Draw/Collision events dispatch
+ * through the new object's code, not the old one's) is a real, deliberate,
+ * honest gap this function does not attempt to fake.
+ *
+ * What this function *does* do for real, matching the two parts of
+ * `instance_change`'s effect this engine can honestly represent: it stamps
+ * `Meta.name` to `objectName` (adding a `Meta` component if the entity has
+ * none) — the same field `onCollideWith<Type>` dispatch/`place_meeting`/
+ * `GmlCollision.ts` already resolve an instance's "object type" through
+ * (see CLAUDE.md's "GML behavior dispatch" entry's `resolveGmlObjectType`
+ * paragraph), so a collision/`place_meeting` check made against the new
+ * object name after this call sees the entity as that type, matching real
+ * GameMaker behaviour — and, if `ctx.prefabs[objectName]`'s own default
+ * `Sprite.texturePath` is known, updates the entity's own `Sprite`
+ * component to match, the same visual half of `instance_change` GameMaker
+ * performs. `perform_events` is accepted (so real call sites keep their
+ * real argument count) but honestly not applied — there is no `onCreate`
+ * dispatch this function can safely trigger without a resolved
+ * `GmlBehaviorState.behaviorId` for the *new* object, per the gap above.
+ */
+export declare function instance_change(
+  entity: Entity,
+  ctx: GmlActionContext,
+  objectName: string,
+  _performEvents: boolean,
+): void;
+/**
  * `instance_destroy()` — GML's function-call spelling of the same action
  * (destroy the calling instance), takes no arguments. Before this, a bare
  * `instance_destroy();` call transpiled to an inert, comment-only
@@ -345,6 +409,29 @@ export declare function audio_play_sound(
   _priority?: number,
   _loop?: boolean,
 ): void;
+/**
+ * `audio_sound_pitch(index, pitch)` — sets a loaded sound's playback rate
+ * (`1` = unchanged; GameMaker documents this as `1` = normal, `0.5` = half
+ * speed/an octave down, `2` = double speed/an octave up — matching Howler's
+ * own `rate()` convention exactly, see `AudioSystem.setPitch`'s own doc
+ * comment). A real, common GameMaker idiom for cheap sound variety — real,
+ * confirmed usage: Freedom Backup's own `audio_sound_pitch(snd_Shot,
+ * choose(0.8, 1.0, 1.2))`, a slightly different pitch every shot rather
+ * than needing several near-identical gunshot samples. `soundName` is
+ * resolved through `ctx.sounds` the same way `action_sound`'s own sound-id
+ * resolution already works. This is genuinely not entity-affecting — a
+ * sound's pitch is a property of the loaded sound asset, not of the calling
+ * instance — but is threaded `(entity, ctx, ...)` regardless of not needing
+ * `entity`, matching `action_sound`/`audio_play_sound`'s own shape rather
+ * than needing a second, `(ctx, ...)`-only sound function family.
+ */
+export declare function audio_sound_pitch(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  soundName: string,
+  pitch: number,
+): void;
+export declare function draw_self(entity: Entity, ctx: GmlActionContext): void;
 /** GM8.1 "If Colliding" — true if `entity`'s `Transform`-based bounding box overlaps `other`'s. This is a plain AABB check using `Sprite`-implied bounds where available (falling back to a 1x1 point check when neither entity has a `Sprite`) — a real collision-shape check belongs to `PhysicsSystem`/`PhysicsBody`, which a GM8.1 DnD project (see CLAUDE.md's "action_move... A GM8.1 DnD game very often has no physics body at all") frequently doesn't use at all. */
 export declare function action_if_collision(
   entity: Entity,

@@ -71,6 +71,7 @@ export type {
   SequenceDefinition,
   SequenceTrackDef,
 } from "./systems/SequenceSystem.js";
+export { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
 export { ParticleEmitter } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
@@ -164,7 +165,7 @@ export {
 } from "./systems/LightOcclusion.js";
 export { Meta } from "./components/Meta.js";
 export type { MetaShape } from "./components/Meta.js";
-export { Sprite } from "./components/Sprite.js";
+export { Sprite, resolveSpriteFramePath } from "./components/Sprite.js";
 export { Layout, LayoutStyle } from "./components/Layout.js";
 export {
   WidgetAppearance,

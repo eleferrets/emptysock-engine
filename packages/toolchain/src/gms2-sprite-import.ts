@@ -22,6 +22,28 @@ export interface SpriteAsset {
    * not one PNG per sprite, so this is simply the first frame's image.
    */
   imagePath: string;
+  /**
+   * This sprite's own authored playback rate, translated into
+   * `@emptysock/engine`'s `Sprite.frameSpeed` unit (frames advanced per
+   * engine tick — `SpriteAnimationSystem`'s own per-step convention,
+   * matching real GameMaker `image_speed`). `undefined` when the `.yy` had
+   * no real `sequence.playbackSpeed` to read (an old GMS2 sprite resource
+   * predating the Sequences-based sprite editor) — the caller falls back to
+   * `Sprite.frameSpeed`'s own default (`1`) rather than a fabricated value.
+   *
+   * A real GMS2 `.yy` sprite's `sequence.playbackSpeed` is paired with
+   * `playbackSpeedType`: `0` means the number is already **frames per
+   * second** (GameMaker's own default, confirmed against a real Freedom
+   * Backup sprite: `playbackSpeed: 15.0, playbackSpeedType: 0`), `1` means
+   * **frames per game-step** — the exact same per-tick unit
+   * `Sprite.frameSpeed` already uses, needing no conversion. Converting FPS
+   * to frames-per-step needs a step rate to divide by; this importer has no
+   * per-project step rate to read (GameMaker's room-level "Speed" setting
+   * isn't sprite data), so it honestly assumes the common default of 60
+   * steps/second — real, documented, not silently precise for a project
+   * that actually runs its rooms at a different speed.
+   */
+  frameSpeed?: number;
 }
 
 interface YyFrame {
@@ -32,13 +54,23 @@ interface YyFrame {
   [key: string]: unknown;
 }
 
+interface YySequence {
+  playbackSpeed?: number;
+  playbackSpeedType?: number;
+  [key: string]: unknown;
+}
+
 interface YySprite {
   name?: string;
   width?: number;
   height?: number;
   frames?: YyFrame[];
+  sequence?: YySequence | null;
   [key: string]: unknown;
 }
+
+/** Default assumed step rate (steps/second) used only to convert a real GMS2 `playbackSpeedType: 0` (frames-per-second) value into `Sprite.frameSpeed`'s frames-per-step unit — see `SpriteAsset.frameSpeed`'s own doc comment for why this is an honest assumption, not a read field. */
+const ASSUMED_STEPS_PER_SECOND = 60;
 
 function isYySprite(val: unknown): val is YySprite {
   return typeof val === "object" && val !== null;
@@ -127,6 +159,19 @@ export async function convertGms2Sprite(
     }
   }
 
+  const sequence = parsed.sequence;
+  let frameSpeed: number | undefined;
+  if (
+    sequence !== null &&
+    sequence !== undefined &&
+    typeof sequence.playbackSpeed === "number"
+  ) {
+    frameSpeed =
+      sequence.playbackSpeedType === 1
+        ? sequence.playbackSpeed
+        : sequence.playbackSpeed / ASSUMED_STEPS_PER_SECOND;
+  }
+
   return {
     name,
     frames,
@@ -134,5 +179,6 @@ export async function convertGms2Sprite(
     width,
     height,
     imagePath: frames[0]?.imagePath ?? path.join(spriteYyDir, `${name}.png`),
+    ...(frameSpeed !== undefined ? { frameSpeed } : {}),
   };
 }
