@@ -73,6 +73,20 @@ A canvas-based tile painter for building 2D tilemaps.
 
 Data is stored as `Record<"col,row", tileIndex>` per layer. Export the tilemap JSON to use it with `TilemapSystem.load()` at runtime.
 
+## 7.7 RoomEditor
+
+A canvas-based editor for placing and moving a scene's instances — the visual counterpart to a `.scene.json` file (the same format `@emptysock/toolchain`'s GMS2 room importer generates, see `RoomLayer`/`SceneFilePrefabInstance` in `@emptysock/engine`).
+
+**Controls:**
+
+- **File picker** (top-left): every open `*.scene.json` file is listed; pick one to edit its room layout.
+- **Canvas**: each placed instance renders as a labeled box at its `(x, y)` position. Click to select, drag to move.
+- **Grid/snap/ruler** (top-right, per the IDE's per-tool convention): toggle the grid overlay and snap-to-grid; dragging with snap enabled rounds to the current grid size.
+- **Position panel** (right, appears once an instance is selected): numeric X/Y fields for precise placement.
+- **Undo/Redo**: toolbar buttons, also bound to Ctrl+Z / Ctrl+Shift+Z, capped at 50 steps per the IDE's shared `useHistory` convention.
+
+Every edit (drag or typed X/Y) writes the updated `.scene.json` straight back into the IDE's open-file store — the same file a GMS2-imported room's `prefabInstances` array lives in, so a room built by the importer is immediately editable here with no conversion step.
+
 ---
 
 ## 7.7 Particle Editor

@@ -11,6 +11,11 @@ export const ALL_MODULES: ModuleDef[] = [
     description: "Grid-based level design",
   },
   {
+    id: "room",
+    label: "Room Editor",
+    description: "Drag-and-drop placement of room/scene instances",
+  },
+  {
     id: "particle",
     label: "Particle Editor",
     description: "Visual particle system authoring",
@@ -88,6 +93,7 @@ export const ALL_MODULES: ModuleDef[] = [
 ];
 
 export const DEFAULT_ENABLED_MODULES: string[] = [
+  "room",
   "particle",
   "audio",
   "profiler",
