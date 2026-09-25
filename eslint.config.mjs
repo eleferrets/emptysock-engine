@@ -53,6 +53,7 @@ export default [
       'packages/engine/src/systems/RenderSystem.ts',
       'packages/engine/src/systems/RenderPipeline.ts',
       'packages/engine/src/systems/CustomShaderFilter.ts',
+      'packages/engine/src/systems/RainGlassFilter.ts',
       'packages/engine/src/systems/PhysicsSystem.ts',
       'packages/engine/src/systems/PhysicsSystem3D.ts',
       'packages/engine/src/systems/CameraSystem.ts',

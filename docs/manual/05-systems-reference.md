@@ -546,6 +546,23 @@ post.destroy();
 
 > **Warning:** PostProcessSystem uses a second WebGL framebuffer. On low-end hardware or when rendering at native resolution on a high-DPI display, this can halve frame rate. Test on target hardware before shipping.
 
+**Per-layer filters** (`setLayerFilter(layerId, options)`) are a separate mechanism from the effects above — one real PixiJS `Filter` attached to a specific render layer's container, rebuilt only when the filter's `type` changes (see `RenderSystem.syncPostProcessLayerFilters()`). `"rain-glass"` is one of these layer filter types:
+
+```typescript
+import { PostProcessSystem } from "@emptysock/engine";
+
+const post = new PostProcessSystem();
+post.setLayerFilter("foreground", {
+  type: "rain-glass",
+  intensity: 0.6, // 0..1 overall droplet opacity/refraction strength
+  dropletSize: 0.12, // UV-space cell size — smaller = more, smaller drops
+  dropletSpeed: 0.35, // UV-space fall speed per second for streaks
+  streakAmount: 0.5, // 0..1 blend: 0 = static droplets, 1 = falling streaks
+});
+```
+
+`"rain-glass"` is a GPU-cheap, screen-space approximation of streaking water droplets on the camera lens (an Asphalt-8-Airborne-style effect), built as a single fragment-shader pass — see `RainGlassFilter.ts`'s header comment for the full technique. It renders through `RenderSystem` (a real `pixi.js` `Filter`, `RainGlassFilter`) only; `cssFilterForLayer()` returns `''` for it, since there is no CSS filter primitive that can express procedural per-pixel UV refraction — a host that draws a layer as a DOM element gets no visual effect for this type. This is unrelated to and does not replace `ParticleEmitter`-based background rain (falling raindrop sprites in the world) — the two are commonly used together, one for rain falling through the scene, one for droplets clinging to the "lens".
+
 ---
 
 ## 5.14 GamepadSystem

@@ -71,6 +71,14 @@ export declare class RenderSystem {
   private _defaultContainer;
   /** Real pixi Filter instances built from `PostProcessSystem.layerFilters`, keyed by layer id, reused across frames so `syncPostProcessLayerFilters` doesn't reallocate a GPU filter every call. */
   private _postProcessFilters;
+  /**
+   * Wall-clock seconds at the last `syncPostProcessLayerFilters()` call
+   * that had at least one live `rain-glass` filter — used to compute the
+   * `dtSeconds` passed to `RainGlassFilter.tick()`. `null` until the first
+   * such call, so the very first tick advances by 0 rather than by however
+   * long the engine had been running before rain-glass was ever enabled.
+   */
+  private _rainGlassLastTick;
   /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
   private _lightingFilter;
   private _lightMapTexture;
@@ -140,6 +148,14 @@ export declare class RenderSystem {
    * filter detached.
    */
   syncPostProcessLayerFilters(postProcess: PostProcessSystem): void;
+  /**
+   * Advances every live `RainGlassFilter`'s `uTime` uniform by the wall-clock
+   * seconds elapsed since the last call that had at least one — droplets
+   * fall by real time, not by frame count, so this stays correct under a
+   * variable frame rate the same way `Game.update(dt)`'s own delta-time
+   * loop does elsewhere in the engine.
+   */
+  private _tickRainGlassFilters;
   private _clearPostProcessFilter;
   private _applyPostProcessFilter;
   private _createPostProcessFilter;

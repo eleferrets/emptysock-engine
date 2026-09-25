@@ -73,6 +73,11 @@ export type {
 } from "./systems/ParticleSystem.js";
 export { createCustomShaderFilter } from "./systems/CustomShaderFilter.js";
 export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
+export {
+  createRainGlassFilter,
+  RainGlassFilter,
+} from "./systems/RainGlassFilter.js";
+export type { RainGlassFilterOptions } from "./systems/RainGlassFilter.js";
 export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
@@ -406,6 +411,7 @@ export {
   part_type_alpha3,
   part_type_speed,
   part_type_direction,
+  part_type_blend,
   part_type_gravity,
   part_type_life,
   part_system_create,

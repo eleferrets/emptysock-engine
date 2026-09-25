@@ -25,6 +25,7 @@ const { RenderSystem } = await import("../systems/RenderSystem.js");
 const { PostProcessSystem } = await import("../systems/PostProcessSystem.js");
 const { BlurFilter, ColorMatrixFilter } = await import("pixi.js");
 const { OutlineFilter } = await import("pixi-filters");
+const { RainGlassFilter } = await import("../systems/RainGlassFilter.js");
 
 describe("RenderSystem.syncPostProcessLayerFilters", () => {
   let render: InstanceType<typeof RenderSystem>;
@@ -140,5 +141,101 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
     // getLayerContainer after destroy() would throw (renderer torn down),
     // so this test only verifies destroy() itself doesn't throw while
     // filters are tracked — the real assertion is "no error, no leak".
+  });
+
+  describe("rain-glass", () => {
+    it("attaches a real RainGlassFilter with default uniform values", () => {
+      pp.setLayerFilter("fg", { type: "rain-glass" });
+      render.syncPostProcessLayerFilters(pp);
+      const filter = render.getLayerContainer("fg").filters[0];
+      expect(filter).toBeInstanceOf(RainGlassFilter);
+      const res = (filter as InstanceType<typeof RainGlassFilter>).resources[
+        "uniforms"
+      ] as Record<string, { value: unknown }>;
+      expect(res["uIntensity"]?.value).toBe(0.6);
+      expect(res["uDropletSize"]?.value).toBe(0.12);
+      expect(res["uDropletSpeed"]?.value).toBe(0.35);
+      expect(res["uStreakAmount"]?.value).toBe(0.5);
+    });
+
+    it("applies intensity/dropletSize/dropletSpeed/streakAmount from options", () => {
+      pp.setLayerFilter("fg", {
+        type: "rain-glass",
+        intensity: 0.9,
+        dropletSize: 0.2,
+        dropletSpeed: 0.7,
+        streakAmount: 0.1,
+      });
+      render.syncPostProcessLayerFilters(pp);
+      const filter = render.getLayerContainer("fg").filters[0] as InstanceType<
+        typeof RainGlassFilter
+      >;
+      const res = filter.resources["uniforms"] as Record<
+        string,
+        { value: unknown }
+      >;
+      expect(res["uIntensity"]?.value).toBe(0.9);
+      expect(res["uDropletSize"]?.value).toBe(0.2);
+      expect(res["uDropletSpeed"]?.value).toBe(0.7);
+      expect(res["uStreakAmount"]?.value).toBe(0.1);
+    });
+
+    it("advances uTime across syncs (rain falls over real time, not frame count)", () => {
+      pp.setLayerFilter("fg", { type: "rain-glass" });
+      render.syncPostProcessLayerFilters(pp);
+      const filter = render.getLayerContainer("fg").filters[0] as InstanceType<
+        typeof RainGlassFilter
+      >;
+      const first = filter.elapsed;
+      // First sync always ticks by 0 (no prior timestamp to diff against).
+      expect(first).toBe(0);
+      render.syncPostProcessLayerFilters(pp);
+      expect(filter.elapsed).toBeGreaterThanOrEqual(first);
+    });
+
+    it("rebuilds cleanly when switching from another filter type to rain-glass and back", () => {
+      pp.setLayerFilter("fg", { type: "blur", radius: 5 });
+      render.syncPostProcessLayerFilters(pp);
+      expect(render.getLayerContainer("fg").filters[0]).toBeInstanceOf(
+        BlurFilter,
+      );
+
+      pp.setLayerFilter("fg", { type: "rain-glass", intensity: 0.4 });
+      render.syncPostProcessLayerFilters(pp);
+      const rainFilter = render.getLayerContainer("fg").filters[0];
+      expect(rainFilter).toBeInstanceOf(RainGlassFilter);
+
+      pp.setLayerFilter("fg", { type: "blur", radius: 2 });
+      render.syncPostProcessLayerFilters(pp);
+      const backToBlur = render.getLayerContainer("fg").filters[0];
+      expect(backToBlur).toBeInstanceOf(BlurFilter);
+      expect(backToBlur).not.toBe(rainFilter);
+    });
+
+    it("disabling a rain-glass filter detaches and destroys it", () => {
+      pp.setLayerFilter("fg", { type: "rain-glass" });
+      render.syncPostProcessLayerFilters(pp);
+      expect(render.getLayerContainer("fg").filters).toHaveLength(1);
+
+      pp.toggleLayerFilter("fg", false);
+      render.syncPostProcessLayerFilters(pp);
+      expect(render.getLayerContainer("fg").filters).toHaveLength(0);
+    });
+
+    it("reuses the same RainGlassFilter instance across syncs when the type is unchanged", () => {
+      pp.setLayerFilter("fg", { type: "rain-glass", intensity: 0.3 });
+      render.syncPostProcessLayerFilters(pp);
+      const first = render.getLayerContainer("fg").filters[0];
+
+      pp.setLayerFilter("fg", { type: "rain-glass", intensity: 0.8 });
+      render.syncPostProcessLayerFilters(pp);
+      const second = render.getLayerContainer("fg").filters[0];
+
+      expect(second).toBe(first);
+      const res = (second as InstanceType<typeof RainGlassFilter>).resources[
+        "uniforms"
+      ] as Record<string, { value: unknown }>;
+      expect(res["uIntensity"]?.value).toBe(0.8);
+    });
   });
 });

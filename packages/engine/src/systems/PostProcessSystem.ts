@@ -15,6 +15,7 @@ export type LayerFilterType =
   | "hue-rotate"
   | "invert"
   | "colourblind"
+  | "rain-glass"
   | "none";
 
 /**
@@ -48,6 +49,14 @@ export interface LayerFilterOptions {
   thickness?: number;
   /** colourblind: which deficiency to simulate */
   mode?: ColourblindMode;
+  /** rain-glass: 0..1 overall droplet opacity/refraction strength. Default 0.6. */
+  intensity?: number;
+  /** rain-glass: aspect-corrected UV-space cell size for the large droplet grid — smaller = more, smaller drops. Default 0.12. */
+  dropletSize?: number;
+  /** rain-glass: UV-space fall speed per second for the streak grid. Default 0.35. */
+  dropletSpeed?: number;
+  /** rain-glass: 0..1 blend between static droplets (0) and falling streaks (1). Default 0.5. */
+  streakAmount?: number;
   enabled?: boolean;
 }
 
@@ -263,6 +272,16 @@ export class PostProcessSystem {
             : "#000";
         return `drop-shadow(0 0 1px ${col}) drop-shadow(0 0 1px ${col})`;
       }
+      case "rain-glass":
+        // Honest gap, not a silent no-op: refraction through procedural
+        // droplet cells needs a real fragment shader sampling the
+        // already-rendered scene at a distorted UV — there is no CSS
+        // filter primitive that can express that (`backdrop-filter` gets
+        // closest but still can't do per-pixel procedural UV distortion).
+        // A host that renders a layer as a DOM element gets no visual
+        // effect for this type; a real pixi-backed renderer (RenderSystem)
+        // is required. See RainGlassFilter.ts's header comment.
+        return "";
       default:
         return "";
     }

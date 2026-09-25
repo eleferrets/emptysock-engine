@@ -21,6 +21,10 @@ import {
 } from "./PostProcessSystem.js";
 import type { LightingSystem, LightSample } from "./LightingSystem.js";
 import type { Scene } from "../Scene.js";
+import {
+  RainGlassFilter,
+  type RainGlassFilterOptions,
+} from "./RainGlassFilter.js";
 
 /**
  * The structural shape `renderMultiCamera()` needs from one active camera
@@ -157,6 +161,14 @@ export class RenderSystem {
     string,
     { type: LayerFilterType; filter: Filter }
   > = new Map();
+  /**
+   * Wall-clock seconds at the last `syncPostProcessLayerFilters()` call
+   * that had at least one live `rain-glass` filter — used to compute the
+   * `dtSeconds` passed to `RainGlassFilter.tick()`. `null` until the first
+   * such call, so the very first tick advances by 0 rather than by however
+   * long the engine had been running before rain-glass was ever enabled.
+   */
+  private _rainGlassLastTick: number | null = null;
   /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
   private _lightingFilter: SimpleLightmapFilter | null = null;
   private _lightMapTexture: RenderTexture | null = null;
@@ -354,6 +366,31 @@ export class RenderSystem {
     for (const layerId of [...this._postProcessFilters.keys()]) {
       if (!seen.has(layerId)) this._clearPostProcessFilter(layerId);
     }
+    this._tickRainGlassFilters();
+  }
+
+  /**
+   * Advances every live `RainGlassFilter`'s `uTime` uniform by the wall-clock
+   * seconds elapsed since the last call that had at least one — droplets
+   * fall by real time, not by frame count, so this stays correct under a
+   * variable frame rate the same way `Game.update(dt)`'s own delta-time
+   * loop does elsewhere in the engine.
+   */
+  private _tickRainGlassFilters(): void {
+    const rainFilters: RainGlassFilter[] = [];
+    for (const entry of this._postProcessFilters.values()) {
+      if (entry.type === "rain-glass")
+        rainFilters.push(entry.filter as RainGlassFilter);
+    }
+    if (rainFilters.length === 0) {
+      this._rainGlassLastTick = null;
+      return;
+    }
+    const now = Date.now() / 1000;
+    const dt =
+      this._rainGlassLastTick === null ? 0 : now - this._rainGlassLastTick;
+    this._rainGlassLastTick = now;
+    for (const rain of rainFilters) rain.tick(dt);
   }
 
   private _clearPostProcessFilter(layerId: string): void {
@@ -397,6 +434,8 @@ export class RenderSystem {
       case "colour-grade":
       case "colourblind":
         return new ColorMatrixFilter();
+      case "rain-glass":
+        return new RainGlassFilter();
       default:
         return null;
     }
@@ -494,6 +533,24 @@ export class RenderSystem {
           1,
           0,
         ];
+        return;
+      }
+      case "rain-glass": {
+        const rain = filter as RainGlassFilter;
+        const rainOptions: RainGlassFilterOptions = {};
+        if (opts.intensity !== undefined)
+          rainOptions.intensity = opts.intensity;
+        if (opts.dropletSize !== undefined)
+          rainOptions.dropletSize = opts.dropletSize;
+        if (opts.dropletSpeed !== undefined)
+          rainOptions.dropletSpeed = opts.dropletSpeed;
+        if (opts.streakAmount !== undefined)
+          rainOptions.streakAmount = opts.streakAmount;
+        rain.setOptions(rainOptions);
+        rain.setResolution(
+          this._renderer?.width ?? 1,
+          this._renderer?.height ?? 1,
+        );
         return;
       }
       default:

@@ -9,6 +9,7 @@ export type LayerFilterType =
   | "hue-rotate"
   | "invert"
   | "colourblind"
+  | "rain-glass"
   | "none";
 /**
  * Colour-vision-deficiency modes. The matrices shipped here (see
@@ -40,6 +41,14 @@ export interface LayerFilterOptions {
   thickness?: number;
   /** colourblind: which deficiency to simulate */
   mode?: ColourblindMode;
+  /** rain-glass: 0..1 overall droplet opacity/refraction strength. Default 0.6. */
+  intensity?: number;
+  /** rain-glass: aspect-corrected UV-space cell size for the large droplet grid — smaller = more, smaller drops. Default 0.12. */
+  dropletSize?: number;
+  /** rain-glass: UV-space fall speed per second for the streak grid. Default 0.35. */
+  dropletSpeed?: number;
+  /** rain-glass: 0..1 blend between static droplets (0) and falling streaks (1). Default 0.5. */
+  streakAmount?: number;
   enabled?: boolean;
 }
 /**

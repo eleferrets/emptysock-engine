@@ -77,6 +77,11 @@ export type {
 } from "./systems/ParticleSystem.js";
 export { createCustomShaderFilter } from "./systems/CustomShaderFilter.js";
 export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
+export {
+  createRainGlassFilter,
+  RainGlassFilter,
+} from "./systems/RainGlassFilter.js";
+export type { RainGlassFilterOptions } from "./systems/RainGlassFilter.js";
 // `Game`'s five constructor-registered services (CLAUDE.md's "PluginSystem,
 // VariableStore, LocalisationSystem, ViewportSystem, and WindowSystem are
 // Game services" entry) — game code needs the class itself as a type-safe
@@ -426,6 +431,7 @@ export {
   part_type_alpha3,
   part_type_speed,
   part_type_direction,
+  part_type_blend,
   part_type_gravity,
   part_type_life,
   part_system_create,
