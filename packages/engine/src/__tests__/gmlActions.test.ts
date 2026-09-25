@@ -11,6 +11,7 @@ import {
   action_sprite_set,
   action_sprite_color,
   action_kill_object,
+  instance_destroy,
   action_create_object,
   instance_create,
   action_set_alarm,
@@ -141,6 +142,15 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     entity.add(Transform);
     const ctx = makeCtx(scene);
     action_kill_object(entity, ctx);
+    expect(entity.isAlive).toBe(false);
+  });
+
+  it("instance_destroy() also destroys the entity — real gap: it used to transpile to an inert comment, not a real call at all", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(Transform);
+    const ctx = makeCtx(scene);
+    instance_destroy(entity, ctx);
     expect(entity.isAlive).toBe(false);
   });
 

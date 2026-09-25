@@ -329,6 +329,7 @@ export {
   action_create_object,
   instance_create,
   action_kill_object,
+  instance_destroy,
   action_set_alarm,
   action_sound,
   action_if_collision,

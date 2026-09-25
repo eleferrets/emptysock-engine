@@ -382,6 +382,25 @@ export function action_kill_object(
   ctx.scene.destroy(entity);
 }
 
+/**
+ * `instance_destroy()` — GML's function-call spelling of the same action
+ * (destroy the calling instance), takes no arguments. Before this, a bare
+ * `instance_destroy();` call transpiled to an inert, comment-only
+ * placeholder expression — not even a real `scene.destroy()` call, let
+ * alone one that could ever dispatch `onDestroy`. This was a severe,
+ * previously-undiscovered gap: `instance_destroy()` is one of the single
+ * most common GameMaker calls in real projects (despawning bullets,
+ * enemies, pickups, effects — confirmed used in 33 separate real
+ * object/script files across just two of this importer's real test
+ * projects), and every one of those calls was silently doing nothing at
+ * all — the calling entity stayed alive forever. Aliases
+ * `action_kill_object` rather than duplicating its body, so the two
+ * spellings of "destroy this instance" can never drift apart.
+ */
+export function instance_destroy(entity: Entity, ctx: GmlActionContext): void {
+  action_kill_object(entity, ctx);
+}
+
 // ---------------------------------------------------------------------------
 // Alarms: action_set_alarm
 // ---------------------------------------------------------------------------

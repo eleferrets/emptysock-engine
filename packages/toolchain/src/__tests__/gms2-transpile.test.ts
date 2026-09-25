@@ -324,6 +324,19 @@ describe("transpileGML", () => {
     expect(out).not.toContain("= = ");
   });
 
+  it("instance_destroy() threads into a real GmlActions.instance_destroy call, not an inert comment placeholder — severe real gap, confirmed used in 33 real files across two real projects", () => {
+    const out = transpileGML("instance_destroy();");
+    expect(out).toContain("GmlActions.instance_destroy(_entity, _ctx);");
+    expect(out).not.toContain("undefined /* entity.destroy(); */");
+  });
+
+  it("instance_destroy() still threads correctly as a bare-if's single-statement body", () => {
+    const out = transpileGML("if (global.hasgun == false) instance_destroy();");
+    expect(out).toContain(
+      "if (global.hasgun == false) GmlActions.instance_destroy(_entity, _ctx);",
+    );
+  });
+
   it("wraps an if chain whose clause has a nested function call operand", () => {
     const out = transpileGML(
       "if (point_distance(a, 0) > 0.2) || (point_distance(b, 0) > 0.2)\n{\n  foo();\n}",

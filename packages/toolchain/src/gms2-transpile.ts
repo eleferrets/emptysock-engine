@@ -1165,17 +1165,21 @@ export function transpileGML(gml: string): string {
 
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
 
-  // instance_create_layer / instance_destroy — GML allows both to appear as
-  // a sub-expression, not just a standalone statement: `my_gun =
-  // instance_create_layer(...)` (assigned) and `with
-  // (instance_create_layer(...))` (passed as an argument) are both real,
-  // common shapes. A line-comment substitution (`// ...`) is only safe when
-  // the call is the entire statement — used inside `with(...)` or an
-  // assignment's right-hand side, it comments out everything after it on
-  // the same line, corrupting the enclosing statement's syntax (e.g.
-  // leaving `with(` with no matching `)`). A block comment wrapped around a
-  // real `undefined` expression stays valid in both statement and
-  // expression position.
+  // instance_create_layer — GML allows this to appear as a sub-expression,
+  // not just a standalone statement: `my_gun = instance_create_layer(...)`
+  // (assigned) and `with (instance_create_layer(...))` (passed as an
+  // argument) are both real, common shapes. A line-comment substitution
+  // (`// ...`) is only safe when the call is the entire statement — used
+  // inside `with(...)` or an assignment's right-hand side, it comments out
+  // everything after it on the same line, corrupting the enclosing
+  // statement's syntax (e.g. leaving `with(` with no matching `)`). A block
+  // comment wrapped around a real `undefined` expression stays valid in
+  // both statement and expression position. (`instance_destroy` used to be
+  // handled the same placeholder-comment way here — a genuine bug, since
+  // unlike `instance_create_layer` there's a completely real, mechanical
+  // rewrite for it: see `instance_destroy`'s entry in `THREADED_ACTIONS`
+  // below, and `compat/gmlActions.ts`'s own `instance_destroy` export for
+  // why this was a severe gap, not a stylistic one.)
   out = out.replace(
     new RegExp(
       `\\binstance_create_layer\\s*\\(${BALANCED_PARENS_ONE_LEVEL}\\)(\\s*;)?`,
@@ -1183,10 +1187,6 @@ export function transpileGML(gml: string): string {
     ),
     (_m, semi?: string) =>
       `(undefined /* TODO: scene.createEntity() and add ObjX component */)${semi ?? ""}`,
-  );
-  out = out.replace(
-    /\binstance_destroy\s*\(\s*\)(\s*;)?/g,
-    (_m, semi?: string) => `(undefined /* entity.destroy(); */)${semi ?? ""}`,
   );
 
   // audio_play_sound(snd, priority, loop) / room_goto(rm_next) / draw_sprite
@@ -1438,6 +1438,7 @@ export function transpileGML(gml: string): string {
     "action_create_object",
     "instance_create",
     "action_kill_object",
+    "instance_destroy",
     "action_set_alarm",
     "action_sound",
     // GameMaker's "hypothetical position" collision-query family (see
