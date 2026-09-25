@@ -1200,17 +1200,41 @@ export function transpileGML(gml: string): string {
   // returning `(undefined /* ... */)` stays a valid statement (and a valid
   // sub-expression, for the same reason) in every position a genuine
   // function call could have appeared in.
-  // The whole argument list is captured as one raw, unparsed string (up to
-  // one level of nested parens — a real, common shape is a sound-choosing
-  // sub-call as the first argument, e.g.
-  // `audio_play_sound(choose(snd_a, snd_b), 1, false)`) rather than split
-  // into snd/priority/loop positionally: a naive `[^,)]+`-per-argument
-  // split breaks the moment any argument itself contains a comma, like that
-  // sub-call's own argument list does.
+  // `audio_play_sound`/`room_goto` used to be comment-only placeholders
+  // here — a severe, real gap, not a stylistic one: both are among the
+  // single most common GameMaker calls in real projects (sound effects,
+  // level/screen transitions — confirmed real usage: `audio_play_sound
+  // (snd_Shot, 5, false)`, `room_goto(rm_gamefcat)`), and every real call
+  // to either was silently doing nothing at all. Both now thread into real
+  // `compat/gmlActions.ts` exports (`audio_play_sound`/`room_goto`,
+  // aliasing `action_sound`/`action_another_room` respectively so the DnD
+  // and function-call spellings of the same action can't drift apart).
+  //
+  // A bare identifier first argument (`audio_play_sound(snd_Shot, ...)`,
+  // `room_goto(rm_gamefcat)` — the overwhelmingly common real shape) is
+  // quoted into the exact string literal `ctx.sounds`/`ctx.rooms` are keyed
+  // by, the same convention `timeline_index`'s bare-identifier rewrite
+  // above already establishes. Anything else (a variable, `choose(...)`, a
+  // dotted reference like `other.new_room`) is assumed to already evaluate
+  // to a real name string and passed through unchanged — this importer has
+  // no way to resolve an arbitrary runtime expression to an asset name
+  // ahead of time and doesn't pretend to; `action_sound`/`action_another_
+  // room`'s own existing "no live wiring, no match" guards handle an
+  // unresolvable runtime value honestly (a console warning, not a crash).
+  const bareOrQuoted = (expr: string): string =>
+    /^[A-Za-z_]\w*$/.test(expr) ? JSON.stringify(expr) : expr;
   out = out.replace(
-    /\baudio_play_sound\s*\(((?:[^()]|\([^()]*\))*)\)(\s*;)?/g,
-    (_m, args: string, semi?: string) =>
-      `(undefined /* audioSystem.play('sound_name', { ...(${args.trim()}) }); */)${semi ?? ""}`,
+    new RegExp(
+      `\\baudio_play_sound\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      "g",
+    ),
+    (_m, argsRaw: string, semi?: string) => {
+      const args = splitTopLevelArgs(argsRaw, 3).map((a) => a.trim());
+      const soundArg = bareOrQuoted(args[0] ?? "");
+      const rest = args.slice(1).filter((a) => a.length > 0);
+      const threaded = [soundArg, ...rest].join(", ");
+      return `GmlActions.audio_play_sound(_entity, _ctx, ${threaded})${semi ?? ";"}`;
+    },
   );
   out = out.replace(
     new RegExp(
@@ -1218,7 +1242,7 @@ export function transpileGML(gml: string): string {
       "g",
     ),
     (_m, rm: string, semi?: string) =>
-      `(undefined /* sceneManager.load('${rm.trim()}'); */)${semi ?? ""}`,
+      `GmlActions.room_goto(_entity, _ctx, ${bareOrQuoted(rm.trim())})${semi ?? ";"}`,
   );
   out = out.replace(
     new RegExp(

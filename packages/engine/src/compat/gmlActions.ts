@@ -337,6 +337,28 @@ export function action_another_room(
   void ctx.game.loadScene(def);
 }
 
+/**
+ * `room_goto(rm)` — GML's function-call spelling of "Go to Room" (as
+ * opposed to `action_another_room`, the DnD action spelling). Before this,
+ * a bare `room_goto(rm_next);` call transpiled to an inert, comment-only
+ * placeholder — one of the single most common GameMaker calls for
+ * changing levels/screens (confirmed real, common usage across both real
+ * projects checked: `room_goto(rm_gamefcat)`, `room_goto(other.new_room)`,
+ * `room_goto(target)`), and every one of those calls was silently doing
+ * nothing at all. Aliases `action_another_room` — `gms2-transpile.ts`
+ * quotes a bare room-asset identifier argument into the exact string
+ * `ctx.rooms` is keyed by (the same convention `sprite_index`'s bare-
+ * identifier rewrite already established), the same way `room_goto`'s
+ * argument reaches this function either way.
+ */
+export function room_goto(
+  entity: Entity,
+  ctx: GmlActionContext,
+  roomName: string,
+): void {
+  action_another_room(entity, ctx, roomName);
+}
+
 // ---------------------------------------------------------------------------
 // Instances: action_create_object / instance_create / action_kill_object
 // ---------------------------------------------------------------------------
@@ -443,6 +465,36 @@ export function action_sound(
   }
   const id = ctx.sounds?.[soundName] ?? soundName;
   ctx.game.audio.play(id);
+}
+
+/**
+ * `audio_play_sound(snd, priority, loop)` — GML's function-call spelling of
+ * "Play Sound" (as opposed to `action_sound`, the DnD action spelling, which
+ * has no `priority`/`loop` parameters at all since GM8.1's action library
+ * predates them). Before this, a bare `audio_play_sound(...)` call
+ * transpiled to an inert, comment-only placeholder — one of the single most
+ * common GameMaker calls for sound effects (confirmed real, common usage in
+ * a real project: `audio_play_sound(snd_Shot, 5, false)`,
+ * `audio_play_sound(choose(snd_Foot1, snd_Foot2, snd_Foot3, snd_Foot4), 1,
+ * false)`), and every one of those calls was silently doing nothing at all.
+ *
+ * `priority` and `loop` are accepted (so real call sites keep their real
+ * argument count and the transpiler doesn't need special-case arg-count
+ * logic) but honestly not applied — `AudioSystem.play(id)` has no priority-
+ * based voice-stealing or loop parameter of its own to receive them into.
+ * This is the same "pass real GameMaker semantics through to whatever this
+ * engine's own API can actually honour, don't fabricate the rest" rule
+ * `action_sound`'s own doc comment above already states for sound-id
+ * resolution — not a silently dropped feature, an honestly unmodelled one.
+ */
+export function audio_play_sound(
+  entity: Entity,
+  ctx: GmlActionContext,
+  soundName: string,
+  _priority?: number,
+  _loop?: boolean,
+): void {
+  action_sound(entity, ctx, soundName);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Scene } from "../Scene.js";
+import { Game, defineScene } from "../Game.js";
 import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { definePrefab } from "../Prefab.js";
@@ -18,6 +19,9 @@ import {
   action_if_collision,
   action_if_aligned,
   action_if_empty,
+  action_another_room,
+  room_goto,
+  audio_play_sound,
   gmlActionsStep,
   clearGmlActionState,
   _getGmlMotion,
@@ -152,6 +156,48 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     const ctx = makeCtx(scene);
     instance_destroy(entity, ctx);
     expect(entity.isAlive).toBe(false);
+  });
+
+  it("room_goto() actually loads the named room via ctx.game.loadScene — real gap: it used to transpile to an inert comment, not a real call at all", async () => {
+    const game = new Game();
+    const { scene } = await game.loadScene(defineScene({}));
+    const entity = scene.spawn();
+    const nextRoomDef = defineScene({});
+    const ctx: GmlActionContext = {
+      scene,
+      game,
+      rooms: { rm_next: nextRoomDef },
+    };
+    const loadScene = vi.spyOn(game, "loadScene");
+    room_goto(entity, ctx, "rm_next");
+    expect(loadScene).toHaveBeenCalledWith(nextRoomDef);
+    await game.unloadScene();
+  });
+
+  it("room_goto() is a real alias of action_another_room, not a second implementation", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    const loadScene = vi.fn();
+    const ctx = {
+      scene,
+      game: { loadScene } as unknown as GmlActionContext["game"],
+      rooms: { rm_x: {} as never },
+    } as GmlActionContext;
+    room_goto(entity, ctx, "rm_x");
+    action_another_room(entity, ctx, "rm_x");
+    expect(loadScene).toHaveBeenCalledTimes(2);
+  });
+
+  it("audio_play_sound() actually plays the sound via ctx.game.audio.play — real gap: it used to transpile to an inert comment, not a real call at all", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    const play = vi.fn();
+    const ctx = {
+      scene,
+      game: { audio: { play } } as unknown as GmlActionContext["game"],
+    } as GmlActionContext;
+    audio_play_sound(entity, ctx, "snd_Shot", 5, false);
+    expect(play).toHaveBeenCalledWith("snd_Shot");
   });
 
   it("action_create_object/instance_create spawn a registered prefab at a position", () => {

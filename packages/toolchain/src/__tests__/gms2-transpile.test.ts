@@ -574,10 +574,49 @@ describe("transpileGML", () => {
     expect(out).toMatch(/entirely inert/);
   });
 
-  it("keeps room_goto/audio_play_sound/draw_sprite valid as an unbraced if-body", () => {
+  it("keeps room_goto valid as an unbraced if-body, now as a real threaded call", () => {
     const out = transpileGML("if (cond) room_goto(rm_next);");
-    // Must not leave the `if` with no statement body at all.
+    // room_goto used to be an inert placeholder comment — now it's a real
+    // GmlActions.room_goto call, still valid as the if's single-statement
+    // body either way.
+    expect(out).toMatch(
+      /if \(cond\) GmlActions\.room_goto\(_entity, _ctx, "rm_next"\);/,
+    );
+  });
+
+  it("draw_sprite still keeps an unbraced if-body valid (draws declaratively via the Sprite component, a real, deliberate no-op)", () => {
+    const out = transpileGML("if (cond) draw_sprite(spr_foo, 0, x, y);");
     expect(out).toMatch(/if \(cond\)\s*\(undefined/);
+  });
+
+  it("audio_play_sound threads a bare sound-asset identifier into a real GmlActions.audio_play_sound call — real gap found in obj_player_dead/obj_Egun/obj_menu", () => {
+    const out = transpileGML("audio_play_sound(snd_Shot, 5, false);");
+    expect(out).toContain(
+      'GmlActions.audio_play_sound(_entity, _ctx, "snd_Shot", 5, false);',
+    );
+  });
+
+  it("audio_play_sound tolerates a choose(...) sub-call as its sound argument without misparsing the comma", () => {
+    const out = transpileGML(
+      "audio_play_sound(choose(snd_Foot1, snd_Foot2), 1, false);",
+    );
+    expect(out).toContain(
+      "GmlActions.audio_play_sound(_entity, _ctx, choose(snd_Foot1, snd_Foot2), 1, false);",
+    );
+  });
+
+  it("room_goto threads a bare room-asset identifier into a real GmlActions.room_goto call — real gap found in obj_game_start/obj_pause_menu", () => {
+    const out = transpileGML("room_goto(rm_gamefcat);");
+    expect(out).toContain(
+      'GmlActions.room_goto(_entity, _ctx, "rm_gamefcat");',
+    );
+  });
+
+  it("room_goto passes a non-identifier argument (a variable/dotted reference) through unchanged", () => {
+    const out = transpileGML("room_goto(other.new_room);");
+    expect(out).toContain(
+      "GmlActions.room_goto(_entity, _ctx, other.new_room);",
+    );
   });
 
   it("handles audio_play_sound with a nested-call first argument", () => {
