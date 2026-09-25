@@ -1043,6 +1043,42 @@ describe("transpileGML", () => {
       );
       expect(() => new Function(out)).not.toThrow();
     });
+
+    it("captures a multi-line assignment RHS in full — real gap found in obj_trans.gml", () => {
+      // Real, confirmed regression: obj_trans's Create event does
+      // `fin_msg = choose(trans_intro8, trans_intro9, trans_intro10,\n
+      // trans_intro11, ..., trans_intro19);` — a single real GML statement
+      // whose call arguments wrap across several physical lines. The
+      // plain-assignment rewrite used to capture only up to the first
+      // newline ([^;\n]+), truncating the expression mid-call and leaving
+      // its continuation lines as orphaned, syntactically invalid
+      // fragments — a hard SyntaxError.
+      const out = transpileGML(
+        "fin_msg = choose(a, b, c,\n  d, e,\n  f);\nx = 1;",
+      );
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "fin_msg", choose(a, b, c,\n  d, e,\n  f));',
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("does not merge a bare (semicolon-omitted) statement into the next line's own statement — real gap found in obj_enemy.gml", () => {
+      // Real, confirmed regression: obj_enemy's Step event has
+      // `grounded = true\nimage_speed = 1;` — GML's `;` is optional, so the
+      // bare newline alone ends the first statement. The multi-line-RHS fix
+      // above (which must keep scanning past a newline for a genuinely
+      // open call like `choose(a,\n b)`) initially over-corrected: it kept
+      // scanning past *any* newline regardless of paren depth, merging
+      // `image_speed = 1;` straight into `grounded`'s own expression.
+      const out = transpileGML("grounded = true\nimage_speed = 1;");
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "grounded", true);',
+      );
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "image_speed", 1);',
+      );
+      expect(() => new Function(out)).not.toThrow();
+    });
   });
 
   describe("real-project regressions found exercising GmsProjectRuntime end to end", () => {

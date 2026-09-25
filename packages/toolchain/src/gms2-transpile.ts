@@ -363,6 +363,65 @@ function identifyGmlImplicitVars(
 }
 
 /**
+ * Rewrites every statement-start `name = <expr>;` in `text` via `build`,
+ * where `<expr>` may itself span multiple physical lines — real, confirmed
+ * case (Freedom Backup's obj_trans): `fin_msg = choose(a, b, c,\n  d, e,\n
+ * f);`, a single real GML statement whose call arguments wrap across
+ * several lines. A plain `[^;\n]+` regex capture (used by the increment/
+ * decrement and compound-assign passes, where a multi-line RHS is far
+ * rarer) stops at the first newline, truncating the expression and leaving
+ * its continuation lines as orphaned, syntactically invalid fragments. This
+ * scans forward from the `=` tracking `(`/`[`/`{` nesting depth to find the
+ * real terminating top-level `;` (or end of text), so a parenthesised
+ * argument list's own internal newlines never end the expression early.
+ *
+ * GML's own `;` is optional — a real, confirmed second regression this
+ * scan has to account for: Freedom Backup's obj_enemy has `grounded =
+ * true\nimage_speed = 1;` (no semicolon after `true` at all; the newline
+ * alone ends the statement, GML's own valid syntax). Stopping the scan
+ * *only* at `;` merged that bare newline's following statement straight
+ * into `true`'s own expression. The real distinguishing signal: a
+ * genuinely multi-line expression (an open call/array/struct literal
+ * spanning lines) always has unbalanced-open (`depth > 0`) parens at the
+ * newline; a statement that simply omitted its `;` always has balanced
+ * (`depth <= 0`) parens there, since GML's own grammar requires a
+ * statement's parens to already be closed before the next one can begin.
+ * The scan stops at *either* a top-level `;` or a bare newline while
+ * `depth <= 0`, and only keeps going past a newline when `depth > 0`.
+ */
+function replacePlainAssignmentMultiline(
+  text: string,
+  name: string,
+  build: (indent: string, expr: string) => string,
+): string {
+  const re = new RegExp(
+    `^(\\s*)${escapeRegExpTranspile(name)}\\s*=(?!=)\\s*`,
+    "gm",
+  );
+  let result = "";
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const indent = m[1] ?? "";
+    const exprStart = m.index + m[0].length;
+    let depth = 0;
+    let i = exprStart;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (c === "(" || c === "[" || c === "{") depth++;
+      else if (c === ")" || c === "]" || c === "}") depth--;
+      else if ((c === ";" || c === "\n") && depth <= 0) break;
+    }
+    const expr = text.slice(exprStart, i).trim();
+    result += text.slice(lastIndex, m.index) + build(indent, expr);
+    lastIndex = text[i] === ";" ? i + 1 : i;
+    re.lastIndex = lastIndex;
+  }
+  result += text.slice(lastIndex);
+  return result;
+}
+
+/**
  * Pre-scans a single raw (untranspiled) GML event file for the names it
  * would identify as implicit instance variables, on its own. Real GameMaker
  * instance state routinely gets *set* in one event (Create) and only *read*
@@ -2608,10 +2667,11 @@ export function transpileGML(
           return `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ((GmlActions.getGmlVar(_entity, _ctx, ${placeholder}) as number | undefined) ?? 0) ${jsOp} (${exprRaw.trim()}));`;
         },
       );
-      out = out.replace(
-        new RegExp(`^(\\s*)${esc}\\s*=(?!=)\\s*([^;\\n]+);?`, "gm"),
-        (_m, indent: string, expr: string) =>
-          `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ${expr.trim()});`,
+      out = replacePlainAssignmentMultiline(
+        out,
+        name,
+        (indent, expr) =>
+          `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ${expr});`,
       );
       // Excludes an occurrence immediately followed by a single `=` (not
       // `==`) — GML's real condition-position `=` means equality, not
