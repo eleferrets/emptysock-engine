@@ -350,7 +350,11 @@ export async function buildObjectBehavior(
       .replace(/\.gml$/i, "");
     const otherClass = toPascalCase(otherName);
     const gmlPath = path.join(objectDir, gmlFile);
-    const transpiled = await readAndTranspileGML(gmlPath, objectImplicitVars);
+    const transpiled = await readAndTranspileGML(
+      gmlPath,
+      objectImplicitVars,
+      true,
+    );
     const body =
       transpiled !== null
         ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)

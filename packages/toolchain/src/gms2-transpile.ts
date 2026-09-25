@@ -473,6 +473,7 @@ export function transpileGML(
   gml: string,
   knownParams: readonly string[] = [],
   knownImplicitVars: ReadonlySet<string> = new Set(),
+  hasOtherParam = false,
 ): string {
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
@@ -527,6 +528,24 @@ export function transpileGML(
   // SyntaxError. No bracket character anywhere in this text is what makes
   // it safe to sit inside any such later span, not just the ds_map one.
   out = out.replace(/\/\*[\s\S]*?\*\//g, "/* GML comment/dead code omitted */");
+
+  // GameMaker's `other` keyword — inside a Collision event, refers to the
+  // *other* instance in the collision, a real, extremely common reference
+  // (`other.hp -= dmg;`, `other.object_index`) previously left as a bare,
+  // undeclared identifier with nowhere to resolve to. `gms2-codegen.ts`'s
+  // collision-event codegen already gives every generated
+  // `onCollideWith<Other>` function a real `_other: Entity` parameter (see
+  // that function's own doc comment) — this pass is what actually makes
+  // GML's bare `other` reference it, by threading `hasOtherParam` in only
+  // for a collision event's own `readAndTranspileGML` call. Runs this early
+  // (right after comment neutralisation) so every later identifier-
+  // sensitive pass — in particular the implicit-instance-variable
+  // detection near the end of this function — only ever sees the real
+  // `_other` name, never a bare `other` it could misidentify as this
+  // object's own implicit field.
+  if (hasOtherParam) {
+    out = out.replace(/(?<!\.\s*)\bother\b/g, "_other");
+  }
 
   // -- Variable declarations -------------------------------------------------
   // global.x — GameMaker's arbitrary-named, arbitrary-typed cross-object
@@ -2705,10 +2724,11 @@ export function transpileGML(
 export async function readAndTranspileGML(
   gmlPath: string,
   knownImplicitVars: ReadonlySet<string> = new Set(),
+  hasOtherParam = false,
 ): Promise<string | null> {
   try {
     const source = await fs.readFile(gmlPath, "utf-8");
-    return transpileGML(source, [], knownImplicitVars);
+    return transpileGML(source, [], knownImplicitVars, hasOtherParam);
   } catch {
     return null;
   }

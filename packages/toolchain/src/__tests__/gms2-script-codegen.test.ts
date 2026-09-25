@@ -252,6 +252,36 @@ describe("buildObjectBehavior: cross-event implicit instance variable persistenc
       await fs.rm(dir, { recursive: true, force: true });
     }
   });
+
+  // Real, confirmed gap: GameMaker's `other` keyword inside a Collision
+  // event refers to the other colliding instance — onCollideWith<Other>
+  // already declares a real _other: Entity parameter (gms2-codegen.ts), but
+  // nothing previously rewrote GML's bare `other` to reference it, leaving
+  // it a bare, undeclared identifier (a hard ReferenceError at runtime,
+  // and — before this fix — a candidate for being misidentified as this
+  // object's own implicit instance field by the generic auto-var pass).
+  it("rewrites GML's `other` keyword to the real _other parameter inside a collision handler", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-obj-other-"));
+    try {
+      const objDir = path.join(dir, "objects", "obj_enemy");
+      await fs.mkdir(objDir, { recursive: true });
+      await fs.writeFile(
+        path.join(objDir, "Collision_obj_bullet.gml"),
+        "hp -= other.damage;\nif (other.object_index == obj_bullet)\n{\n  x = 1;\n}",
+        "utf-8",
+      );
+
+      const behavior = await buildObjectBehavior("obj_enemy", dir, []);
+      expect(behavior).toContain(
+        "export function onCollideWithObjBullet(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {",
+      );
+      expect(behavior).toContain("_other.damage");
+      expect(behavior).toContain("_other.object_index");
+      expect(behavior).not.toMatch(/[^_.\w]other\b/);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("importGMS2Project end-to-end: script + object-calling-script wiring", () => {
