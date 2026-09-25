@@ -443,3 +443,141 @@ export function place_empty(_x: number, _y: number): boolean {
   );
   return true;
 }
+
+// ---------------------------------------------------------------------------
+// GMS2.3+ array function family (`array_push`/`array_pop`/`array_insert`/
+// `array_delete`/`array_sort`/`array_map`/`array_filter`/`array_reduce`/
+// `array_contains`/`array_length`/`array_create`/`array_resize`) — a real,
+// confirmed, high-value gap (see CLAUDE.md's "Broader GML 2.3+ function
+// coverage" entry): GMS2.3 array literals/struct literals/`static`
+// declarations are mostly already-valid JS syntax that passes through this
+// transpiler unchanged, but GameMaker's *array function calls* are real
+// GML identifiers with no JS equivalent to fall back on, and array
+// manipulation via these functions is extremely common in modern GML.
+//
+// GameMaker's own arrays are always plain, dense, dynamically-growable
+// lists — exactly what a native JS `Array` already is — so every one of
+// these is a thin, honest wrapper over the matching native `Array` method,
+// not a reimplementation. `array_push`/`array_pop` mutate and return
+// GameMaker's own "no return value"/"the popped value" shapes; the
+// mutating ones that GameMaker documents as void (`array_push`,
+// `array_insert`, `array_delete`, `array_resize`) are kept `void` here too,
+// since transpiled GML never uses their return value.
+//
+// `array_map`/`array_filter`/`array_reduce`'s callback argument order is
+// confirmed against GameMaker's own manual: the callback receives
+// `(value, index)` for map/filter — the same order `Array.prototype.map`/
+// `.filter` already pass to a callback, so no argument reordering is
+// needed — and `(accumulator, value)` for reduce, matching
+// `Array.prototype.reduce`'s own `(accumulator, value)` order too.
+
+/** GML array_length — real GMS2.3+ name for array_length_1d. */
+export function array_length(arr: unknown[]): number {
+  return arr.length;
+}
+
+/** GML array_create(size, [value]) — a new array of `size` elements, each initialised to `value` (default 0). */
+export function array_create(size: number, value: unknown = 0): unknown[] {
+  return new Array(size).fill(value);
+}
+
+/** GML array_resize(array, newSize) — grows (filling with 0) or truncates `array` in place. */
+export function array_resize(arr: unknown[], newSize: number): void {
+  if (newSize < arr.length) {
+    arr.length = newSize;
+  } else {
+    while (arr.length < newSize) arr.push(0);
+  }
+}
+
+/** GML array_push(array, value, ...) — appends one or more values in place. */
+export function array_push(arr: unknown[], ...values: unknown[]): void {
+  arr.push(...values);
+}
+
+/** GML array_pop(array) — removes and returns the last element. */
+export function array_pop(arr: unknown[]): unknown {
+  return arr.pop();
+}
+
+/** GML array_insert(array, index, value, ...) — inserts one or more values at `index`, shifting later elements up. */
+export function array_insert(
+  arr: unknown[],
+  index: number,
+  ...values: unknown[]
+): void {
+  arr.splice(index, 0, ...values);
+}
+
+/** GML array_delete(array, index, [count]) — removes `count` (default 1) elements starting at `index`, in place. */
+export function array_delete(arr: unknown[], index: number, count = 1): void {
+  arr.splice(index, count);
+}
+
+/**
+ * GML array_sort(array, order) — sorts `array` in place. `order` is either
+ * a plain boolean (`true` ascending, `false` descending — GameMaker's own
+ * default numeric/string comparison) or a comparator function, matching
+ * `Array.prototype.sort`'s own `(a, b) => number` shape exactly.
+ */
+export function array_sort(
+  arr: unknown[],
+  order: boolean | ((a: unknown, b: unknown) => number),
+): unknown[] {
+  if (typeof order === "function") {
+    arr.sort(order);
+    return arr;
+  }
+  arr.sort((a, b) => {
+    if (a === b) return 0;
+    const ascending = order !== false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lt = (a as any) < (b as any);
+    return lt === ascending ? -1 : 1;
+  });
+  return arr;
+}
+
+/** GML array_contains(array, value) — true if `value` is present (strict equality, matching GameMaker's own value comparison for primitives). */
+export function array_contains(arr: unknown[], value: unknown): boolean {
+  return arr.includes(value);
+}
+
+/**
+ * GML array_map(array, fn) — returns a new array with `fn(value, index)`
+ * applied to every element. Never mutates `array`, matching GameMaker's own
+ * "returns a modified copy" semantics.
+ */
+export function array_map(
+  arr: unknown[],
+  fn: (value: unknown, index: number) => unknown,
+): unknown[] {
+  return arr.map((value, index) => fn(value, index));
+}
+
+/**
+ * GML array_filter(array, fn) — returns a new array containing only the
+ * elements for which `fn(value, index)` is truthy.
+ */
+export function array_filter(
+  arr: unknown[],
+  fn: (value: unknown, index: number) => boolean,
+): unknown[] {
+  return arr.filter((value, index) => fn(value, index));
+}
+
+/**
+ * GML array_reduce(array, fn, [init]) — folds `array` down to a single
+ * value via `fn(accumulator, value)`, seeded with `init` when given (GML's
+ * own default seed, when omitted, is the array's first element).
+ */
+export function array_reduce(
+  arr: unknown[],
+  fn: (accumulator: unknown, value: unknown) => unknown,
+  init?: unknown,
+): unknown {
+  if (arguments.length >= 3) {
+    return arr.reduce((accumulator, value) => fn(accumulator, value), init);
+  }
+  return arr.reduce((accumulator, value) => fn(accumulator, value));
+}

@@ -1592,3 +1592,60 @@ describe("transpileGML — layer_sequence_create()", () => {
     expect(out).toContain("GmlActions.layer_sequence_create(_ctx)");
   });
 });
+
+describe("transpileGML — GMS2.3+ array function family", () => {
+  it("rewrites array_push/array_pop/array_length to GmlActions calls", () => {
+    const out = transpileGML(
+      "array_push(inv, item);\n" +
+        "var last = array_pop(inv);\n" +
+        "var n = array_length(inv);",
+    );
+    expect(out).toContain("GmlActions.array_push(inv, item);");
+    expect(out).toContain("GmlActions.array_pop(inv)");
+    expect(out).toContain("GmlActions.array_length(inv)");
+  });
+
+  it("rewrites array_insert/array_delete/array_sort/array_contains", () => {
+    const out = transpileGML(
+      "array_insert(inv, 0, item);\n" +
+        "array_delete(inv, 0, 1);\n" +
+        "array_sort(inv, true);\n" +
+        "var has = array_contains(inv, item);",
+    );
+    expect(out).toContain("GmlActions.array_insert(inv, 0, item);");
+    expect(out).toContain("GmlActions.array_delete(inv, 0, 1);");
+    expect(out).toContain("GmlActions.array_sort(inv, true);");
+    expect(out).toContain("GmlActions.array_contains(inv, item)");
+  });
+
+  it("rewrites array_map/array_filter/array_reduce, callback expression passed through untouched", () => {
+    const out = transpileGML(
+      "var doubled = array_map(nums, function(v, i) { return v * 2; });",
+    );
+    expect(out).toContain("GmlActions.array_map(nums, function(v, i)");
+  });
+
+  it("rewrites array_create/array_resize", () => {
+    const out = transpileGML(
+      "var arr = array_create(4, 0);\narray_resize(arr, 8);",
+    );
+    expect(out).toContain("GmlActions.array_create(4, 0)");
+    expect(out).toContain("GmlActions.array_resize(arr, 8);");
+  });
+});
+
+describe("transpileGML — GMS2.3+ struct/static/function literal syntax", () => {
+  it("struct literals pass through unchanged (already valid JS)", () => {
+    const out = transpileGML("var s = {a: 1, b: 2};");
+    expect(out).toContain("var s = {a: 1, b: 2};");
+  });
+
+  it("function literals with self/other references pass through unchanged", () => {
+    const out = transpileGML(
+      "var f = function() { return self.hp + other.dmg; };",
+    );
+    expect(out).toContain(
+      "var f = function() { return self.hp + other.dmg; };",
+    );
+  });
+});
