@@ -357,6 +357,7 @@ export {
   setGmlVar,
   hasGmlVar,
   clearGmlInstanceVars,
+  gmlNum,
 } from "./compat/gmlInstanceVars.js";
 export { getGmlObjectVar, setGmlObjectVar } from "./compat/gmlCrossInstance.js";
 /**

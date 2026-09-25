@@ -574,7 +574,7 @@ describe("transpileGML", () => {
       "movement += value;\n\nif movement >= pi*2\nmovement = 0;\n\nx += 1;",
     );
     expect(out).toContain(
-      'if ((GmlActions.getGmlVar(_entity, _ctx, "movement")) >= pi*2)',
+      'if (GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "movement")) >= pi*2)',
     );
     expect(out).toContain(
       'GmlActions.setGmlVar(_entity, _ctx, "movement", 0);',
@@ -684,7 +684,7 @@ describe("transpileGML", () => {
       "do {\n  xx = random(room_width);\n} until (position_empty(xx, yy));",
     );
     expect(out).toContain(
-      '} while (!(position_empty((GmlActions.getGmlVar(_entity, _ctx, "xx")), yy)));',
+      '} while (!(position_empty(GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "xx")), yy)));',
     );
     expect(out).not.toContain("until");
   });
@@ -1114,7 +1114,7 @@ describe("transpileGML", () => {
         'GmlActions.setGmlVar(_entity, _ctx, "mywall", 5);',
       );
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "mywall", (GmlActions.getGmlVar(_entity, _ctx, "mywall")) + 1);',
+        'GmlActions.setGmlVar(_entity, _ctx, "mywall", GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "mywall")) + 1);',
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -1293,7 +1293,7 @@ describe("transpileGML", () => {
         // later via `hsp = 0;`), so its read here routes through
         // GmlInstanceVars like any other genuine read.
         expect(out).toMatch(
-          /^if \(GmlActions\.sign\(\(GmlActions\.getGmlVar\(_entity, _ctx, "hsp"\)\)\) != 0\) /,
+          /^if\ \(GmlActions\.sign\(GmlActions\.gmlNum\(GmlActions\.getGmlVar\(_entity,\ _ctx,\ "hsp"\)\)\)\ !=\ 0\)/,
         );
       });
 
@@ -1450,7 +1450,7 @@ describe("transpileGML", () => {
         "mywall = 5;\nwith (mywall) instance_destroy();",
       );
       expect(out).toContain(
-        'GmlActions.with_each(_ctx, (GmlActions.getGmlVar(_entity, _ctx, "mywall")), (_entity) => {',
+        'GmlActions.with_each(_ctx, GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "mywall")), (_entity) => {',
       );
       expect(out).toContain("GmlActions.instance_destroy(_entity, _ctx);");
       expect(() => new Function(out)).not.toThrow();
@@ -2216,6 +2216,28 @@ describe("transpileGML — cross-instance dotted references (obj_x.field)", () =
     setGmlObjectNames(new Set(["obj_player"]));
     const out = transpileGML("v = inst.image_xscale;");
     expect(out).not.toContain("GmlActions.getGmlObjectVar");
+    setGmlObjectNames(new Set());
+  });
+});
+
+describe("transpileGML — getGmlVar/getGmlObjectVar bare-read numeric cast", () => {
+  it("casts a bare instance-variable read as number", () => {
+    const out = transpileGML(
+      "hsp = grav + 1;\ngrav = 0.3;",
+      [],
+      new Set(["grav"]),
+    );
+    expect(out).toContain(
+      'GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "grav"))',
+    );
+  });
+
+  it("casts a cross-instance bare read as number", () => {
+    setGmlObjectNames(new Set(["obj_input"]));
+    const out = transpileGML("d = obj_input.key_left + 1;");
+    expect(out).toContain(
+      'GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, "obj_input", "key_left"))',
+    );
     setGmlObjectNames(new Set());
   });
 });

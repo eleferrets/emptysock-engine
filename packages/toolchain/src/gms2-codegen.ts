@@ -809,8 +809,47 @@ export function ${name}(
 
   const { paramNames, body, isLegacyArgStyle } = extractScriptSignature(source);
   let transpiled = transpileGML(body, paramNames, new Set(), false, name);
-  if (isLegacyArgStyle) {
-    transpiled = transpiled.replace(/\bargument(\d+)\b/g, "args[$1]");
+  // A real GMS2 script can declare `function name() { ... }` (so
+  // `extractScriptSignature` sees a real signature and reports
+  // `isLegacyArgStyle: false`) while its *body* still uses the legacy
+  // `argument`/`argumentN`/`argument[N]`/`argument_count` idiom, since that
+  // idiom predates GMS2.3's named-parameter syntax and GameMaker never
+  // forces a script to stop using it just because it also has an (empty)
+  // parameter list — confirmed real in Freedom Backup's own
+  // scr_slide_transition.gml (`function scr_slide_transition() { ... mode =
+  // argument[0]; ... }`). Rewriting legacy-arg syntax whenever the script
+  // declared zero named parameters is safe either way: a script with real
+  // named parameters never contains a bare `argument`/`argumentN` reference
+  // in valid GML, so this never misfires on one that doesn't need it.
+  if (isLegacyArgStyle || paramNames.length === 0) {
+    // `argument[N]` (bracket-index legacy syntax — GameMaker's own doc notes
+    // this is interchangeable with `argumentN`, real confirmed usage in
+    // Freedom Backup's scr_slide_transition.gml) must be rewritten before
+    // the bare `argumentN` pass below, or its `[N]` survives untouched.
+    // `args` is typed `unknown[]` (a script's real arguments are
+    // dynamically typed) — `args[N]` is coerced through
+    // `GmlActions.gmlNum()`, the same real, valid-JS-at-runtime numeric
+    // coercion `gms2-transpile.ts`'s own bare `getGmlVar` read uses (see
+    // that function's own doc comment), rather than a TypeScript-only `as
+    // number` assertion, so a legacy `argumentN`/`argument[N]` read used
+    // arithmetically doesn't trade one real `tsc` error category
+    // (`TS2304`) for another (`TS18046`/`TS2571` from an unknown array
+    // element in arithmetic position) while staying genuinely runnable as
+    // plain JS before any TypeScript build step strips type syntax.
+    transpiled = transpiled.replace(
+      /\bargument\[(\d+)\]/g,
+      "GmlActions.gmlNum(args[$1])",
+    );
+    transpiled = transpiled.replace(
+      /\bargument(\d+)\b/g,
+      "GmlActions.gmlNum(args[$1])",
+    );
+    // `argument_count` (how many arguments this call actually passed) and a
+    // bare `argument` (the whole legacy arguments array, real GameMaker
+    // syntax predating argument0/argument1/... entirely) — both confirmed
+    // real, both previously unrewritten `Cannot find name` identifiers.
+    transpiled = transpiled.replace(/\bargument_count\b/g, "args.length");
+    transpiled = transpiled.replace(/\bargument\b(?!\[)/g, "args");
   }
   // A GMS2 script runs in its caller's instance scope (see
   // `injectContextArgs`'s own doc comment) — every call this script's body
@@ -823,9 +862,19 @@ export function ${name}(
 
   const hasReturn = /\breturn\b[^;{}]*;/.test(transpiled);
   const returnType = hasReturn ? "unknown" : "void";
+  // Typed `number`, not `unknown` — the same honest, already-precedented
+  // assumption `getGmlVar`'s bare-read cast makes: a real GML script
+  // parameter used in the script's own body is overwhelmingly arithmetic
+  // (`scr_screen_shake(magnitude, frames)`, confirmed real in Freedom
+  // Backup — both params compared/assigned numerically throughout). This is
+  // a type-level-only choice; a caller genuinely passing a string still
+  // works identically at runtime (TypeScript's structural typing doesn't
+  // insert a runtime check here), it just stops the real, previously
+  // dominant `unknown`-used-arithmetically `tsc` error category from firing
+  // on every generated script parameter.
   const paramList =
     paramNames.length > 0
-      ? paramNames.map((p) => `${p}: unknown`).join(", ")
+      ? paramNames.map((p) => `${p}: number`).join(", ")
       : "...args: unknown[]";
   const paramStr = `_entity: Entity, _ctx: GmlActionContext, ${paramList}`;
 

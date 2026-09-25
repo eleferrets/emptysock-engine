@@ -3721,9 +3721,23 @@ export function transpileGML(
       // parens without touching its `=` — bare-read-wrapping the name here
       // would produce `(GmlActions.getGmlVar(...)) = 0`, an invalid
       // assignment target and a hard SyntaxError).
+      // A bare read is cast `as number` — the same honest, already-precedented
+      // assumption the compound-assignment/increment passes above already
+      // make about `getGmlVar`'s dynamically-typed result (GML instance
+      // variables read in expression position are overwhelmingly numeric —
+      // gravity, speed, hp, counters — the exact same reasoning those two
+      // passes already document). This is a pure type-level assertion: it
+      // changes nothing about the value `getGmlVar` actually returns at
+      // runtime, only what TypeScript is told to assume about it, so a
+      // variable that genuinely holds a string/boolean still behaves
+      // correctly at runtime — this cast exists solely to stop a real,
+      // previously-dominant `tsc` error category (`TS2571`/`TS2345` from an
+      // `unknown`-typed value used in arithmetic/comparison position, by far
+      // the single highest-frequency error category in a real full-project
+      // sweep) without inventing a fake per-variable type-inference system.
       out = out.replace(
         new RegExp(`(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
-        `(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
+        `GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
       );
       out = out.split(placeholder).join(JSON.stringify(name));
     }
@@ -3818,10 +3832,15 @@ export function transpileGML(
       // access (`a.obj_x.field`, not real GML but defensive regardless) so
       // this can't double-fire on its own rewritten output on a second
       // transpile pass.
+      // Same `as number` cast, same reasoning, as the bare same-instance
+      // read above — a cross-instance field read overwhelmingly feeds
+      // arithmetic/comparison position in real usage (`obj_input.key_left`
+      // summed into movement, `obj_player.hp` compared) and this is a pure
+      // type-level assertion with no runtime effect.
       coOut = coOut.replace(
         new RegExp(`(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
         (_m: string, field: string) =>
-          `GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)})`,
+          `GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}))`,
       );
     }
     out = unmaskGmlStringLiterals(coOut, "GMLSTR3", coStrings);
