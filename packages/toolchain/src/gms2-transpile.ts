@@ -78,6 +78,112 @@ function stripTrailingSemicolonInForHeaders(src: string): string {
 }
 
 /**
+ * Wraps a real GML brace-less, single-statement `if <cond> <stmt>;` — no
+ * `{}` anywhere — in parens around just the condition, leaving the
+ * statement untouched. Pure-regex approaches for this shape are unsafe: a
+ * condition and a following bare-assignment statement can sit back to back
+ * with nothing but whitespace between them (`if !surface_exists(surf) surf
+ * = surface_create(...)` — a real, confirmed shape from a real project's
+ * `obj_rainController`'s `Draw_0.gml`), so there is no fixed token that
+ * reliably marks "condition ends, statement begins" for a single regex
+ * character class to anchor on. This function instead scans forward from
+ * each remaining brace-less `if` (only reachable once the brace-anchored
+ * passes above have already run, so a `{` is never nearby) tracking paren
+ * depth, and stops at the first of two real, unambiguous boundaries:
+ *
+ * 1. A top-level newline — real GML very commonly puts a brace-less if's
+ *    single-statement body on its own following line (`if movement >=
+ *    pi*2\nmovement = 0;`, `obj_sway`'s real `Step_0.gml`) — the newline
+ *    itself is the separator, so the condition is exactly the text up to
+ *    it.
+ * 2. A top-level bare-assignment start (`ident = `/`ident += `/etc., not
+ *    `==`/`!=`/`>=`/`<=`) when the whole thing is on one physical line —
+ *    GML's own grammar means a *fresh* statement essentially always looks
+ *    like this, and a condition containing a bare (non-comparison) `=`
+ *    of its own is a vanishingly rare, not-worth-guessing-wrong edge case.
+ *
+ * If neither boundary is found before a top-level `;`/`{` (this `if`'s
+ * shape isn't one of the two real cases this was built from), the `if` is
+ * left completely untouched rather than guessing — the same "don't fake an
+ * unresolvable rewrite" rule this file follows everywhere else.
+ */
+function wrapBareSingleStatementIf(src: string): string {
+  const ASSIGN_START =
+    /^([A-Za-z_]\w*(?:\[[^\]\n]*\])?\s*(?:\+=|-=|\*=|\/=|%=|=(?!=)))/;
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /(?<!\/\/[^\n]*)\bif\s+(?!\()/.exec(src.slice(i));
+    if (!m) {
+      out += src.slice(i);
+      break;
+    }
+    const ifStart = i + m.index;
+    const condStart = ifStart + m[0].length;
+    out += src.slice(i, condStart);
+
+    let depth = 0;
+    let j = condStart;
+    let splitAt = -1;
+    while (j < src.length) {
+      const ch = src[j];
+      if (ch === "(" || ch === "[") depth++;
+      else if (ch === ")" || ch === "]") depth--;
+      else if (depth === 0 && ch === "\n") {
+        splitAt = j;
+        break;
+      } else if (depth === 0 && (ch === ";" || ch === "{")) {
+        break;
+      } else if (
+        depth === 0 &&
+        j !== condStart &&
+        !/[A-Za-z0-9_$]/.test(src[j - 1] ?? "")
+      ) {
+        // Two guards on when this heuristic may even attempt a match:
+        //
+        // `j !== condStart` — GML overloads bare `=` for equality *inside a
+        // condition too* (`if argument4 = 0 argument4 = current_time;`, a
+        // real, confirmed shape from a real project's `scr_wave.gml` —
+        // "if argument4 equals 0"). Without this guard, the very first
+        // token of the condition itself (`argument4 = 0`) matched
+        // `ASSIGN_START` immediately at `condStart`, producing an empty
+        // captured condition (`if ()`).
+        //
+        // `src[j - 1]` not an identifier character — this scan tests
+        // `ASSIGN_START` at every position, not just real token starts, so
+        // without this guard the match above was *also* still reachable
+        // one character late: at `j` pointing at "rgument4" (the second
+        // character of the condition's own "argument4" token), `^[A-Za-z_]
+        // \w*` happily matches "rgument4" as if it were its own fresh
+        // identifier, re-introducing the exact same false split one
+        // position over. Requiring the previous character to be a
+        // non-identifier character (whitespace, an operator, a paren, the
+        // very start of the string) is what actually restricts this
+        // heuristic to real token boundaries.
+        const rest = src.slice(j);
+        const assign = ASSIGN_START.exec(rest);
+        if (assign) {
+          splitAt = j;
+          break;
+        }
+      }
+      j++;
+    }
+
+    if (splitAt === -1) {
+      // No safe boundary found — leave this "if" untouched and resume
+      // scanning right after it, so a later occurrence isn't skipped.
+      i = condStart;
+      continue;
+    }
+    const cond = src.slice(condStart, splitAt).trim();
+    out += `(${cond})`;
+    i = splitAt;
+  }
+  return out;
+}
+
+/**
  * Apply regex-based pattern replacements to a GML source string and return
  * the resulting TypeScript snippet.
  *
@@ -126,10 +232,18 @@ export function transpileGML(gml: string): string {
   // that hazard entirely — nothing injected by a later pass can ever be
   // sitting inside pre-existing comment markers, because none survive past
   // this point.
-  out = out.replace(
-    /\/\*[\s\S]*?\*\//g,
-    "/* [GML comment/dead code omitted] */",
-  );
+  // The placeholder text deliberately contains no `]` (or `)`) character.
+  // Several later passes capture up to the next unmatched bracket with a
+  // negated character class — most concretely the ds_map `[? key]` accessor
+  // rewrite below, whose key capture is `[^\]]+` — and this placeholder can
+  // land *inside* that captured span whenever the original source comment
+  // sat inside the accessor's own brackets (`map[?chr(92)/* "\" */]`, a
+  // real, confirmed shape from a real project's `keyboard_init.gml`). A `]`
+  // inside the placeholder terminated that capture early, truncating the
+  // key and leaving a dangling, unbalanced `]` in the output — a hard
+  // SyntaxError. No bracket character anywhere in this text is what makes
+  // it safe to sit inside any such later span, not just the ds_map one.
+  out = out.replace(/\/\*[\s\S]*?\*\//g, "/* GML comment/dead code omitted */");
 
   // -- Variable declarations -------------------------------------------------
   // global.x = expr  →  a TODO comment, not an active statement.
@@ -159,7 +273,33 @@ export function transpileGML(gml: string): string {
     // output like `= = y`.
     /\bglobal\.(\w+)\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, varName: string, expr: string) =>
-      `// TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state.`,
+      // The leading `;` is a real, empty statement, not stray punctuation —
+      // it's what keeps this replacement a valid *statement* on its own,
+      // not just a comment. A GML `global.x = expr;` that is itself the
+      // sole body of a brace-less `if`/`while` (a real, confirmed shape:
+      // `if (global.gain > 1)\n\tglobal.gain = 1;`, from a real project's
+      // `obj_ear`'s `Step_0.gml`) left the `if` with nothing but a comment
+      // for a body once this pass ran — a hard SyntaxError, the opposite of
+      // this comment's own "keeps the emitted file syntactically valid"
+      // claim. `;` is a no-op in every other context this replacement can
+      // land in (a plain statement position), so it's free everywhere else.
+      //
+      // A `/* ... */` block comment, not `//`: a `global.x = expr;`
+      // assignment routinely shares its physical source line with further
+      // real statements after it — real, confirmed shape (`if (curPos ==
+      // pos1[3]) { global.pause = false; canDraw = false; canEdit = false;
+      // }`, all on one line, from a real project's `obj_shop`'s
+      // `Step_0.gml`). A `//` line comment runs to the end of the physical
+      // line no matter what — it swallowed `canDraw = false; canEdit =
+      // false; }` (including the block's own closing brace) into dead
+      // commentary, leaving the block permanently unclosed. `/* ... */`
+      // only consumes up to its own `*/`, so real code later on the same
+      // line stays live. This can never itself create a *nested* block
+      // comment the way an unguarded injection elsewhere in this file
+      // could: every real source `/* ... */` was already neutralised to a
+      // bracket-free placeholder at the very top of this function, before
+      // any pass (this one included) ever runs.
+      `; /* TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state. */`,
   );
   // GameMaker 8.1's legacy `globalvar a, b, c;` declaration statement (as
   // opposed to the modern `global.x = ...` assignment form handled just
@@ -215,10 +355,34 @@ export function transpileGML(gml: string): string {
 
   // -- Control flow ----------------------------------------------------------
   // repeat(n) { ... }  →  for (let _i = 0; _i < n; _i++) { ... }
+  //
+  // `n` commonly contains its own nested call — real, confirmed shape
+  // (`repeat (string_length(str)) { ... }`, from a real project's
+  // `scr_capword.gml`) — so the count capture must tolerate one level of
+  // nested parens the same way `BALANCED_PARENS_ONE_LEVEL` already does for
+  // every other single-argument-call rewrite in this file. A naive `[^)]+`
+  // capture stopped at the nested call's own `)`, truncating `n` to
+  // `string_length(str` and leaving the real closing `)` dangling —
+  // confirmed to corrupt the generated `for` header into invalid syntax.
   out = out.replace(
-    /\brepeat\s*\(([^)]+)\)/g,
+    new RegExp(`\\brepeat\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
     (_m, n: string) => `for (let _i = 0; _i < ${n.trim()}; _i++)`,
   );
+
+  // GML's `do { ... } until (cond);` — a real, confirmed shape (`do { xx =
+  // random(room_width); yy = random(room_height); } until
+  // (position_empty(xx, yy));`, from a real project's `whole_bunch.gml`) —
+  // has no JS/TS equivalent keyword at all (JS only has `do...while`).
+  // `until (cond)` is exactly the negation of `while (cond)` (loop until
+  // the condition becomes true, rather than while it stays true), so this
+  // is a real, lossless, mechanical rewrite — `} until (cond);` becomes
+  // `} while (!(cond));` — not a "leave it unresolved" case the way a
+  // genuinely un-modelled GML construct would be.
+  out = out.replace(
+    new RegExp(`\\}\\s*until\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)`, "g"),
+    (_m, cond: string) => `} while (!(${cond.trim()}))`,
+  );
+
   // for loops: var → let inside for initialiser
   out = out.replace(/\bfor\s*\(\s*var\b/g, "for (let");
 
@@ -371,9 +535,102 @@ export function transpileGML(gml: string): string {
       const comments = [leadingComment, trailingComment]
         .filter((c) => c.length > 0)
         .join(" ");
+      // This pass's own doc comment above claims a brace-less `if cond
+      // statement;` is "deliberately left alone" because the lazy `{`
+      // anchor can't tell where the condition ends — but the lazy
+      // `[\s\S]+?` capture doesn't actually stop at the *next* `{`, it
+      // stops at the *first* `{` anywhere later in the whole event, which
+      // is routinely much further away when the real brace-less `if` is
+      // followed by ordinary unbraced statements before the next braced
+      // block. Real, confirmed regression from `obj_rainController`'s real
+      // `Draw_0.gml`: `if !surface_exists(surf) surf = surface_create(
+      // room_width, room_height);` (a genuinely brace-less if) got fused
+      // with its own body's `;` and wrapped into one broken
+      // `if (!surface_exists(surf) surf = surface_create(...);)` because a
+      // wholly unrelated `{` existed later in the same file. A real
+      // condition never itself contains a top-level `;` — bailing out
+      // whenever `realCond` does is the same guard the sibling "trailing
+      // operator" pass below already uses for the identical reason, and it
+      // only ever excludes a capture that was already wrong: an actually
+      // brace-anchored condition can't contain a `;` either, so this never
+      // rejects a genuine match.
+      if (realCond.includes(";")) return _m;
       return comments === ""
         ? `if (${realCond})`
         : `if (${realCond}) ${comments}`;
+    },
+  );
+
+  // GML's real brace-less single-statement `if` (no `{}` at all — the two
+  // passes above both require a `{` somewhere to anchor against and
+  // deliberately/necessarily skip this shape) is a real, common pattern,
+  // confirmed independently in two separate real projects: `obj_sway`'s
+  // `Step_0.gml` (`if movement >= pi*2\nmovement = 0;`, condition and body
+  // on separate lines) and `obj_rainController`'s `Draw_0.gml` (`if
+  // !surface_exists(surf) surf = surface_create(room_width, room_height);`,
+  // both on one physical line with nothing but whitespace between them).
+  // JS/TS itself already accepts a single bare statement as an `if`'s body
+  // with no braces needed — the only real gap is the *condition* still
+  // needing its own parens, which GML doesn't require. See
+  // `wrapBareSingleStatementIf`'s own doc comment for why this needs a
+  // manual scan rather than one more regex pass: the two real shapes above
+  // have no single fixed separator token a regex character class could
+  // anchor on.
+  out = wrapBareSingleStatementIf(out);
+
+  // GML's real `if (cond) stmt else stmt;` — a brace-less if/else with both
+  // branches on one line — is valid GML but not valid JS/TS unless a `;`
+  // separates the first branch's statement from `else`: JS/TS requires the
+  // `if` branch to be a complete statement before `else` can follow. Real,
+  // confirmed regression from `oPlayer`'s real `Step_0.gml`: `if
+  // (place_meeting(x, y+5, oIce)) friction = 0.2 else hspeed = 0;` — no `;`
+  // before `else` anywhere in the original GML (GML's own grammar doesn't
+  // require one there). Only fires when a `;` isn't already present —
+  // `if (cond) stmt; else stmt;` (the common, already-valid shape) must be
+  // left completely untouched.
+  out = out.replace(
+    /\)\s*([^;{}\n]+?)\s+else\b/g,
+    (m: string, stmt: string) => `) ${stmt.trim()}; else`,
+  );
+
+  // switch <bare expr, no enclosing paren at all> { ... }  →  switch (<expr>) { ... }
+  //
+  // GML's `switch` also allows the same paren-optional subject syntax as
+  // `if`/`while` — confirmed against three separate real projects:
+  // `switch _inputDevice { ... }` (LocalInputSystemFauxOperativeGames'
+  // `scr_inputControlUpdateInputs.gml`), `switch toggleHighlight { ... }`
+  // (MenuProject's `scr_drawCurrentMenu.gml`), and `switch
+  // window_get_fullscreen() { ... }` (MenuProject's
+  // `scr_setOptionVariableStrings.gml`). Unlike `if`/`while`, JS/TS's
+  // `switch` syntax has no bare-condition form at all, so an unwrapped
+  // `switch expr { case ...: }` is a hard SyntaxError (`switch` expects `(`
+  // immediately). Same anchor-on-`{` approach as the `if`/`while` passes;
+  // `switch`'s subject is always a plain expression with no `!`/`&&`/`||`
+  // idiom worth a dedicated pass the way `if`'s condition has, so this one
+  // pass covers the whole gap.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)\bswitch\s+(?!\()([\s\S]+?)(?=\r?\n\s*\{|[ \t]*\{)/g,
+    (_m, cond: string) => {
+      let working = cond;
+      let leadingComment = "";
+      const leadingCommentMatch = /^[ \t]*\/\/[^\n]*\n/.exec(working);
+      if (leadingCommentMatch !== null) {
+        leadingComment = leadingCommentMatch[0].trim();
+        working = working.slice(leadingCommentMatch[0].length);
+      }
+      const commentIdx = working.indexOf("//");
+      const realCond =
+        commentIdx === -1
+          ? working.trim()
+          : working.slice(0, commentIdx).trim();
+      const trailingComment =
+        commentIdx === -1 ? "" : working.slice(commentIdx).trimEnd();
+      const comments = [leadingComment, trailingComment]
+        .filter((c) => c.length > 0)
+        .join(" ");
+      return comments === ""
+        ? `switch (${realCond})`
+        : `switch (${realCond}) ${comments}`;
     },
   );
 
@@ -441,7 +698,23 @@ export function transpileGML(gml: string): string {
   // alone.
   out = out.replace(
     new RegExp(
-      `\\bif\\s*(${IF_CLAUSE}[ \\t]*[^{\\s][\\s\\S]*?)(?=\\r?\\n\\s*\\{|[ \\t]*\\{)`,
+      // The trailing content must *start* with a real operator character
+      // (`>`, `<`, `=`, `!`, `&`, `|`, `+`, `-`, `*`, `/`, `%`) right after
+      // the clause's closing paren — never a bare `[^{\s]` (any non-brace
+      // character), which also matched the start of a wholly separate
+      // following statement, not just a genuine boolean-expression
+      // continuation. Real, confirmed regression: `if (max(argument0,
+      // argument2) < view_xview[view_current] - 10) return 0` (already a
+      // complete, correctly-parenthesised condition, from a real project's
+      // `draw_lightning.gml`) matched this pass's old, too-broad character
+      // class at "return"'s leading `r`, and tried to fuse the following
+      // `return 0` statement into the condition as if it were more
+      // boolean-expression text — producing `if ((max(...) < ...) return
+      // 0)`, invalid on its own even before the newline-bail fix above.
+      // Restricting to an operator-start character is what actually
+      // distinguishes "the condition keeps going" (`>= b`) from "the
+      // condition already ended, this is body code" (`return 0`).
+      `\\bif\\s*(${IF_CLAUSE}[ \\t]*[><=!&|+\\-*/%][\\s\\S]*?)(?=\\r?\\n\\s*\\{|[ \\t]*\\{)`,
       "g",
     ),
     (m: string, cond: string) => {
@@ -483,6 +756,21 @@ export function transpileGML(gml: string): string {
       // actually a full statement (or several), never a real dangling
       // condition clause.
       if (code.includes(";")) return m;
+      // GML allows omitting the trailing `;` entirely (it's genuinely
+      // optional, not just stylistically absent) — a real, confirmed
+      // regression from `draw_lightning.gml`, whose four consecutive
+      // semicolon-less `if (cond) return 0` lines have no `;` anywhere to
+      // trip the bail guard above, so the lazy `[\s\S]*?` capture reached
+      // straight through all four (and past the fourth's own real
+      // "return 0") looking for the next `{`, fusing every one of them
+      // into one broken `if (...)`. This pass's own documented real
+      // example (`if (_xAxis*_xAxis + _yAxis*+_yAxis) >=
+      // gamepadDeadzoneSquared { ... }`) is always a single physical
+      // line — bailing whenever the captured span crosses a newline is
+      // therefore a safe, general guard for the same reason the `;` one
+      // is: it only ever excludes a capture that had already reached past
+      // this pass's real, intended shape.
+      if (code.includes("\n")) return m;
       return `if (${code})${comment}`;
     },
   );
@@ -770,13 +1058,27 @@ export function transpileGML(gml: string): string {
   // function call's result). Only a plain `=` counts as a write (the
   // negative lookahead excludes `==`); anything left after this write pass
   // runs is a read, and becomes `.get(key)`.
+  //
+  // The key capture (`DS_MAP_KEY` below) is string-literal-aware, not a
+  // bare `[^\]]+`: a real project's `keyboard_init.gml` has
+  // `l_s2c[?"]"] = 221;` — a string-literal key whose *content* is a single
+  // `]` character. A plain `[^\]]+` capture stops at that quoted `]` as if
+  // it were the accessor's own closing bracket, truncating the key and
+  // leaving the real closing `]`/`=`/value dangling as broken trailing
+  // syntax. Matching a whole `"..."`/`'...'` string literal as one unit
+  // (before falling back to "any character that isn't `]`") is what lets a
+  // bracket character safely appear inside quotes.
+  const DS_MAP_KEY = `(?:"[^"]*"|'[^']*'|[^\\]])+`;
   out = out.replace(
-    /([A-Za-z_$][\w.]*)\s*\[\s*\?\s*([^\]]+)\]\s*=(?!=)\s*([^;\n]+)/g,
+    new RegExp(
+      `([A-Za-z_$][\\w.]*)\\s*\\[\\s*\\?\\s*(${DS_MAP_KEY})\\]\\s*=(?!=)\\s*([^;\\n]+)`,
+      "g",
+    ),
     (_m, map: string, key: string, value: string) =>
       `${map}.set(${key.trim()}, ${value.trim()})`,
   );
   out = out.replace(
-    /([A-Za-z_$][\w.]*)\s*\[\s*\?\s*([^\]]+)\]/g,
+    new RegExp(`([A-Za-z_$][\\w.]*)\\s*\\[\\s*\\?\\s*(${DS_MAP_KEY})\\]`, "g"),
     (_m, map: string, key: string) => `${map}.get(${key.trim()})`,
   );
 
@@ -999,14 +1301,27 @@ export function transpileGML(gml: string): string {
   // of the line became a `//` comment, a hard `SyntaxError` at module load,
   // not just a wrong migration comment.
   out = out.replace(
-    /(?<!\.\s*)\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
     (_m, expr: string) =>
       `// entity.startCoroutine(waitFrames(${expr.trimEnd()}));`,
   );
 
   // show_message(msg)
+  //
+  // The message argument commonly contains its own nested call — real,
+  // confirmed shape (`show_message("creating instance for non-existent
+  // object" + string(id));`, from a real project's `action_create_object.
+  // gml`) — so the argument capture must tolerate one level of nested
+  // parens the same way `BALANCED_PARENS_ONE_LEVEL` already does for every
+  // other single-argument-call rewrite in this file. A naive `[^)]+`
+  // capture stopped at the nested call's own `)`, truncating the message
+  // and leaving the real trailing `)`/`;` dangling in the output — a hard
+  // SyntaxError, confirmed against that same real file.
   out = out.replace(
-    /\bshow_message\s*\(\s*([^)]+)\s*\)\s*;?/g,
+    new RegExp(
+      `\\bshow_message\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
     (_m, msg: string) => `console.log(${msg.trim()});`,
   );
 
@@ -1275,7 +1590,7 @@ export function transpileGML(gml: string): string {
   // untouched rather than rewritten against the current entity — without
   // this, it became `inst.(() => { ... })();`, a hard `SyntaxError`.
   out = out.replace(
-    /(?<!\.\s*)\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) => {
       const expr = exprRaw.trim();
       if (/^\(?\s*-1\s*\)?$/.test(expr)) {
@@ -1294,7 +1609,7 @@ export function transpileGML(gml: string): string {
   // read; `entity.get()` returning `undefined` (no timeline assigned yet)
   // makes this a safe, honest no-op rather than a crash.
   out = out.replace(
-    /(?<!\.\s*)\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_(running|speed|loop|position)\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, field: string, exprRaw: string) =>
       `(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.${field} = ${exprRaw.trim()}; })();`,
   );
@@ -1317,13 +1632,26 @@ export function transpileGML(gml: string): string {
     position: "0",
   };
   out = out.replace(
-    /(?<!\.\s*)\btimeline_(running|speed|loop|position)\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_(running|speed|loop|position)\b/g,
     (_m, field: string) =>
       `(_entity.get(GmlActions.TimelineState)?.${field} ?? ${TIMELINE_READ_DEFAULTS[field]})`,
   );
 
   // -- GMS2 rendering built-ins: sprite_index / image_angle / image_xscale /
   // image_yscale / image_alpha / image_blend / depth -------------------------
+  //
+  // Every rewrite regex in this section (and the timeline/alarm ones above
+  // it) carries a second negative lookbehind, `(?<!\/\/[^\n]*)`, alongside
+  // the pre-existing dotted-reference guard — real, confirmed gap: real GML
+  // source routinely has example/documentation code inside a `//` comment
+  // (`//      image_angle = Wave(-45,45,1,0,0)  -> rock back and forth 90
+  // degrees in a second`, from a real project's `scr_wave.gml`), and none of
+  // these rewrites originally excluded comment lines at all. The rewrite
+  // fired on the comment's own text, splicing a generated IIFE into the
+  // middle of what should have stayed inert commentary and producing a hard
+  // `SyntaxError` — confirmed identical in kind to the earlier dotted-
+  // reference fix these regexes already carry, just for a different way a
+  // bare identifier match can land somewhere it shouldn't.
   //
   // See CLAUDE.md's "GMS2 rendering built-ins: sprite_index / image_*" entry
   // for the full field-mapping table and the honest image_index/image_speed
@@ -1386,7 +1714,7 @@ export function transpileGML(gml: string): string {
   // `SyntaxError`, confirmed via a real `tsc --noEmit` run against a real
   // project's generated output.
   out = out.replace(
-    /(?<!\.\s*)\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = ${resolveSpriteAssetExpr(exprRaw)}; })();`,
   );
@@ -1398,7 +1726,7 @@ export function transpileGML(gml: string): string {
   // `==`/`!=` would be left unresolved and crash the same way the write
   // side used to.
   out = out.replace(
-    /(?<!\.\s*)\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
     (_m, op: string, rhs: string) =>
       `sprite_index ${op} ${resolveSpriteAssetExpr(rhs)}`,
   );
@@ -1408,7 +1736,7 @@ export function transpileGML(gml: string): string {
       `${resolveSpriteAssetExpr(lhs)} ${op} sprite_index`,
   );
   out = out.replace(
-    /(?<!\.\s*)\bsprite_index\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\b/g,
     `(_entity.get(GmlActions.Sprite)?.texturePath ?? "")`,
   );
 
@@ -1418,12 +1746,12 @@ export function transpileGML(gml: string): string {
   // the exact `* Math.PI / 180` factor `gmlCamera.ts`/`gmlProjection.ts`
   // already use for every other GML-degrees-to-engine-radians field.
   out = out.replace(
-    /(?<!\.\s*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
   out = out.replace(
-    /(?<!\.\s*)\bimage_angle\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\b/g,
     `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
   );
 
@@ -1436,7 +1764,7 @@ export function transpileGML(gml: string): string {
   ];
   for (const [gmlName, field] of IMAGE_SCALE_FIELDS) {
     const writeRe = new RegExp(
-      `(?<!\\.\\s*)\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\s*=(?!=)\\s*([^;\\n]+);?`,
       "g",
     );
     out = out.replace(
@@ -1444,7 +1772,10 @@ export function transpileGML(gml: string): string {
       (_m, exprRaw: string) =>
         `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} = ${exprRaw.trim()}; })();`,
     );
-    const readRe = new RegExp(`(?<!\\.\\s*)\\b${gmlName}\\b`, "g");
+    const readRe = new RegExp(
+      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\b`,
+      "g",
+    );
     out = out.replace(
       readRe,
       `(_entity.get(GmlActions.Transform)?.${field} ?? 1)`,
@@ -1454,12 +1785,12 @@ export function transpileGML(gml: string): string {
   // `image_alpha` — maps straight onto `Sprite.alpha` (both default to `1`,
   // GameMaker's "fully opaque").
   out = out.replace(
-    /(?<!\.\s*)\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_alpha\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha = ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
-    /(?<!\.\s*)\bimage_alpha\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_alpha\b/g,
     `(_entity.get(GmlActions.Sprite)?.alpha ?? 1)`,
   );
 
@@ -1470,12 +1801,12 @@ export function transpileGML(gml: string): string {
   // `Sprite.tint`) and the read side (RGB -> BGR back out, a real, exact
   // round trip, not an approximation).
   out = out.replace(
-    /(?<!\.\s*)\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _bl = (${exprRaw.trim()}); const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb; } })();`,
   );
   out = out.replace(
-    /(?<!\.\s*)\bimage_blend\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_blend\b/g,
     `(() => { const _t = _entity.get(GmlActions.Sprite)?.tint ?? 0xffffff; return ((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff); })()`,
   );
 
@@ -1503,12 +1834,12 @@ export function transpileGML(gml: string): string {
   // (write `-100` -> `Sprite.depth` becomes `100` -> read back negates to
   // `-100` again, a real, exact round trip, not an approximation).
   out = out.replace(
-    /(?<!\.\s*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(${exprRaw.trim()}); })();`,
   );
   out = out.replace(
-    /(?<!\.\s*)\bdepth\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\b/g,
     `(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))`,
   );
 

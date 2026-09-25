@@ -320,6 +320,155 @@ describe("transpileGML", () => {
     expect(out).not.toContain("while ((i < 10))");
   });
 
+  it("wraps a bare (unparenthesised) switch subject anchored by a following brace — real gap found in scr_inputControlUpdateInputs.gml and scr_drawCurrentMenu.gml", () => {
+    const out = transpileGML(
+      "switch _inputDevice\n{\n  case -1:\n    break;\n}",
+    );
+    expect(out).toContain("switch (_inputDevice)");
+  });
+
+  it("wraps a bare switch subject that is itself a call, real gap found in scr_setOptionVariableStrings.gml", () => {
+    const out = transpileGML(
+      "switch window_get_fullscreen()\n{\n  case 0:\n    break;\n}",
+    );
+    expect(out).toContain("switch (window_get_fullscreen())");
+  });
+
+  it("does not touch an already-parenthesised switch subject", () => {
+    const out = transpileGML("switch (x)\n{\n  case 1:\n    break;\n}");
+    expect(out).toContain("switch (x)");
+    expect(out).not.toContain("switch ((x))");
+  });
+
+  it("does not fuse consecutive semicolon-less if(cond) return statements into one broken condition — real gap found in draw_lightning.gml", () => {
+    // GML allows omitting the trailing `;` entirely — a real, confirmed
+    // shape (four consecutive semicolon-less `if (cond) return 0` lines in
+    // a real project's draw_lightning.gml) that the "if (a) <trailing
+    // operator>" pass's semicolon-only bail guard couldn't catch.
+    const out = transpileGML(
+      "if (max(a, b) < c - 10) return 0\nif (max(d, e) < f - 10) return 0\nif (g == 0)\n{\n  foo();\n}",
+    );
+    expect(out).toContain("if (max(a, b) < c - 10) return 0");
+    expect(out).toContain("if (max(d, e) < f - 10) return 0");
+    expect(out).not.toContain("return 0)");
+  });
+
+  it("still wraps a genuine trailing-operator condition continuation on one line", () => {
+    const out = transpileGML(
+      "if (_xAxis*_xAxis + _yAxis*+_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}",
+    );
+    expect(out).toContain(
+      "if ((_xAxis*_xAxis + _yAxis*+_yAxis) >= gamepadDeadzoneSquared)",
+    );
+  });
+
+  it("wraps a real brace-less single-statement if without swallowing its body — real gap found in obj_sway's Step_0.gml", () => {
+    const out = transpileGML(
+      "movement += value;\n\nif movement >= pi*2\nmovement = 0;\n\nx += 1;",
+    );
+    expect(out).toContain("if (movement >= pi*2)");
+    expect(out).toContain("movement = 0;");
+    expect(out).toContain("x += 1;");
+  });
+
+  it("does not fuse a brace-less if's condition with a distant, unrelated later brace — real regression found in obj_rainController's Draw_0.gml", () => {
+    const out = transpileGML(
+      "if !surface_exists(surf) surf = surface_create(room_width, room_height);\nsurface_set_target(surf);\n\nif (other_thing)\n{\n  foo();\n}",
+    );
+    expect(out).toContain("if (!surface_exists(surf))");
+    expect(out).toContain("surf = surface_create(room_width, room_height);");
+    expect(out).not.toContain(
+      "surf = surface_create(room_width, room_height);)",
+    );
+  });
+
+  it("inserts a missing semicolon before a brace-less if/else's else branch — real gap found in oPlayer's Step_0.gml", () => {
+    const out = transpileGML(
+      "if (place_meeting(x, y+5, oIce)) friction = 0.2 else hspeed = 0;",
+    );
+    expect(out).toContain("friction = 0.2; else hspeed = 0;");
+  });
+
+  it("does not double up a semicolon already present before else", () => {
+    const out = transpileGML("if (cond) foo(); else bar();");
+    expect(out).toContain("if (cond) foo(); else bar();");
+    expect(out).not.toContain(";; else");
+  });
+
+  it("leaves a brace-less if's body statement-valid when its body is a lone global assignment — real gap found in obj_ear's Step_0.gml", () => {
+    const out = transpileGML("if (global.gain > 1)\n\tglobal.gain = 1;");
+    // The global-assignment pass must still leave a real statement (the
+    // leading `;`) so the if's body isn't just a bare comment.
+    expect(out).toMatch(/if \(global\.gain > 1\)\s*\n\s*;\s*\/\* TODO/);
+  });
+
+  it("show_message tolerates a nested call in its message argument — real gap found in action_create_object.gml", () => {
+    const out = transpileGML(
+      'show_message( "creating instance for non-existent object" + string(id) );',
+    );
+    expect(out).toContain(
+      'console.log("creating instance for non-existent object" + String(id));',
+    );
+  });
+
+  it("ds_map write accessor tolerates a string-literal key that itself contains a ] — real gap found in keyboard_init.gml", () => {
+    const out = transpileGML('l_s2c[?"]"] = 221;');
+    expect(out).toContain('l_s2c.set("]", 221)');
+  });
+
+  it("ds_map read accessor tolerates a string-literal key that itself contains a ]", () => {
+    const out = transpileGML('x = l_s2c[?"]"];');
+    expect(out).toContain('l_s2c.get("]")');
+  });
+
+  it("repeat(n) tolerates a nested call in its count argument — real gap found in scr_capword.gml", () => {
+    const out = transpileGML("repeat (string_length(str)) {\n  foo();\n}");
+    // string_length(str) is itself separately rewritten to str.length by
+    // another pass — this test only cares that repeat's own count-argument
+    // capture is balanced-paren-aware, not that string_length stays as-is.
+    expect(out).toContain("for (let _i = 0; _i < str.length; _i++)");
+  });
+
+  it("does not rewrite image_angle/sprite_index-like text inside a // comment — real gap found in scr_wave.gml", () => {
+    const out = transpileGML(
+      "// image_angle = Wave(-45,45,1,0,0)  -> rock back and forth 90 degrees in a second\nx = 1;",
+    );
+    // Only asserting the real, confirmed bug is fixed (a Transform-field
+    // IIFE spliced into the comment text) — other, unrelated word-level
+    // rewrites (and/or/not -> &&/||/!) are a separate, pre-existing,
+    // broader gap in comment-handling not in scope here.
+    expect(out).not.toContain("_entity.get(GmlActions.Transform)");
+    expect(out).toContain("// image_angle = Wave(-45,45,1,0,0)");
+  });
+
+  it("does not treat a bare = equality inside a brace-less if's own condition as the body boundary — real gap found in scr_wave.gml", () => {
+    const out = transpileGML("if argument4 = 0\nargument4 = current_time;");
+    expect(out).toContain("if (argument4 = 0)");
+    expect(out).toContain("argument4 = current_time;");
+    expect(out).not.toContain("if ()");
+  });
+
+  it("do-while: rewrites do { ... } until (cond); to do { ... } while (!(cond)) — real gap found in whole_bunch.gml", () => {
+    const out = transpileGML(
+      "do {\n  xx = random(room_width);\n} until (position_empty(xx, yy));",
+    );
+    expect(out).toContain("} while (!(position_empty(xx, yy)))");
+    expect(out).not.toContain("until");
+  });
+
+  it("a global assignment sharing a physical line with real following code doesn't swallow it into a // comment — real gap found in obj_shop's Step_0.gml", () => {
+    // A `//` line comment runs to end of line no matter what — it consumed
+    // `canDraw = false; canEdit = false; }` (the block's own closing brace
+    // included) into dead commentary, leaving the enclosing block
+    // permanently unclosed.
+    const out = transpileGML(
+      "if (curPos == pos1[3]) { global.pause = false; canDraw = false; canEdit = false; }",
+    );
+    expect(out).toContain("canDraw = false;");
+    expect(out).toContain("canEdit = false;");
+    expect(out.trim().endsWith("}")).toBe(true);
+  });
+
   it("does not treat the word 'if' inside a // comment as a condition to wrap", () => {
     const gml =
       "// checking if we are within range\nif (a) && (b)\n{\n  foo();\n}";
@@ -342,8 +491,20 @@ describe("transpileGML", () => {
     // nested /* */ comment, which is invalid JS/TS.
     const out = transpileGML("/* room_goto(target); */\nx = 1;");
     expect(out).not.toContain("room_goto");
-    expect(out).toContain("[GML comment/dead code omitted]");
+    expect(out).toContain("GML comment/dead code omitted");
     expect(out).toContain("x = 1;");
+  });
+
+  it("the comment-neutralisation placeholder contains no ] or ) — real bug found in keyboard_init.gml", () => {
+    // Real source: `l_s2c[?chr(92)/* "\" */] = 220;` — a ds_map write
+    // accessor whose key expression has an inline block comment. The old
+    // placeholder text ("[GML comment/dead code omitted]") itself contained
+    // a `]`, which terminated the ds_map accessor's `[^\]]+` key capture
+    // early and corrupted the output into invalid syntax.
+    const out = transpileGML('l_s2c[?chr(92)/* "\\" */] = 220;');
+    expect(out).toContain(
+      "l_s2c.set(chr(92)/* GML comment/dead code omitted */, 220)",
+    );
   });
 
   it("reports a whole-file unterminated block comment as inert instead of transpiling it", () => {
