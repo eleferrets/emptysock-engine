@@ -16,6 +16,7 @@ import {
 } from "../components/Widgets.js";
 import type { WidgetTree } from "./WidgetTree.js";
 import { widgetRoundRect } from "./canvasHelpers.js";
+import type { FontRegistry } from "../systems/FontRegistry.js";
 
 /** A press that moves further than this before release is a drag, not a click. */
 const CLICK_DRAG_THRESHOLD = 6;
@@ -41,6 +42,8 @@ type ImageCacheEntry =
 export interface UISystemOptions {
   /** Overrides how `ImageWidget.src` paths resolve to pixi textures — defaults to `Assets.load`. */
   imageLoader?: ImageLoader;
+  /** Optional `FontRegistry` (see `systems/FontRegistry.ts`) — when given, a widget's `fontId` (if set and resolvable) overrides its own raw `font`/`fontSize` fields. Omitted entirely means every widget always renders from its own `font`/`fontSize`, unchanged from before `fontId` existed. */
+  fonts?: FontRegistry;
 }
 
 /**
@@ -56,6 +59,7 @@ export interface UISystemOptions {
 export class UISystem {
   private readonly _presses = new Map<number, PressState>();
   private readonly _loadImage: ImageLoader;
+  private readonly _fonts: FontRegistry | undefined;
 
   /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
   private readonly _imageCache = new Map<string, ImageCacheEntry>();
@@ -65,6 +69,16 @@ export class UISystem {
     options: UISystemOptions = {},
   ) {
     this._loadImage = options.imageLoader ?? defaultImageLoader;
+    this._fonts = options.fonts;
+  }
+
+  /** Resolves a widget's font: `fontId` (via the injected `FontRegistry`) when set and resolvable, else the widget's own raw `font`/`fontSize` fields. */
+  private _resolveFont(fontId: string, font: string, fontSize: number): string {
+    if (fontId.length > 0 && this._fonts !== undefined) {
+      const css = this._fonts.cssFontFor(fontId);
+      if (css !== undefined) return css;
+    }
+    return `${fontSize}px ${font}`;
   }
 
   private _isVisible(entity: Entity): boolean {
@@ -266,7 +280,7 @@ export class UISystem {
     );
     ctx.fill();
     ctx.fillStyle = button.color;
-    ctx.font = `${button.fontSize}px ${button.font}`;
+    ctx.font = this._resolveFont(button.fontId, button.font, button.fontSize);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(button.label, box.x + box.width / 2, box.y + box.height / 2);
@@ -295,7 +309,11 @@ export class UISystem {
     }
     if (checkbox.label.length > 0) {
       ctx.fillStyle = checkbox.color;
-      ctx.font = `${checkbox.fontSize}px ${checkbox.font}`;
+      ctx.font = this._resolveFont(
+        checkbox.fontId,
+        checkbox.font,
+        checkbox.fontSize,
+      );
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillText(checkbox.label, box.x + boxSize + 8, box.y + box.height / 2);
@@ -347,7 +365,7 @@ export class UISystem {
     label: ReturnType<typeof Label.createDefaults>,
   ): void {
     ctx.fillStyle = label.color;
-    ctx.font = `${label.fontSize}px ${label.font}`;
+    ctx.font = this._resolveFont(label.fontId, label.font, label.fontSize);
     ctx.textBaseline = "middle";
     const tx =
       label.align === 1

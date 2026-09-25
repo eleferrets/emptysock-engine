@@ -3,11 +3,14 @@ import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
 import type { WidgetTree } from "./WidgetTree.js";
+import type { FontRegistry } from "../systems/FontRegistry.js";
 /** Resolves an `ImageWidget.src` path to a real pixi `Texture` — same shape as `RenderPipeline.ts`'s `TextureLoader`, defaulting to the same `Assets.load` pixi wraps. Overridable for tests/hosts that want a fake loader. */
 export type ImageLoader = (path: string) => Promise<Texture>;
 export interface UISystemOptions {
   /** Overrides how `ImageWidget.src` paths resolve to pixi textures — defaults to `Assets.load`. */
   imageLoader?: ImageLoader;
+  /** Optional `FontRegistry` (see `systems/FontRegistry.ts`) — when given, a widget's `fontId` (if set and resolvable) overrides its own raw `font`/`fontSize` fields. Omitted entirely means every widget always renders from its own `font`/`fontSize`, unchanged from before `fontId` existed. */
+  fonts?: FontRegistry;
 }
 /**
  * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
@@ -23,9 +26,12 @@ export declare class UISystem {
   private readonly _tree;
   private readonly _presses;
   private readonly _loadImage;
+  private readonly _fonts;
   /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
   private readonly _imageCache;
   constructor(_tree: WidgetTree, options?: UISystemOptions);
+  /** Resolves a widget's font: `fontId` (via the injected `FontRegistry`) when set and resolvable, else the widget's own raw `font`/`fontSize` fields. */
+  private _resolveFont;
   private _isVisible;
   private _contains;
   /**

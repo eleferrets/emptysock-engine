@@ -118,7 +118,10 @@ export function buildFontAsset(font: FontAsset): string {
 // on the machine/browser rendering this game, install it separately or
 // substitute a comparable font family.
 //
-// Use with @emptysock/engine's Label (or ButtonState/Checkbox) component:
+// Use with @emptysock/engine's FontRegistry (register once, reference by id):
+//   game.fonts.register(${JSON.stringify(font.name)}, ${toPascalCase(font.name)}Font);
+//   entity.add(Label, { fontId: ${JSON.stringify(font.name)} });
+// ...or set font/fontSize directly with no registry involved:
 //   entity.add(Label, { font: ${JSON.stringify(font.family)}, fontSize: ${font.size} });
 export const ${toPascalCase(font.name)}Font = {
   name: ${JSON.stringify(font.name)},

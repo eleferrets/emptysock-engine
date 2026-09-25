@@ -28,6 +28,15 @@ export declare const Label: import("../Component.js").ComponentDef<{
   color: string;
   fontSize: number;
   font: string;
+  /**
+   * A `FontRegistry` id (see `systems/FontRegistry.ts`) — when set and
+   * resolvable, `UISystem` renders with that registered font's family/
+   * size/style instead of this component's own `font`/`fontSize` fields.
+   * `""` (the default) means "no override, use `font`/`fontSize`
+   * directly" — the same empty-string sentinel `Sprite.texturePath` uses
+   * for "no texture set".
+   */
+  fontId: string;
   /** 0 = left, 1 = center, 2 = right. */
   align: number;
 }>;
@@ -54,6 +63,8 @@ export declare const ButtonState: import("../Component.js").ComponentDef<{
   borderRadius: number;
   fontSize: number;
   font: string;
+  /** See `Label.fontId`'s doc comment — same `FontRegistry` id override. */
+  fontId: string;
   disabled: boolean;
   state: number;
 }>;
@@ -66,6 +77,8 @@ export declare const Checkbox: import("../Component.js").ComponentDef<{
   borderColor: string;
   fontSize: number;
   font: string;
+  /** See `Label.fontId`'s doc comment — same `FontRegistry` id override. */
+  fontId: string;
 }>;
 export type CheckboxShape = ReturnType<typeof Checkbox.createDefaults>;
 export declare const Slider: import("../Component.js").ComponentDef<{

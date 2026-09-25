@@ -43,6 +43,15 @@ export const Label = defineComponent(
     color: "#ffffff",
     fontSize: 14,
     font: "sans-serif",
+    /**
+     * A `FontRegistry` id (see `systems/FontRegistry.ts`) — when set and
+     * resolvable, `UISystem` renders with that registered font's family/
+     * size/style instead of this component's own `font`/`fontSize` fields.
+     * `""` (the default) means "no override, use `font`/`fontSize`
+     * directly" — the same empty-string sentinel `Sprite.texturePath` uses
+     * for "no texture set".
+     */
+    fontId: "",
     /** 0 = left, 1 = center, 2 = right. */
     align: 0,
   }),
@@ -52,6 +61,7 @@ export const Label = defineComponent(
       color: { kind: "string" },
       fontSize: { kind: "number" },
       font: { kind: "string" },
+      fontId: { kind: "string" },
       align: { kind: "enum", options: ["left", "center", "right"] },
     },
   },
@@ -94,6 +104,8 @@ export const ButtonState = defineComponent(
     borderRadius: 4,
     fontSize: 14,
     font: "sans-serif",
+    /** See `Label.fontId`'s doc comment — same `FontRegistry` id override. */
+    fontId: "",
     disabled: false as boolean,
     state: 0,
   }),
@@ -107,6 +119,7 @@ export const ButtonState = defineComponent(
       borderRadius: { kind: "number" },
       fontSize: { kind: "number" },
       font: { kind: "string" },
+      fontId: { kind: "string" },
       disabled: { kind: "boolean" },
     },
   },
@@ -123,6 +136,8 @@ export const Checkbox = defineComponent(
     borderColor: "#818cf8",
     fontSize: 14,
     font: "sans-serif",
+    /** See `Label.fontId`'s doc comment — same `FontRegistry` id override. */
+    fontId: "",
   }),
   {
     schema: {
@@ -133,6 +148,7 @@ export const Checkbox = defineComponent(
       borderColor: { kind: "string" },
       fontSize: { kind: "number" },
       font: { kind: "string" },
+      fontId: { kind: "string" },
     },
   },
 );

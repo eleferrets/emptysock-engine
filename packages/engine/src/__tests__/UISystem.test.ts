@@ -269,6 +269,60 @@ describe("UISystem — render", () => {
   });
 });
 
+describe("UISystem — FontRegistry (fontId resolution)", () => {
+  it("uses the registered font's precomposed css when fontId resolves", async () => {
+    const { FontRegistry } = await import("../systems/FontRegistry.js");
+    const fonts = new FontRegistry();
+    fonts.register("fnt_menu", {
+      family: "Impact",
+      size: 24,
+      bold: true,
+      italic: false,
+    });
+
+    const localUi = new UISystem(tree, { fonts });
+    const label = tree.createWidget(scene);
+    label.add(Label, { text: "hi", fontId: "fnt_menu" });
+    styleOf(label).width = 100;
+    styleOf(label).height = 20;
+    tree.layout(scene, 100, 20);
+
+    const ctx = makeCtx();
+    localUi.render(scene, ctx);
+    expect(ctx.font).toBe("bold 24px Impact");
+  });
+
+  it("falls back to font/fontSize when fontId is unset", () => {
+    const label = tree.createWidget(scene);
+    label.add(Label, { text: "hi", font: "monospace", fontSize: 12 });
+    styleOf(label).width = 100;
+    styleOf(label).height = 20;
+    tree.layout(scene, 100, 20);
+
+    const ctx = makeCtx();
+    ui.render(scene, ctx);
+    expect(ctx.font).toBe("12px monospace");
+  });
+
+  it("falls back to font/fontSize when fontId is set but unregistered", () => {
+    const localUi = new UISystem(tree, {});
+    const label = tree.createWidget(scene);
+    label.add(Label, {
+      text: "hi",
+      fontId: "does_not_exist",
+      font: "monospace",
+      fontSize: 12,
+    });
+    styleOf(label).width = 100;
+    styleOf(label).height = 20;
+    tree.layout(scene, 100, 20);
+
+    const ctx = makeCtx();
+    localUi.render(scene, ctx);
+    expect(ctx.font).toBe("12px monospace");
+  });
+});
+
 describe("UISystem — ImageWidget loading/caching", () => {
   it("draws the placeholder while a source is loading, then the real image once it resolves — loading only once per shared path", async () => {
     let resolveLoad: (texture: Texture) => void = () => undefined;

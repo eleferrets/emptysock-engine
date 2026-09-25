@@ -5,6 +5,7 @@ import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
 import { GlobalStore } from "./systems/GlobalStore.js";
 import { GmlFileSystem } from "./systems/GmlFileSystem.js";
+import { FontRegistry } from "./systems/FontRegistry.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
@@ -70,6 +71,8 @@ export interface SceneLifecycle {
   readonly globals: GlobalStore;
   /** Game-owned, same reasoning as `globals` — one `GmlFileSystem` for the lifetime of this `Game`, real handle-based file_text_* support. See `systems/GmlFileSystem.ts`'s own doc comment. */
   readonly files: GmlFileSystem;
+  /** Game-owned, same reasoning as `globals`/`files` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
+  readonly fonts: FontRegistry;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `PluginSystem` for the lifetime of this `Game`. Equivalent to
@@ -337,6 +340,7 @@ export class Game {
     this.services.register(VariableStore);
     this.services.register(GlobalStore);
     this.services.register(GmlFileSystem);
+    this.services.register(FontRegistry);
     this.services.register(LocalisationSystem);
     this.services.register(ViewportSystem);
     this.services.register(WindowSystem);
@@ -392,6 +396,11 @@ export class Game {
     return this.services.get(GmlFileSystem);
   }
 
+  /** The `Game`'s single `FontRegistry` — see that class's own doc comment. */
+  get fonts(): FontRegistry {
+    return this.services.get(FontRegistry);
+  }
+
   /**
    * Load a scene: creates its `Scene` (bitECS world), its `ActorSystem` and
    * `PhysicsSystem` (unless `manageLifecycle: false`), and calls the
@@ -427,6 +436,7 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       files: this.services.get(GmlFileSystem),
+      fonts: this.services.get(FontRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
@@ -508,6 +518,7 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       files: this.services.get(GmlFileSystem),
+      fonts: this.services.get(FontRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
