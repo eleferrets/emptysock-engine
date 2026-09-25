@@ -19,6 +19,7 @@ import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
   convertGms2RoomBackgrounds,
+  buildRoomSceneFileViews,
 } from "./gms2-room-import.js";
 import { buildSoundAsset } from "./gms2-sound-import.js";
 import { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
@@ -317,13 +318,31 @@ export async function importGMS2Project(
       const { entities: backgroundEntities, failed: failedBackgrounds } =
         await convertGms2RoomBackgrounds(room, projectRoot, outDir);
 
+      // The room's real camera/view data (`views` array + room-wide
+      // `viewSettings.enableViews`) gets merged onto the generated
+      // `.scene.json` the same way background entities do above — see
+      // `SceneFile.views`/`.viewsEnabled`'s own doc comment in
+      // `@emptysock/engine`'s SceneFile.ts, and `GmsRuntime.ts`'s
+      // `applyRoomViews` for how a loaded room actually wires this into a
+      // live `CameraSystem`/multi-viewport render pass.
+      const sceneFileViews = buildRoomSceneFileViews(room);
+      const activeViewCount = sceneFileViews.filter((v) => v.visible).length;
+
       let content = sceneJSON;
-      if (backgroundEntities.length > 0) {
+      if (backgroundEntities.length > 0 || sceneFileViews.length > 0) {
         const scene = JSON.parse(sceneJSON) as {
           entities?: unknown[];
+          views?: unknown[];
+          viewsEnabled?: boolean;
           [key: string]: unknown;
         };
-        scene.entities = [...(scene.entities ?? []), ...backgroundEntities];
+        if (backgroundEntities.length > 0) {
+          scene.entities = [...(scene.entities ?? []), ...backgroundEntities];
+        }
+        if (sceneFileViews.length > 0) {
+          scene.views = sceneFileViews;
+          scene.viewsEnabled = room.viewsEnabled;
+        }
         content = JSON.stringify(scene, null, 2) + "\n";
       }
       // A background sprite that failed to convert (missing on disk, bad
@@ -426,6 +445,11 @@ export async function importGMS2Project(
         }
 
         roomNote = noteParts.join(" ");
+      }
+      if (activeViewCount > 0) {
+        const viewNote = `${activeViewCount} active camera view(s) converted (viewsEnabled: ${String(room.viewsEnabled)}) — loaded automatically by GmsProjectRuntime.loadRoom() into CameraSystem${activeViewCount > 1 ? " / RenderSystem.renderMultiCamera()" : ""}.`;
+        roomNote =
+          roomNote !== undefined ? `${roomNote} ${viewNote}` : viewNote;
       }
       reportEntries.push({
         kind: "room",

@@ -351,6 +351,8 @@ describe("buildRoomTilemapModule — per-tile fidelity, not a sample", () => {
       name: "rm_grid",
       width: 64, // 4 cols * 16
       height: 48, // 3 rows * 16
+      viewsEnabled: false,
+      views: [],
       layers: [
         {
           name: "Ground",

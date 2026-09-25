@@ -229,6 +229,25 @@ export declare class GmsProjectRuntime {
    * own headless support (no `attachRenderer()` call, or a scene loaded
    * with `headless: true`) already makes step 7 a no-op — this class does
    * nothing renderer-specific on its own.
+   *
+   * **Real multi-camera compositing, when more than one view is active.**
+   * `Game`'s own render step (via whatever `SceneRenderer` the caller
+   * attached) only ever knows how to draw one camera's transform onto the
+   * main `stage` — it has no concept of GameMaker's up-to-8-simultaneous
+   * viewports. When this room's real view data (`configureGmlViewsFromRoom`,
+   * called from `loadRoom()`) currently has more than one visible,
+   * camera-bound view slot, this method runs a second real pass after
+   * `game.update()` returns: `RenderPipeline.renderMultiCamera()` (a thin,
+   * already-real passthrough to `RenderSystem.renderMultiCamera()` — see
+   * CLAUDE.md's "Multi-camera rendering" entry) composites every active
+   * viewport's own render pass onto the canvas, overwriting whatever
+   * single-camera frame `game.update()`'s own render step just drew. This is
+   * a genuine second full frame's worth of GPU work on a multi-view room —
+   * the same honest N-render-pass-per-frame caveat CLAUDE.md's own
+   * multi-camera/`syncLighting()` entries already raise, not free, and not
+   * profiled here. A room with 0 or 1 active views never pays this cost —
+   * `game.update()`'s own single-camera render step is already the correct,
+   * final frame for that case.
    */
   update(dt: number): void;
 }

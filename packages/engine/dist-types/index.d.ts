@@ -31,6 +31,7 @@ export type {
   SceneFile,
   SceneFileEntity,
   SceneFilePrefabInstance,
+  SceneFileView,
   ComponentLookup,
   LoadSceneFileOptions,
 } from "./SceneFile.js";
@@ -488,7 +489,12 @@ export {
   clearGmlCameraState,
 } from "./compat/gmlCamera.js";
 export type { GmlCameraViewport } from "./compat/gmlCamera.js";
-export { buildActiveGmlCameraViewports } from "./compat/gmlCamera.js";
+export {
+  buildActiveGmlCameraViewports,
+  configureGmlViewsFromRoom,
+  stepGmlCameraFollow,
+  stepAllGmlCameraFollows,
+} from "./compat/gmlCamera.js";
 /**
  * GameMaker's legacy `d3d_*` pseudo-3D projection compat — see
  * `compat/gmlProjection.ts`'s module doc comment and CLAUDE.md's "Pseudo-3D

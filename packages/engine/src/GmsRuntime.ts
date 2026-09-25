@@ -15,6 +15,11 @@ import { gmlActionsStep } from "./compat/gmlActions.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
 import { KNOWN_VK_CODES, vkToDomCode } from "./compat/gmlKeys.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
+import {
+  configureGmlViewsFromRoom,
+  stepAllGmlCameraFollows,
+  buildActiveGmlCameraViewports,
+} from "./compat/gmlCamera.js";
 import type { GmlParticleContext } from "./compat/gmlParticles.js";
 import type { CameraSystem } from "./systems/CameraSystem.js";
 import type { RenderPipeline } from "./systems/RenderPipeline.js";
@@ -241,6 +246,17 @@ export class GmsProjectRuntime {
             }
           },
         });
+        // Real camera/view setup — the room's converted `.yy` `views` data
+        // (see CLAUDE.md's "GMS2 room camera/view import" entry). Configures
+        // this scene's camera/view registry (`gmlCamera.ts`) from real room
+        // data before anything else runs this frame, so a Create-event GML
+        // call that reads `camera_get_view_x`/`view_camera[idx]` on frame 1
+        // already sees the room's real view state, not defaults.
+        configureGmlViewsFromRoom(
+          this.buildContext(),
+          file.views ?? [],
+          file.viewsEnabled ?? false,
+        );
       },
       onUpdate: (dt) => {
         this.runGmlPasses(dt);
@@ -282,6 +298,15 @@ export class GmsProjectRuntime {
     const ctx = this.buildContext();
 
     this.dispatchKeyTransitions(scene, ctx);
+
+    // Real per-frame camera-follow: applies GameMaker's border-follow
+    // algorithm to every configured view's camera handle (see
+    // `stepGmlCameraFollow`'s own doc comment for the exact formula). Runs
+    // before the Step passes below so a `Step` event reading
+    // `camera_get_view_x` this frame already sees the post-follow position,
+    // matching GameMaker's own per-step ordering (the camera follows, then
+    // gameplay logic runs against the moved view).
+    stepAllGmlCameraFollows(ctx);
 
     this._behaviors.update(scene, dt, ctx);
 
@@ -371,8 +396,33 @@ export class GmsProjectRuntime {
    * own headless support (no `attachRenderer()` call, or a scene loaded
    * with `headless: true`) already makes step 7 a no-op — this class does
    * nothing renderer-specific on its own.
+   *
+   * **Real multi-camera compositing, when more than one view is active.**
+   * `Game`'s own render step (via whatever `SceneRenderer` the caller
+   * attached) only ever knows how to draw one camera's transform onto the
+   * main `stage` — it has no concept of GameMaker's up-to-8-simultaneous
+   * viewports. When this room's real view data (`configureGmlViewsFromRoom`,
+   * called from `loadRoom()`) currently has more than one visible,
+   * camera-bound view slot, this method runs a second real pass after
+   * `game.update()` returns: `RenderPipeline.renderMultiCamera()` (a thin,
+   * already-real passthrough to `RenderSystem.renderMultiCamera()` — see
+   * CLAUDE.md's "Multi-camera rendering" entry) composites every active
+   * viewport's own render pass onto the canvas, overwriting whatever
+   * single-camera frame `game.update()`'s own render step just drew. This is
+   * a genuine second full frame's worth of GPU work on a multi-view room —
+   * the same honest N-render-pass-per-frame caveat CLAUDE.md's own
+   * multi-camera/`syncLighting()` entries already raise, not free, and not
+   * profiled here. A room with 0 or 1 active views never pays this cost —
+   * `game.update()`'s own single-camera render step is already the correct,
+   * final frame for that case.
    */
   update(dt: number): void {
     this.game.update(dt);
+
+    if (this.options.renderer === undefined) return;
+    const viewports = buildActiveGmlCameraViewports(this.buildContext());
+    if (viewports.length > 1) {
+      this.options.renderer.renderMultiCamera(viewports);
+    }
   }
 }

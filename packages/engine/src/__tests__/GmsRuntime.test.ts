@@ -198,6 +198,77 @@ describe("GmsProjectRuntime", () => {
   });
 });
 
+describe("GmsProjectRuntime — real room camera/view wiring", () => {
+  it("configures the camera registry from SceneFile.views on loadRoom(), and follows the target entity across update()s", async () => {
+    const { camera_get_view_x, camera_get_view_y, view_get_enabled } =
+      await import("../compat/gmlCamera.js");
+
+    const lookup: Record<string, ComponentDef> = { Transform, Meta };
+    const playerPrefab: PrefabDef = definePrefab("objPlayer", [
+      { def: Transform },
+      { def: Meta, overrides: { name: "objPlayer" } },
+    ]);
+
+    const room0: SceneFile = {
+      sceneName: "room0",
+      prefabInstances: [{ prefab: "objPlayer", props: { x: 700, y: 20 } }],
+      viewsEnabled: true,
+      views: [
+        {
+          visible: true,
+          worldX: 0,
+          worldY: 0,
+          worldWidth: 640,
+          worldHeight: 480,
+          screenX: 0,
+          screenY: 0,
+          screenWidth: 640,
+          screenHeight: 480,
+          borderX: 32,
+          borderY: 32,
+          speedX: -1,
+          speedY: -1,
+          followObject: "objPlayer",
+        },
+      ],
+    };
+
+    const data: GmsProjectData = {
+      rooms: { room0 },
+      roomOrder: ["room0"],
+      prefabs: { objPlayer: playerPrefab },
+      lookup: (name) => lookup[name],
+    };
+
+    const g = new Game();
+    const runtime = new GmsProjectRuntime(g, data);
+    await runtime.loadRoom("room0");
+
+    // The room's real viewsEnabled/views data must already be live on the
+    // camera registry immediately after loadRoom() — before any update().
+    const scene = runtime.scene;
+    expect(scene).toBeDefined();
+    if (scene === undefined) throw new Error("expected a live scene");
+    expect(view_get_enabled({ scene })).toBe(true);
+
+    // update() runs stepAllGmlCameraFollows() every frame — the camera
+    // should snap toward the player (target is outside the border) with no
+    // renderer attached (headless, honest zero-render-cost path).
+    runtime.update(1 / 60);
+    const ctx = { scene };
+    expect(camera_get_view_x(ctx, 0)).not.toBe(0);
+    expect(camera_get_view_y(ctx, 0)).not.toBe(0);
+  });
+
+  it("a room with no views data leaves the camera registry disabled and does not throw across update()s", async () => {
+    const runtime = new GmsProjectRuntime(new Game(), buildFixture());
+    await runtime.loadRoom("room0");
+    for (let i = 0; i < 5; i++) {
+      expect(() => runtime.update(1 / 60)).not.toThrow();
+    }
+  });
+});
+
 describe("GmsProjectRuntime — timeline_index wiring (real onCreate dispatch)", () => {
   // Proves the *exact* code shape `gms2-transpile.ts` emits for a
   // `timeline_index = tmJiggle;` assignment (see

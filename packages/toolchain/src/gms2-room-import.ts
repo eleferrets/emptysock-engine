@@ -32,11 +32,51 @@ export interface RoomLayer {
   backgroundSprite?: string;
 }
 
+/**
+ * One entry of a real room `.yy`'s `views` array (up to 8, index = view
+ * slot). Confirmed against GameMaker's real room-view schema — the manual's
+ * `view_xport`/`view_yport`/`view_wport`/`view_hport` reference pages, the
+ * `NPC-Studio/yy-typings` typings for GMS2 `.yy`/`.yyp` files, and
+ * ENIGMA's `room_set_view` compatibility docs (which spells out the same
+ * field list GameMaker's own runtime function takes: `vis, xview, yview,
+ * wview, hview, xport, yport, wport, hport, hborder, vborder, hspeed,
+ * vspeed, obj`) — all agree on this field set and naming. `xview`/`yview`/
+ * `wview`/`hview` are the *world-space* rectangle the camera looks at;
+ * `xport`/`yport`/`wport`/`hport` are the *screen-space* rectangle it draws
+ * into; `hborder`/`vborder` are the follow-margin in pixels; `hspeed`/
+ * `vspeed` are the follow catch-up speed in pixels/step (`-1` is
+ * GameMaker's own "snap instantly" sentinel); `objectId` is the object
+ * asset this view follows (`null`/absent for "no follow target" — GameMaker
+ * resolves this to "the first active instance of that object type" every
+ * step, not a fixed instance id, which is why this importer resolves it to
+ * an object *name* rather than a numeric instance id).
+ */
+export interface RoomView {
+  visible: boolean;
+  xview: number;
+  yview: number;
+  wview: number;
+  hview: number;
+  xport: number;
+  yport: number;
+  wport: number;
+  hport: number;
+  hborder: number;
+  vborder: number;
+  hspeed: number;
+  vspeed: number;
+  objectId?: string;
+}
+
 export interface RoomData {
   name: string;
   width: number;
   height: number;
   layers: RoomLayer[];
+  /** Real GameMaker room-wide `viewSettings.enableViews` (a.k.a. `view_enabled`) — whether this room's viewport/camera system is active at all. */
+  viewsEnabled: boolean;
+  /** Up to 8 real view slots, parsed from the room's `.yy` `views` array — see `RoomView`'s own doc comment for the exact field provenance. Always length-8-or-fewer, in slot order; a room with no `views` array (or a malformed one) parses to `[]`. */
+  views: RoomView[];
 }
 
 // ── Internal shapes for the GMS2 room .yy JSON ──────────────────────────────
@@ -89,10 +129,39 @@ interface YyLayer {
   [key: string]: unknown;
 }
 
+interface YyView {
+  visible?: boolean;
+  xview?: number;
+  yview?: number;
+  wview?: number;
+  hview?: number;
+  xport?: number;
+  yport?: number;
+  wport?: number;
+  hport?: number;
+  hborder?: number;
+  vborder?: number;
+  hspeed?: number;
+  vspeed?: number;
+  objectId?: { name?: string } | null;
+  [key: string]: unknown;
+}
+
 interface YyRoom {
   name?: string;
   roomSettings?: { Width?: number; Height?: number; [key: string]: unknown };
   layers?: YyLayer[];
+  views?: YyView[];
+  /**
+   * Real `.yy` field name is `viewSettings.enableViews` (GameMaker's own
+   * `view_enabled`). GameMaker's IDE also writes an `inheritViewSettings`
+   * flag here for "use the parent room's settings" (default room
+   * templates); this importer does not chase room inheritance — a room
+   * with `inheritViewSettings: true` and no explicit `enableViews` value of
+   * its own is treated the same as `enableViews: false`, an honest default
+   * rather than a fabricated inherited value.
+   */
+  viewSettings?: { enableViews?: boolean; [key: string]: unknown };
   [key: string]: unknown;
 }
 
@@ -194,6 +263,40 @@ function parseTiles(layer: YyLayer): TileEntry[] {
   return result;
 }
 
+function num(val: unknown, fallback: number): number {
+  return typeof val === "number" ? val : fallback;
+}
+
+/** Parses a room's real `.yy` `views` array into `RoomView[]`. Missing/malformed entries fall back to GameMaker's own documented view defaults (a full-1280x720 unvisible viewport, `-1` speed sentinel, no border, no follow object) rather than throwing — a room that never touches its view settings in the IDE still writes 8 default-valued entries in a real `.yy` file, so this should never actually need the fallback path against real data, but a hand-edited or malformed file must not abort the whole room's import over it. */
+function parseViews(views: unknown): RoomView[] {
+  if (!Array.isArray(views)) return [];
+  return views.map((raw) => {
+    const v = (typeof raw === "object" && raw !== null ? raw : {}) as YyView;
+    const objectId =
+      typeof v.objectId === "object" &&
+      v.objectId !== null &&
+      typeof v.objectId["name"] === "string"
+        ? v.objectId["name"]
+        : undefined;
+    return {
+      visible: v.visible === true,
+      xview: num(v.xview, 0),
+      yview: num(v.yview, 0),
+      wview: num(v.wview, 1280),
+      hview: num(v.hview, 720),
+      xport: num(v.xport, 0),
+      yport: num(v.yport, 0),
+      wport: num(v.wport, 1280),
+      hport: num(v.hport, 720),
+      hborder: num(v.hborder, 32),
+      vborder: num(v.vborder, 32),
+      hspeed: num(v.hspeed, -1),
+      vspeed: num(v.vspeed, -1),
+      ...(objectId !== undefined ? { objectId } : {}),
+    };
+  });
+}
+
 function parseInstances(
   layer: YyLayer,
   guidToObjectName: Readonly<Record<string, string>>,
@@ -290,7 +393,10 @@ export async function convertGms2Room(
     };
   });
 
-  return { name, width, height, layers };
+  const viewsEnabled = parsed.viewSettings?.enableViews === true;
+  const views = parseViews(parsed.views);
+
+  return { name, width, height, layers, viewsEnabled, views };
 }
 
 /**
@@ -303,6 +409,51 @@ export function droppedBackgroundSprites(room: RoomData): string[] {
   return room.layers
     .map((layer) => layer.backgroundSprite)
     .filter((sprite): sprite is string => sprite !== undefined);
+}
+
+/** On-disk shape of a view entry, matching `@emptysock/engine`'s `SceneFileView` — kept as a locally-typed mirror here rather than a real `import type` for the same reason `RoomBackgroundEntity` below mirrors `SceneFileEntity`: this module stays a plain data-transform with no runtime dependency on the engine package's module graph. */
+export interface RoomSceneFileView {
+  visible: boolean;
+  worldX: number;
+  worldY: number;
+  worldWidth: number;
+  worldHeight: number;
+  screenX: number;
+  screenY: number;
+  screenWidth: number;
+  screenHeight: number;
+  borderX: number;
+  borderY: number;
+  speedX: number;
+  speedY: number;
+  followObject?: string;
+}
+
+/**
+ * Converts this room's parsed `views` into the runtime-facing `SceneFileView`
+ * shape — renaming GameMaker's short `x/y/w/h`-`view`/`port` field names
+ * into this engine's own `world*`/`screen*` convention (see `SceneFileView`'s
+ * doc comment for why the rename happens at the toolchain boundary, not the
+ * runtime one). Used by `gms2-import.ts` to merge onto the generated
+ * `.scene.json`'s `views`/`viewsEnabled` fields.
+ */
+export function buildRoomSceneFileViews(room: RoomData): RoomSceneFileView[] {
+  return room.views.map((v) => ({
+    visible: v.visible,
+    worldX: v.xview,
+    worldY: v.yview,
+    worldWidth: v.wview,
+    worldHeight: v.hview,
+    screenX: v.xport,
+    screenY: v.yport,
+    screenWidth: v.wport,
+    screenHeight: v.hport,
+    borderX: v.hborder,
+    borderY: v.vborder,
+    speedX: v.hspeed,
+    speedY: v.vspeed,
+    ...(v.objectId !== undefined ? { followObject: v.objectId } : {}),
+  }));
 }
 
 /** On-disk shape of a directly-declared entity, matching @emptysock/engine's `SceneFileEntity`. */

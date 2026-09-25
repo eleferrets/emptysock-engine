@@ -1,5 +1,6 @@
 import type { GmlActionContext } from "./gmlActions.js";
 import type { CameraSystem } from "../systems/CameraSystem.js";
+import type { SceneFileView } from "../SceneFile.js";
 /**
  * `GmlActionContext` plus the one extra field this file's functions need: a
  * live `CameraSystem` to actually move. `CameraSystem` is core to
@@ -233,3 +234,52 @@ export interface GmlCameraViewport {
 export declare function buildActiveGmlCameraViewports(
   ctx: GmlCameraContext,
 ): GmlCameraViewport[];
+/**
+ * Configures this scene's camera/view registry from a room's real, already-
+ * converted view data (`SceneFile.views`/`.viewsEnabled`). One
+ * `camera_create_view`-equivalent handle is created per view slot (even a
+ * `visible: false` one, matching GameMaker's own "all 8 slots exist, only
+ * the visible/enabled ones actually render" model), bound into that slot via
+ * `view_set_camera`, with `view_set_visible`/`view_set_*port` mirroring the
+ * room's real screen-rectangle data. Call once, from a room's `onLoad`
+ * (`GmsRuntime.ts`'s `buildSceneDefinition` is the real caller) — calling it
+ * again (e.g. on a room reload) is safe and simply rebuilds the registry via
+ * `ensureRegistry`'s per-`Scene` `WeakMap`, since a scene reload is always a
+ * new `Scene` object.
+ */
+export declare function configureGmlViewsFromRoom(
+  ctx: GmlCameraContext,
+  views: readonly SceneFileView[],
+  viewsEnabled: boolean,
+): void;
+/**
+ * Applies one step of GameMaker's real border-follow algorithm to camera
+ * `camid` — the standard, widely-documented GameMaker view-follow rule
+ * (confirmed against ENIGMA's `room_set_view` compatibility docs and
+ * GameMaker community references for `hborder`/`vborder`/`hspeed`/`vspeed`
+ * semantics, since the manual itself documents the fields but not the exact
+ * per-step formula): the view only moves once the followed instance gets
+ * within `borderX`/`borderY` pixels of the view's own edge, and then moves
+ * just far enough to keep the instance that many pixels inside the edge —
+ * never re-centres the instance. `speedX`/`speedY` (`-1` = GameMaker's
+ * "snap instantly" sentinel, matching this file's other speed fields) caps
+ * how many pixels the view itself may move this step toward that target
+ * position, producing GameMaker's characteristic "catch-up" scroll instead
+ * of a hard teleport when the instance moves fast.
+ *
+ * No-ops when the handle has no `followObjectName` set, or when that object
+ * type currently has no live instance — both are the honest "nothing to
+ * follow right now" case, not an error.
+ */
+export declare function stepGmlCameraFollow(
+  ctx: GmlCameraContext,
+  camid: number,
+): void;
+/**
+ * Steps `stepGmlCameraFollow` for every currently-configured camera handle
+ * in this scene's registry — the real per-frame entry point
+ * `GmsProjectRuntime` calls once per frame after room load, so every active
+ * view's follow target (not just the default camera) gets its own
+ * independent border-follow update.
+ */
+export declare function stepAllGmlCameraFollows(ctx: GmlCameraContext): void;

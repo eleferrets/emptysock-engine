@@ -51,6 +51,34 @@ export interface SceneFileEntity {
   readonly components: readonly PrefabFileComponentEntry[];
 }
 
+/**
+ * On-disk shape of one GameMaker room "view" (up to 8 per room) — see
+ * `packages/toolchain/src/gms2-room-import.ts`'s `RoomView` for the real
+ * `.yy` field names this is converted from, and `GmsRuntime.ts`'s
+ * `applyRoomViews`/`compat/gmlCamera.ts` for how it's actually wired into a
+ * live `CameraSystem`/multi-viewport render pass when a room loads. Field
+ * names here are this engine's own (world/screen prefixes), not GameMaker's
+ * `xview`/`xport`-style short names — this is the runtime-facing shape, the
+ * `.yy` names are a toolchain-import-only concern.
+ */
+export interface SceneFileView {
+  readonly visible: boolean;
+  readonly worldX: number;
+  readonly worldY: number;
+  readonly worldWidth: number;
+  readonly worldHeight: number;
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
+  readonly borderX: number;
+  readonly borderY: number;
+  readonly speedX: number;
+  readonly speedY: number;
+  /** The GameMaker object-type name this view follows (its `.yy` `objectId.name`), or absent for "no follow target". Resolved at runtime against `Meta.name` — see `resolveGmlObjectType`. */
+  readonly followObject?: string;
+}
+
 /** On-disk shape of a `.scene.json` file. */
 export interface SceneFile {
   readonly sceneName: string;
@@ -58,6 +86,10 @@ export interface SceneFile {
   readonly systems?: readonly string[];
   readonly prefabInstances?: readonly SceneFilePrefabInstance[];
   readonly entities?: readonly SceneFileEntity[];
+  /** Whether this room's viewport/camera system is active at all — GameMaker's room-wide `viewSettings.enableViews` (`view_enabled`). Views data (below) still parses and is still readable back via `gmlCamera.ts`'s compat functions even when this is `false`; it's just never mirrored onto a live `CameraSystem`/multi-viewport render pass. */
+  readonly viewsEnabled?: boolean;
+  /** Up to 8 view slots (index = GameMaker view slot 0-7), converted from the room's real `.yy` `views` array. */
+  readonly views?: readonly SceneFileView[];
 }
 
 /** Looks up a registered `ComponentDef` by name, throwing with a useful message if missing. */

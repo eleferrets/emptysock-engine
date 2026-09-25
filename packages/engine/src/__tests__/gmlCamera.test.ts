@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Scene } from "../Scene.js";
 import { CameraSystem } from "../systems/CameraSystem.js";
+import { Transform } from "../components/Transform.js";
+import { Meta } from "../components/Meta.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
 import type { GmlCameraContext } from "../compat/gmlCamera.js";
+import type { SceneFileView } from "../SceneFile.js";
 import {
   camera_create,
   camera_create_view,
@@ -25,7 +28,13 @@ import {
   view_set_visible,
   view_get_enabled,
   view_set_enabled,
+  view_get_xport,
+  view_get_wport,
   clearGmlCameraState,
+  configureGmlViewsFromRoom,
+  stepGmlCameraFollow,
+  stepAllGmlCameraFollows,
+  buildActiveGmlCameraViewports,
   _getGmlCameraHandle,
 } from "../compat/gmlCamera.js";
 
@@ -217,6 +226,274 @@ describe("gmlCamera", () => {
       clearGmlCameraState(ctx.scene);
       expect(camera_get_view_x(ctx, 0)).toBe(0);
       expect(view_get_enabled(ctx)).toBe(false);
+    });
+  });
+
+  describe("configureGmlViewsFromRoom — real room camera/view setup", () => {
+    it("wires every view slot into the registry: enabled flag, camera binding, visibility, screen rect", () => {
+      const camera = new CameraSystem();
+      const ctx = makeCtx(camera);
+      const views: SceneFileView[] = [
+        {
+          visible: true,
+          worldX: 10,
+          worldY: 20,
+          worldWidth: 640,
+          worldHeight: 480,
+          screenX: 0,
+          screenY: 0,
+          screenWidth: 640,
+          screenHeight: 480,
+          borderX: 32,
+          borderY: 32,
+          speedX: 4,
+          speedY: 4,
+        },
+        {
+          visible: true,
+          worldX: 100,
+          worldY: 200,
+          worldWidth: 320,
+          worldHeight: 240,
+          screenX: 640,
+          screenY: 0,
+          screenWidth: 320,
+          screenHeight: 240,
+          borderX: 0,
+          borderY: 0,
+          speedX: -1,
+          speedY: -1,
+        },
+      ];
+
+      configureGmlViewsFromRoom(ctx, views, true);
+
+      expect(view_get_enabled(ctx)).toBe(true);
+      // Slot 0 mirrors onto the default (id 0) camera, which also drives the
+      // live CameraSystem.
+      expect(view_get_visible(ctx, 0)).toBe(true);
+      expect(camera_get_view_x(ctx, 0)).toBe(10);
+      expect(camera_get_view_y(ctx, 0)).toBe(20);
+      expect(camera.state.x).toBe(10);
+      expect(camera.state.y).toBe(20);
+      expect(view_get_xport(ctx, 0)).toBe(0);
+      expect(view_get_wport(ctx, 0)).toBe(640);
+
+      // Slot 1 gets its own distinct camera handle, bound and readable back.
+      expect(view_get_visible(ctx, 1)).toBe(true);
+      const camid1 = view_get_camera(ctx, 1);
+      expect(camid1).not.toBe(0);
+      expect(camera_get_view_x(ctx, camid1)).toBe(100);
+      expect(view_get_xport(ctx, 1)).toBe(640);
+      expect(view_get_wport(ctx, 1)).toBe(320);
+
+      const active = buildActiveGmlCameraViewports(ctx);
+      expect(active).toHaveLength(2);
+      expect(active.map((v) => v.screenWidth).sort()).toEqual([320, 640]);
+    });
+  });
+
+  describe("stepGmlCameraFollow — GameMaker's real border-follow algorithm", () => {
+    function spawnFollowTarget(
+      scene: Scene,
+      name: string,
+      x: number,
+      y: number,
+    ) {
+      const entity = scene.spawn();
+      entity.add(Transform, { x, y });
+      entity.add(Meta, { name });
+      return entity;
+    }
+
+    it("does not move the view while the target stays within the border", () => {
+      const ctx = makeCtx();
+      spawnFollowTarget(ctx.scene, "obj_player", 300, 300);
+      const camid = camera_create_view(
+        ctx,
+        0,
+        0,
+        640,
+        480,
+        0,
+        -1,
+        -1,
+        -1,
+        32,
+        32,
+      );
+      const handle = _getGmlCameraHandle(ctx, camid);
+      expect(handle).toBeDefined();
+      // Manually mark the follow target the way configureGmlViewsFromRoom does.
+      configureGmlViewsFromRoom(
+        ctx,
+        [
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 640,
+            worldHeight: 480,
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 640,
+            screenHeight: 480,
+            borderX: 32,
+            borderY: 32,
+            speedX: -1,
+            speedY: -1,
+            followObject: "obj_player",
+          },
+        ],
+        true,
+      );
+      stepGmlCameraFollow(ctx, 0);
+      // Target at (300,300) is well within [32, 608]x[32, 448] — no motion.
+      expect(camera_get_view_x(ctx, 0)).toBe(0);
+      expect(camera_get_view_y(ctx, 0)).toBe(0);
+    });
+
+    it("snaps instantly (speed -1) once the target crosses the border", () => {
+      const ctx = makeCtx();
+      spawnFollowTarget(ctx.scene, "obj_player", 700, 20);
+      configureGmlViewsFromRoom(
+        ctx,
+        [
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 640,
+            worldHeight: 480,
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 640,
+            screenHeight: 480,
+            borderX: 32,
+            borderY: 32,
+            speedX: -1,
+            speedY: -1,
+            followObject: "obj_player",
+          },
+        ],
+        true,
+      );
+      stepGmlCameraFollow(ctx, 0);
+      // target.x (700) > view.x + width - borderX (0 + 640 - 32 = 608), so
+      // desiredX = 700 - 640 + 32 = 92; snapped instantly (speed -1).
+      expect(camera_get_view_x(ctx, 0)).toBe(92);
+      // target.y (20) < view.y + borderY (32) => desiredY = 20 - 32 = -12.
+      expect(camera_get_view_y(ctx, 0)).toBe(-12);
+    });
+
+    it("caps per-step motion at speedX/speedY instead of snapping when a real speed is set", () => {
+      const ctx = makeCtx();
+      spawnFollowTarget(ctx.scene, "obj_player", 700, 20);
+      configureGmlViewsFromRoom(
+        ctx,
+        [
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 640,
+            worldHeight: 480,
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 640,
+            screenHeight: 480,
+            borderX: 32,
+            borderY: 32,
+            speedX: 5,
+            speedY: 5,
+            followObject: "obj_player",
+          },
+        ],
+        true,
+      );
+      stepGmlCameraFollow(ctx, 0);
+      // desiredX is 92 (as above), but speedX caps movement to 5px/step.
+      expect(camera_get_view_x(ctx, 0)).toBe(5);
+      expect(camera_get_view_y(ctx, 0)).toBe(-5);
+
+      stepGmlCameraFollow(ctx, 0);
+      expect(camera_get_view_x(ctx, 0)).toBe(10);
+    });
+
+    it("no-ops when the followed object type has no live instance", () => {
+      const ctx = makeCtx();
+      configureGmlViewsFromRoom(
+        ctx,
+        [
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 640,
+            worldHeight: 480,
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 640,
+            screenHeight: 480,
+            borderX: 32,
+            borderY: 32,
+            speedX: -1,
+            speedY: -1,
+            followObject: "obj_ghost",
+          },
+        ],
+        true,
+      );
+      expect(() => stepGmlCameraFollow(ctx, 0)).not.toThrow();
+      expect(camera_get_view_x(ctx, 0)).toBe(0);
+    });
+
+    it("stepAllGmlCameraFollows steps every configured camera handle, not just the default", () => {
+      const ctx = makeCtx();
+      spawnFollowTarget(ctx.scene, "obj_a", 700, 20);
+      spawnFollowTarget(ctx.scene, "obj_b", -50, 900);
+      configureGmlViewsFromRoom(
+        ctx,
+        [
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 640,
+            worldHeight: 480,
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 640,
+            screenHeight: 480,
+            borderX: 32,
+            borderY: 32,
+            speedX: -1,
+            speedY: -1,
+            followObject: "obj_a",
+          },
+          {
+            visible: true,
+            worldX: 0,
+            worldY: 0,
+            worldWidth: 320,
+            worldHeight: 240,
+            screenX: 640,
+            screenY: 0,
+            screenWidth: 320,
+            screenHeight: 240,
+            borderX: 16,
+            borderY: 16,
+            speedX: -1,
+            speedY: -1,
+            followObject: "obj_b",
+          },
+        ],
+        true,
+      );
+      const camid1 = view_get_camera(ctx, 1);
+      stepAllGmlCameraFollows(ctx);
+      expect(camera_get_view_x(ctx, 0)).not.toBe(0);
+      expect(camera_get_view_x(ctx, camid1)).not.toBe(0);
     });
   });
 });

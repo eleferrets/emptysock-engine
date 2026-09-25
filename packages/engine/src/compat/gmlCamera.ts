@@ -51,7 +51,10 @@
 import type { GmlActionContext } from "./gmlActions.js";
 import type { CameraSystem } from "../systems/CameraSystem.js";
 import type { Scene } from "../Scene.js";
+import type { SceneFileView } from "../SceneFile.js";
 import { getOrCreate } from "../internal/scoped.js";
+import { Transform } from "../components/Transform.js";
+import { Meta } from "../components/Meta.js";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -112,6 +115,19 @@ interface GmlCameraHandle {
   borderX: number;
   borderY: number;
   targetObject: number; // GameMaker instance id being followed, or -1 (noone)
+  /**
+   * The GameMaker *object type* name this camera follows, set by
+   * `configureGmlViewsFromRoom` from a room's real `.yy` view `objectId`
+   * (see `RoomView`'s doc comment in `gms2-room-import.ts`) — distinct from
+   * `targetObject` above, which is a bare numeric instance-id slot this file
+   * already exposed but never drove any motion from (see this interface's
+   * own pre-existing doc comment). GameMaker's real per-step follow
+   * semantics resolve "the object to follow" to *the first active instance
+   * of that object type* every step, not a fixed instance — matching
+   * `resolveGmlObjectType`'s `Meta.name`-keyed lookup is the correct way to
+   * find it here, not a numeric id. `undefined` means "no follow target".
+   */
+  followObjectName?: string;
 }
 
 interface GmlCameraRegistry {
@@ -573,6 +589,184 @@ export function buildActiveGmlCameraViewports(
     });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Room view configuration + per-frame follow — the real "cameras working"
+// integration point. `configureGmlViewsFromRoom` takes a room's already-
+// converted `SceneFileView[]` (see `SceneFile.ts`'s `SceneFileView` and
+// `gms2-room-import.ts`'s `buildRoomSceneFileViews`) and sets up this file's
+// existing camera/view registry exactly as if a GML script had called
+// `camera_create_view`/`view_set_camera`/`view_set_visible`/`view_set_*port`
+// for each one — real GmlCameraViewport data `buildActiveGmlCameraViewports`
+// can already turn into a `RenderSystem.renderMultiCamera()` call, and real
+// state `camera_get_view_*` reads back correctly. `stepGmlCameraFollow`
+// closes the other real gap this file's own pre-existing doc comments
+// already flagged: `targetObject`/`followObjectName` were stored but never
+// drove any actual per-frame motion.
+// ---------------------------------------------------------------------------
+
+/**
+ * Configures this scene's camera/view registry from a room's real, already-
+ * converted view data (`SceneFile.views`/`.viewsEnabled`). One
+ * `camera_create_view`-equivalent handle is created per view slot (even a
+ * `visible: false` one, matching GameMaker's own "all 8 slots exist, only
+ * the visible/enabled ones actually render" model), bound into that slot via
+ * `view_set_camera`, with `view_set_visible`/`view_set_*port` mirroring the
+ * room's real screen-rectangle data. Call once, from a room's `onLoad`
+ * (`GmsRuntime.ts`'s `buildSceneDefinition` is the real caller) — calling it
+ * again (e.g. on a room reload) is safe and simply rebuilds the registry via
+ * `ensureRegistry`'s per-`Scene` `WeakMap`, since a scene reload is always a
+ * new `Scene` object.
+ */
+export function configureGmlViewsFromRoom(
+  ctx: GmlCameraContext,
+  views: readonly SceneFileView[],
+  viewsEnabled: boolean,
+): void {
+  view_set_enabled(ctx, viewsEnabled);
+  views.forEach((v, idx) => {
+    if (idx >= VIEW_SLOT_COUNT) return;
+    const camid =
+      idx === 0
+        ? DEFAULT_CAMERA_ID
+        : camera_create_view(
+            ctx,
+            v.worldX,
+            v.worldY,
+            v.worldWidth,
+            v.worldHeight,
+            0,
+            -1,
+            v.speedX,
+            v.speedY,
+            v.borderX,
+            v.borderY,
+          );
+    if (idx === 0) {
+      const handle = getHandle(ctx, DEFAULT_CAMERA_ID);
+      if (handle !== undefined) {
+        handle.x = v.worldX;
+        handle.y = v.worldY;
+        handle.width = v.worldWidth;
+        handle.height = v.worldHeight;
+        handle.speedX = v.speedX;
+        handle.speedY = v.speedY;
+        handle.borderX = v.borderX;
+        handle.borderY = v.borderY;
+      }
+      camera_set_view_pos(ctx, DEFAULT_CAMERA_ID, v.worldX, v.worldY);
+      camera_set_view_size(ctx, DEFAULT_CAMERA_ID, v.worldWidth, v.worldHeight);
+    }
+    const handle = getHandle(ctx, camid);
+    if (handle !== undefined && v.followObject !== undefined) {
+      handle.followObjectName = v.followObject;
+    }
+    view_set_camera(ctx, idx, camid);
+    view_set_visible(ctx, idx, v.visible);
+    view_set_xport(ctx, idx, v.screenX);
+    view_set_yport(ctx, idx, v.screenY);
+    view_set_wport(ctx, idx, v.screenWidth);
+    view_set_hport(ctx, idx, v.screenHeight);
+  });
+}
+
+/**
+ * Finds the position of the first live entity whose `Meta.name` resolves to
+ * `objectName` (`resolveGmlObjectType`'s exact matching rule, reused by
+ * reference so this can never disagree with `onCollideWith<Type>`
+ * dispatch/`place_meeting` about what an object-name argument resolves to —
+ * duplicated here rather than imported to avoid a `systems/GmlCollision.ts`
+ * import cycle, since that file does not itself depend on `gmlCamera.ts`).
+ * Returns `undefined` when no live instance of that object type exists —
+ * GameMaker's own real behaviour when a followed object type has no active
+ * instances is "the view simply stops moving," which `stepGmlCameraFollow`
+ * implements by no-oping in that case.
+ */
+function findFirstByObjectName(
+  scene: Scene,
+  objectName: string,
+): { x: number; y: number } | undefined {
+  let found: { x: number; y: number } | undefined;
+  scene.each(Meta, (meta, entity) => {
+    if (found !== undefined || meta.name !== objectName) return;
+    const t = entity.get(Transform);
+    if (t !== undefined) found = { x: t.x, y: t.y };
+  });
+  return found;
+}
+
+/**
+ * Applies one step of GameMaker's real border-follow algorithm to camera
+ * `camid` — the standard, widely-documented GameMaker view-follow rule
+ * (confirmed against ENIGMA's `room_set_view` compatibility docs and
+ * GameMaker community references for `hborder`/`vborder`/`hspeed`/`vspeed`
+ * semantics, since the manual itself documents the fields but not the exact
+ * per-step formula): the view only moves once the followed instance gets
+ * within `borderX`/`borderY` pixels of the view's own edge, and then moves
+ * just far enough to keep the instance that many pixels inside the edge —
+ * never re-centres the instance. `speedX`/`speedY` (`-1` = GameMaker's
+ * "snap instantly" sentinel, matching this file's other speed fields) caps
+ * how many pixels the view itself may move this step toward that target
+ * position, producing GameMaker's characteristic "catch-up" scroll instead
+ * of a hard teleport when the instance moves fast.
+ *
+ * No-ops when the handle has no `followObjectName` set, or when that object
+ * type currently has no live instance — both are the honest "nothing to
+ * follow right now" case, not an error.
+ */
+export function stepGmlCameraFollow(
+  ctx: GmlCameraContext,
+  camid: number,
+): void {
+  const handle = getHandle(ctx, camid);
+  if (handle === undefined || handle.followObjectName === undefined) return;
+  const target = findFirstByObjectName(ctx.scene, handle.followObjectName);
+  if (target === undefined) return;
+
+  let desiredX = handle.x;
+  let desiredY = handle.y;
+  if (target.x < handle.x + handle.borderX) {
+    desiredX = target.x - handle.borderX;
+  } else if (target.x > handle.x + handle.width - handle.borderX) {
+    desiredX = target.x - handle.width + handle.borderX;
+  }
+  if (target.y < handle.y + handle.borderY) {
+    desiredY = target.y - handle.borderY;
+  } else if (target.y > handle.y + handle.height - handle.borderY) {
+    desiredY = target.y - handle.height + handle.borderY;
+  }
+
+  const nextX =
+    handle.speedX < 0
+      ? desiredX
+      : handle.x +
+        Math.max(-handle.speedX, Math.min(handle.speedX, desiredX - handle.x));
+  const nextY =
+    handle.speedY < 0
+      ? desiredY
+      : handle.y +
+        Math.max(-handle.speedY, Math.min(handle.speedY, desiredY - handle.y));
+
+  handle.x = nextX;
+  handle.y = nextY;
+  if (handle.id === DEFAULT_CAMERA_ID) {
+    ctx.camera?.snapTo(nextX, nextY);
+  }
+}
+
+/**
+ * Steps `stepGmlCameraFollow` for every currently-configured camera handle
+ * in this scene's registry — the real per-frame entry point
+ * `GmsProjectRuntime` calls once per frame after room load, so every active
+ * view's follow target (not just the default camera) gets its own
+ * independent border-follow update.
+ */
+export function stepAllGmlCameraFollows(ctx: GmlCameraContext): void {
+  const registry = ensureRegistry(ctx.scene);
+  for (const camid of registry.handles.keys()) {
+    stepGmlCameraFollow(ctx, camid);
+  }
 }
 
 /** @internal — test-only accessor for a camera handle's full stored state. */
