@@ -377,6 +377,47 @@ export function transpileGML(gml: string): string {
     },
   );
 
+  // while <bare expr, no enclosing paren at all> { ... }  →  while (<expr>) { ... }
+  //
+  // GML's `while` has the exact same paren-optional condition syntax as its
+  // `if` (both are just "a condition, optionally parenthesised" in GML's own
+  // grammar) — confirmed against a real project script (`ini_read_inventory`
+  // (`ini_read_inventory.gml`): `while ini_key_exists(_section, _name +
+  // String(_i)) { ... }`, a real, common "how many indexed items exist"
+  // idiom. Left unwrapped this is a hard `SyntaxError` at load time (`while`
+  // followed by a bare call expression, then a dangling `{ ... }` block with
+  // no controlling statement), the same failure mode the `if` version of
+  // this bug already had before its own fix. Same anchor-on-`{` approach and
+  // same leading/trailing `//` comment handling as the `if` pass just above
+  // — reusing the identical logic here (rather than a shared helper) keeps
+  // this pass trivially diffable against its `if` counterpart if that one's
+  // comment-handling ever needs to change again.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)\bwhile\s+(?!\()([\s\S]+?)(?=\r?\n\s*\{|[ \t]*\{)/g,
+    (_m, cond: string) => {
+      let working = cond;
+      let leadingComment = "";
+      const leadingCommentMatch = /^[ \t]*\/\/[^\n]*\n/.exec(working);
+      if (leadingCommentMatch !== null) {
+        leadingComment = leadingCommentMatch[0].trim();
+        working = working.slice(leadingCommentMatch[0].length);
+      }
+      const commentIdx = working.indexOf("//");
+      const realCond =
+        commentIdx === -1
+          ? working.trim()
+          : working.slice(0, commentIdx).trim();
+      const trailingComment =
+        commentIdx === -1 ? "" : working.slice(commentIdx).trimEnd();
+      const comments = [leadingComment, trailingComment]
+        .filter((c) => c.length > 0)
+        .join(" ");
+      return comments === ""
+        ? `while (${realCond})`
+        : `while (${realCond}) ${comments}`;
+    },
+  );
+
   // if (a) <trailing operator + rhs, no further parens> { ... }
   //   →  if ((a) <trailing...>) { ... }
   //

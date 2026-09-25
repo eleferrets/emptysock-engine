@@ -299,6 +299,27 @@ describe("transpileGML", () => {
     expect(out).toContain("if (!my_condition_fn(x, y, obj) && cond2)");
   });
 
+  it("wraps a bare (unparenthesised) while condition anchored by a following brace — real gap found in ini_read_inventory.gml", () => {
+    const out = transpileGML(
+      "while ini_key_exists(_section, _name+String(_i))\n{\n  foo();\n}",
+    );
+    expect(out).toContain("while (ini_key_exists(_section, _name+String(_i)))");
+    expect(out).not.toMatch(/while\s+ini_key_exists/);
+  });
+
+  it("keeps a trailing // comment outside a wrapped bare-while condition's parens", () => {
+    const out = transpileGML(
+      "while has_more_items() // still going\n{\n  foo();\n}",
+    );
+    expect(out).toContain("while (has_more_items()) // still going");
+  });
+
+  it("does not touch an already-parenthesised while condition", () => {
+    const out = transpileGML("while (i < 10)\n{\n  foo();\n}");
+    expect(out).toContain("while (i < 10)");
+    expect(out).not.toContain("while ((i < 10))");
+  });
+
   it("does not treat the word 'if' inside a // comment as a condition to wrap", () => {
     const gml =
       "// checking if we are within range\nif (a) && (b)\n{\n  foo();\n}";
