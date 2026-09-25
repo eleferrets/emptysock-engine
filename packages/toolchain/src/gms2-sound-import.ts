@@ -5,6 +5,54 @@ import { parseGmsJson } from "./gms2-parse.js";
 /** Audio file extensions this importer knows how to carry through as-is. */
 const AUDIO_EXTENSIONS = [".ogg", ".wav", ".mp3", ".m4a"];
 
+/**
+ * A real GMS2 sound resource's on-disk audio file routinely has NO file
+ * extension at all — confirmed against a real, full GameMaker project
+ * (Freedom Backup's `sounds/snd_Foot1/snd_Foot1` is a real RIFF/WAVE file
+ * with no `.wav` suffix; every sound in that project follows this same
+ * pattern). `soundFile` in the `.yy` just names the on-disk file, extension
+ * or not — GameMaker's own player doesn't need an extension since it reads
+ * the format from the file's own magic bytes, decoded once at import time.
+ *
+ * `AudioSystem` is Howler-backed, and Howler needs a real extension on the
+ * `src` URL (or an explicit `format` option) to pick a decoder — an
+ * extensionless copy silently produces an unplayable sound with no error
+ * until the browser's `<audio>`/WebAudio decode fails at runtime. This
+ * sniffs the real container format from the file's own magic bytes (the
+ * same signatures every format's own spec defines — RIFF/WAVE, OggS, an
+ * MP3 frame sync or ID3 tag, and MPEG-4/M4A's `ftyp` box) so a real audio
+ * file with no extension on disk still gets copied out with the correct
+ * one, and only falls back to `.ogg` when the format genuinely can't be
+ * determined from the bytes themselves.
+ */
+export function sniffAudioExtension(header: Buffer): string {
+  if (
+    header.length >= 12 &&
+    header.toString("ascii", 0, 4) === "RIFF" &&
+    header.toString("ascii", 8, 12) === "WAVE"
+  ) {
+    return ".wav";
+  }
+  if (header.length >= 4 && header.toString("ascii", 0, 4) === "OggS") {
+    return ".ogg";
+  }
+  if (header.length >= 3 && header.toString("ascii", 0, 3) === "ID3") {
+    return ".mp3";
+  }
+  // A bare MP3 frame sync (no ID3 tag): first 11 bits set.
+  if (
+    header.length >= 2 &&
+    header[0] === 0xff &&
+    ((header[1] ?? 0) & 0xe0) === 0xe0
+  ) {
+    return ".mp3";
+  }
+  if (header.length >= 8 && header.toString("ascii", 4, 8) === "ftyp") {
+    return ".m4a";
+  }
+  return ".ogg";
+}
+
 export interface SoundAsset {
   name: string;
   /** Absolute path to the source audio file on disk. */
@@ -175,7 +223,26 @@ export async function buildSoundAsset(
   const assetDir = path.join(outDir, "assets", "sounds");
   await fs.mkdir(assetDir, { recursive: true });
 
-  const ext = path.extname(sound.audioPath);
+  // A real on-disk extension is trusted as-is; a missing one (the common
+  // real GMS2 case — see `sniffAudioExtension`'s doc comment) is recovered
+  // from the file's own magic bytes rather than emitting an unplayable
+  // extensionless src.
+  const declaredExt = path.extname(sound.audioPath);
+  const ext =
+    declaredExt.length > 0
+      ? declaredExt
+      : sniffAudioExtension(
+          await (async () => {
+            const handle = await fs.open(sound.audioPath, "r");
+            try {
+              const header = Buffer.alloc(16);
+              await handle.read(header, 0, 16, 0);
+              return header;
+            } finally {
+              await handle.close();
+            }
+          })(),
+        );
   const destName = `${name}${ext}`;
   await fs.copyFile(sound.audioPath, path.join(assetDir, destName));
 
