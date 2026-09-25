@@ -42,7 +42,11 @@ export interface RoomData {
 // ── Internal shapes for the GMS2 room .yy JSON ──────────────────────────────
 
 interface YyInstance {
-  objectId?: { name?: string };
+  // A real GameMaker room can place an instance whose `objectId` is a bare
+  // `null` — the room-instance equivalent of a stale/orphaned object
+  // reference (the object was deleted from the project after this instance
+  // was placed). Confirmed against a real GameMaker project.
+  objectId?: { name?: string } | null;
   x?: number;
   y?: number;
   [key: string]: unknown;
@@ -64,7 +68,7 @@ interface YyLayer {
    * use; `parseTiles` checks this real, top-level field first and falls
    * back to the nested one for that back-compat case.
    */
-  tilesetId?: { name?: string };
+  tilesetId?: { name?: string } | null;
   tiles?: {
     TileData?: number[][];
     /**
@@ -78,7 +82,7 @@ interface YyLayer {
     TileSerialiseData?: number[];
     SerialiseWidth?: number;
     SerialiseHeight?: number;
-    tilesetId?: { name?: string };
+    tilesetId?: { name?: string } | null;
     [key: string]: unknown;
   };
   instances?: YyInstance[];
@@ -145,9 +149,11 @@ function parseTiles(layer: YyLayer): TileEntry[] {
 
   const tilesetId =
     typeof layer.tilesetId === "object" &&
+    layer.tilesetId !== null &&
     typeof (layer.tilesetId as Record<string, unknown>)["name"] === "string"
       ? ((layer.tilesetId as Record<string, unknown>)["name"] as string)
       : typeof tiles.tilesetId === "object" &&
+          tiles.tilesetId !== null &&
           typeof (tiles.tilesetId as Record<string, unknown>)["name"] ===
             "string"
         ? ((tiles.tilesetId as Record<string, unknown>)["name"] as string)
@@ -197,6 +203,7 @@ function parseInstances(
   return instances.map((inst) => {
     if (
       typeof inst.objectId === "object" &&
+      inst.objectId !== null &&
       typeof (inst.objectId as Record<string, unknown>)["name"] === "string"
     ) {
       return {
