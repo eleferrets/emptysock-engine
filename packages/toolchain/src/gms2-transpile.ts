@@ -421,6 +421,151 @@ function replacePlainAssignmentMultiline(
   return result;
 }
 
+function skipWsTranspile(text: string, i: number): number {
+  let j = i;
+  while (j < text.length && /\s/.test(text[j] ?? "")) j++;
+  return j;
+}
+
+/** Index just past the matching `closeCh` for the `openCh` sitting at `text[start]`. */
+function scanBalancedTranspile(
+  text: string,
+  start: number,
+  openCh: string,
+  closeCh: string,
+): number {
+  let depth = 0;
+  let i = start;
+  for (; i < text.length; i++) {
+    if (text[i] === openCh) depth++;
+    else if (text[i] === closeCh) {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return i;
+}
+
+/**
+ * Real implementation of GameMaker's `with (target) { body }` /
+ * `with target { body }` / `with (target) singleStatement;` — genuinely
+ * common real GameMaker source (confirmed against a real, full GameMaker
+ * project: dozens of real call sites — `with (mywall) instance_destroy();`,
+ * `with (obj_player) { ... }`, `with (instance_create_layer(...)) { ... }`,
+ * `with (other) instance_destroy();`) that used to always become dead code
+ * (an always-false guarded TODO comment), a severe, real gap for
+ * GameMaker's primary broadcast/iteration mechanism, not a cosmetic
+ * placeholder.
+ *
+ * The real insight that makes this tractable without re-implementing a GML
+ * parser: `body`'s own raw text is spliced *unchanged* into a
+ * `(_entity) => { ... }` callback and left for the rest of this pipeline's
+ * later passes (image_* rewrites, instance-var rewrites, etc., which all
+ * already emit `_entity`/`_ctx` unconditionally) to process normally — since the
+ * callback parameter is itself named `_entity`, ordinary JS lexical
+ * shadowing makes every one of those later rewrites automatically resolve
+ * against the *iterated* instance, not the caller, with zero special-casing
+ * needed for the body's content. `other` inside `body` (a real, valid GML
+ * reference to the instance that *entered* the `with` block) is rewritten
+ * to `_other` before splicing, backed by a `const _other = <the outer
+ * _entity>;` in the generated callback.
+ *
+ * `isKnownTargetVar(name)` decides whether a bare-identifier target is a
+ * real variable already holding an instance reference (passed through
+ * as-is, so it resolves via `GmlInstanceVars`/`_other`/`_entity` like any
+ * other read) or an object-*type* name (quoted into the string
+ * `with_each`'s own `all`/`noone`/type-name matching expects) — the exact
+ * same "known implicit var vs. literal type name" ambiguity
+ * `bareOrQuotedUnlessVar` already resolves for `place_meeting` etc., reused
+ * here via the same caller-supplied predicate rather than a second,
+ * possibly-divergent copy of that decision.
+ */
+function rewriteWithStatements(
+  text: string,
+  isKnownTargetVar: (name: string) => boolean,
+): string {
+  const withRe = /(?<!\/\/[^\n]*)\bwith\b/g;
+  let result = "";
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = withRe.exec(text)) !== null) {
+    if (m.index < lastIndex) continue;
+    let i = skipWsTranspile(text, m.index + m[0].length);
+
+    let targetText: string;
+    if (text[i] === "(") {
+      const end = scanBalancedTranspile(text, i, "(", ")");
+      targetText = text.slice(i + 1, end - 1);
+      i = end;
+    } else {
+      const bareMatch = /^[A-Za-z_]\w*(?:\.\w+)*(?:\([^()]*\))?/.exec(
+        text.slice(i),
+      );
+      if (bareMatch === null) continue;
+      targetText = bareMatch[0];
+      i += bareMatch[0].length;
+    }
+    i = skipWsTranspile(text, i);
+
+    let bodyText: string;
+    let bodyEnd: number;
+    if (text[i] === "{") {
+      const end = scanBalancedTranspile(text, i, "{", "}");
+      bodyText = text.slice(i + 1, end - 1);
+      bodyEnd = end;
+    } else {
+      let depth = 0;
+      let j = i;
+      for (; j < text.length; j++) {
+        const c = text[j];
+        if (c === "(" || c === "[" || c === "{") depth++;
+        else if (c === ")" || c === "]" || c === "}") depth--;
+        else if ((c === ";" || c === "\n") && depth <= 0) break;
+      }
+      bodyText = text.slice(i, j) + (text[j] === ";" ? ";" : "");
+      bodyEnd = text[j] === ";" ? j + 1 : j;
+    }
+
+    const trimmedTarget = targetText.trim();
+    let targetExpr: string;
+    if (/^[A-Za-z_]\w*$/.test(trimmedTarget)) {
+      if (trimmedTarget === "self" || trimmedTarget === "noone") {
+        targetExpr =
+          trimmedTarget === "self" ? "_entity" : JSON.stringify("noone");
+      } else if (
+        trimmedTarget === "_other" ||
+        trimmedTarget === "all" ||
+        isKnownTargetVar(trimmedTarget)
+      ) {
+        targetExpr =
+          trimmedTarget === "all" ? JSON.stringify("all") : trimmedTarget;
+      } else {
+        targetExpr = JSON.stringify(trimmedTarget);
+      }
+    } else {
+      // A non-identifier target (almost always a spawn call like
+      // `instance_create_layer(...)`, already rewritten to a real
+      // `GmlActions.*` call by an earlier pass) can carry a trailing `;`
+      // that pass appended assuming standalone-statement context — real,
+      // confirmed regression: a `with (instance_create_layer(...))` target
+      // sits inside `with`'s own parens, never as its own statement, and a
+      // stray `;` there would land *inside* `with_each`'s own argument
+      // list, a hard SyntaxError. A with-target is always a pure
+      // expression, so any trailing `;` is stripped.
+      targetExpr = trimmedTarget.replace(/;\s*$/, "");
+    }
+
+    const rescopedBody = bodyText.replace(/(?<!\.\s*)\bother\b/g, "_other");
+    const replacement = `{ const _withCaller = _entity; GmlActions.with_each(_ctx, ${targetExpr}, (_entity) => { const _other = _withCaller;\n${rescopedBody}\n}); }`;
+
+    result += text.slice(lastIndex, m.index) + replacement;
+    lastIndex = bodyEnd;
+    withRe.lastIndex = lastIndex;
+  }
+  result += text.slice(lastIndex);
+  return result;
+}
+
 /**
  * Pre-scans a single raw (untranspiled) GML event file for the names it
  * would identify as implicit instance variables, on its own. Real GameMaker
@@ -1415,94 +1560,6 @@ export function transpileGML(
     (_m, c: string, r: string) => `[${c.trim()}][${r.trim()}]`,
   );
 
-  // GML's `with (instances) { body }` iterates every instance matching
-  // `instances`, running `body` with `self`/bare-identifier scope switched
-  // to each one in turn — there's no bare-identifier-rescoping mechanism to
-  // fake that in generated TypeScript, and `with` also happens to be a real
-  // JS/TS *reserved word*: every generated event handler lives inside an ES
-  // module, which is always strict mode, and the `with` statement is a
-  // syntax error in strict mode regardless of what's inside its parens.
-  // Left untouched, this isn't just an honestly-surfaced "unresolved
-  // identifier" (a type error) the way other unmodelled GML is — it's a
-  // hard parse failure that breaks the *entire* file, including every
-  // other, unrelated, successfully-transpiled function in it. `if (true)`
-  // keeps the block's braces (and its body, for manual review) syntactically
-  // valid without claiming to run the real per-instance iteration. The
-  // target expression is deliberately not echoed into the comment: an
-  // earlier pass (instance_create_layer, above) can itself have already
-  // rewritten part of that expression into a `/* ... */` block comment, and
-  // embedding that inside a second `/* ... */` would produce a nested block
-  // comment — invalid in JS/TS, since the first `*/` closes the outer
-  // comment early and leaves the rest as bare, unparseable code.
-  //
-  // `if (false)`, not `if (true)`: the block's *body* is left completely
-  // untouched for manual review (it can freely reference GML-only
-  // rescoping constructs this pass has no way to translate — `other.foo`,
-  // a bare identifier now meaning a different instance's field, etc.), and
-  // those references are only valid GML inside a real `with` block, not
-  // plain JS. `if (true)` would actually execute that untranslated body
-  // and throw at runtime (confirmed against a real project: `with (mywall)
-  // { image_xscale = other.sprite_width / sprite_width; }` throws
-  // `ReferenceError: other is not defined`) — the opposite of this pass's
-  // own documented intent ("without claiming to run the real per-instance
-  // iteration"). `if (false)` keeps the block syntactically present and
-  // reviewable without ever executing its untranslated body.
-  //
-  // One real exception: `with (instance_create_layer(...)) { body }` /
-  // `with (instance_create(...)) { body }` — GameMaker's own well-known
-  // idiom for "spawn an instance, then immediately configure it" (real,
-  // confirmed shape: `with (instance_create_layer(x, y, "Bullets",
-  // obj_bullet_enemy)) { ... }`, from a real project's `obj_enemy_mreg`'s
-  // `Step_0.gml`). Discarding the target expression here — as every other
-  // `with (...)` target honestly must be, since there's no rescoping
-  // mechanism to run `body` against — would also discard the *spawn call
-  // itself*, silently spawning nothing at all: a real, severe regression
-  // this pass would otherwise cause even after `instance_create_layer`'s
-  // own rewrite (below) made the call real. The spawn call is real and
-  // entity-independent (it doesn't need `with`'s rescoping to execute
-  // correctly), so it's preserved and actually run — only `body`'s
-  // rescoped-self semantics remain the genuinely unmodelled part.
-  const WITH_SPAWN_CALL = /^(instance_create(?:_layer)?)\s*\(/;
-  out = out.replace(
-    /\bwith\s*\(((?:[^()]|\([^()]*\))*)\)/g,
-    (_m, target: string) => {
-      const trimmedTarget = target.trim();
-      const spawnCall = WITH_SPAWN_CALL.test(trimmedTarget)
-        ? `${trimmedTarget}; `
-        : "";
-      return `${spawnCall}if (false) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`;
-    },
-  );
-
-  // GML's `with` also allows a bare, paren-less target — `with obj_solid {
-  // ... }` (a real, confirmed pattern; `if`/`while` allow the same bare
-  // form in GML) — which the parenthesised-only pass above never matches
-  // at all, leaving the real `with` keyword untouched in the output: a
-  // hard strict-mode `SyntaxError` ("Strict mode code may not include a
-  // with statement") at module load, for the exact same reason the comment
-  // above already explains for the parenthesised form. Only fires when the
-  // pass above hasn't already consumed this `with` (its target isn't
-  // wrapped in `(...)`).
-  //
-  // Two guards a first version of this pass was missing, both confirmed
-  // against a real project: (1) a negative lookbehind excluding "with"
-  // inside a `//` comment — ordinary GML commentary routinely contains the
-  // plain English word "with" ("// Draw the shadow with all the
-  // calculations"), and without this guard the pass matched that comment's
-  // own "with", then swallowed everything up to the *next* unrelated `{`
-  // (a following `if (...) {`, potentially many real statements away) as
-  // its supposed "target"; (2) the target itself is restricted to a single
-  // bare identifier/dotted-chain (optionally one call), not an unbounded
-  // `[\s\S]+?` span — GML's real `with` target is always exactly that
-  // shape (an object/instance reference), and bounding it this way is what
-  // stops a runaway match from ever reaching past the real, intended `{`
-  // in the first place, comment guard or not.
-  out = out.replace(
-    /(?<!\/\/[^\n]*)\bwith\s+(?!\()[A-Za-z_]\w*(?:\.\w+)*(?:\([^()]*\))?\s*(?=\r?\n\s*\{|[ \t]*\{)/g,
-    () =>
-      `if (false) /* TODO: migrate this GML "with ..." block — iterate matching instances yourself */`,
-  );
-
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
 
   // Shared by `instance_create_layer`, `audio_play_sound`, and `room_goto`
@@ -2084,6 +2141,16 @@ export function transpileGML(
       return `GmlActions.${fn}(_entity, _ctx${threaded.length > 0 ? ", " : ""}${threaded.join(", ")})${semi ?? ""}`;
     });
   }
+
+  // Real `with (target) { body }` support (see `rewriteWithStatements`'s own
+  // doc comment) — deliberately placed after every GML-builtin rewrite pass
+  // above (instance_create_layer, place_meeting/instance_exists/etc.), so a
+  // spawn-call target like `with (instance_create_layer(...))` is already
+  // the real `GmlActions.instance_create_layer(...)` call by the time this
+  // runs, and a variable-vs-object-type-name target decision can reuse the
+  // exact same `knownVarsForObjArgs` set/logic `bareOrQuotedUnlessVar`
+  // above already established.
+  out = rewriteWithStatements(out, (name) => knownVarsForObjArgs.has(name));
 
   // -- GM8.1 "if" actions: real conditional nesting -------------------------
   // GameMaker's if-actions (action_if_collision/action_if_aligned/

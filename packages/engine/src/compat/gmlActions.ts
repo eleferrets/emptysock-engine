@@ -26,6 +26,7 @@ import { Sprite } from "../components/Sprite.js";
 import { getPhysicsBody } from "../components/PhysicsBody.js";
 import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 import type { GmlDrawTarget } from "./gml.js";
+import { resolveGmlObjectType } from "../systems/GmlCollision.js";
 
 // ---------------------------------------------------------------------------
 // Context — the one thing every generated action call needs threaded to it
@@ -429,6 +430,47 @@ export function instance_create_layer(
   objectName: string,
 ): Entity | undefined {
   return action_create_object(entity, ctx, objectName, x, y);
+}
+
+/**
+ * GML's `with (target) { ... }` — genuinely common in real GameMaker
+ * source (confirmed against Freedom Backup: dozens of real call sites,
+ * `with (mywall) instance_destroy();`, `with (obj_player) { ... }`,
+ * `with (instance_create_layer(...)) { ... }`, `with (other)
+ * instance_destroy();`) and, until now, always left as dead code (an
+ * always-false guarded TODO comment) by the transpiler — a severe, real
+ * gap, not a cosmetic one, since `with` is GameMaker's primary
+ * broadcast/iteration mechanism.
+ *
+ * `target` mirrors the shape `gms2-transpile.ts`'s own `with` codegen
+ * produces: a resolved single `Entity` (a variable already holding an
+ * instance reference — `mywall`, `other` — or a spawn call's own return
+ * value) is iterated once; a plain object-type-name string (a bare object-type
+ * name, quoted at transpile time the same way `place_meeting` etc.
+ * already are, or GameMaker's own `"all"`/`"noone"` constants) iterates
+ * every live matching instance in the scene. `undefined` (a spawn that
+ * failed, or a dead/unresolvable reference) is a safe no-op — GameMaker's
+ * own `with` against a destroyed or nonexistent target simply runs its
+ * body zero times, never throws.
+ */
+export function with_each(
+  ctx: GmlActionContext,
+  target: string | Entity | undefined,
+  callback: (entity: Entity) => void,
+): void {
+  if (target === undefined) return;
+  if (typeof target !== "string") {
+    if (target.isAlive) callback(target);
+    return;
+  }
+  if (target === "noone") return;
+  if (target === "all") {
+    ctx.scene.each(Transform, (_t, entity) => callback(entity));
+    return;
+  }
+  ctx.scene.each(Transform, (_t, entity) => {
+    if (resolveGmlObjectType(entity) === target) callback(entity);
+  });
 }
 
 /** GM8.1 "Destroy Instance" — `scene.destroy(entity)`. */

@@ -356,18 +356,25 @@ describe("transpileGML", () => {
     expect(out).not.toMatch(/\(\s*\/\//);
   });
 
-  it("rewrites a GML with(...) block instead of emitting the reserved `with` keyword", () => {
+  it("rewrites a GML with(...) block into real GmlActions.with_each iteration", () => {
     const out = transpileGML("with (other_instance) { x = 1; }");
     // Strip the explanatory comment before asserting: the message itself
     // legitimately mentions "with (" as plain text.
     const code = out.replace(/\/\*.*?\*\//gs, "");
     expect(code).not.toMatch(/\bwith\s*\(/);
-    // `if (false)`, not `if (true)`: the untranslated body can reference
-    // GML-only rescoping (e.g. `other.foo`) that only makes sense inside a
-    // real `with` block — actually executing it would throw at runtime. A
-    // real, confirmed regression (see gms2-transpile.ts's own comment on
-    // this pass): `if (true)` here used to run the untranslated body.
-    expect(out).toContain("if (false)");
+    // "other_instance" isn't a known implicit variable in this isolated
+    // snippet, so it's treated as a bare object-type name and quoted —
+    // exactly the same "known var vs. literal type name" ambiguity
+    // `bareOrQuotedUnlessVar` already resolves for place_meeting etc.
+    expect(out).toContain(
+      'GmlActions.with_each(_ctx, "other_instance", (_entity) => {',
+    );
+    // The body is spliced in and later passes (the implicit-var rewrite)
+    // process it normally, since `_entity` inside the callback shadows the
+    // caller's own `_entity` — GmlInstanceVars now persists against the
+    // *iterated* instance, not the instance that entered the with block.
+    expect(out).toContain('GmlActions.setGmlVar(_entity, _ctx, "x", 1);');
+    expect(() => new Function(out)).not.toThrow();
   });
 
   it("wraps an if condition chained with bare && / || GML allows without an outer paren", () => {
@@ -760,14 +767,18 @@ describe("transpileGML", () => {
     );
   });
 
-  it("with (instance_create_layer(...)) { ... } preserves the real spawn call instead of discarding it — real gap found in obj_enemy_mreg's Step_0.gml", () => {
+  it("with (instance_create_layer(...)) { ... } runs the real spawn call and iterates the real spawned entity — real gap found in obj_enemy_mreg's Step_0.gml", () => {
     const out = transpileGML(
       'with (instance_create_layer( x, y, "Bullets", obj_bullet_enemy))\n{\n  foo();\n}',
     );
+    // The spawn call itself is the with_each target expression (a real
+    // Entity | undefined value) — no stray trailing `;` from
+    // instance_create_layer's own standalone-statement rewrite, which
+    // would otherwise land inside with_each's own argument list.
     expect(out).toContain(
-      'GmlActions.instance_create_layer(_entity, _ctx, x, y, "Bullets", "obj_bullet_enemy");',
+      'GmlActions.with_each(_ctx, GmlActions.instance_create_layer(_entity, _ctx, x, y, "Bullets", "obj_bullet_enemy"), (_entity) => {',
     );
-    expect(out).toContain("if (false)");
+    expect(out).toContain("foo();");
     expect(() => new Function(out)).not.toThrow();
   });
 
@@ -1332,7 +1343,49 @@ describe("transpileGML", () => {
       // module, always strict mode).
       const out = transpileGML("with obj_solid {\n  foo();\n}\n");
       expect(out).not.toMatch(/\bwith\s+obj_solid\b/);
-      expect(out).toContain("if (false)");
+      expect(out).toContain(
+        'GmlActions.with_each(_ctx, "obj_solid", (_entity) => {',
+      );
+      expect(out).toContain("foo();");
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("rewrites with (var) singleStatement; (no braces) — real, extremely common shape confirmed against Freedom Backup", () => {
+      // Real, confirmed shape: `with (mywall) instance_destroy();` —
+      // obj_crate's real Destroy_0.gml. `mywall` is a known implicit
+      // instance variable (assigned earlier in the same object), so it's
+      // passed through as a real Entity-valued expression rather than
+      // quoted as an object-type-name string.
+      const out = transpileGML(
+        "mywall = 5;\nwith (mywall) instance_destroy();",
+      );
+      expect(out).toContain(
+        'GmlActions.with_each(_ctx, (GmlActions.getGmlVar(_entity, _ctx, "mywall")), (_entity) => {',
+      );
+      expect(out).toContain("GmlActions.instance_destroy(_entity, _ctx);");
+      expect(() => new Function(out)).not.toThrow();
+    });
+
+    it("rewrites with (other) { ... } and re-scopes a nested `other` inside the body to the with-caller", () => {
+      // Real, confirmed shape: obj_player/obj_pna's real
+      // Collision_obj_Ebullet.gml: `with (other) instance_destroy();`.
+      // Freedom Backup's own obj_player_dead/Create_0.gml goes further:
+      // `with (obj_camera) follow = other.id;` — a with-body that itself
+      // reads `other`, meaning the instance that *entered* the with block
+      // (the collision's own _other), not the newly-iterated obj_camera
+      // instance.
+      const out = transpileGML(
+        "with (obj_camera) { follow = other.id; }",
+        [],
+        new Set(),
+        true,
+      );
+      expect(out).toContain(
+        'GmlActions.with_each(_ctx, "obj_camera", (_entity) => { const _other = _withCaller;',
+      );
+      expect(out).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "follow", _other.id);',
+      );
       expect(() => new Function(out)).not.toThrow();
     });
   });
