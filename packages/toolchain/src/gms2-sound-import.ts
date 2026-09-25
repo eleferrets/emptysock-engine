@@ -1,6 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseGmsJson } from "./gms2-parse.js";
+import {
+  compressAudioFile,
+  type AudioCodec,
+  type ExecFileFn,
+} from "./audioCompress.js";
 
 /** Audio file extensions this importer knows how to carry through as-is. */
 const AUDIO_EXTENSIONS = [".ogg", ".wav", ".mp3", ".m4a"];
@@ -200,6 +205,30 @@ function toPascalCase(name: string): string {
     .join("");
 }
 
+export interface BuildSoundAssetOptions {
+  /**
+   * Opt-in: re-encode the source audio into a compressed format (Ogg/Vorbis
+   * by default) at import time via a real `ffmpeg` binary, rather than
+   * copying it as-is. `AudioSystem`/Howler already plays every one of
+   * `AUDIO_EXTENSIONS` transparently — this option exists to shrink shipped
+   * game size, not to fix playback. Never mandatory: when `ffmpeg` isn't on
+   * PATH, or the transcode fails, this silently (from the caller's
+   * perspective — see the returned `warning`) falls back to copying the
+   * original file, exactly as if `compress` had been left off.
+   */
+  compress?: boolean;
+  codec?: AudioCodec;
+  quality?: number;
+  /** Test-only: stub `execFile` instead of shelling out to a real ffmpeg. */
+  execImpl?: ExecFileFn;
+}
+
+export interface BuildSoundAssetResult {
+  content: string;
+  /** Set when `compress: true` was requested but the source wasn't actually transcoded (ffmpeg missing, or the transcode itself failed) — the caller (gms2-import.ts) surfaces this in migration-report.md rather than dropping it. */
+  warning?: string;
+}
+
 /**
  * Build a TypeScript sound-asset descriptor from a converted GMS2 sound,
  * plus copy the referenced audio file into `<outDir>/assets/sounds/`. Mirrors
@@ -216,7 +245,8 @@ export async function buildSoundAsset(
   name: string,
   projectRoot: string,
   outDir: string,
-): Promise<string> {
+  options: BuildSoundAssetOptions = {},
+): Promise<BuildSoundAssetResult> {
   const soundDir = path.join(projectRoot, "sounds", name);
   const sound = await convertGms2Sound(soundDir);
 
@@ -243,8 +273,35 @@ export async function buildSoundAsset(
             }
           })(),
         );
-  const destName = `${name}${ext}`;
-  await fs.copyFile(sound.audioPath, path.join(assetDir, destName));
+
+  let destName = `${name}${ext}`;
+  let warning: string | undefined;
+
+  // Compression only makes sense against an uncompressed source — .ogg,
+  // .mp3, and .m4a are already compressed, and re-encoding a lossy source
+  // through another lossy codec only loses more quality for no size
+  // benefit worth having. Only .wav is genuinely uncompressed PCM.
+  if (options.compress === true && ext.toLowerCase() === ".wav") {
+    const result = await compressAudioFile(
+      sound.audioPath,
+      path.join(assetDir, name),
+      {
+        ...(options.codec !== undefined ? { codec: options.codec } : {}),
+        ...(options.quality !== undefined ? { quality: options.quality } : {}),
+      },
+      options.execImpl,
+    );
+    if (result.success) {
+      // ffmpeg wrote the compressed output directly to
+      // assetDir/<name><result.outExt> — nothing left to copy.
+      destName = `${name}${result.outExt}`;
+    } else {
+      warning = `Sound "${name}": ${result.reason}`;
+      await fs.copyFile(sound.audioPath, path.join(assetDir, destName));
+    }
+  } else {
+    await fs.copyFile(sound.audioPath, path.join(assetDir, destName));
+  }
 
   const relPath = `./assets/sounds/${destName}`;
   const groupLine =
@@ -252,7 +309,7 @@ export async function buildSoundAsset(
       ? `\n  group: ${JSON.stringify(sound.group)},`
       : "";
 
-  return `// Auto-generated from GMS2 sound: ${name}
+  const content = `// Auto-generated from GMS2 sound: ${name}
 // Use with @emptysock/engine's AudioSystem:
 //   audio.load(${JSON.stringify(name)}, ${toPascalCase(name)}Sound.src, {
 //     volume: ${toPascalCase(name)}Sound.volume,
@@ -266,4 +323,6 @@ export const ${toPascalCase(name)}Sound = {
   loop: ${sound.loop},${groupLine}
 } as const;
 `;
+
+  return warning !== undefined ? { content, warning } : { content };
 }

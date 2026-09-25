@@ -42,6 +42,11 @@ import {
   MAIN_RS,
   slugify,
 } from "./gameShellTemplates.js";
+import {
+  loadIncludedFilesManifest,
+  resolveIncludedFilesForPlatform,
+  copyIncludedFiles,
+} from "./includedFiles.js";
 
 const exec = promisify(execFile);
 
@@ -58,6 +63,15 @@ export interface DesktopBuildOptions {
   dropConsole?: boolean;
   sourcemap?: boolean;
   aggressive?: boolean;
+  /**
+   * The project directory Included Files paths (in `build-included-files.json`)
+   * are resolved against. Defaults to the entry file's own directory —
+   * right for the common case of a project whose entry lives at the
+   * project root, and overridable for anything else.
+   */
+  projectDir?: string;
+  /** Explicit path to an included-files manifest, overriding the default `<projectDir>/build-included-files.json` lookup. */
+  includedFilesManifest?: string;
 }
 
 export interface DesktopBuildResult {
@@ -66,6 +80,10 @@ export interface DesktopBuildResult {
   bundleDir?: string;
   /** Every artifact file found under bundleDir, copied into `out`. */
   artifacts?: string[];
+  /** Every Included Files entry actually copied into the packaged app for this platform. */
+  includedFiles?: string[];
+  /** Non-fatal problems from copying Included Files (a missing source path, etc.) — never aborts the build. */
+  includedFileWarnings?: string[];
   error?: string;
 }
 
@@ -239,6 +257,37 @@ export async function buildDesktopApp(
   fs.writeFileSync(path.join(dist, "index.html"), html, "utf-8");
   fs.writeFileSync(path.join(dist, "game.js"), gameJs, "utf-8");
 
+  // Included Files: copy this platform's subset of the project's
+  // build-included-files.json manifest into the packaged app's own resource dir
+  // (dist/included/), which tauri.conf.json's frontendDist ("../dist")
+  // bundles alongside game.js/index.html — see includedFiles.ts's own doc
+  // comment. No manifest at all (the common case) is a silent no-op, not a
+  // warning — most projects have nothing to include.
+  const projectDir = opts.projectDir ?? path.dirname(path.resolve(opts.entry));
+  let includedFiles: string[] | undefined;
+  let includedFileWarnings: string[] | undefined;
+  try {
+    const manifest = loadIncludedFilesManifest(
+      projectDir,
+      opts.includedFilesManifest,
+    );
+    if (manifest !== null) {
+      const entries = resolveIncludedFilesForPlatform(manifest, opts.platform);
+      const result = copyIncludedFiles(
+        projectDir,
+        entries,
+        path.join(dist, "included"),
+      );
+      includedFiles = result.copied;
+      includedFileWarnings = result.warnings;
+      for (const w of result.warnings) {
+        console.warn(`[included-files] ${w}`);
+      }
+    }
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+
   const identifier = `io.emptysock.game.${slug}`;
   const bundleTargets =
     opts.format.trim() === ""
@@ -290,5 +339,11 @@ export async function buildDesktopApp(
     copied.push(dest);
   }
 
-  return { success: true, bundleDir, artifacts: copied };
+  return {
+    success: true,
+    bundleDir,
+    artifacts: copied,
+    ...(includedFiles !== undefined ? { includedFiles } : {}),
+    ...(includedFileWarnings !== undefined ? { includedFileWarnings } : {}),
+  };
 }

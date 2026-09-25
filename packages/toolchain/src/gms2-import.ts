@@ -57,10 +57,11 @@ export interface ImportResult {
 export async function importGMS2Project(
   yypPath: string,
   outDir: string,
-  opts?: { dryRun?: boolean; verbose?: boolean },
+  opts?: { dryRun?: boolean; verbose?: boolean; compressAudio?: boolean },
 ): Promise<ImportResult> {
   const dryRun = opts?.dryRun ?? false;
   const verbose = opts?.verbose ?? false;
+  const compressAudio = opts?.compressAudio ?? false;
 
   const warnings: string[] = [];
   const skipped: string[] = [];
@@ -444,9 +445,20 @@ export async function importGMS2Project(
   for (const name of sounds) {
     if (verbose) console.log(`  [sound] ${name}`);
     try {
-      const content = await buildSoundAsset(name, projectRoot, outDir);
-      filesToWrite.push({ rel: `assets/${name}.sound.ts`, content });
-      reportEntries.push({ kind: "sound", name, status: "converted" });
+      const built = await buildSoundAsset(name, projectRoot, outDir, {
+        compress: compressAudio,
+      });
+      filesToWrite.push({
+        rel: `assets/${name}.sound.ts`,
+        content: built.content,
+      });
+      if (built.warning !== undefined) warnings.push(built.warning);
+      reportEntries.push({
+        kind: "sound",
+        name,
+        status: "converted",
+        ...(built.warning !== undefined ? { note: built.warning } : {}),
+      });
     } catch (err) {
       const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
       warnings.push(

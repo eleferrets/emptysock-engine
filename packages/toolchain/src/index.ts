@@ -71,3 +71,33 @@ export type {
   CodegenPrefabsOptions,
   CodegenPrefabsResult,
 } from "./prefabCodegenCli.js";
+
+export { compressAudioFile, ffmpegAvailable } from "./audioCompress.js";
+export type {
+  AudioCodec,
+  CompressAudioOptions,
+  CompressAudioResult,
+} from "./audioCompress.js";
+
+export {
+  loadIncludedFilesManifest,
+  resolveIncludedFilesForPlatform,
+  copyIncludedFiles,
+  includedFilesManifestPath,
+  INCLUDED_FILES_MANIFEST_NAME,
+} from "./includedFiles.js";
+export type {
+  IncludedFileEntry,
+  IncludedFilesManifest,
+  IncludedFilePlatform,
+  CopyIncludedFilesResult,
+} from "./includedFiles.js";
+
+export { buildDesktopApp, bundleGameEntry } from "./desktopBuild.js";
+export type {
+  DesktopBuildOptions,
+  DesktopBuildResult,
+  DesktopPlatform,
+  BundleGameEntryOptions,
+  BundleGameEntryResult,
+} from "./desktopBuild.js";

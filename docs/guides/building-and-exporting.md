@@ -74,6 +74,12 @@ pnpm emptysock-toolchain export --platform windows --format zip --entry src/scen
 
 ---
 
+## Included Files (per-platform bundled files)
+
+Need to ship a config file, licence text, or a platform-only binary alongside your game? See [Included Files](./included-files.md) — a `build-included-files.json` manifest plus a real `--included-files` export flag, wired into the desktop export pipeline above.
+
+---
+
 ## Exporting from the IDE (web)
 
 The IDE's **Export Project** dialog (Export button in the toolbar) can produce a web export directly in the browser, without the CLI. Choosing platform **Web** builds your entry script with esbuild-wasm, then zips `index.html`, `engine.js` (or an inlined bundle), `game.js`, and — automatically — every asset your project actually uses.

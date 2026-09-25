@@ -51,6 +51,10 @@ program
     false,
   )
   .option("--arch <arch>", "Target architecture (x86_64|aarch64)", "x86_64")
+  .option(
+    "--included-files <path>",
+    "Path to a build-included-files.json manifest (default: <project-dir>/build-included-files.json, resolved next to --entry)",
+  )
   .action(
     async (opts: {
       platform: string;
@@ -62,6 +66,7 @@ program
       sourcemap: boolean;
       aggressive: boolean;
       arch: string;
+      includedFiles?: string;
     }) => {
       console.log(
         `Exporting for ${opts.platform} (${opts.arch}) — format: ${opts.format}`,
@@ -102,6 +107,9 @@ program
           dropConsole: opts.dropConsole,
           sourcemap: opts.sourcemap,
           aggressive: opts.aggressive,
+          ...(opts.includedFiles !== undefined
+            ? { includedFilesManifest: opts.includedFiles }
+            : {}),
         });
 
         if (!result.success) {
@@ -112,6 +120,11 @@ program
 
         console.log(`Built ${result.artifacts?.length ?? 0} artifact(s):`);
         for (const a of result.artifacts ?? []) console.log(`  ${a}`);
+        if (result.includedFiles && result.includedFiles.length > 0) {
+          console.log(
+            `Included ${result.includedFiles.length} file(s) for ${opts.platform}.`,
+          );
+        }
 
         if (wantsZipWrapper) {
           // "--format zip" is not itself a tauri-bundler target (Tauri only
@@ -185,6 +198,11 @@ program
     false,
   )
   .option("--verbose", "Log each asset as it is processed", false)
+  .option(
+    "--compress-audio",
+    "Re-encode uncompressed .wav sounds to Ogg/Vorbis at import time (requires ffmpeg on PATH; falls back to copying the original file, with a warning, if ffmpeg is unavailable)",
+    false,
+  )
   .action(
     async (opts: {
       from: string;
@@ -192,6 +210,7 @@ program
       out?: string;
       dryRun: boolean;
       verbose: boolean;
+      compressAudio: boolean;
     }) => {
       if (opts.from !== "gms2") {
         console.error(
@@ -218,6 +237,7 @@ program
       const result = await importGMS2Project(yypPath, outDir, {
         dryRun: opts.dryRun,
         verbose: opts.verbose,
+        compressAudio: opts.compressAudio,
       });
 
       console.log(`\nDone. Converted: ${result.converted} asset(s).`);
