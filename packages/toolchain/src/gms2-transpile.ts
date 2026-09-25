@@ -260,25 +260,41 @@ export function transpileGML(gml: string): string {
   out = out.replace(/\/\*[\s\S]*?\*\//g, "/* GML comment/dead code omitted */");
 
   // -- Variable declarations -------------------------------------------------
-  // global.x = expr  →  a TODO comment, not an active statement.
+  // global.x — GameMaker's arbitrary-named, arbitrary-typed cross-object
+  // state, real GML source's single most common way to share state between
+  // objects (confirmed real, extremely common: `global.kills++;`,
+  // `global.hasgun == false`, `global.checkpoint = id;` — GameMaker itself
+  // makes no syntactic distinction between "first declaration" and "later
+  // reassignment", both are just `global.x = expr`). This used to become a
+  // `/* TODO */` comment on the write side and an untouched (ReferenceError
+  // in a browser, silently-wrong-via-Node's-own-`global`-object elsewhere)
+  // bare identifier on the read side — a severe, real gap for one of GML's
+  // most-used features, not a stylistic placeholder.
   //
-  // GML's `global.x = expr` can legally appear anywhere a statement can —
-  // inside onCreate, inside onUpdate, inside a nested if/switch — and GML
-  // itself makes no syntactic distinction between "first declaration" and
-  // "later reassignment" of a global: both are just `global.x = expr`. A
-  // previous version of this pass emitted `export let x = expr;`, which is
-  // invalid TypeScript the moment it appears inside a function body (every
-  // generated event handler is one), and would also throw a duplicate-
-  // declaration error if the same global were assigned more than once in
-  // the same file — both real, common shapes in real GML source. There is
-  // also no single "the shared global store" concept this engine defines to
-  // route it through automatically (unlike `VariableStore`'s numbered
-  // switches, a GML global is an arbitrary named value). Left as a
-  // commented-out TODO instead, the same "surface for manual review, don't
-  // fake it" rule genuinely unmodelled GML already follows elsewhere in
-  // this file — it keeps the emitted file syntactically valid TypeScript
-  // and doesn't silently misrepresent global (cross-object) state as a
-  // function-local variable.
+  // Routes through `@emptysock/engine`'s real `GlobalStore` service
+  // (`ctx.game?.globals` — see that class's own doc comment for why it's a
+  // distinct service from `VariableStore`'s numbered, integer-only shape):
+  // `_ctx.game?.globals.get("x")`/`.set("x", expr)`. `ctx.game` is already
+  // optional in `GmlActionContext` (a project that never uses `global.`
+  // doesn't need a `Game` wired at all), so every rewrite here is
+  // optional-chained rather than assuming one.
+  //
+  // Order matters: increment/decrement first (the most specific shape),
+  // then compound assignment, then plain assignment, then the generic bare
+  // read last (a catch-all that must not fire before the more specific
+  // write forms have already consumed their own occurrences).
+  out = out.replace(
+    /\bglobal\.(\w+)\s*(\+\+|--)/g,
+    (_m, varName: string, op: string) =>
+      `_ctx.game?.globals.set("${varName}", (_ctx.game?.globals.get("${varName}") ?? 0) ${op === "++" ? "+" : "-"} 1)`,
+  );
+  out = out.replace(
+    /\bglobal\.(\w+)\s*(\+=|-=|\*=|\/=|%=)\s*([^;\n]+);?/g,
+    (_m, varName: string, op: string, exprRaw: string) => {
+      const jsOp = op[0];
+      return `_ctx.game?.globals.set("${varName}", (_ctx.game?.globals.get("${varName}") ?? 0) ${jsOp} (${exprRaw.trim()}));`;
+    },
+  );
   out = out.replace(
     // `(?!=)` after the `=` keeps this from matching `global.x == y` (a
     // comparison, not an assignment) — without it, `global.x == y` matched
@@ -287,33 +303,13 @@ export function transpileGML(gml: string): string {
     // output like `= = y`.
     /\bglobal\.(\w+)\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, varName: string, expr: string) =>
-      // The leading `;` is a real, empty statement, not stray punctuation —
-      // it's what keeps this replacement a valid *statement* on its own,
-      // not just a comment. A GML `global.x = expr;` that is itself the
-      // sole body of a brace-less `if`/`while` (a real, confirmed shape:
-      // `if (global.gain > 1)\n\tglobal.gain = 1;`, from a real project's
-      // `obj_ear`'s `Step_0.gml`) left the `if` with nothing but a comment
-      // for a body once this pass ran — a hard SyntaxError, the opposite of
-      // this comment's own "keeps the emitted file syntactically valid"
-      // claim. `;` is a no-op in every other context this replacement can
-      // land in (a plain statement position), so it's free everywhere else.
-      //
-      // A `/* ... */` block comment, not `//`: a `global.x = expr;`
-      // assignment routinely shares its physical source line with further
-      // real statements after it — real, confirmed shape (`if (curPos ==
-      // pos1[3]) { global.pause = false; canDraw = false; canEdit = false;
-      // }`, all on one line, from a real project's `obj_shop`'s
-      // `Step_0.gml`). A `//` line comment runs to the end of the physical
-      // line no matter what — it swallowed `canDraw = false; canEdit =
-      // false; }` (including the block's own closing brace) into dead
-      // commentary, leaving the block permanently unclosed. `/* ... */`
-      // only consumes up to its own `*/`, so real code later on the same
-      // line stays live. This can never itself create a *nested* block
-      // comment the way an unguarded injection elsewhere in this file
-      // could: every real source `/* ... */` was already neutralised to a
-      // bracket-free placeholder at the very top of this function, before
-      // any pass (this one included) ever runs.
-      `; /* TODO: migrate GML global variable "${varName}" (was: global.${varName} = ${expr.trimEnd()};) — wire it to your own shared state. */`,
+      `_ctx.game?.globals.set("${varName}", ${expr.trim()});`,
+  );
+  // The generic bare-read catch-all — anything left after the three write
+  // forms above have already consumed every assignment/increment shape.
+  out = out.replace(
+    /\bglobal\.(\w+)\b/g,
+    (_m, varName: string) => `(_ctx.game?.globals.get("${varName}"))`,
   );
   // GameMaker 8.1's legacy `globalvar a, b, c;` declaration statement (as
   // opposed to the modern `global.x = ...` assignment form handled just

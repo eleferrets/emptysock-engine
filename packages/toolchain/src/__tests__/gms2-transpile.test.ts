@@ -308,10 +308,32 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
 });
 
 describe("transpileGML", () => {
-  it("does not emit `export` inside a function body for a global assignment", () => {
+  it("global.x = expr routes through a real GlobalStore.set call, not a TODO comment", () => {
     const out = transpileGML("global.kills = 1;");
     expect(out).not.toContain("export let");
-    expect(out).toContain('TODO: migrate GML global variable "kills"');
+    expect(out).toContain('_ctx.game?.globals.set("kills", 1);');
+  });
+
+  it("global.x++ / global.x-- route through real GlobalStore read-modify-write calls", () => {
+    const out = transpileGML("global.kills++;\nglobal.lives--;");
+    expect(out).toContain(
+      '_ctx.game?.globals.set("kills", (_ctx.game?.globals.get("kills") ?? 0) + 1)',
+    );
+    expect(out).toContain(
+      '_ctx.game?.globals.set("lives", (_ctx.game?.globals.get("lives") ?? 0) - 1)',
+    );
+  });
+
+  it("global.x += expr routes through a real GlobalStore read-modify-write call", () => {
+    const out = transpileGML("global.score += 10;");
+    expect(out).toContain(
+      '_ctx.game?.globals.set("score", (_ctx.game?.globals.get("score") ?? 0) + (10));',
+    );
+  });
+
+  it("a bare global.x read routes through a real GlobalStore.get call", () => {
+    const out = transpileGML("if (global.hasgun == false) { x = 1; }");
+    expect(out).toContain('(_ctx.game?.globals.get("hasgun"))');
   });
 
   it("handles a global assignment reached via a non-`;`-terminated expr", () => {
@@ -375,10 +397,10 @@ describe("transpileGML", () => {
     expect(out).not.toContain("undefined /* entity.destroy(); */");
   });
 
-  it("instance_destroy() still threads correctly as a bare-if's single-statement body", () => {
+  it("instance_destroy() still threads correctly as a bare-if's single-statement body, alongside a real global.x read", () => {
     const out = transpileGML("if (global.hasgun == false) instance_destroy();");
     expect(out).toContain(
-      "if (global.hasgun == false) GmlActions.instance_destroy(_entity, _ctx);",
+      'if ((_ctx.game?.globals.get("hasgun")) == false) GmlActions.instance_destroy(_entity, _ctx);',
     );
   });
 
@@ -503,9 +525,11 @@ describe("transpileGML", () => {
 
   it("leaves a brace-less if's body statement-valid when its body is a lone global assignment — real gap found in obj_ear's Step_0.gml", () => {
     const out = transpileGML("if (global.gain > 1)\n\tglobal.gain = 1;");
-    // The global-assignment pass must still leave a real statement (the
-    // leading `;`) so the if's body isn't just a bare comment.
-    expect(out).toMatch(/if \(global\.gain > 1\)\s*\n\s*;\s*\/\* TODO/);
+    // global.x = expr is now a real GlobalStore.set() call, a real
+    // statement on its own — no longer needs a leading `;` placeholder to
+    // stay valid as the if's single-statement body.
+    expect(out).toContain('_ctx.game?.globals.set("gain", 1);');
+    expect(() => new Function(out)).not.toThrow();
   });
 
   it("show_message tolerates a nested call in its message argument — real gap found in action_create_object.gml", () => {

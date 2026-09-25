@@ -3,6 +3,7 @@ import { PluginSystem } from "./PluginSystem.js";
 import { AudioSystem } from "./systems/AudioSystem.js";
 import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
+import { GlobalStore } from "./systems/GlobalStore.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
@@ -56,6 +57,16 @@ export interface SceneLifecycle {
    * dialogue tree or map trigger expects.
    */
   readonly variables: VariableStore;
+  /**
+   * Game-owned, same reasoning as `audio`/`input`/`variables` — one
+   * `GlobalStore` for the lifetime of this `Game`. This is the real target
+   * for GameMaker's `global.x = expr` semantic (arbitrary named,
+   * arbitrary-typed values reachable from anywhere) — see
+   * `systems/GlobalStore.ts`'s own doc comment for why it's a distinct
+   * service from `variables` rather than reusing `VariableStore`'s
+   * numbered, integer-only shape.
+   */
+  readonly globals: GlobalStore;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `PluginSystem` for the lifetime of this `Game`. Equivalent to
@@ -321,6 +332,7 @@ export class Game {
     this._deterministic = options.deterministic ?? false;
     this.services.register(PluginSystem);
     this.services.register(VariableStore);
+    this.services.register(GlobalStore);
     this.services.register(LocalisationSystem);
     this.services.register(ViewportSystem);
     this.services.register(WindowSystem);
@@ -366,6 +378,11 @@ export class Game {
     return this._audio;
   }
 
+  /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  get globals(): GlobalStore {
+    return this.services.get(GlobalStore);
+  }
+
   /**
    * Load a scene: creates its `Scene` (bitECS world), its `ActorSystem` and
    * `PhysicsSystem` (unless `manageLifecycle: false`), and calls the
@@ -399,6 +416,7 @@ export class Game {
       input: this._input,
       audio: this._audio,
       variables: this.services.get(VariableStore),
+      globals: this.services.get(GlobalStore),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
@@ -478,6 +496,7 @@ export class Game {
       input: this._input,
       audio: this._audio,
       variables: this.services.get(VariableStore),
+      globals: this.services.get(GlobalStore),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),

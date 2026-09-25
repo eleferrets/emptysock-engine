@@ -84,6 +84,7 @@ export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
 export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
+export { GlobalStore } from "./systems/GlobalStore.js";
 export type {
   VariableStoreData,
   VariableCondition,
