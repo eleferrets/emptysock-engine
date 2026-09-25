@@ -1576,3 +1576,19 @@ describe("transpileGML — GameMaker particle-function family (part_type_*/part_
     expect(out).not.toContain("other.GmlActions.part_type_create");
   });
 });
+
+describe("transpileGML — layer_sequence_create()", () => {
+  it("threads layer_sequence_create context-only, quoting nothing (all real arguments, no object-type name)", () => {
+    const out = transpileGML(
+      'inst = layer_sequence_create("Effects", x, y, sqExplosion);',
+    );
+    expect(out).toContain(
+      'GmlActions.layer_sequence_create(_ctx, "Effects", x, y, sqExplosion)',
+    );
+  });
+
+  it("threads with no arguments beyond _ctx when the call itself takes none", () => {
+    const out = transpileGML("layer_sequence_create();");
+    expect(out).toContain("GmlActions.layer_sequence_create(_ctx)");
+  });
+});

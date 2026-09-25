@@ -2011,6 +2011,13 @@ export function transpileGML(
     "view_set_wport",
     "view_get_hport",
     "view_set_hport",
+    // GMS2.3+ `layer_sequence_create(layer, x, y, sequence)`
+    // (compat/gmlSequences.ts) — see CLAUDE.md's "GmsProjectRuntime" entry's
+    // `sequence_index` research: this is the one real GML source shape a
+    // Sequence-driven entity is spawned from. Context-only, like the
+    // camera/view family above — it spawns a *new* entity rather than
+    // acting on the calling one, so there's no `_entity` for it to receive.
+    "layer_sequence_create",
   ];
   for (const fn of THREADED_CTX_ONLY) {
     const re = new RegExp(

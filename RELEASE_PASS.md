@@ -1086,6 +1086,17 @@ Continuing the `tsc --noEmit` end-to-end verification method against Freedom Bac
 
 ---
 
+## 2026-09-25: `layer_sequence_create()` compat wiring + FontRegistry documentation/tests
+
+Two independent follow-ups, both closing real, previously-flagged gaps rather than duplicating already-real work:
+
+- [x] **`layer_sequence_create(layer, x, y, sequence)`** — the GMS2 Sequence importer (`gms2-sequence-import.ts`), `GmlSequenceState`/`GmlSequenceSystem`, and CLAUDE.md's "GmsProjectRuntime" `sequence_index`-doesn't-exist research were all already real and landed in an earlier session; the one missing piece was the actual GML source shape (`layer_sequence_create`) that spawns a `GmlSequenceState`-carrying entity. Added `packages/engine/src/compat/gmlSequences.ts` (sibling to `gmlActions.ts`/`gmlCamera.ts`, same `(ctx, ...gmlArgs)` context-only shape as the camera/view family, since it spawns a _new_ entity rather than acting on the calling one), re-exported from `index.ts`, and wired into `gms2-transpile.ts`'s `THREADED_CTX_ONLY` pass. Tests: `packages/engine/src/__tests__/gmlSequences.test.ts` (spawns entity + attaches playing `GmlSequenceState`; unregistered sequence id is a safe no-op) and two new `gms2-transpile.test.ts` cases (threading, zero-argument call).
+- [x] **Font component** — `FontRegistry`/`FontDescriptor`, `Label`/`ButtonState`/`Checkbox`'s `fontId` field, and `UISystem`'s `fontId`-resolution-via-injected-`FontRegistry` wiring were all already real (an earlier session's work) but completely untested and undocumented — no `FontRegistry.test.ts`, no `gms2-font-import.test.ts`, no reference page. Added `packages/engine/src/__tests__/FontRegistry.test.ts` (registry CRUD, `cssFontFor` ordering, and `Game`-service isolation between two `new Game()` instances — the same isolation guarantee `PluginSystem`/`VariableStore` already have to prove), `packages/toolchain/src/__tests__/gms2-font-import.test.ts` (real `.yy` parsing including the trailing-comma quirk, `buildFontAsset`'s generated `cssFont` string), and `docs/reference/systems/font-registry.md` + a new §5.12.1 in `docs/manual/05-systems-reference.md` + an index.md row.
+- Full suites green: `packages/engine` 63 files / 583 tests; `packages/toolchain` 21 files / 311 tests (including the `--testTimeout 15000` android toolchain test). `tsc --noEmit` clean in both packages. `npm run build:types` run and `dist-types/` staged.
+- Note: this session shared the branch with a concurrent session landing `compat/gmlLighting.ts` — left untouched, coexists cleanly, confirmed via the full-suite runs above (which already include it).
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
