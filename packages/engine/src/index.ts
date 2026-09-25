@@ -329,6 +329,7 @@ export {
   room_goto,
   action_create_object,
   instance_create,
+  instance_create_layer,
   action_kill_object,
   instance_destroy,
   action_set_alarm,

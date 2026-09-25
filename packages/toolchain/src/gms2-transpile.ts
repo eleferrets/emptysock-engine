@@ -43,6 +43,20 @@ function splitTopLevelArgs(text: string, maxParts: number): string[] {
 // each is its own top-level `(...)` group, not nested inside the other.
 const BALANCED_PARENS_ONE_LEVEL = "(?:[^()]|\\([^()]*\\))*";
 
+// Same idea as `BALANCED_PARENS_ONE_LEVEL` but tolerating two levels of
+// nested parens — needed once a call's argument can itself already be a
+// previously-rewritten GML built-in expression, not just raw source text.
+// Real, confirmed case: `draw_sprite`'s own argument-list capture must
+// still match correctly when its `sprite_index` argument has *already*
+// been expanded by an earlier pass into `(_entity.get(GmlActions.Sprite)?.
+// texturePath ?? "")` — itself two parens deep (the wrapping group, then
+// `.get(...)`) before `draw_sprite`'s own enclosing parens are even
+// counted. `BALANCED_PARENS_ONE_LEVEL` alone can't match that; this
+// mirrors the same technique `IF_CLAUSE` (below) already uses for a
+// two-level-tolerant condition clause, just without IF_CLAUSE's own
+// enclosing `(...)` baked in, since callers here supply their own.
+const BALANCED_PARENS_TWO_LEVELS = "(?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*";
+
 /**
  * Finds every `for (...)` header in `src` (by scanning with real paren-depth
  * tracking, since a header's own clauses can contain nested calls) and
@@ -1128,10 +1142,31 @@ export function transpileGML(gml: string): string {
   // own documented intent ("without claiming to run the real per-instance
   // iteration"). `if (false)` keeps the block syntactically present and
   // reviewable without ever executing its untranslated body.
+  //
+  // One real exception: `with (instance_create_layer(...)) { body }` /
+  // `with (instance_create(...)) { body }` — GameMaker's own well-known
+  // idiom for "spawn an instance, then immediately configure it" (real,
+  // confirmed shape: `with (instance_create_layer(x, y, "Bullets",
+  // obj_bullet_enemy)) { ... }`, from a real project's `obj_enemy_mreg`'s
+  // `Step_0.gml`). Discarding the target expression here — as every other
+  // `with (...)` target honestly must be, since there's no rescoping
+  // mechanism to run `body` against — would also discard the *spawn call
+  // itself*, silently spawning nothing at all: a real, severe regression
+  // this pass would otherwise cause even after `instance_create_layer`'s
+  // own rewrite (below) made the call real. The spawn call is real and
+  // entity-independent (it doesn't need `with`'s rescoping to execute
+  // correctly), so it's preserved and actually run — only `body`'s
+  // rescoped-self semantics remain the genuinely unmodelled part.
+  const WITH_SPAWN_CALL = /^(instance_create(?:_layer)?)\s*\(/;
   out = out.replace(
     /\bwith\s*\(((?:[^()]|\([^()]*\))*)\)/g,
-    () =>
-      `if (false) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`,
+    (_m, target: string) => {
+      const trimmedTarget = target.trim();
+      const spawnCall = WITH_SPAWN_CALL.test(trimmedTarget)
+        ? `${trimmedTarget}; `
+        : "";
+      return `${spawnCall}if (false) /* TODO: migrate this GML "with (...)" block — iterate matching instances yourself */`;
+    },
   );
 
   // GML's `with` also allows a bare, paren-less target — `with obj_solid {
@@ -1165,28 +1200,62 @@ export function transpileGML(gml: string): string {
 
   // -- GML built-ins → EmptySock / JS equivalents ---------------------------
 
-  // instance_create_layer — GML allows this to appear as a sub-expression,
-  // not just a standalone statement: `my_gun = instance_create_layer(...)`
-  // (assigned) and `with (instance_create_layer(...))` (passed as an
-  // argument) are both real, common shapes. A line-comment substitution
-  // (`// ...`) is only safe when the call is the entire statement — used
-  // inside `with(...)` or an assignment's right-hand side, it comments out
-  // everything after it on the same line, corrupting the enclosing
-  // statement's syntax (e.g. leaving `with(` with no matching `)`). A block
-  // comment wrapped around a real `undefined` expression stays valid in
-  // both statement and expression position. (`instance_destroy` used to be
-  // handled the same placeholder-comment way here — a genuine bug, since
-  // unlike `instance_create_layer` there's a completely real, mechanical
-  // rewrite for it: see `instance_destroy`'s entry in `THREADED_ACTIONS`
-  // below, and `compat/gmlActions.ts`'s own `instance_destroy` export for
-  // why this was a severe gap, not a stylistic one.)
+  // Shared by `instance_create_layer`, `audio_play_sound`, and `room_goto`
+  // below: a bare identifier argument (the overwhelmingly common real
+  // shape for a GameMaker asset-name reference) is quoted into the exact
+  // string literal the receiving `compat/gmlActions.ts` function expects;
+  // anything else (a variable, a dotted reference, a sub-call like
+  // `choose(...)`) is assumed to already evaluate to a real name string and
+  // passed through unchanged — this importer has no way to resolve an
+  // arbitrary runtime expression to an asset name ahead of time and
+  // doesn't pretend to.
+  const bareOrQuoted = (expr: string): string =>
+    /^[A-Za-z_]\w*$/.test(expr) ? JSON.stringify(expr) : expr;
+
+  // instance_create_layer — used to be a comment-only placeholder claiming
+  // "TODO: scene.createEntity() and add ObjX component". A severe, real
+  // gap, not a stylistic one: `instance_create_layer` is GML 2.3+'s real,
+  // current spawning function — the single most common way a modern
+  // GameMaker project spawns anything (confirmed: 10+ real call sites in
+  // just one of this importer's real test projects — bullets, pickups,
+  // transition effects, UI elements), and every one of those calls was
+  // silently spawning nothing at all. Now threads into a real
+  // `GmlActions.instance_create_layer` call (`compat/gmlActions.ts` — see
+  // its own doc comment for why the `layer` argument is honestly dropped).
+  //
+  // GML allows this call to appear as a sub-expression, not just a
+  // standalone statement — `my_gun = instance_create_layer(...)` (assigned)
+  // and `with (instance_create_layer(...)) { ... }` (the `with`-pass above
+  // already preserves this specific call as a real, executed statement
+  // rather than discarding it) are both real, common shapes, so this
+  // rewrite must stay valid in expression position too, not just as a
+  // statement.
+  //
+  // The object-name argument (the 4th/last one) is resolved the same "bare
+  // identifier -> quoted asset-name string" convention `sprite_index`'s own
+  // bare-identifier rewrite already establishes — real, confirmed shape:
+  // every real call site found passes a bare object name
+  // (`instance_create_layer(x, y, "Bullets", obj_bullet_enemy)`), which
+  // `action_create_object`'s `objectName: string` parameter needs quoted,
+  // not left as an undeclared bare JS identifier (a `ReferenceError` at
+  // runtime otherwise — the exact bug the generic `THREADED_ACTIONS` pass
+  // would have produced here, since it has no such quoting logic; this is
+  // why `instance_create_layer` gets its own pass instead of joining that
+  // list). The `layer` argument (a real GML string literal at every
+  // confirmed real call site, e.g. `"Bullets"`) is passed through
+  // unchanged — `instance_create_layer`'s own doc comment explains why it's
+  // honestly unused.
   out = out.replace(
     new RegExp(
-      `\\binstance_create_layer\\s*\\(${BALANCED_PARENS_ONE_LEVEL}\\)(\\s*;)?`,
+      `\\binstance_create_layer\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
       "g",
     ),
-    (_m, semi?: string) =>
-      `(undefined /* TODO: scene.createEntity() and add ObjX component */)${semi ?? ""}`,
+    (_m, argsRaw: string, semi?: string) => {
+      const args = splitTopLevelArgs(argsRaw, 4).map((a) => a.trim());
+      const [x, y, layer, objectArg] = args;
+      const objectName = bareOrQuoted(objectArg ?? "");
+      return `GmlActions.instance_create_layer(_entity, _ctx, ${x}, ${y}, ${layer}, ${objectName})${semi ?? ";"}`;
+    },
   );
 
   // audio_play_sound(snd, priority, loop) / room_goto(rm_next) — GML allows
@@ -1220,8 +1289,6 @@ export function transpileGML(gml: string): string {
   // ahead of time and doesn't pretend to; `action_sound`/`action_another_
   // room`'s own existing "no live wiring, no match" guards handle an
   // unresolvable runtime value honestly (a console warning, not a crash).
-  const bareOrQuoted = (expr: string): string =>
-    /^[A-Za-z_]\w*$/.test(expr) ? JSON.stringify(expr) : expr;
   out = out.replace(
     new RegExp(
       `\\baudio_play_sound\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
@@ -1253,31 +1320,9 @@ export function transpileGML(gml: string): string {
   // dynamically-chosen image at a *custom* offset position, not the
   // entity's own transform (`oTextbox`'s real `Draw_64.gml`). Treating
   // every `draw_sprite` call as a no-op silently dropped real visual
-  // content in both cases. See below for the real rewrite.
-
-  // draw_sprite(sprite, subimg, x, y) — GameMaker's own argument order.
-  // The sprite argument is resolved the same "bare identifier -> quoted
-  // texture path" convention `sprite_index`'s own bare-identifier rewrite
-  // already establishes (`./assets/sprites/<name>/frame_0.png`), so a
-  // `draw_sprite` call naming a real converted sprite asset draws the same
-  // texture that sprite's own `.prefab.json`/`sprite_index` assignment
-  // would. `subimg` is dropped — see `GmlDrawTarget.sprite`'s own doc
-  // comment in `@emptysock/engine`'s `compat/gml.ts` for why (this
-  // importer only ever converts a sprite's first frame, the same
-  // already-documented `image_index`/`image_speed` gap).
-  out = out.replace(
-    new RegExp(
-      `\\bdraw_sprite\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
-      "g",
-    ),
-    (_m, args: string) => {
-      const [spriteArg, , x, y] = splitTopLevelArgs(args, 4);
-      const texturePath = /^[A-Za-z_]\w*$/.test((spriteArg ?? "").trim())
-        ? `"./assets/sprites/${(spriteArg ?? "").trim()}/frame_0.png"`
-        : (spriteArg ?? "").trim();
-      return `_ctx.drawTarget?.sprite(${texturePath}, ${x}, ${y});`;
-    },
-  );
+  // content in both cases. The real rewrite lives further below, after the
+  // `sprite_index`/`image_*` built-in section — see that rewrite's own doc
+  // comment for why the ordering specifically matters here.
 
   // draw_set_colour/draw_rectangle/draw_circle/draw_text/draw_line — real
   // targets during a GmlBehaviorSystem onDraw/onDrawGui dispatch (see
@@ -1954,6 +1999,47 @@ export function transpileGML(gml: string): string {
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\b/g,
     `(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))`,
+  );
+
+  // draw_sprite(sprite, subimg, x, y) — GameMaker's own argument order. The
+  // sprite argument is resolved the same "bare identifier -> quoted texture
+  // path" convention `sprite_index`'s own bare-identifier rewrite already
+  // establishes (`./assets/sprites/<name>/frame_0.png`), so a `draw_sprite`
+  // call naming a real converted sprite asset draws the same texture that
+  // sprite's own `.prefab.json`/`sprite_index` assignment would. `subimg`
+  // is dropped — see `GmlDrawTarget.sprite`'s own doc comment in
+  // `@emptysock/engine`'s `compat/gml.ts` for why (this importer only ever
+  // converts a sprite's first frame, the same already-documented
+  // `image_index`/`image_speed` gap).
+  //
+  // This pass runs *after* the whole `sprite_index`/`image_*` built-in
+  // section above, not alongside `draw_rectangle`/`draw_circle`/`draw_text`
+  // (which don't need this ordering) — deliberately: a real, confirmed
+  // regression from `obj_transition`'s real `Draw_64.gml`, `draw_sprite
+  // (sprite_index, image_index, xx, yy)` (a real, common "redraw my own
+  // current sprite at a custom position" idiom), had its `sprite_index`
+  // *argument* wrongly bare-identifier-quoted into a literal asset path
+  // (`"./assets/sprites/sprite_index/frame_0.png"`) when this pass ran
+  // *before* `sprite_index`'s own rewrite — and then `sprite_index`'s own
+  // bare-read rewrite, running after, matched that same substring *again*
+  // inside the already-emitted string literal, corrupting it a second
+  // time. Running after `sprite_index`'s own rewrite has already turned a
+  // bare `sprite_index` read into its real `_entity.get(GmlActions.Sprite)
+  // ?.texturePath ?? ""` expression means this pass's own bare-identifier
+  // check no longer matches it at all — it falls through to the "already a
+  // real expression, pass through unchanged" branch, correctly.
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_sprite\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [spriteArg, , x, y] = splitTopLevelArgs(args, 4);
+      const texturePath = /^[A-Za-z_]\w*$/.test((spriteArg ?? "").trim())
+        ? `"./assets/sprites/${(spriteArg ?? "").trim()}/frame_0.png"`
+        : (spriteArg ?? "").trim();
+      return `_ctx.drawTarget?.sprite(${texturePath}, ${x}, ${y});`;
+    },
   );
 
   // GameMaker instance variables (both its own built-ins — image_speed,

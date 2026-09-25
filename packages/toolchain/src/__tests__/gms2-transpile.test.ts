@@ -612,6 +612,15 @@ describe("transpileGML", () => {
     );
   });
 
+  it("draw_sprite(sprite_index, ...) correctly reads the entity's own current sprite instead of quoting 'sprite_index' as a literal asset name — real regression found in obj_transition's Draw_64.gml", () => {
+    const out = transpileGML("draw_sprite(sprite_index, image_index, xx, yy);");
+    expect(out).toContain(
+      '_ctx.drawTarget?.sprite((_entity.get(GmlActions.Sprite)?.texturePath ?? ""), xx, yy);',
+    );
+    expect(out).not.toContain("sprites/sprite_index");
+    expect(() => new Function(out)).not.toThrow();
+  });
+
   it("audio_play_sound threads a bare sound-asset identifier into a real GmlActions.audio_play_sound call — real gap found in obj_player_dead/obj_Egun/obj_menu", () => {
     const out = transpileGML("audio_play_sound(snd_Shot, 5, false);");
     expect(out).toContain(
@@ -640,6 +649,38 @@ describe("transpileGML", () => {
     expect(out).toContain(
       "GmlActions.room_goto(_entity, _ctx, other.new_room);",
     );
+  });
+
+  it("instance_create_layer threads into a real GmlActions.instance_create_layer call with a quoted bare object-name argument — severe real gap, confirmed 10+ real call sites in one real project", () => {
+    const out = transpileGML(
+      'var bomb = instance_create_layer(x, y, "Instances", obj_grenade);',
+    );
+    expect(out).toContain(
+      'GmlActions.instance_create_layer(_entity, _ctx, x, y, "Instances", "obj_grenade");',
+    );
+    // Must not leave the object-name as an undeclared bare JS identifier
+    // (a real ReferenceError at runtime).
+    expect(out).not.toMatch(/,\s*obj_grenade\)/);
+  });
+
+  it("instance_create_layer works as a bare statement (the other confirmed common real shape)", () => {
+    const out = transpileGML(
+      'instance_create_layer(x, y, "Front", obj_saves_text);',
+    );
+    expect(out).toContain(
+      'GmlActions.instance_create_layer(_entity, _ctx, x, y, "Front", "obj_saves_text");',
+    );
+  });
+
+  it("with (instance_create_layer(...)) { ... } preserves the real spawn call instead of discarding it — real gap found in obj_enemy_mreg's Step_0.gml", () => {
+    const out = transpileGML(
+      'with (instance_create_layer( x, y, "Bullets", obj_bullet_enemy))\n{\n  foo();\n}',
+    );
+    expect(out).toContain(
+      'GmlActions.instance_create_layer(_entity, _ctx, x, y, "Bullets", "obj_bullet_enemy");',
+    );
+    expect(out).toContain("if (false)");
+    expect(() => new Function(out)).not.toThrow();
   });
 
   it("handles audio_play_sound with a nested-call first argument", () => {

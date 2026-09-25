@@ -15,6 +15,7 @@ import {
   instance_destroy,
   action_create_object,
   instance_create,
+  instance_create_layer,
   action_set_alarm,
   action_if_collision,
   action_if_aligned,
@@ -212,6 +213,25 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
 
     const spawned2 = instance_create(entity, ctx, 1, 2, "obj_bullet");
     expect(defined(spawned2).get(Transform)).toMatchObject({ x: 1, y: 2 });
+  });
+
+  it("instance_create_layer also spawns a registered prefab, ignoring the layer argument — real gap: it used to transpile to an inert comment, not a real call at all", () => {
+    const scene = new Scene();
+    const prefab = definePrefab("obj_bullet_enemy", [{ def: Transform }]);
+    const entity = scene.spawn();
+    const ctx: GmlActionContext = {
+      scene,
+      prefabs: { obj_bullet_enemy: prefab },
+    };
+    const spawned = instance_create_layer(
+      entity,
+      ctx,
+      12,
+      34,
+      "Bullets",
+      "obj_bullet_enemy",
+    );
+    expect(defined(spawned).get(Transform)).toMatchObject({ x: 12, y: 34 });
   });
 
   it("action_create_object warns and returns undefined when the prefab isn't wired", () => {

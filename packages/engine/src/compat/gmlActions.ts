@@ -396,6 +396,41 @@ export function instance_create(
   return action_create_object(entity, ctx, objectName, x, y);
 }
 
+/**
+ * `instance_create_layer(x, y, layer, obj)` — GML 2.3+'s real, current
+ * spawning function (`instance_create` above is its legacy pre-2.3
+ * spelling, still supported but rarer in modern projects). Before this, a
+ * bare `instance_create_layer(...)` call transpiled to an inert, comment-
+ * only placeholder — one of the single most common GameMaker calls in real
+ * projects (confirmed: 10+ real call sites in just one of this importer's
+ * real test projects — spawning bullets, pickups, transition effects, UI
+ * elements), and every one of those calls was silently doing nothing at
+ * all (returning `undefined`, spawning nothing) rather than throwing —
+ * exactly the same severity `instance_destroy`'s own gap had, and for the
+ * same reason: a call this common, silently doing nothing, is worse than
+ * one that visibly fails.
+ *
+ * The `layer` argument (a layer *name* string, e.g. `"Bullets"`) is
+ * honestly not applied — this engine's `Scene.spawn()` has no per-layer
+ * spawn-target concept the way GameMaker's room layers do (a spawned
+ * entity's actual render layer comes from its `Sprite`/other component
+ * data, via `LayerSystem`, set independently of where it was created) — so
+ * `instance_create_layer` and `instance_create`/`action_create_object`
+ * converge on the exact same real spawn behaviour, just with GML 2.3+'s
+ * newer argument order and an extra parameter this engine has nothing to
+ * receive it into.
+ */
+export function instance_create_layer(
+  entity: Entity,
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  _layer: string,
+  objectName: string,
+): Entity | undefined {
+  return action_create_object(entity, ctx, objectName, x, y);
+}
+
 /** GM8.1 "Destroy Instance" — `scene.destroy(entity)`. */
 export function action_kill_object(
   entity: Entity,
