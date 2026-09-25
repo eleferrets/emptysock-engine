@@ -68,12 +68,8 @@ describe("buildTimelineModule", () => {
     const content = await buildTimelineModule("tmJiggle", projectRoot);
     expect(content).toContain("function moment_0(");
     expect(content).toContain("function moment_4(");
-    expect(content).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "x", xstart);',
-    );
-    expect(content).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "x", xstart + 1);',
-    );
+    expect(content).toContain("_t.x = xstart;");
+    expect(content).toContain("_t.x = xstart + 1;");
     expect(content).toContain("{ step: 0, run: moment_0 },");
     expect(content).toContain("{ step: 4, run: moment_4 },");
     expect(content).toContain("export const TmJiggleTimeline: TimelineModule");

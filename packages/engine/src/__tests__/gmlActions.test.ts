@@ -22,6 +22,7 @@ import {
   action_if_empty,
   action_another_room,
   room_goto,
+  room,
   audio_play_sound,
   gmlActionsStep,
   clearGmlActionState,
@@ -317,5 +318,19 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     scene.destroy(entity);
     const respawned = scene.spawn(prefab, undefined, { pool: true });
     expect(_getGmlMotion(respawned)).toBeUndefined();
+  });
+});
+
+describe("room() — bare GML `room` built-in read", () => {
+  it("returns ctx.currentRoom as-is", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene, currentRoom: "rm_menu" };
+    expect(room(ctx)).toBe("rm_menu");
+  });
+
+  it("returns an honest empty string when nothing wired currentRoom", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene };
+    expect(room(ctx)).toBe("");
   });
 });

@@ -23,6 +23,23 @@ export declare const c_yellow = 16776960;
 export declare function lerp(a: number, b: number, t: number): number;
 export declare function clamp(val: number, min: number, max: number): number;
 export declare function sign(val: number): number;
+/**
+ * `max`/`min`/`abs` — GameMaker's own variadic math built-ins, real,
+ * confirmed common (Freedom Backup's `scr_get_input.gml` alone uses
+ * `max(gamepad_axis_value(...), 0)`, `min(...)`, `abs(...)`), never wired
+ * into this transpiler's `THREADED_PURE_FUNCTIONS` list before despite
+ * being trivial thin wrappers over `Math.max`/`Math.min`/`Math.abs` — every
+ * other GML math built-in already routed through this file (`lerp`/`sign`/
+ * `frac`/...) had a real implementation here, these three simply never did.
+ * GameMaker's `max`/`min` accept any number of arguments (not just two),
+ * matching `Math.max`/`Math.min`'s own variadic signature exactly — no
+ * argument-count translation needed.
+ */
+export declare function max(...vals: number[]): number;
+export declare function min(...vals: number[]): number;
+export declare function abs(val: number): number;
+/** `ord(str)` — GameMaker's own idiom for turning a single character into its numeric code point (`ord("D")` == 68), the same legacy `KeyboardEvent.keyCode`-compatible numbering `vk_*`'s letter range already uses. Also exported (identically) from `compat/gmlInput.ts`, since real source uses it both standalone (`ord("R")` as a plain char code) and as a `keyboard_check`/`keyboard_check_pressed` argument — kept as two small, trivially-in-sync one-liners rather than an awkward cross-file import for a single-expression function, the same "duplicated because trivial and the alternative is worse" precedent `gmlKeys.ts`'s own doc comment already accepts for its `VK_NAMES` table. */
+export declare function ord(str: string): number;
 /** Fractional part (GML frac) */
 export declare function frac(val: number): number;
 /** x component of a vector given length and direction (degrees) */
@@ -130,6 +147,8 @@ export declare function draw_set_colour(
   target: GmlDrawTarget,
   hex: number,
 ): void;
+/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (Freedom Backup's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
+export declare const draw_set_color: typeof draw_set_colour;
 export declare function draw_rectangle(
   target: GmlDrawTarget,
   x1: number,

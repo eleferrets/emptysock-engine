@@ -336,6 +336,7 @@ export {
   action_sprite_color,
   action_next_room,
   action_another_room,
+  room,
   room_goto,
   action_create_object,
   instance_create,
@@ -520,6 +521,77 @@ export {
 } from "./compat/gmlCamera.js";
 
 /**
+ * GameMaker keyboard/gamepad/mouse polling-function compat
+ * (`keyboard_check*`/`gamepad_*`/`mouse_check_button_pressed`/
+ * `display_get_gui_*`/`surface_get_*`/`application_surface`) — see
+ * `compat/gmlInput.ts`'s module doc comment for the real `vk_*`/`gp_*`/
+ * `mb_*` constant values and why these take `(ctx: GmlInputContext, ...)`,
+ * the same context-only shape `gmlCamera.ts`'s functions already use.
+ */
+export type { GmlInputContext } from "./compat/gmlInput.js";
+export {
+  vk_backspace,
+  vk_tab,
+  vk_enter,
+  vk_shift,
+  vk_control,
+  vk_alt,
+  vk_escape,
+  vk_space,
+  vk_pageup,
+  vk_pagedown,
+  vk_end,
+  vk_home,
+  vk_left,
+  vk_up,
+  vk_right,
+  vk_down,
+  vk_insert,
+  vk_delete,
+  vk_nokey,
+  vk_anykey,
+  gp_face1,
+  gp_face2,
+  gp_face3,
+  gp_face4,
+  gp_shoulderl,
+  gp_shoulderr,
+  gp_shoulderlb,
+  gp_shoulderrb,
+  gp_select,
+  gp_start,
+  gp_stickl,
+  gp_stickr,
+  gp_padu,
+  gp_padd,
+  gp_padl,
+  gp_padr,
+  gp_axislh,
+  gp_axislv,
+  gp_axisrh,
+  gp_axisrv,
+  mb_left,
+  mb_right,
+  mb_middle,
+  mb_none,
+  mb_any,
+  keyboard_check,
+  keyboard_check_pressed,
+  keyboard_check_released,
+  gamepad_is_connected,
+  gamepad_button_check,
+  gamepad_button_check_pressed,
+  gamepad_axis_value,
+  gamepad_set_axis_deadzone,
+  mouse_check_button_pressed,
+  display_get_gui_width,
+  display_get_gui_height,
+  application_surface,
+  surface_get_width,
+  surface_get_height,
+} from "./compat/gmlInput.js";
+
+/**
  * GameMaker's legacy `d3d_*` pseudo-3D projection compat — see
  * `compat/gmlProjection.ts`'s module doc comment and CLAUDE.md's "Pseudo-3D
  * projection" entry for the full mechanism (four corners written onto
@@ -609,6 +681,11 @@ export {
   ds_list_size,
   ds_list_delete,
   draw_set_colour,
+  draw_set_color,
+  max,
+  min,
+  abs,
+  ord,
   draw_rectangle,
   draw_circle,
   draw_text,

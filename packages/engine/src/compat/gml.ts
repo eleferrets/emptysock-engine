@@ -75,6 +75,35 @@ export function sign(val: number): number {
   return Math.sign(val);
 }
 
+/**
+ * `max`/`min`/`abs` — GameMaker's own variadic math built-ins, real,
+ * confirmed common (Freedom Backup's `scr_get_input.gml` alone uses
+ * `max(gamepad_axis_value(...), 0)`, `min(...)`, `abs(...)`), never wired
+ * into this transpiler's `THREADED_PURE_FUNCTIONS` list before despite
+ * being trivial thin wrappers over `Math.max`/`Math.min`/`Math.abs` — every
+ * other GML math built-in already routed through this file (`lerp`/`sign`/
+ * `frac`/...) had a real implementation here, these three simply never did.
+ * GameMaker's `max`/`min` accept any number of arguments (not just two),
+ * matching `Math.max`/`Math.min`'s own variadic signature exactly — no
+ * argument-count translation needed.
+ */
+export function max(...vals: number[]): number {
+  return Math.max(...vals);
+}
+
+export function min(...vals: number[]): number {
+  return Math.min(...vals);
+}
+
+export function abs(val: number): number {
+  return Math.abs(val);
+}
+
+/** `ord(str)` — GameMaker's own idiom for turning a single character into its numeric code point (`ord("D")` == 68), the same legacy `KeyboardEvent.keyCode`-compatible numbering `vk_*`'s letter range already uses. Also exported (identically) from `compat/gmlInput.ts`, since real source uses it both standalone (`ord("R")` as a plain char code) and as a `keyboard_check`/`keyboard_check_pressed` argument — kept as two small, trivially-in-sync one-liners rather than an awkward cross-file import for a single-expression function, the same "duplicated because trivial and the alternative is worse" precedent `gmlKeys.ts`'s own doc comment already accepts for its `VK_NAMES` table. */
+export function ord(str: string): number {
+  return str.length > 0 ? (str.codePointAt(0) ?? 0) : 0;
+}
+
 /** Fractional part (GML frac) */
 export function frac(val: number): number {
   return val - Math.trunc(val);
@@ -303,6 +332,9 @@ export interface GmlDrawTarget {
 export function draw_set_colour(target: GmlDrawTarget, hex: number): void {
   target.setColor(hex);
 }
+
+/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (Freedom Backup's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
+export const draw_set_color = draw_set_colour;
 
 export function draw_rectangle(
   target: GmlDrawTarget,

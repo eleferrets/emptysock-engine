@@ -330,6 +330,24 @@ export function action_sprite_color(
 // Rooms: action_next_room / action_another_room
 // ---------------------------------------------------------------------------
 
+/**
+ * `room` — GameMaker's own bare built-in read of the currently active
+ * room's asset reference. GML source overwhelmingly compares it against a
+ * bare room-name identifier (`if (room == rm_menu) { ... }`) rather than
+ * calling a function, so this returns `ctx.currentRoom` as-is (a plain room
+ * name string, or `""` when nothing wired it — an honest empty room name,
+ * never a fabricated one) for `gms2-transpile.ts`'s bare-identifier rewrite
+ * to read. `GmlActionContext.currentRoom` is the exact field `action_next_
+ * room`/`action_another_room` above already read/maintain, and
+ * `GmsProjectRuntime.currentRoom` (see CLAUDE.md's "Room transitions
+ * triggered from inside GML" entry) is what actually keeps it accurate
+ * across a room-changing action, so a bare `room` read and a GameMaker
+ * room-name comparison agree with whatever room is really loaded.
+ */
+export function room(ctx: GmlActionContext): string {
+  return ctx.currentRoom ?? "";
+}
+
 function warnMissingRoomWiring(action: string): void {
   // Mirrors QueryChannel's "honest error over a fabricated result" rule —
   // a project that never wired ctx.game/ctx.rooms gets a clear, once-per-call

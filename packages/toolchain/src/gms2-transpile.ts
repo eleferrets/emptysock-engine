@@ -272,6 +272,83 @@ function escapeRegExpTranspile(str: string): string {
 }
 
 /**
+ * Masks every real string literal in `text` behind a `\u0000<prefix><N>
+ * \u0000` placeholder, so a later identifier-rewrite regex can't fire
+ * *inside* one (the `sprite_index`/implicit-var passes' own precedent — see
+ * their doc comments' "protect literals during regex-based rewriting"
+ * note). Real, confirmed regression this version specifically fixes: the
+ * masking regex previously used inline at each call site
+ * (`/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g`) has no notion of a `//` line
+ * comment, and real GML comments routinely contain a lone apostrophe —
+ * English possessives/contractions (`// Taking away the player's control`,
+ * confirmed against Freedom Backup's own real `obj_player/Step_0.gml`,
+ * which has half a dozen of these). An *odd* number of `'` characters
+ * scattered across a function body's comments makes that regex's own
+ * single-quote alternative pair up the *wrong* two apostrophes — one from
+ * an early comment, the next from a much later, wholly unrelated one — and
+ * greedily swallow every real line of code in between into one giant fake
+ * "string literal". That whole span then never gets replaced with any
+ * placeholder that later passes are able to find, unmask, *or rewrite* — it
+ * sails through the masking step and every identifier-rewrite loop after it
+ * completely untouched, and only comes back out verbatim, unrewritten, at
+ * the final unmask step. This was a real, severe, previously-undiscovered
+ * bug: it silently defeated the implicit-instance-variable pass (`hsp`/
+ * `vsp`/etc.) for entire regions of a real function body whenever a stray
+ * apostrophe fell inside a comment above them — confirmed by reading
+ * `obj_player.behavior.ts`'s real generated output, where `place_meeting(x,
+ * y + 1, ...)`'s `x`/`y` arguments stayed bare, unrewritten identifiers
+ * despite this file's own `x`/`y` rewrite pass being otherwise proven
+ * correct against every synthetic (comment-apostrophe-free) test case.
+ *
+ * The fix processes one physical line at a time: a `//` that appears
+ * outside any already-open string on that line ends the line's own
+ * "real code" portion right there — only the code *before* it is scanned
+ * for quotes to mask; the comment text itself, apostrophes and all, is
+ * carried through completely unscanned (and therefore can never
+ * mismatched-pair with a quote on a different line). This can't perfectly
+ * handle a `//` that appears *inside* a real string literal earlier on the
+ * same line (a genuinely rare shape — this codebase's own precedent
+ * elsewhere already accepts equivalent narrow, documented approximations
+ * over a full GML tokenizer), but it closes the real, common, and severe
+ * case this bug was actually found through.
+ */
+function maskGmlStringLiterals(
+  text: string,
+  prefix: string,
+): { masked: string; store: string[] } {
+  const store: string[] = [];
+  const quoteRe = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+  const maskLine = (line: string): string => {
+    const commentIdx = line.indexOf("//");
+    const code = commentIdx === -1 ? line : line.slice(0, commentIdx);
+    const rest = commentIdx === -1 ? "" : line.slice(commentIdx);
+    const maskedCode = code.replace(quoteRe, (m) => {
+      store.push(m);
+      return `\u0000${prefix}${store.length - 1}\u0000`;
+    });
+    return maskedCode + rest;
+  };
+  // Splitting on `\n` alone (not `\r\n`) is deliberate — a trailing `\r`
+  // left on `code`/`rest` is inert for every purpose this mask/unmask round
+  // trip cares about (it's restored byte-for-byte either way), and
+  // splitting on the two-character sequence would need to be reassembled
+  // with it, extra complexity with no behavioural difference.
+  const masked = text.split("\n").map(maskLine).join("\n");
+  return { masked, store };
+}
+
+function unmaskGmlStringLiterals(
+  text: string,
+  prefix: string,
+  store: readonly string[],
+): string {
+  return text.replace(
+    new RegExp(`\\u0000${prefix}(\\d+)\\u0000`, "g"),
+    (_m, i: string) => store[Number(i)] ?? "",
+  );
+}
+
+/**
  * Builds a cheap "how many `function(...) { ... }` literals textually
  * enclose this character offset" probe over `source`, used by the
  * `static`-variable rewrite pass to tell a top-level declaration (directly
@@ -1877,7 +1954,7 @@ export function transpileGML(
   // interface type is, so there is nothing importable to call there.
   out = out.replace(
     new RegExp(
-      `\\bdraw_set_colour\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      `\\bdraw_set_colou?r\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
       "g",
     ),
     (_m, hex: string) => `_ctx.drawTarget?.setColor(${hex.trim()});`,
@@ -2189,6 +2266,26 @@ export function transpileGML(
     "view_set_wport",
     "view_get_hport",
     "view_set_hport",
+    // GameMaker's real keyboard/gamepad/mouse polling functions
+    // (compat/gmlInput.ts) — real, confirmed high-value gap: none of these
+    // were wired anywhere despite `keyboard_check`/`keyboard_check_pressed`
+    // being GameMaker's single most common input idiom (confirmed against
+    // Freedom Backup's own `scr_get_input.gml`). Context-only, like the
+    // camera/view family above — keyboard/gamepad/mouse state is
+    // game-global, never per-instance, so there is no `_entity` to thread.
+    "keyboard_check",
+    "keyboard_check_pressed",
+    "keyboard_check_released",
+    "gamepad_is_connected",
+    "gamepad_button_check",
+    "gamepad_button_check_pressed",
+    "gamepad_axis_value",
+    "gamepad_set_axis_deadzone",
+    "mouse_check_button_pressed",
+    "display_get_gui_width",
+    "display_get_gui_height",
+    "surface_get_width",
+    "surface_get_height",
     // GMS2.3+ `layer_sequence_create(layer, x, y, sequence)`
     // (compat/gmlSequences.ts) — see CLAUDE.md's "GmsProjectRuntime" entry's
     // `sequence_index` research: this is the one real GML source shape a
@@ -2239,6 +2336,65 @@ export function transpileGML(
     "c_yellow",
   ];
   for (const name of GML_COLOUR_CONSTANTS) {
+    out = out.replace(
+      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      `GmlActions.${name}`,
+    );
+  }
+
+  // GameMaker's `vk_*`/`gp_*`/`mb_*` input constants (compat/gmlInput.ts) —
+  // same "plain value, not a call" rewrite `GML_COLOUR_CONSTANTS` above
+  // already uses, plus `application_surface` (compat/gmlInput.ts's honest
+  // sentinel — see that export's own doc comment).
+  const GML_INPUT_CONSTANTS = [
+    "vk_backspace",
+    "vk_tab",
+    "vk_enter",
+    "vk_shift",
+    "vk_control",
+    "vk_alt",
+    "vk_escape",
+    "vk_space",
+    "vk_pageup",
+    "vk_pagedown",
+    "vk_end",
+    "vk_home",
+    "vk_left",
+    "vk_up",
+    "vk_right",
+    "vk_down",
+    "vk_insert",
+    "vk_delete",
+    "vk_nokey",
+    "vk_anykey",
+    "gp_face1",
+    "gp_face2",
+    "gp_face3",
+    "gp_face4",
+    "gp_shoulderl",
+    "gp_shoulderr",
+    "gp_shoulderlb",
+    "gp_shoulderrb",
+    "gp_select",
+    "gp_start",
+    "gp_stickl",
+    "gp_stickr",
+    "gp_padu",
+    "gp_padd",
+    "gp_padl",
+    "gp_padr",
+    "gp_axislh",
+    "gp_axislv",
+    "gp_axisrh",
+    "gp_axisrv",
+    "mb_left",
+    "mb_right",
+    "mb_middle",
+    "mb_none",
+    "mb_any",
+    "application_surface",
+  ];
+  for (const name of GML_INPUT_CONSTANTS) {
     out = out.replace(
       new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
@@ -2299,6 +2455,17 @@ export function transpileGML(
     "mouse_button_down",
     "mouse_button_released",
     "place_empty",
+    // Real, confirmed gap: `max`/`min`/`ord` — GameMaker's own variadic
+    // math built-ins and char-code idiom, thin wrappers over `Math.max`/
+    // `Math.min`/`String.codePointAt` (compat/gml.ts) that were never
+    // wired into this transpiler at all. `abs` is deliberately *not*
+    // listed here — a separate, pre-existing pass earlier in this
+    // function already rewrites `abs(expr)` straight to `Math.abs(expr)`
+    // (confirmed by reading this file), so adding it here would be dead,
+    // never-reached code.
+    "max",
+    "min",
+    "ord",
   ];
   for (const fn of THREADED_PURE_FUNCTIONS) {
     out = out.replace(
@@ -2327,6 +2494,18 @@ export function transpileGML(
   out = out.replace(
     /(?<!\.\s*)\broom_height\b(?!\s*\()/g,
     "GmlActions.room_height()",
+  );
+
+  // GameMaker's bare `room` built-in read (compat/gmlActions.ts's `room()`)
+  // — real, confirmed gap: real GML source almost always compares it
+  // against a bare room-name identifier (`if (room == rm_menu) { ... }`,
+  // GameMaker's own idiom) rather than calling a function. Guarded the
+  // same way `room_width`/`room_height` are against a real call-site
+  // spelling (`room()`, unlikely but possible) so this pass only ever
+  // rewrites the bare-identifier form.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom\b(?!\s*\()/g,
+    "GmlActions.room(_ctx)",
   );
 
   // GameMaker's legacy `d3d_*` pseudo-3D projection compat
@@ -3035,6 +3214,106 @@ export function transpileGML(
     },
   );
 
+  // -- GameMaker's built-in per-instance position variables: x / y --------
+  //
+  // Real, confirmed the single highest-frequency unresolved-identifier gap
+  // in this transpiler: a real full-project `tsc --noEmit` sweep against
+  // Freedom Backup's regenerated output showed `x`/`y` as by far the most
+  // common `TS2304: Cannot find name` (dozens of occurrences each,
+  // concentrated in `obj_player`'s movement code — `x += hsp_final;`,
+  // `place_meeting(_entity, _ctx, x, y + 1, "obj_wall")`, etc.). `x`/`y` are
+  // GameMaker's own most fundamental per-instance built-ins — every
+  // instance's position — and map directly onto this engine's existing
+  // `Transform.x`/`Transform.y` fields (`components/Transform.ts`), the same
+  // component `image_angle`/`image_xscale`/`image_yscale` above already
+  // target for the *other* transform-shaped built-ins.
+  //
+  // These were never caught by the generic "auto-declare on first bare
+  // assignment" pass below (`identifyGmlImplicitVars`) for a real, distinct
+  // reason: that pass's own `bareAssign` regex only recognises a *plain*
+  // `name = expr;` assignment as the signal that a name is implicitly
+  // GML-instance-scoped — it has no compound-assignment (`+=`/`-=`/etc.)
+  // detection at all. Real GameMaker movement code overwhelmingly writes
+  // position via `x += hsp;`, never a plain `x = ...;`, so `x`/`y` were
+  // never even added to that pass's `implicitVars` set in the first place,
+  // let alone rewritten — confirmed by reading a real generated
+  // `obj_player.behavior.ts`: every `x`/`y` occurrence appears completely
+  // untouched, a raw, unresolved bare identifier. Even where a project does
+  // write a plain `x = ...;` somewhere, routing `x`/`y` through the generic
+  // `GmlActions.getGmlVar`/`setGmlVar` per-`(World, eid)`-keyed string side-
+  // table (rather than `Transform.x`/`.y` directly) would silently disagree
+  // with every *other* system that already reads an entity's real position
+  // straight off `Transform` (`RenderPipeline`, `place_meeting`'s own
+  // `spriteHalfExtents`-based AABB check, `CameraSystem` follow, ...) — a
+  // GML script writing `x += hsp;` needs to move the same position
+  // `RenderPipeline` actually draws from, not a disconnected shadow copy.
+  //
+  // Handles every real assignment shape `x`/`y` can appear in — increment/
+  // decrement, compound assignment, plain assignment (via the same
+  // multi-line-aware `replacePlainAssignmentMultiline` helper the implicit-
+  // var pass below uses, since a plain `y = ...` can equally wrap arguments
+  // across lines) — before falling through to a bare-read rewrite, the same
+  // increment → compound → plain → bare-read ordering every other built-in
+  // in this file already follows. Every pass keeps the same `(?<!\.\s*)`
+  // dotted-reference guard (`inst.x = 5;`/`other.y` is a different
+  // instance's field this transpiler cannot resolve, left untouched) and
+  // `(?<!\/\/[^\n]*)` comment guard `sprite_index`/`image_angle` already
+  // establish. String literals are masked first and restored after, the
+  // same technique the implicit-var pass below already uses — `x`/`y` are
+  // single-letter identifiers, the single case in this whole file most
+  // likely to false-positive-match inside an unrelated string
+  // (`"x: " + string(x)`), so this pass can't skip that protection the way
+  // the longer, far-less-collision-prone built-in names above safely do.
+  //
+  // Known, honest, deliberately-unhandled limitation: a GMS2.3+ struct
+  // literal that happens to use the exact key name `x`/`y` (`{x: 5, y: 10}`)
+  // would have that key wrongly rewritten into a `Transform` read/write
+  // expression, which is not valid as an object-literal key. Freedom
+  // Backup's own real source (confirmed by the full project sweep this fix
+  // was verified against) uses GameMaker's classic `x += ...`/`y += ...`
+  // assignment style throughout, never a struct literal keyed `x`/`y` — this
+  // is a real, narrower gap than the one being fixed, documented rather than
+  // silently risked going forward, the same "state gaps honestly" precedent
+  // `image_index`/`image_speed` above already set.
+  {
+    const { masked, store: maskedForXY } = maskGmlStringLiterals(out, "GMLXY");
+    out = masked;
+
+    for (const field of ["x", "y"] as const) {
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+\\+|--)`,
+          "g",
+        ),
+        (_m, op: string) =>
+          `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} ${op === "++" ? "+=" : "-="} 1; })()`,
+      );
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          "g",
+        ),
+        (_m, op: string, exprRaw: string) =>
+          `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} ${op} (${exprRaw.trim()}); })();`,
+      );
+      out = replacePlainAssignmentMultiline(
+        out,
+        field,
+        (indent, expr) =>
+          `${indent}(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} = ${expr}; })();`,
+      );
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\b(?!\\s*=(?!=))`,
+          "g",
+        ),
+        `(_entity.get(GmlActions.Transform)?.${field} ?? 0)`,
+      );
+    }
+
+    out = unmaskGmlStringLiterals(out, "GMLXY", maskedForXY);
+  }
+
   // GameMaker instance variables (both its own built-ins — image_speed,
   // image_index, visible, ... not already special-cased above — and any
   // project-defined one, e.g. a plain `mywall = instance_create_layer(...)`,
@@ -3109,11 +3388,11 @@ export function transpileGML(
     // four rewrite passes run (for every identified name, not just this
     // one), and restored verbatim once the whole loop below is done, the
     // standard "protect literals during regex-based rewriting" technique.
-    const maskedStrings: string[] = [];
-    out = out.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => {
-      maskedStrings.push(m);
-      return `\u0000GMLSTR${maskedStrings.length - 1}\u0000`;
-    });
+    const { masked: maskedOut, store: maskedStrings } = maskGmlStringLiterals(
+      out,
+      "GMLSTR",
+    );
+    out = maskedOut;
 
     // Every identified implicit instance variable gets the exact same
     // increment/decrement → compound-assign → plain-assign → bare-read
@@ -3193,10 +3472,7 @@ export function transpileGML(
       out = out.split(placeholder).join(JSON.stringify(name));
     }
 
-    out = out.replace(
-      /\u0000GMLSTR(\d+)\u0000/g,
-      (_m, i: string) => maskedStrings[Number(i)] ?? "",
-    );
+    out = unmaskGmlStringLiterals(out, "GMLSTR", maskedStrings);
   }
 
   return out;
