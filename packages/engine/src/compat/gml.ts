@@ -534,9 +534,9 @@ export function draw_rectangle(
   y1: number,
   x2: number,
   y2: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void {
-  target.rect(x1, y1, x2, y2, outline);
+  target.rect(x1, y1, x2, y2, Boolean(outline));
 }
 
 export function draw_circle(
@@ -544,9 +544,9 @@ export function draw_circle(
   x: number,
   y: number,
   r: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void {
-  target.circle(x, y, r, outline);
+  target.circle(x, y, r, Boolean(outline));
 }
 
 // `text` is typed `string | number`, not just `string` — GameMaker's real
@@ -646,10 +646,10 @@ export function draw_roundrect_ext(
   y2: number,
   _rx: number,
   _ry: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void {
   if (target === undefined) return;
-  target.rect(x1, y1, x2, y2, outline);
+  target.rect(x1, y1, x2, y2, Boolean(outline));
 }
 
 /**
@@ -1003,12 +1003,23 @@ const BASE64_CHARS =
 
 /** GML json_encode(value) — serialises a GML struct/array (a plain JS value here) to a JSON string. */
 export function json_encode(value: unknown): string {
-  return JSON.stringify(value);
+  return JSON.stringify(value, (_k, v: unknown) =>
+    v instanceof Map ? Object.fromEntries(v) : v,
+  );
 }
 
 /** GML json_decode(str) — parses a JSON string back into a plain GML struct/array. */
-export function json_decode(str: string): unknown {
-  return JSON.parse(str);
+export function json_decode(str: string): Map<string, unknown> {
+  // GameMaker's json_decode returns a ds_map (nested objects are ds_maps
+  // too), which GML reads via `map[? "key"]` — rewritten to `.get(key)`.
+  const revive = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(revive);
+    if (typeof v === "object" && v !== null) {
+      return new Map(Object.entries(v).map(([k, x]) => [k, revive(x)]));
+    }
+    return v;
+  };
+  return revive(JSON.parse(str)) as Map<string, unknown>;
 }
 
 /**

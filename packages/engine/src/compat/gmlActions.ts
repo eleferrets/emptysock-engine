@@ -973,7 +973,24 @@ export function instance_change(
  * `action_kill_object` rather than duplicating its body, so the two
  * spellings of "destroy this instance" can never drift apart.
  */
-export function instance_destroy(entity: Entity, ctx: GmlActionContext): void {
+export function instance_destroy(
+  entity: Entity,
+  ctx: GmlActionContext,
+  target?: unknown,
+  _executeEvent?: boolean,
+): void {
+  // GML's `instance_destroy(id)` destroys the named instance; no argument
+  // (or a non-Entity) means the calling instance itself.
+  const t = target as { get?: unknown; isAlive?: unknown } | null | undefined;
+  const isEntity =
+    typeof t === "object" &&
+    t !== null &&
+    typeof t.get === "function" &&
+    "isAlive" in t;
+  if (isEntity) {
+    if ((t as Entity).isAlive) action_kill_object(t as Entity, ctx);
+    return;
+  }
   action_kill_object(entity, ctx);
 }
 

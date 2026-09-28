@@ -260,6 +260,11 @@ const BALANCED_PARENS_ONE_LEVEL = "(?:[^()]|\\([^()]*\\))*";
 // mirrors the same technique `IF_CLAUSE` (below) already uses for a
 // two-level-tolerant condition clause, just without IF_CLAUSE's own
 // enclosing `(...)` baked in, since callers here supply their own.
+const BALANCED_PARENS_FIVE_LEVELS = (() => {
+  let inner = "[^()]*";
+  for (let i = 0; i < 4; i++) inner = `(?:[^()]|\\(${inner}\\))*`;
+  return inner;
+})();
 const BALANCED_PARENS_TWO_LEVELS = "(?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*";
 
 /**
@@ -2370,7 +2375,17 @@ export function transpileGML(
       "g",
     ),
     (_m, rm: string, semi?: string) =>
-      `GmlActions.room_goto(_entity, _ctx, ${bareOrQuoted(rm.trim())})${semi ?? ";"}`,
+      `GmlActions.room_goto(_entity, _ctx, ${
+        // A bare identifier is a room-name reference only when it is a
+        // known project room (or no room registry is installed); otherwise
+        // it is a variable holding a room (real: `room_goto(save_room)`)
+        // and passes through for the variable-read passes.
+        /^[A-Za-z_]\w*$/.test(rm.trim()) &&
+        _roomNames.size > 0 &&
+        !_roomNames.has(rm.trim())
+          ? rm.trim()
+          : bareOrQuoted(rm.trim())
+      })${semi ?? ";"}`,
   );
   // `draw_sprite` used to be an unconditional comment-only placeholder
   // ("Sprite component handles drawing declaratively") — true for the
@@ -3164,7 +3179,7 @@ export function transpileGML(
   // one iteration, unchanged from before.
   for (const fn of THREADED_PURE_FUNCTIONS) {
     const fnPattern = new RegExp(
-      `(?<!\\.[ \\t]*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+      `(?<!\\.[ \\t]*)\\b${fn}\\s*\\((${BALANCED_PARENS_FIVE_LEVELS})\\)`,
       "g",
     );
     for (let pass = 0; pass < 10; pass++) {
@@ -3204,7 +3219,7 @@ export function transpileGML(
   // spelling (`room()`, unlikely but possible) so this pass only ever
   // rewrites the bare-identifier form.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\broom\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)(?<!["'])\broom\b(?!["'])(?!\s*\()/g,
     "GmlActions.room(_ctx)",
   );
 
@@ -4024,7 +4039,7 @@ export function transpileGML(
       "g",
     ),
     (_m, op: string, exprRaw: string) =>
-      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth ${op} (${exprRaw.trim()})); } })();`,
+      `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { let _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth ${op} (${exprRaw.trim()})); } })();`,
   );
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bdepth\b/g,
@@ -4740,12 +4755,23 @@ export function transpileGML(
       // Entity-returning call, later dot-accessed) to resolve correctly
       // through the entity the local variable actually holds, rather than
       // this generic per-field side-table.
+      // A name followed by `.get(` is a ds_map read (the `[? key]`
+      // accessor rewrites to `.get(key)` earlier) — resolve it as a Map,
+      // not a number, unless it is a known Entity-holding local.
+      out = out.replace(
+        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\b(?=\\s*\\.get\\s*\\()`, "g"),
+        withTargetEntityRefs.has(name)
+          ? `GmlActions.getGmlVar(_entity, _ctx, ${placeholder})`
+          : `GmlActions.gmlMap(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
+      );
       out = out.replace(
         new RegExp(
           `(?<!\\.[ \\t]*)\\b${esc}\\b(?!\\s*=(?!=))(?!\\s*\\.[A-Za-z_])`,
           "g",
         ),
-        `GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
+        withTargetEntityRefs.has(name)
+          ? `GmlActions.getGmlVar(_entity, _ctx, ${placeholder})`
+          : `GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
       );
       out = out.split(placeholder).join(JSON.stringify(name));
     }

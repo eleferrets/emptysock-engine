@@ -447,3 +447,17 @@ describe("get_gml_image_number() — read-only image_number built-in", () => {
     expect(get_gml_image_number(entity)).toBe(1);
   });
 });
+
+describe("instance_destroy(target)", () => {
+  it("destroys a passed live Entity instead of the caller", () => {
+    const scene = new Scene();
+    const caller = scene.spawn();
+    caller.add(Transform);
+    const other = scene.spawn();
+    other.add(Transform);
+    const ctx = makeCtx(scene);
+    instance_destroy(caller, ctx, other);
+    expect(other.isAlive).toBe(false);
+    expect(caller.isAlive).toBe(true);
+  });
+});

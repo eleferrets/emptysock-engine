@@ -300,7 +300,7 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     it("depth += correctly flips to a Sprite.depth -= in engine space — real gap found in obj_bullet's Step_0.gml", () => {
       const out = transpileGML("depth += 1;");
       expect(out).toContain(
-        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth += (1)); }",
+        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) { let _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth += (1)); }",
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -2552,5 +2552,55 @@ describe("transpileGML — shader_set / shader_reset / uniforms", () => {
     setGmlShaderNames(new Set());
     setGmlSpriteNames(new Set());
     expect(out).not.toContain('"dup"');
+  });
+});
+
+describe("transpileGML — fresh-sweep batch (string-literal room, nested min/max, room_goto var, entity-ref locals)", () => {
+  it("does not rewrite `room` inside a string literal", () => {
+    const out = transpileGML('var r = save_data[? "room"];');
+    expect(out).not.toContain('room(_ctx)"');
+    expect(out).toContain('"room"');
+  });
+
+  it("rewrites min/max nested deeper than two paren levels", () => {
+    const out = transpileGML("p = min(1.2, p + max(((1.2 - p) / 10), 0.005));");
+    expect(out).toContain("GmlActions.min(1.2");
+    expect(out).not.toMatch(/[^.]\bmin\(/);
+  });
+
+  it("leaves room_goto(variable) unquoted when a room registry is installed", () => {
+    setGmlRoomNames(new Set(["rm_a"]));
+    try {
+      expect(transpileGML("room_goto(save_room);")).not.toContain(
+        '"save_room"',
+      );
+      expect(transpileGML("room_goto(rm_a);")).toContain('"rm_a"');
+    } finally {
+      setGmlRoomNames(new Set());
+    }
+  });
+
+  it("does not gmlNum-coerce a local known to hold an Entity", () => {
+    const out = transpileGML(
+      'inst1 = instance_create_layer(0, 0, "Instances", obj_a);\ninstance_destroy(inst1);',
+    );
+    expect(out).toMatch(
+      /instance_destroy\(_entity, _ctx, GmlActions\.getGmlVar\(_entity, _ctx, "inst1"\)\)/,
+    );
+  });
+});
+
+describe("transpileGML — ds_map accessor on an implicit instance variable, depth compound", () => {
+  it("resolves `map[? k]` on an instance variable through gmlMap", () => {
+    const out = transpileGML('map = scr_load_json("a");\nv = map[? "k"];');
+    expect(out).toContain(
+      'GmlActions.gmlMap(GmlActions.getGmlVar(_entity, _ctx, "map")).get(',
+    );
+  });
+
+  it("compound depth write uses a reassignable binding", () => {
+    const out = transpileGML("depth += 1;");
+    expect(out).toContain("let _gmlDepth");
+    expect(() => new Function("_entity", "GmlActions", out)).not.toThrow();
   });
 });

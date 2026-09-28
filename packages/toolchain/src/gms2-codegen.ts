@@ -1117,10 +1117,31 @@ export function ${name}(
       ),
     ),
   );
+  // A parameter (or a `var alias = param;` local copy of it) tested with
+  // `is_string(...)` is explicitly polymorphic in the source (real:
+  // `load_string`'s `keyword`), so it is typed `string | number`.
+  const polyParams = new Set(
+    paramNames.filter((p) => {
+      const names = [p];
+      for (const m of transpiled.matchAll(
+        new RegExp(`\\bvar\\s+(\\w+)\\s*=\\s*${escapeRegExp(p)}\\s*;`, "g"),
+      )) {
+        if (m[1] !== undefined) names.push(m[1]);
+      }
+      return names.some((n) =>
+        new RegExp(`is_string\\(\\s*${escapeRegExp(n)}\\s*\\)`).test(
+          transpiled,
+        ),
+      );
+    }),
+  );
   const paramList =
     paramNames.length > 0
       ? paramNames
-          .map((p) => `${p}: ${stringParams.has(p) ? "string" : "number"}`)
+          .map(
+            (p) =>
+              `${p}: ${stringParams.has(p) ? "string" : polyParams.has(p) ? "string | number" : "number"}`,
+          )
           .join(", ")
       : "...args: unknown[]";
   const paramStr = `_entity: Entity, _ctx: GmlActionContext, ${paramList}`;

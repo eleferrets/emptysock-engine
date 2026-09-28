@@ -287,14 +287,14 @@ export declare function draw_rectangle(
   y1: number,
   x2: number,
   y2: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void;
 export declare function draw_circle(
   target: GmlDrawTarget,
   x: number,
   y: number,
   r: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void;
 export declare function draw_text(
   target: GmlDrawTarget,
@@ -370,7 +370,7 @@ export declare function draw_roundrect_ext(
   y2: number,
   _rx: number,
   _ry: number,
-  outline: boolean,
+  outline: boolean | number,
 ): void;
 /**
  * `draw_sprite(sprite, subimg, x, y)` — GameMaker's own argument order has
@@ -542,7 +542,7 @@ export declare function array_reduce(
 /** GML json_encode(value) — serialises a GML struct/array (a plain JS value here) to a JSON string. */
 export declare function json_encode(value: unknown): string;
 /** GML json_decode(str) — parses a JSON string back into a plain GML struct/array. */
-export declare function json_decode(str: string): unknown;
+export declare function json_decode(str: string): Map<string, unknown>;
 /**
  * GML base64_encode(str) — encodes a plain string to base64. A dependency-
  * free implementation (no `Buffer`, no `btoa`) so it works identically in

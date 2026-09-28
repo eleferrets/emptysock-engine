@@ -23,7 +23,12 @@ import {
 describe("compat/gml.ts — JSON/base64 round trips", () => {
   it("json_encode/json_decode round-trips a plain struct", () => {
     const value = { hp: 5, name: "player", tags: [1, 2, 3] };
-    expect(json_decode(json_encode(value))).toEqual(value);
+    const m = json_decode(json_encode(value));
+    expect(m).toBeInstanceOf(Map);
+    expect(m.get("hp")).toBe(5);
+    expect(m.get("tags")).toEqual([1, 2, 3]);
+    // A Map (GML ds_map) re-encodes to the same JSON.
+    expect(json_encode(m)).toBe(json_encode(value));
   });
 
   it("base64_encode/base64_decode round-trips a plain string", () => {
@@ -35,7 +40,8 @@ describe("compat/gml.ts — JSON/base64 round trips", () => {
     const value = { hp: 10, x: 1.5, dead: false };
     const encoded = base64_encode(json_encode(value));
     const decoded = json_decode(base64_decode(encoded));
-    expect(decoded).toEqual(value);
+    expect(decoded.get("x")).toBe(1.5);
+    expect(decoded.get("dead")).toBe(false);
   });
 
   it("base64 round-trips strings whose length isn't a multiple of 3", () => {

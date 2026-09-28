@@ -534,6 +534,8 @@ export declare function instance_change(
 export declare function instance_destroy(
   entity: Entity,
   ctx: GmlActionContext,
+  target?: unknown,
+  _executeEvent?: boolean,
 ): void;
 /** GM8.1 "Set Alarm" — schedules alarm `index` (GameMaker has 12, numbered 0-11) to fire `steps` frames from now. Ticked once per frame by `gmlActionsStep`; when it reaches zero, `onAlarm` is invoked (if provided) and the alarm entry is removed — GameMaker alarms are one-shot unless re-armed. There is no dedicated `AlarmSystem` here (see `Coroutines.ts`'s scheduled coroutines for the engine's general-purpose equivalent) — a per-entity side-table ticked alongside motion state is a better fit than layering a second scheduling primitive on top of coroutines for what's fundamentally "decrement an int every step." */
 export declare function action_set_alarm(
