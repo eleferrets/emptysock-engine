@@ -97,6 +97,21 @@ export function getGmlArrayVar(
   return arr;
 }
 
+/** Shallow copy of every stored variable for `(world, eid)` — used by `GmsProjectRuntime`'s persistent-instance carry-over. */
+export function exportGmlVars(world: World, eid: number): Map<string, unknown> {
+  return new Map(sideTableByWorld.get(world)?.get(eid) ?? []);
+}
+
+/** Replaces `(world, eid)`'s stored variables with `vars` (a fresh copy is stored). */
+export function importGmlVars(
+  world: World,
+  eid: number,
+  vars: ReadonlyMap<string, unknown>,
+): void {
+  const byEntity = getOrCreate(sideTableByWorld, world, () => new Map());
+  byEntity.set(eid, new Map(vars));
+}
+
 /** Clears every stored instance variable for this `(world, eid)` pair — called from `Scene.destroy()`. */
 export function clearGmlInstanceVars(world: World, eid: number): void {
   sideTableByWorld.get(world)?.delete(eid);

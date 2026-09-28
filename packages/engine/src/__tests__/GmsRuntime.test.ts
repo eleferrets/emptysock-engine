@@ -7,6 +7,7 @@ const { Meta } = await import("../components/Meta.js");
 const { GmlBehaviorState, registerGmlBehavior, unregisterGmlBehavior } =
   await import("../components/GmlBehavior.js");
 const { definePrefab } = await import("../Prefab.js");
+const persistentCompat = await import("../compat/gmlInstanceVars.js");
 import type { GmlBehaviorModule } from "../components/GmlBehavior.js";
 import type { ComponentDef } from "../Component.js";
 import type { Entity } from "../Entity.js";
@@ -665,5 +666,117 @@ describe("GmsProjectRuntime — key dispatch (real onKeyPress<Name>/onKeyRelease
     expect(otherFired).toBe(true);
 
     unregisterGmlBehavior("objKeyedOther");
+  });
+});
+
+describe("GmsProjectRuntime — persistent instances (Meta.persistent)", () => {
+  const { getGmlVar, setGmlVar } = persistentCompat;
+
+  function build(placeInDestination: boolean): GmsProjectData {
+    const lookup: Record<string, ComponentDef> = {
+      Transform,
+      Meta,
+      GmlBehaviorState,
+    };
+    const ctrl: PrefabDef = definePrefab("objCtrl", [
+      { def: Transform },
+      { def: Meta, overrides: { persistent: true } },
+      { def: GmlBehaviorState, overrides: { behaviorId: "objPersistCtrl" } },
+    ]);
+    const plain: PrefabDef = definePrefab("objPlain", [
+      { def: Transform },
+      { def: Meta },
+    ]);
+    return {
+      rooms: {
+        a: {
+          sceneName: "a",
+          prefabInstances: [
+            { prefab: "objCtrl", props: { x: 5, y: 6 } },
+            { prefab: "objPlain", props: { x: 1, y: 1 } },
+          ],
+        },
+        b: {
+          sceneName: "b",
+          prefabInstances: placeInDestination
+            ? [{ prefab: "objCtrl", props: { x: 50, y: 60 } }]
+            : [{ prefab: "objPlain", props: { x: 2, y: 2 } }],
+        },
+      },
+      roomOrder: ["a", "b"],
+      prefabs: { objCtrl: ctrl, objPlain: plain },
+      lookup: (name) => lookup[name],
+    };
+  }
+
+  function named(
+    scene: NonNullable<InstanceType<typeof GmsProjectRuntime>["scene"]>,
+    name: string,
+  ): Entity[] {
+    const out: Entity[] = [];
+    scene.each(Meta, (m, e) => {
+      if (m.name === name) out.push(e);
+    });
+    return out;
+  }
+
+  let creates = 0;
+  beforeEach(() => {
+    creates = 0;
+    registerGmlBehavior("objPersistCtrl", {
+      onCreate: () => {
+        creates += 1;
+      },
+    } as GmlBehaviorModule);
+  });
+  afterEach(() => unregisterGmlBehavior("objPersistCtrl"));
+
+  it("snapshots and restores components and instance variables; non-persistent entities are not carried; onCreate does not re-run", async () => {
+    const game = new Game();
+    const runtime = new GmsProjectRuntime(game, build(false));
+    await runtime.loadRoom("a");
+    expect(creates).toBe(1);
+    const sceneA = runtime.scene;
+    if (sceneA === undefined) throw new Error("no scene");
+    const [ctrl] = named(sceneA, "objCtrl");
+    if (ctrl === undefined) throw new Error("no ctrl");
+    const t = ctrl.get(Transform);
+    if (t !== undefined) t.x = 77;
+    setGmlVar(ctrl, {} as never, "hp", 9);
+
+    await runtime.loadRoom("b");
+    const sceneB = runtime.scene;
+    if (sceneB === undefined || sceneB === sceneA)
+      throw new Error("no new scene");
+    const carried = named(sceneB, "objCtrl");
+    expect(carried).toHaveLength(1);
+    const c = carried[0];
+    if (c === undefined) throw new Error("missing");
+    expect(c.get(Transform)?.x).toBe(77);
+    expect(c.get(Meta)?.persistent).toBe(true);
+    expect(getGmlVar(c, {} as never, "hp")).toBe(9);
+    expect(named(sceneB, "objPlain")).toHaveLength(1); // b's own, not a's
+    expect(creates).toBe(1);
+  });
+
+  it("matches GameMaker: a destination room that also places the persistent object gets a second instance (no de-dupe)", async () => {
+    const game = new Game();
+    const runtime = new GmsProjectRuntime(game, build(true));
+    await runtime.loadRoom("a");
+    await runtime.loadRoom("b");
+    const scene = runtime.scene;
+    if (scene === undefined) throw new Error("no scene");
+    expect(named(scene, "objCtrl")).toHaveLength(2);
+    expect(creates).toBe(2); // once in a, once for b's own placement
+  });
+
+  it("carries persistent entities through the ctx.rooms path (action_next_room) too", async () => {
+    const game = new Game();
+    const runtime = new GmsProjectRuntime(game, build(false));
+    await runtime.loadRoom("a");
+    await runtime.nextRoom();
+    const scene = runtime.scene;
+    if (scene === undefined) throw new Error("no scene");
+    expect(named(scene, "objCtrl")).toHaveLength(1);
   });
 });

@@ -127,6 +127,27 @@ export declare function setGmlVspeed(
 ): void;
 /** Clear this `(world, eid)` pair's motion/alarm state. Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
 export declare function clearGmlActionState(world: World, eid: number): void;
+export interface GmlMotionState {
+  vx: number;
+  vy: number;
+  direction: number;
+  friction: number;
+  alarms: Map<number, number>;
+}
+export interface GmlActionStateSnapshot {
+  readonly motion?: GmlMotionState;
+  readonly start?: {
+    x: number;
+    y: number;
+  };
+}
+export declare function exportGmlActionState(
+  entity: Entity,
+): GmlActionStateSnapshot;
+export declare function importGmlActionState(
+  entity: Entity,
+  snap: GmlActionStateSnapshot,
+): void;
 /**
  * Backing store for a transpiled GML `static` declaration (see
  * `gms2-transpile.ts`'s "GML `static` variables" rewrite pass, and

@@ -24,6 +24,37 @@ import type { GmlParticleContext } from "./compat/gmlParticles.js";
 import type { CameraSystem } from "./systems/CameraSystem.js";
 import type { RenderPipeline } from "./systems/RenderPipeline.js";
 import { GmlBehaviorState } from "./components/GmlBehavior.js";
+import { Meta } from "./components/Meta.js";
+import { Entity as EntityClass } from "./Entity.js";
+import { componentRegistry } from "./ComponentRegistry.js";
+import type { ComponentDef } from "./Component.js";
+import {
+  exportGmlActionState,
+  importGmlActionState,
+  clearGmlActionState,
+} from "./compat/gmlActions.js";
+import type { GmlActionStateSnapshot } from "./compat/gmlActions.js";
+import {
+  exportGmlVars,
+  importGmlVars,
+  clearGmlInstanceVars,
+} from "./compat/gmlInstanceVars.js";
+
+/**
+ * One live `Meta.persistent` entity captured before its scene tears down: a
+ * plain copy of every component's fields plus its per-`(World, eid)` GML
+ * side-table state (instance variables, motion/alarms, `xstart`/`ystart`).
+ */
+interface PersistedEntity {
+  readonly oldEid: number;
+  readonly oldWorld: Scene["world"];
+  readonly components: ReadonlyArray<{
+    def: ComponentDef;
+    data: Record<string, unknown>;
+  }>;
+  readonly vars: Map<string, unknown>;
+  readonly action: GmlActionStateSnapshot;
+}
 
 /**
  * A parsed `project-manifest.json` (`gms2-codegen.ts`'s `projectManifestJSON()`)
@@ -155,6 +186,8 @@ export class GmsProjectRuntime {
    * field is the right shape here, not a `(World, eid)`-keyed side-table.
    */
   private readonly _prevKeyDown = new Map<number, boolean>();
+  /** Persistent entities snapshotted by the outgoing room's `onUnload`, restored by the next room's `onLoad`. */
+  private _carried: PersistedEntity[] = [];
 
   constructor(
     private readonly game: Game,
@@ -254,6 +287,14 @@ export class GmsProjectRuntime {
         // fabricated sentinel room name).
         this._previousRoom = this._currentRoom;
         this._currentRoom = name;
+        // GameMaker's `persistent` semantic (manual: Object Properties —
+        // "Persistent"; a persistent instance carries into the next room and
+        // does not re-run Create): persisted instances exist *before* the new
+        // room's own instances are created. GameMaker does NOT de-dupe: if
+        // this room also places the same object, a second instance is
+        // created (the well-known duplicate-controller pitfall), so neither
+        // do we.
+        this.restorePersistent(scene);
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
           onSpawned: (entity) => {
             if (entity.get(GmlBehaviorState) !== undefined) {
@@ -276,7 +317,90 @@ export class GmsProjectRuntime {
       onUpdate: (dt) => {
         this.runGmlPasses(dt);
       },
+      onUnload: (scene) => {
+        this.snapshotPersistent(scene);
+      },
     });
+  }
+
+  /**
+   * A new `Scene` is a new bitECS `World`, so entities cannot be carried
+   * literally. Runs from the outgoing room's `onUnload` (synchronous within
+   * `Game.loadScene()`, so it covers `loadRoom()` and the `ctx.rooms` path
+   * `action_next_room`/`room_goto` use alike).
+   */
+  private snapshotPersistent(scene: Scene): void {
+    const carried: PersistedEntity[] = [];
+    const defs = componentRegistry.registeredComponents(scene.world);
+    const toClear: Entity[] = [];
+    scene.each(Meta, (meta, entity) => {
+      if (meta.persistent !== true) return;
+      const components: PersistedEntity["components"][number][] = [];
+      for (const def of defs) {
+        const comp = entity.get(def);
+        if (comp === undefined) continue;
+        const data: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(comp)) {
+          data[k] = Array.isArray(v) ? [...v] : v;
+        }
+        // A live physics handle belongs to the old world; the new scene's
+        // PhysicsSystem re-creates the body.
+        if ("bodyHandle" in data) data["bodyHandle"] = null;
+        components.push({ def, data });
+      }
+      carried.push({
+        oldEid: entity.eid,
+        oldWorld: scene.world,
+        components,
+        vars: exportGmlVars(entity.world, entity.eid),
+        action: exportGmlActionState(entity),
+      });
+      toClear.push(entity);
+    });
+    // Pooled/recycled-id hygiene: drop the old (world, eid) side-table
+    // entries now that their contents live in the snapshot.
+    for (const e of toClear) {
+      clearGmlActionState(e.world, e.eid);
+      clearGmlInstanceVars(e.world, e.eid);
+    }
+    this._carried = carried;
+  }
+
+  /** Respawns every carried entity into `scene` — no `onCreate`, no `onSpawned`. */
+  private restorePersistent(scene: Scene): void {
+    const carried = this._carried;
+    this._carried = [];
+    if (carried.length === 0) return;
+    const byOldEid = new Map<number, Entity>();
+    const restored: Array<{ entity: Entity; p: PersistedEntity }> = [];
+    for (const p of carried) {
+      const entity = scene.spawn();
+      for (const { def, data } of p.components) {
+        const copy: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(data)) {
+          copy[k] = Array.isArray(v) ? [...v] : v;
+        }
+        entity.add(def, copy as never);
+      }
+      byOldEid.set(p.oldEid, entity);
+      restored.push({ entity, p });
+    }
+    for (const { entity, p } of restored) {
+      // Instance-variable references to another persistent instance are
+      // remapped onto its new entity; a reference to a non-persistent
+      // instance (which no longer exists) becomes `undefined` (GameMaker's
+      // dangling-id / `noone` equivalent) rather than a stale old-world handle.
+      const vars = new Map<string, unknown>();
+      for (const [k, v] of p.vars) {
+        if (v instanceof EntityClass && v.world === p.oldWorld) {
+          vars.set(k, byOldEid.get(v.eid));
+        } else {
+          vars.set(k, Array.isArray(v) ? [...v] : v);
+        }
+      }
+      importGmlVars(entity.world, entity.eid, vars);
+      importGmlActionState(entity, p.action);
+    }
   }
 
   /**

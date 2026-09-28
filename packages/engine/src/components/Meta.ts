@@ -24,6 +24,9 @@ import { defineComponent } from "../Component.js";
  * not a physics-engine concept, and `Meta` is already the one component
  * `gms2-codegen.ts`'s generated prefabs carry for exactly this kind of
  * per-instance, editor-visible flag.
+ *
+ * `persistent` mirrors GameMaker's per-object "Persistent" checkbox;
+ * `GmsProjectRuntime` carries such entities across a room change.
  */
 export const Meta = defineComponent(
   "Meta",
@@ -31,12 +34,14 @@ export const Meta = defineComponent(
     name: "",
     tags: [] as string[],
     active: true as boolean,
+    persistent: false as boolean,
     solid: false as boolean,
   }),
   {
     schema: {
       name: { kind: "string" },
       active: { kind: "boolean" },
+      persistent: { kind: "boolean" },
       solid: { kind: "boolean" },
     },
   },

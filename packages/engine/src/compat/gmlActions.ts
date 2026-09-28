@@ -132,7 +132,7 @@ const MOVE_DIRECTION_BITS: readonly number[] = [
 ];
 
 /** Per-(World, eid) motion state `action_move`/`action_move_to` write and `gmlActionsStep` reads. Not part of any component — see the module doc comment on why this needs its own side-table rather than a new `Transform` field. `direction` is remembered independently of `vx`/`vy` so a real GML `speed = 0;` (a common "stop moving" idiom) doesn't lose the instance's last-facing direction the way deriving it purely from `atan2(vy, vx)` would (`atan2(0, 0)` is always `0`, which would silently reset facing on every stop). */
-interface GmlMotionState {
+export interface GmlMotionState {
   vx: number;
   vy: number;
   direction: number; // degrees, this file's lengthdir-style convention (0 = right, clockwise, y-down)
@@ -260,6 +260,42 @@ export function setGmlVspeed(
 export function clearGmlActionState(world: World, eid: number): void {
   motionByWorld.get(world)?.delete(eid);
   startPosByWorld.get(world)?.delete(eid);
+}
+
+/** Opaque copy of one entity's motion/alarm and `xstart`/`ystart` side-table state, for `GmsProjectRuntime`'s persistent-instance carry-over. */
+export interface GmlActionStateSnapshot {
+  readonly motion?: GmlMotionState;
+  readonly start?: { x: number; y: number };
+}
+
+export function exportGmlActionState(entity: Entity): GmlActionStateSnapshot {
+  const m = motionByWorld.get(entity.world)?.get(entity.eid);
+  const st = startPosByWorld.get(entity.world)?.get(entity.eid);
+  return {
+    ...(m !== undefined ? { motion: { ...m, alarms: new Map(m.alarms) } } : {}),
+    ...(st !== undefined ? { start: { ...st } } : {}),
+  };
+}
+
+export function importGmlActionState(
+  entity: Entity,
+  snap: GmlActionStateSnapshot,
+): void {
+  if (snap.motion !== undefined) {
+    const byEntity = getOrCreate(motionByWorld, entity.world, () => new Map());
+    byEntity.set(entity.eid, {
+      ...snap.motion,
+      alarms: new Map(snap.motion.alarms),
+    });
+  }
+  if (snap.start !== undefined) {
+    const byEntity = getOrCreate(
+      startPosByWorld,
+      entity.world,
+      () => new Map(),
+    );
+    byEntity.set(entity.eid, { ...snap.start });
+  }
 }
 
 // ---------------------------------------------------------------------------

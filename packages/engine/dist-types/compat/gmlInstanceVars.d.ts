@@ -38,6 +38,15 @@ export declare function getGmlArrayVar(
   name: string,
 ): unknown[];
 /** Clears every stored instance variable for this `(world, eid)` pair — called from `Scene.destroy()`. */
+export declare function exportGmlVars(
+  world: World,
+  eid: number,
+): Map<string, unknown>;
+export declare function importGmlVars(
+  world: World,
+  eid: number,
+  vars: ReadonlyMap<string, unknown>,
+): void;
 export declare function clearGmlInstanceVars(world: World, eid: number): void;
 /**
  * Coerces a dynamically-typed GML value (an instance/cross-instance

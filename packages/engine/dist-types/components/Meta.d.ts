@@ -27,6 +27,7 @@ export declare const Meta: import("../Component.js").ComponentDef<{
   name: string;
   tags: string[];
   active: boolean;
+  persistent: boolean;
   solid: boolean;
 }>;
 export type MetaShape = ReturnType<typeof Meta.createDefaults>;

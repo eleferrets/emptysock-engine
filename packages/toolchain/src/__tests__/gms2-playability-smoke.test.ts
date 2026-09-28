@@ -88,7 +88,6 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
       Game,
       registerGmlBehavior,
       unregisterGmlBehavior,
-      stampPrefabNameOntoMeta,
     } = await import("@emptysock/engine");
     const { Transform, Meta, Sprite, PhysicsBody, GmlBehaviorState } =
       await import("@emptysock/engine");
@@ -185,7 +184,9 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
 
     const data: GmsProjectData = {
       rooms,
-      roomOrder: [roomName],
+      // Real `.yyp` RoomOrderNodes head (rm_init -> rm_base -> rm_1 ...) with
+      // rm_init2 (reached via obj_display_manager's own room_goto) before rm_1.
+      roomOrder: ["rm_init", "rm_init2", roomName],
       prefabs,
       lookup: (name) => lookupMap[name],
     };
@@ -193,12 +194,37 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
     const game = new Game();
     const runtime = new GmsProjectRuntime(game, data, {});
 
+    // Start where real GameMaker starts: `rm_init` (first `.yyp` room). Its
+    // `obj_display_manager` (persistent) runs `room_goto(rm_init2)` on its
+    // own Step; `rm_init2` places the persistent controllers (`obj_game`,
+    // `obj_input`, `obj_trans`, `obj_sidebars`, `obj_camera`). We then move on
+    // to `rm_1` through the real runtime path, and the controllers must be
+    // carried by `Meta.persistent` (no manual spawn).
+    await runtime.loadRoom("rm_init");
+    expect(runtime.currentRoom).toBe("rm_init");
+    for (let i = 0; i < 20 && runtime.currentRoom === "rm_init"; i += 1) {
+      runtime.update(1 / 60);
+      // eslint-disable-next-line no-restricted-globals -- real async loadScene needs a macrotask turn
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(runtime.currentRoom).toBe("rm_init2");
+    for (let i = 0; i < 5; i += 1) runtime.update(1 / 60);
     await runtime.loadRoom(roomName);
     expect(runtime.currentRoom).toBe(roomName);
     const scene = runtime.scene;
     if (scene === undefined) {
       throw new Error("expected a live scene after loadRoom()");
     }
+    const namedCount = (n: string): number => {
+      let c = 0;
+      scene.each(Meta, (m) => {
+        if (m.name === n) c += 1;
+      });
+      return c;
+    };
+    // Persistence proof: carried exactly once, not re-created.
+    expect(namedCount("obj_input")).toBe(1);
+    expect(namedCount("obj_game")).toBe(1);
 
     const countEntities = (): number => {
       let n = 0;
@@ -210,41 +236,6 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
 
     const initialCount = countEntities();
     expect(initialCount).toBeGreaterThan(10);
-
-    // `obj_input` (the real project's own input-polling object) is
-    // ordinarily spawned persistently from `rm_init` and carried
-    // across rooms — this runtime does not implement GameMaker's
-    // "persistent" instance semantics (a real, separate, undocumented
-    // gap this test surfaced), so `rm_1` alone has no live `obj_input`
-    // instance for `obj_player`'s real cross-instance
-    // `obj_input.key_right` reads to resolve against. Spawning one
-    // real `obj_input` prefab instance directly is the honest fix for
-    // *this test's* purposes — it reuses the exact real prefab/behavior
-    // module Freedom Backup itself generated, not a stand-in.
-    //
-    // A real, previously-undiscovered engine gap traced from this test:
-    // `Scene.spawn()` alone never stamps `Meta.name` from the prefab's
-    // own name — only `loadSceneFile()` did that (see `SceneFile.ts`'s
-    // `stampPrefabNameOntoMeta`), which meant a real, common GameMaker
-    // pattern — a singleton object (an input manager, in this case)
-    // spawned imperatively via `instance_create`/`instance_create_layer`
-    // rather than room-placed — got an entity with no `Meta.name` at
-    // all, so `getGmlObjectVar`'s `Meta.name`-keyed cross-instance
-    // lookup could never find it. Fixed for real at the engine level:
-    // `compat/gmlActions.ts`'s `action_create_object` (which
-    // `instance_create`/`instance_create_layer` both route through) now
-    // stamps `Meta.name` on every runtime-spawned instance too. This
-    // test's own `scene.spawn()` call bypasses that compat-layer
-    // function (it spawns directly, not through a transpiled GML
-    // `instance_create` call), so it stamps `Meta.name` explicitly here
-    // via the same shared `stampPrefabNameOntoMeta` helper, matching
-    // what a real GML-driven spawn now does automatically.
-    const inputPrefab = prefabs["obj_input"];
-    if (inputPrefab === undefined) {
-      throw new Error("expected a real obj_input prefab to exist");
-    }
-    const inputEntity = scene.spawn(inputPrefab);
-    stampPrefabNameOntoMeta(inputEntity, inputPrefab.prefabName);
 
     let found: Entity | undefined;
     scene.each(Meta, (meta, entity) => {
@@ -270,7 +261,7 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
 
     const FRAMES = 400;
     const DT = 1 / 60;
-    let maxEntities = initialCount + 1; // +1 for the spawned obj_input
+    let maxEntities = initialCount;
     for (let frame = 0; frame < FRAMES; frame += 1) {
       if (frame === 60) {
         game.input.simulateKeyDown(vkToDomCode(VK_UP));
@@ -291,7 +282,7 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
     // (spawners, alarms, collisions all live) — a generous bound, not
     // a tight one, since this is a crash/leak smoke test, not a
     // balance test.
-    expect(maxEntities).toBeLessThan((initialCount + 1) * 20);
+    expect(maxEntities).toBeLessThan(initialCount * 20);
 
     // Real behavioral proof the transpiled player/input code actually
     // ran and did something, not just "no exception": holding right

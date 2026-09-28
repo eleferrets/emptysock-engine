@@ -48,6 +48,8 @@ interface YyObject {
   physicsRestitution?: number;
   physicsKinematic?: boolean;
   solid?: boolean;
+  /** Real GameMaker per-object "Persistent" checkbox — carried onto `Meta.persistent`. */
+  persistent?: boolean;
   /** Real GameMaker object-type reference for inheritance — `null` for a
    * root object with no parent, `{ name }` naming the parent object
    * resource otherwise. See `resolveGmlObjectChain()`'s own doc comment. */
@@ -318,8 +320,16 @@ export async function buildObjectPrefabJSON(
       // against, not `PhysicsBody`. Only emitted when actually `true` — the
       // component's own `false` default already covers the common case, and
       // this keeps a non-solid object's prefab unchanged.
-      if (parsed.solid === true) {
-        components.push({ component: "Meta", overrides: { solid: true } });
+      // `persistent` shares the same single `Meta` override entry (a prefab
+      // may not list one component twice). Real per-object `.yy` field —
+      // room `.yy` instances carry no per-instance persistent flag, and a
+      // room's own `roomSettings.persistent` is a different, unimplemented
+      // concept (whole-room state persistence).
+      const metaOverrides: Record<string, unknown> = {};
+      if (parsed.solid === true) metaOverrides["solid"] = true;
+      if (parsed.persistent === true) metaOverrides["persistent"] = true;
+      if (Object.keys(metaOverrides).length > 0) {
+        components.push({ component: "Meta", overrides: metaOverrides });
       }
     }
   }
