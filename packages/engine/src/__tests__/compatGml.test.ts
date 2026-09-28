@@ -12,6 +12,12 @@ import {
   cr_none,
   cr_default,
   get_timer,
+  sin,
+  cos,
+  tan,
+  sqrt,
+  power,
+  string_insert,
 } from "../compat/gml.js";
 
 describe("compat/gml.ts — JSON/base64 round trips", () => {
@@ -64,5 +70,23 @@ describe("compat/gml.ts — misc built-ins", () => {
     const a = get_timer();
     const b = get_timer();
     expect(b).toBeGreaterThanOrEqual(a);
+  });
+
+  it("sin/cos/tan operate in radians, not degrees (unlike lengthdir_x/_y)", () => {
+    expect(sin(0)).toBeCloseTo(0);
+    expect(sin(Math.PI / 2)).toBeCloseTo(1);
+    expect(cos(0)).toBeCloseTo(1);
+    expect(cos(Math.PI)).toBeCloseTo(-1);
+    expect(tan(0)).toBeCloseTo(0);
+  });
+
+  it("sqrt/power are plain, exact wrappers", () => {
+    expect(sqrt(16)).toBe(4);
+    expect(power(2, 10)).toBe(1024);
+  });
+
+  it("string_insert inserts at a 1-based index, clamping a low index to the start", () => {
+    expect(string_insert("> ", "hello", 0)).toBe("> hello");
+    expect(string_insert("XX", "hello", 3)).toBe("heXXllo");
   });
 });

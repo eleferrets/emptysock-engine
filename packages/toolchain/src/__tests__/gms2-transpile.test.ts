@@ -1273,9 +1273,19 @@ describe("transpileGML", () => {
       expect(() => new Function(out)).not.toThrow();
     });
 
-    it("still migrates a bare (this-instance) alarm assignment to the coroutine TODO comment", () => {
+    it("rewrites a bare (this-instance) alarm assignment onto the real action_set_alarm side-table (no longer a dead comment)", () => {
       const out = transpileGML("alarm[1] = 1;\n");
-      expect(out).toContain("entity.startCoroutine(waitFrames(1))");
+      expect(out).toContain(
+        "GmlActions.action_set_alarm(_entity, _ctx, 1, GmlActions.gmlNum(1));",
+      );
+      expect(out).not.toContain("startCoroutine");
+    });
+
+    it("rewrites a bare alarm read onto get_gml_alarm, gmlNum-coerced", () => {
+      const out = transpileGML("if (alarm[0] <= 0) { x = 1; }\n");
+      expect(out).toContain(
+        "GmlActions.gmlNum(GmlActions.get_gml_alarm(_entity, _ctx, 0))",
+      );
     });
 
     describe("bare single-line if whose body is a rewritten GML built-in", () => {

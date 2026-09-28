@@ -503,6 +503,25 @@ export declare function action_set_alarm(
   steps: number,
 ): void;
 /**
+ * GML's own native `alarm[index]` array — a bare read (`if (alarm[0] <= 0)`)
+ * backs onto the exact same per-`(World, eid)` `alarms` map
+ * `action_set_alarm`/`gmlActionsStep` already maintain, rather than a
+ * second, parallel countdown mechanism — GameMaker itself has exactly one
+ * alarm array per instance regardless of whether it's set via the GM8.1
+ * "Set Alarm" DnD action or plain `alarm[n] = steps;` GML syntax, and this
+ * compat layer must not disagree with itself about which one an instance
+ * is actually running. GameMaker's own documented sentinel for "not
+ * currently counting down" is `-1` (manual.gamemaker.io's Alarms
+ * reference page), which this returns when `index` has no entry in the
+ * map at all (never armed, or already fired and removed by
+ * `gmlActionsStep`'s one-shot semantics).
+ */
+export declare function get_gml_alarm(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  index: number,
+): number;
+/**
  * GM8.1 "Play Sound" — plays via `ctx.game.audio.play(id)`. `soundName` is
  * the GameMaker sound resource's name; resolving it to a playable asset id
  * depends on the (separate, parallel) sound-import work actually producing

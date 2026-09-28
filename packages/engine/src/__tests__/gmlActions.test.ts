@@ -19,6 +19,7 @@ import {
   instance_create_layer,
   instance_change,
   action_set_alarm,
+  get_gml_alarm,
   action_if_collision,
   action_if_aligned,
   action_if_empty,
@@ -342,6 +343,20 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     // one-shot: further steps must not refire it
     gmlActionsStep(entity, onAlarm);
     expect(onAlarm).toHaveBeenCalledTimes(1);
+  });
+
+  it("get_gml_alarm reads the same side-table action_set_alarm writes, honouring the -1 not-armed sentinel", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    const ctx = makeCtx(scene);
+    expect(get_gml_alarm(entity, ctx, 0)).toBe(-1);
+    action_set_alarm(entity, ctx, 0, 2);
+    expect(get_gml_alarm(entity, ctx, 0)).toBe(2);
+    gmlActionsStep(entity);
+    expect(get_gml_alarm(entity, ctx, 0)).toBe(1);
+    gmlActionsStep(entity);
+    // one-shot fire removes the entry, back to the -1 sentinel
+    expect(get_gml_alarm(entity, ctx, 0)).toBe(-1);
   });
 
   it("action_if_collision is true only when two entities' bounding boxes overlap", () => {

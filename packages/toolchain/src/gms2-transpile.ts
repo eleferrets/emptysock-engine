@@ -2211,24 +2211,6 @@ export function transpileGML(
     },
   );
 
-  // alarm[n] = expr
-  //
-  // Only a *bare* `alarm[n] = expr` (this instance's own alarm) is safe to
-  // turn into the coroutine-migration comment below. GML also allows
-  // `other.alarm[n] = expr`/`creator.alarm[n] = expr` — setting a
-  // *different* instance's alarm through a dot-access reference (a real,
-  // confirmed pattern: `creator.alarm[1] = 1;`) — and the negative
-  // lookbehind here (`(?<!\.\s*)`) excludes that case rather than matching
-  // starting mid-expression at "alarm": matching there left the dotted
-  // prefix (`creator.`) dangling with nothing after its `.` once the rest
-  // of the line became a `//` comment, a hard `SyntaxError` at module load,
-  // not just a wrong migration comment.
-  out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*\d+\s*\]\s*=\s*([^;\n]+)/g,
-    (_m, expr: string) =>
-      `// entity.startCoroutine(waitFrames(${expr.trimEnd()}));`,
-  );
-
   // show_message(msg)
   //
   // The message argument commonly contains its own nested call — real,
@@ -2439,6 +2421,60 @@ export function transpileGML(
       return `GmlActions.${fn}(${threaded})${semi ?? ""}`;
     });
   }
+
+  // alarm[n] = expr / bare alarm[n] read
+  //
+  // Only a *bare* `alarm[n]` (this instance's own alarm) is safe to rewrite
+  // onto the calling entity's own alarm state below. GML also allows
+  // `other.alarm[n] = expr`/`creator.alarm[n] = expr` — setting a
+  // *different* instance's alarm through a dot-access reference (a real,
+  // confirmed pattern: `creator.alarm[1] = 1;`) — and the negative
+  // lookbehind here (`(?<!\.\s*)`) excludes that case, the same
+  // already-documented dotted-reference guard `sprite_index`/`image_*`
+  // establish elsewhere in this file, rather than misrewriting it against
+  // the wrong entity.
+  //
+  // This used to rewrite the write side into a dead `//`-commented
+  // migration hint rather than real behaviour — a real, previously-honest
+  // but functionally-inert gap. GML's native `alarm[n] = steps;` syntax and
+  // GM8.1's DnD "Set Alarm" action are the exact same GameMaker mechanism
+  // (one alarm array per instance either way), and `compat/gmlActions.ts`'s
+  // `action_set_alarm`/`get_gml_alarm`/`gmlActionsStep` already implement
+  // it for real for the DnD case — the write rewrite now targets that same
+  // function instead of inventing a second, parallel countdown mechanism.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*(\d+)\s*\]\s*=\s*([^;\n]+)/g,
+    (_m, idx: string, expr: string) => {
+      // A global-variable read (already rewritten by the earlier `global.x`
+      // pass above into `(_ctx.game?.globals.get("x"))`) returns `unknown`
+      // — real, confirmed: Freedom Backup's own `obj_trans`'s
+      // `alarm[0] = global.one_second * trans_time;`. `unknown` cannot
+      // participate in arithmetic at all, so wrapping the *whole* steps
+      // expression in `gmlNum` below doesn't help — the type error is at
+      // the inner multiplication, not the outer value. Narrowly coercing
+      // just the `globals.get(...)` calls this expression actually
+      // contains (not a blanket rewrite of every global read project-wide,
+      // which risks corrupting a string-typed global compared elsewhere)
+      // fixes this without touching the shared global-read rewrite pass.
+      const coerced = expr
+        .trimEnd()
+        .replace(
+          /_ctx\.game\?\.globals\.get\(([^)]*)\)/g,
+          "GmlActions.gmlNum(_ctx.game?.globals.get($1))",
+        );
+      return `GmlActions.action_set_alarm(_entity, _ctx, ${idx}, GmlActions.gmlNum(${coerced}));`;
+    },
+  );
+  // A bare read (`if (alarm[0] <= 0)`, real, confirmed: Freedom Backup's
+  // own `obj_pause_menu`/`obj_player_dead`) reads the same side-table via
+  // `get_gml_alarm`, wrapped in `gmlNum` for the same "bare GML read used
+  // in expression position must be a real runtime number, not `unknown`"
+  // reason every other bare-read rewrite in this file already uses.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*(\d+)\s*\]/g,
+    (_m, idx: string) =>
+      `GmlActions.gmlNum(GmlActions.get_gml_alarm(_entity, _ctx, ${idx}))`,
+  );
 
   // GameMaker's real camera/view function family (compat/gmlCamera.ts) —
   // confirmed a real, previously-untranspiled gap against Freedom Backup's
@@ -2800,6 +2836,18 @@ export function transpileGML(
     "game_set_speed",
     "window_set_cursor",
     "window_get_cursor",
+    // sin/cos/tan/sqrt/power/string_insert (compat/gml.ts) — real,
+    // confirmed usage: Freedom Backup's own `obj_gun_pickup` float-bob
+    // effect (`sin`) and `obj_menu`'s cursor rendering (`string_insert`).
+    // Each is a thin, unit-preserving wrapper needing no `_entity`/`_ctx`
+    // and no object-name-argument quoting, the same shape every other
+    // `THREADED_PURE_FUNCTIONS` entry already uses.
+    "sin",
+    "cos",
+    "tan",
+    "sqrt",
+    "power",
+    "string_insert",
   ];
   // A single `.replace()` pass only rewrites non-overlapping matches, so a
   // call that nests *itself* as one of its own arguments (real, confirmed:

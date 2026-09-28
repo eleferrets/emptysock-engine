@@ -351,6 +351,7 @@ export {
   action_kill_object,
   instance_destroy,
   action_set_alarm,
+  get_gml_alarm,
   action_sound,
   audio_play_sound,
   audio_sound_pitch,
@@ -836,6 +837,12 @@ export {
   window_set_cursor,
   window_get_cursor,
   working_directory,
+  sin,
+  cos,
+  tan,
+  sqrt,
+  power,
+  string_insert,
 } from "./compat/gml.js";
 
 /**

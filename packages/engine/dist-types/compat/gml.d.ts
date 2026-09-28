@@ -42,6 +42,25 @@ export declare function abs(val: number): number;
 export declare function ord(str: string): number;
 /** Fractional part (GML frac) */
 export declare function frac(val: number): number;
+/**
+ * `sin`/`cos`/`tan`/`sqrt`/`power` — GameMaker's own bare trig/power
+ * built-ins, real, confirmed usage (Freedom Backup's own `obj_gun_pickup`
+ * float-bob effect: `ystart + sin(get_timer()/500000)*5`). Unlike
+ * `lengthdir_x`/`lengthdir_y` above (which take a *degrees* argument, per
+ * GameMaker's own documented convention for that function family), GML's
+ * bare `sin`/`cos`/`tan` operate in *radians* — confirmed against
+ * manual.gamemaker.io's Number reference page — so these are thin,
+ * unit-preserving wrappers over `Math`'s own radian-based equivalents,
+ * with no conversion factor (unlike `degtorad`/`radtodeg` above, which
+ * exist specifically because most of the rest of this file's angle
+ * fields are in degrees).
+ */
+export declare function sin(val: number): number;
+export declare function cos(val: number): number;
+export declare function tan(val: number): number;
+export declare function sqrt(val: number): number;
+/** GML `power(base, exponent)` — a plain wrapper over `Math.pow`/`**`. */
+export declare function power(base: number, exponent: number): number;
 /** x component of a vector given length and direction (degrees) */
 export declare function lengthdir_x(length: number, direction: number): number;
 /** y component of a vector given length and direction (degrees, GML y-down) */
@@ -92,6 +111,21 @@ export declare function string_delete(
   str: string,
   index: number,
   count: number,
+): string;
+/**
+ * GML `string_insert(substr, str, index)` — inserts `substr` into `str`
+ * starting at the 1-based `index`, matching `string_delete`'s own 1-based
+ * convention above (both are GameMaker's own real signature/indexing,
+ * confirmed against manual.gamemaker.io's `string_insert` reference page).
+ * Real, confirmed usage: Freedom Backup's own `obj_menu` menu-cursor
+ * rendering (`string_insert("> ", txt, 0)` — GameMaker treats an
+ * out-of-range low index as "insert at the very start", which this
+ * implementation matches via `Math.max(0, index - 1)`).
+ */
+export declare function string_insert(
+  substr: string,
+  str: string,
+  index: number,
 ): string;
 export declare function ds_map_create(): number;
 export declare function ds_map_destroy(id: number): void;
