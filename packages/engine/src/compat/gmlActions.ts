@@ -1229,6 +1229,22 @@ export function sprite_height(entity: Entity): number {
 }
 
 /**
+ * `image_number` — GameMaker's real, documented **read-only** bare built-in:
+ * the calling instance's current sprite's total frame count. No write side
+ * exists in real GameMaker (the manual states it's read-only), unlike
+ * `image_index`/`image_speed` above, so only a getter is provided. Reads
+ * straight off `Sprite.frameCount` (the same field `SpriteAnimationSystem`/
+ * `resolveSpriteFramePath` already use — see the "GMS2 rendering built-ins"
+ * CLAUDE.md entry), defaulting to `1` for an entity with no `Sprite` at all,
+ * matching a fresh single-frame sprite's own real default.
+ */
+export function get_gml_image_number(entity: Entity): number {
+  const sprite = entity.get(Sprite);
+  if (sprite === undefined) return 1;
+  return sprite.frameCount;
+}
+
+/**
  * `sprite_get_width`/`sprite_get_height`/`sprite_exists` — GameMaker's real
  * functions look up an *arbitrary* sprite asset's raw dimensions/existence
  * by reference, not necessarily the calling instance's own sprite (real,

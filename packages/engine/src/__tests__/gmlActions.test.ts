@@ -33,6 +33,7 @@ import {
   gmlActionsStep,
   clearGmlActionState,
   _getGmlMotion,
+  get_gml_image_number,
   type GmlActionContext,
 } from "../compat/gmlActions.js";
 
@@ -429,5 +430,20 @@ describe("room() — bare GML `room` built-in read", () => {
     const scene = new Scene();
     const ctx: GmlActionContext = { scene };
     expect(room(ctx)).toBe("");
+  });
+});
+
+describe("get_gml_image_number() — read-only image_number built-in", () => {
+  it("reads Sprite.frameCount for an entity with a multi-frame sprite", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(Sprite, { frameCount: 5 });
+    expect(get_gml_image_number(entity)).toBe(5);
+  });
+
+  it("defaults to 1 for an entity with no Sprite at all", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    expect(get_gml_image_number(entity)).toBe(1);
   });
 });

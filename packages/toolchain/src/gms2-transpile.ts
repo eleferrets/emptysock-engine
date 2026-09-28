@@ -3247,6 +3247,17 @@ export function transpileGML(
     "GmlActions.sprite_height(_entity)",
   );
 
+  // `image_number` — GameMaker's real, read-only bare built-in: the calling
+  // instance's current sprite's total frame count (compat/gmlActions.ts's
+  // `get_gml_image_number`). Read-only in real GameMaker, so only a bare-
+  // read rewrite exists, following `sprite_width`/`sprite_height`'s exact
+  // guard shape immediately above (dotted-reference/call-site/comment
+  // exclusions).
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_number\b(?!\s*\()/g,
+    "GmlActions.get_gml_image_number(_entity)",
+  );
+
   // GameMaker's bare `layer` built-in read — the calling instance's own
   // creation layer, real and common as `instance_create_layer(x, y, layer,
   // obj)`'s "same layer as me" argument (confirmed real: Freedom Backup's

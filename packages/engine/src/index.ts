@@ -389,6 +389,7 @@ export {
   set_gml_ystart,
   sprite_width,
   sprite_height,
+  get_gml_image_number,
   sprite_get_width,
   sprite_get_height,
   sprite_exists,

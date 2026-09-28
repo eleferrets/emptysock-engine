@@ -676,6 +676,8 @@ export declare function bbox_bottom(entity: Entity): number;
 export declare function sprite_width(entity: Entity): number;
 /** See `sprite_width`'s doc comment. */
 export declare function sprite_height(entity: Entity): number;
+/** `image_number` — read-only, the calling instance's sprite's total frame count. */
+export declare function get_gml_image_number(entity: Entity): number;
 /**
  * `sprite_get_width`/`sprite_get_height`/`sprite_exists` — GameMaker's real
  * functions look up an *arbitrary* sprite asset's raw dimensions/existence

@@ -371,6 +371,7 @@ export {
   get_gml_ystart,
   set_gml_ystart,
   sprite_width,
+  get_gml_image_number,
   sprite_height,
   sprite_get_width,
   sprite_get_height,

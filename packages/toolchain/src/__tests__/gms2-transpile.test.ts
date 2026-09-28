@@ -2498,3 +2498,16 @@ describe("transpileGML — with-target entity-typed local var (my_gun/owner real
     expect(() => new Function(out)).not.toThrow();
   });
 });
+
+describe("transpileGML — image_number (read-only bare built-in)", () => {
+  it("rewrites a bare read to GmlActions.get_gml_image_number(_entity)", () => {
+    const out = transpileGML("if (image_number > 1) { frame += 1; }");
+    expect(out).toContain("GmlActions.get_gml_image_number(_entity)");
+    expect(() => new Function(out)).not.toThrow();
+  });
+
+  it("does not rewrite a call-shaped or dotted occurrence", () => {
+    const out = transpileGML("d = other.image_number;");
+    expect(out).not.toContain("get_gml_image_number");
+  });
+});
