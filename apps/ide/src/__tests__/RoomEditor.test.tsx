@@ -363,3 +363,74 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
     expect(p?.props).toMatchObject({ sliceMode: 2, width: 32, height: 32 });
   });
 });
+
+describe("RoomEditor — imported room views and entities", () => {
+  it("edits a view field and an entity position, preserving other fields", async () => {
+    const view = {
+      visible: true,
+      worldX: 0,
+      worldY: 0,
+      worldWidth: 320,
+      worldHeight: 180,
+      screenX: 0,
+      screenY: 0,
+      screenWidth: 640,
+      screenHeight: 360,
+      borderX: 0,
+      borderY: 0,
+      speedX: -1,
+      speedY: -1,
+    };
+    act(() => {
+      useIDEStore.setState({
+        openFiles: {
+          "rooms/rm_v.scene.json": JSON.stringify({
+            sceneName: "rm_v",
+            prefabInstances: [],
+            viewsEnabled: true,
+            views: [view],
+            entities: [
+              {
+                components: [
+                  { component: "Transform", overrides: { x: 1, y: 2 } },
+                ],
+              },
+            ],
+          }),
+        },
+      });
+    });
+    await renderPanel();
+    const setVal = (label: string, v: string): void => {
+      const el = container.querySelector<HTMLInputElement>(
+        `input[aria-label="${label}"]`,
+      );
+      expect(el).not.toBeNull();
+      if (el === null) return;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      act(() => {
+        setter?.call(el, v);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    };
+    setVal("view 0 worldX", "48");
+    setVal("entity 0 x", "77");
+    const saved = JSON.parse(
+      useIDEStore.getState().openFiles["rooms/rm_v.scene.json"] ?? "{}",
+    ) as {
+      viewsEnabled: boolean;
+      views: { worldX: number; worldWidth: number }[];
+      entities: { components: { overrides: { x: number; y: number } }[] }[];
+    };
+    expect(saved.viewsEnabled).toBe(true);
+    expect(saved.views[0]?.worldX).toBe(48);
+    expect(saved.views[0]?.worldWidth).toBe(320);
+    expect(saved.entities[0]?.components[0]?.overrides).toEqual({
+      x: 77,
+      y: 2,
+    });
+  });
+});

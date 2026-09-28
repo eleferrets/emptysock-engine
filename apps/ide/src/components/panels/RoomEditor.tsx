@@ -14,6 +14,18 @@ import {
   nineSliceRects,
   resizeBox,
 } from "./roomEditorGeometry";
+import {
+  VIEW_NUMBER_FIELDS,
+  entityLabel,
+  entityPosition,
+  getEntities,
+  getViews,
+  getViewsEnabled,
+  moveEntity,
+  patchView,
+  setViewsEnabled,
+  type Extra,
+} from "./roomEditorExtras";
 
 /** Half-size (px) of a resize handle square, also its hit tolerance. */
 const HANDLE = 5;
@@ -300,6 +312,16 @@ export function RoomEditor(): React.ReactElement {
     (instances: SceneFilePrefabInstance[]) => {
       if (state === undefined || selectedPath === null) return;
       const next: RoomEditorState = { ...state, instances };
+      set(next);
+      setFileContent(selectedPath, serializeSceneFile(next));
+    },
+    [state, selectedPath, set, setFileContent],
+  );
+
+  const commitExtra = React.useCallback(
+    (extra: Extra) => {
+      if (state === undefined || selectedPath === null) return;
+      const next: RoomEditorState = { ...state, extra };
       set(next);
       setFileContent(selectedPath, serializeSceneFile(next));
     },
@@ -916,6 +938,164 @@ export function RoomEditor(): React.ReactElement {
                 ))}
               </>
             )}
+          </div>
+        ) : null}
+        {state !== undefined &&
+        (getViews(state.extra).length > 0 ||
+          getEntities(state.extra).length > 0) ? (
+          <div
+            data-testid="room-extras"
+            style={{
+              width: 260,
+              borderLeft: "1px solid var(--es-border)",
+              padding: 10,
+              fontSize: 12,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {getViews(state.extra).length > 0 ? (
+              <>
+                <div style={{ fontWeight: 600 }}>Views</div>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={getViewsEnabled(state.extra)}
+                    onChange={(e) =>
+                      commitExtra(
+                        setViewsEnabled(state.extra, e.target.checked),
+                      )
+                    }
+                  />{" "}
+                  Enable views
+                </label>
+                {getViews(state.extra).map((v, vi) => (
+                  <fieldset
+                    key={vi}
+                    style={{ border: "1px solid var(--es-border)" }}
+                  >
+                    <legend>View {vi}</legend>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={v.visible}
+                        onChange={(e) =>
+                          commitExtra(
+                            patchView(state.extra, vi, {
+                              visible: e.target.checked,
+                            }),
+                          )
+                        }
+                      />{" "}
+                      Visible
+                    </label>
+                    {VIEW_NUMBER_FIELDS.map((f) => (
+                      <label
+                        key={f}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        {f}
+                        <input
+                          type="number"
+                          aria-label={`view ${vi} ${f}`}
+                          value={v[f]}
+                          onChange={(e) =>
+                            commitExtra(
+                              patchView(state.extra, vi, {
+                                [f]: Number(e.target.value),
+                              }),
+                            )
+                          }
+                          style={{
+                            background: "var(--es-surface)",
+                            color: "var(--es-text)",
+                            border: "1px solid var(--es-border)",
+                            borderRadius: 4,
+                            padding: "2px 6px",
+                            width: 64,
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </fieldset>
+                ))}
+              </>
+            ) : null}
+            {getEntities(state.extra).length > 0 ? (
+              <>
+                <div style={{ fontWeight: 600 }}>Entities</div>
+                {getEntities(state.extra).map((en, ei) => {
+                  const p = entityPosition(en);
+                  return (
+                    <div
+                      key={ei}
+                      style={{ display: "flex", gap: 4, alignItems: "center" }}
+                    >
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {entityLabel(en, ei)}
+                      </span>
+                      <input
+                        type="number"
+                        aria-label={`entity ${ei} x`}
+                        value={p.x}
+                        onChange={(e) =>
+                          commitExtra(
+                            moveEntity(
+                              state.extra,
+                              ei,
+                              Number(e.target.value),
+                              p.y,
+                            ),
+                          )
+                        }
+                        style={{
+                          background: "var(--es-surface)",
+                          color: "var(--es-text)",
+                          border: "1px solid var(--es-border)",
+                          borderRadius: 4,
+                          padding: "2px 6px",
+                          width: 64,
+                        }}
+                      />
+                      <input
+                        type="number"
+                        aria-label={`entity ${ei} y`}
+                        value={p.y}
+                        onChange={(e) =>
+                          commitExtra(
+                            moveEntity(
+                              state.extra,
+                              ei,
+                              p.x,
+                              Number(e.target.value),
+                            ),
+                          )
+                        }
+                        style={{
+                          background: "var(--es-surface)",
+                          color: "var(--es-text)",
+                          border: "1px solid var(--es-border)",
+                          borderRadius: 4,
+                          padding: "2px 6px",
+                          width: 64,
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
