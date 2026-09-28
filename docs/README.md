@@ -35,7 +35,7 @@ Task-oriented answers to "how do I X?" Each guide explains the concept, shows yo
 | [Hot Reload](./guides/hot-reload.md)                           | How the reload pipeline works, scene-level hot swap                               |
 | [Building and Exporting](./guides/building-and-exporting.md)   | Export pipeline, platform targets, CLI flags                                      |
 | [Included Files](./guides/included-files.md)                   | Per-platform build-time file bundling manifest, `--included-files`                |
-| [Accessibility](./guides/accessibility.md)                     | InputBindings remapping, colourblind filter, text scale                           |
+| [Accessibility](./guides/accessibility.md)                     | InputManager remapping, colourblind filter, text scale                            |
 | [Building UI: visual vs code](./guides/ui-visual-vs-code.md)   | Widget/UISystem layouts — panel and hand-written code, round-trip                 |
 
 ---

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InputManager } from "../Input.js";
+import { InputManager, INPUT_BINDINGS_STORAGE_KEY } from "../Input.js";
+import { keyboard_check } from "../compat/gmlInput.js";
 import { Game, defineScene } from "../Game.js";
 import { MemoryStorageAdapter } from "../systems/StorageAdapter.js";
 import { PointerSystem } from "../systems/PointerSystem.js";
@@ -166,6 +167,80 @@ describe("InputManager rebinding and persistence", () => {
     const loaded = await input.loadBindings(adapter);
     expect(loaded).toBe(false);
     expect(input.getBindings("jump")).toEqual([{ kind: "key", code: "Space" }]);
+  });
+});
+
+describe("InputManager merged remap API (ex-KeyBindings)", () => {
+  const K = (code: string) => ({ kind: "key" as const, code });
+
+  it("addBinding dedupes, unbind removes one binding or the whole action, rebind replaces", () => {
+    const input = new InputManager({});
+    input.addBinding("jump", K("Space"));
+    input.addBinding("jump", K("KeyW"));
+    input.addBinding("jump", K("Space"));
+    expect(input.getBindings("jump")).toEqual([K("Space"), K("KeyW")]);
+    input.unbind("jump", K("KeyW"));
+    expect(input.getBindings("jump")).toEqual([K("Space")]);
+    input.rebind("jump", [K("KeyZ")]);
+    expect(input.getBindings("jump")).toEqual([K("KeyZ")]);
+    input.unbind("jump");
+    expect(input.actions).not.toContain("jump");
+  });
+
+  it("wasPressed/wasReleased fire for exactly one snapshot", () => {
+    const input = new InputManager({ fire: [K("KeyF")] });
+    input.snapshot();
+    expect(input.wasPressed("fire")).toBe(false);
+    input.simulateKeyDown("KeyF");
+    input.snapshot();
+    expect(input.wasPressed("fire")).toBe(true);
+    input.snapshot();
+    expect(input.wasPressed("fire")).toBe(false);
+    expect(input.isDown("fire")).toBe(true);
+    input.simulateKeyUp("KeyF");
+    input.snapshot();
+    expect(input.wasReleased("fire")).toBe(true);
+    input.snapshot();
+    expect(input.wasReleased("fire")).toBe(false);
+  });
+
+  it("gamepad axis bindings drive edges", () => {
+    const input = new InputManager({
+      left: [{ kind: "gamepadAxis", axis: 0, threshold: -0.5 }],
+    });
+    input.snapshot();
+    expect(input.wasPressed("left")).toBe(false);
+  });
+
+  it("loadBindings rejects corrupt or malformed data and keeps current bindings", async () => {
+    const adapter = new MemoryStorageAdapter();
+    const input = new InputManager({ jump: [K("Space")] });
+    await adapter.set(INPUT_BINDINGS_STORAGE_KEY, "{not json");
+    expect(await input.loadBindings(adapter)).toBe(false);
+    await adapter.set(
+      INPUT_BINDINGS_STORAGE_KEY,
+      JSON.stringify({ jump: [1] }),
+    );
+    expect(await input.loadBindings(adapter)).toBe(false);
+    await adapter.set(
+      INPUT_BINDINGS_STORAGE_KEY,
+      JSON.stringify({ jump: [{ kind: "key", code: "KeyQ" }] }),
+    );
+    expect(await input.loadBindings(adapter)).toBe(true);
+    expect(input.getBindings("jump")).toEqual([K("KeyQ")]);
+  });
+
+  it("GML keyboard_check reads raw codes, independent of action rebinding", () => {
+    const game = new Game();
+    game.input.rebind("jump", [K("KeyZ")]);
+    game.input.simulateKeyDown("Space");
+    game.input.snapshot();
+    // vk_space is physical Space regardless of what "jump" is bound to.
+    expect(keyboard_check({ game }, 32)).toBe(true);
+    expect(game.input.isDown("jump")).toBe(false);
+    game.input.simulateKeyDown("KeyZ");
+    game.input.snapshot();
+    expect(game.input.isDown("jump")).toBe(true);
   });
 });
 

@@ -1,58 +1,37 @@
-# InputBindings
+# Input bindings
 
-`InputBindings` maps named actions (`"jump"`, `"moveLeft"`) to physical inputs (keys, mouse buttons, gamepad buttons/axes) so game code queries `isActionActive("jump")` instead of a raw key code. Players can rebind at runtime, and the resulting map persists through `SaveSystem`.
+`InputManager` (`game.input`) is the one remappable-input system: named actions map to `Binding`s (keyboard `code`, gamepad button, gamepad axis with signed threshold). Any active binding makes the action active. There is no separate `KeyBindings` or `InputBindings` class.
 
-Import: `import { InputBindings, createBindingsSaveSystem } from '@emptysock/engine';`
+Import: `import { InputManager, INPUT_BINDINGS_STORAGE_KEY } from '@emptysock/engine';`
 
----
-
-## `new InputBindings(input: InputSystem, defaults: ActionMap, gamepad?: GamepadSystem)`
-
-`defaults` maps an action name to an array of `Binding`s (any one being active makes the action active).
-
-```typescript
-import { InputBindings, InputSystem } from "@emptysock/engine";
-
-const input = new InputSystem();
-input.attach();
-
-const bindings = new InputBindings(input, {
-  jump: [{ kind: "key", code: "Space" }],
-  moveLeft: [
-    { kind: "key", code: "ArrowLeft" },
-    { kind: "key", code: "KeyA" },
-  ],
-});
-```
-
-## `isActionActive(action): boolean` / `isActionPressed(action): boolean`
+| Member                                                        | Description                                                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `new InputManager(actions?)`                                  | Default `ActionMap`; kept for `resetToDefaults()`. `Game` constructs one as `game.input`.                                                                                                                                             |
+| `isDown(action)`                                              | Any binding active in this frame's frozen snapshot.                                                                                                                                                                                   |
+| `wasPressed(action)` / `wasReleased(action)`                  | Edge results, computed automatically by `snapshot()` (run first by `Game.update()`); no separate `update()` call.                                                                                                                     |
+| `bindAction(action, bindings)` / `rebind(action, bindings)`   | Replace an action's bindings.                                                                                                                                                                                                         |
+| `addBinding(action, binding)`                                 | Append (duplicates ignored).                                                                                                                                                                                                          |
+| `unbind(action, binding?)`                                    | Remove one binding, or the whole action.                                                                                                                                                                                              |
+| `setActions(map)` / `getBindings(action)` / `actions`         | Bulk replace / read.                                                                                                                                                                                                                  |
+| `resetToDefaults()`                                           | Restore constructor bindings.                                                                                                                                                                                                         |
+| `saveBindings(adapter, key?)` / `loadBindings(adapter, key?)` | Persist via any `StorageAdapter` (default `MemoryStorageAdapter`-compatible); default key `emptysock_input_bindings`. `loadBindings` validates the shape and returns `false`, leaving bindings untouched, on missing or corrupt data. |
+| `keyboard.isDown(code)` / `gamepad(i)`                        | Raw frozen-snapshot escape hatches.                                                                                                                                                                                                   |
 
 ```typescript
-if (bindings.isActionActive("jump")) player.jump();
+const input = ctx.game.input;
+await input.loadBindings(storage);
+input.addBinding("jump", { kind: "key", code: "Space" });
+input.addBinding("left", { kind: "gamepadAxis", axis: 0, threshold: -0.5 });
+// in onUpdate
+if (input.wasPressed("jump")) player.jump();
+input.rebind("jump", [{ kind: "key", code: "KeyW" }]); // settings menu
+await input.saveBindings(storage);
 ```
 
-## `rebind(action, bindings)` / `addBinding(action, binding)` / `resetToDefaults()`
+## Keyboard layouts
 
-```typescript
-// Player remaps jump to W in a settings menu:
-bindings.rebind("jump", [{ kind: "key", code: "KeyW" }]);
-```
+Key bindings use `KeyboardEvent.code` (physical position: `"KeyW"`, `"Space"`, `"ArrowLeft"`), which is layout-independent: the key labelled Z on AZERTY still reports the QWERTY-`KeyW` position. WASD-style movement therefore stays ergonomic on AZERTY/Dvorak, but a settings UI showing "W" would be wrong on AZERTY; label keys with `navigator.keyboard.getLayoutMap()` where available. `KeyboardEvent.key` (the produced character) is not used for bindings.
 
-## `save(save: SaveSystem<BindingsSaveSlot>)` / `load(save)`
+## GML compat
 
-Bindings persist through a `SaveSystem` configured with the `BindingsSaveSlot` schema — use `createBindingsSaveSystem()` rather than the default `GameSaveSlot`-shaped `SaveSystem`.
-
-```typescript
-import { createBindingsSaveSystem } from "@emptysock/engine";
-
-const bindingsSave = createBindingsSaveSystem();
-bindings.save(bindingsSave); // persist a rebind
-bindings.load(bindingsSave); // on next launch
-```
-
-## Binding kinds
-
-- `{ kind: "key", code: string }` — a `KeyboardEvent.code`.
-- `{ kind: "mouseButton", button: number }`.
-- `{ kind: "gamepadButton", index: number, padIndex?: number }`.
-- `{ kind: "gamepadAxis", axis: number, threshold: number, padIndex?: number }` — active when the axis crosses `threshold` (sign matters: negative threshold checks `<=`).
+`keyboard_check`/`_pressed`/`_released` (`compat/gmlInput.ts`) read raw physical codes through `vkToDomCode`, not action bindings: `vk_space` is `Space` regardless of what an action is rebound to. GML `ord("A")` letters map to `KeyA` positions, so they are also physical rather than layout-aware. Both read the same frozen snapshot as `isDown`.

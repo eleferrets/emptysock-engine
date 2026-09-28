@@ -45,6 +45,63 @@ export interface GamepadSnapshot {
   axis(index: number): number;
 }
 
+/** Default `StorageAdapter` key for `saveBindings`/`loadBindings`. */
+export const INPUT_BINDINGS_STORAGE_KEY = "emptysock_input_bindings";
+
+function sameBinding(a: Binding, b: Binding): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case "key":
+      return a.code === (b as typeof a).code;
+    case "gamepadButton": {
+      const o = b as typeof a;
+      return a.index === o.index && (a.padIndex ?? 0) === (o.padIndex ?? 0);
+    }
+    case "gamepadAxis": {
+      const o = b as typeof a;
+      return (
+        a.axis === o.axis &&
+        a.threshold === o.threshold &&
+        (a.padIndex ?? 0) === (o.padIndex ?? 0)
+      );
+    }
+  }
+}
+
+function isBinding(v: unknown): v is Binding {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as {
+    padIndex?: unknown;
+    kind?: unknown;
+    code?: unknown;
+    index?: unknown;
+    axis?: unknown;
+    threshold?: unknown;
+  };
+  const padOk = o.padIndex === undefined || typeof o.padIndex === "number";
+  if (!padOk) return false;
+  switch (o.kind) {
+    case "key":
+      return typeof o.code === "string";
+    case "gamepadButton":
+      return typeof o.index === "number";
+    case "gamepadAxis":
+      return typeof o.axis === "number" && typeof o.threshold === "number";
+    default:
+      return false;
+  }
+}
+
+function parseActionMap(v: unknown): ActionMap | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const out: Record<string, readonly Binding[]> = {};
+  for (const [action, list] of Object.entries(v)) {
+    if (!Array.isArray(list) || !list.every(isBinding)) return null;
+    out[action] = list;
+  }
+  return out;
+}
+
 const DISCONNECTED_GAMEPAD: GamepadSnapshot = {
   connected: false,
   isButtonDown: () => false,
@@ -113,6 +170,10 @@ export class InputManager {
   /** Gestures/wheel events accumulated since the last `snapshot()` call — see `FrozenInputState`'s doc comment. */
   private _pendingGestures: Gesture[] = [];
   private _pendingWheelEvents: WheelEventInfo[] = [];
+  /** Per-action edge tracking, advanced once per `snapshot()`. */
+  private readonly _prevActive = new Map<string, boolean>();
+  private readonly _pressed = new Set<string>();
+  private readonly _released = new Set<string>();
 
   constructor(
     actions: ActionMap = {},
@@ -161,6 +222,35 @@ export class InputManager {
     this._actions = { ...this._actions, [action]: [...bindings] };
   }
 
+  /** Alias of `bindAction` — replace an action's bindings outright (the settings-menu "rebind" case). */
+  rebind(action: string, bindings: readonly Binding[]): void {
+    this.bindAction(action, bindings);
+  }
+
+  /** Append one binding to an action (duplicates ignored). */
+  addBinding(action: string, binding: Binding): void {
+    const list = this._actions[action] ?? [];
+    if (list.some((b) => sameBinding(b, binding))) return;
+    this._actions = { ...this._actions, [action]: [...list, binding] };
+  }
+
+  /** Remove one binding from an action, or the whole action when `binding` is omitted. */
+  unbind(action: string, binding?: Binding): void {
+    if (binding === undefined) {
+      const { [action]: _removed, ...rest } = this._actions;
+      void _removed;
+      this._actions = rest;
+      this._prevActive.delete(action);
+      return;
+    }
+    const list = this._actions[action];
+    if (list === undefined) return;
+    this._actions = {
+      ...this._actions,
+      [action]: list.filter((b) => !sameBinding(b, binding)),
+    };
+  }
+
   get actions(): ReadonlyArray<string> {
     return Object.keys(this._actions);
   }
@@ -176,6 +266,9 @@ export class InputManager {
    */
   resetToDefaults(): void {
     this._actions = this._defaultActions;
+    this._prevActive.clear();
+    this._pressed.clear();
+    this._released.clear();
   }
 
   /**
@@ -191,7 +284,7 @@ export class InputManager {
    */
   async saveBindings(
     adapter: StorageAdapter,
-    key = "emptysock_input_bindings",
+    key = INPUT_BINDINGS_STORAGE_KEY,
   ): Promise<void> {
     await adapter.set(key, JSON.stringify(this._actions));
   }
@@ -204,18 +297,28 @@ export class InputManager {
    */
   async loadBindings(
     adapter: StorageAdapter,
-    key = "emptysock_input_bindings",
+    key = INPUT_BINDINGS_STORAGE_KEY,
   ): Promise<boolean> {
-    const raw = await adapter.get(key);
-    if (raw === null) return false;
+    let raw: string | null;
     try {
-      const parsed: unknown = JSON.parse(raw);
-      if (parsed === null || typeof parsed !== "object") return false;
-      this._actions = parsed as ActionMap;
-      return true;
+      raw = await adapter.get(key);
     } catch {
       return false;
     }
+    if (raw === null) return false;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+    const map = parseActionMap(parsed);
+    if (map === null) return false;
+    this._actions = map;
+    this._prevActive.clear();
+    this._pressed.clear();
+    this._released.clear();
+    return true;
   }
 
   /**
@@ -247,6 +350,29 @@ export class InputManager {
     // this frame's list is already captured into `_frozen` above.
     this._pendingGestures = [];
     this._pendingWheelEvents = [];
+    this._updateEdges();
+  }
+
+  private _updateEdges(): void {
+    this._pressed.clear();
+    this._released.clear();
+    for (const action of Object.keys(this._actions)) {
+      const now = this.isDown(action);
+      const was = this._prevActive.get(action) === true;
+      if (now && !was) this._pressed.add(action);
+      if (!now && was) this._released.add(action);
+      this._prevActive.set(action, now);
+    }
+  }
+
+  /** True only on the frame (snapshot) the action went from inactive to active. */
+  wasPressed(action: string): boolean {
+    return this._pressed.has(action);
+  }
+
+  /** True only on the frame (snapshot) the action went from active to inactive. */
+  wasReleased(action: string): boolean {
+    return this._released.has(action);
   }
 
   /** True if any binding for `action` is active in the current frozen snapshot. */

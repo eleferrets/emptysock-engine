@@ -1645,24 +1645,11 @@ const score = new LabelWidget({ text: "0", anchor: "top-right", x: 16, y: 16 });
 UISystem.add(score);
 ```
 
-## 5.31 InputBindings
+## 5.31 Input bindings (`InputManager`)
 
-`InputBindings` maps named actions to physical inputs (keys, mouse buttons, gamepad buttons/axes) so game code queries `isActionActive("jump")` instead of a raw key code, and rebinds at runtime.
+`game.input` maps named actions to keys, gamepad buttons and gamepad axes: `isDown`, `wasPressed`/`wasReleased` (edges from `snapshot()`), `rebind`/`addBinding`/`unbind`/`resetToDefaults`, and `saveBindings`/`loadBindings` through a `StorageAdapter`. Bindings use physical `KeyboardEvent.code`.
 
-```ts
-import { InputBindings, createBindingsSaveSystem } from "@emptysock/engine";
-
-const bindings = new InputBindings(input, {
-  jump: [{ kind: "key", code: "Space" }],
-});
-
-if (bindings.isActionActive("jump")) player.jump();
-
-bindings.rebind("jump", [{ kind: "key", code: "KeyW" }]);
-bindings.save(createBindingsSaveSystem());
-```
-
-See [InputBindings reference](../reference/systems/input-bindings.md) for the full `Binding` union and the `SaveSystem`-backed persistence API.
+See [Input bindings reference](../reference/systems/input-bindings.md).
 
 ## 5.32 DebugOverlaySystem
 
@@ -1700,7 +1687,7 @@ postProcess.setLayerFilter("ui", { type: "colourblind", mode: "deuteranopia" });
 accessibilitySettings.textScale = 1.5; // wire to a settings-menu slider
 ```
 
-See the [Accessibility guide](../guides/accessibility.md) for the honest scope of the colourblind filter (simulation, not correction) and for `InputBindings` as the highest-value accessibility primitive (control remapping).
+See the [Accessibility guide](../guides/accessibility.md) for the honest scope of the colourblind filter (simulation, not correction) and for `InputManager` remapping as the highest-value accessibility primitive (control remapping).
 
 ---
 
@@ -1827,18 +1814,6 @@ renderSystem.syncLighting(lights, lighting.ambient, viewport);
 
 ---
 
-## 5.39 KeyBindings
+## 5.39 KeyBindings (merged)
 
-Remappable action-to-key table over `InputManager`'s frozen keyboard snapshot. Codes are DOM `KeyboardEvent.code` values (physical-key, layout-independent).
-
-- `bind`/`unbind`/`rebind`/`getBindings`, `isActionDown`, `wasActionPressed`/`wasActionReleased` (edges computed by one `update()` call per frame).
-- `save()`/`load()` persist the table through an injected `StorageAdapter` (default `MemoryStorageAdapter`); missing or corrupt data leaves bindings untouched and `load()` returns `false`.
-
-```typescript
-const keys = new KeyBindings(game.input);
-keys.bind("jump", "Space", "KeyW");
-keys.update();
-if (keys.wasActionPressed("jump")) jump();
-```
-
-See [KeyBindings reference](../reference/systems/key-bindings.md).
+Merged into `InputManager`; see 5.31.

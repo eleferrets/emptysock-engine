@@ -63,6 +63,8 @@ export interface GamepadSnapshot {
  * is simply "nothing is down", matching CLAUDE.md's engine-environment-
  * boundary rule.
  */
+/** Default `StorageAdapter` key for `saveBindings`/`loadBindings`. */
+export declare const INPUT_BINDINGS_STORAGE_KEY = "emptysock_input_bindings";
 export declare class InputManager {
   private readonly _input;
   private readonly _gamepadSystem;
@@ -98,6 +100,12 @@ export declare class InputManager {
   setActions(actions: ActionMap): void;
   /** Add or replace the bindings for a single action, leaving others untouched. */
   bindAction(action: string, bindings: readonly Binding[]): void;
+  /** Alias of `bindAction`. */
+  rebind(action: string, bindings: readonly Binding[]): void;
+  /** Append one binding to an action (duplicates ignored). */
+  addBinding(action: string, binding: Binding): void;
+  /** Remove one binding, or the whole action when omitted. */
+  unbind(action: string, binding?: Binding): void;
   get actions(): ReadonlyArray<string>;
   getBindings(action: string): ReadonlyArray<Binding>;
   /**
@@ -134,6 +142,11 @@ export declare class InputManager {
    * assert `isDown` is unaffected *until* the next `snapshot()` call.
    */
   snapshot(): void;
+  private _updateEdges;
+  /** True only on the snapshot frame the action went inactive to active. */
+  wasPressed(action: string): boolean;
+  /** True only on the snapshot frame the action went active to inactive. */
+  wasReleased(action: string): boolean;
   /** True if any binding for `action` is active in the current frozen snapshot. */
   isDown(action: string): boolean;
   /** Raw keyboard escape hatch (§15.3) — reads the frozen snapshot, not live state. */
