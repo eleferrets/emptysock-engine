@@ -65,6 +65,7 @@ export default [
       'packages/engine/src/__tests__/RenderSystemMultiCamera.test.ts',
       'packages/engine/src/__tests__/RenderPipelineProjection3D.test.ts',
       'packages/engine/src/__tests__/RenderPipelineParticles.test.ts',
+      'packages/engine/src/__tests__/RenderPipelineShaders.test.ts',
       'packages/engine/src/__tests__/GmlBehaviorSystem.test.ts',
       'packages/engine/src/__tests__/ViewportSystem.test.ts',
       'packages/engine/src/__tests__/UISystem.test.ts',

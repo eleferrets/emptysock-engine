@@ -10,6 +10,14 @@ export interface CustomShaderOptions {
   vertexSrc?: string;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
+  /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
+  uniforms?: Record<
+    string,
+    {
+      value: number | number[];
+      type: string;
+    }
+  >;
 }
 /**
  * A user-authored post-process filter. Construct it from the same GLSL
@@ -21,6 +29,8 @@ export declare class CustomShaderFilter extends Filter {
   constructor(options: CustomShaderOptions);
   /** Updates the uTime uniform. Call once per frame from the game loop. */
   setTime(seconds: number): void;
+  /** Writes a uniform previously declared via `options.uniforms`; undeclared names are ignored. */
+  setUniform(name: string, value: number | number[]): void;
 }
 export declare function createCustomShaderFilter(
   options: CustomShaderOptions,

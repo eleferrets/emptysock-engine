@@ -1251,6 +1251,16 @@ Traced the smoke test's own documented "`obj_player.x` never moves" finding to c
 - Sweep: 193 -> 175 error lines. Full suites green: engine 658/658 (+2 new), toolchain 436/436 (+10 new), playability smoke test included, no regression.
 - CLAUDE.md updated.
 
+## Per-entity shader filters (2026-09-28)
+
+- [x] Read real `sh_white` `.fsh`/`.vsh` and generated `sh_white.shader.ts`; found CRLF/lone-CR comment hazard and a Filter-vertex contract mismatch (MVP matrices are not set for filters) — fixed via CRLF normalisation and `toFilterVertexSource()`.
+- [x] `ShaderRegistry` (module-level, no pixi import); generated shader assets self-register.
+- [x] `Sprite.shader` + `RenderPipeline` shared per-id filter, attach/clear in `_syncOne`; Draw-event path via `GmlDrawTarget.setShader`.
+- [x] `shader_set`/`shader_reset` moved to `compat/gmlShaders.ts` (tint approximation removed); `shader_get_uniform`, `shader_set_uniform_f/_i/_f_array/_i_array`, `shader_is_compiled`.
+- [x] Transpiler: shader-name asset kind, uniform threading. Verified on real Freedom output.
+- [x] dist-types hand-patched, zero export drift. Engine 689/689, toolchain 450/450.
+- [ ] GPU compile/pixel verification of the filter (needs a real WebGL context); nine-slice/tiled/`Projection3D` sprites and Draw vector shapes/text are not filtered; per-layer `addLayerShaderFilter` still hands importer-emitted shaders the MVP vertex stage.
+
 ---
 
 ## Starting the next pass

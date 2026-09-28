@@ -790,35 +790,3 @@ export declare function gmlActionsStep(
   entity: Entity,
   onAlarm?: (index: number) => void,
 ): void;
-/**
- * `shader_set(shader)`/`shader_reset()` — GameMaker's real per-draw-call
- * shader-swap API. This importer has no shader compiler at all (GLSL
- * source lives in a project's `shaders/` resource directory, entirely
- * unparsed by anything in this codebase), so a genuine per-shader effect is
- * out of scope — but the single overwhelmingly common real use of this API
- * in a 2D game (confirmed: the one real call site in Freedom Backup,
- * `obj_pShootable`'s `shader_set(sh_white); ...; shader_reset();`) is a
- * hit-flash effect: render the sprite as a solid white silhouette for one
- * draw call. `shader_set` honestly approximates exactly that one case —
- * regardless of which shader name is actually passed (a real custom
- * shader's real visual effect is unrepresentable without compiling GLSL,
- * which is a materially deeper, separate feature) — by tinting the calling
- * entity's own `Sprite.tint` white for the duration of the draw call and
- * restoring its prior tint on `shader_reset()`. This is a real, visible,
- * useful effect for the actual real project this was built against, not a
- * silent no-op — but it is genuinely not a real shader system, and a
- * project relying on a different custom shader's real visual output will
- * see the same white-flash approximation instead. `shader_reset()` with no
- * matching prior `shader_set()` call (or on an entity with no `Sprite`) is
- * a safe, honest no-op.
- */
-export declare function shader_set(
-  entity: Entity,
-  _ctx: GmlActionContext,
-  _shaderName: string,
-): void;
-/** See `shader_set`'s doc comment. */
-export declare function shader_reset(
-  entity: Entity,
-  _ctx: GmlActionContext,
-): void;

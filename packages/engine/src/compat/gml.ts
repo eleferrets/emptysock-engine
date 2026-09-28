@@ -441,6 +441,8 @@ export interface GmlDrawTarget {
   setValign?(align: number): void;
   /** `draw_set_alpha(alpha)` — opacity (0-1) applied to every subsequent draw call until changed again — GameMaker's own persistent draw-state alpha, distinct from a per-call `alpha` argument (`spriteExt`/`spritePartExt` below still take their own explicit `alpha`, matching GameMaker's own real per-call override). Optional, same reasoning as `setFont`. */
   setAlpha?(alpha: number): void;
+  /** `shader_set(id)`/`shader_reset()` (`null`) — subsequent sprite-shaped draw calls render through that registered shader (`ShaderRegistry`). Optional, same reasoning as `setFont`. */
+  setShader?(shaderId: string | null): void;
   /**
    * `draw_sprite_ext(sprite, subimg, x, y, xscale, yscale, rot, colour, alpha)`
    * — draws a sprite with a full per-call transform, unlike the plain

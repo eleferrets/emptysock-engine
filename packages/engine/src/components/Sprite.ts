@@ -114,6 +114,14 @@ export const Sprite = defineComponent(
     sliceRight: 0,
     sliceTop: 0,
     sliceBottom: 0,
+    /**
+     * Registered shader id (`ShaderRegistry`, e.g. GameMaker's `sh_white`) to
+     * render this sprite through, `""` for none. `RenderPipeline._syncOne()`
+     * sets the tracked pixi sprite's `.filters` to the one shared Filter for
+     * that id (never one per entity) and clears it when this is empty. GML's
+     * `shader_set`/`shader_reset` write it outside a Draw event.
+     */
+    shader: "",
   }),
   {
     schema: {
@@ -136,6 +144,7 @@ export const Sprite = defineComponent(
       sliceRight: { kind: "number" },
       sliceTop: { kind: "number" },
       sliceBottom: { kind: "number" },
+      shader: { kind: "string" },
     },
   },
 );

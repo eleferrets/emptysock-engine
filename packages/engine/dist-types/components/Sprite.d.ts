@@ -101,6 +101,13 @@ export declare const Sprite: import("../Component.js").ComponentDef<{
   sliceRight: number;
   sliceTop: number;
   sliceBottom: number;
+  /**
+   * Registered shader id (`ShaderRegistry`, e.g. GameMaker's `sh_white`) to
+   * render this sprite through, `""` for none. Applied by `RenderPipeline`
+   * as one shared Filter per id; GML's `shader_set`/`shader_reset` write it
+   * outside a Draw event.
+   */
+  shader: string;
 }>;
 /**
  * Resolves `Sprite.texturePath`/`currentFrame`/`frameCount` into the actual

@@ -17,6 +17,7 @@
 // rule as every other file under compat/.
 
 import type { World } from "bitecs";
+import { clearGmlShaderState } from "./gmlShaders.js";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
 import type { Game, SceneDefinition } from "../Game.js";
@@ -260,6 +261,7 @@ export function setGmlVspeed(
 export function clearGmlActionState(world: World, eid: number): void {
   motionByWorld.get(world)?.delete(eid);
   startPosByWorld.get(world)?.delete(eid);
+  clearGmlShaderState(world, eid);
 }
 
 /** Opaque copy of one entity's motion/alarm and `xstart`/`ystart` side-table state, for `GmsProjectRuntime`'s persistent-instance carry-over. */
@@ -1450,59 +1452,4 @@ export function _getGmlMotion(
 ): { vx: number; vy: number } | undefined {
   const motion = motionByWorld.get(entity.world)?.get(entity.eid);
   return motion === undefined ? undefined : { vx: motion.vx, vy: motion.vy };
-}
-
-// ---------------------------------------------------------------------------
-// shader_set / shader_reset — an honest, documented approximation
-// ---------------------------------------------------------------------------
-
-/** Per-`(World, eid)` tint saved by `shader_set` so `shader_reset` can restore it — the same "component holds the derived result, a side-table holds the mutable in-flight state" split `PhysicsBody`'s callbacks/`VisualScriptState`'s evaluation scope already use. */
-const shaderTintByWorld = new WeakMap<World, Map<number, number>>();
-
-/**
- * `shader_set(shader)`/`shader_reset()` — GameMaker's real per-draw-call
- * shader-swap API. This importer has no shader compiler at all (GLSL
- * source lives in a project's `shaders/` resource directory, entirely
- * unparsed by anything in this codebase), so a genuine per-shader effect is
- * out of scope — but the single overwhelmingly common real use of this API
- * in a 2D game (confirmed: the one real call site in Freedom Backup,
- * `obj_pShootable`'s `shader_set(sh_white); ...; shader_reset();`) is a
- * hit-flash effect: render the sprite as a solid white silhouette for one
- * draw call. `shader_set` honestly approximates exactly that one case —
- * regardless of which shader name is actually passed (a real custom
- * shader's real visual effect is unrepresentable without compiling GLSL,
- * which is a materially deeper, separate feature) — by tinting the calling
- * entity's own `Sprite.tint` white for the duration of the draw call and
- * restoring its prior tint on `shader_reset()`. This is a real, visible,
- * useful effect for the actual real project this was built against, not a
- * silent no-op — but it is genuinely not a real shader system, and a
- * project relying on a different custom shader's real visual output will
- * see the same white-flash approximation instead. `shader_reset()` with no
- * matching prior `shader_set()` call (or on an entity with no `Sprite`) is
- * a safe, honest no-op.
- */
-export function shader_set(
-  entity: Entity,
-  _ctx: GmlActionContext,
-  _shaderName: string,
-): void {
-  const sprite = entity.get(Sprite);
-  if (sprite === undefined) return;
-  const byEntity = getOrCreate(
-    shaderTintByWorld,
-    entity.world,
-    () => new Map(),
-  );
-  if (!byEntity.has(entity.eid)) byEntity.set(entity.eid, sprite.tint);
-  sprite.tint = 0xffffff;
-}
-
-/** See `shader_set`'s doc comment. */
-export function shader_reset(entity: Entity, _ctx: GmlActionContext): void {
-  const byEntity = shaderTintByWorld.get(entity.world);
-  const original = byEntity?.get(entity.eid);
-  if (original === undefined) return;
-  const sprite = entity.get(Sprite);
-  if (sprite !== undefined) sprite.tint = original;
-  byEntity?.delete(entity.eid);
 }

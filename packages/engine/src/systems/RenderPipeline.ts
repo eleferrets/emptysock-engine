@@ -13,6 +13,18 @@ import {
   TilingSprite,
 } from "pixi.js";
 import type { Renderer } from "pixi.js";
+import {
+  CustomShaderFilter,
+  type CustomShaderOptions,
+} from "./CustomShaderFilter.js";
+import {
+  getGmlShader,
+  getGmlShaderUniforms,
+  getGmlShaderVersion,
+  parseShaderUniforms,
+  toFilterVertexSource,
+  type ParsedShaderUniform,
+} from "./ShaderRegistry.js";
 import type { Scene } from "../Scene.js";
 import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
@@ -98,6 +110,9 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
   constructor(
     private readonly _graphics: Graphics,
     private readonly _resolveTexture: (path: string) => Texture,
+    private readonly _resolveShader: (
+      id: string,
+    ) => CustomShaderFilter | undefined = () => undefined,
   ) {
     this._graphics.clear();
     this._graphics.removeChildren();
@@ -121,6 +136,18 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
 
   setAlpha(alpha: number): void {
     this._alpha = alpha;
+  }
+
+  /** `shader_set`/`shader_reset` — every sprite-shaped draw call made while a shader is active gets that shader's shared Filter (vector shapes/text drawn on the `Graphics` itself are not filtered). */
+  setShader(shaderId: string | null): void {
+    this._shader =
+      shaderId === null ? undefined : this._resolveShader(shaderId);
+  }
+
+  private _shader: CustomShaderFilter | undefined;
+
+  private _shade(pixiSprite: PixiSprite): void {
+    if (this._shader !== undefined) pixiSprite.filters = [this._shader];
   }
 
   rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void {
@@ -171,6 +198,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.x = x;
     pixiSprite.y = y;
     pixiSprite.alpha = this._alpha;
+    this._shade(pixiSprite);
     this._graphics.addChild(pixiSprite);
   }
 
@@ -192,6 +220,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.rotation = (rotationDeg * Math.PI) / 180;
     pixiSprite.tint = colour;
     pixiSprite.alpha = alpha;
+    this._shade(pixiSprite);
     this._graphics.addChild(pixiSprite);
   }
 
@@ -230,6 +259,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.x = x;
     pixiSprite.y = y;
     pixiSprite.alpha = this._alpha;
+    this._shade(pixiSprite);
     this._graphics.addChild(pixiSprite);
   }
 
@@ -254,6 +284,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.scale.set(scaleX, scaleY);
     pixiSprite.tint = colour;
     pixiSprite.alpha = alpha;
+    this._shade(pixiSprite);
     this._graphics.addChild(pixiSprite);
   }
 }
@@ -680,8 +711,10 @@ export class RenderPipeline implements SceneRenderer {
       container.addChild(graphics);
       table.set(entity.eid, graphics);
     }
-    return new PixiGmlDrawTarget(graphics, (path) =>
-      this._resolveTextureForDraw(path),
+    return new PixiGmlDrawTarget(
+      graphics,
+      (path) => this._resolveTextureForDraw(path),
+      (id) => this.resolveShaderFilter(id),
     );
   }
 
@@ -887,6 +920,7 @@ export class RenderPipeline implements SceneRenderer {
       sliceRight: number;
       sliceTop: number;
       sliceBottom: number;
+      shader?: string;
     },
     containerFor: (layer: string) => Container,
   ): void {
@@ -959,6 +993,99 @@ export class RenderPipeline implements SceneRenderer {
     pixiSprite.visible = sprite.visible;
     pixiSprite.anchor.set(sprite.anchorX, sprite.anchorY);
     pixiSprite.zIndex = sprite.depth;
+    this._applySpriteShader(pixiSprite, sprite.shader);
+  }
+
+  /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
+  private readonly _shaderFilters = new Map<
+    string,
+    {
+      filter: CustomShaderFilter;
+      uniforms: ParsedShaderUniform[];
+      appliedVersion: number;
+      source: object;
+    }
+  >();
+
+  /**
+   * The one live Filter for a registered shader id (`undefined` when the id
+   * isn't registered), shared by every entity/draw call using that shader —
+   * never allocated per frame. Re-registering a shader rebuilds it; uniform
+   * writes (`setGmlShaderUniform`) are copied into the Filter here, and only
+   * when the registry's version for that shader changed.
+   *
+   * GPU compilation of the generated program is not verified headless: the
+   * tests cover the wiring (which Filter lands on which sprite), not pixels.
+   */
+  resolveShaderFilter(id: string): CustomShaderFilter | undefined {
+    const source = getGmlShader(id);
+    if (source === undefined) return undefined;
+    const version = getGmlShaderVersion(id);
+    let entry = this._shaderFilters.get(id);
+    const registration = getGmlShaderUniforms(id);
+    if (entry === undefined || entry.source !== source) {
+      const uniforms = parseShaderUniforms(source.fragmentSrc);
+      const declared: NonNullable<CustomShaderOptions["uniforms"]> = {};
+      for (const u of uniforms) {
+        declared[u.name] = {
+          value:
+            u.components === 1 ? 0 : new Array<number>(u.components).fill(0),
+          type: u.type,
+        };
+      }
+      entry = {
+        filter: new CustomShaderFilter({
+          vertexSrc: toFilterVertexSource(source.vertexSrc),
+          fragmentSrc: source.fragmentSrc,
+          name: id,
+          uniforms: declared,
+        }),
+        uniforms,
+        appliedVersion: -1,
+        source,
+      };
+      this._shaderFilters.set(id, entry);
+    }
+    if (entry.appliedVersion !== version && registration !== undefined) {
+      for (const u of entry.uniforms) {
+        const v = registration.get(u.name);
+        if (v === undefined) continue;
+        entry.filter.setUniform(
+          u.name,
+          u.components === 1
+            ? (v.values[0] ?? 0)
+            : v.values.slice(0, u.components),
+        );
+      }
+      entry.appliedVersion = version;
+    }
+    return entry.filter;
+  }
+
+  /** Sets a tracked sprite's `.filters` to `[sharedFilter]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
+  private _applySpriteShader(
+    pixiSprite: PixiSprite,
+    shaderId: string | undefined,
+  ): void {
+    const filter =
+      shaderId !== undefined && shaderId !== ""
+        ? this.resolveShaderFilter(shaderId)
+        : undefined;
+    const current = pixiSprite.filters as readonly unknown[] | null | undefined;
+    if (filter === undefined) {
+      if (current !== null && current !== undefined && current.length > 0) {
+        pixiSprite.filters = null;
+      }
+      return;
+    }
+    if (
+      current === null ||
+      current === undefined ||
+      current.length !== 1 ||
+      current[0] !== filter
+    ) {
+      pixiSprite.filters = [filter];
+    }
   }
 
   /**
@@ -1371,6 +1498,8 @@ export class RenderPipeline implements SceneRenderer {
       this.unmountTilemap(tilemap);
     }
     this._textureCache.clear();
+    for (const { filter } of this._shaderFilters.values()) filter.destroy();
+    this._shaderFilters.clear();
     this._transitionOverlay?.destroy();
     this._transitionOverlay = null;
     this._render.destroy();

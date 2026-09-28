@@ -229,9 +229,14 @@ export interface ShaderTranslationResult {
  * ever pass through by default).
  */
 export function translateGms2ShaderToPixi(
-  vertexSrc: string,
-  fragmentSrc: string,
+  vertexSrcRaw: string,
+  fragmentSrcRaw: string,
 ): ShaderTranslationResult {
+  // GameMaker writes CRLF (and the occasional lone CR inside a comment
+  // block); a bare `\r` is not reliably a line terminator to every GLSL
+  // compiler, so a `//` comment could swallow the declaration after it.
+  const vertexSrc = vertexSrcRaw.replace(/\r\n?/g, "\n");
+  const fragmentSrc = fragmentSrcRaw.replace(/\r\n?/g, "\n");
   if (!isSimplePositionPassthrough(vertexSrc)) {
     throw new ShaderTranslationError(
       "vertex shader does non-passthrough position math (in_Position is used in something other than GameMaker's standard MVP transform) — this importer only mechanically translates the standard passthrough vertex stage; recreate this shader's vertex logic manually against CustomShaderFilter's aPosition/uProjectionMatrix/uWorldTransformMatrix/uTransformMatrix contract.",
@@ -351,10 +356,20 @@ export function buildShaderAsset(shader: ShaderAsset): string {
 //     name: ${JSON.stringify(shader.name)},
 //   });
 //   renderSystem.addLayerShaderFilter("default", filter);
+//
+// Importing this module registers the shader with @emptysock/engine's
+// shader registry under its GameMaker name, which is what makes GML
+// \`shader_set(${shader.name})\` render through it (RenderPipeline builds one
+// shared Filter per registered shader; it swaps in a filter-compatible vertex
+// stage, so this file's vertexSrc is only read for its varyings).
+import { registerGmlShader } from "@emptysock/engine";
+
 export const ${pascal}Shader = {
   name: ${JSON.stringify(shader.name)},
   vertexSrc: ${JSON.stringify(translated.vertexSrc)},
   fragmentSrc: ${JSON.stringify(translated.fragmentSrc)},
 } as const;
+
+registerGmlShader(${JSON.stringify(shader.name)}, ${pascal}Shader);
 `;
 }

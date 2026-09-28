@@ -8,6 +8,7 @@ import {
   setGmlSoundNames,
   setGmlFontNames,
   setGmlRoomNames,
+  setGmlShaderNames,
   setGmlCrossFileEntityRefFields,
 } from "../gms2-transpile.js";
 
@@ -2509,5 +2510,47 @@ describe("transpileGML — image_number (read-only bare built-in)", () => {
   it("does not rewrite a call-shaped or dotted occurrence", () => {
     const out = transpileGML("d = other.image_number;");
     expect(out).not.toContain("get_gml_image_number");
+  });
+});
+
+describe("transpileGML — shader_set / shader_reset / uniforms", () => {
+  it("quotes the bare shader identifier and threads entity/ctx", () => {
+    const out = transpileGML(
+      "shader_set(sh_white);\ndraw_self();\nshader_reset();",
+    );
+    expect(out).toContain('GmlActions.shader_set(_entity, _ctx, "sh_white");');
+    expect(out).toContain("GmlActions.shader_reset(_entity, _ctx);");
+  });
+
+  it("threads the uniform setters and getters, resolving a registered shader name in shader_get_uniform", () => {
+    setGmlShaderNames(new Set(["sh_flash"]));
+    const out = transpileGML(
+      'var u = shader_get_uniform(sh_flash, "u_amount");\nshader_set_uniform_f(u, 0.5);\nshader_set_uniform_i(u, 2);\nshader_set_uniform_f_array(u, [1, 0]);',
+    );
+    setGmlShaderNames(new Set());
+    expect(out).toContain(
+      'GmlActions.shader_get_uniform("sh_flash", "u_amount")',
+    );
+    expect(out).toContain(
+      "GmlActions.shader_set_uniform_f(_entity, _ctx, u, 0.5)",
+    );
+    expect(out).toContain(
+      "GmlActions.shader_set_uniform_i(_entity, _ctx, u, 2)",
+    );
+    expect(out).toContain(
+      "GmlActions.shader_set_uniform_f_array(_entity, _ctx, u, [1, 0])",
+    );
+    expect(out).not.toContain(
+      "shader_set_uniform_f_array(_entity, _ctx, _entity",
+    );
+  });
+
+  it("does not resolve a name that is also a sprite (cross-kind ambiguity stays unresolved)", () => {
+    setGmlShaderNames(new Set(["dup"]));
+    setGmlSpriteNames(new Set(["dup"]));
+    const out = transpileGML("var s = dup;");
+    setGmlShaderNames(new Set());
+    setGmlSpriteNames(new Set());
+    expect(out).not.toContain('"dup"');
   });
 });

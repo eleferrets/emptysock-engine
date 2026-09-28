@@ -51,6 +51,8 @@ export interface CustomShaderOptions {
   vertexSrc?: string;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
+  /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
+  uniforms?: Record<string, { value: number | number[]; type: string }>;
 }
 
 /**
@@ -69,7 +71,17 @@ export class CustomShaderFilter extends Filter {
     super({ glProgram: program, resources: {} });
     this.resources["uniforms"] = {
       uTime: { value: 0, type: "f32" },
+      ...(options.uniforms ?? {}),
     };
+  }
+
+  /** Writes a uniform previously declared via `options.uniforms`; undeclared names are ignored. */
+  setUniform(name: string, value: number | number[]): void {
+    const res = this.resources["uniforms"] as
+      | Record<string, { value: unknown }>
+      | undefined;
+    const u = res?.[name];
+    if (u) u.value = value;
   }
 
   /** Updates the uTime uniform. Call once per frame from the game loop. */

@@ -1,5 +1,6 @@
 import { Container, Texture } from "pixi.js";
 import type { Renderer } from "pixi.js";
+import { CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
@@ -341,6 +342,10 @@ export declare class RenderPipeline implements SceneRenderer {
    * `Projection3D.active` every frame).
    */
   private _syncOne;
+  private readonly _shaderFilters;
+  /** The one shared Filter for a registered shader id (`undefined` when unregistered), built lazily; uniforms re-copied only when the registry version changed. */
+  resolveShaderFilter(id: string): CustomShaderFilter | undefined;
+  private _applySpriteShader;
   /**
    * `_syncOne()`'s `Projection3D`-active branch — a real `PerspectiveMesh`
    * per entity, corners copied straight from the component, texture/tint/

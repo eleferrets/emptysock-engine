@@ -78,6 +78,34 @@ export type {
   ParticleEmitterOptions,
   EmitterShape,
 } from "./systems/ParticleSystem.js";
+export {
+  shader_set,
+  shader_reset,
+  shader_get_uniform,
+  shader_is_compiled,
+  shader_set_uniform_f,
+  shader_set_uniform_i,
+  shader_set_uniform_f_array,
+  shader_set_uniform_i_array,
+  getGmlActiveShader,
+} from "./compat/gmlShaders.js";
+export {
+  registerGmlShader,
+  unregisterGmlShader,
+  hasGmlShader,
+  getGmlShader,
+  gmlShaderIds,
+  clearGmlShaders,
+  setGmlShaderUniform,
+  getGmlShaderUniforms,
+  parseShaderUniforms,
+  toFilterVertexSource,
+} from "./systems/ShaderRegistry.js";
+export type {
+  GmlShaderSource,
+  GmlShaderUniformValue,
+  ParsedShaderUniform,
+} from "./systems/ShaderRegistry.js";
 export { createCustomShaderFilter } from "./systems/CustomShaderFilter.js";
 export type { CustomShaderFilter } from "./systems/CustomShaderFilter.js";
 export {
@@ -381,8 +409,6 @@ export {
   setGmlHspeed,
   getGmlVspeed,
   setGmlVspeed,
-  shader_set,
-  shader_reset,
   room_goto_next,
   room_restart,
   room_last,

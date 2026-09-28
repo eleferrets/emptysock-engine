@@ -114,6 +114,7 @@ let _spriteNames: ReadonlySet<string> = new Set();
 let _soundNames: ReadonlySet<string> = new Set();
 let _fontNames: ReadonlySet<string> = new Set();
 let _roomNames: ReadonlySet<string> = new Set();
+let _shaderNames: ReadonlySet<string> = new Set();
 
 /** Installs the project-wide sprite-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlSpriteNames(names: ReadonlySet<string>): void {
@@ -126,6 +127,10 @@ export function setGmlSoundNames(names: ReadonlySet<string>): void {
 /** Installs the project-wide font-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlFontNames(names: ReadonlySet<string>): void {
   _fontNames = names;
+}
+/** Installs the project-wide shader-name set the asset-value rewrite pass reads (`shader_set(sh_white)`'s bare argument resolves to the registered shader id). Call once, before transpiling any file. */
+export function setGmlShaderNames(names: ReadonlySet<string>): void {
+  _shaderNames = names;
 }
 /** Installs the project-wide room-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlRoomNames(names: ReadonlySet<string>): void {
@@ -2634,6 +2639,10 @@ export function transpileGML(
     "action_sound",
     "draw_self",
     "shader_reset",
+    "shader_set_uniform_f_array",
+    "shader_set_uniform_i_array",
+    "shader_set_uniform_f",
+    "shader_set_uniform_i",
     "room_goto_next",
     "room_restart",
     "game_restart",
@@ -3052,6 +3061,8 @@ export function transpileGML(
   // rewrite is correct and sufficient — the same shape `THREADED_CTX_ONLY`
   // above uses, minus the injected first argument.
   const THREADED_PURE_FUNCTIONS = [
+    "shader_get_uniform",
+    "shader_is_compiled",
     "sign",
     "lerp",
     "frac",
@@ -5018,7 +5029,7 @@ export function transpileGML(
   // this branch is exercised only by the dedicated regression test, not
   // real project data.
   {
-    type AssetKind = "sprite" | "sound" | "font" | "room" | "object";
+    type AssetKind = "sprite" | "sound" | "font" | "room" | "object" | "shader";
     const kindByName = new Map<string, AssetKind>();
     const ambiguous = new Set<string>();
     const addKind = (names: ReadonlySet<string>, kind: AssetKind): void => {
@@ -5035,6 +5046,7 @@ export function transpileGML(
     addKind(_soundNames, "sound");
     addKind(_fontNames, "font");
     addKind(_roomNames, "room");
+    addKind(_shaderNames, "shader");
     addKind(_objectNames, "object");
     for (const name of ambiguous) kindByName.delete(name);
 

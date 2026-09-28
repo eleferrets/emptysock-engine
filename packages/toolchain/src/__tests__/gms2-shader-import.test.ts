@@ -212,6 +212,19 @@ describe("convertGms2Shader + buildShaderAsset (synthetic project directory)", (
     expect(content).toContain("fragmentSrc:");
     expect(content).toContain("createCustomShaderFilter");
     expect(content).toContain("GPU compilation was NOT verified");
+    expect(content).toContain(
+      'import { registerGmlShader } from "@emptysock/engine";',
+    );
+    expect(content).toContain('registerGmlShader("sh_tint", ShTintShader);');
+  });
+
+  it("normalises CRLF/CR line endings in the translated sources", () => {
+    const r = translateGms2ShaderToPixi(
+      "attribute vec3 in_Position;\r\nvarying vec2 v_vTexcoord;\r\nvoid main(){\r\n gl_Position = gm_Matrices[MATRIX_WORLD_VIEW_PROJECTION] * vec4(in_Position, 1.0);\r\n v_vTexcoord = in_TextureCoord;}",
+      "//\rvarying vec2 v_vTexcoord;\r\nvoid main(){ gl_FragColor = texture2D(gm_BaseTexture, v_vTexcoord); }",
+    );
+    expect(r.fragmentSrc).not.toContain("\r");
+    expect(r.vertexSrc).not.toContain("\r");
   });
 
   it("throws when the directory has no .vsh/.fsh pair", async () => {

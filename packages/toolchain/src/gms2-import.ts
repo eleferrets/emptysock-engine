@@ -22,6 +22,7 @@ import {
   setGmlSpriteNames,
   setGmlSoundNames,
   setGmlFontNames,
+  setGmlShaderNames,
   setGmlRoomNames,
   setGmlCrossFileEntityRefFields,
   setGmlObjectFieldNames,
@@ -268,6 +269,7 @@ export async function importGMS2Project(
   setGmlSoundNames(new Set(sounds));
   setGmlFontNames(new Set(fonts));
   setGmlRoomNames(new Set(rooms));
+  setGmlShaderNames(new Set(shaders));
 
   const convertedObjects: string[] = [];
   for (const name of objects) {
