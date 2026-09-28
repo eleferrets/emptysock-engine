@@ -1256,3 +1256,7 @@ Traced the smoke test's own documented "`obj_player.x` never moves" finding to c
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
+
+## KeyBindings follow-ups
+
+- [ ] Out of scope: add `KeyBindings` to `eleferrets/emptysock-ai-skills` (`ai/api-reference.json`, skill file, CLAUDE.md/AGENTS.md consistency, README skills row).

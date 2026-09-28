@@ -1824,3 +1824,21 @@ renderSystem.syncLighting(lights, lighting.ambient, viewport);
 ```
 
 **GML compat.** `compat/gmlLighting.ts` wires a real, custom GameMaker lighting system (a `lightrender`-style controller plus per-instance light objects — GameMaker itself has no built-in lighting API) onto `LightSource`/`LightOccluder`: `light_attach(entity, ctx, radius, colour, options?)`, `light_set_enabled`/`_colour`/`_radius`/`_intensity`, `light_remove`, `light_occluder_attach(entity, ctx, width?, height?)`, `light_occluder_set_enabled`/`_remove`, and `lighting_set_ambient(ctx, colour, level)`/`lighting_get_ambient(ctx)` against an optional `ctx.lighting: LightingSystem`. See [LightingSystem reference](../reference/systems/lighting-system.md).
+
+---
+
+## 5.39 KeyBindings
+
+Remappable action-to-key table over `InputManager`'s frozen keyboard snapshot. Codes are DOM `KeyboardEvent.code` values (physical-key, layout-independent).
+
+- `bind`/`unbind`/`rebind`/`getBindings`, `isActionDown`, `wasActionPressed`/`wasActionReleased` (edges computed by one `update()` call per frame).
+- `save()`/`load()` persist the table through an injected `StorageAdapter` (default `MemoryStorageAdapter`); missing or corrupt data leaves bindings untouched and `load()` returns `false`.
+
+```typescript
+const keys = new KeyBindings(game.input);
+keys.bind("jump", "Space", "KeyW");
+keys.update();
+if (keys.wasActionPressed("jump")) jump();
+```
+
+See [KeyBindings reference](../reference/systems/key-bindings.md).

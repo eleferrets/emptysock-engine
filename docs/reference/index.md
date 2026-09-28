@@ -52,6 +52,7 @@ Module packages built on top of `@emptysock/engine` (each an optional, separatel
 | [BattleSystem](./systems/battle-system.md)                    | Turn-based RPG combat engine with skill resolution and status effects                                                     |
 | [CustomShaderFilter](./systems/custom-shader-filter.md)       | User-authored GLSL post-process filter — the runtime behind the ShaderEditor panel                                        |
 | [DebugOverlaySystem](./systems/debug-overlay-system.md)       | Shippable in-game FPS/entity overlay and dev console                                                                      |
+| [KeyBindings](./systems/key-bindings.md)                      | Remappable action-to-key bindings over the frozen input snapshot, persisted via StorageAdapter                            |
 | [InputBindings](./systems/input-bindings.md)                  | Named-action control remapping over InputSystem/GamepadSystem, persisted via SaveSystem                                   |
 | [InputSystem](./systems/input-system.md)                      | Keyboard, mouse, touch, and axis input                                                                                    |
 | [LightingSystem](./systems/lighting-system.md)                | Real 2D dynamic point/spot lights with shadow-casting occlusion, composited via SimpleLightmapFilter                      |

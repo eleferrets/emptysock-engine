@@ -202,6 +202,11 @@ export { SaveSystem } from "./systems/SaveSystem.js";
 export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
 export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
 export type { StorageAdapter } from "./systems/StorageAdapter.js";
+export {
+  KeyBindings,
+  KEY_BINDINGS_STORAGE_KEY,
+} from "./systems/KeyBindings.js";
+export type { KeyboardSource } from "./systems/KeyBindings.js";
 export { CGGallery } from "./systems/CGGallery.js";
 export type { CGEntry, CGGalleryOptions } from "./systems/CGGallery.js";
 export { SceneTransitionManager } from "./systems/SceneTransition.js";
