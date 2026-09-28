@@ -88,6 +88,7 @@ export {
   resolveIncludedFilesForPlatform,
   copyIncludedFiles,
   includedFilesManifestPath,
+  stageIncludedFilesForPlatform,
   INCLUDED_FILES_MANIFEST_NAME,
 } from "./includedFiles.js";
 export type {

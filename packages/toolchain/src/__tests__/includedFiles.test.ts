@@ -7,6 +7,7 @@ import {
   resolveIncludedFilesForPlatform,
   copyIncludedFiles,
   includedFilesManifestPath,
+  stageIncludedFilesForPlatform,
 } from "../includedFiles.js";
 
 describe("includedFiles", () => {
@@ -178,5 +179,28 @@ describe("includedFiles", () => {
       expect(result.warnings[0]).toMatch(/missing.txt/);
       expect(fs.existsSync(path.join(dest, "present.txt"))).toBe(true);
     });
+  });
+
+  it("stageIncludedFilesForPlatform copies only entries for that platform", () => {
+    const d = mkTmp("included-stage-");
+    fs.writeFileSync(path.join(d, "web.txt"), "w");
+    fs.writeFileSync(path.join(d, "win.txt"), "x");
+    fs.writeFileSync(
+      path.join(d, "build-included-files.json"),
+      JSON.stringify({
+        files: [
+          { path: "web.txt", platforms: ["web"] },
+          { path: "win.txt", platforms: ["windows"] },
+        ],
+      }),
+    );
+    const dest = path.join(d, "out");
+    const r = stageIncludedFilesForPlatform(d, "web", dest);
+    expect(r?.copied.length).toBe(1);
+    expect(fs.existsSync(path.join(dest, "web.txt"))).toBe(true);
+    expect(fs.existsSync(path.join(dest, "win.txt"))).toBe(false);
+    expect(
+      stageIncludedFilesForPlatform(mkTmp("none-"), "web", dest),
+    ).toBeNull();
   });
 });

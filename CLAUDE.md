@@ -879,3 +879,7 @@ Rules:
 ### Rain: `RainGlassFilter` (single-pass lens droplets with fading trails) and `rainParticlePreset`
 
 `RainGlassFilter`'s fragment shader (exported as `RAIN_GLASS_FRAGMENT` so tests can assert on it) is one pass with no loops: two hashed droplet grids, refraction via a procedural fake normal, and a fading vertical trail behind the falling grid's drops (drops drift down-screen; the trail sits above). `rainParticlePreset({ width, density, wind })` returns `ParticleEmitterOptions` for world-space rain (line emitter above the view). Not physically-based; no drop merging.
+
+### Included Files also stage for the web export
+
+`stageIncludedFilesForPlatform(projectDir, platform, destDir, manifestPath?)` (`includedFiles.ts`) is the one-call load/filter/copy used by the CLI's `--platform web` branch (into `<out>/dist/included`, before any zip). Desktop still goes through `buildDesktopApp`. android/ios/raspi have no CLI path yet.

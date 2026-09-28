@@ -11,6 +11,7 @@ import {
 } from "./ToolchainSettings.js";
 import { importGMS2Project } from "./gms2-import.js";
 import { buildDesktopApp } from "./desktopBuild.js";
+import { stageIncludedFilesForPlatform } from "./includedFiles.js";
 import { runCodegenPrefabs } from "./prefabCodegenCli.js";
 
 const exec = promisify(execFile);
@@ -76,6 +77,17 @@ program
         // Web export has no native binary to compile — it's just the
         // pre-built dist/ output plus an index.html, optionally zipped
         // (it doesn't invoke a bundler itself; see exportZip below).
+        const webStaged = stageIncludedFilesForPlatform(
+          path.dirname(path.resolve(opts.entry)),
+          "web",
+          path.join(opts.out, "dist", "included"),
+          opts.includedFiles,
+        );
+        if (webStaged) {
+          for (const w of webStaged.warnings)
+            console.warn(`[included-files] ${w}`);
+          console.log(`Included ${webStaged.copied.length} file(s) for web.`);
+        }
         if (opts.format === "zip") {
           await exportZip({ platform: "web", arch: opts.arch, out: opts.out });
           return;

@@ -196,3 +196,23 @@ export function copyIncludedFiles(
 
   return { copied, warnings };
 }
+
+/**
+ * One-call convenience for build steps other than the desktop one (web zip
+ * export today): load the manifest, filter to `platform`, copy into
+ * `destDir`. No manifest is a silent no-op returning `null`.
+ */
+export function stageIncludedFilesForPlatform(
+  projectDir: string,
+  platform: IncludedFilePlatform,
+  destDir: string,
+  manifestPath?: string,
+): CopyIncludedFilesResult | null {
+  const manifest = loadIncludedFilesManifest(projectDir, manifestPath);
+  if (manifest === null) return null;
+  return copyIncludedFiles(
+    projectDir,
+    resolveIncludedFilesForPlatform(manifest, platform),
+    destDir,
+  );
+}
