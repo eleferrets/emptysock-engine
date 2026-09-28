@@ -3570,6 +3570,153 @@ export function transpileGML(
     out = unmaskGmlStringLiterals(out, "GMLXY", maskedForXY);
   }
 
+  // GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
+  // variables — real, common movement idiom (confirmed against Freedom
+  // Backup's `obj_Egun`/`obj_bullet_par`: `direction = other.image_angle +
+  // random_range(...);` inside a `with` block targeting a freshly spawned
+  // bullet, with no other code ever moving it — the bullet's motion comes
+  // entirely from GameMaker's own "the runtime keeps applying this every
+  // step" semantic). Distinct from GM8.1's `action_move` DnD action, but
+  // both ultimately share `compat/gmlActions.ts`'s one per-`(World, eid)`
+  // velocity side-table — see that module's own doc comment on
+  // `getGmlSpeed`/`setGmlDirection`/etc. Same increment/decrement → compound
+  // → plain → bare-read ordering, same `(?<!\.\s*)` dotted-reference guard,
+  // same string-literal masking every other built-in section in this file
+  // already establishes.
+  {
+    const { masked, store: maskedForMotion } = maskGmlStringLiterals(
+      out,
+      "GMLMOTION",
+    );
+    out = masked;
+
+    const MOTION_BUILTINS: ReadonlyArray<
+      readonly [field: string, getter: string, setter: string]
+    > = [
+      ["speed", "getGmlSpeed", "setGmlSpeed"],
+      ["direction", "getGmlDirection", "setGmlDirection"],
+      ["hspeed", "getGmlHspeed", "setGmlHspeed"],
+      ["vspeed", "getGmlVspeed", "setGmlVspeed"],
+    ];
+
+    for (const [field, getter, setter] of MOTION_BUILTINS) {
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          "g",
+        ),
+        (_m, op: string, exprRaw: string) =>
+          `GmlActions.${setter}(_entity, _ctx, (GmlActions.${getter}(_entity, _ctx) ${op.slice(0, -1)} (${exprRaw.trim()})));`,
+      );
+      out = replacePlainAssignmentMultiline(
+        out,
+        field,
+        (indent, expr) =>
+          `${indent}GmlActions.${setter}(_entity, _ctx, ${expr});`,
+      );
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\b(?!\\s*=(?!=))`,
+          "g",
+        ),
+        `GmlActions.${getter}(_entity, _ctx)`,
+      );
+    }
+
+    out = unmaskGmlStringLiterals(out, "GMLMOTION", maskedForMotion);
+  }
+
+  // GameMaker's other implicit-declaration shape: an undeclared name's
+  // *first* assignment can be an indexed one (`endtext[0] = "...";`), which
+  // implicitly creates a real per-instance array the same way a bare `name
+  // = expr;` implicitly creates a scalar field (see the implicit-variable
+  // pass just below). Confirmed real in Freedom Backup: `obj_ending`'s
+  // `endtext[0]..[6]`, `obj_pause_menu`'s `option[0]..[3]`, `obj_menu`'s
+  // `menu[0]..[2]` — a dialogue/menu-option list built entirely this way,
+  // with no array-literal declaration anywhere. This must run *before* the
+  // scalar implicit-variable pass below, so an array name's `[index]`
+  // occurrences are already rewritten (and thus invisible to the scalar
+  // pass's own bare-word regex) by the time it runs.
+  {
+    const { masked, store: maskedForArrays } = maskGmlStringLiterals(
+      out,
+      "GMLARR",
+    );
+    out = masked;
+
+    const declaredLocally = new Set<string>();
+    for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
+      declaredLocally.add(m[1] as string);
+    }
+    const arrayVars = new Set<string>();
+    // `[| i]`/`[? key]` are GameMaker's ds_list/ds_map accessor syntax, not
+    // a plain array index — those have their own dedicated rewrite pass
+    // elsewhere in this function and must never be misidentified as an
+    // implicit array-variable declaration here, or the two passes double-
+    // wrap the same name (confirmed real: `list[| 0] = 5;` was being
+    // rewritten to `getGmlArrayVar(...)`-wrapped text *before* the ds_list
+    // pass ran, which then wrapped the already-rewritten string a second
+    // time — a real bug, not hypothetical).
+    const arrayAssignRe = /^\s*([A-Za-z_]\w*)\[(?!\s*[|?])[^\]]*\]\s*=(?!=)/gm;
+    for (const m of out.matchAll(arrayAssignRe)) {
+      const name = m[1] as string;
+      if (
+        name !== "" &&
+        !GML_RESERVED_IDENTIFIERS.has(name) &&
+        !knownParams.includes(name) &&
+        !declaredLocally.has(name)
+      ) {
+        arrayVars.add(name);
+      }
+    }
+
+    for (const name of arrayVars) {
+      const esc = escapeRegExpTranspile(name);
+      // Every sub-pass below excludes `(?<!_ctx, ")` — a fixed-length
+      // lookbehind for the literal prefix this same loop's own earlier
+      // sub-passes just inserted (`GmlActions.getGmlArrayVar(_entity,
+      // _ctx, "<name>")`). Without it, the bare-read sub-pass (the third
+      // one) re-matches the quoted `name` text an earlier sub-pass in this
+      // very loop iteration already produced and wraps it a second time —
+      // a real, confirmed double-wrap bug (`list[| 0] = 5;` -> a
+      // `getGmlArrayVar` call nested inside another `getGmlArrayVar`
+      // call's own quoted name argument), since all three sub-passes run
+      // sequentially against the same, progressively-rewritten `out`.
+      // Indexed assignment (`name[i] = expr;` / `name[i] += expr;`, etc.) —
+      // mutates the one real stored array in place via `getGmlArrayVar`.
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}(\\[[^\\]]*\\]\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|%=|=(?!=)))`,
+          "g",
+        ),
+        (_m, tail: string) =>
+          `GmlActions.getGmlArrayVar(_entity, _ctx, "${name}")${tail}`,
+      );
+      // Any remaining indexed *read* (`name[i]` not in assignment position).
+      // `(?!\[\s*[|?])` keeps a ds_list/ds_map accessor on this same name
+      // out of this array-variable rewrite (see the detection regex's own
+      // comment above for why the two must never overlap).
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}(?=\\[(?!\\s*[|?]))`,
+          "g",
+        ),
+        `GmlActions.getGmlArrayVar(_entity, _ctx, "${name}")`,
+      );
+      // A bare whole-array read with no index at all (e.g. passed to
+      // `array_length_1d(name)`).
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}\\b(?!\\[)`,
+          "g",
+        ),
+        `GmlActions.getGmlArrayVar(_entity, _ctx, "${name}")`,
+      );
+    }
+
+    out = unmaskGmlStringLiterals(out, "GMLARR", maskedForArrays);
+  }
+
   // GameMaker instance variables (both its own built-ins — image_speed,
   // image_index, visible, ... not already special-cased above — and any
   // project-defined one, e.g. a plain `mywall = instance_create_layer(...)`,

@@ -70,6 +70,33 @@ export function hasGmlVar(
   return ensureVars(entity.world, entity.eid).has(name);
 }
 
+/**
+ * GameMaker's other implicit-declaration shape: an undeclared name's *first*
+ * assignment can be an indexed one (`endtext[0] = "...";`), which implicitly
+ * creates a real, per-instance array the same way a bare `name = expr;`
+ * implicitly creates a scalar field (see this module's own doc comment) —
+ * confirmed against a real, full GameMaker project (Freedom Backup's
+ * `obj_ending`/`obj_pause_menu`/`obj_menu` all build a dialogue/menu-option
+ * list this way, with no `var`/array-literal declaration anywhere). This
+ * getter is the array equivalent of `getGmlVar`: it returns the entity's
+ * already-stored array for `name` if one exists, or creates, stores, and
+ * returns a fresh empty one otherwise — always returning the *same*
+ * reference each call, so `gms2-transpile.ts`'s indexed-assignment rewrite
+ * (`GmlActions.getGmlArrayVar(_entity, _ctx, "name")[i] = value;`) mutates
+ * the one real stored array in place rather than a disposable copy.
+ */
+export function getGmlArrayVar(
+  entity: Entity,
+  ctx: GmlActionContext,
+  name: string,
+): unknown[] {
+  const existing = getGmlVar(entity, ctx, name);
+  if (Array.isArray(existing)) return existing;
+  const arr: unknown[] = [];
+  setGmlVar(entity, ctx, name, arr);
+  return arr;
+}
+
 /** Clears every stored instance variable for this `(world, eid)` pair — called from `Scene.destroy()`. */
 export function clearGmlInstanceVars(world: World, eid: number): void {
   sideTableByWorld.get(world)?.delete(eid);

@@ -360,6 +360,14 @@ export {
   gmlActionsStep,
   clearGmlActionState,
   gmlStatics,
+  getGmlSpeed,
+  setGmlSpeed,
+  getGmlDirection,
+  setGmlDirection,
+  getGmlHspeed,
+  setGmlHspeed,
+  getGmlVspeed,
+  setGmlVspeed,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
@@ -373,6 +381,7 @@ export {
   getGmlVar,
   setGmlVar,
   hasGmlVar,
+  getGmlArrayVar,
   clearGmlInstanceVars,
   gmlNum,
 } from "./compat/gmlInstanceVars.js";

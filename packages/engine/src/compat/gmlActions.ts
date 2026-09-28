@@ -118,10 +118,11 @@ const MOVE_DIRECTION_BITS: readonly number[] = [
   45, // SE (bit 8)
 ];
 
-/** Per-(World, eid) motion state `action_move`/`action_move_to` write and `gmlActionsStep` reads. Not part of any component — see the module doc comment on why this needs its own side-table rather than a new `Transform` field. */
+/** Per-(World, eid) motion state `action_move`/`action_move_to` write and `gmlActionsStep` reads. Not part of any component — see the module doc comment on why this needs its own side-table rather than a new `Transform` field. `direction` is remembered independently of `vx`/`vy` so a real GML `speed = 0;` (a common "stop moving" idiom) doesn't lose the instance's last-facing direction the way deriving it purely from `atan2(vy, vx)` would (`atan2(0, 0)` is always `0`, which would silently reset facing on every stop). */
 interface GmlMotionState {
   vx: number;
   vy: number;
+  direction: number; // degrees, this file's lengthdir-style convention (0 = right, clockwise, y-down)
   friction: number;
   alarms: Map<number, number>; // alarm index -> frames remaining
 }
@@ -133,9 +134,113 @@ function ensureMotion(world: World, eid: number): GmlMotionState {
   return getOrCreateMapEntry(byEntity, eid, () => ({
     vx: 0,
     vy: 0,
+    direction: 0,
     friction: 0,
     alarms: new Map(),
   }));
+}
+
+/**
+ * GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
+ * variables — distinct from GM8.1's DnD `action_move` (above), but sharing
+ * the exact same per-`(World, eid)` velocity side-table and the exact same
+ * "the runtime keeps applying this every step" semantic: setting `speed`/
+ * `direction` (or `hspeed`/`vspeed` directly) on a real GameMaker instance
+ * makes it move automatically every step from then on, with no further
+ * code required — precisely what `gmlActionsStep`'s existing `vx`/`vy`
+ * integration already does. Confirmed against a real, full GameMaker
+ * project (Freedom Backup's `obj_Egun`/`obj_bullet_par`: `direction =
+ * other.image_angle + random_range(...);` inside a `with` block targeting a
+ * freshly `instance_create_layer`-ed bullet, read back nowhere else — the
+ * bullet moves purely from this one assignment, GameMaker's own automatic
+ * per-step integration, never an explicit `x += ...` in the bullet's own
+ * Step event).
+ *
+ * `direction`/`speed` are angle/magnitude; `hspeed`/`vspeed` are the same
+ * vector's cartesian components — GameMaker itself keeps all four in sync
+ * (setting one recomputes the others), so every setter here recomputes
+ * `vx`/`vy` (the one real source of truth `gmlActionsStep` integrates) and
+ * every getter derives its own value from `vx`/`vy` (except `direction`,
+ * which falls back to `motion.direction`'s own remembered value at
+ * zero speed — see the interface doc comment above).
+ */
+export function getGmlSpeed(entity: Entity, _ctx: GmlActionContext): number {
+  const motion = motionByWorld.get(entity.world)?.get(entity.eid);
+  if (motion === undefined) return 0;
+  return Math.hypot(motion.vx, motion.vy);
+}
+
+export function setGmlSpeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  speed: number,
+): void {
+  const motion = ensureMotion(entity.world, entity.eid);
+  const rad = (motion.direction * Math.PI) / 180;
+  motion.vx = speed * Math.cos(rad);
+  motion.vy = speed * Math.sin(rad);
+}
+
+export function getGmlDirection(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number {
+  const motion = motionByWorld.get(entity.world)?.get(entity.eid);
+  if (motion === undefined) return 0;
+  if (motion.vx === 0 && motion.vy === 0) return motion.direction;
+  let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+  if (deg < 0) deg += 360;
+  motion.direction = deg;
+  return deg;
+}
+
+export function setGmlDirection(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  direction: number,
+): void {
+  const motion = ensureMotion(entity.world, entity.eid);
+  const speed = Math.hypot(motion.vx, motion.vy);
+  motion.direction = direction;
+  const rad = (direction * Math.PI) / 180;
+  motion.vx = speed * Math.cos(rad);
+  motion.vy = speed * Math.sin(rad);
+}
+
+export function getGmlHspeed(entity: Entity, _ctx: GmlActionContext): number {
+  return motionByWorld.get(entity.world)?.get(entity.eid)?.vx ?? 0;
+}
+
+export function setGmlHspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  hspeed: number,
+): void {
+  const motion = ensureMotion(entity.world, entity.eid);
+  motion.vx = hspeed;
+  if (motion.vx !== 0 || motion.vy !== 0) {
+    let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    motion.direction = deg;
+  }
+}
+
+export function getGmlVspeed(entity: Entity, _ctx: GmlActionContext): number {
+  return motionByWorld.get(entity.world)?.get(entity.eid)?.vy ?? 0;
+}
+
+export function setGmlVspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  vspeed: number,
+): void {
+  const motion = ensureMotion(entity.world, entity.eid);
+  motion.vy = vspeed;
+  if (motion.vx !== 0 || motion.vy !== 0) {
+    let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    motion.direction = deg;
+  }
 }
 
 /** Clear this `(world, eid)` pair's motion/alarm state. Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */

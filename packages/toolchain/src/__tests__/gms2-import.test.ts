@@ -214,8 +214,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         path.join(dndOutDir, "obj_legacy.behavior.ts"),
         "utf-8",
       );
+      // `direction` is GameMaker's own real built-in motion variable (see
+      // `compat/gmlActions.ts`'s `getGmlDirection`), so a bare read of it
+      // is correctly rewritten onto that, not passed through literally.
       expect(content).toContain(
-        "GmlActions.action_move(_entity, _ctx, direction, 4);",
+        "GmlActions.action_move(_entity, _ctx, GmlActions.getGmlDirection(_entity, _ctx), 4);",
       );
       expect(content).toContain("gml_pragma('forceinline');");
       expect(content).toContain(

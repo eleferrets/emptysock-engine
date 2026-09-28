@@ -980,10 +980,20 @@ describe("transpileGML", () => {
     });
 
     it("transpiles the [| i] accessor to plain indexing in both read and write position", () => {
-      const readOut = transpileGML("var v = list[| 0];");
+      // `list` here is genuinely undeclared (no prior `var list = ...`),
+      // so once the `[| ]` accessor syntax is stripped to plain `[0]` it
+      // is correctly picked up by the separate implicit-array-variable
+      // pass and routed through `GmlActions.getGmlArrayVar` — the same
+      // real behaviour a bare `endtext[0] = "...";` gets elsewhere in this
+      // file's own implicit-array-var tests. This is not a regression:
+      // declaring `list` first (`var list = [];`) keeps it a plain local
+      // array with plain indexing, covered by the sibling test above.
+      const readOut = transpileGML("var list = []; var v = list[| 0];");
       expect(readOut).toContain("var v = list[0];");
       const writeOut = transpileGML("list[| 0] = 5;");
-      expect(writeOut).toContain("list[0] = 5;");
+      expect(writeOut).toContain(
+        'GmlActions.getGmlArrayVar(_entity, _ctx, "list")[0] = 5;',
+      );
     });
   });
 

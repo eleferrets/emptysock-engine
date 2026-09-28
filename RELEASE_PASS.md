@@ -1184,6 +1184,20 @@ User explicitly rejected the prior pass's "e\_\_VW low priority"/"cross-instance
 
 ---
 
+## 2026-09-28: symbol-pre-scan reconsideration, collision `other` verification, real room-transition e2e
+
+Four-part user-requested reconsideration of the round-4 sweep's regex-based cross-instance/enum symbol resolution.
+
+- [x] **Item 1 — GML parser library research.** WebSearched real npm/GitHub candidates. `@bscotch/gml-parser` is the one real, maintained, GMS2.3+-capable option (Bscotch's Stitch successor). Decision: do **not** adopt it this pass — real reasons documented in CLAUDE.md's new "GMS2 transpiler symbol pre-scan" section (project-model scope mismatch, unvalidated-swap risk against an already-tested 15+-pass pipeline, no room in this pass for a real isolated regression proof before landing it). Re-read the existing hand-written pre-scan instead and found it structurally sound — but surfaced and fixed a real, concrete bug: the implicit-array-variable pass and the ds_list/ds_map `[| i]`/`[? key]` accessor pass could double-wrap the same name (`list[| 0] = 5;` produced a nested `getGmlArrayVar(...)` call). Fixed with a `(?<!_ctx, ")` lookbehind guard plus a `[|?]` accessor-exclusion guard in `gms2-transpile.ts`.
+- [x] **Item 2 — Collision `other` scoping.** Verified, not assumed: `gms2-codegen.ts` already gives every generated `onCollideWith<Other>` a real `_other: Entity` parameter, and `gms2-transpile.ts`'s `hasOtherParam`-gated rewrite already threads bare `other` -> `_other` specifically for collision-event files, correctly separate from `with()`-block `other`/`_withCaller` rescoping. Confirmed against Freedom Backup's own real `Collision_obj_player.gml`/`Collision_obj_door.gml` (real `other.` usage). No gap found — already correct from the round-4 pass.
+- [x] **Item 3 — Real end-to-end room transition.** New `packages/toolchain/src/__tests__/gms2-room-transition-e2e.test.ts`: imports the real Freedom Backup project, parses two real generated non-empty rooms via the real `parsePrefabFile`/`GmsProjectRuntime`, calls `nextRoom()` (the same semantics real `room_goto_next`/`action_next_room` use), and asserts `currentRoom` and the live scene's own entity count actually swap to the second real room's real prefab instances. Passes against real data — proves the whole import -> transpile -> runtime room-swap pipeline, not just synthetic-fixture unit shapes.
+- [x] **Item 4 — deferred, user-flagged follow-up (do not act on this).** The user may want `obj_player`'s `place_meeting`-based platformer collision logic simplified/redone later, depending on how it feels/performs in real gameplay testing. **Do not preemptively rewrite it or invent a new collision API** — wait for an explicit ask.
+- Real full-project `tsc --noEmit` sweep: 432 -> 413 error lines (the double-wrap fix's real effect, re-verified fresh against the actual regenerated Freedom Backup output).
+- Full suites green: `packages/engine` `vitest run` — 67 files / 638 tests. `packages/toolchain` `vitest run` — 27 files / 409 tests (android test included, no flakiness this run).
+- `dist-types` rebuilt (`npm run build:types` in `packages/engine`) and re-committed; toolchain `npm run build` clean.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
