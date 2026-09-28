@@ -12,3 +12,4 @@ export type EasingName =
   | "bounceOut"
   | "elasticOut";
 export declare function ease(name: EasingName, t: number): number;
+//# sourceMappingURL=easing.d.ts.map

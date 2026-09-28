@@ -83,3 +83,4 @@ export declare class SaveSystem {
   load(slotId: string): Promise<boolean>;
   private _snapshotEntities;
 }
+//# sourceMappingURL=SaveSystem.d.ts.map

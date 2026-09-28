@@ -30,3 +30,4 @@ export declare class GlobalStore {
   /** Clears every stored global — mainly for test isolation between `Game` instances. */
   clear(): void;
 }
+//# sourceMappingURL=GlobalStore.d.ts.map

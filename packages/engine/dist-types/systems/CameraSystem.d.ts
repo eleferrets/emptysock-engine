@@ -102,3 +102,4 @@ export declare class CameraSystem {
   update(deltaTime: number): void;
   destroy(): void;
 }
+//# sourceMappingURL=CameraSystem.d.ts.map

@@ -55,3 +55,4 @@ export declare function getGmlTimeline(
   timelineId: string,
 ): TimelineModule | undefined;
 export declare function unregisterGmlTimeline(timelineId: string): void;
+//# sourceMappingURL=GmlTimeline.d.ts.map

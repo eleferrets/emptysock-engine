@@ -29,3 +29,4 @@ export declare class GmlSequenceSystem {
   /** Advances every playing `GmlSequenceState` entity's playhead by `dt` seconds and applies the sampled values. */
   update(scene: Scene, dt: number): void;
 }
+//# sourceMappingURL=GmlSequenceSystem.d.ts.map

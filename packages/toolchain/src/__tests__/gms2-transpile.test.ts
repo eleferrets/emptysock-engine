@@ -2136,7 +2136,7 @@ describe("transpileGML — draw_self, instance_change, room_exists, audio_sound_
   it("threads audio_sound_pitch", () => {
     const out = transpileGML("audio_sound_pitch(snd_Shot, 1.2);");
     expect(out).toContain(
-      "GmlActions.audio_sound_pitch(_entity, _ctx, snd_Shot, 1.2);",
+      'GmlActions.audio_sound_pitch(_entity, _ctx, "snd_Shot", 1.2);',
     );
   });
 

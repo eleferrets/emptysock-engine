@@ -555,8 +555,14 @@ function replacePlainAssignmentMultiline(
   name: string,
   build: (indent: string, expr: string) => string,
 ): string {
+  // See the matching comment on the increment/decrement and compound-
+  // assignment passes above (instance-var loop) for why the prefix also
+  // accepts `\)[ \t]+` — a brace-less `if (cond) name = expr;` body needs
+  // the same statement-boundary recognition a real line-start assignment
+  // gets, or this pass never matches it and a later, unanchored bare-read
+  // pass corrupts the assignment target into a non-assignable expression.
   const re = new RegExp(
-    `^(\\s*)${escapeRegExpTranspile(name)}\\s*=(?!=)\\s*`,
+    `(^[ \\t]*|\\)[ \\t]+)${escapeRegExpTranspile(name)}\\s*=(?!=)\\s*`,
     "gm",
   );
   let result = "";
@@ -1983,6 +1989,32 @@ export function transpileGML(
       return `GmlActions.audio_play_sound(_entity, _ctx, ${threaded})${semi ?? ";"}`;
     },
   );
+  // `audio_sound_pitch(snd, pitch)` — real, confirmed bug found running
+  // the playability smoke test against real Freedom Backup gameplay: this
+  // used to be generically threaded via `THREADED_ACTIONS` (no quoting,
+  // the same already-documented gap `action_create_object`/
+  // `instance_create`'s object-name argument has), so a real, common call
+  // shape (`audio_sound_pitch(snd_Landing, choose(0.8, 1.0, 1.2))`,
+  // confirmed in Freedom Backup's own `obj_player/Step_0.gml`) left the
+  // bare `snd_Landing` identifier completely unresolved — a hard runtime
+  // `ReferenceError` the moment this line actually executed, not a
+  // degraded/no-op result. Given its own dedicated quoting pass here,
+  // matching `audio_play_sound`'s exact bare-identifier convention right
+  // above (same `ctx.sounds` key), since both take a sound-asset name as
+  // their first argument.
+  out = out.replace(
+    new RegExp(
+      `\\baudio_sound_pitch\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      "g",
+    ),
+    (_m, argsRaw: string, semi?: string) => {
+      const args = splitTopLevelArgs(argsRaw, 2).map((a) => a.trim());
+      const soundArg = bareOrQuoted(args[0] ?? "");
+      const rest = args.slice(1).filter((a) => a.length > 0);
+      const threaded = [soundArg, ...rest].join(", ");
+      return `GmlActions.audio_sound_pitch(_entity, _ctx, ${threaded})${semi ?? ";"}`;
+    },
+  );
   out = out.replace(
     new RegExp(
       `\\broom_goto\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
@@ -2217,7 +2249,6 @@ export function transpileGML(
     "instance_destroy",
     "action_set_alarm",
     "action_sound",
-    "audio_sound_pitch",
     "draw_self",
     // `place_free`/`place_snapped`/`position_free` take no object-type
     // argument at all (`place_free` matches any `Meta.solid`-flagged
@@ -2362,6 +2393,8 @@ export function transpileGML(
     "surface_get_width",
     "surface_get_height",
     "window_set_size",
+    "window_get_width",
+    "window_get_height",
     "surface_resize",
     // `room_exists(room)` (compat/gmlActions.ts) — a real object-type-name-
     // free function (its argument is either already a real expression like
@@ -2612,6 +2645,37 @@ export function transpileGML(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\broom\b(?!\s*\()/g,
     "GmlActions.room(_ctx)",
   );
+
+  // `mouse_x`/`mouse_y` bare reads (compat/gmlInput.ts's `mouse_x`/
+  // `mouse_y`) — real, confirmed gap found running the playability smoke
+  // test against real Freedom Backup gameplay (`obj_gun`/`obj_pna`'s own
+  // aiming code reads both bare, never as a call). Guarded against the
+  // dotted-reference/call-site/comment shapes the same way every other
+  // bare-read rewrite in this file already is.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bmouse_x\b(?!\s*\()/g,
+    "GmlActions.mouse_x(_ctx)",
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bmouse_y\b(?!\s*\()/g,
+    "GmlActions.mouse_y(_ctx)",
+  );
+
+  // `bbox_left`/`bbox_right`/`bbox_top`/`bbox_bottom` bare reads
+  // (compat/gmlActions.ts) — real, confirmed gap found running the
+  // playability smoke test against real Freedom Backup gameplay
+  // (`obj_player/Step_0.gml` reads `bbox_bottom` every Step for its
+  // ground/wall probe — this was the single largest blocker to a real
+  // demonstration of sustained player movement, since it threw on most
+  // frames before the rest of that Step's movement logic ever ran). These
+  // take the calling entity, not `_ctx` (no room-global state involved),
+  // the same shape `spriteHalfExtents()`/`place_meeting` already use.
+  for (const name of ["bbox_left", "bbox_right", "bbox_top", "bbox_bottom"]) {
+    out = out.replace(
+      new RegExp(`(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${name}\\b(?!\\s*\\()`, "g"),
+      `GmlActions.${name}(_entity)`,
+    );
+  }
 
   // GameMaker's legacy `d3d_*` pseudo-3D projection compat
   // (compat/gmlProjection.ts) — real, confirmed gap: every one of these was
@@ -3838,14 +3902,28 @@ export function transpileGML(
       // legitimately appear anywhere in an expression, including inside a
       // condition, and by this point every genuine assignment occurrence
       // has already been consumed by one of the three anchored passes.
+      // The prefix alternation (`^[ \t]*` — a real statement start — or
+      // `\)[ \t]+` — immediately after a condition's closing paren) covers
+      // a real, confirmed shape: a brace-less `if (cond) name += expr;`
+      // body (Freedom Backup's own `oTextbox`'s `if (messageChar <=
+      // _text.length) messageChar += messageSpeed;`). Without the second
+      // alternative, this pass's line-start-only anchor never matched that
+      // statement at all, so it silently fell through to the unanchored
+      // bare-read catch-all below and rewrote the *assignment target*
+      // itself into a non-assignable read expression — a real, hard
+      // `SyntaxError` (`Cannot assign to this expression`), not degraded
+      // output. Echoing the captured prefix back verbatim keeps the
+      // line-start case byte-identical (prefix = the original indent) and
+      // produces a still-valid `if (cond) GmlActions.setGmlVar(...);`
+      // expression-statement for the new case (prefix = `") "`).
       out = out.replace(
-        new RegExp(`^(\\s*)${esc}\\s*(\\+\\+|--)`, "gm"),
+        new RegExp(`(^[ \\t]*|\\)[ \\t]+)${esc}\\s*(\\+\\+|--)`, "gm"),
         (_m, indent: string, op: string) =>
           `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ((GmlActions.getGmlVar(_entity, _ctx, ${placeholder}) as number | undefined) ?? 0) ${op === "++" ? "+" : "-"} 1)`,
       );
       out = out.replace(
         new RegExp(
-          `^(\\s*)${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          `(^[ \\t]*|\\)[ \\t]+)${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
           "gm",
         ),
         (_m, indent: string, op: string, exprRaw: string) => {

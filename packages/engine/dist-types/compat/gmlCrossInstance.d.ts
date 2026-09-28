@@ -49,3 +49,4 @@ export declare function setGmlObjectVar(
   field: string,
   value: unknown,
 ): unknown;
+//# sourceMappingURL=gmlCrossInstance.d.ts.map

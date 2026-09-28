@@ -36,3 +36,4 @@ export declare class TweenManager {
   killAll(): void;
   destroy(): void;
 }
+//# sourceMappingURL=TweenSystem.d.ts.map

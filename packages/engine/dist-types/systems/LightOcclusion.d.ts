@@ -85,3 +85,4 @@ export declare function boxWithinReach(
   width: number,
   height: number,
 ): boolean;
+//# sourceMappingURL=LightOcclusion.d.ts.map

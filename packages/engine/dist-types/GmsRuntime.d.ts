@@ -251,3 +251,4 @@ export declare class GmsProjectRuntime {
    */
   update(dt: number): void;
 }
+//# sourceMappingURL=GmsRuntime.d.ts.map

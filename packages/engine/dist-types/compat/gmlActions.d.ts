@@ -53,6 +53,66 @@ export interface GmlActionContext {
    */
   readonly drawTarget?: GmlDrawTarget;
 }
+/**
+ * GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
+ * variables — distinct from GM8.1's DnD `action_move` (above), but sharing
+ * the exact same per-`(World, eid)` velocity side-table and the exact same
+ * "the runtime keeps applying this every step" semantic: setting `speed`/
+ * `direction` (or `hspeed`/`vspeed` directly) on a real GameMaker instance
+ * makes it move automatically every step from then on, with no further
+ * code required — precisely what `gmlActionsStep`'s existing `vx`/`vy`
+ * integration already does. Confirmed against a real, full GameMaker
+ * project (Freedom Backup's `obj_Egun`/`obj_bullet_par`: `direction =
+ * other.image_angle + random_range(...);` inside a `with` block targeting a
+ * freshly `instance_create_layer`-ed bullet, read back nowhere else — the
+ * bullet moves purely from this one assignment, GameMaker's own automatic
+ * per-step integration, never an explicit `x += ...` in the bullet's own
+ * Step event).
+ *
+ * `direction`/`speed` are angle/magnitude; `hspeed`/`vspeed` are the same
+ * vector's cartesian components — GameMaker itself keeps all four in sync
+ * (setting one recomputes the others), so every setter here recomputes
+ * `vx`/`vy` (the one real source of truth `gmlActionsStep` integrates) and
+ * every getter derives its own value from `vx`/`vy` (except `direction`,
+ * which falls back to `motion.direction`'s own remembered value at
+ * zero speed — see the interface doc comment above).
+ */
+export declare function getGmlSpeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function setGmlSpeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  speed: number,
+): void;
+export declare function getGmlDirection(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function setGmlDirection(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  direction: number,
+): void;
+export declare function getGmlHspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function setGmlHspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  hspeed: number,
+): void;
+export declare function getGmlVspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function setGmlVspeed(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  vspeed: number,
+): void;
 /** Clear this `(world, eid)` pair's motion/alarm state. Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
 export declare function clearGmlActionState(world: World, eid: number): void;
 /**
@@ -453,6 +513,28 @@ export declare function spriteHalfExtents(_entity: Entity): {
   x: number;
   y: number;
 };
+/**
+ * `bbox_left`/`bbox_right`/`bbox_top`/`bbox_bottom` — real, extremely
+ * common GameMaker built-ins for the calling instance's own current
+ * collision-mask bounding box, confirmed real and unwired (a hard
+ * `ReferenceError` the moment real transpiled code read one — Freedom
+ * Backup's own `obj_player/Step_0.gml` reads `bbox_bottom` every Step for
+ * its ground/wall probe) while running the playability smoke test against
+ * real gameplay. Derived from the exact same `spriteHalfExtents()` fallback
+ * `place_meeting`/`action_if_collision`/`onCollideWith<Type>` dispatch
+ * already share, so a `bbox_*` read can never disagree with what this
+ * engine's own collision-query family considers the entity's extents to
+ * be — the same "one implementation, not two that could drift" rule this
+ * file's own doc comments establish elsewhere. `0` for an entity with no
+ * `Transform` (nothing to derive a box from).
+ */
+export declare function bbox_left(entity: Entity): number;
+/** See `bbox_left`'s doc comment. */
+export declare function bbox_right(entity: Entity): number;
+/** See `bbox_left`'s doc comment. */
+export declare function bbox_top(entity: Entity): number;
+/** See `bbox_left`'s doc comment. */
+export declare function bbox_bottom(entity: Entity): number;
 /** GM8.1 "Check Grid" — true if the entity's position is aligned to the given grid size. */
 export declare function action_if_aligned(
   entity: Entity,
@@ -511,3 +593,4 @@ export declare function gmlActionsStep(
   entity: Entity,
   onAlarm?: (index: number) => void,
 ): void;
+//# sourceMappingURL=gmlActions.d.ts.map

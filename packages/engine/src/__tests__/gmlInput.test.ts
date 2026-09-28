@@ -16,6 +16,8 @@ import {
   surface_get_width,
   surface_get_height,
   window_set_size,
+  window_get_width,
+  window_get_height,
   surface_resize,
   vk_right,
   vk_up,
@@ -117,6 +119,22 @@ describe("compat/gmlInput.ts — window_set_size/surface_resize", () => {
     const ctx = ctxFor(game);
     window_set_size(ctx, 800, 600);
     expect(setSize).toHaveBeenCalledWith(800, 600);
+  });
+
+  it("window_get_width/window_get_height read back WindowSystem's real tracked size", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    expect(window_get_width(ctx)).toBe(
+      game.services.get(WindowSystem).getSize().width,
+    );
+    void game.services.get(WindowSystem).setSize(1024, 576);
+    expect(window_get_width(ctx)).toBe(1024);
+    expect(window_get_height(ctx)).toBe(576);
+  });
+
+  it("window_get_width/window_get_height default to 0 with no game wired", () => {
+    expect(window_get_width({})).toBe(0);
+    expect(window_get_height({})).toBe(0);
   });
 
   it("surface_resize(application_surface, w, h) resizes ViewportSystem's design resolution", () => {

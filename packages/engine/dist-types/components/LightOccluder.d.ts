@@ -43,3 +43,4 @@ export declare const LightOccluder: import("../Component.js").ComponentDef<{
   /** A disabled occluder is skipped entirely by `LightingSystem.collectLights()` — a broken door or a destroyed wall segment stops casting a shadow without removing/re-adding the component. Mirrors `LightSource.enabled`. */
   enabled: boolean;
 }>;
+//# sourceMappingURL=LightOccluder.d.ts.map

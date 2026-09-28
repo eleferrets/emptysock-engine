@@ -121,3 +121,4 @@ export declare function lighting_get_ambient(ctx: GmlLightingContext): {
   colour: number;
   level: number;
 };
+//# sourceMappingURL=gmlLighting.d.ts.map

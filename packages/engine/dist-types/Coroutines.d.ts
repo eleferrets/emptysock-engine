@@ -69,3 +69,4 @@ export declare function updateCoroutines(world: World, dt: number): void;
  * could inherit a coroutine still scheduled against the previous occupant.
  */
 export declare function clearCoroutines(world: World, eid: number): void;
+//# sourceMappingURL=Coroutines.d.ts.map

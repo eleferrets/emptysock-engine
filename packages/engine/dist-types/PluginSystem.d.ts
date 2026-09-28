@@ -21,3 +21,4 @@ export declare class PluginSystem {
   inject<T>(key: string): T | undefined;
   get registeredPlugins(): ReadonlyArray<string>;
 }
+//# sourceMappingURL=PluginSystem.d.ts.map

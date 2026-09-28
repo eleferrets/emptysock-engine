@@ -68,3 +68,4 @@ export declare class Entity {
   /** Stop a coroutine by its id (the one returned from `startCoroutine`). */
   stopCoroutine(id: string): void;
 }
+//# sourceMappingURL=Entity.d.ts.map

@@ -32,3 +32,4 @@ export declare class RainGlassFilter extends Filter {
 export declare function createRainGlassFilter(
   options?: RainGlassFilterOptions,
 ): RainGlassFilter;
+//# sourceMappingURL=RainGlassFilter.d.ts.map

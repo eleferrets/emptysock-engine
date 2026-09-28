@@ -373,3 +373,4 @@ export declare class QueryChannel {
   private _navmeshFindPath;
   private _navmeshNearestNode;
 }
+//# sourceMappingURL=QueryChannel.d.ts.map

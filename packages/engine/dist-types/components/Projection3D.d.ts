@@ -36,3 +36,4 @@ export declare const Projection3D: import("../Component.js").ComponentDef<{
   x3: number;
   y3: number;
 }>;
+//# sourceMappingURL=Projection3D.d.ts.map

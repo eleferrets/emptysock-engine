@@ -92,3 +92,4 @@ export declare function defineComponent<T extends SerializableRecord>(
   createDefaults: () => T,
   options?: DefineComponentOptions<T>,
 ): ComponentDef<T>;
+//# sourceMappingURL=Component.d.ts.map

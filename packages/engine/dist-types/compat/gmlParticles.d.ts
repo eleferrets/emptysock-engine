@@ -280,3 +280,4 @@ export declare function part_particles_create_colour(
   number_: number,
 ): void;
 export declare const part_particles_create_color: typeof part_particles_create_colour;
+//# sourceMappingURL=gmlParticles.d.ts.map

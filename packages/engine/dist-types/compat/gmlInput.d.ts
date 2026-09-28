@@ -199,6 +199,19 @@ export declare function window_set_size(
   height: number,
 ): void;
 /**
+ * `window_get_width()`/`window_get_height()` — the real OS window's (or the
+ * browser viewport's backing element's) current size, read back from
+ * `WindowSystem.getSize()`. Unlike `display_get_width`/`_height` (which
+ * honestly alias the game's own *design* resolution, since this engine has
+ * no access to the physical monitor), these track the window this engine
+ * itself owns and last set — a real, non-approximated answer. `0` when no
+ * `Game` is wired (the same "nothing to even ask" default every other
+ * `ctx.game`-optional function here uses).
+ */
+export declare function window_get_width(ctx: GmlInputContext): number;
+/** See `window_get_width`'s doc comment. */
+export declare function window_get_height(ctx: GmlInputContext): number;
+/**
  * `surface_resize(surface, w, h)` — real Surface API resizing this engine
  * has no general implementation for (see `application_surface`'s own doc
  * comment), *except* the same one honestly-supported case
@@ -220,8 +233,31 @@ export declare function surface_resize(
   width: number,
   height: number,
 ): void;
+/**
+ * `mouse_x`/`mouse_y` — the real, extremely common GameMaker built-ins for
+ * the mouse's current position, confirmed real and used unwired
+ * (`ReferenceError: mouse_x is not defined`) against real Freedom Backup
+ * gameplay (`obj_gun`/`obj_pna`'s own aiming code). GameMaker's own real
+ * semantic is *room-space* (world) coordinates, already adjusted for the
+ * active view/camera — this engine's `PointerState.x`/`.y` are screen-space
+ * pixels (the raw pointer/canvas position `PointerSystem` tracks), and
+ * there is no camera-to-world inverse-transform helper anywhere in this
+ * compat layer to convert one into the other honestly. Rather than silently
+ * mislabel a screen-space number as GameMaker's room-space one, this is the
+ * same honest, documented approximation `display_get_width`/`_height`
+ * already establish for a value this engine cannot derive exactly: the raw
+ * pointer position, screen-space, not room-space — correct for a
+ * non-scrolling/non-zoomed room (the overwhelmingly common real case for a
+ * UI-facing aim readout), a real, named gap otherwise. `0` when no primary
+ * pointer is live (matches this engine's other input functions' "nothing
+ * to answer" default).
+ */
+export declare function mouse_x(ctx: GmlInputContext): number;
+/** See `mouse_x`'s doc comment. */
+export declare function mouse_y(ctx: GmlInputContext): number;
 /** `mouse_check_button_pressed(button)` — edge-triggered mouse-button check. Reads `InputManager.pointers`' real per-pointer `buttons` bitmask (the standard `MouseEvent.buttons` convention — bit 0 left, bit 1 right, bit 2 middle, matching `mb_left`/`mb_right`/`mb_middle`'s own 0/1/2 numbering once shifted to a bit index), `true` while any live pointer has that button held. */
 export declare function mouse_check_button_pressed(
   ctx: GmlInputContext,
   button: number,
 ): boolean;
+//# sourceMappingURL=gmlInput.d.ts.map

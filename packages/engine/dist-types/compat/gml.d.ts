@@ -431,3 +431,4 @@ export declare function array_reduce(
   fn: (accumulator: unknown, value: unknown) => unknown,
   init?: unknown,
 ): unknown;
+//# sourceMappingURL=gml.d.ts.map

@@ -924,6 +924,48 @@ export function spriteHalfExtents(_entity: Entity): { x: number; y: number } {
   return { x: 16, y: 16 };
 }
 
+/**
+ * `bbox_left`/`bbox_right`/`bbox_top`/`bbox_bottom` — real, extremely
+ * common GameMaker built-ins for the calling instance's own current
+ * collision-mask bounding box, confirmed real and unwired (a hard
+ * `ReferenceError` the moment real transpiled code read one — Freedom
+ * Backup's own `obj_player/Step_0.gml` reads `bbox_bottom` every Step for
+ * its ground/wall probe) while running the playability smoke test against
+ * real gameplay. Derived from the exact same `spriteHalfExtents()` fallback
+ * `place_meeting`/`action_if_collision`/`onCollideWith<Type>` dispatch
+ * already share, so a `bbox_*` read can never disagree with what this
+ * engine's own collision-query family considers the entity's extents to
+ * be — the same "one implementation, not two that could drift" rule this
+ * file's own doc comments establish elsewhere. `0` for an entity with no
+ * `Transform` (nothing to derive a box from).
+ */
+export function bbox_left(entity: Entity): number {
+  const t = entity.get(Transform);
+  if (t === undefined) return 0;
+  return t.x - spriteHalfExtents(entity).x;
+}
+
+/** See `bbox_left`'s doc comment. */
+export function bbox_right(entity: Entity): number {
+  const t = entity.get(Transform);
+  if (t === undefined) return 0;
+  return t.x + spriteHalfExtents(entity).x;
+}
+
+/** See `bbox_left`'s doc comment. */
+export function bbox_top(entity: Entity): number {
+  const t = entity.get(Transform);
+  if (t === undefined) return 0;
+  return t.y - spriteHalfExtents(entity).y;
+}
+
+/** See `bbox_left`'s doc comment. */
+export function bbox_bottom(entity: Entity): number {
+  const t = entity.get(Transform);
+  if (t === undefined) return 0;
+  return t.y + spriteHalfExtents(entity).y;
+}
+
 /** GM8.1 "Check Grid" — true if the entity's position is aligned to the given grid size. */
 export function action_if_aligned(
   entity: Entity,

@@ -47,3 +47,4 @@ export declare class DebugOverlaySystem {
   runCommand(line: string): string;
   get commandNames(): ReadonlyArray<string>;
 }
+//# sourceMappingURL=DebugOverlaySystem.d.ts.map

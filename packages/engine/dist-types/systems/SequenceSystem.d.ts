@@ -53,3 +53,4 @@ export declare class SequenceSystem {
   stop(): void;
   destroy(): void;
 }
+//# sourceMappingURL=SequenceSystem.d.ts.map

@@ -82,7 +82,7 @@ export declare const Sprite: import("../Component.js").ComponentDef<{
    * death/hit animation), so it's exposed here as a plain field rather
    * than left unmodelled.
    */
-  loop: true;
+  loop: boolean;
 }>;
 /**
  * Resolves `Sprite.texturePath`/`currentFrame`/`frameCount` into the actual
@@ -99,3 +99,4 @@ export declare function resolveSpriteFramePath(sprite: {
   frameCount: number;
   currentFrame: number;
 }): string;
+//# sourceMappingURL=Sprite.d.ts.map

@@ -51,3 +51,4 @@ export declare class ServiceRegistry {
   /** Drop a registered instance. Mainly useful for tests. */
   unregister<T>(ctor: ServiceConstructor<T>): void;
 }
+//# sourceMappingURL=Services.d.ts.map

@@ -194,3 +194,4 @@ export declare class GmlBehaviorSystem {
    */
   private dispatchDraw;
 }
+//# sourceMappingURL=GmlBehaviorSystem.d.ts.map

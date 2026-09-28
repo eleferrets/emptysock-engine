@@ -147,3 +147,4 @@ export declare function collision_point(
   _prec?: boolean,
   notme?: boolean,
 ): Entity | undefined;
+//# sourceMappingURL=gmlCollisionQueries.d.ts.map

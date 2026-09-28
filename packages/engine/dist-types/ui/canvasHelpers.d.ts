@@ -26,3 +26,4 @@ export declare function widgetRoundRect(
   h: number,
   r: number,
 ): void;
+//# sourceMappingURL=canvasHelpers.d.ts.map

@@ -15,3 +15,4 @@ export declare class HostAdapterSlot {
   /** Deregister the current listener and reset to the null adapter. */
   detach(): void;
 }
+//# sourceMappingURL=HostAdapterSlot.d.ts.map

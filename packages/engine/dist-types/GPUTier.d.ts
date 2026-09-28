@@ -22,3 +22,4 @@ export declare function detectGPUTier(adapter: GPUTierAdapter): GPUTier;
  * HostAdapter implementations can reuse the classification logic.
  */
 export declare function classifyRenderer(renderer: string): GPUTier;
+//# sourceMappingURL=GPUTier.d.ts.map

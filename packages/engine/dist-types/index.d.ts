@@ -335,6 +335,10 @@ export {
   audio_play_sound,
   audio_sound_pitch,
   draw_self,
+  bbox_left,
+  bbox_right,
+  bbox_top,
+  bbox_bottom,
   action_if_collision,
   action_if_aligned,
   action_if_empty,
@@ -343,6 +347,14 @@ export {
   gmlActionsStep,
   clearGmlActionState,
   gmlStatics,
+  getGmlSpeed,
+  setGmlSpeed,
+  getGmlDirection,
+  setGmlDirection,
+  getGmlHspeed,
+  setGmlHspeed,
+  getGmlVspeed,
+  setGmlVspeed,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
@@ -356,6 +368,7 @@ export {
   getGmlVar,
   setGmlVar,
   hasGmlVar,
+  getGmlArrayVar,
   clearGmlInstanceVars,
   gmlNum,
 } from "./compat/gmlInstanceVars.js";
@@ -583,6 +596,8 @@ export {
   gamepad_axis_value,
   gamepad_set_axis_deadzone,
   mouse_check_button_pressed,
+  mouse_x,
+  mouse_y,
   display_get_gui_width,
   display_get_gui_height,
   display_get_width,
@@ -591,6 +606,8 @@ export {
   surface_get_width,
   surface_get_height,
   window_set_size,
+  window_get_width,
+  window_get_height,
   surface_resize,
 } from "./compat/gmlInput.js";
 /**
@@ -779,3 +796,4 @@ export type {
   GmsProjectRuntimeOptions,
   GmsRuntimeContext,
 } from "./GmsRuntime.js";
+//# sourceMappingURL=index.d.ts.map

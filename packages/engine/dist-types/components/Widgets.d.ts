@@ -103,3 +103,4 @@ export declare const ImageWidget: import("../Component.js").ComponentDef<{
   src: string;
 }>;
 export type ImageWidgetShape = ReturnType<typeof ImageWidget.createDefaults>;
+//# sourceMappingURL=Widgets.d.ts.map

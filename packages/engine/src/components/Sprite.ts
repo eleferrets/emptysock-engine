@@ -86,7 +86,7 @@ export const Sprite = defineComponent(
      * death/hit animation), so it's exposed here as a plain field rather
      * than left unmodelled.
      */
-    loop: true,
+    loop: true as boolean,
   }),
   {
     schema: {

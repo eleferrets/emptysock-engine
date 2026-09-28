@@ -127,6 +127,20 @@ export class WindowSystem {
     }
   }
 
+  /**
+   * The window's last-known width/height, in real OS pixels on desktop or
+   * the backing element's CSS pixels in the browser — whatever `apply()`/
+   * `setSize()` most recently set (or `DEFAULT_CONFIG`'s value if neither
+   * has run yet). Not an async live query of the real OS window (unlike
+   * `setSize`, which does await one) — GML's own `window_get_width`/
+   * `_height` are synchronous, so this reads back the same authored value
+   * this class itself is the source of truth for, matching every other
+   * compat function's "read the value this engine already tracks" shape.
+   */
+  getSize(): { width: number; height: number } {
+    return { width: this.config.width, height: this.config.height };
+  }
+
   async setMode(mode: WindowMode): Promise<void> {
     this.config.mode = mode;
     const win = await getTauriWindow();

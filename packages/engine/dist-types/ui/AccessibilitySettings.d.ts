@@ -6,3 +6,4 @@ export declare class AccessibilitySettings {
   reset(): void;
 }
 export declare const accessibilitySettings: AccessibilitySettings;
+//# sourceMappingURL=AccessibilitySettings.d.ts.map

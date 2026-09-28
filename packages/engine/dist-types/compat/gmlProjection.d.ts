@@ -74,3 +74,4 @@ export declare function d3d_transform_set_scaling(
 ): void;
 /** `d3d_transform_set_identity`'s inverse operation for cleanup: turns projected rendering back off for this entity, reverting `RenderPipeline`'s sprite-sync to the plain `Sprite` path. Not a real GameMaker function — a convenience this compat layer adds since GML itself has no single call that means "stop being pseudo-3D," it just stops calling `d3d_transform_set_*`/`d3d_set_projection_*` for that instance. */
 export declare function d3d_transform_clear(entity: Entity): void;
+//# sourceMappingURL=gmlProjection.d.ts.map

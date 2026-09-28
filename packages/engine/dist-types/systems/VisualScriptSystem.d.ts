@@ -46,3 +46,4 @@ export declare class VisualScriptSystem {
   fireEvent(scene: Scene, eventType: string): void;
   get variables(): VariableStore;
 }
+//# sourceMappingURL=VisualScriptSystem.d.ts.map

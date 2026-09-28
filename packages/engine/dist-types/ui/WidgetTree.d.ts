@@ -116,3 +116,4 @@ export declare class WidgetTree {
   destroy(): void;
 }
 export declare function detachWidgetParent(scene: Scene, entity: Entity): void;
+//# sourceMappingURL=WidgetTree.d.ts.map

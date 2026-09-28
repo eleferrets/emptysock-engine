@@ -171,3 +171,4 @@ export declare class InputManager {
   simulateKeyUp(code: string): void;
   private _isBindingActive;
 }
+//# sourceMappingURL=Input.d.ts.map

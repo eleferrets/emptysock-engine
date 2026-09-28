@@ -10,3 +10,4 @@ coverage/
 apps/ide/public/manual/
 apps/ide/public/esbuild.wasm
 apps/ide/public/vendor/
+.gms2-smoke-tmp/

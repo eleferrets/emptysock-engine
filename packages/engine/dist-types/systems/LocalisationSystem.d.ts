@@ -16,3 +16,4 @@ export declare class LocalisationSystem {
   update(_dt: number): void;
   destroy(): void;
 }
+//# sourceMappingURL=LocalisationSystem.d.ts.map

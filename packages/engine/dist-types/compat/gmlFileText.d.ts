@@ -83,3 +83,4 @@ export declare function file_delete(
   ctx: GmlActionContext,
   fname: string,
 ): void;
+//# sourceMappingURL=gmlFileText.d.ts.map

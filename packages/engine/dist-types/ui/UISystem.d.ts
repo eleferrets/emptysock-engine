@@ -91,3 +91,4 @@ export declare class UISystem {
   /** Fallback for an `ImageWidget` with no source set yet, a source still loading, or a source that failed to load — a grey placeholder box. */
   private _renderImagePlaceholder;
 }
+//# sourceMappingURL=UISystem.d.ts.map
