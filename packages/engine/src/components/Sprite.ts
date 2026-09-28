@@ -106,7 +106,7 @@ export const Sprite = defineComponent(
      * `width` x `height`). Sliced/tiled modes need `width`/`height > 0` to
      * have any effect. Set by the GMS2 importer (`nineSlice.enabled`, a
      * `GMRBackgroundLayer`'s `htiled`/`vtiled`) or marked by hand in the
-     * IDE Room Editor; the runtime renderer does not consume it yet.
+     * IDE Room Editor; `RenderPipeline._syncSliced()` renders modes 1/2 (see CLAUDE.md).
      */
     sliceMode: 0,
     /** Nine-slice guide sizes in source-texture pixels (GMS2 `nineSlice.left/right/top/bottom`). */

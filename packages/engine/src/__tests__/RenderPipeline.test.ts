@@ -353,4 +353,100 @@ describe("RenderPipeline — multi-frame Sprite animation", () => {
       "./assets/sprites/foo/frame_2.png",
     ]);
   });
+
+  describe("Sprite.sliceMode", () => {
+    type SliceNode = {
+      leftWidth: number;
+      rightWidth: number;
+      topHeight: number;
+      bottomHeight: number;
+      width: number;
+      height: number;
+    };
+    type Tr = {
+      sprites: Map<number, unknown>;
+      sliced: Map<number, { mode: number; node: SliceNode }>;
+    };
+    let pipeline: InstanceType<typeof RenderPipeline>;
+    let scene: InstanceType<typeof Scene>;
+    beforeEach(async () => {
+      pipeline = new RenderPipeline({
+        textureLoader: vi.fn(() => Promise.resolve(makeTestTexture())),
+      });
+      await pipeline.init();
+      scene = new Scene();
+    });
+    const tr = (): Tr =>
+      (pipeline as unknown as { _tracking: Map<unknown, Tr> })._tracking.get(
+        scene,
+      ) as Tr;
+
+    it("mode 1 creates a NineSliceSprite with the slice widths and size", () => {
+      const e = scene.spawn();
+      e.add(Transform, { x: 5, y: 6, scaleX: 2, scaleY: 3 });
+      e.add(Sprite, {
+        texturePath: "p.png",
+        width: 100,
+        height: 60,
+        sliceMode: 1,
+        sliceLeft: 4,
+        sliceRight: 5,
+        sliceTop: 6,
+        sliceBottom: 7,
+      });
+      pipeline.syncEntities(scene);
+      const n = tr().sliced.get(e.eid);
+      expect(n?.mode).toBe(1);
+      expect(n?.node.leftWidth).toBe(4);
+      expect(n?.node.rightWidth).toBe(5);
+      expect(n?.node.topHeight).toBe(6);
+      expect(n?.node.bottomHeight).toBe(7);
+      expect(n?.node.width).toBe(100);
+      expect(n?.node.height).toBe(60);
+      expect(tr().sprites.has(e.eid)).toBe(false);
+    });
+
+    it("mode 2 creates a TilingSprite sized to width/height", () => {
+      const e = scene.spawn();
+      e.add(Transform);
+      e.add(Sprite, {
+        texturePath: "p.png",
+        width: 320,
+        height: 200,
+        sliceMode: 2,
+      });
+      pipeline.syncEntities(scene);
+      const n = tr().sliced.get(e.eid);
+      expect(n?.mode).toBe(2);
+      expect(n?.node.width).toBe(320);
+      expect(n?.node.height).toBe(200);
+    });
+
+    it("switching mode tears down the old renderable", () => {
+      const e = scene.spawn();
+      e.add(Transform);
+      e.add(Sprite, { width: 10, height: 10, sliceMode: 1 });
+      pipeline.syncEntities(scene);
+      const first = tr().sliced.get(e.eid)?.node;
+      const s = e.get(Sprite);
+      if (s === undefined) throw new Error("no sprite");
+      s.sliceMode = 2;
+      pipeline.syncEntities(scene);
+      expect(tr().sliced.get(e.eid)?.mode).toBe(2);
+      expect(tr().sliced.get(e.eid)?.node).not.toBe(first);
+      s.sliceMode = 0;
+      pipeline.syncEntities(scene);
+      expect(tr().sliced.has(e.eid)).toBe(false);
+      expect(tr().sprites.has(e.eid)).toBe(true);
+    });
+
+    it("mode 0 (or no size) stays a plain sprite", () => {
+      const e = scene.spawn();
+      e.add(Transform);
+      e.add(Sprite, { sliceMode: 2 });
+      pipeline.syncEntities(scene);
+      expect(tr().sliced.size).toBe(0);
+      expect(tr().sprites.has(e.eid)).toBe(true);
+    });
+  });
 });

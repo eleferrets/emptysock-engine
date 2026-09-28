@@ -95,6 +95,12 @@ export declare const Sprite: import("../Component.js").ComponentDef<{
    */
   width: number;
   height: number;
+  /** 0 plain, 1 nine-slice, 2 tiled (needs width/height > 0). */
+  sliceMode: number;
+  sliceLeft: number;
+  sliceRight: number;
+  sliceTop: number;
+  sliceBottom: number;
 }>;
 /**
  * Resolves `Sprite.texturePath`/`currentFrame`/`frameCount` into the actual

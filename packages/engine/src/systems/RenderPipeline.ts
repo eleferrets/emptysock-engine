@@ -2,6 +2,7 @@ import {
   Assets,
   Container,
   Graphics,
+  NineSliceSprite,
   Particle,
   ParticleContainer,
   PerspectiveMesh,
@@ -9,6 +10,7 @@ import {
   Sprite as PixiSprite,
   Text,
   Texture,
+  TilingSprite,
 } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import type { Scene } from "../Scene.js";
@@ -282,12 +284,24 @@ interface SceneTracking {
    * the two maps at a time, never both.
    */
   meshes: Map<number, PerspectiveMesh>;
+  /**
+   * entity eid -> its `NineSliceSprite` (`mode` 1) or `TilingSprite`
+   * (`mode` 2), for a `Sprite` with `sliceMode` 1/2 and `width`/`height > 0`.
+   * Disjoint from `sprites` and `meshes`: an eid is in exactly one of the
+   * three maps. A mode change tears the old node down and builds a new one.
+   */
+  sliced: Map<number, { mode: 1 | 2; node: NineSliceSprite | TilingSprite }>;
   /** entity eid -> the texturePath last applied, so we only reload on change. Shared by both `sprites` and `meshes` — an eid is only ever in one of those two maps at a time, so there's no ambiguity about which renderable a cached path belongs to. */
   texturePaths: Map<number, string>;
 }
 
 function createTracking(): SceneTracking {
-  return { sprites: new Map(), meshes: new Map(), texturePaths: new Map() };
+  return {
+    sprites: new Map(),
+    meshes: new Map(),
+    sliced: new Map(),
+    texturePaths: new Map(),
+  };
 }
 
 interface MountedTilemap {
@@ -787,6 +801,9 @@ export class RenderPipeline implements SceneRenderer {
       for (const id of Array.from(tracking.meshes.keys())) {
         this._removeMesh(tracking, id);
       }
+      for (const id of Array.from(tracking.sliced.keys())) {
+        this._removeSliced(tracking, id);
+      }
       this._tracking.delete(scene);
     }
     this._mainScene = null;
@@ -817,6 +834,9 @@ export class RenderPipeline implements SceneRenderer {
     }
     for (const id of [...tracking.meshes.keys()]) {
       if (!seen.has(id)) this._removeMesh(tracking, id);
+    }
+    for (const id of [...tracking.sliced.keys()]) {
+      if (!seen.has(id)) this._removeSliced(tracking, id);
     }
   }
 
@@ -860,6 +880,13 @@ export class RenderPipeline implements SceneRenderer {
       visible: boolean;
       frameCount: number;
       currentFrame: number;
+      width: number;
+      height: number;
+      sliceMode: number;
+      sliceLeft: number;
+      sliceRight: number;
+      sliceTop: number;
+      sliceBottom: number;
     },
     containerFor: (layer: string) => Container,
   ): void {
@@ -875,6 +902,7 @@ export class RenderPipeline implements SceneRenderer {
 
     if (projection !== undefined && projection.active) {
       this._removeSprite(tracking, eid);
+      this._removeSliced(tracking, eid);
       this._syncProjected(
         tracking,
         eid,
@@ -886,6 +914,27 @@ export class RenderPipeline implements SceneRenderer {
       return;
     }
     this._removeMesh(tracking, eid);
+
+    const sliceMode =
+      (sprite.sliceMode === 1 || sprite.sliceMode === 2) &&
+      sprite.width > 0 &&
+      sprite.height > 0
+        ? sprite.sliceMode
+        : 0;
+    if (sliceMode !== 0) {
+      this._removeSprite(tracking, eid);
+      this._syncSliced(
+        tracking,
+        eid,
+        sliceMode,
+        transform,
+        sprite,
+        framePath,
+        containerFor(sprite.layer),
+      );
+      return;
+    }
+    this._removeSliced(tracking, eid);
 
     let pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) {
@@ -1160,6 +1209,99 @@ export class RenderPipeline implements SceneRenderer {
       });
   }
 
+  /**
+   * `_syncOne()`'s `sliceMode` 1/2 branch. Mode 1 is a pixi core
+   * `NineSliceSprite` (corners fixed at the `slice*` guide sizes), mode 2 a
+   * `TilingSprite` (texture repeated at native scale, clipped to the box).
+   * Both are sized to `Sprite.width` x `Sprite.height` in local space and
+   * then scaled by `Transform.scale*`, so a scaled entity grows the whole
+   * box like a plain sprite would. Anchor maps to `anchor` (tiling) or
+   * `pivot` (nine-slice, which has no anchor in pixi v8).
+   */
+  private _syncSliced(
+    tracking: SceneTracking,
+    eid: number,
+    mode: 1 | 2,
+    transform: {
+      x: number;
+      y: number;
+      rotation: number;
+      scaleX: number;
+      scaleY: number;
+    },
+    sprite: {
+      tint: number;
+      alpha: number;
+      anchorX: number;
+      anchorY: number;
+      depth: number;
+      visible: boolean;
+      width: number;
+      height: number;
+      sliceLeft: number;
+      sliceRight: number;
+      sliceTop: number;
+      sliceBottom: number;
+    },
+    framePath: string,
+    container: Container,
+  ): void {
+    let entry = tracking.sliced.get(eid);
+    if (entry !== undefined && entry.mode !== mode) {
+      this._removeSliced(tracking, eid);
+      entry = undefined;
+    }
+    if (entry === undefined) {
+      const node =
+        mode === 1
+          ? new NineSliceSprite({ texture: Texture.EMPTY })
+          : new TilingSprite({ texture: Texture.EMPTY });
+      entry = { mode, node };
+      tracking.sliced.set(eid, entry);
+    }
+    const node = entry.node;
+
+    if (tracking.texturePaths.get(eid) !== framePath) {
+      tracking.texturePaths.set(eid, framePath);
+      this._applyTexture(tracking, eid, node, framePath);
+    }
+    if (node.parent !== container) container.addChild(node);
+
+    if (node instanceof NineSliceSprite) {
+      node.leftWidth = sprite.sliceLeft;
+      node.rightWidth = sprite.sliceRight;
+      node.topHeight = sprite.sliceTop;
+      node.bottomHeight = sprite.sliceBottom;
+      node.width = sprite.width;
+      node.height = sprite.height;
+      node.pivot.set(
+        sprite.width * sprite.anchorX,
+        sprite.height * sprite.anchorY,
+      );
+    } else {
+      node.width = sprite.width;
+      node.height = sprite.height;
+      node.anchor.set(sprite.anchorX, sprite.anchorY);
+    }
+    node.x = transform.x;
+    node.y = transform.y;
+    node.rotation = transform.rotation;
+    node.scale.set(transform.scaleX, transform.scaleY);
+    node.tint = sprite.tint;
+    node.alpha = sprite.alpha;
+    node.visible = sprite.visible;
+    node.zIndex = sprite.depth;
+  }
+
+  private _removeSliced(tracking: SceneTracking, eid: number): void {
+    const entry = tracking.sliced.get(eid);
+    if (entry === undefined) return;
+    entry.node.parent?.removeChild(entry.node);
+    entry.node.destroy();
+    tracking.sliced.delete(eid);
+    tracking.texturePaths.delete(eid);
+  }
+
   private _removeSprite(tracking: SceneTracking, eid: number): void {
     const pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) return;
@@ -1203,6 +1345,9 @@ export class RenderPipeline implements SceneRenderer {
       }
       for (const id of Array.from(tracking.meshes.keys())) {
         this._removeMesh(tracking, id);
+      }
+      for (const id of Array.from(tracking.sliced.keys())) {
+        this._removeSliced(tracking, id);
       }
       this._tracking.delete(scene);
     }
