@@ -53,6 +53,7 @@ export default [
       'packages/engine/src/systems/RenderSystem.ts',
       'packages/engine/src/systems/RenderPipeline.ts',
       'packages/engine/src/systems/TextureStore.ts',
+      'packages/engine/src/__tests__/BitmapFont.test.ts',
       'packages/engine/src/__tests__/TextureStore.test.ts',
       'packages/engine/src/systems/CustomShaderFilter.ts',
       'packages/engine/src/systems/RainGlassFilter.ts',

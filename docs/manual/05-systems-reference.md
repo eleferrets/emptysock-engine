@@ -520,7 +520,7 @@ const ui = new UISystem(widgetTree, { fonts: game.fonts });
 entity.add(Label, { text: "Play", fontId: "fnt_menu" });
 ```
 
-`Label`, `ButtonState`, and `Checkbox` each carry a `fontId` field alongside their existing raw `font`/`fontSize` fields — `fontId` is resolved through the injected `FontRegistry` when set and registered, falling back to the widget's own raw `font`/`fontSize` otherwise. `@emptysock/toolchain`'s GMS2 importer emits a generated `assets/<name>.font.ts` module (family/size/style metadata only — no glyph atlas, since this engine's text rendering is plain Canvas/CSS, not a bitmap-font renderer) ready to hand straight to `game.fonts.register()`.
+`Label`, `ButtonState`, and `Checkbox` each carry a `fontId` field alongside their existing raw `font`/`fontSize` fields — `fontId` is resolved through the injected `FontRegistry` when set and registered, falling back to the widget's own raw `font`/`fontSize` otherwise. `@emptysock/toolchain`'s GMS2 importer emits a generated `assets/<name>.font.ts` module (family/size/style metadata, plus a `BitmapFontDef` and a copied glyph atlas when the GameMaker font has one) ready to hand to `game.fonts.register()` / `game.fonts.registerBitmap()`. GML `draw_text` renders bitmap-font ids with pixi `BitmapText`; `Label` widgets still use the Canvas/CSS descriptor.
 
 ---
 

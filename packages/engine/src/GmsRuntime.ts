@@ -414,6 +414,7 @@ export class GmsProjectRuntime {
     await this.game.loadScene(definition, { physics: {} });
 
     if (this.options.renderer !== undefined) {
+      this.options.renderer.attachFonts(this.game.fonts);
       this.options.renderer.attachGmlBehaviors(
         this._behaviors,
         this.buildContext(),

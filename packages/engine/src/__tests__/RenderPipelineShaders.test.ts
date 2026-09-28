@@ -202,7 +202,11 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
 
   it("returns undefined and attaches nothing for an unregistered id", () => {
     expect(render.addLayerGmlShader("default", "sh_missing")).toBeUndefined();
-    expect(render.getLayerContainer("default").filters).toHaveLength(0);
+    expect(
+      (render.getLayerContainer("default").filters as
+        | readonly unknown[]
+        | undefined) ?? [],
+    ).toHaveLength(0);
   });
 
   it("syncs later uniform writes and can be detached", () => {

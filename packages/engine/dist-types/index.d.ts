@@ -116,6 +116,18 @@ export { GlobalStore } from "./systems/GlobalStore.js";
 export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export { FontRegistry } from "./systems/FontRegistry.js";
 export type { FontDescriptor } from "./systems/FontRegistry.js";
+export {
+  bitmapKerning,
+  layoutBitmapText,
+  toPixiBitmapFontData,
+} from "./systems/BitmapFontDef.js";
+export type {
+  BitmapFontDef,
+  BitmapGlyph,
+  BitmapGlyphPlacement,
+  BitmapTextLayout,
+  PixiBitmapFontDataLike,
+} from "./systems/BitmapFontDef.js";
 export type {
   VariableStoreData,
   VariableCondition,

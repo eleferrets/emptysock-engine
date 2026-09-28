@@ -1,5 +1,6 @@
 import { Container, Texture } from "pixi.js";
 import { type TextureLoader } from "./TextureStore.js";
+import type { FontRegistry } from "./FontRegistry.js";
 import type { Renderer } from "pixi.js";
 import { CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { Scene } from "../Scene.js";
@@ -71,6 +72,8 @@ export interface RenderPipelineOptions extends Omit<
   layers?: LayerSystem;
   /** Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`. */
   textureLoader?: TextureLoader;
+  /** Font registry consulted for bitmap fonts when GML `draw_set_font`/`draw_text` runs. */
+  fonts?: FontRegistry;
 }
 /**
  * Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
@@ -151,6 +154,19 @@ export declare class RenderPipeline implements SceneRenderer {
   private _mainScene;
   private readonly _overlayContainers;
   private readonly _textures;
+  private _fonts;
+  /** Installed pixi `BitmapFont`s, by font id — built once the def's atlas has loaded, rebuilt if the id is re-registered with a different def object. */
+  private readonly _bitmapFonts;
+  /** Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up in. */
+  attachFonts(fonts: FontRegistry | null): void;
+  /**
+   * The pixi `BitmapText` font family for a registered bitmap font id, or
+   * `undefined` when the id has no bitmap def or its atlas is not loaded yet
+   * (the load is kicked off and the caller falls back to ordinary Canvas
+   * `Text` for this dispatch, the same "placeholder now, real next frame"
+   * shape `_resolveTextureForDraw` uses for `draw_sprite`).
+   */
+  private _resolveBitmapFont;
   private readonly _sortedLayers;
   /**
    * Set via `attachPostProcess()`. When present, `renderFrame()` calls

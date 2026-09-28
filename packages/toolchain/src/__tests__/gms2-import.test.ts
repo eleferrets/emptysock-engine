@@ -1457,7 +1457,7 @@ describe("GMS2 sound import produces a real, loadable AudioSystem asset", () => 
 });
 
 describe("GMS2 font import emits family/size/style metadata for this engine's Canvas/CSS text rendering", () => {
-  it("emits a font descriptor usable with Label's font/fontSize fields, without copying the glyph atlas", async () => {
+  it("emits a font descriptor usable with Label's font/fontSize fields, metadata-only when the .yy has no glyph data", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-font-"));
     const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-font-out-"));
     try {
@@ -1485,7 +1485,8 @@ describe("GMS2 font import emits family/size/style metadata for this engine's Ca
         "utf-8",
       );
       // A real GMS2 font resource also ships a pre-rendered glyph atlas PNG
-      // — present here to prove the importer deliberately does not copy it.
+      // — present here, but the .yy carries no `glyphs` map, so there is nothing
+      // to build a bitmap font from and the atlas is not copied.
       await fs.writeFile(
         path.join(fontDir, "font_title.png"),
         Buffer.from([0x89, 0x50, 0x4e, 0x47]),
@@ -1505,14 +1506,60 @@ describe("GMS2 font import emits family/size/style metadata for this engine's Ca
       expect(content).toContain("bold: true");
       expect(content).toContain("Label");
 
-      expect(
-        result.warnings.some((w) => /glyph atlas image was not used/.test(w)),
-      ).toBe(true);
+      expect(result.warnings.some((w) => /metadata only/.test(w))).toBe(true);
 
       // The glyph atlas PNG must not have been copied anywhere in the output.
       await expect(
         fs.access(path.join(out, "assets", "font_title.png")),
       ).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(out, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("GMS2 bitmap font import", () => {
+  it("copies the atlas and emits a BitmapFontDef with glyph rects, kerning and derived line height", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-bmfont-"));
+    const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-bmfont-out-"));
+    try {
+      await fs.writeFile(
+        path.join(dir, "font.yyp"),
+        `{"%Name":"F","resources":[{"id":{"name":"fnt_menu","path":"fonts/fnt_menu/fnt_menu.yy",},},],}`,
+        "utf-8",
+      );
+      const fontDir = path.join(dir, "fonts", "fnt_menu");
+      await fs.mkdir(fontDir, { recursive: true });
+      await fs.writeFile(
+        path.join(fontDir, "fnt_menu.yy"),
+        `{"name":"fnt_menu","fontName":"Arial","size":24.0,"glyphs":{
+          "65": {"x":2,"y":2,"w":10,"h":37,"character":65,"shift":11,"offset":1,},
+          "66": {"x":14,"y":2,"w":9,"h":40,"character":66,"shift":10,"offset":0,},
+        },"kerningPairs":[{"first":65,"second":66,"amount":-2,},],}`,
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(fontDir, "fnt_menu.png"),
+        Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      );
+      const result = await importGMS2Project(path.join(dir, "font.yyp"), out, {
+        verbose: false,
+      });
+      expect(result.skipped).not.toContain("fnt_menu");
+      expect(result.warnings.some((w) => /fnt_menu/.test(w))).toBe(false);
+      const content = await fs.readFile(
+        path.join(out, "assets", "fnt_menu.font.ts"),
+        "utf-8",
+      );
+      expect(content).toContain("FntMenuFontBitmap: BitmapFontDef");
+      expect(content).toContain('atlasPath: "./assets/fonts/fnt_menu.png"');
+      expect(content).toContain("lineHeight: 40");
+      expect(content).toContain(
+        "65: { x: 2, y: 2, w: 10, h: 37, shift: 11, offset: 1 }",
+      );
+      expect(content).toContain("[65, 66, -2]");
+      await fs.access(path.join(out, "assets", "fonts", "fnt_menu.png"));
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });

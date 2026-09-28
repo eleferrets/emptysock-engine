@@ -35,6 +35,10 @@ Reads back a registered descriptor, or `undefined` if `id` isn't registered.
 
 Precomposed `"[italic ][bold ]<size>px <family>"` CSS font string — the exact shape `Label`/`ButtonState`/`Checkbox` rendering already expects for `CanvasRenderingContext2D.font`. `undefined` for an unregistered id.
 
+## `fonts.registerBitmap(id: string, def: BitmapFontDef): void`
+
+Registers a pre-rendered bitmap font (atlas image plus glyph rects, advances and kerning) — what `@emptysock/toolchain`'s GMS2 importer emits as `<Name>FontBitmap` for a font resource that has a glyph atlas. Independent of `register()`; an id may have a CSS descriptor, a bitmap def, or both. GML `draw_set_font`/`draw_text` (via `RenderPipeline`, given `fonts: game.fonts`) draws with pixi `BitmapText` when a def exists and its atlas has loaded, falling back to Canvas text until then. `getBitmap(id)` and `hasBitmap(id)` read it back. `BitmapFontDef` is `{ name, atlasPath, size, lineHeight, glyphs: Record<codePoint, { x, y, w, h, shift, offset }>, kerning: [first, second, amount][] }`; `layoutBitmapText(def, text)` and `bitmapKerning(def, a, b)` are pixi-free helpers for the glyph maths.
+
 ## `fonts.keys(): IterableIterator<string>`
 
 Every registered font id, for debugging/inspection tooling.

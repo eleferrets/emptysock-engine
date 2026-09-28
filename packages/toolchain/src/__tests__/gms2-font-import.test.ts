@@ -114,3 +114,32 @@ describe("buildFontAsset", () => {
     expect(source).toContain("fontId:");
   });
 });
+
+describe("convertGms2Font bitmap data", () => {
+  it("reads glyph rects, kerning pairs and derives line height from the tallest glyph", async () => {
+    const dir = await makeFontDir(
+      `{"name":"fnt_menu","fontName":"Arial","size":24,"glyphs":{"32":{"x":2,"y":2,"w":9,"h":37,"character":32,"shift":9,"offset":0,},"33":{"x":5,"y":5,"w":4,"h":41,"character":33,"shift":9,"offset":2,},},"kerningPairs":[{"first":32,"second":65,"amount":-2,},],}`,
+    );
+    await fs.writeFile(path.join(dir, "fnt_menu.png"), Buffer.from([1, 2, 3]));
+    const asset = await convertGms2Font(dir);
+    expect(asset.bitmap?.lineHeight).toBe(41);
+    expect(asset.bitmap?.glyphs).toHaveLength(2);
+    expect(asset.bitmap?.glyphs[1]).toEqual({
+      character: 33,
+      x: 5,
+      y: 5,
+      w: 4,
+      h: 41,
+      shift: 9,
+      offset: 2,
+    });
+    expect(asset.bitmap?.kerning).toEqual([[32, 65, -2]]);
+  });
+
+  it("is metadata-only when the atlas PNG is missing", async () => {
+    const dir = await makeFontDir(
+      `{"name":"fnt_menu","fontName":"Arial","size":24,"glyphs":{"32":{"x":0,"y":0,"w":1,"h":1,"character":32,"shift":1,"offset":0,},},}`,
+    );
+    expect((await convertGms2Font(dir)).bitmap).toBeUndefined();
+  });
+});

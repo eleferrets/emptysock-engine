@@ -9,6 +9,28 @@ export interface FontAsset {
   size: number;
   bold: boolean;
   italic: boolean;
+  /** Present when the font has a real glyph atlas PNG and at least one glyph rect. */
+  bitmap?: BitmapFontAsset;
+}
+
+export interface BitmapGlyphAsset {
+  character: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  shift: number;
+  offset: number;
+}
+
+export interface BitmapFontAsset {
+  /** Absolute path of the atlas PNG on disk (copied by `copyFontAtlas`). */
+  atlasSrc: string;
+  /** Tallest glyph `h` — every GameMaker glyph rect spans its own line box, so this is the baseline-to-baseline distance. */
+  lineHeight: number;
+  glyphs: BitmapGlyphAsset[];
+  /** `[first, second, amount]` triples from the `.yy` `kerningPairs`. */
+  kerning: Array<[number, number, number]>;
 }
 
 interface YyFont {
@@ -17,6 +39,8 @@ interface YyFont {
   size?: number;
   bold?: boolean;
   italic?: boolean;
+  glyphs?: unknown;
+  kerningPairs?: unknown;
   [key: string]: unknown;
 }
 
@@ -28,16 +52,16 @@ function isYyFont(val: unknown): val is YyFont {
  * Convert a GMS2 font resource directory (containing a `.yy` file) into a
  * `FontAsset`.
  *
- * `@emptysock/engine`'s text rendering (`ui/UISystem.ts`'s `Label`/
- * `ButtonState`/`Checkbox` drawing) is plain Canvas/CSS font strings
- * (`` `${fontSize}px ${font}` ``, `components/Widgets.ts`'s `Label.font`) —
- * there is no bitmap-font/glyph-atlas rendering path anywhere in this
- * engine. A GMS2 font resource's pre-rendered glyph atlas PNG and per-glyph
- * rect map therefore have no real target to convert *into*: the honest,
- * correct conversion is metadata-only (family/size/bold/italic), matching
- * what `Label`/`ButtonState`/`Checkbox` actually consume. The atlas PNG
- * itself is never copied — callers should note in the migration report that
- * it wasn't used, not silently drop the fact that it existed.
+ * Family/size/bold/italic always convert (the CSS-string path `Label`/
+ * `ButtonState`/`Checkbox` use). A font whose real `.yy` carries a `glyphs`
+ * map and whose atlas PNG (`<font dir>/<name>.png`, or the directory's only
+ * PNG) exists also converts to a `BitmapFontAsset`: the atlas path, every
+ * glyph rect (`{x,y,w,h,character,shift,offset}`), `kerningPairs`, and a
+ * derived line height (tallest glyph `h`, since a `.yy` has no explicit line
+ * height field). `@emptysock/engine` registers that as a `BitmapFontDef` in
+ * `FontRegistry` and draws GML `draw_text` with it through pixi `BitmapText`.
+ * A font with no usable glyph data or atlas is metadata-only, and the import
+ * warns rather than silently dropping the fact that it existed.
  *
  * Throws a descriptive Error if the directory or `.yy` file cannot be
  * read, or the JSON is invalid.
@@ -90,7 +114,83 @@ export async function convertGms2Font(fontYyDir: string): Promise<FontAsset> {
   const bold = typeof parsed.bold === "boolean" ? parsed.bold : false;
   const italic = typeof parsed.italic === "boolean" ? parsed.italic : false;
 
-  return { name, family, size, bold, italic };
+  const asset: FontAsset = { name, family, size, bold, italic };
+  const bitmap = await readBitmapFont(fontYyDir, entries, name, parsed);
+  if (bitmap !== undefined) asset.bitmap = bitmap;
+  return asset;
+}
+
+function num(v: unknown, fallback = 0): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+async function readBitmapFont(
+  dir: string,
+  entries: string[],
+  name: string,
+  yy: YyFont,
+): Promise<BitmapFontAsset | undefined> {
+  if (typeof yy.glyphs !== "object" || yy.glyphs === null) return undefined;
+  const glyphs: BitmapGlyphAsset[] = [];
+  for (const [key, raw] of Object.entries(yy.glyphs)) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const g = raw as Record<string, unknown>;
+    const character = num(g["character"], Number(key));
+    if (!Number.isFinite(character)) continue;
+    glyphs.push({
+      character,
+      x: num(g["x"]),
+      y: num(g["y"]),
+      w: num(g["w"]),
+      h: num(g["h"]),
+      shift: num(g["shift"]),
+      offset: num(g["offset"]),
+    });
+  }
+  if (glyphs.length === 0) return undefined;
+  const pngs = entries.filter((e) => e.toLowerCase().endsWith(".png"));
+  const atlasFile =
+    pngs.find((e) => e === `${name}.png`) ??
+    (pngs.length === 1 ? pngs[0] : undefined);
+  if (atlasFile === undefined) return undefined;
+  const atlasSrc = path.join(dir, atlasFile);
+  try {
+    await fs.access(atlasSrc);
+  } catch {
+    return undefined;
+  }
+  const kerning: Array<[number, number, number]> = [];
+  if (Array.isArray(yy.kerningPairs)) {
+    for (const raw of yy.kerningPairs as unknown[]) {
+      if (typeof raw !== "object" || raw === null) continue;
+      const k = raw as Record<string, unknown>;
+      if (
+        typeof k["first"] === "number" &&
+        typeof k["second"] === "number" &&
+        typeof k["amount"] === "number"
+      ) {
+        kerning.push([k["first"], k["second"], k["amount"]]);
+      }
+    }
+  }
+  const lineHeight = glyphs.reduce((m, g) => Math.max(m, g.h), 0);
+  return { atlasSrc, lineHeight, glyphs, kerning };
+}
+
+/** Where a converted bitmap font's atlas lives, relative to the import output root and to the game (`./`-prefixed, same convention as sprite textures). */
+export function fontAtlasRelPath(name: string): string {
+  return `assets/fonts/${name}.png`;
+}
+
+/** Copies a bitmap font's atlas PNG into `<outDir>/assets/fonts/<name>.png`. No-op for a metadata-only font. */
+export async function copyFontAtlas(
+  font: FontAsset,
+  outDir: string,
+): Promise<void> {
+  if (font.bitmap === undefined) return;
+  const dest = path.join(outDir, fontAtlasRelPath(font.name));
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.copyFile(font.bitmap.atlasSrc, dest);
 }
 
 function toPascalCase(name: string): string {
@@ -101,29 +201,77 @@ function toPascalCase(name: string): string {
 }
 
 /**
- * Build a TypeScript font-style descriptor from a converted GMS2 font. No
- * binary asset is copied — see `convertGms2Font`'s doc comment for why the
- * glyph atlas PNG has no real target in this engine. Colocated with the
- * conversion logic here (rather than `gms2-codegen.ts`) for the same reason
- * `buildSoundAsset` is colocated in `gms2-sound-import.ts`.
+ * Build a TypeScript font module from a converted GMS2 font: the CSS-style
+ * descriptor always, plus — when the font has a glyph atlas — a
+ * `BitmapFontDef` (`XFontBitmap`) for `FontRegistry.registerBitmap`. The
+ * atlas image itself is copied separately by `copyFontAtlas`. Colocated with
+ * the conversion logic here (rather than `gms2-codegen.ts`) for the same
+ * reason `buildSoundAsset` is colocated in `gms2-sound-import.ts`.
  */
 export function buildFontAsset(font: FontAsset): string {
   const cssStyle = `${font.italic ? "italic " : ""}${font.bold ? "bold " : ""}${font.size}px ${font.family}`;
+  const pascal = toPascalCase(font.name);
+  const b = font.bitmap;
+  const bitmapNote =
+    b === undefined
+      ? `// No usable glyph atlas was found for this font, so only family/size/style
+// metadata carries over (Canvas/CSS text). If "${font.family}" isn't installed
+// on the machine/browser rendering this game, install it or substitute a
+// comparable family.`
+      : `// This font has a pre-rendered glyph atlas, exported below as a
+// BitmapFontDef so GML draw_text renders with the real GameMaker glyphs.
+// If "${font.family}" is also installed, the CSS descriptor works for Label
+// widgets too.`;
+  const glyphLines =
+    b === undefined
+      ? ""
+      : [...b.glyphs]
+          .sort((p, q) => p.character - q.character)
+          .map(
+            (g) =>
+              `    ${g.character}: { x: ${g.x}, y: ${g.y}, w: ${g.w}, h: ${g.h}, shift: ${g.shift}, offset: ${g.offset} },`,
+          )
+          .join("\n");
+  const kerningLines =
+    b === undefined
+      ? ""
+      : b.kerning.map((k) => `    [${k[0]}, ${k[1]}, ${k[2]}],`).join("\n");
+  const bitmapDef =
+    b === undefined
+      ? ""
+      : `
+/** Pixi-free bitmap font definition (see @emptysock/engine's BitmapFontDef). The atlas image is copied to ${fontAtlasRelPath(font.name)}. */
+export const ${pascal}FontBitmap: BitmapFontDef = {
+  name: ${JSON.stringify(font.name)},
+  atlasPath: ${JSON.stringify(`./${fontAtlasRelPath(font.name)}`)},
+  size: ${font.size},
+  /** Tallest glyph rect (a .yy has no explicit line height). */
+  lineHeight: ${b.lineHeight},
+  glyphs: {
+${glyphLines}
+  },
+  kerning: [
+${kerningLines}
+  ],
+};
+`;
+  const importLine =
+    b === undefined
+      ? ""
+      : `import type { BitmapFontDef } from "@emptysock/engine";\n\n`;
+  const registerHint =
+    b === undefined
+      ? ""
+      : `//   game.fonts.registerBitmap(${JSON.stringify(font.name)}, ${pascal}FontBitmap);\n`;
   return `// Auto-generated from GMS2 font: ${font.name}
-// This engine renders text via plain Canvas/CSS font strings (see
-// @emptysock/engine's Label/ButtonState/Checkbox components) — there is no
-// bitmap-font/glyph-atlas rendering path, so the source font's pre-rendered
-// glyph atlas image was intentionally NOT copied. Only family/size/style
-// metadata carries over. If "${font.family}" isn't installed as a real font
-// on the machine/browser rendering this game, install it separately or
-// substitute a comparable font family.
+${bitmapNote}
 //
 // Use with @emptysock/engine's FontRegistry (register once, reference by id):
-//   game.fonts.register(${JSON.stringify(font.name)}, ${toPascalCase(font.name)}Font);
-//   entity.add(Label, { fontId: ${JSON.stringify(font.name)} });
+//   game.fonts.register(${JSON.stringify(font.name)}, ${pascal}Font);
+${registerHint}//   entity.add(Label, { fontId: ${JSON.stringify(font.name)} });
 // ...or set font/fontSize directly with no registry involved:
 //   entity.add(Label, { font: ${JSON.stringify(font.family)}, fontSize: ${font.size} });
-export const ${toPascalCase(font.name)}Font = {
+${importLine}export const ${pascal}Font = {
   name: ${JSON.stringify(font.name)},
   family: ${JSON.stringify(font.family)},
   size: ${font.size},
@@ -132,5 +280,5 @@ export const ${toPascalCase(font.name)}Font = {
   /** Precomposed CSS font string, folding bold/italic in (Label has no separate bold/italic fields). */
   cssFont: ${JSON.stringify(cssStyle)},
 } as const;
-`;
+${bitmapDef}`;
 }

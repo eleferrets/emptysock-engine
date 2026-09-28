@@ -1,4 +1,7 @@
 import {
+  BitmapFont,
+  BitmapText,
+  Cache,
   Container,
   Graphics,
   NineSliceSprite,
@@ -13,6 +16,8 @@ import {
 } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import { TextureStore, type TextureLoader } from "./TextureStore.js";
+import type { FontRegistry } from "./FontRegistry.js";
+import { toPixiBitmapFontData, type BitmapFontDef } from "./BitmapFontDef.js";
 import {
   type CustomShaderFilter,
   buildGmlShaderFilter,
@@ -112,6 +117,9 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     private readonly _resolveShader: (
       id: string,
     ) => CustomShaderFilter | undefined = () => undefined,
+    private readonly _resolveBitmapFont: (
+      id: string,
+    ) => { family: string; def: BitmapFontDef } | undefined = () => undefined,
   ) {
     this._graphics.clear();
     this._graphics.removeChildren();
@@ -162,15 +170,32 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
   }
 
   text(x: number, y: number, text: string): void {
-    const label = new Text({
-      text,
-      style: {
-        fill: this._color,
-        ...(this._fontFamily !== undefined
-          ? { fontFamily: this._fontFamily }
-          : {}),
-      },
-    });
+    const bitmap =
+      this._fontFamily !== undefined
+        ? this._resolveBitmapFont(this._fontFamily)
+        : undefined;
+    // A registered bitmap font (a GMS2 font's pre-rendered atlas) draws through
+    // pixi `BitmapText`; both classes expose `anchor`/`alpha`/`x`/`y`, so the
+    // alignment code below is shared. `fill` tints the (white) glyphs.
+    const label: Text | BitmapText =
+      bitmap !== undefined
+        ? new BitmapText({
+            text,
+            style: {
+              fontFamily: bitmap.family,
+              fontSize: bitmap.def.size,
+              fill: this._color,
+            },
+          })
+        : new Text({
+            text,
+            style: {
+              fill: this._color,
+              ...(this._fontFamily !== undefined
+                ? { fontFamily: this._fontFamily }
+                : {}),
+            },
+          });
     // `fa_left`/`fa_top` (both 0) need no anchor at all — pixi's own default
     // anchor (0,0) already puts (x,y) at the text's top-left corner, exactly
     // matching GameMaker's own default alignment.
@@ -298,6 +323,8 @@ export interface RenderPipelineOptions extends Omit<
   layers?: LayerSystem;
   /** Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`. */
   textureLoader?: TextureLoader;
+  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when GML `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
+  fonts?: FontRegistry;
 }
 
 /** Per-scene bookkeeping for the sprites `RenderPipeline` is tracking on that scene's behalf. */
@@ -470,6 +497,55 @@ export class RenderPipeline implements SceneRenderer {
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
     this._textures = new TextureStore(options.textureLoader);
+    this._fonts = options.fonts ?? null;
+  }
+
+  private _fonts: FontRegistry | null;
+  /** Installed pixi `BitmapFont`s, by font id — built once the def's atlas has loaded, rebuilt if the id is re-registered with a different def object. */
+  private readonly _bitmapFonts = new Map<
+    string,
+    { def: BitmapFontDef; family: string; font: BitmapFont }
+  >();
+
+  /** Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up in. */
+  attachFonts(fonts: FontRegistry | null): void {
+    this._fonts = fonts;
+  }
+
+  /**
+   * The pixi `BitmapText` font family for a registered bitmap font id, or
+   * `undefined` when the id has no bitmap def or its atlas is not loaded yet
+   * (the load is kicked off and the caller falls back to ordinary Canvas
+   * `Text` for this dispatch, the same "placeholder now, real next frame"
+   * shape `_resolveTextureForDraw` uses for `draw_sprite`).
+   */
+  private _resolveBitmapFont(
+    id: string,
+  ): { family: string; def: BitmapFontDef } | undefined {
+    const def = this._fonts?.getBitmap(id);
+    if (def === undefined) return undefined;
+    const existing = this._bitmapFonts.get(id);
+    if (existing !== undefined && existing.def === def) return existing;
+    const atlas = this._textures.get(def.atlasPath);
+    if (atlas === undefined) {
+      this._textures.load(def.atlasPath).catch((err: unknown) => {
+        console.error(
+          `[RenderPipeline] failed to load bitmap font atlas "${def.atlasPath}":`,
+          err,
+        );
+      });
+      return undefined;
+    }
+    if (existing !== undefined) Cache.remove(`${existing.family}-bitmap`);
+    const family = `emptysock-bitmap:${id}`;
+    const font = new BitmapFont({
+      data: toPixiBitmapFontData(def, family),
+      textures: [atlas],
+    });
+    Cache.set(`${family}-bitmap`, font);
+    const entry = { def, family, font };
+    this._bitmapFonts.set(id, entry);
+    return entry;
   }
 
   /**
@@ -710,6 +786,7 @@ export class RenderPipeline implements SceneRenderer {
       graphics,
       (path) => this._resolveTextureForDraw(path),
       (id) => this.resolveShaderFilter(id),
+      (id) => this._resolveBitmapFont(id),
     );
   }
 
@@ -1474,6 +1551,10 @@ export class RenderPipeline implements SceneRenderer {
       this.unmountTilemap(tilemap);
     }
     this._textures.clear();
+    for (const { family } of this._bitmapFonts.values()) {
+      Cache.remove(`${family}-bitmap`);
+    }
+    this._bitmapFonts.clear();
     for (const { filter } of this._shaderFilters.values()) filter.destroy();
     this._shaderFilters.clear();
     this._transitionOverlay?.destroy();

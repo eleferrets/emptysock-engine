@@ -1,3 +1,5 @@
+import type { BitmapFontDef } from "./BitmapFontDef.js";
+
 /**
  * A real component for working with fonts — a `Game`-scoped registry of
  * named font descriptors (family/size/bold/italic, plus a precomposed CSS
@@ -27,6 +29,26 @@ export interface FontDescriptor {
 
 export class FontRegistry {
   private readonly _fonts = new Map<string, FontDescriptor>();
+  private readonly _bitmaps = new Map<string, BitmapFontDef>();
+
+  /**
+   * Registers a pre-rendered bitmap font (atlas + glyph rects, see
+   * `BitmapFontDef`) under `id`. Independent of `register()`: an id may have
+   * a CSS descriptor, a bitmap def, or both — `PixiGmlDrawTarget` prefers the
+   * bitmap def for `draw_text` when one exists, and `UISystem`'s Canvas text
+   * keeps using the descriptor.
+   */
+  registerBitmap(id: string, def: BitmapFontDef): void {
+    this._bitmaps.set(id, def);
+  }
+
+  getBitmap(id: string): BitmapFontDef | undefined {
+    return this._bitmaps.get(id);
+  }
+
+  hasBitmap(id: string): boolean {
+    return this._bitmaps.has(id);
+  }
 
   register(id: string, font: FontDescriptor): void {
     this._fonts.set(id, font);
@@ -55,5 +77,6 @@ export class FontRegistry {
   /** Clears every registered font — mainly for test isolation between `Game` instances. */
   clear(): void {
     this._fonts.clear();
+    this._bitmaps.clear();
   }
 }

@@ -39,7 +39,11 @@ import {
   buildRoomSceneFileViews,
 } from "./gms2-room-import.js";
 import { buildSoundAsset } from "./gms2-sound-import.js";
-import { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
+import {
+  convertGms2Font,
+  buildFontAsset,
+  copyFontAtlas,
+} from "./gms2-font-import.js";
 import { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
 import {
   convertGms2Shader,
@@ -590,10 +594,13 @@ export async function importGMS2Project(
       const font = await convertGms2Font(path.join(projectRoot, "fonts", name));
       const content = buildFontAsset(font);
       filesToWrite.push({ rel: `assets/${name}.font.ts`, content });
+      await copyFontAtlas(font, outDir);
       reportEntries.push({ kind: "font", name, status: "converted" });
-      warnings.push(
-        `Font "${name}" converted as family/size/style metadata only — its pre-rendered glyph atlas image was not used, since @emptysock/engine renders text via Canvas/CSS fonts, not bitmap glyph atlases.`,
-      );
+      if (font.bitmap === undefined) {
+        warnings.push(
+          `Font "${name}" converted as family/size/style metadata only — no glyph atlas image/glyph data was found, so GML draw_text falls back to Canvas/CSS text.`,
+        );
+      }
     } catch (err) {
       const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
       warnings.push(
