@@ -30,6 +30,11 @@ export interface RoomLayer {
    * was dropped, instead of silently losing it with no note anywhere.
    */
   backgroundSprite?: string;
+  /** `GMRBackgroundLayer` `htiled`/`vtiled` (real: 20 of Freedom's 40 background layers are htiled) and its `x`/`y` offset. */
+  htiled?: boolean;
+  vtiled?: boolean;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 /**
@@ -390,6 +395,14 @@ export async function convertGms2Room(
       tiles: parseTiles(layer),
       instances: parseInstances(layer, guidToObjectName),
       ...(backgroundSprite !== undefined ? { backgroundSprite } : {}),
+      ...(backgroundSprite !== undefined
+        ? {
+            htiled: layer["htiled"] === true,
+            vtiled: layer["vtiled"] === true,
+            offsetX: typeof layer["x"] === "number" ? layer["x"] : 0,
+            offsetY: typeof layer["y"] === "number" ? layer["y"] : 0,
+          }
+        : {}),
     };
   });
 
@@ -517,6 +530,38 @@ export async function convertGms2RoomBackgrounds(
       // cover the room" as documented above.
       const nativeWidth = sprite.width > 0 ? sprite.width : room.width;
       const nativeHeight = sprite.height > 0 ? sprite.height : room.height;
+      const htiled = layer.htiled === true;
+      const vtiled = layer.vtiled === true;
+      if (htiled || vtiled) {
+        // Tiled background: repeat the texture (Sprite.sliceMode 2) over a
+        // width x height box at native scale. A single-axis tile spans the
+        // room on that axis only and keeps the sprite's native size on the
+        // other, positioned at the layer's own x/y offset.
+        const w = htiled ? room.width : nativeWidth;
+        const h = vtiled ? room.height : nativeHeight;
+        const ox = htiled ? 0 : (layer.offsetX ?? 0);
+        const oy = vtiled ? 0 : (layer.offsetY ?? 0);
+        entities.push({
+          components: [
+            {
+              component: "Transform",
+              overrides: { x: ox + w / 2, y: oy + h / 2 },
+            },
+            {
+              component: "Sprite",
+              overrides: {
+                texturePath,
+                layer: "background",
+                depth: -1000,
+                width: w,
+                height: h,
+                sliceMode: 2,
+              },
+            },
+          ],
+        });
+        continue;
+      }
       entities.push({
         components: [
           {

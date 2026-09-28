@@ -44,6 +44,13 @@ export interface SpriteAsset {
    * that actually runs its rooms at a different speed.
    */
   frameSpeed?: number;
+  /**
+   * Real GMS2 `nineSlice` metadata, present only when the `.yy`'s
+   * `nineSlice` block exists AND `enabled` is `true`. Freedom Backup has
+   * exactly one such block (`spr_back`) and it is `enabled: false` with all
+   * guides `0`, so this stays `undefined` for it — an honest "not authored".
+   */
+  nineSlice?: { left: number; right: number; top: number; bottom: number };
 }
 
 interface YyFrame {
@@ -66,6 +73,13 @@ interface YySprite {
   height?: number;
   frames?: YyFrame[];
   sequence?: YySequence | null;
+  nineSlice?: {
+    enabled?: boolean;
+    left?: number;
+    right?: number;
+    top?: number;
+    bottom?: number;
+  } | null;
   [key: string]: unknown;
 }
 
@@ -172,6 +186,17 @@ export async function convertGms2Sprite(
         : sequence.playbackSpeed / ASSUMED_STEPS_PER_SECOND;
   }
 
+  const ns = parsed.nineSlice;
+  const nineSlice =
+    ns !== null && ns !== undefined && ns.enabled === true
+      ? {
+          left: typeof ns.left === "number" ? ns.left : 0,
+          right: typeof ns.right === "number" ? ns.right : 0,
+          top: typeof ns.top === "number" ? ns.top : 0,
+          bottom: typeof ns.bottom === "number" ? ns.bottom : 0,
+        }
+      : undefined;
+
   return {
     name,
     frames,
@@ -180,5 +205,6 @@ export async function convertGms2Sprite(
     height,
     imagePath: frames[0]?.imagePath ?? path.join(spriteYyDir, `${name}.png`),
     ...(frameSpeed !== undefined ? { frameSpeed } : {}),
+    ...(nineSlice !== undefined ? { nineSlice } : {}),
   };
 }

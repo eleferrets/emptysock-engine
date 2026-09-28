@@ -224,3 +224,142 @@ describe("RoomEditor — loading and editing a real .scene.json", () => {
     expect(player?.props.rotation).toBe(45);
   });
 });
+
+describe("RoomEditor — nine-slice / tiled instances", () => {
+  const SLICED = JSON.stringify({
+    sceneName: "rm_ui",
+    entities: [{ components: [{ component: "Transform" }] }],
+    prefabInstances: [
+      {
+        prefab: "obj_panel",
+        props: { x: 200, y: 200, width: 96, height: 64, sliceMode: 1 },
+      },
+      { prefab: "obj_plain", props: { x: 500, y: 500 } },
+    ],
+  });
+  const PATH = "rooms/rm_ui.scene.json";
+
+  function fakeCtx(): CanvasRenderingContext2D {
+    const noop = (): undefined => undefined;
+    return {
+      fillRect: noop,
+      strokeRect: noop,
+      fillText: noop,
+      beginPath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      stroke: noop,
+      save: noop,
+      restore: noop,
+      translate: noop,
+      rotate: noop,
+      rect: noop,
+      clip: noop,
+      drawImage: noop,
+      createPattern: () => null,
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  function fire(canvas: HTMLCanvasElement, type: string, x: number, y: number) {
+    act(() => {
+      canvas.dispatchEvent(
+        new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }),
+      );
+    });
+  }
+
+  async function setup(snap: boolean): Promise<HTMLCanvasElement> {
+    act(() => {
+      useIDEStore.setState({
+        openFiles: { [PATH]: SLICED },
+        editorSnapToGrid: snap,
+        editorGridSize: 32,
+      });
+    });
+    await renderPanel();
+    const canvas = container.querySelector("canvas");
+    if (canvas === null) throw new Error("no canvas");
+    canvas.getContext = (() =>
+      fakeCtx()) as unknown as typeof canvas.getContext;
+    return canvas;
+  }
+
+  function saved(): {
+    entities?: unknown[];
+    prefabInstances: { prefab: string; props: Record<string, number> }[];
+  } {
+    return JSON.parse(useIDEStore.getState().openFiles[PATH] ?? "{}");
+  }
+
+  it("selects a sliced instance by its real width/height, not the 32px placeholder", async () => {
+    const canvas = await setup(false);
+    // (240,225) is outside a 32px box around (200,200) but inside the 96x64 box.
+    fire(canvas, "pointerdown", 240, 225);
+    fire(canvas, "pointerup", 240, 225);
+    expect(container.textContent).toContain("obj_panel");
+    expect(container.textContent).toContain("Width");
+  });
+
+  it("dragging the SE handle resizes, writes width/height back, and preserves other file data", async () => {
+    const canvas = await setup(false);
+    fire(canvas, "pointerdown", 200, 200);
+    fire(canvas, "pointerup", 200, 200);
+    // Box is x152..248, y168..232 -> SE corner (248,232).
+    fire(canvas, "pointerdown", 248, 232);
+    fire(canvas, "pointermove", 300, 300);
+    fire(canvas, "pointerup", 300, 300);
+    const p = saved().prefabInstances.find((i) => i.prefab === "obj_panel");
+    expect(p?.props).toMatchObject({ width: 148, height: 132, x: 226, y: 234 });
+    expect(saved().entities).toHaveLength(1);
+  });
+
+  it("snaps the dragged edge to the grid when snap is on", async () => {
+    const canvas = await setup(true);
+    fire(canvas, "pointerdown", 200, 200);
+    fire(canvas, "pointerup", 200, 200);
+    fire(canvas, "pointerdown", 248, 232);
+    fire(canvas, "pointermove", 300, 300);
+    fire(canvas, "pointerup", 300, 300);
+    const p = saved().prefabInstances.find((i) => i.prefab === "obj_panel");
+    // right edge 300 -> 288, bottom 300 -> 288
+    expect(p?.props).toMatchObject({ width: 136, height: 120 });
+  });
+
+  it("undo reverts a resize", async () => {
+    const canvas = await setup(false);
+    fire(canvas, "pointerdown", 200, 200);
+    fire(canvas, "pointerup", 200, 200);
+    fire(canvas, "pointerdown", 248, 232);
+    fire(canvas, "pointermove", 300, 300);
+    fire(canvas, "pointerup", 300, 300);
+    const undoBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "Undo",
+    );
+    act(() => undoBtn?.click());
+    const widthInput = Array.from(container.querySelectorAll("label"))
+      .find((l) => l.textContent.startsWith("Width"))
+      ?.querySelector("input");
+    expect(widthInput?.value).toBe("96");
+  });
+
+  it("marking a plain instance as tiled seeds a width/height to resize from", async () => {
+    const canvas = await setup(false);
+    fire(canvas, "pointerdown", 500, 500);
+    fire(canvas, "pointerup", 500, 500);
+    const select = Array.from(container.querySelectorAll("label"))
+      .find((l) => l.textContent.startsWith("Slicing"))
+      ?.querySelector("select");
+    expect(select).not.toBeNull();
+    if (select === null || select === undefined) return;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(select, "2");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const p = saved().prefabInstances.find((i) => i.prefab === "obj_plain");
+    expect(p?.props).toMatchObject({ sliceMode: 2, width: 32, height: 32 });
+  });
+});

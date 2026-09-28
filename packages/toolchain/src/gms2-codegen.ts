@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { convertGms2Sprite } from "./gms2-sprite-import.js";
+import { convertGms2Sprite, type SpriteAsset } from "./gms2-sprite-import.js";
 import { convertGms2Room } from "./gms2-room-import.js";
 import {
   indent,
@@ -247,6 +247,7 @@ export async function buildObjectPrefabJSON(
         let frameSpeed: number | undefined;
         let spriteWidth = 0;
         let spriteHeight = 0;
+        let nineSlice: SpriteAsset["nineSlice"];
         try {
           const spriteAsset = await convertGms2Sprite(
             path.join(projectRoot, "sprites", spriteName),
@@ -255,6 +256,7 @@ export async function buildObjectPrefabJSON(
           frameSpeed = spriteAsset.frameSpeed;
           spriteWidth = spriteAsset.width;
           spriteHeight = spriteAsset.height;
+          nineSlice = spriteAsset.nineSlice;
         } catch {
           // Left at the single-frame default — the sprite loop elsewhere in
           // `importGMS2Project` is responsible for reporting the real
@@ -279,6 +281,13 @@ export async function buildObjectPrefabJSON(
         if (spriteWidth > 0 && spriteHeight > 0) {
           overrides["width"] = spriteWidth;
           overrides["height"] = spriteHeight;
+        }
+        if (nineSlice !== undefined) {
+          overrides["sliceMode"] = 1;
+          overrides["sliceLeft"] = nineSlice.left;
+          overrides["sliceRight"] = nineSlice.right;
+          overrides["sliceTop"] = nineSlice.top;
+          overrides["sliceBottom"] = nineSlice.bottom;
         }
         components.push({ component: "Sprite", overrides });
       }

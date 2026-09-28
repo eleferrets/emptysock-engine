@@ -99,6 +99,21 @@ export const Sprite = defineComponent(
      */
     width: 0,
     height: 0,
+    /**
+     * How `width`/`height` are filled from the texture: `0` (default) plain
+     * sprite, `1` nine-slice (corners fixed at the `slice*` guide sizes,
+     * edges/centre stretched), `2` tiled (texture repeated, clipped to
+     * `width` x `height`). Sliced/tiled modes need `width`/`height > 0` to
+     * have any effect. Set by the GMS2 importer (`nineSlice.enabled`, a
+     * `GMRBackgroundLayer`'s `htiled`/`vtiled`) or marked by hand in the
+     * IDE Room Editor; the runtime renderer does not consume it yet.
+     */
+    sliceMode: 0,
+    /** Nine-slice guide sizes in source-texture pixels (GMS2 `nineSlice.left/right/top/bottom`). */
+    sliceLeft: 0,
+    sliceRight: 0,
+    sliceTop: 0,
+    sliceBottom: 0,
   }),
   {
     schema: {
@@ -116,6 +131,11 @@ export const Sprite = defineComponent(
       loop: { kind: "boolean" },
       width: { kind: "number" },
       height: { kind: "number" },
+      sliceMode: { kind: "number" },
+      sliceLeft: { kind: "number" },
+      sliceRight: { kind: "number" },
+      sliceTop: { kind: "number" },
+      sliceBottom: { kind: "number" },
     },
   },
 );
