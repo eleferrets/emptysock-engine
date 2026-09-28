@@ -4,6 +4,10 @@ import {
   setGmlMacros,
   setGmlEnumNames,
   setGmlObjectNames,
+  setGmlSpriteNames,
+  setGmlSoundNames,
+  setGmlFontNames,
+  setGmlRoomNames,
 } from "../gms2-transpile.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
@@ -2296,5 +2300,101 @@ describe("transpileGML — GML local-variable-held instance references", () => {
     expect(out).toContain("GmlActions.getGmlObjectVar");
     expect(out).not.toContain("getGmlRefVar");
     setGmlObjectNames(new Set());
+  });
+});
+
+describe("transpileGML — bare asset-name identifiers used as plain values", () => {
+  it("resolves a bare sprite-name value assigned to a non-sprite_index local", () => {
+    setGmlSpriteNames(new Set(["spr_player_walk", "spr_player_stand"]));
+    const out = transpileGML(
+      "spr_ind = spr_player_stand;\nif (spr_ind == spr_player_walk) { spr_ind = spr_player_stand; }",
+    );
+    expect(out).toContain(
+      '"spr_ind", "./assets/sprites/spr_player_stand/frame_0.png"',
+    );
+    expect(out).toContain('"./assets/sprites/spr_player_walk/frame_0.png"');
+    setGmlSpriteNames(new Set());
+  });
+
+  it("resolves a bare sound-name value to its bare id string", () => {
+    setGmlSoundNames(new Set(["snd_landing"]));
+    const out = transpileGML("my_sound = snd_landing;");
+    expect(out).toContain('"my_sound", "snd_landing"');
+    setGmlSoundNames(new Set());
+  });
+
+  it("resolves a bare font-name value to its bare id string", () => {
+    setGmlFontNames(new Set(["fnt_menu"]));
+    const out = transpileGML("menu_font = fnt_menu;");
+    expect(out).toContain('"menu_font", "fnt_menu"');
+    setGmlFontNames(new Set());
+  });
+
+  it("resolves a bare room-name value compared against room", () => {
+    setGmlRoomNames(new Set(["rm_init"]));
+    const out = transpileGML("if (room == rm_init) room_goto_next();");
+    expect(out).toContain('== "rm_init"');
+    setGmlRoomNames(new Set());
+  });
+
+  it("resolves a bare object-type name used as a plain value, not just dotted", () => {
+    setGmlObjectNames(new Set(["obj_player_dead"]));
+    const out = transpileGML("if (object_index == obj_player_dead) { x = 1; }");
+    expect(out).toContain('object_index == "obj_player_dead"');
+    setGmlObjectNames(new Set());
+  });
+
+  it("does not double-handle sprite_index's own already-quoted equality comparison", () => {
+    setGmlSpriteNames(new Set(["spr_dad_idle"]));
+    const out = transpileGML("if (sprite_index == spr_dad_idle) { x = 1; }");
+    // Exactly one occurrence of the quoted path, not a nested/doubled quote.
+    const matches = out.match(/spr_dad_idle\/frame_0\.png/g) ?? [];
+    expect(matches.length).toBe(1);
+    expect(out).not.toContain('""./assets');
+    setGmlSpriteNames(new Set());
+  });
+
+  it("does not corrupt a draw_sprite call's already-quoted sprite argument", () => {
+    setGmlSpriteNames(new Set(["spr_foo"]));
+    const out = transpileGML("draw_sprite(spr_foo, 0, x, y);");
+    const matches = out.match(/spr_foo\/frame_0\.png/g) ?? [];
+    expect(matches.length).toBe(1);
+    setGmlSpriteNames(new Set());
+  });
+
+  it("does not rewrite a name inside a real string literal", () => {
+    setGmlRoomNames(new Set(["rm_init"]));
+    const out = transpileGML(
+      'show_debug_message("please visit rm_init soon");',
+    );
+    expect(out).toContain('"please visit rm_init soon"');
+    setGmlRoomNames(new Set());
+  });
+
+  it("leaves an ambiguous name (present in two real asset kinds) unresolved", () => {
+    setGmlSpriteNames(new Set(["shared_name"]));
+    setGmlObjectNames(new Set(["shared_name"]));
+    const out = transpileGML("v = shared_name;");
+    expect(out).toContain('"v", shared_name');
+    setGmlSpriteNames(new Set());
+    setGmlObjectNames(new Set());
+  });
+
+  it("resolves a bare object-name argument to action_create_object left unquoted by THREADED_ACTIONS", () => {
+    setGmlObjectNames(new Set(["obj_gun"]));
+    const out = transpileGML("instance_create(x, y, obj_gun);");
+    expect(out).toContain('"obj_gun"');
+    setGmlObjectNames(new Set());
+  });
+
+  it("produces valid runnable JS for a mix of resolved asset values", () => {
+    setGmlSpriteNames(new Set(["spr_a"]));
+    setGmlRoomNames(new Set(["rm_a"]));
+    const out = transpileGML(
+      "function f(_entity, _ctx) {\n  var s = spr_a;\n  if (room == rm_a) { s = spr_a; }\n  return s;\n}",
+    );
+    expect(() => new Function(out)).not.toThrow();
+    setGmlSpriteNames(new Set());
+    setGmlRoomNames(new Set());
   });
 });

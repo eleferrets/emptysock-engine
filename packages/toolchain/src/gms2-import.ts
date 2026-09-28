@@ -19,6 +19,10 @@ import {
   setGmlMacros,
   setGmlEnumNames,
   setGmlObjectNames,
+  setGmlSpriteNames,
+  setGmlSoundNames,
+  setGmlFontNames,
+  setGmlRoomNames,
 } from "./gms2-transpile.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
@@ -225,6 +229,18 @@ export async function importGMS2Project(
   // "no-live-instance" no-op `getGmlObjectVar`/`setGmlObjectVar` already
   // give any object type with zero active instances).
   setGmlObjectNames(new Set(objects));
+  // Real, project-wide sprite/sound/font/room name registries for the
+  // "bare asset-name identifier used as a plain value" rewrite pass (see
+  // gms2-transpile.ts's own doc comment right above that pass, and
+  // CLAUDE.md's "GMS2 transpiler: project-wide asset-name registry"
+  // entry). Every listed resource of each kind, not just ones that end up
+  // successfully converted — the same "still worth resolving even if the
+  // underlying asset itself failed to import" reasoning `setGmlObjectNames`
+  // above already documents for objects.
+  setGmlSpriteNames(new Set(sprites));
+  setGmlSoundNames(new Set(sounds));
+  setGmlFontNames(new Set(fonts));
+  setGmlRoomNames(new Set(rooms));
 
   const convertedObjects: string[] = [];
   for (const name of objects) {

@@ -1227,6 +1227,19 @@ Traced the smoke test's own documented "`obj_player.x` never moves" finding to c
 
 ---
 
+## 2026-09-28 (cont.): bare GameMaker asset-name identifiers used as plain values — real project-wide registry
+
+- [x] New `gms2-transpile.ts` registry: `setGmlSpriteNames`/`setGmlSoundNames`/`setGmlFontNames`/`setGmlRoomNames` (mirroring `setGmlObjectNames`), installed by `gms2-import.ts` from the same directory-listing arrays it already builds.
+- [x] New rewrite pass, dead last in the pipeline (only safe ordering — everything upstream has already consumed/quoted what it understands): a bare asset-name identifier used as a plain value resolves per-kind, matching each kind's own already-established convention exactly (sprite path, bare id string for sound/font/room/object).
+- [x] Real ambiguity check across all 5 kinds — a name in >1 kind is left unresolved, not guessed. Zero real collisions in Freedom Backup, verified.
+- [x] Real Freedom Backup occurrences confirmed by grep, all 5 kinds: `obj_player`'s `spr_ind == spr_player_walk`, `obj_menu`'s `menu_font = fnt_menu`, `obj_display_manager`'s `room == rm_init`, `obj_camera`'s `object_index == obj_player_dead`, plus sound-array/font call-site occurrences the sweep found.
+- [x] Found and honestly documented (not fixed — out of this pass's scope) a real interaction: the pre-existing bare-instance-var `gmlNum` wrap turns a resolved sprite-string comparison into an always-false comparison instead of a crash, for `obj_player`'s own sprite-swap state machine. A separate, unrelated, zero-runtime-effect `tsc`-only nit in `scr_draw_set_text`'s legacy number-typed param also surfaced.
+- [x] dist-types checked: name-diff against `src/index.ts` exports found zero drift (this pass touches only `packages/toolchain`, no engine changes).
+- Sweep: 221 -> 193 error lines. Full suites green: engine 656/656 (unchanged), toolchain 426/426 (+11 new), playability smoke test included, no regression.
+- CLAUDE.md updated with the dense citation style.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.

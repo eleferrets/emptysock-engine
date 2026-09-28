@@ -68,6 +68,38 @@ export function setGmlObjectNames(names: ReadonlySet<string>): void {
 }
 
 /**
+ * Real, project-wide asset-name registries — sprites/sounds/fonts/rooms,
+ * installed the same way `_objectNames` is (a plain directory listing
+ * `gms2-import.ts` already builds for each kind, before any file is
+ * transpiled). These back `transpileGML`'s "bare asset-name identifier used
+ * as a plain VALUE" pass, right at the end of the pipeline — see that
+ * pass's own doc comment for the full reasoning, and CLAUDE.md's "GMS2
+ * transpiler: project-wide asset-name registry" entry. `_objectNames`
+ * itself is reused as the fifth kind (object) rather than duplicated here.
+ */
+let _spriteNames: ReadonlySet<string> = new Set();
+let _soundNames: ReadonlySet<string> = new Set();
+let _fontNames: ReadonlySet<string> = new Set();
+let _roomNames: ReadonlySet<string> = new Set();
+
+/** Installs the project-wide sprite-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlSpriteNames(names: ReadonlySet<string>): void {
+  _spriteNames = names;
+}
+/** Installs the project-wide sound-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlSoundNames(names: ReadonlySet<string>): void {
+  _soundNames = names;
+}
+/** Installs the project-wide font-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlFontNames(names: ReadonlySet<string>): void {
+  _fontNames = names;
+}
+/** Installs the project-wide room-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
+export function setGmlRoomNames(names: ReadonlySet<string>): void {
+  _roomNames = names;
+}
+
+/**
  * Walks every `.gml` file under `projectRoot` and extracts every real
  * `#macro NAME value` declaration into a `name -> value` map. Real
  * GameMaker macros are one value expression per line (GameMaker's own IDE
@@ -4533,6 +4565,109 @@ export function transpileGML(
       );
     }
     out = unmaskGmlStringLiterals(refOut, "GMLSTR4", refStrings);
+  }
+
+  // Real, project-wide bare GameMaker asset-name identifiers used as plain
+  // VALUES — not as an argument to a function this transpiler already
+  // quotes (`sprite_index = spr_foo;`, `draw_sprite(spr_foo, ...)`,
+  // `audio_play_sound(snd_foo)`, `instance_create_layer(..., obj_foo)`, all
+  // real and wired well before this pass runs). Real, confirmed
+  // occurrences in Freedom Backup: a *local* variable — not `sprite_index`
+  // itself — compared against/assigned a bare sprite name
+  // (`obj_player/Step_0.gml`'s `spr_ind == spr_player_walk`/`spr_ind =
+  // spr_player_stand`; `obj_platformH/Step_0.gml`'s `mask_index =
+  // spr_platformH`), a bare room name compared against `room`
+  // (`obj_display_manager/Step_0.gml`'s `room == rm_init`), a bare
+  // object-type name used as a plain value
+  // (`obj_camera/Step_0.gml`'s `(follow).object_index == obj_player_dead`),
+  // and a bare font name assigned to a local
+  // (`obj_menu/Create_0.gml`'s `menu_font = fnt_menu;`).
+  //
+  // This pass runs *last*, after every other pass in this pipeline — the
+  // only safe ordering: every existing per-kind quoting pass
+  // (`sprite_index`, `draw_sprite`/`_ext`/`_part`/`_part_ext`,
+  // `instance_change`, `instance_create_layer`, `audio_play_sound`,
+  // `audio_sound_pitch`, `timeline_index`, the cross-instance/local-ref
+  // dotted-reference passes right above) has already consumed and
+  // rewritten every bare identifier it specifically understands — by
+  // masking string literals first, a name that pass already quoted is
+  // masked away with its literal, so this pass can never re-match or
+  // double-wrap it. A name `THREADED_ACTIONS` threads unquoted (the
+  // already-documented `action_create_object`/`instance_create`
+  // object-name-argument gap) is a real, welcome exception: this pass
+  // resolving that leftover bare identifier is a bonus fix, not a
+  // conflict, since nothing upstream already rewrote that specific text.
+  //
+  // A name that exists in more than one real asset registry at once (GMS2
+  // allows a sprite, a sound, an object, etc. to share the exact same
+  // resource name across kinds — a genuine, if rare, real possibility this
+  // codebase had never had reason to check for before this pass) is
+  // deliberately left *unresolved* rather than guessed — resolving it
+  // against the wrong kind would silently corrupt working code, and there
+  // is no positional/type information available at this text-rewrite
+  // stage to disambiguate the two. Freedom Backup itself has zero such
+  // collisions across its real sprite/sound/font/room/object name sets, so
+  // this branch is exercised only by the dedicated regression test, not
+  // real project data.
+  {
+    type AssetKind = "sprite" | "sound" | "font" | "room" | "object";
+    const kindByName = new Map<string, AssetKind>();
+    const ambiguous = new Set<string>();
+    const addKind = (names: ReadonlySet<string>, kind: AssetKind): void => {
+      for (const name of names) {
+        const existing = kindByName.get(name);
+        if (existing !== undefined && existing !== kind) {
+          ambiguous.add(name);
+        } else {
+          kindByName.set(name, kind);
+        }
+      }
+    };
+    addKind(_spriteNames, "sprite");
+    addKind(_soundNames, "sound");
+    addKind(_fontNames, "font");
+    addKind(_roomNames, "room");
+    addKind(_objectNames, "object");
+    for (const name of ambiguous) kindByName.delete(name);
+
+    if (kindByName.size > 0) {
+      const { masked: avMasked, store: avStrings } = maskGmlStringLiterals(
+        out,
+        "GMLSTR5",
+      );
+      let avOut = avMasked;
+      for (const [name, kind] of kindByName) {
+        const esc = escapeRegExpTranspile(name);
+        // Sprites resolve to this importer's own real texture-path
+        // convention (`resolveSpriteAssetExpr`'s own single-frame
+        // `frame_0.png` convention, above — kept in lockstep with it
+        // rather than re-derived). Every other kind resolves to the bare
+        // name string, matching that kind's own already-established real
+        // convention (`action_sound`/`ctx.sounds`, `room_exists`/`room`,
+        // `place_meeting`/`resolveGmlObjectType`, and `FontRegistry`'s
+        // plain string-id API).
+        const resolved =
+          kind === "sprite"
+            ? `"./assets/sprites/${name}/frame_0.png"`
+            : JSON.stringify(name);
+        // Never rewrite the name as an assignment *target*
+        // (`spr_foo = ...;`, vanishingly rare given GameMaker's own
+        // asset-prefix naming convention but defensive regardless), never
+        // a dotted access on either side (already-handled — cross-instance
+        // dotted refs — or deliberately-unresolved elsewhere, so a dotted
+        // occurrence has nothing bare left for this pass to find anyway),
+        // and never immediately followed by a call `(` (not a real GML
+        // shape for a bare asset-name value, but defensive regardless).
+        avOut = avOut.replace(
+          new RegExp(
+            `(?<!\\.\\s*)\\b${esc}\\b(?!\\s*\\.)(?!\\s*\\()(?!\\s*=(?!=))`,
+            "g",
+          ),
+          resolved,
+        );
+      }
+      out = unmaskGmlStringLiterals(avOut, "GMLSTR5", avStrings);
+    }
   }
 
   return out;
