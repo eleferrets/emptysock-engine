@@ -3,6 +3,7 @@ import { PluginSystem } from "./PluginSystem.js";
 import { AudioSystem } from "./systems/AudioSystem.js";
 import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
+import { SignalBus } from "./systems/SignalBus.js";
 import { GlobalStore } from "./systems/GlobalStore.js";
 import { GmlFileSystem } from "./systems/GmlFileSystem.js";
 import { FontRegistry } from "./systems/FontRegistry.js";
@@ -65,6 +66,8 @@ export interface SceneLifecycle {
    * numbered, integer-only shape.
    */
   readonly globals: GlobalStore;
+  /** Game-owned signal/broadcast bus — see `systems/SignalBus.ts`. */
+  readonly signals: SignalBus;
   /** Game-owned, same reasoning as `globals` — one `GmlFileSystem` for the lifetime of this `Game`, real handle-based file_text_* support. See `systems/GmlFileSystem.ts`'s own doc comment. */
   readonly files: GmlFileSystem;
   /** Game-owned, same reasoning as `globals`/`files` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
@@ -298,6 +301,7 @@ export declare class Game {
   /** The `Game`'s single `AudioSystem` (§18 — Howler-backed). */
   get audio(): AudioSystem;
   /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  get signals(): SignalBus;
   get globals(): GlobalStore;
   /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
   get files(): GmlFileSystem;

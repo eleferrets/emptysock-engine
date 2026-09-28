@@ -29,6 +29,7 @@ Module packages built on top of `@emptysock/engine` (each an optional, separatel
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [Actor](./actor-system.md)               | Base class for objects that communicate via message-passing within an ActorSystem                 |
 | [AStarSearch](./systems/astar-search.md) | Generic weighted-graph A\* search; the shared engine behind PathfindingSystem and NavMeshSystem   |
+| [SignalBus](./systems/signal-bus.md)     | Game-wide named signals: on/once/emit/broadcast, scene-scoped SignalGroup cleanup                 |
 | [ActorSystem](./actor-system.md)         | Owns actor registration, message dispatch, and the inbox-drain-before-update loop                 |
 | [Camera](./camera.md)                    | Controls viewport: follow, shake, zoom, fade                                                      |
 | [Component](./component.md)              | Base conventions for typed data objects attached to entities                                      |

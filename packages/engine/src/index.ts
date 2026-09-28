@@ -125,6 +125,12 @@ export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export { GlobalStore } from "./systems/GlobalStore.js";
+export { SignalBus, SignalGroup } from "./systems/SignalBus.js";
+export type {
+  GameSignals,
+  SignalListener,
+  Unsubscribe,
+} from "./systems/SignalBus.js";
 export type { GameGlobals } from "./systems/GlobalStore.js";
 export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export { FontRegistry } from "./systems/FontRegistry.js";
