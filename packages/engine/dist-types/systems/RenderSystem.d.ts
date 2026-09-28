@@ -1,5 +1,6 @@
 import { Container, type Filter, type Renderer } from "pixi.js";
 import type { LayerSystem } from "./LayerSystem.js";
+import { type CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { GPUTier } from "../GPUTier.js";
 import { type PostProcessSystem } from "./PostProcessSystem.js";
 import type { LightingSystem } from "./LightingSystem.js";
@@ -135,6 +136,14 @@ export declare class RenderSystem {
    * there produces is what gets attached here.
    */
   addLayerShaderFilter(layerName: string, filter: Filter): void;
+  private readonly _layerGmlShaders;
+  /** Attaches a `registerGmlShader`-registered (importer-emitted) shader to a layer as a real Filter, vertex adapted to pixi's filter contract. `undefined` for an unregistered id. */
+  addLayerGmlShader(
+    layerName: string,
+    shaderId: string,
+  ): CustomShaderFilter | undefined;
+  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's version changed. */
+  syncLayerGmlShaders(): void;
   /** Detach a previously attached shader filter from a layer's container. */
   removeLayerShaderFilter(layerName: string, filter: Filter): void;
   /**

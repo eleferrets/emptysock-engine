@@ -14,15 +14,14 @@ import {
 import type { Renderer } from "pixi.js";
 import { TextureStore, type TextureLoader } from "./TextureStore.js";
 import {
-  CustomShaderFilter,
-  type CustomShaderOptions,
+  type CustomShaderFilter,
+  buildGmlShaderFilter,
+  applyGmlShaderUniforms,
 } from "./CustomShaderFilter.js";
 import {
   getGmlShader,
   getGmlShaderUniforms,
   getGmlShaderVersion,
-  parseShaderUniforms,
-  toFilterVertexSource,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 import type { Scene } from "../Scene.js";
@@ -1020,40 +1019,22 @@ export class RenderPipeline implements SceneRenderer {
     let entry = this._shaderFilters.get(id);
     const registration = getGmlShaderUniforms(id);
     if (entry === undefined || entry.source !== source) {
-      const uniforms = parseShaderUniforms(source.fragmentSrc);
-      const declared: NonNullable<CustomShaderOptions["uniforms"]> = {};
-      for (const u of uniforms) {
-        declared[u.name] = {
-          value:
-            u.components === 1 ? 0 : new Array<number>(u.components).fill(0),
-          type: u.type,
-        };
-      }
+      const built = buildGmlShaderFilter(id);
+      if (built === undefined) return undefined;
       entry = {
-        filter: new CustomShaderFilter({
-          vertexSrc: toFilterVertexSource(source.vertexSrc),
-          fragmentSrc: source.fragmentSrc,
-          name: id,
-          uniforms: declared,
-        }),
-        uniforms,
+        filter: built.filter,
+        uniforms: built.uniforms,
         appliedVersion: -1,
         source,
       };
       this._shaderFilters.set(id, entry);
     }
     if (entry.appliedVersion !== version && registration !== undefined) {
-      for (const u of entry.uniforms) {
-        const v = registration.get(u.name);
-        if (v === undefined) continue;
-        entry.filter.setUniform(
-          u.name,
-          u.components === 1
-            ? (v.values[0] ?? 0)
-            : v.values.slice(0, u.components),
-        );
-      }
-      entry.appliedVersion = version;
+      entry.appliedVersion = applyGmlShaderUniforms(
+        entry.filter,
+        entry.uniforms,
+        id,
+      );
     }
     return entry.filter;
   }

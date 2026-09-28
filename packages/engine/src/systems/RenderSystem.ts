@@ -11,6 +11,15 @@ import {
 } from "pixi.js";
 import { OutlineFilter, SimpleLightmapFilter } from "pixi-filters";
 import type { LayerSystem } from "./LayerSystem.js";
+import {
+  applyGmlShaderUniforms,
+  buildGmlShaderFilter,
+  type CustomShaderFilter,
+} from "./CustomShaderFilter.js";
+import {
+  getGmlShaderVersion,
+  type ParsedShaderUniform,
+} from "./ShaderRegistry.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
 import type { GPUTier } from "../GPUTier.js";
 import {
@@ -344,11 +353,67 @@ export class RenderSystem {
     container.filters = [...(container.filters ?? []), filter];
   }
 
+  private readonly _layerGmlShaders = new Map<
+    string,
+    {
+      layer: string;
+      id: string;
+      filter: CustomShaderFilter;
+      uniforms: ParsedShaderUniform[];
+      appliedVersion: number;
+    }
+  >();
+
+  /**
+   * Attaches a shader registered via `registerGmlShader` (what an
+   * importer-emitted `assets/<name>.shader.ts` does on import) to a layer's
+   * container as a real per-layer Filter. The importer's sprite-quad vertex
+   * stage is adapted to pixi's filter contract (`adaptVertex`, same
+   * substitution the per-entity `Sprite.shader` path uses), so the quad no
+   * longer collapses. Returns the filter (pass it to
+   * `removeLayerShaderFilter` to detach), or `undefined` for an unregistered
+   * id. `shader_set_uniform_*` writes made later are copied in by
+   * `syncLayerGmlShaders()`, which `render()` calls each frame.
+   */
+  addLayerGmlShader(
+    layerName: string,
+    shaderId: string,
+  ): CustomShaderFilter | undefined {
+    const built = buildGmlShaderFilter(shaderId);
+    if (built === undefined) return undefined;
+    const appliedVersion = applyGmlShaderUniforms(
+      built.filter,
+      built.uniforms,
+      shaderId,
+    );
+    this.addLayerShaderFilter(layerName, built.filter);
+    this._layerGmlShaders.set(`${layerName}\u0000${shaderId}`, {
+      layer: layerName,
+      id: shaderId,
+      filter: built.filter,
+      uniforms: built.uniforms,
+      appliedVersion,
+    });
+    return built.filter;
+  }
+
+  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's registry version changed. */
+  syncLayerGmlShaders(): void {
+    for (const e of this._layerGmlShaders.values()) {
+      const version = getGmlShaderVersion(e.id);
+      if (version === e.appliedVersion) continue;
+      e.appliedVersion = applyGmlShaderUniforms(e.filter, e.uniforms, e.id);
+    }
+  }
+
   /** Detach a previously attached shader filter from a layer's container. */
   removeLayerShaderFilter(layerName: string, filter: Filter): void {
     const container = this.getLayerContainer(layerName);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- pixi.js's own type is wrong about this at runtime
     container.filters = (container.filters ?? []).filter((f) => f !== filter);
+    for (const [key, e] of this._layerGmlShaders) {
+      if (e.filter === filter) this._layerGmlShaders.delete(key);
+    }
   }
 
   /**
@@ -741,6 +806,7 @@ export class RenderSystem {
     if (this._renderer === null || this._stage === null) return;
     this.syncLayerVisibility();
     this.syncLayerOffsets();
+    this.syncLayerGmlShaders();
 
     // Preserve whatever CameraSystem.update() last wrote to `_stage` so this
     // opt-in path can never leak into the ordinary single-camera render().
@@ -844,6 +910,7 @@ export class RenderSystem {
     // Sync visibility each frame so setVisible() changes are reflected.
     this.syncLayerVisibility();
     this.syncLayerOffsets();
+    this.syncLayerGmlShaders();
     this._renderer.render(this._root);
   }
 

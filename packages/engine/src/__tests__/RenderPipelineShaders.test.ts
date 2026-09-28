@@ -160,3 +160,61 @@ describe("RenderPipeline per-entity shader filters", () => {
     expect(e.get(Sprite)?.shader).toBe("");
   });
 });
+
+describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
+  type LayerRender = {
+    _render: {
+      addLayerGmlShader: (layer: string, id: string) => unknown;
+      removeLayerShaderFilter: (layer: string, f: unknown) => void;
+      getLayerContainer: (layer: string) => {
+        filters: readonly {
+          glProgram: { vertex: string };
+          resources: { uniforms: Record<string, { value: unknown }> };
+        }[];
+      };
+      syncLayerGmlShaders: () => void;
+    };
+  };
+  let render: LayerRender["_render"];
+
+  beforeEach(async () => {
+    clearGmlShaders();
+    registerGmlShader("sh_white", {
+      vertexSrc:
+        "in vec2 aPosition;\nout vec2 v_vTexcoord;\nout vec4 v_vColour;\nuniform mat3 uProjectionMatrix;\nvoid main(){}\n",
+      fragmentSrc: FRAG,
+    });
+    const pipeline = new RenderPipeline({
+      textureLoader: vi.fn(() => Promise.resolve(Texture.WHITE)),
+    });
+    await pipeline.init();
+    render = (pipeline as unknown as LayerRender)._render;
+  });
+
+  it("attaches a filter with the filter-compatible vertex stage to the layer container", () => {
+    const f = render.addLayerGmlShader("default", "sh_white");
+    expect(f).toBeDefined();
+    const filters = render.getLayerContainer("default").filters;
+    expect(filters).toHaveLength(1);
+    expect(filters[0]?.glProgram.vertex).toContain("uOutputFrame");
+    expect(filters[0]?.glProgram.vertex).not.toContain("uProjectionMatrix");
+  });
+
+  it("returns undefined and attaches nothing for an unregistered id", () => {
+    expect(render.addLayerGmlShader("default", "sh_missing")).toBeUndefined();
+    expect(render.getLayerContainer("default").filters).toHaveLength(0);
+  });
+
+  it("syncs later uniform writes and can be detached", () => {
+    const f = render.addLayerGmlShader("default", "sh_white");
+    setGmlShaderUniform("sh_white", "u_amount", "f", [0.5]);
+    render.syncLayerGmlShaders();
+    expect(
+      render.getLayerContainer("default").filters[0]?.resources.uniforms[
+        "u_amount"
+      ]?.value,
+    ).toBe(0.5);
+    render.removeLayerShaderFilter("default", f);
+    expect(render.getLayerContainer("default").filters).toHaveLength(0);
+  });
+});

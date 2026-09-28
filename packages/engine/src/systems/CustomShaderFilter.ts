@@ -15,6 +15,14 @@
 // which is exactly what the ShaderEditor panel's vertex tab starts from.
 
 import { Filter, GlProgram } from "pixi.js";
+import {
+  getGmlShader,
+  getGmlShaderUniforms,
+  getGmlShaderVersion,
+  parseShaderUniforms,
+  toFilterVertexSource,
+  type ParsedShaderUniform,
+} from "./ShaderRegistry.js";
 
 export const DEFAULT_CUSTOM_SHADER_VERTEX = /* glsl */ `
   in vec2 aPosition;
@@ -49,6 +57,16 @@ export interface CustomShaderOptions {
   fragmentSrc: string;
   /** Vertex shader source. Defaults to DEFAULT_CUSTOM_SHADER_VERTEX. */
   vertexSrc?: string;
+  /**
+   * Treat `vertexSrc` (or the default) as a sprite-quad MVP passthrough — the
+   * shape the GMS2 importer emits, which is not pixi's Filter vertex contract
+   * (`uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix` are never
+   * set for a filter, so the quad collapses) — and substitute pixi's own
+   * filter position maths via `toFilterVertexSource`, keeping only its `out`
+   * varyings. Set for importer-emitted shaders; leave unset for a vertex
+   * stage already written against the filter contract.
+   */
+  adaptVertex?: boolean;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
   /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
@@ -64,7 +82,12 @@ export interface CustomShaderOptions {
 export class CustomShaderFilter extends Filter {
   constructor(options: CustomShaderOptions) {
     const program = GlProgram.from({
-      vertex: options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX,
+      vertex:
+        options.adaptVertex === true
+          ? toFilterVertexSource(
+              options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX,
+            )
+          : (options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX),
       fragment: options.fragmentSrc,
       name: options.name ?? "emptysock-custom-shader",
     });
@@ -98,4 +121,59 @@ export function createCustomShaderFilter(
   options: CustomShaderOptions,
 ): CustomShaderFilter {
   return new CustomShaderFilter(options);
+}
+
+/**
+ * Builds a `CustomShaderFilter` for a shader registered via
+ * `registerGmlShader` (what an importer-emitted `assets/<name>.shader.ts`
+ * does at import time), with the vertex stage adapted to pixi's filter
+ * contract and every fragment-declared scalar/vector uniform declared up
+ * front. Used by both the per-entity path (`RenderPipeline.
+ * resolveShaderFilter`) and the per-layer path (`RenderSystem.
+ * addLayerGmlShader`), so the two can never disagree about how an importer
+ * shader becomes a Filter. `undefined` when the id isn't registered.
+ */
+export function buildGmlShaderFilter(
+  id: string,
+): { filter: CustomShaderFilter; uniforms: ParsedShaderUniform[] } | undefined {
+  const source = getGmlShader(id);
+  if (source === undefined) return undefined;
+  const uniforms = parseShaderUniforms(source.fragmentSrc);
+  const declared: NonNullable<CustomShaderOptions["uniforms"]> = {};
+  for (const u of uniforms) {
+    declared[u.name] = {
+      value: u.components === 1 ? 0 : new Array<number>(u.components).fill(0),
+      type: u.type,
+    };
+  }
+  const filter = new CustomShaderFilter({
+    vertexSrc: source.vertexSrc,
+    adaptVertex: true,
+    fragmentSrc: source.fragmentSrc,
+    name: id,
+    uniforms: declared,
+  });
+  return { filter, uniforms };
+}
+
+/** Copies the registry's current `shader_set_uniform_*` values for `id` into `filter`. Returns the registry version applied. */
+export function applyGmlShaderUniforms(
+  filter: CustomShaderFilter,
+  uniforms: ParsedShaderUniform[],
+  id: string,
+): number {
+  const registration = getGmlShaderUniforms(id);
+  if (registration !== undefined) {
+    for (const u of uniforms) {
+      const v = registration.get(u.name);
+      if (v === undefined) continue;
+      filter.setUniform(
+        u.name,
+        u.components === 1
+          ? (v.values[0] ?? 0)
+          : v.values.slice(0, u.components),
+      );
+    }
+  }
+  return getGmlShaderVersion(id);
 }

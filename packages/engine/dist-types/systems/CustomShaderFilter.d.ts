@@ -1,4 +1,5 @@
 import { Filter } from "pixi.js";
+import { type ParsedShaderUniform } from "./ShaderRegistry.js";
 export declare const DEFAULT_CUSTOM_SHADER_VERTEX =
   "\n  in vec2 aPosition;\n  in vec2 aUV;\n  out vec2 vUV;\n  uniform mat3 uProjectionMatrix;\n  uniform mat3 uWorldTransformMatrix;\n  uniform mat3 uTransformMatrix;\n\n  void main() {\n    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;\n    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);\n    vUV = aUV;\n  }\n";
 export declare const DEFAULT_CUSTOM_SHADER_FRAGMENT =
@@ -8,6 +9,8 @@ export interface CustomShaderOptions {
   fragmentSrc: string;
   /** Vertex shader source. Defaults to DEFAULT_CUSTOM_SHADER_VERTEX. */
   vertexSrc?: string;
+  /** Adapt a sprite-MVP (importer-emitted) vertex stage to pixi's filter contract via `toFilterVertexSource`. */
+  adaptVertex?: boolean;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
   /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
@@ -35,3 +38,16 @@ export declare class CustomShaderFilter extends Filter {
 export declare function createCustomShaderFilter(
   options: CustomShaderOptions,
 ): CustomShaderFilter;
+/** Builds a Filter for a shader registered via `registerGmlShader`, vertex adapted, uniforms declared. */
+export declare function buildGmlShaderFilter(id: string):
+  | {
+      filter: CustomShaderFilter;
+      uniforms: ParsedShaderUniform[];
+    }
+  | undefined;
+/** Copies the registry's current uniform values for `id` into `filter`; returns the registry version applied. */
+export declare function applyGmlShaderUniforms(
+  filter: CustomShaderFilter,
+  uniforms: ParsedShaderUniform[],
+  id: string,
+): number;
