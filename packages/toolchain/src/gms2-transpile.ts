@@ -2171,6 +2171,46 @@ export function transpileGML(
     },
   );
 
+  // draw_text_ext/draw_text_color/draw_roundrect_ext — real, confirmed
+  // real GML draw functions (compat/gml.ts's own doc comments) with no
+  // single `GmlDrawTarget` primitive to inline directly the way
+  // draw_rectangle/draw_circle/draw_text/draw_line above do (multi-line
+  // splitting, a per-corner colour approximation, a rounded-rect-as-plain-
+  // rect approximation), so these thread through the real `GmlActions.*`
+  // wrapper functions instead, passing `_ctx.drawTarget` (possibly
+  // `undefined` outside a draw dispatch — both functions honestly no-op on
+  // `undefined`, matching every other `_ctx.drawTarget?.` call here).
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_text_ext\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x, y, text, sep, w] = splitTopLevelArgs(args, 5);
+      return `GmlActions.draw_text_ext(_ctx.drawTarget, ${x}, ${y}, ${text}, ${sep}, ${w});`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_text_colou?r\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x, y, text, c1, c2, c3, c4, alpha] = splitTopLevelArgs(args, 8);
+      return `GmlActions.draw_text_color(_ctx.drawTarget, ${x}, ${y}, ${text}, ${c1}, ${c2}, ${c3}, ${c4}, ${alpha});`;
+    },
+  );
+  out = out.replace(
+    new RegExp(
+      `\\bdraw_roundrect_ext\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)\\s*;?`,
+      "g",
+    ),
+    (_m, args: string) => {
+      const [x1, y1, x2, y2, rx, ry, outline] = splitTopLevelArgs(args, 7);
+      return `GmlActions.draw_roundrect_ext(_ctx.drawTarget, ${x1}, ${y1}, ${x2}, ${y2}, ${rx}, ${ry}, ${outline});`;
+    },
+  );
+
   // alarm[n] = expr
   //
   // Only a *bare* `alarm[n] = expr` (this instance's own alarm) is safe to
@@ -2328,6 +2368,7 @@ export function transpileGML(
     "shader_reset",
     "room_goto_next",
     "room_restart",
+    "game_restart",
     // `place_free`/`place_snapped`/`position_free` take no object-type
     // argument at all (`place_free` matches any `Meta.solid`-flagged
     // instance, `place_snapped` and `position_free` have no object concept
@@ -2520,6 +2561,12 @@ export function transpileGML(
     "sprite_get_width",
     "sprite_get_height",
     "sprite_exists",
+    // `display_set_gui_size`/`device_mouse_y_to_gui`/`device_mouse_x_to_gui`
+    // (compat/gmlInput.ts) — context-only, like the rest of the display/
+    // mouse family above.
+    "display_set_gui_size",
+    "device_mouse_y_to_gui",
+    "device_mouse_x_to_gui",
   ];
   for (const fn of THREADED_CTX_ONLY) {
     const re = new RegExp(
@@ -2563,6 +2610,25 @@ export function transpileGML(
     "c_yellow",
   ];
   for (const name of GML_COLOUR_CONSTANTS) {
+    out = out.replace(
+      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      `GmlActions.${name}`,
+    );
+  }
+
+  // `gamespeed_fps`/`gamespeed_microseconds`/`cr_default`/`cr_none`/
+  // `working_directory` (compat/gml.ts) — the same plain-value, bare-
+  // identifier rewrite `GML_COLOUR_CONSTANTS` above already establishes,
+  // for a handful of individually low-frequency but real built-ins found
+  // in this sweep's own top `TS2304` categories.
+  const GML_MISC_CONSTANTS = [
+    "gamespeed_fps",
+    "gamespeed_microseconds",
+    "cr_default",
+    "cr_none",
+    "working_directory",
+  ];
+  for (const name of GML_MISC_CONSTANTS) {
     out = out.replace(
       new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
@@ -2713,15 +2779,52 @@ export function transpileGML(
     "max",
     "min",
     "ord",
+    // json_encode/json_decode/base64_encode/base64_decode/font_get_size/
+    // get_timer/randomize/point_in_circle/is_string/is_undefined/
+    // game_set_speed/window_set_cursor/window_get_cursor (compat/gml.ts) —
+    // real, confirmed usage: Freedom Backup's own `scr_save_game.gml`/
+    // `scr_load_game.gml` save-file chain (`json_encode` -> `base64_encode`,
+    // and the reverse), each a pure value function needing no `_entity`/
+    // `_ctx` and no object-name-argument quoting — the same shape every
+    // other `THREADED_PURE_FUNCTIONS` entry already uses.
+    "json_encode",
+    "json_decode",
+    "base64_encode",
+    "base64_decode",
+    "font_get_size",
+    "get_timer",
+    "randomize",
+    "point_in_circle",
+    "is_string",
+    "is_undefined",
+    "game_set_speed",
+    "window_set_cursor",
+    "window_get_cursor",
   ];
+  // A single `.replace()` pass only rewrites non-overlapping matches, so a
+  // call that nests *itself* as one of its own arguments (real, confirmed:
+  // Freedom Backup's own `obj_sidebars`, `max(0, ... - max((...), 0.005))`)
+  // has its outer occurrence consumed whole by `BALANCED_PARENS_TWO_LEVELS`
+  // — the inner `max(` sits inside the captured `args` string, which is
+  // re-emitted verbatim, never reprocessed — leaving the inner call a bare,
+  // undeclared identifier. Looping each function's rewrite until a pass
+  // makes no further change (bounded, so a genuine non-terminating input
+  // can never hang the transpiler) catches any depth of self-nesting; a
+  // non-nested call (the overwhelming common case) converges after exactly
+  // one iteration, unchanged from before.
   for (const fn of THREADED_PURE_FUNCTIONS) {
-    out = out.replace(
-      new RegExp(
-        `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
-        "g",
-      ),
-      (_m, args: string) => `GmlActions.${fn}(${args})`,
+    const fnPattern = new RegExp(
+      `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+      "g",
     );
+    for (let pass = 0; pass < 10; pass++) {
+      const next = out.replace(
+        fnPattern,
+        (_m, args: string) => `GmlActions.${fn}(${args})`,
+      );
+      if (next === out) break;
+      out = next;
+    }
   }
 
   // GameMaker's real `room_width`/`room_height` built-in read-only
@@ -3973,6 +4076,34 @@ export function transpileGML(
     out = unmaskGmlStringLiterals(out, "GMLARR", maskedForArrays);
   }
 
+  // GML local-variable-held instance references — detected *here*, before
+  // the generic implicit-instance-variable pass below runs, because that
+  // pass's own plain-assignment sub-pass will shortly rewrite a bare
+  // `my_gun = instance_create_layer(...)` into `GmlActions.setGmlVar(_entity,
+  // _ctx, "my_gun", GmlActions.instance_create_layer(...))` — after which
+  // this exact shape (`name = GmlActions.<entity-returning-fn>(`) can no
+  // longer be found by scanning `out` at all. See the pass that actually
+  // *uses* `localEntityRefs` (after the cross-instance object-type-name
+  // pass, further below) for the full design rationale and the real,
+  // honestly-documented gap it does not close.
+  const ENTITY_RETURNING_CALLS = [
+    "instance_create_layer",
+    "action_create_object",
+    "instance_create",
+    "instance_place",
+    "instance_position",
+  ];
+  const refAssignRe = new RegExp(
+    `\\b([A-Za-z_]\\w*)\\s*=\\s*GmlActions\\.(?:${ENTITY_RETURNING_CALLS.join("|")})\\s*\\(`,
+    "g",
+  );
+  const localEntityRefs = new Set<string>();
+  let refMatch: RegExpExecArray | null;
+  while ((refMatch = refAssignRe.exec(out)) !== null) {
+    const name = refMatch[1];
+    if (name !== undefined) localEntityRefs.add(name);
+  }
+
   // GameMaker instance variables (both its own built-ins — image_speed,
   // image_index, visible, ... not already special-cased above — and any
   // project-defined one, e.g. a plain `mywall = instance_create_layer(...)`,
@@ -4152,8 +4283,25 @@ export function transpileGML(
       // `unknown`-typed value used in arithmetic/comparison position, by far
       // the single highest-frequency error category in a real full-project
       // sweep) without inventing a fake per-variable type-inference system.
+      // A real, confirmed bug this same pass used to have: the catch-all had
+      // no guard against being *followed* by a dot — `my_gun.hp` (`my_gun`
+      // assigned earlier via `instance_create_layer`, then dot-accessed) got
+      // its bare `my_gun` rewrapped into `GmlActions.getGmlVar(...)`, leaving
+      // the real `.hp` dangling after the call — `(getGmlVar(...)).hp` reads
+      // a property off the *return value*, which happens to still parse (it
+      // reads `unknown.hp`, `undefined` at runtime) rather than throwing, so
+      // this silently produced a wrong answer instead of a caught error. A
+      // name followed by a dot is excluded here and left for the dedicated
+      // "GML local-variable-held instance references" pass below (which
+      // scans for exactly this shape — a name assigned from a real
+      // Entity-returning call, later dot-accessed) to resolve correctly
+      // through the entity the local variable actually holds, rather than
+      // this generic per-field side-table.
       out = out.replace(
-        new RegExp(`(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
+        new RegExp(
+          `(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))(?!\\s*\\.[A-Za-z_])`,
+          "g",
+        ),
         `GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
       );
       out = out.split(placeholder).join(JSON.stringify(name));
@@ -4261,6 +4409,82 @@ export function transpileGML(
       );
     }
     out = unmaskGmlStringLiterals(coOut, "GMLSTR3", coStrings);
+  }
+
+  // GML local-variable-held instance references — `owner.x`/`my_gun.hp`,
+  // where the base identifier is a *local variable* that was assigned the
+  // result of a real, Entity-returning spawn/query call earlier in this
+  // same function, not a project object-*type* name (the `_objectNames`
+  // pass above already covers that shape). A narrower, more tractable
+  // version of full scope analysis: rather than tracking every local
+  // variable's type through arbitrary control flow, this only recognises
+  // the one concrete, checkable signal this transpiler can see in the text
+  // it already produced — a plain `name = GmlActions.<fn>(...)` assignment
+  // where `<fn>` is one of the compat functions that genuinely returns an
+  // `Entity`/`Entity | undefined` (`instance_create_layer`, `action_
+  // create_object`/`instance_create`, `instance_place`, `instance_
+  // position`), detected *earlier* in this pipeline (`localEntityRefs`,
+  // computed right before the generic implicit-instance-variable pass runs
+  // — see that detection's own doc comment for why the timing matters). A
+  // name that's never assigned this way anywhere in the current function's
+  // own text is left completely untouched (the pre-existing, already-
+  // documented "unresolvable" fallback for `inst`/`other`-style local
+  // references), so this can only ever *add* real resolution, never take
+  // away from what already worked.
+  //
+  // A real, confirmed gap this narrow heuristic does *not* close, stated
+  // honestly rather than silently: Freedom Backup's own `obj_Egun.Step_1.
+  // gml` reads `owner.x`/`owner.image_xscale`, but `owner` is never
+  // assigned inside `obj_Egun`'s own event files at all — it's set
+  // externally, from a *different* object's `Create_0.gml`, via `with
+  // (my_gun) { owner = other.id; }` (a real, legal GML pattern: the
+  // spawning instance reaches into the instance it just created and
+  // assigns one of *its* fields). That assignment already routes through
+  // `GmlActions.setGmlVar` correctly (the with-block's own rescoped
+  // `_entity` correctly resolves to the spawned instance, and `owner` is a
+  // plain implicit instance variable from `obj_enemy`'s own per-object
+  // scan), so `owner`'s *value* genuinely is live and correct — but
+  // detecting this specific pattern would need real cross-file dataflow
+  // analysis (which object's Create event populates which other object's
+  // field, via which spawn call), a fundamentally different and larger
+  // problem than a same-function text scan can solve, and well beyond
+  // "narrower than full scope analysis". Left open, honestly, rather than
+  // forcing a same-pass fix that doesn't actually fit the real occurrence.
+  //
+  // A name the `_objectNames` pass above already resolved as an object-
+  // *type* name is never also treated as a local ref — the two shapes are
+  // mutually exclusive by construction (a real project object directory
+  // can't also be a local variable identifier in valid GML), but excluded
+  // here defensively regardless, since misidentifying one as the other
+  // would rewrite through the wrong compat function entirely.
+  const localRefNames = new Set(
+    [...localEntityRefs].filter((n) => !_objectNames.has(n)),
+  );
+  if (localRefNames.size > 0) {
+    const { masked: refMasked, store: refStrings } = maskGmlStringLiterals(
+      out,
+      "GMLSTR4",
+    );
+    let refOut = refMasked;
+    for (const varName of localRefNames) {
+      const esc = escapeRegExpTranspile(varName);
+      // Assignment form first, same ordering-before-bare-read reason the
+      // `_objectNames` pass above documents.
+      refOut = refOut.replace(
+        new RegExp(
+          `(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
+          "g",
+        ),
+        (_m: string, field: string, expr: string) =>
+          `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
+      );
+      refOut = refOut.replace(
+        new RegExp(`(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
+        (_m: string, field: string) =>
+          `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
+      );
+    }
+    out = unmaskGmlStringLiterals(refOut, "GMLSTR4", refStrings);
   }
 
   return out;

@@ -504,6 +504,94 @@ export function draw_text(
 }
 
 /**
+ * `draw_text_ext(x, y, string, sep, w)` — GameMaker's real multi-line text
+ * built-in (manual.gamemaker.io's `draw_text_ext` reference page). GameMaker
+ * splits `string` on both a literal newline and its own `#` line-break
+ * convention, drawing each line `sep` pixels below the last (`sep = -1`
+ * uses the current font's own natural line height — approximated here as a
+ * fixed 16px, since `GmlDrawTarget` exposes no font-metrics query to read a
+ * real line height from, the same "no font registry reachable from
+ * `compat/`" gap `font_get_size` below documents). `w` (max line width, for
+ * automatic word-wrap; `-1` disables it) is honestly *not* applied — this
+ * function has no text-measurement primitive to decide where a line would
+ * overflow `w`, the same "no measurement API" gap `string_width` already
+ * has for a single line; every line is drawn exactly as split, unwrapped.
+ * This is a real, useful implementation for the overwhelmingly common
+ * real-world use (explicit `#`/`\n`-separated dialogue lines), not a
+ * fabricated word-wrap.
+ */
+export function draw_text_ext(
+  target: GmlDrawTarget | undefined,
+  x: number,
+  y: number,
+  text: string,
+  sep: number,
+  _w: number,
+): void {
+  if (target === undefined) return;
+  const lineHeight = sep === -1 ? 16 : sep;
+  const lines = String(text).split(/\r?\n|#/);
+  for (let i = 0; i < lines.length; i++) {
+    target.text(x, y + i * lineHeight, lines[i] ?? "");
+  }
+}
+
+/**
+ * `draw_text_color(x, y, string, c1, c2, c3, c4, alpha)` — GameMaker's real
+ * per-corner colour-gradient text variant (top-left/top-right/bottom-left/
+ * bottom-right, manual.gamemaker.io's `draw_text_color` reference page).
+ * `GmlDrawTarget` has no per-glyph/per-corner colour primitive (`text()`
+ * draws in whatever colour `setColor()` last set), so this is an honest
+ * approximation: set the draw colour to `c1` (the top-left corner colour —
+ * GameMaker's own first argument, and the one real call sites overwhelmingly
+ * set identically to the other three for a solid-colour string, which is
+ * the common real case a 4-way gradient degrades to) and `alpha`, then draw
+ * a single flat-coloured line — a real, visible, useful text draw, not a
+ * fabricated gradient.
+ */
+export function draw_text_color(
+  target: GmlDrawTarget | undefined,
+  x: number,
+  y: number,
+  text: string,
+  c1: number,
+  _c2: number,
+  _c3: number,
+  _c4: number,
+  alpha: number,
+): void {
+  if (target === undefined) return;
+  target.setColor(c1);
+  target.setAlpha?.(alpha);
+  target.text(x, y, text);
+}
+
+/**
+ * `draw_roundrect_ext(x1, y1, x2, y2, rx, ry, outline)` — GameMaker's real
+ * rounded-rectangle built-in. `GmlDrawTarget.rect()` draws a plain sharp-
+ * cornered rectangle with no radius parameter, and adding a real rounded-
+ * corner primitive to the shared draw-target interface is a genuinely
+ * separate, larger change (every implementation, including any future
+ * host, would need it) than this pass's scope. Honestly approximated as a
+ * plain rectangle via the existing `rect()` — a real, visible shape at the
+ * right position/size, just without rounded corners, rather than throwing
+ * or silently no-opping.
+ */
+export function draw_roundrect_ext(
+  target: GmlDrawTarget | undefined,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  _rx: number,
+  _ry: number,
+  outline: boolean,
+): void {
+  if (target === undefined) return;
+  target.rect(x1, y1, x2, y2, outline);
+}
+
+/**
  * `draw_sprite(sprite, subimg, x, y)` — GameMaker's own argument order has
  * `subimg` between the sprite reference and the position, but `subimg` is
  * honestly not modelled (see `GmlDrawTarget.sprite`'s own doc comment), so
@@ -828,3 +916,222 @@ export function array_reduce(
   }
   return arr.reduce((accumulator, value) => fn(accumulator, value));
 }
+
+// ---------------------------------------------------------------------------
+// JSON / base64 — GameMaker's real, common save-data encoding pair
+// (manual.gamemaker.io's `json_encode`/`json_decode`/`base64_encode`/
+// `base64_decode` reference pages), confirmed real, common usage: Freedom
+// Backup's own `scr_save_game.gml`/`scr_load_game.gml` chain exactly
+// `json_encode(...)` into `base64_encode(...)` to write a save file, and
+// the reverse to read one back. Real GameMaker's `json_encode`/`_decode`
+// round-trip a GML struct/array through JSON — `JSON.stringify`/`JSON.parse`
+// are the exact same operation for a plain data struct, no translation
+// needed (a GML struct literal is already valid JS-object-literal shape,
+// per the "GMS2.3+ struct/function literal syntax" entry above). GameMaker's
+// `base64_encode`/`_decode` round-trip a plain string through base64 — this
+// engine's `packages/engine` may run in Node, a browser, or a Tauri WebView
+// (see "Engine environment boundary" above), so this cannot use Node's
+// `Buffer` (Node-only) or the DOM's `btoa`/`atob` (browser-only,
+// unavailable in headless Node/Vitest) — a plain, dependency-free base64
+// codec is implemented here instead, so it behaves identically in all three
+// contexts.
+// ---------------------------------------------------------------------------
+
+const BASE64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/** GML json_encode(value) — serialises a GML struct/array (a plain JS value here) to a JSON string. */
+export function json_encode(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+/** GML json_decode(str) — parses a JSON string back into a plain GML struct/array. */
+export function json_decode(str: string): unknown {
+  return JSON.parse(str);
+}
+
+/**
+ * GML base64_encode(str) — encodes a plain string to base64. A dependency-
+ * free implementation (no `Buffer`, no `btoa`) so it works identically in
+ * Node, a browser, and a Tauri WebView.
+ */
+export function base64_encode(str: string): string {
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i) & 0xff);
+  }
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = i + 1 < bytes.length ? (bytes[i + 1] ?? 0) : undefined;
+    const b2 = i + 2 < bytes.length ? (bytes[i + 2] ?? 0) : undefined;
+    out += BASE64_CHARS[b0 >> 2];
+    out += BASE64_CHARS[((b0 & 0x03) << 4) | (b1 !== undefined ? b1 >> 4 : 0)];
+    out +=
+      b1 !== undefined
+        ? BASE64_CHARS[((b1 & 0x0f) << 2) | (b2 !== undefined ? b2 >> 6 : 0)]
+        : "=";
+    out += b2 !== undefined ? BASE64_CHARS[b2 & 0x3f] : "=";
+  }
+  return out;
+}
+
+/** GML base64_decode(str) — decodes a base64 string back to plain text. See `base64_encode`'s own doc comment for why this is a dependency-free implementation. */
+export function base64_decode(str: string): string {
+  const clean = str.replace(/[^A-Za-z0-9+/]/g, "");
+  const bytes: number[] = [];
+  for (let i = 0; i < clean.length; i += 4) {
+    const c0 = BASE64_CHARS.indexOf(clean[i] ?? "A");
+    const c1 = BASE64_CHARS.indexOf(clean[i + 1] ?? "A");
+    const c2 =
+      clean[i + 2] !== undefined
+        ? BASE64_CHARS.indexOf(clean[i + 2] ?? "A")
+        : -1;
+    const c3 =
+      clean[i + 3] !== undefined
+        ? BASE64_CHARS.indexOf(clean[i + 3] ?? "A")
+        : -1;
+    bytes.push(((c0 << 2) | (c1 >> 4)) & 0xff);
+    if (c2 >= 0) bytes.push((((c1 & 0x0f) << 4) | (c2 >> 2)) & 0xff);
+    if (c3 >= 0) bytes.push((((c2 & 0x03) << 6) | c3) & 0xff);
+  }
+  let out = "";
+  for (const b of bytes) out += String.fromCharCode(b);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Misc built-ins — a second real triage pass, each individually low-
+// frequency in Freedom Backup but real, confirmed usage.
+// ---------------------------------------------------------------------------
+
+/**
+ * GML font_get_size(fontId) — GameMaker's real per-font pixel size lookup.
+ * Honestly unmodelled, the same class of gap `sprite_get_width`/
+ * `sprite_get_height` already document above: this compat layer has no
+ * general font-asset registry reachable from `compat/` at all (a GMS2
+ * font's metadata is only ever baked onto this importer's own generated
+ * `.font.ts` descriptor at import time, never stored anywhere addressable
+ * by name/reference from here) — building one is a genuinely new import-
+ * time feature, not a same-file fix. Returns `0` rather than a fabricated
+ * plausible-looking size.
+ */
+export function font_get_size(_fontId: string): number {
+  return 0;
+}
+
+const _gmlStart = Date.now();
+
+/**
+ * GML get_timer() — real GameMaker returns microseconds since the game
+ * started. `Date.now()` (plain JS, available in Node/browser/Tauri alike —
+ * no DOM/performance-API dependency) gives millisecond resolution; this
+ * engine has no finer-grained clock reachable from inside the engine-
+ * environment boundary, so microseconds are derived by multiplying by
+ * 1000 — real elapsed time, honestly coarser resolution than GameMaker's
+ * own, not a fabricated finer one.
+ */
+export function get_timer(): number {
+  return (Date.now() - _gmlStart) * 1000;
+}
+
+/**
+ * GML randomize() — reseeds GameMaker's RNG from a real random seed.
+ * `Math.random()` has no seed API at all in standard JS, so this is an
+ * honest no-op (every call site already gets fresh randomness from
+ * `Math.random()`-backed `random()`/`irandom()` regardless) rather than a
+ * fabricated seeding mechanism.
+ */
+export function randomize(): void {
+  // Intentional no-op — see doc comment.
+}
+
+/** GML point_in_circle(px, py, cx, cy, r) — real, pure point/circle containment test. */
+export function point_in_circle(
+  px: number,
+  py: number,
+  cx: number,
+  cy: number,
+  r: number,
+): boolean {
+  const dx = px - cx;
+  const dy = py - cy;
+  return dx * dx + dy * dy <= r * r;
+}
+
+/** GML is_string(value) — real runtime type check. */
+export function is_string(value: unknown): boolean {
+  return typeof value === "string";
+}
+
+/** GML is_undefined(value) — real runtime type check (GameMaker's own `undefined` maps onto JS's). */
+export function is_undefined(value: unknown): boolean {
+  return value === undefined;
+}
+
+/**
+ * GML gamespeed_fps — one of GameMaker's two real `game_set_speed`
+ * unit-mode constants (manual.gamemaker.io's `game_set_speed` reference
+ * page): `gamespeed_fps = 0` (frames per second — the default and by far
+ * the common real usage), `gamespeed_microseconds = 1`.
+ */
+export const gamespeed_fps = 0;
+export const gamespeed_microseconds = 1;
+
+/**
+ * GML game_set_speed(speed, type) — real GameMaker retargets the whole
+ * game loop's frame rate. This engine's game loop is driven by the host's
+ * `requestAnimationFrame` (or the headless test harness's own fixed-step
+ * driver), with no per-`Game` "target FPS" knob exposed to compat code —
+ * changing it would mean reaching into host-owned loop-timing code from
+ * inside `compat/`, which this file has no reference to. An honest no-op,
+ * not a fabricated retarget, the same shape `randomize()` above uses for a
+ * different unimplementable-from-here GameMaker built-in.
+ */
+export function game_set_speed(_speed: number, _type: number): void {
+  // Intentional no-op — see doc comment.
+}
+
+/**
+ * GML cr_none/cr_default — two of GameMaker's real named cursor constants
+ * (manual.gamemaker.io's `window_set_cursor` reference page; the full
+ * enum's legacy numeric encoding traces back to GameMaker 8's documented
+ * negative-integer cursor IDs). `window_set_cursor`/`window_get_cursor`
+ * below store whichever value is passed with no real OS cursor change
+ * behind it (this engine has no OS-cursor API reachable from inside the
+ * engine-environment boundary — the same class of gap `application_surface`
+ * already documents for a different platform capability), so these two
+ * constants exist so an equality check like
+ * `if (window_get_cursor() == cr_none)` in real GML source still resolves
+ * to *some* real, stored value rather than an undeclared identifier — the
+ * exact numeric value matters far less than that a round trip through
+ * `window_set_cursor`/`window_get_cursor` is internally consistent, which
+ * it is regardless of which two integers these are.
+ */
+export const cr_default = -1;
+export const cr_none = 0;
+
+let _gmlCursor: number = cr_default;
+
+/** GML window_set_cursor(cursor) — stores the requested cursor; see `cr_none`'s own doc comment for why no real OS cursor changes. */
+export function window_set_cursor(cursor: number): void {
+  _gmlCursor = cursor;
+}
+
+/** GML window_get_cursor() — reads back whatever `window_set_cursor` last stored. */
+export function window_get_cursor(): number {
+  return _gmlCursor;
+}
+
+/**
+ * GML working_directory — GameMaker's real read-only build-time filesystem
+ * path (the executable's own directory). `@emptysock/engine` must not
+ * import `fs`/Node/Tauri filesystem APIs at all (see "Engine environment
+ * boundary" above — the same compiled bundle runs in Node, a browser
+ * preview iframe, and a Tauri WebView, and only the last of those has any
+ * real filesystem to report), so there is no real path this file could
+ * honestly return. `""` — an empty, honestly-empty path, rather than a
+ * fabricated one — matching this file's other "no reachable resource"
+ * defaults (`font_get_size`'s `0`, `sprite_get_width`'s `0`).
+ */
+export const working_directory = "";

@@ -2255,3 +2255,36 @@ describe("transpileGML — getGmlVar/getGmlObjectVar bare-read numeric cast", ()
     setGmlObjectNames(new Set());
   });
 });
+
+describe("transpileGML — GML local-variable-held instance references", () => {
+  it("rewrites a dotted read on a local var assigned from instance_create_layer", () => {
+    const out = transpileGML(
+      'my_gun = instance_create_layer(x, y, "Guns", obj_gun);\nv = my_gun.hp;',
+    );
+    expect(out).toContain(
+      'GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, "my_gun", "hp"))',
+    );
+  });
+
+  it("rewrites a dotted assignment on a local var assigned from instance_place", () => {
+    const out = transpileGML("t = instance_place(x, y, obj_wall);\nt.hp = 3;");
+    expect(out).toContain(
+      'GmlActions.setGmlRefVar(_entity, _ctx, "t", "hp", 3);',
+    );
+  });
+
+  it("does not rewrite a dotted access on a name never assigned from an Entity-returning call", () => {
+    const out = transpileGML("v = owner.x;");
+    expect(out).not.toContain("getGmlRefVar");
+  });
+
+  it("prefers the object-type-name rewrite over the local-ref rewrite for the same name", () => {
+    setGmlObjectNames(new Set(["obj_gun"]));
+    const out = transpileGML(
+      'obj_gun = instance_create_layer(x, y, "Guns", obj_gun);\nv = obj_gun.hp;',
+    );
+    expect(out).toContain("GmlActions.getGmlObjectVar");
+    expect(out).not.toContain("getGmlRefVar");
+    setGmlObjectNames(new Set());
+  });
+});

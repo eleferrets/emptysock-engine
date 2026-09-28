@@ -387,6 +387,7 @@ export {
   sprite_get_width,
   sprite_get_height,
   sprite_exists,
+  game_restart,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
@@ -404,7 +405,12 @@ export {
   clearGmlInstanceVars,
   gmlNum,
 } from "./compat/gmlInstanceVars.js";
-export { getGmlObjectVar, setGmlObjectVar } from "./compat/gmlCrossInstance.js";
+export {
+  getGmlObjectVar,
+  setGmlObjectVar,
+  getGmlRefVar,
+  setGmlRefVar,
+} from "./compat/gmlCrossInstance.js";
 
 /**
  * GameMaker's "hypothetical position" collision-query family
@@ -667,6 +673,9 @@ export {
   window_get_width,
   window_get_height,
   surface_resize,
+  display_set_gui_size,
+  device_mouse_y_to_gui,
+  device_mouse_x_to_gui,
 } from "./compat/gmlInput.js";
 
 /**
@@ -806,6 +815,27 @@ export {
   mouse_button_down,
   mouse_button_released,
   place_empty,
+  draw_text_ext,
+  draw_text_color,
+  draw_roundrect_ext,
+  json_encode,
+  json_decode,
+  base64_encode,
+  base64_decode,
+  font_get_size,
+  get_timer,
+  randomize,
+  point_in_circle,
+  is_string,
+  is_undefined,
+  gamespeed_fps,
+  gamespeed_microseconds,
+  game_set_speed,
+  cr_default,
+  cr_none,
+  window_set_cursor,
+  window_get_cursor,
+  working_directory,
 } from "./compat/gml.js";
 
 /**

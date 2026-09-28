@@ -306,6 +306,23 @@ export declare function room_restart(
   ctx: GmlActionContext,
 ): void;
 /**
+ * `game_restart()` — GameMaker's real function reloads the entire game from
+ * its very first room, resetting every instance and every global variable.
+ * This engine has no single "reset everything" primitive that also clears
+ * arbitrary global GML state living in `gmlStatics`/side-tables/a game's
+ * own module-level variables — a genuine, honest gap, the same class as
+ * `randomize()`'s "no seed API to hook" limitation above. What *is* honestly
+ * representable is reloading the *first* room in `ctx.roomOrder` (the
+ * closest real approximation this importer's room-name-addressed model can
+ * offer, mirroring `room_restart`'s own "reload the current room" shape one
+ * level up) — a real room reload, not a full state reset, and documented as
+ * such rather than silently claiming a full restart happened.
+ */
+export declare function game_restart(
+  entity: Entity,
+  ctx: GmlActionContext,
+): void;
+/**
  * `room_last` — GameMaker's real function returns the numeric asset index
  * of the *last* room in the project's room order. This importer addresses
  * rooms by name, not index (see `room_exists`'s own doc comment), so this

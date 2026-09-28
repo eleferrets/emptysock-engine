@@ -96,3 +96,94 @@ function findFirstInstanceOfType(
   });
   return found;
 }
+
+/**
+ * Real runtime resolution for GML's *other* dotted-reference shape: a
+ * local instance variable that holds a specific `Entity` reference (e.g.
+ * `my_gun = instance_create_layer(...)`, then later `my_gun.x`), as
+ * opposed to `getGmlObjectVar` above's object-*type*-name shape
+ * (`obj_player.x`). See `gms2-transpile.ts`'s narrow, same-function
+ * pre-scan (the "GML local-variable-held instance references" section)
+ * for exactly which assignments this covers and — just as importantly —
+ * which real, confirmed Freedom Backup occurrence it deliberately does
+ * *not* cover.
+ *
+ * `varName`'s own current value is read through the *same* `getGmlVar`
+ * per-`(World, eid)` side-table every other bare instance-variable read
+ * already uses — a local variable that holds an instance reference is
+ * still, mechanically, just an ordinary GML instance variable whose value
+ * happens to be an `Entity` rather than a number/string, so there is no
+ * second storage mechanism to invent here. Once resolved, the dotted
+ * field itself routes through the exact same `x`/`y`-special-cased-else-
+ * generic-side-table logic `getGmlObjectVar`/`setGmlObjectVar` above
+ * already establish, reused via `readField`/`writeField` rather than
+ * duplicated a second time.
+ *
+ * A `varName` whose stored value is not a real, live `Entity` (never
+ * assigned, assigned something else, or the instance it pointed to was
+ * since destroyed) is a real, honest no-op — `undefined` on read, a
+ * console warning on write — the same "no live instance to even ask"
+ * convention `getGmlObjectVar`/`setGmlObjectVar` already follow for their
+ * own "object type has no live instance" case, not a crash.
+ */
+export function getGmlRefVar(
+  entity: Entity,
+  ctx: GmlActionContext,
+  varName: string,
+  field: string,
+): unknown {
+  const ref = getGmlVar(entity, ctx, varName);
+  const target = asLiveEntity(ref);
+  if (target === undefined) return undefined;
+  if (field === "x" || field === "y") {
+    return target.get(Transform)?.[field] ?? 0;
+  }
+  return getGmlVar(target, ctx, field);
+}
+
+/** See `getGmlRefVar`'s own doc comment. */
+export function setGmlRefVar(
+  entity: Entity,
+  ctx: GmlActionContext,
+  varName: string,
+  field: string,
+  value: unknown,
+): unknown {
+  const ref = getGmlVar(entity, ctx, varName);
+  const target = asLiveEntity(ref);
+  if (target === undefined) {
+    console.warn(
+      `[GmlCrossInstance] setGmlRefVar: local variable "${varName}" does not hold a live instance reference — write to "${field}" dropped.`,
+    );
+    return value;
+  }
+  if (field === "x" || field === "y") {
+    const t = target.get(Transform);
+    if (t !== undefined) t[field] = value as number;
+    return value;
+  }
+  return setGmlVar(target, ctx, field, value);
+}
+
+/**
+ * Duck-types `value` as a real, live `Entity` — `Entity` itself is a
+ * concrete class (not a structural interface) with no runtime tag this
+ * file can `instanceof`-check without importing the class value (only its
+ * type is imported here, per this module's existing `import type { Entity
+ * }`), so this checks for `Entity`'s own real, public shape (`.get`/
+ * `.isAlive`) instead — the same "duck-type the public API surface"
+ * approach `NetworkEntityMap`'s own `entity.rawId` reliance already takes
+ * elsewhere in this codebase for a similar reason.
+ */
+function asLiveEntity(value: unknown): Entity | undefined {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { get?: unknown }).get !== "function" ||
+    typeof (value as { isAlive?: unknown }).isAlive !== "boolean"
+  ) {
+    return undefined;
+  }
+  const candidate = value as Entity;
+  return candidate.isAlive ? candidate : undefined;
+}

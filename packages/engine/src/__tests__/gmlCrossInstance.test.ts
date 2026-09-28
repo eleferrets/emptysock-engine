@@ -3,10 +3,12 @@ import { Scene } from "../Scene.js";
 import { Meta } from "../components/Meta.js";
 import { Transform } from "../components/Transform.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
-import { setGmlVar } from "../compat/gmlInstanceVars.js";
+import { setGmlVar, getGmlVar } from "../compat/gmlInstanceVars.js";
 import {
   getGmlObjectVar,
   setGmlObjectVar,
+  getGmlRefVar,
+  setGmlRefVar,
 } from "../compat/gmlCrossInstance.js";
 
 describe("gmlCrossInstance", () => {
@@ -63,5 +65,54 @@ describe("gmlCrossInstance", () => {
     expect(() =>
       setGmlObjectVar(writer, ctx, "obj_nothing", "field", 1),
     ).not.toThrow();
+  });
+});
+
+describe("gmlCrossInstance — local-variable-held instance references", () => {
+  it("getGmlRefVar/setGmlRefVar resolve a local var's stored Entity, not by object-type scan", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene };
+    const spawner = scene.spawn();
+    const spawned = scene.spawn();
+    setGmlVar(spawner, ctx, "my_gun", spawned);
+
+    setGmlRefVar(spawner, ctx, "my_gun", "hp", 5);
+    expect(getGmlRefVar(spawner, ctx, "my_gun", "hp")).toBe(5);
+    // The written value lives on the *spawned* entity's own side-table,
+    // not the spawner's.
+    expect(getGmlVar(spawned, ctx, "hp")).toBe(5);
+  });
+
+  it("x/y route through the referenced entity's real Transform, not the generic side-table", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene };
+    const spawner = scene.spawn();
+    const spawned = scene.spawn();
+    spawned.add(Transform, { x: 1, y: 2 });
+    setGmlVar(spawner, ctx, "owner", spawned);
+
+    setGmlRefVar(spawner, ctx, "owner", "x", 42);
+    expect(spawned.get(Transform)?.x).toBe(42);
+    expect(getGmlRefVar(spawner, ctx, "owner", "x")).toBe(42);
+  });
+
+  it("honestly no-ops when the local var never held a live Entity", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene };
+    const spawner = scene.spawn();
+    expect(getGmlRefVar(spawner, ctx, "never_set", "hp")).toBeUndefined();
+    expect(() =>
+      setGmlRefVar(spawner, ctx, "never_set", "hp", 1),
+    ).not.toThrow();
+  });
+
+  it("honestly no-ops when the referenced entity was since destroyed", () => {
+    const scene = new Scene();
+    const ctx: GmlActionContext = { scene };
+    const spawner = scene.spawn();
+    const spawned = scene.spawn();
+    setGmlVar(spawner, ctx, "my_gun", spawned);
+    scene.destroy(spawned);
+    expect(getGmlRefVar(spawner, ctx, "my_gun", "hp")).toBeUndefined();
   });
 });

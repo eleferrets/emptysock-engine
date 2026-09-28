@@ -260,3 +260,36 @@ export declare function mouse_check_button_pressed(
   ctx: GmlInputContext,
   button: number,
 ): boolean;
+/**
+ * `display_set_gui_size(w, h)` — GameMaker's real function resizes the GUI
+ * layer's own coordinate space independent of the room's world size. This
+ * engine's matching concept is `ViewportSystem`'s design resolution (see
+ * `display_get_gui_width`'s own doc comment) — the same resource
+ * `surface_resize(application_surface, ...)` above already resizes, so
+ * this is a thin, honest alias onto the identical call.
+ */
+export declare function display_set_gui_size(
+  ctx: GmlInputContext,
+  width: number,
+  height: number,
+): void;
+/**
+ * `device_mouse_y_to_gui(device)` — GameMaker's real function reads a
+ * specific touch/pointer device's position, already mapped into GUI-layer
+ * coordinates. This compat layer has no per-device pointer index (only
+ * `mouse_x`/`mouse_y`'s single "primary pointer" concept, see their own
+ * doc comment for why that's already a documented approximation of
+ * GameMaker's real semantics), so `device` is honestly ignored and this
+ * returns the same primary-pointer position `mouse_y` already reads — a
+ * real, useful position for the overwhelmingly common single-touch/single-
+ * mouse case, not a fabricated per-device value this engine can't derive.
+ */
+export declare function device_mouse_y_to_gui(
+  ctx: GmlInputContext,
+  _device: number,
+): number;
+/** See `device_mouse_y_to_gui`'s doc comment. */
+export declare function device_mouse_x_to_gui(
+  ctx: GmlInputContext,
+  _device: number,
+): number;
