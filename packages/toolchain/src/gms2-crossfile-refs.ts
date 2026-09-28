@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { scanGmlImplicitVars } from "./gms2-transpile.js";
 
 /**
  * Real, project-wide detection of GameMaker's "hand the spawned/iterated
@@ -108,4 +109,78 @@ export async function scanGmlCrossFileEntityRefFields(
 
   await walk(projectRoot);
   return fields;
+}
+
+/**
+ * Real, project-wide per-object implicit-instance-variable name sets —
+ * closes a real, confirmed gap distinct from `scanGmlCrossFileEntityRefFields`
+ * above: a *script* (not tied to any one object) that reads another
+ * object's own fields via `with (objName) { field = ...; }`, where `field`
+ * is a real, plain instance variable of `objName` — set (via ordinary
+ * assignment, not the `other.id` back-reference idiom above) *only* inside
+ * `objName`'s own event files, never anywhere inside the script itself.
+ *
+ * Confirmed real in Freedom Backup: `scripts/scr_save_game/scr_save_game.gml`
+ * does `with (obj_player_stats) { save_data.set("x", player_xstart); ...
+ * save_data.set("hp", hp); ... }` — `player_xstart`/`hp`/`maxhp`/`stamina`/
+ * `maxstamina`/`expr`/`maxexpr`/`level`/`attack` are all real, plain
+ * `name = expr;` assignments inside `objects/obj_player_stats/Create_0.gml`
+ * (confirmed by reading that file directly — `obj_player_stats` has an
+ * empty real `.yy` `"properties"` array and a `null` `parentObjectId`, so
+ * this is *not* a GMS2.3+ Variable Definition and *not* real GameMaker
+ * object inheritance; it's a plain same-object implicit instance variable,
+ * the ordinary case `scanGmlImplicitVars` already handles perfectly *within
+ * `obj_player_stats`'s own generated behavior module* — the gap is only
+ * that `scr_save_game.ts`, a wholly separate generated file, has no way to
+ * know these names are instance fields of `obj_player_stats` at all, since
+ * it never assigns them itself).
+ *
+ * This scanner walks every real `objects/<name>/` directory once,
+ * project-wide, and unions `scanGmlImplicitVars` across that object's own
+ * sibling `.gml` event files — literally the same per-object scan
+ * `gms2-codegen.ts`'s `objectImplicitVars` already performs for that
+ * object's *own* generated behavior module, just also captured here so a
+ * *different* generated file's `with (objName) { ... }` block can be seeded
+ * with the same knowledge. `gms2-transpile.ts`'s `transpileGML` merges the
+ * named object's field set into its own `knownImplicitVars` handling
+ * whenever the body being transpiled contains a literal `with (objName)`
+ * naming a real, known project object — the same "seed the whole body,
+ * don't attempt a real per-block scope" precedent
+ * `scanGmlCrossFileEntityRefFields`'s own use site already establishes, and
+ * safe for the same reason: a name that's genuinely `objName`'s own
+ * instance field is vanishingly unlikely to also be an unrelated local
+ * variable of the same name inside the very script that reaches into it.
+ */
+export async function scanGmlObjectFieldNames(
+  projectRoot: string,
+): Promise<Map<string, Set<string>>> {
+  const result = new Map<string, Set<string>>();
+  const objectsDir = path.join(projectRoot, "objects");
+  let objectDirs: string[];
+  try {
+    objectDirs = await fs.readdir(objectsDir);
+  } catch {
+    return result;
+  }
+  for (const objName of objectDirs) {
+    const objDir = path.join(objectsDir, objName);
+    const stat = await fs.stat(objDir).catch(() => null);
+    if (stat === null || !stat.isDirectory()) continue;
+    let files: string[];
+    try {
+      files = await fs.readdir(objDir);
+    } catch {
+      continue;
+    }
+    const fields = new Set<string>();
+    for (const file of files) {
+      if (!file.endsWith(".gml")) continue;
+      const content = await fs
+        .readFile(path.join(objDir, file), "utf-8")
+        .catch(() => "");
+      for (const name of scanGmlImplicitVars(content)) fields.add(name);
+    }
+    if (fields.size > 0) result.set(objName, fields);
+  }
+  return result;
 }

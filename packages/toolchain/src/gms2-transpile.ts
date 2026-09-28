@@ -84,6 +84,23 @@ export function setGmlObjectNames(names: ReadonlySet<string>): void {
 }
 
 /**
+ * Real, project-wide per-object implicit-instance-variable name sets, from
+ * `gms2-crossfile-refs.ts`'s `scanGmlObjectFieldNames` — see that
+ * function's own doc comment for the real `scr_save_game`/
+ * `obj_player_stats` gap this closes. `transpileGML` merges a named
+ * object's own field set into the body being transpiled whenever that body
+ * contains a literal `with (objName)` naming a real, known project object.
+ */
+let _objectFieldNames: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+
+/** Installs the project-wide per-object field-name map `transpileGML` reads for `with (objName) { ... }` bodies. Call once, before transpiling any file. */
+export function setGmlObjectFieldNames(
+  fields: ReadonlyMap<string, ReadonlySet<string>>,
+): void {
+  _objectFieldNames = fields;
+}
+
+/**
  * Real, project-wide asset-name registries — sprites/sounds/fonts/rooms,
  * installed the same way `_objectNames` is (a plain directory listing
  * `gms2-import.ts` already builds for each kind, before any file is
@@ -953,6 +970,26 @@ export function transpileGML(
   functionId = "fn",
   enumNames: ReadonlySet<string> = _enumNames,
 ): string {
+  // Real, project-wide `with (objName) { ... }` field-name seeding — see
+  // `setGmlObjectFieldNames`/`scanGmlObjectFieldNames`'s own doc comments
+  // for the real `scr_save_game`/`obj_player_stats` gap this closes. A
+  // body that literally names a known project object as a `with` target
+  // gets that object's own real implicit-instance-variable names merged in
+  // as if this body had assigned them itself — the same "seed the whole
+  // body, don't attempt a real per-block scope" precedent the sibling
+  // `knownImplicitVars` merge below already establishes for an object's
+  // *own* cross-event reads.
+  if (_objectFieldNames.size > 0) {
+    const merged = new Set(knownImplicitVars);
+    for (const m of gml.matchAll(/\bwith\s*\(\s*([A-Za-z_]\w*)\s*\)/g)) {
+      const objName = m[1];
+      if (objName === undefined) continue;
+      const fields = _objectFieldNames.get(objName);
+      if (fields === undefined) continue;
+      for (const f of fields) merged.add(f);
+    }
+    knownImplicitVars = merged;
+  }
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
   // never added the closing `*/` (GameMaker's own parser is lenient about
@@ -2203,9 +2240,20 @@ export function transpileGML(
       return `GmlActions.audio_sound_pitch(_entity, _ctx, ${threaded})${semi ?? ";"}`;
     },
   );
+  // `BALANCED_PARENS_TWO_LEVELS`, not `_ONE_LEVEL` — a real, confirmed bug:
+  // `room_goto`'s argument routinely already went through an earlier
+  // rewrite pass by the time this one runs (e.g. a global-variable read,
+  // `global.checkpointR` → `(_ctx.game?.globals.get("checkpointR"))`),
+  // which is itself a parenthesized expression containing a further
+  // nested call's own parens — two levels deep, not one. `_ONE_LEVEL`
+  // silently failed to match the whole argument at all in that real case
+  // (confirmed: Freedom Backup's own `scr_death.gml`'s
+  // `room_goto(checkpointR);`, after the earlier global-read rewrite),
+  // leaving the call entirely unrewritten — a hard `ReferenceError`, not a
+  // degraded result.
   out = out.replace(
     new RegExp(
-      `\\broom_goto\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      `\\broom_goto\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
       "g",
     ),
     (_m, rm: string, semi?: string) =>
@@ -2654,6 +2702,11 @@ export function transpileGML(
     "gamepad_axis_value",
     "gamepad_set_axis_deadzone",
     "mouse_check_button_pressed",
+    "mouse_check_button",
+    "room_get_camera",
+    "room_set_camera",
+    "room_set_viewport",
+    "room_set_view_enabled",
     "display_get_gui_width",
     "display_get_gui_height",
     "display_get_width",

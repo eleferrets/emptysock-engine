@@ -260,6 +260,11 @@ export declare function mouse_check_button_pressed(
   ctx: GmlInputContext,
   button: number,
 ): boolean;
+/** `mouse_check_button(button)` — real level (held-down) mouse-button check, distinct from `mouse_check_button_pressed`'s edge-triggered variant above. */
+export declare function mouse_check_button(
+  ctx: GmlInputContext,
+  button: number,
+): boolean;
 /**
  * `display_set_gui_size(w, h)` — GameMaker's real function resizes the GUI
  * layer's own coordinate space independent of the room's world size. This

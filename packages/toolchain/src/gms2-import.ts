@@ -24,9 +24,13 @@ import {
   setGmlFontNames,
   setGmlRoomNames,
   setGmlCrossFileEntityRefFields,
+  setGmlObjectFieldNames,
 } from "./gms2-transpile.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
-import { scanGmlCrossFileEntityRefFields } from "./gms2-crossfile-refs.js";
+import {
+  scanGmlCrossFileEntityRefFields,
+  scanGmlObjectFieldNames,
+} from "./gms2-crossfile-refs.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
@@ -130,6 +134,15 @@ export async function importGMS2Project(
   setGmlCrossFileEntityRefFields(
     await scanGmlCrossFileEntityRefFields(projectRoot),
   );
+
+  // Real, project-wide per-object implicit-instance-variable field names —
+  // same "must happen before any file is transpiled" reasoning as above.
+  // Closes a real, confirmed gap distinct from the Entity-reference scan:
+  // a script's `with (objName) { field = ...; }` reading a plain instance
+  // field `objName`'s own event files assign via ordinary assignment (not
+  // the `other.id` back-reference idiom) — see
+  // `scanGmlObjectFieldNames`'s own doc comment.
+  setGmlObjectFieldNames(await scanGmlObjectFieldNames(projectRoot));
 
   // NOTE: `defaultScriptType` in real .yyp files does NOT reliably indicate
   // "this project uses GML Visual (drag-and-drop)" — a real, fully

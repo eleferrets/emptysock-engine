@@ -351,3 +351,30 @@ export declare function view_set_surface_id(
   idx: number,
   id: number,
 ): void;
+/** Legacy pre-2.3 `room_get_camera`/`room_set_camera`/`room_set_viewport`/`room_set_view_enabled` family — honestly operates on the current scene's own view registry, ignoring the `room` argument (see the implementation's own doc comment). */
+export declare function room_get_camera(
+  ctx: GmlCameraContext,
+  _room: number,
+  view: number,
+): number;
+export declare function room_set_camera(
+  ctx: GmlCameraContext,
+  _room: number,
+  view: number,
+  camera: number,
+): void;
+export declare function room_set_viewport(
+  ctx: GmlCameraContext,
+  _room: number,
+  view: number,
+  visible: boolean,
+  xport: number,
+  yport: number,
+  wport: number,
+  hport: number,
+): void;
+export declare function room_set_view_enabled(
+  ctx: GmlCameraContext,
+  _room: number,
+  enable: boolean,
+): void;
