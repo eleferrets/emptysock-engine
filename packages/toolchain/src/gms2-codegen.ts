@@ -1063,9 +1063,36 @@ export function ${name}(
   // insert a runtime check here), it just stops the real, previously
   // dominant `unknown`-used-arithmetically `tsc` error category from firing
   // on every generated script parameter.
+  //
+  // One real, narrow exception: a parameter that's forwarded bare into a
+  // `GmlDrawTarget.setFont(fontId: string)` call (`draw_set_font(font)`,
+  // real, confirmed usage: `scr_draw_set_text`'s own `font` parameter,
+  // called as `draw_set_font(argument1)`) is genuinely, structurally a
+  // string at that one real call site — the project-wide asset-name
+  // registry (see CLAUDE.md's "project-wide asset-name registry" entry)
+  // resolves a caller's `fnt_sign`-style argument into a real font-id
+  // string before this script ever sees it. A blanket `number | string`
+  // widening across every named parameter was tried first and reverted:
+  // it broke real arithmetic on every other script's numeric parameters
+  // (`shake_magnitude = argument0`-style assignments into a `number`
+  // field, confirmed via a real sweep regression from 193 to 271 error
+  // lines) — the same class of "loosened a shared type and broke
+  // everything downstream" mistake CLAUDE.md's other type-fix entries
+  // already warn against. Detecting the one real forwarding shape and
+  // typing only that parameter `string` fixes the real call site without
+  // touching any other parameter's real, already-correct `number` type.
+  const stringParams = new Set(
+    paramNames.filter((p) =>
+      new RegExp(`\\.setFont\\?\\.\\(\\s*${escapeRegExp(p)}\\s*\\)`).test(
+        transpiled,
+      ),
+    ),
+  );
   const paramList =
     paramNames.length > 0
-      ? paramNames.map((p) => `${p}: number`).join(", ")
+      ? paramNames
+          .map((p) => `${p}: ${stringParams.has(p) ? "string" : "number"}`)
+          .join(", ")
       : "...args: unknown[]";
   const paramStr = `_entity: Entity, _ctx: GmlActionContext, ${paramList}`;
 
