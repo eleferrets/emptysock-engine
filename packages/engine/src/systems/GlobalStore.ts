@@ -19,13 +19,28 @@
  * constructor) — one instance per `Game`, alive for its whole lifetime,
  * handed to scene code via `SceneLifecycle.globals` for convenience.
  */
+/**
+ * Augmentable registry of known global names -> value types. Game code (or
+ * the IDE's generated globals declaration file) extends it via declaration
+ * merging so `ctx.globals.get("score")` is typed and autocompleted:
+ *
+ *     declare module "@emptysock/engine" { interface GameGlobals { score: number } }
+ *
+ * Names not declared here still work through the untyped string overloads.
+ */
+export interface GameGlobals {}
+
 export class GlobalStore {
   private readonly _values = new Map<string, unknown>();
 
-  get<T = unknown>(name: string): T | undefined {
-    return this._values.get(name) as T | undefined;
+  get<K extends keyof GameGlobals>(name: K): GameGlobals[K] | undefined;
+  get<T = unknown>(name: string): T | undefined;
+  get(name: string): unknown {
+    return this._values.get(name);
   }
 
+  set<K extends keyof GameGlobals>(name: K, value: GameGlobals[K]): void;
+  set(name: string, value: unknown): void;
   set(name: string, value: unknown): void {
     this._values.set(name, value);
   }

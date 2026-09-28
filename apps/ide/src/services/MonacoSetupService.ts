@@ -74,6 +74,8 @@ const ES_EXTENSIONS = [
 // Matches asset path strings that can be opened from the editor context menu.
 const ASSET_PATH_RE =
   /\.(esscene|esmap|esanim|esprefab|esvn|esparticle|esui|esdata|png|jpg|jpeg|webp|ogg|wav|mp3)$/i;
+import { syncGameGlobalsToMonaco } from "./gameGlobalsTypes";
+import { useGameGlobalsStore } from "../store/gameGlobalsStore";
 
 let _setupDone = false;
 
@@ -125,6 +127,17 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
     ts.typescriptDefaults.addExtraLib(content, uri);
     ts.javascriptDefaults.addExtraLib(content, uri);
   }
+
+  // --- Game-wide globals typing (ctx.globals.get("score") is typed) ----------
+  const globalTargets = [ts.typescriptDefaults, ts.javascriptDefaults];
+  syncGameGlobalsToMonaco(
+    globalTargets,
+    useGameGlobalsStore.getState().gameGlobals,
+  );
+  useGameGlobalsStore.subscribe((state, prev) => {
+    if (state.gameGlobals !== prev.gameGlobals)
+      syncGameGlobalsToMonaco(globalTargets, state.gameGlobals);
+  });
 
   // --- EmptySock resource file language -------------------------------------
   if (

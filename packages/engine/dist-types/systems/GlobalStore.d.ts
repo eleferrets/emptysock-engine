@@ -19,9 +19,12 @@
  * constructor) — one instance per `Game`, alive for its whole lifetime,
  * handed to scene code via `SceneLifecycle.globals` for convenience.
  */
+export interface GameGlobals {}
 export declare class GlobalStore {
   private readonly _values;
+  get<K extends keyof GameGlobals>(name: K): GameGlobals[K] | undefined;
   get<T = unknown>(name: string): T | undefined;
+  set<K extends keyof GameGlobals>(name: K, value: GameGlobals[K]): void;
   set(name: string, value: unknown): void;
   has(name: string): boolean;
   delete(name: string): boolean;

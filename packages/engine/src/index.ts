@@ -125,6 +125,7 @@ export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export { GlobalStore } from "./systems/GlobalStore.js";
+export type { GameGlobals } from "./systems/GlobalStore.js";
 export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export { FontRegistry } from "./systems/FontRegistry.js";
 export type { FontDescriptor } from "./systems/FontRegistry.js";

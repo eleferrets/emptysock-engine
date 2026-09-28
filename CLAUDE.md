@@ -883,3 +883,7 @@ Rules:
 ### Included Files also stage for the web export
 
 `stageIncludedFilesForPlatform(projectDir, platform, destDir, manifestPath?)` (`includedFiles.ts`) is the one-call load/filter/copy used by the CLI's `--platform web` branch (into `<out>/dist/included`, before any zip). Desktop still goes through `buildDesktopApp`. android/ios/raspi have no CLI path yet.
+
+### Typed game-wide globals
+
+`GameGlobals` (empty, augmentable interface in `systems/GlobalStore.ts`) types `GlobalStore.get/set` per key via declaration merging; undeclared names use the untyped overloads. The IDE keeps declared globals in `useGameGlobalsStore` (name -> TS type string), and `services/gameGlobalsTypes.ts` regenerates an ambient augmentation of the flattened `@emptysock/engine/__internal/systems/GlobalStore` module into Monaco whenever it changes (wired in `MonacoSetupService`). There is still no bare importable global; reach it via `ctx.globals`/`game.globals`. No IDE panel yet edits the store (only the store + Monaco sync exist).
