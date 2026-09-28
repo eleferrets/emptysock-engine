@@ -86,4 +86,35 @@ describe("with_each — GameMaker's with(target) { ... } iteration", () => {
     });
     expect(called).toBe(false);
   });
+
+  it("accepts a real Entity duck-typed through `unknown` — the shape a getGmlVar()-sourced with-target returns", () => {
+    // `target` is typed `unknown`, not `string | Entity | undefined` (see
+    // this function's own doc comment) — a with-target resolved from a
+    // same-function local variable via `GmlActions.getGmlVar` arrives here
+    // as `unknown`, not a statically-known `Entity`. This proves the
+    // duck-type check itself, independent of the transpiler.
+    const scene = new Scene();
+    const ctx = makeCtx(scene);
+    const mywall = spawnAt(scene, 0, 0, "obj_wall");
+    const unknownTarget: unknown = mywall;
+
+    const visited: number[] = [];
+    with_each(ctx, unknownTarget, (e) => visited.push(e.eid));
+    expect(visited).toEqual([mywall.eid]);
+  });
+
+  it("is a safe no-op for a non-Entity, non-string value (null, a number, a plain object)", () => {
+    const scene = new Scene();
+    const ctx = makeCtx(scene);
+    spawnAt(scene, 0, 0, "obj_wall");
+
+    let called = false;
+    const onCall = () => {
+      called = true;
+    };
+    with_each(ctx, null, onCall);
+    with_each(ctx, 0, onCall);
+    with_each(ctx, { not: "an entity" }, onCall);
+    expect(called).toBe(false);
+  });
 });

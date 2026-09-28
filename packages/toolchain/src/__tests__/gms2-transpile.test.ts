@@ -8,6 +8,7 @@ import {
   setGmlSoundNames,
   setGmlFontNames,
   setGmlRoomNames,
+  setGmlCrossFileEntityRefFields,
 } from "../gms2-transpile.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
@@ -1501,8 +1502,12 @@ describe("transpileGML", () => {
       expect(out).toContain(
         'GmlActions.with_each(_ctx, "obj_camera", (_entity) => { const _other = _withCaller;',
       );
+      // `other.id` is GameMaker's own real "the live reference of `other`"
+      // idiom — `.id` is rewritten away entirely (see
+      // `rewriteWithStatements`'s own doc comment), since this engine's
+      // `Entity` has no `.id` field of its own to read.
       expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "follow", _other.id);',
+        'GmlActions.setGmlVar(_entity, _ctx, "follow", _other);',
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -2396,5 +2401,73 @@ describe("transpileGML — bare asset-name identifiers used as plain values", ()
     expect(() => new Function(out)).not.toThrow();
     setGmlSpriteNames(new Set());
     setGmlRoomNames(new Set());
+  });
+});
+
+describe("transpileGML — project-wide cross-file entity-reference field names", () => {
+  it("resolves a dotted read of a field with no same-function assignment, via the project-wide set (obj_Egun's real owner.x shape)", () => {
+    setGmlCrossFileEntityRefFields(new Set(["owner"]));
+    const out = transpileGML("x = owner.x;");
+    expect(out).toContain(
+      'GmlActions.getGmlRefVar(_entity, _ctx, "owner", "x")',
+    );
+    setGmlCrossFileEntityRefFields(new Set());
+  });
+
+  it("resolves a dotted write of a project-wide known field the same way a same-function local ref does", () => {
+    setGmlCrossFileEntityRefFields(new Set(["owner"]));
+    const out = transpileGML("owner.hp = 5;");
+    expect(out).toContain(
+      'GmlActions.setGmlRefVar(_entity, _ctx, "owner", "hp", 5);',
+    );
+    setGmlCrossFileEntityRefFields(new Set());
+  });
+
+  it("leaves a field name absent from the project-wide set unresolved (honest, unchanged behaviour)", () => {
+    setGmlCrossFileEntityRefFields(new Set());
+    const out = transpileGML("x = untracked.x;");
+    expect(out).not.toContain("getGmlRefVar");
+    expect(out).toContain("untracked.x");
+  });
+
+  it("never treats a real project object-type name as a cross-file ref field, even if also in the set", () => {
+    setGmlObjectNames(new Set(["obj_player"]));
+    setGmlCrossFileEntityRefFields(new Set(["obj_player"]));
+    const out = transpileGML("x = obj_player.x;");
+    expect(out).toContain(
+      'GmlActions.getGmlObjectVar(_entity, _ctx, "obj_player", "x")',
+    );
+    expect(out).not.toContain("getGmlRefVar");
+    setGmlObjectNames(new Set());
+    setGmlCrossFileEntityRefFields(new Set());
+  });
+
+  it("produces valid runnable JS", () => {
+    setGmlCrossFileEntityRefFields(new Set(["owner"]));
+    const out = transpileGML(
+      "function f(_entity, _ctx) {\n  return owner.x;\n}",
+    );
+    expect(() => new Function(out)).not.toThrow();
+    setGmlCrossFileEntityRefFields(new Set());
+  });
+});
+
+describe("transpileGML — with-target entity-typed local var (my_gun/owner real shape)", () => {
+  it("passes a same-function Entity-holding local var straight through with_each, not gmlNum-coerced", () => {
+    const out = transpileGML(
+      'my_gun = instance_create_layer(x, y, "Gun", obj_Egun);\nwith (my_gun) { owner = other.id; }',
+    );
+    expect(out).toContain(
+      'GmlActions.with_each(_ctx, GmlActions.getGmlVar(_entity, _ctx, "my_gun"), (_entity) => {',
+    );
+    expect(out).not.toContain(
+      'GmlActions.with_each(_ctx, GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "my_gun"))',
+    );
+    // `other.id` inside the with-body resolves to the plain with-caller
+    // reference, not a dangling `.id` on a real `Entity`.
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "owner", _other);',
+    );
+    expect(() => new Function(out)).not.toThrow();
   });
 });

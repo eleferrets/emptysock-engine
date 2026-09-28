@@ -425,7 +425,7 @@ export declare function instance_create_layer(
  */
 export declare function with_each(
   ctx: GmlActionContext,
-  target: string | Entity | undefined,
+  target: unknown,
   callback: (entity: Entity) => void,
 ): void;
 /** GM8.1 "Destroy Instance" — `scene.destroy(entity)`. */

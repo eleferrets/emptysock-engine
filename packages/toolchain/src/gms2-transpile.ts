@@ -62,6 +62,22 @@ export function setGmlEnumNames(names: ReadonlySet<string>): void {
  */
 let _objectNames: ReadonlySet<string> = new Set();
 
+/**
+ * Real compat functions that genuinely return an `Entity`/
+ * `Entity | undefined` — the one concrete, checkable signal both
+ * `localEntityRefs` (same-function dotted-reference resolution, further
+ * below) and the early `with`-target entity-ref pre-scan (right before
+ * `rewriteWithStatements` runs) key off of. Shared as one module-level
+ * list so the two scans can never drift apart on which functions count.
+ */
+const ENTITY_RETURNING_CALLS_NAMES = [
+  "instance_create_layer",
+  "action_create_object",
+  "instance_create",
+  "instance_place",
+  "instance_position",
+];
+
 /** Installs the project-wide object-name set `transpileGML`'s own cross-instance rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlObjectNames(names: ReadonlySet<string>): void {
   _objectNames = names;
@@ -97,6 +113,33 @@ export function setGmlFontNames(names: ReadonlySet<string>): void {
 /** Installs the project-wide room-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlRoomNames(names: ReadonlySet<string>): void {
   _roomNames = names;
+}
+
+/**
+ * Real, project-wide field names known to hold a cross-*file* live Entity
+ * reference — populated by `gms2-crossfile-refs.ts`'s
+ * `scanGmlCrossFileEntityRefFields()`, which finds every real GameMaker
+ * `with (target) { field = other.id; }` back-reference assignment across
+ * the whole project (see that function's own doc comment for the exact
+ * pattern and its honestly-scoped limits). This is a project-wide sibling
+ * to `localEntityRefs`'s existing same-function scan (further below in
+ * this file): `localEntityRefs` finds an Entity-holding local variable
+ * assigned *within the same function* it's later dotted-accessed from;
+ * this set instead names a *field* that some *other* object's event file
+ * populates with a live Entity reference, resolved the exact same way
+ * (`GmlActions.getGmlRefVar`/`setGmlRefVar`) once a dotted read/write of
+ * that field name is found anywhere in the project — the assignment and
+ * the read genuinely happen in different files, so no same-function scan
+ * could ever see this on its own. Installed once, before any file is
+ * transpiled, the same shape every other project-wide set here uses.
+ */
+let _crossFileEntityRefFields: ReadonlySet<string> = new Set();
+
+/** Installs the project-wide cross-file entity-reference field-name set the local-ref dotted-rewrite pass also consults. Call once, before transpiling any file. */
+export function setGmlCrossFileEntityRefFields(
+  names: ReadonlySet<string>,
+): void {
+  _crossFileEntityRefFields = names;
 }
 
 /**
@@ -724,6 +767,7 @@ function scanBalancedTranspile(
 function rewriteWithStatements(
   text: string,
   isKnownTargetVar: (name: string) => boolean,
+  isEntityRefVar: (name: string) => boolean = () => false,
 ): string {
   const withRe = /(?<!\/\/[^\n]*)\bwith\b/g;
   let result = "";
@@ -773,6 +817,28 @@ function rewriteWithStatements(
       if (trimmedTarget === "self" || trimmedTarget === "noone") {
         targetExpr =
           trimmedTarget === "self" ? "_entity" : JSON.stringify("noone");
+      } else if (isEntityRefVar(trimmedTarget)) {
+        // A `with` target that's a real, same-function local variable
+        // already known to hold a live `Entity` (assigned via
+        // `instance_create_layer`/`instance_create`/etc. earlier in this
+        // same function — the same detection `GmlActions.with_each`'s own
+        // caller-side signature (`string | Entity | undefined`) is built
+        // to accept). Read directly, *not* wrapped through `gmlNum`'s
+        // numeric coercion the way an ordinary bare instance-variable read
+        // is — `gmlNum` would coerce a real `Entity` object to `0` (`
+        // Number(entity) || 0`), which `with_each` would then read as "no
+        // matching entity", silently no-opping the whole `with` block at
+        // runtime. Real, confirmed usage: Freedom Backup's own `obj_enemy`
+        // Create event, `with (my_gun) { owner = other.id; }` — `my_gun`
+        // holds the just-spawned `obj_Egun` instance, and the with-block's
+        // body is what actually gives that instance its real `owner`
+        // back-reference (see `gms2-crossfile-refs.ts`'s
+        // `scanGmlCrossFileEntityRefFields` for the project-wide half of
+        // this same real pattern). Quoting the identifier here, before the
+        // generic bare-read pass further below in this pipeline ever sees
+        // it, keeps that later pass from re-wrapping this same occurrence
+        // — the identifier is now masked inside a real string literal.
+        targetExpr = `GmlActions.getGmlVar(_entity, _ctx, ${JSON.stringify(trimmedTarget)})`;
       } else if (
         trimmedTarget === "_other" ||
         trimmedTarget === "all" ||
@@ -796,7 +862,22 @@ function rewriteWithStatements(
       targetExpr = trimmedTarget.replace(/;\s*$/, "");
     }
 
-    const rescopedBody = bodyText.replace(/(?<!\.\s*)\bother\b/g, "_other");
+    let rescopedBody = bodyText.replace(/(?<!\.\s*)\bother\b/g, "_other");
+    // GameMaker's `other.id` is GameMaker's own real, documented idiom for
+    // "the live instance reference of `other`" — `id` is every real
+    // instance's own built-in variable holding a reference to itself, so
+    // `other.id` and `other` are the exact same value (confirmed against
+    // manual.gamemaker.io's `id`/`other` reference pages). Real, confirmed
+    // usage: Freedom Backup's own `obj_enemy` back-reference idiom,
+    // `with (my_gun) { owner = other.id; }` — this engine's `Entity` type
+    // has no `.id` field of its own (there's no numeric instance-id
+    // concept to expose one from), so leaving `.id` un-rewritten would
+    // silently read `undefined` off a real `Entity` object at runtime,
+    // quietly breaking every real back-reference assignment that uses this
+    // idiom. Rewritten before the general dotted-reference passes further
+    // below ever see it, so `owner = other.id;` becomes the plain
+    // `owner = _other;` those passes already handle correctly.
+    rescopedBody = rescopedBody.replace(/\b_other\.id\b/g, "_other");
     const replacement = `{ const _withCaller = _entity; GmlActions.with_each(_ctx, ${targetExpr}, (_entity) => { const _other = _withCaller;\n${rescopedBody}\n}); }`;
 
     result += text.slice(lastIndex, m.index) + replacement;
@@ -3283,6 +3364,32 @@ export function transpileGML(
     "undefined",
   );
 
+  // A real, same-function-scoped pre-scan for a `with`-target variable
+  // already known to hold a live `Entity` (`my_gun = instance_create_layer(
+  // ...)`) — the exact `ENTITY_RETURNING_CALLS` shape `localEntityRefs`
+  // (further below in this pipeline) also detects, computed a second time
+  // here, early, because `rewriteWithStatements` has to run before the
+  // generic implicit-instance-variable pass (same ordering reason
+  // `localEntityRefs`'s own doc comment gives — that later pass's
+  // plain-assignment sub-pass would otherwise consume this exact
+  // `name = GmlActions.<fn>(` shape before this scan could ever see it).
+  // Recomputed rather than hoisting `localEntityRefs`'s own later
+  // computation up here, to avoid disturbing that already-tested block's
+  // position relative to the array-variable/ds_list passes immediately
+  // before it.
+  const withTargetEntityRefs = new Set<string>();
+  {
+    const re = new RegExp(
+      `\\b([A-Za-z_]\\w*)\\s*=\\s*GmlActions\\.(?:${ENTITY_RETURNING_CALLS_NAMES.join("|")})\\s*\\(`,
+      "g",
+    );
+    let em: RegExpExecArray | null;
+    while ((em = re.exec(out)) !== null) {
+      const nm = em[1];
+      if (nm !== undefined) withTargetEntityRefs.add(nm);
+    }
+  }
+
   // Real `with (target) { body }` support (see `rewriteWithStatements`'s own
   // doc comment) — deliberately placed after every GML-builtin rewrite pass
   // above (instance_create_layer, place_meeting/instance_exists/etc.), so a
@@ -3291,7 +3398,11 @@ export function transpileGML(
   // runs, and a variable-vs-object-type-name target decision can reuse the
   // exact same `knownVarsForObjArgs` set/logic `bareOrQuotedUnlessVar`
   // above already established.
-  out = rewriteWithStatements(out, (name) => knownVarsForObjArgs.has(name));
+  out = rewriteWithStatements(
+    out,
+    (name) => knownVarsForObjArgs.has(name),
+    (name) => withTargetEntityRefs.has(name),
+  );
 
   // -- GM8.1 "if" actions: real conditional nesting -------------------------
   // GameMaker's if-actions (action_if_collision/action_if_aligned/
@@ -4166,15 +4277,8 @@ export function transpileGML(
   // *uses* `localEntityRefs` (after the cross-instance object-type-name
   // pass, further below) for the full design rationale and the real,
   // honestly-documented gap it does not close.
-  const ENTITY_RETURNING_CALLS = [
-    "instance_create_layer",
-    "action_create_object",
-    "instance_create",
-    "instance_place",
-    "instance_position",
-  ];
   const refAssignRe = new RegExp(
-    `\\b([A-Za-z_]\\w*)\\s*=\\s*GmlActions\\.(?:${ENTITY_RETURNING_CALLS.join("|")})\\s*\\(`,
+    `\\b([A-Za-z_]\\w*)\\s*=\\s*GmlActions\\.(?:${ENTITY_RETURNING_CALLS_NAMES.join("|")})\\s*\\(`,
     "g",
   );
   const localEntityRefs = new Set<string>();
@@ -4512,24 +4616,47 @@ export function transpileGML(
   // references), so this can only ever *add* real resolution, never take
   // away from what already worked.
   //
-  // A real, confirmed gap this narrow heuristic does *not* close, stated
-  // honestly rather than silently: Freedom Backup's own `obj_Egun.Step_1.
-  // gml` reads `owner.x`/`owner.image_xscale`, but `owner` is never
-  // assigned inside `obj_Egun`'s own event files at all — it's set
-  // externally, from a *different* object's `Create_0.gml`, via `with
-  // (my_gun) { owner = other.id; }` (a real, legal GML pattern: the
-  // spawning instance reaches into the instance it just created and
-  // assigns one of *its* fields). That assignment already routes through
-  // `GmlActions.setGmlVar` correctly (the with-block's own rescoped
-  // `_entity` correctly resolves to the spawned instance, and `owner` is a
-  // plain implicit instance variable from `obj_enemy`'s own per-object
-  // scan), so `owner`'s *value* genuinely is live and correct — but
-  // detecting this specific pattern would need real cross-file dataflow
-  // analysis (which object's Create event populates which other object's
-  // field, via which spawn call), a fundamentally different and larger
-  // problem than a same-function text scan can solve, and well beyond
-  // "narrower than full scope analysis". Left open, honestly, rather than
-  // forcing a same-pass fix that doesn't actually fit the real occurrence.
+  // A real cross-file case this same-function heuristic alone cannot
+  // close, now resolved for real by a genuine project-wide pre-scan:
+  // Freedom Backup's own `obj_Egun.Step_1.gml` reads `owner.x`/
+  // `owner.image_xscale`, but `owner` is never assigned inside `obj_Egun`'s
+  // own event files at all — it's set externally, from a *different*
+  // object's `Create_0.gml`, via `with (my_gun) { owner = other.id; }` (a
+  // real, legal GML pattern: the spawning instance reaches into the
+  // instance it just created and assigns one of *its* fields). That
+  // assignment already routes through `GmlActions.setGmlVar` correctly
+  // (the with-block's own rescoped `_entity` correctly resolves to the
+  // spawned instance, and `owner` is a plain implicit instance variable
+  // from `obj_enemy`'s own per-object scan), so `owner`'s *value* genuinely
+  // is live and correct — but *detecting* this specific pattern needs real
+  // cross-file dataflow analysis (which object's Create event populates
+  // which other object's field, via which spawn call), which
+  // `localEntityRefs`'s own same-function text scan structurally cannot
+  // do. `gms2-crossfile-refs.ts`'s `scanGmlCrossFileEntityRefFields()`
+  // does exactly this one, real, checkable cross-file pattern — see that
+  // function's own doc comment — and `_crossFileEntityRefFields` (set by
+  // `gms2-import.ts` before any file is transpiled, same shape as every
+  // other project-wide set here) is merged in below, so a project-wide
+  // field name this scan found is resolved through the exact same
+  // `getGmlRefVar`/`setGmlRefVar` mechanism a same-function local ref
+  // already uses — the assignment and the read genuinely live in
+  // different files, but both agree on how the field is stored
+  // (`GmlActions.setGmlVar`'s own per-`(World, eid)` side-table), so
+  // there's no adapter needed, only a wider name set feeding the same
+  // rewrite.
+  //
+  // A real, honestly-scoped remaining gap: a field assigned a live Entity
+  // reference through any cross-file mechanism *other* than this one
+  // specific `with (target) { field = other.id; }` idiom (a struct
+  // property, a value threaded through a ds_map/global, a different
+  // back-reference spelling) is not detected by this scan and stays an
+  // unresolved identifier, the same honest "not this exact pattern, not
+  // covered" limitation every other narrow heuristic in this file already
+  // carries — no other real occurrence of a *different* cross-file
+  // Entity-reference shape was found in Freedom Backup while building this
+  // pass (confirmed by grepping every real `with (` block project-wide for
+  // an assignment sourced from `other`/`other.id` — `obj_enemy`'s
+  // `my_gun`/`owner` pair is the only real match).
   //
   // A name the `_objectNames` pass above already resolved as an object-
   // *type* name is never also treated as a local ref — the two shapes are
@@ -4538,7 +4665,9 @@ export function transpileGML(
   // here defensively regardless, since misidentifying one as the other
   // would rewrite through the wrong compat function entirely.
   const localRefNames = new Set(
-    [...localEntityRefs].filter((n) => !_objectNames.has(n)),
+    [...localEntityRefs, ..._crossFileEntityRefFields].filter(
+      (n) => !_objectNames.has(n),
+    ),
   );
   if (localRefNames.size > 0) {
     const { masked: refMasked, store: refStrings } = maskGmlStringLiterals(

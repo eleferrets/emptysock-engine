@@ -23,8 +23,10 @@ import {
   setGmlSoundNames,
   setGmlFontNames,
   setGmlRoomNames,
+  setGmlCrossFileEntityRefFields,
 } from "./gms2-transpile.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
+import { scanGmlCrossFileEntityRefFields } from "./gms2-crossfile-refs.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
@@ -116,6 +118,18 @@ export async function importGMS2Project(
   // can import from it regardless of import order.
   const gmlEnums = await scanGmlEnums(projectRoot);
   setGmlEnumNames(new Set(gmlEnums.keys()));
+
+  // Real, project-wide cross-file Entity-reference field-name resolution —
+  // same "must happen before any file is transpiled" reasoning as #macro/
+  // enum above (see `scanGmlCrossFileEntityRefFields`'s own doc comment in
+  // gms2-crossfile-refs.ts and CLAUDE.md's "real cross-file dataflow
+  // analysis" entry). A field one object's `with (target) { field =
+  // other.id; }` assignment populates is routinely read from a wholly
+  // different object's own event files, so this has to be known before any
+  // single file's dotted-reference rewrite pass runs.
+  setGmlCrossFileEntityRefFields(
+    await scanGmlCrossFileEntityRefFields(projectRoot),
+  );
 
   // NOTE: `defaultScriptType` in real .yyp files does NOT reliably indicate
   // "this project uses GML Visual (drag-and-drop)" — a real, fully

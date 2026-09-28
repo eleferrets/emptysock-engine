@@ -739,15 +739,37 @@ export function instance_create_layer(
  * failed, or a dead/unresolvable reference) is a safe no-op — GameMaker's
  * own `with` against a destroyed or nonexistent target simply runs its
  * body zero times, never throws.
+ *
+ * `target` is typed `unknown`, not `string | Entity | undefined`, because
+ * a real `with` target the transpiler resolves via a same-function local
+ * variable (`gms2-transpile.ts`'s `rewriteWithStatements`) is read back
+ * through `GmlActions.getGmlVar`, which — same as every other GML instance
+ * variable read in this codebase — returns `unknown` by design (see
+ * `compat/gmlInstanceVars.ts`'s own `getGmlVar` doc comment). Duck-typing
+ * `target` here, the same shape `compat/gmlCrossInstance.ts`'s
+ * `asLiveEntity` already uses for the identical "is this really a live
+ * `Entity`" question, is what lets a with-target flow straight from a real
+ * instance-variable read into this function without a type-only `as`
+ * assertion papering over a genuine runtime possibility (the variable
+ * might hold a number, a string that isn't a real object-type name, or
+ * nothing at all) — an assertion would type-check but say nothing true
+ * about what the value actually is at runtime.
  */
 export function with_each(
   ctx: GmlActionContext,
-  target: string | Entity | undefined,
+  target: unknown,
   callback: (entity: Entity) => void,
 ): void {
-  if (target === undefined) return;
+  if (target === undefined || target === null) return;
   if (typeof target !== "string") {
-    if (target.isAlive) callback(target);
+    if (
+      typeof target === "object" &&
+      typeof (target as { get?: unknown }).get === "function" &&
+      typeof (target as { isAlive?: unknown }).isAlive === "boolean"
+    ) {
+      const entity = target as Entity;
+      if (entity.isAlive) callback(entity);
+    }
     return;
   }
   if (target === "noone") return;

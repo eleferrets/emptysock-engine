@@ -1240,6 +1240,19 @@ Traced the smoke test's own documented "`obj_player.x` never moves" finding to c
 
 ---
 
+## 2026-09-28 (cont.): scr_draw_set_text type nit + real cross-file dataflow pre-scan for with(X){field=other.id}
+
+- [x] `scr_draw_set_text` type nit: a blanket `number | string` widening across every named script param regressed the sweep 193 -> 271 (broke real arithmetic on other scripts' `number` params). Reverted; replaced with a narrow per-parameter fix in `buildScriptModule` — a param typed `string` only when its own body forwards it bare into `GmlDrawTarget.setFont`. Sweep: 193 -> 190, `scr_draw_set_text.ts`'s real `TS2345` gone, zero new errors elsewhere.
+- [x] New `gms2-crossfile-refs.ts`: `scanGmlCrossFileEntityRefFields()`, project-wide pre-scan (same shape as `scanGmlEnums`) finding every real `with (X) { field = other.id; }`/single-statement form. Installed via new `setGmlCrossFileEntityRefFields` in `gms2-transpile.ts`, merged into the existing `localRefNames` set alongside same-function `localEntityRefs`.
+- [x] Two real bugs found and fixed making this actually work end to end (not just type-check): `other.id` had no rewrite at all (`_other.id` silently read `undefined` off a real `Entity`) — now rewrites to `_other`. A with-target that's a same-function Entity-holding local var (`my_gun`) was being `gmlNum`-coerced to `0` before reaching `with_each` — new early pre-scan (`ENTITY_RETURNING_CALLS_NAMES`, shared with `localEntityRefs`) passes it through un-coerced instead. `with_each`'s `target` param retyped `string | Entity | undefined` -> `unknown`, duck-typed at runtime (same shape `asLiveEntity` already uses).
+- [x] Confirmed against real regenerated `obj_Egun.behavior.ts`/`obj_enemy.behavior.ts`: `owner.x`/`.y`/`.image_xscale`/`.image_yscale` resolve via `getGmlRefVar`; `owner = other.id` in `obj_enemy` now correctly threads a real Entity through `with_each` into `setGmlVar`.
+- [x] Honest scope: this closes exactly the one real, confirmed `with(){field=other.id}` idiom (the only real occurrence in Freedom Backup) — a field populated via any other cross-file mechanism stays unresolved.
+- [x] dist-types: `with_each` signature hand-patched in `compat/gmlActions.d.ts` (targeted edit — a full `build:types` regen reformats the whole tree with no content difference, reverted to avoid burying the real change). Export-name diff against `src/index.ts` confirmed zero drift.
+- Sweep: 193 -> 175 error lines. Full suites green: engine 658/658 (+2 new), toolchain 436/436 (+10 new), playability smoke test included, no regression.
+- CLAUDE.md updated.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.
