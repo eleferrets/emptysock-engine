@@ -28,6 +28,7 @@ import { getPhysicsBody } from "../components/PhysicsBody.js";
 import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 import type { GmlDrawTarget } from "./gml.js";
 import { resolveGmlObjectType } from "../systems/GmlCollision.js";
+import { stampPrefabNameOntoMeta } from "../SceneFile.js";
 
 // ---------------------------------------------------------------------------
 // Context — the one thing every generated action call needs threaded to it
@@ -564,7 +565,16 @@ export function action_create_object(
     warnMissingPrefabWiring("action_create_object", objectName);
     return undefined;
   }
-  return ctx.scene.spawn(prefab, { x, y });
+  const spawned = ctx.scene.spawn(prefab, { x, y });
+  // `loadSceneFile()` stamps `Meta.name` from the prefab name for every
+  // room-placed instance (see its own doc comment) — a runtime spawn via
+  // this function is just as real a way to create a GameMaker object
+  // instance (bullets, pickups, a singleton input-manager object spawned
+  // from a controller's Create event, ...) and needs the exact same
+  // stamp, or `resolveGmlObjectType`/`place_meeting`/`getGmlObjectVar`'s
+  // cross-instance lookups can never find it by object-type name.
+  stampPrefabNameOntoMeta(spawned, prefab.prefabName);
+  return spawned;
 }
 
 /** `instance_create(x, y, objectName)` — GML's function-call spelling of the same action, with GameMaker's own `(x, y, object)` argument order. */

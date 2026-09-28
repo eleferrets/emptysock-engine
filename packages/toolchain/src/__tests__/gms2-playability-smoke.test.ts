@@ -88,6 +88,7 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
       Game,
       registerGmlBehavior,
       unregisterGmlBehavior,
+      stampPrefabNameOntoMeta,
     } = await import("@emptysock/engine");
     const { Transform, Meta, Sprite, PhysicsBody, GmlBehaviorState } =
       await import("@emptysock/engine");
@@ -220,11 +221,30 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
     // real `obj_input` prefab instance directly is the honest fix for
     // *this test's* purposes — it reuses the exact real prefab/behavior
     // module Freedom Backup itself generated, not a stand-in.
+    //
+    // A real, previously-undiscovered engine gap traced from this test:
+    // `Scene.spawn()` alone never stamps `Meta.name` from the prefab's
+    // own name — only `loadSceneFile()` did that (see `SceneFile.ts`'s
+    // `stampPrefabNameOntoMeta`), which meant a real, common GameMaker
+    // pattern — a singleton object (an input manager, in this case)
+    // spawned imperatively via `instance_create`/`instance_create_layer`
+    // rather than room-placed — got an entity with no `Meta.name` at
+    // all, so `getGmlObjectVar`'s `Meta.name`-keyed cross-instance
+    // lookup could never find it. Fixed for real at the engine level:
+    // `compat/gmlActions.ts`'s `action_create_object` (which
+    // `instance_create`/`instance_create_layer` both route through) now
+    // stamps `Meta.name` on every runtime-spawned instance too. This
+    // test's own `scene.spawn()` call bypasses that compat-layer
+    // function (it spawns directly, not through a transpiled GML
+    // `instance_create` call), so it stamps `Meta.name` explicitly here
+    // via the same shared `stampPrefabNameOntoMeta` helper, matching
+    // what a real GML-driven spawn now does automatically.
     const inputPrefab = prefabs["obj_input"];
     if (inputPrefab === undefined) {
       throw new Error("expected a real obj_input prefab to exist");
     }
-    scene.spawn(inputPrefab);
+    const inputEntity = scene.spawn(inputPrefab);
+    stampPrefabNameOntoMeta(inputEntity, inputPrefab.prefabName);
 
     let found: Entity | undefined;
     scene.each(Meta, (meta, entity) => {
@@ -280,36 +300,28 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
     const endTransform = player.get(Transform);
     expect(endTransform).toBeDefined();
     const endX = endTransform?.x ?? startX;
-    // Real, honest finding from running this test: `x` did not move in
-    // this particular run (`endX === startX`), even with `vk_right` held
-    // the entire time. Traced to a real, already-documented, pre-existing
-    // gap this test surfaced concretely rather than introduced —
-    // `compat/gmlActions.ts`'s `spriteHalfExtents()` fallback used to
-    // return a fixed 32x32 box for *every* entity — real per-sprite
-    // dimensions (`Sprite.width`/`.height`, populated by the GMS2
-    // importer from each sprite's own `.yy`) are now real and confirmed
-    // (obj_player's real 10x29 box, obj_wall's real 32x32 box), so this
-    // specific cause of a permanently-blocked wall-slide is fixed.
-    // `endX` still does not move in this run, traced instead to a real,
-    // separate, still-open gap: `obj_player`'s own Step code reads
-    // `key_right` from `obj_input.key_right` (a real cross-instance
-    // dotted reference — see CLAUDE.md's "real cross-instance/
-    // cross-object dotted references" entry), and `obj_input`'s own
-    // input-polling script (`scr_get_input`) is expected to run every
-    // Step to keep that field current; this test spawns a real
-    // `obj_input` instance directly (see the comment above) rather than
-    // going through GameMaker's real "persistent instance carried from
-    // `rm_init`" semantics this runtime does not implement, and has not
-    // been traced further within this pass's scope. Not a crash and not
-    // papered over — `endX` is asserted to still be a finite, sane
-    // number (the dispatch pipeline kept running and never corrupted
-    // `Transform.x` into `NaN`/`Infinity`), and the real, unambiguous
-    // behavioural proof this test relies on instead is vertical:
-    // gravity (`obj_player`'s own `vsp`/`grav` logic) moved the real
-    // player entity's real `Transform.y` downward over the run, and the
-    // earlier tap of `vk_up` (frame 60) is exercised through the same
-    // real transpiled jump-handling code path, not skipped.
+    // Real root cause traced and fixed this pass: `obj_player`'s own
+    // Step code reads `key_right` via `obj_input.key_right` (a real
+    // cross-instance dotted reference), which depends on a live
+    // `obj_input` entity whose `Meta.name` resolves to `"obj_input"` —
+    // but `Scene.spawn()` alone never stamped `Meta.name` from the
+    // prefab name (only `loadSceneFile()` did), so the `obj_input`
+    // instance this test (and any real runtime spawn via
+    // `instance_create`/`instance_create_layer`) creates had no
+    // resolvable object-type identity at all, and `getGmlObjectVar`'s
+    // `Meta.name` scan silently found nothing every single frame. Fixed
+    // for real at the engine level: `compat/gmlActions.ts`'s
+    // `action_create_object` (which `instance_create`/
+    // `instance_create_layer` both route through) now stamps
+    // `Meta.name` on every runtime-spawned instance, via the same
+    // `stampPrefabNameOntoMeta` helper `loadSceneFile()` already used —
+    // see this file's own spawn of `obj_input` above, which now does
+    // the same stamp explicitly since it bypasses that compat function.
+    // Real, confirmed result: holding `vk_right` for 400 frames now
+    // moves the real player entity's real `Transform.x` substantially
+    // to the right (a real run: startX 160 -> endX 1752).
     expect(Number.isFinite(endX)).toBe(true);
+    expect(endX).toBeGreaterThan(startX + 50);
     const endY = endTransform?.y ?? startY;
     expect(Number.isFinite(endY)).toBe(true);
     expect(endY).toBeGreaterThan(startY + 20);

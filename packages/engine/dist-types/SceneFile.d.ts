@@ -134,6 +134,23 @@ export interface LoadSceneFileOptions {
    */
   onSpawned?: (entity: ReturnType<Scene["spawn"]>) => void;
 }
+/**
+ * Stamps a spawned prefab instance's `Meta.name` with the `PrefabDef` it was
+ * spawned from, when nothing already gave it a name — this is what lets
+ * `systems/GmlCollision.ts`'s `resolveGmlObjectType()` (and anything else
+ * that wants "which object type is this instance") resolve a GMS2-imported
+ * room's prefab instances back to their GameMaker object name, reusing the
+ * one existing "this entity has an editor/tooling-visible name" component
+ * (`Meta`, see CLAUDE.md's `QueryChannel`/`Meta.name`/`Meta.tags` note)
+ * rather than inventing a second identity concept just for this. A prefab
+ * whose own `.prefab.json` already includes a `Meta` component with a real
+ * `name` override wins — this only fills in the gap, it never overwrites an
+ * explicitly-authored name.
+ */
+export declare function stampPrefabNameOntoMeta(
+  entity: ReturnType<Scene["spawn"]>,
+  prefabName: string,
+): void;
 export declare function loadSceneFile(
   scene: Scene,
   file: SceneFile,

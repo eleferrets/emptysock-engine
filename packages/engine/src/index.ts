@@ -24,6 +24,7 @@ export {
   parsePrefabFile,
   parsePrefabFiles,
   loadSceneFile,
+  stampPrefabNameOntoMeta,
 } from "./SceneFile.js";
 export type {
   PrefabFile,

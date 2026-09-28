@@ -1198,6 +1198,22 @@ Four-part user-requested reconsideration of the round-4 sweep's regex-based cros
 
 ---
 
+## 2026-09-28 (cont.): real root cause of the `vk_right` movement gap — `Scene.spawn()` never stamped `Meta.name`
+
+Traced the smoke test's own documented "`obj_player.x` never moves" finding to completion.
+
+- [x] Traced `scr_get_input`/`obj_input`'s codegen: correct — `_entity`/`_ctx` threading, `setGmlVar` writes, all real and working.
+- [x] Traced `obj_player.Step_0.gml`'s `key_right = obj_input.key_right;`: correctly transpiles to `getGmlObjectVar(_entity, _ctx, "obj_input", "key_right")`.
+- [x] Real root cause: `getGmlObjectVar` resolves the target instance by scanning `Meta.name`, but `Scene.spawn()` called directly (not via `loadSceneFile()`) never stamps `Meta.name` from the prefab's own name — only `loadSceneFile()`'s `stampPrefabNameOntoMeta()` did that. This meant **any** real runtime-spawned singleton object (an input manager spawned once from a controller's Create event via `instance_create`/`instance_create_layer` — exactly the real GameMaker pattern this project uses for `obj_input`) got an entity with no resolvable object-type identity, so `getGmlObjectVar`'s `Meta.name` scan silently found nothing, forever.
+- [x] Fixed at the engine level (not just the test): exported `stampPrefabNameOntoMeta` from `SceneFile.ts`/`index.ts`; `compat/gmlActions.ts`'s `action_create_object` (which `instance_create`/`instance_create_layer` both route through) now stamps `Meta.name` on every runtime-spawned instance too.
+- [x] Updated the smoke test's own manual `obj_input` spawn to stamp `Meta.name` explicitly (it bypasses `action_create_object` since it isn't spawned via transpiled GML), and rewrote its stale "endX did not move" comment/assertion.
+- [x] Confirmed: real run `startX 160 -> endX 1752` over 400 frames of held `vk_right` (debug-logged then removed). `endY` also moves under gravity as before. New assertion: `endX > startX + 50`.
+- Full-project `tsc --noEmit` sweep: 344 -> 309 error lines.
+- Full suites green: engine 67 files / 640 tests; toolchain 28 files / 410 tests.
+- `dist-types` rebuilt, prettier-formatted to match committed style (avoiding the drift the prior pass warned about), diff limited to the real `stampPrefabNameOntoMeta` export.
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.

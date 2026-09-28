@@ -221,7 +221,7 @@ export interface LoadSceneFileOptions {
  * `name` override wins — this only fills in the gap, it never overwrites an
  * explicitly-authored name.
  */
-function stampPrefabNameOntoMeta(
+export function stampPrefabNameOntoMeta(
   entity: ReturnType<Scene["spawn"]>,
   prefabName: string,
 ): void {
