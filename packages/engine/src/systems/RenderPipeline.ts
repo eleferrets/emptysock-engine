@@ -1,5 +1,4 @@
 import {
-  Assets,
   Container,
   Graphics,
   NineSliceSprite,
@@ -13,6 +12,7 @@ import {
   TilingSprite,
 } from "pixi.js";
 import type { Renderer } from "pixi.js";
+import { TextureStore, type TextureLoader } from "./TextureStore.js";
 import {
   CustomShaderFilter,
   type CustomShaderOptions,
@@ -289,10 +289,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
   }
 }
 
-/** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
-export type TextureLoader = (path: string) => Promise<Texture>;
-
-const defaultTextureLoader: TextureLoader = (path) => Assets.load(path);
+export type { TextureLoader };
 
 export interface RenderPipelineOptions extends Omit<
   RenderSystemOptions,
@@ -414,13 +411,12 @@ interface MountedTilemap {
 export class RenderPipeline implements SceneRenderer {
   private readonly _render: RenderSystem = new RenderSystem();
   private readonly _layers: LayerSystem;
-  private readonly _loadTexture: TextureLoader;
 
   /** Shared by the main scene and every overlay — see the class doc comment above. */
   private readonly _tracking = new Map<Scene, SceneTracking>();
   private _mainScene: Scene | null = null;
   private readonly _overlayContainers = new Map<Scene, Container>();
-  private readonly _textureCache = new Map<string, Texture>();
+  private readonly _textures: TextureStore;
   private readonly _sortedLayers = new Set<string>();
 
   /**
@@ -474,7 +470,7 @@ export class RenderPipeline implements SceneRenderer {
 
   constructor(options: RenderPipelineOptions = {}) {
     this._layers = options.layers ?? new LayerSystem();
-    this._loadTexture = options.textureLoader ?? defaultTextureLoader;
+    this._textures = new TextureStore(options.textureLoader);
   }
 
   /**
@@ -520,7 +516,7 @@ export class RenderPipeline implements SceneRenderer {
     const texturePath = emitter.options.texture;
     const texture =
       texturePath.length > 0
-        ? await this._loadTexture(texturePath)
+        ? await this._textures.load(texturePath)
         : Texture.WHITE;
     const container = new ParticleContainer({
       dynamicProperties: {
@@ -1188,7 +1184,7 @@ export class RenderPipeline implements SceneRenderer {
     const { tileset, rows, cols, tileWidth, tileHeight } = tilemap.data;
     let baseTexture: Texture;
     try {
-      baseTexture = await this._loadTexture(tileset.imagePath);
+      baseTexture = await this._textures.load(tileset.imagePath);
     } catch (err) {
       console.error(
         `[RenderPipeline] failed to load tileset "${tileset.imagePath}":`,
@@ -1283,12 +1279,11 @@ export class RenderPipeline implements SceneRenderer {
    */
   private _resolveTextureForDraw(path: string): Texture {
     if (path === "") return Texture.WHITE;
-    const cached = this._textureCache.get(path);
+    const cached = this._textures.get(path);
     if (cached !== undefined) return cached;
-    this._loadTexture(path)
-      .then((texture) => {
-        this._textureCache.set(path, texture);
-      })
+    this._textures
+      .load(path)
+      .then(() => undefined)
       .catch((err: unknown) => {
         console.error(
           `[RenderPipeline] failed to load texture "${path}" for draw_sprite:`,
@@ -1313,14 +1308,14 @@ export class RenderPipeline implements SceneRenderer {
       target.texture = Texture.WHITE;
       return;
     }
-    const cached = this._textureCache.get(path);
+    const cached = this._textures.get(path);
     if (cached !== undefined) {
       target.texture = cached;
       return;
     }
-    this._loadTexture(path)
+    this._textures
+      .load(path)
       .then((texture) => {
-        this._textureCache.set(path, texture);
         // The entity may have lost its Sprite, been destroyed, or asked for
         // a different texture, by the time the load resolves; only apply if
         // still current for this (tracking, eid) pair.
@@ -1497,7 +1492,7 @@ export class RenderPipeline implements SceneRenderer {
     for (const tilemap of Array.from(this._mountedTilemaps.keys())) {
       this.unmountTilemap(tilemap);
     }
-    this._textureCache.clear();
+    this._textures.clear();
     for (const { filter } of this._shaderFilters.values()) filter.destroy();
     this._shaderFilters.clear();
     this._transitionOverlay?.destroy();

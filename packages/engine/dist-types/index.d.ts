@@ -205,6 +205,7 @@ export { UISystem } from "./ui/UISystem.js";
 export { resolveAnchoredPosition } from "./ui/Anchor.js";
 export type { WidgetAnchor, AnchoredPosition } from "./ui/Anchor.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
+export { TextureStore } from "./systems/TextureStore.js";
 export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
 export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 export type {

@@ -1,4 +1,4 @@
-import { Assets } from "pixi.js";
+import { TextureStore } from "../systems/TextureStore.js";
 import type { Texture } from "pixi.js";
 import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
@@ -31,14 +31,6 @@ interface PressState {
 /** Resolves an `ImageWidget.src` path to a real pixi `Texture` — same shape as `RenderPipeline.ts`'s `TextureLoader`, defaulting to the same `Assets.load` pixi wraps. Overridable for tests/hosts that want a fake loader. */
 export type ImageLoader = (path: string) => Promise<Texture>;
 
-const defaultImageLoader: ImageLoader = (path) => Assets.load(path);
-
-/** One `ImageWidget.src`'s load state — mirrors `RenderPipeline`'s per-path texture cache, just keyed by widget source path instead of sprite texture path. */
-type ImageCacheEntry =
-  | { state: "loading" }
-  | { state: "loaded"; texture: Texture }
-  | { state: "error" };
-
 export interface UISystemOptions {
   /** Overrides how `ImageWidget.src` paths resolve to pixi textures — defaults to `Assets.load`. */
   imageLoader?: ImageLoader;
@@ -58,17 +50,18 @@ export interface UISystemOptions {
  */
 export class UISystem {
   private readonly _presses = new Map<number, PressState>();
-  private readonly _loadImage: ImageLoader;
+  private readonly _textures: TextureStore;
   private readonly _fonts: FontRegistry | undefined;
 
   /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
-  private readonly _imageCache = new Map<string, ImageCacheEntry>();
+  /** Paths whose load is in flight or failed, so a frame never re-requests them. Loaded textures live only in `_textures`/pixi `Assets`. */
+  private readonly _imageState = new Map<string, "loading" | "error">();
 
   constructor(
     private readonly _tree: WidgetTree,
     options: UISystemOptions = {},
   ) {
-    this._loadImage = options.imageLoader ?? defaultImageLoader;
+    this._textures = new TextureStore(options.imageLoader);
     this._fonts = options.fonts;
   }
 
@@ -397,21 +390,20 @@ export class UISystem {
       this._renderImagePlaceholder(ctx, box);
       return;
     }
-    const cached = this._imageCache.get(src);
-    if (cached === undefined) {
-      this._imageCache.set(src, { state: "loading" });
-      this._loadImage(src)
-        .then((texture) => {
-          this._imageCache.set(src, { state: "loaded", texture });
-        })
-        .catch((err: unknown) => {
-          this._imageCache.set(src, { state: "error" });
-          console.error(`[UISystem] failed to load image "${src}":`, err);
-        });
-      this._renderImagePlaceholder(ctx, box);
-      return;
-    }
-    if (cached.state !== "loaded") {
+    const texture = this._textures.get(src);
+    if (texture === undefined) {
+      if (!this._imageState.has(src)) {
+        this._imageState.set(src, "loading");
+        this._textures
+          .load(src)
+          .then(() => {
+            this._imageState.delete(src);
+          })
+          .catch((err: unknown) => {
+            this._imageState.set(src, "error");
+            console.error(`[UISystem] failed to load image "${src}":`, err);
+          });
+      }
       this._renderImagePlaceholder(ctx, box);
       return;
     }
@@ -420,7 +412,7 @@ export class UISystem {
     // type) pixi's loader resolved — exactly the `object` shape
     // `IUIRenderer.drawImage()` accepts, without this file importing any
     // DOM image type itself.
-    const resource: unknown = cached.texture.source.resource;
+    const resource: unknown = texture.source.resource;
     if (resource === null || resource === undefined) {
       this._renderImagePlaceholder(ctx, box);
       return;

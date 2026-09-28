@@ -1,4 +1,5 @@
 import { Container, Texture } from "pixi.js";
+import { type TextureLoader } from "./TextureStore.js";
 import type { Renderer } from "pixi.js";
 import { CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { Scene } from "../Scene.js";
@@ -61,8 +62,7 @@ export interface TileLayerSource {
     }>;
   };
 }
-/** Loads (and ideally caches) a texture for a given asset path. Swappable for tests/headless hosts. */
-export type TextureLoader = (path: string) => Promise<Texture>;
+export type { TextureLoader };
 export interface RenderPipelineOptions extends Omit<
   RenderSystemOptions,
   "layerSystem"
@@ -146,12 +146,11 @@ export interface RenderPipelineOptions extends Omit<
 export declare class RenderPipeline implements SceneRenderer {
   private readonly _render;
   private readonly _layers;
-  private readonly _loadTexture;
   /** Shared by the main scene and every overlay — see the class doc comment above. */
   private readonly _tracking;
   private _mainScene;
   private readonly _overlayContainers;
-  private readonly _textureCache;
+  private readonly _textures;
   private readonly _sortedLayers;
   /**
    * Set via `attachPostProcess()`. When present, `renderFrame()` calls
@@ -379,7 +378,7 @@ export declare class RenderPipeline implements SceneRenderer {
    * (GML's own semantic — it's drawn this frame, not a persistent object),
    * so there's nothing to retroactively re-texture. Returns the cached
    * texture if already loaded, otherwise kicks off the same shared
-   * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`
+   * `_textures` load-and-cache path as `_applyTexture`
    * (so a *later* `draw_sprite` call for the same path is cache-hit) and
    * returns `Texture.WHITE` for this frame only — the same "visible
    * placeholder, not a blank hole" fallback `_applyTexture` already uses
