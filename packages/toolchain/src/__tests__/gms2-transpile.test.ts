@@ -608,7 +608,9 @@ describe("transpileGML", () => {
     const out = transpileGML(
       "if (place_meeting(x, y+5, oIce)) friction = 0.2 else hspeed = 0;",
     );
-    expect(out).toContain("friction = 0.2; else hspeed = 0;");
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "friction", 0.2); else GmlActions.setGmlHspeed(_entity, _ctx, 0);',
+    );
   });
 
   it("does not double up a semicolon already present before else", () => {
@@ -654,7 +656,7 @@ describe("transpileGML", () => {
     // string_length(str) is itself separately rewritten to str.length by
     // another pass — this test only cares that repeat's own count-argument
     // capture is balanced-paren-aware, not that string_length stays as-is.
-    expect(out).toContain("for (let _i = 0; _i < str.length; _i++)");
+    expect(out).toContain("for (let _i = 0; _i < String(str).length; _i++)");
   });
 
   it("does not rewrite image_angle/sprite_index-like text inside a // comment — real gap found in scr_wave.gml", () => {
@@ -706,8 +708,12 @@ describe("transpileGML", () => {
     const out = transpileGML(
       "if (curPos == pos1[3]) { global.pause = false; canDraw = false; canEdit = false; }",
     );
-    expect(out).toContain("canDraw = false;");
-    expect(out).toContain("canEdit = false;");
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "canDraw", false);',
+    );
+    expect(out).toContain(
+      'GmlActions.setGmlVar(_entity, _ctx, "canEdit", false);',
+    );
     expect(out.trim().endsWith("}")).toBe(true);
   });
 
@@ -983,7 +989,7 @@ describe("transpileGML", () => {
       expect(out).toContain("var list = [];");
       expect(out).toContain("list.push(1);");
       expect(out).toContain("var v = list[0];");
-      expect(out).toContain("var n = list.length;");
+      expect(out).toContain("var n = GmlActions.gmlArr(list).length;");
       expect(out).toContain("list.splice(0, 1);");
       expect(out).not.toMatch(/\bds_list_destroy\(/);
     });
@@ -1024,7 +1030,7 @@ describe("transpileGML", () => {
       expect(out).toContain('var v = map.get("hp");');
       expect(out).toContain('var e = map.has("hp");');
       expect(out).toContain('map.delete("hp");');
-      expect(out).toContain("var n = map.size;");
+      expect(out).toContain("var n = GmlActions.gmlMap(map).size;");
       expect(out).not.toMatch(/\bds_map_destroy\(/);
     });
 

@@ -131,3 +131,31 @@ export function clearGmlInstanceVars(world: World, eid: number): void {
 export function gmlNum(value: unknown): number {
   return typeof value === "number" ? value : Number(value) || 0;
 }
+
+/**
+ * `gmlNum`'s exact sibling for `ds_list_size`/`ds_list_clear`'s real
+ * `.length`/`.length = 0` rewrite: a bare GML `ds_list` variable
+ * (`messages = ds_list_create();`, real, confirmed usage — Freedom
+ * Backup's own `oTextbox`) is a plain scalar instance variable as far as
+ * `getGmlVar`/`setGmlVar`'s side-table is concerned (it holds a real JS
+ * `Array`, `ds_list_create()`'s own real rewrite target, but nothing marks
+ * it as "the array kind" the way `getGmlArrayVar`'s own *implicit-array*
+ * shape does), so a bare read of it is `unknown` by the same "`getGmlVar`
+ * bare reads are `unknown` by design" rule the `gmlNum` doc comment above
+ * already establishes — `.length` on `unknown` does not typecheck. This
+ * is the real runtime coercion `ds_list_size`/`_clear`'s rewritten output
+ * wraps around a bare-read call site so it both typechecks and behaves
+ * correctly: an already-real `Array` passes straight through unchanged
+ * (the overwhelmingly common real case), anything else falls back to a
+ * fresh empty array — the same "coerce, don't crash" shape `gmlNum` uses
+ * for `0`, not a claim that a genuinely wrong-typed GML value silently
+ * becomes a correct one.
+ */
+export function gmlArr(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+/** `gmlArr`'s exact `ds_map` sibling, backing `ds_map_size`/`_clear`'s real `.size`/`.clear()` rewrite the same way. */
+export function gmlMap(value: unknown): Map<unknown, unknown> {
+  return value instanceof Map ? value : new Map();
+}

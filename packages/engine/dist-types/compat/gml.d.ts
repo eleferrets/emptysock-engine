@@ -298,7 +298,7 @@ export declare function draw_text(
   target: GmlDrawTarget,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
 ): void;
 /**
  * `draw_text_ext(x, y, string, sep, w)` — GameMaker's real multi-line text
@@ -321,7 +321,7 @@ export declare function draw_text_ext(
   target: GmlDrawTarget | undefined,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
   sep: number,
   _w: number,
 ): void;
@@ -342,7 +342,7 @@ export declare function draw_text_color(
   target: GmlDrawTarget | undefined,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
   c1: number,
   _c2: number,
   _c3: number,

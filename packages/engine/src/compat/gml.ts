@@ -547,13 +547,19 @@ export function draw_circle(
   target.circle(x, y, r, outline);
 }
 
+// `text` is typed `string | number`, not just `string` — GameMaker's real
+// `draw_text` accepts a bare number and implicitly stringifies it (a real,
+// extremely common idiom: `draw_text(x, y, score);`/`draw_text(x, y,
+// hp);`, confirmed real, common usage across Freedom Backup's own
+// `obj_menu`/`obj_pause_menu`/`obj_ending`/`obj_display_manager`/
+// `obj_camera`). `String(text)` matches that same implicit conversion.
 export function draw_text(
   target: GmlDrawTarget,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
 ): void {
-  target.text(x, y, text);
+  target.text(x, y, String(text));
 }
 
 /**
@@ -577,7 +583,7 @@ export function draw_text_ext(
   target: GmlDrawTarget | undefined,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
   sep: number,
   _w: number,
 ): void {
@@ -606,7 +612,7 @@ export function draw_text_color(
   target: GmlDrawTarget | undefined,
   x: number,
   y: number,
-  text: string,
+  text: string | number,
   c1: number,
   _c2: number,
   _c3: number,
@@ -616,7 +622,7 @@ export function draw_text_color(
   if (target === undefined) return;
   target.setColor(c1);
   target.setAlpha?.(alpha);
-  target.text(x, y, text);
+  target.text(x, y, String(text));
 }
 
 /**

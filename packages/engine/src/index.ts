@@ -383,6 +383,10 @@ export {
   room_last,
   previous_room,
   room_speed,
+  get_gml_xstart,
+  set_gml_xstart,
+  get_gml_ystart,
+  set_gml_ystart,
   sprite_width,
   sprite_height,
   sprite_get_width,
@@ -405,6 +409,8 @@ export {
   getGmlArrayVar,
   clearGmlInstanceVars,
   gmlNum,
+  gmlArr,
+  gmlMap,
 } from "./compat/gmlInstanceVars.js";
 export {
   getGmlObjectVar,

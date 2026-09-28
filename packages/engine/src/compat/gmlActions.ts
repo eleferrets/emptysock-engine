@@ -256,9 +256,10 @@ export function setGmlVspeed(
   }
 }
 
-/** Clear this `(world, eid)` pair's motion/alarm state. Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
+/** Clear this `(world, eid)` pair's motion/alarm state, plus the `xstart`/`ystart` capture below (the same pooled-id-reuse reasoning, folded into this one call rather than a second `Scene.destroy()` call site for one more small side-table). Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
 export function clearGmlActionState(world: World, eid: number): void {
   motionByWorld.get(world)?.delete(eid);
+  startPosByWorld.get(world)?.delete(eid);
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +637,73 @@ export function previous_room(ctx: GmlActionContext): string {
  */
 export function room_speed(_ctx: GmlActionContext): number {
   return 60;
+}
+
+// ---------------------------------------------------------------------------
+// xstart / ystart — real, writable GameMaker built-ins, confirmed against
+// manual.gamemaker.io's own `xstart`/`ystart` reference pages: "the initial
+// x/y position of the instance ... set when the instance is created," and
+// explicitly *not* read-only (a real GML script may reassign either). Real,
+// confirmed usage: Freedom Backup's own `obj_camera` (`xTo = xstart;`)/
+// `obj_gun_pickup` (`y = ystart + sin(...) * 5;`, a real float-bob effect
+// anchored to the pickup's own spawn position).
+//
+// This engine has no per-entity "creation position" hook anywhere in core
+// `Scene`/`Entity` — `Scene.spawn()` must not grow a required dependency on
+// this optional GML compat layer, the same boundary the "GML behavior
+// dispatch" entry's `onCreate`/`onDestroy` paragraph already draws. A real
+// automatic capture at the true moment of creation would need a `Scene`-
+// level spawn hook this codebase deliberately doesn't have (see
+// `GmsProjectRuntime`'s own `onSpawned` — a GMS2-import-specific hook, not a
+// core `Scene` one). Instead, `get_gml_xstart`/`get_gml_ystart` lazily
+// capture the entity's *current* `Transform.x`/`.y` into a per-`(World,
+// eid)` side-table the first time either is ever read *or* written for that
+// entity, the same shape `gmlActionsStep`'s own `alarms`/`motionByWorld`
+// side-tables already use — a real, honestly-documented approximation (it
+// captures "first access," not "true spawn moment"), correct for the
+// overwhelmingly common real case of reading `xstart`/`ystart` from a
+// Create event or early Step before the entity has moved, and wrong only if
+// something moves the entity before either is ever read for the first time
+// — the same class of documented approximation `mouse_x`/`mouse_y`'s own
+// doc comment already accepts for a different field.
+// ---------------------------------------------------------------------------
+const startPosByWorld = new WeakMap<
+  World,
+  Map<number, { x: number; y: number }>
+>();
+
+function ensureStartPos(entity: Entity): { x: number; y: number } {
+  const byEntity = getOrCreate(startPosByWorld, entity.world, () => new Map());
+  return getOrCreateMapEntry(byEntity, entity.eid, () => {
+    const t = entity.get(Transform);
+    return { x: t?.x ?? 0, y: t?.y ?? 0 };
+  });
+}
+
+export function get_gml_xstart(entity: Entity, _ctx: GmlActionContext): number {
+  return ensureStartPos(entity).x;
+}
+
+export function set_gml_xstart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  value: number,
+): number {
+  ensureStartPos(entity).x = value;
+  return value;
+}
+
+export function get_gml_ystart(entity: Entity, _ctx: GmlActionContext): number {
+  return ensureStartPos(entity).y;
+}
+
+export function set_gml_ystart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  value: number,
+): number {
+  ensureStartPos(entity).y = value;
+  return value;
 }
 
 // ---------------------------------------------------------------------------

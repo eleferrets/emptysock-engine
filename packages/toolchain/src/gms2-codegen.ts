@@ -7,6 +7,7 @@ import {
   readAndTranspileGML,
   transpileGML,
   scanGmlImplicitVars,
+  scanGmlImplicitArrayVars,
 } from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
 
@@ -360,10 +361,15 @@ export async function buildObjectBehavior(
   // as `knownImplicitVars` into every `readAndTranspileGML` call below)
   // closes that gap — see `scanGmlImplicitVars`'s own doc comment.
   const objectImplicitVars = new Set<string>();
+  // `scanGmlImplicitArrayVars`'s exact array-shaped sibling union — see its
+  // own doc comment for the real `obj_ending`/`endtext[]` cross-event-file
+  // gap this closes.
+  const objectArrayVars = new Set<string>();
   for (const gmlFile of gmlFiles) {
     try {
       const source = await fs.readFile(path.join(objectDir, gmlFile), "utf-8");
       for (const v of scanGmlImplicitVars(source)) objectImplicitVars.add(v);
+      for (const v of scanGmlImplicitArrayVars(source)) objectArrayVars.add(v);
     } catch {
       // unreadable — skip; the per-file readAndTranspileGML call below
       // will report this the same honest way it always has.
@@ -431,6 +437,7 @@ export async function buildObjectBehavior(
         objectImplicitVars,
         false,
         `${name}_${methodName}`,
+        objectArrayVars,
       );
       if (transpiled !== null) {
         const body = indent(
@@ -582,6 +589,7 @@ export async function buildObjectBehavior(
       objectImplicitVars,
       true,
       `${name}_onCollideWith${otherClass}`,
+      objectArrayVars,
     );
     const body =
       transpiled !== null
@@ -629,6 +637,7 @@ export async function buildObjectBehavior(
         objectImplicitVars,
         false,
         `${name}_${methodName}`,
+        objectArrayVars,
       );
       const body =
         transpiled !== null
@@ -688,6 +697,7 @@ export async function buildObjectBehavior(
       objectImplicitVars,
       false,
       `${name}_${methodName}`,
+      objectArrayVars,
     );
     const body =
       transpiled !== null

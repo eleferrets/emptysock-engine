@@ -66,3 +66,6 @@ export declare function clearGmlInstanceVars(world: World, eid: number): void;
  * test suite already holds every other rewrite to.
  */
 export declare function gmlNum(value: unknown): number;
+/** `gmlNum`'s array/map siblings — see `gms2-transpile.ts`'s `ds_list_size`/`ds_list_clear`/`ds_map_size`/`ds_map_clear` rewrites. */
+export declare function gmlArr(value: unknown): unknown[];
+export declare function gmlMap(value: unknown): Map<unknown, unknown>;

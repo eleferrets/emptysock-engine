@@ -354,6 +354,25 @@ export declare function previous_room(ctx: GmlActionContext): string;
  * fabricating a per-room number this importer has no way to know.
  */
 export declare function room_speed(_ctx: GmlActionContext): number;
+/** `xstart`/`ystart` — real, writable GameMaker built-ins holding the instance's creation position, lazily captured on first access. */
+export declare function get_gml_xstart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function set_gml_xstart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  value: number,
+): number;
+export declare function get_gml_ystart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+): number;
+export declare function set_gml_ystart(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  value: number,
+): number;
 /** GM8.1 "Create Object" / `instance_create` — spawn a prefab at a position. `ctx.prefabs[objectName]` must resolve to the object's imported `PrefabDef` (the game wires this from its own `<name>.prefab.json` imports — the importer emits the prefab files but has no runtime prefab registry of its own to hand this off to). Returns the new `Entity`, or `undefined` if nothing could be spawned. */
 export declare function action_create_object(
   _entity: Entity,

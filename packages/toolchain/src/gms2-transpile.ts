@@ -600,8 +600,36 @@ function identifyGmlImplicitVars(
   // own terminating `:` (`[^:\n]*` — a case label expression can't itself
   // contain a bare `:`, so this never over-matches into the assignment that
   // follows).
-  const bareAssign =
-    /^(\s*)(?:case\s[^:\n]*:\s*|default\s*:\s*)?([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
+  //
+  // Reuses the exact same `GML_STATEMENT_PREFIX` alternation the rewrite
+  // passes below already use (real line start, right after a brace-less
+  // `if (cond)`'s closing paren, right after a `case`/`default` label, right
+  // after a `;` or `{`) — a real, previously-undiscovered gap: this
+  // *detection* regex only ever recognised a real line-start assignment,
+  // so a target that only ever appears mid-line (Freedom Backup's own
+  // `obj_platform`: `if (round(...) > y) || (obj_player.key_down)
+  // mask_index = -1;`) was never added to `implicitVars` at all, which
+  // meant the rewrite passes below — even though *their* own anchor already
+  // covers this shape — never fired either, since they only rewrite names
+  // already known to be implicit. Detection and rewrite now share one
+  // prefix so they can never disagree about what counts as a statement
+  // boundary.
+  // Global (`g`), not a single `.exec()` — a real, previously-undiscovered
+  // regression this pass's own `GML_STATEMENT_PREFIX` reuse introduced:
+  // once the prefix started recognising a statement start *mid-line*
+  // (right after a `;`/`{`/`else `), a single physical line can legally
+  // hold more than one real assignment (`{ global.pause = false; canDraw =
+  // false; canEdit = false; }`, real, confirmed — Freedom Backup's own
+  // `obj_shop`), and a non-global `.exec()` only ever finds the *first*
+  // match per line — silently dropping every assignment after it from
+  // `implicitVars` entirely. Scanning every match via `matchAll` is what
+  // actually makes the shared prefix's own multi-statement-per-line
+  // alternatives (`;[ \t]*`/`\{[ \t]*`) do anything for *detection*, not
+  // just for the rewrite passes that already handled this correctly.
+  const bareAssign = new RegExp(
+    `${GML_STATEMENT_PREFIX}([A-Za-z_]\\w*)(\\s*=(?!=)\\s*)`,
+    "g",
+  );
   let prevEndsWithComma = false;
   const implicitVars = new Set<string>();
   for (const line of text.split("\n")) {
@@ -612,19 +640,19 @@ function identifyGmlImplicitVars(
     if (trimmedForComma.length > 0) {
       prevEndsWithComma = trimmedForComma.endsWith(",");
     }
-    const match = bareAssign.exec(line);
-    if (match === null) continue;
-    const name = match[2] ?? "";
-    if (
-      name === "" ||
-      GML_RESERVED_IDENTIFIERS.has(name) ||
-      extraReserved.has(name) ||
-      declared.has(name)
-    )
-      continue;
-    declared.add(name);
-    if (continuesPrevDeclaration) continue;
-    implicitVars.add(name);
+    for (const match of line.matchAll(bareAssign)) {
+      const name = match[2] ?? "";
+      if (
+        name === "" ||
+        GML_RESERVED_IDENTIFIERS.has(name) ||
+        extraReserved.has(name) ||
+        declared.has(name)
+      )
+        continue;
+      declared.add(name);
+      if (continuesPrevDeclaration) continue;
+      implicitVars.add(name);
+    }
   }
   return implicitVars;
 }
@@ -680,8 +708,22 @@ function identifyGmlImplicitVars(
 // `ReferenceError`, the same class of previously-undiscovered gap the
 // `case`/`default` alternative closed for a different statement-boundary
 // shape.
+// The `\belse\s+` alternative covers a real, confirmed shape this prefix
+// originally missed: a brace-less `else` body on the same line as its own
+// `else` keyword (`if (cond) stmt1; else my_gun = noone;`, Freedom Backup's
+// own `obj_enemy`/`obj_enemyBig` Create events) — GML's brace-less `if`
+// already had its own `\)[ \t]+` alternative above, but the matching
+// brace-less `else` never got the same treatment, so a statement starting
+// right after `else ` fell through to the unanchored bare-read catch-all
+// and was silently left unrewritten (a hard `Cannot find name`, not a
+// degraded result) — the same class of previously-undiscovered
+// statement-boundary gap the `case`/`default`/`;`/`{` alternatives above
+// already closed for their own shapes. `\b` keeps this from ever matching
+// inside an unrelated identifier that merely starts with "else"
+// (`elsewhere = 5;` has no whitespace directly after "else", so `\s+`
+// never matches there).
 const GML_STATEMENT_PREFIX =
-  "(^[ \\t]*|\\)[ \\t]+|case\\s[^:\\n]*:[ \\t]*|default\\s*:[ \\t]*|;[ \\t]*|\\{[ \\t]*)";
+  "(^[ \\t]*|\\)[ \\t]+|case\\s[^:\\n]*:[ \\t]*|default\\s*:[ \\t]*|;[ \\t]*|\\{[ \\t]*|\\belse\\s+)";
 
 function replacePlainAssignmentMultiline(
   text: string,
@@ -879,7 +921,7 @@ function rewriteWithStatements(
       targetExpr = trimmedTarget.replace(/;\s*$/, "");
     }
 
-    let rescopedBody = bodyText.replace(/(?<!\.\s*)\bother\b/g, "_other");
+    let rescopedBody = bodyText.replace(/(?<!\.[ \t]*)\bother\b/g, "_other");
     // GameMaker's `other.id` is GameMaker's own real, documented idiom for
     // "the live instance reference of `other`" — `id` is every real
     // instance's own built-in variable holding a reference to itself, so
@@ -927,6 +969,44 @@ export function scanGmlImplicitVars(gml: string): Set<string> {
 }
 
 /**
+ * `scanGmlImplicitVars`'s exact array-shaped sibling, for GameMaker's other
+ * implicit-declaration shape: an undeclared name's *first* assignment can
+ * be an indexed one (`endtext[0] = "...";`), which the array-variable
+ * detection pass inside `transpileGML` recognises on its own — but, like
+ * `scanGmlImplicitVars` itself, only within *this one call's own* body
+ * text. Real, confirmed cross-event-file gap: Freedom Backup's own
+ * `obj_ending` builds `endtext[]` entirely in `Create_0.gml` and only ever
+ * *reads* it (`endtext[currentline]`, `array_length_1d(endtext)`) from
+ * `Step_0.gml`/`Draw_64.gml` — a name never indexed-assigned within one of
+ * those two files' own text was invisible to their own detection, the
+ * identical class of gap `scanGmlImplicitVars` already closes for a plain
+ * scalar. `gms2-codegen.ts` calls this once per sibling event file, unions
+ * the results into `objectArrayVars`, and passes that whole-object set into
+ * every `transpileGML` call for that object (its `knownArrayVars`
+ * parameter) the same way `objectImplicitVars` already flows into
+ * `knownImplicitVars`.
+ */
+export function scanGmlImplicitArrayVars(gml: string): Set<string> {
+  const declaredLocally = new Set<string>();
+  for (const m of gml.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
+    declaredLocally.add(m[1] as string);
+  }
+  const arrayVars = new Set<string>();
+  const arrayAssignRe = /^\s*([A-Za-z_]\w*)\[(?!\s*[|?])[^\]]*\]\s*=(?!=)/gm;
+  for (const m of gml.matchAll(arrayAssignRe)) {
+    const name = m[1] as string;
+    if (
+      name !== "" &&
+      !GML_RESERVED_IDENTIFIERS.has(name) &&
+      !declaredLocally.has(name)
+    ) {
+      arrayVars.add(name);
+    }
+  }
+  return arrayVars;
+}
+
+/**
  * Apply regex-based pattern replacements to a GML source string and return
  * the resulting TypeScript snippet.
  *
@@ -969,6 +1049,19 @@ export function transpileGML(
   hasOtherParam = false,
   functionId = "fn",
   enumNames: ReadonlySet<string> = _enumNames,
+  // `knownArrayVars`'s exact array-shaped sibling to `knownImplicitVars`
+  // above — same real cross-event-file gap (`endtext[0] = "...";` assigned
+  // only in Create, read only in Step/Draw), but the implicit-*array*-
+  // variable detection pass below has always been its own, separate,
+  // same-function-only scan (`arrayAssignRe`), never fed by
+  // `scanGmlImplicitVars`'s scalar-only `identifyGmlImplicitVars` the way
+  // `knownImplicitVars` already is — confirmed real, previously-
+  // undiscovered: Freedom Backup's own `obj_ending` (`endtext`) is assigned
+  // only in `Create_0.gml` and read in `Step_0.gml`. See
+  // `scanGmlImplicitArrayVars`'s own doc comment for the matching
+  // cross-file pre-scan `gms2-codegen.ts` unions from every sibling event
+  // file, the same shape `objectImplicitVars` already establishes.
+  knownArrayVars: ReadonlySet<string> = new Set(),
 ): string {
   // Real, project-wide `with (objName) { ... }` field-name seeding — see
   // `setGmlObjectFieldNames`/`scanGmlObjectFieldNames`'s own doc comments
@@ -1059,7 +1152,7 @@ export function transpileGML(
   // `_other` name, never a bare `other` it could misidentify as this
   // object's own implicit field.
   if (hasOtherParam) {
-    out = out.replace(/(?<!\.\s*)\bother\b/g, "_other");
+    out = out.replace(/(?<!\.[ \t]*)\bother\b/g, "_other");
   }
 
   // GameMaker's `id` built-in — the calling instance's own instance id, real
@@ -1072,11 +1165,11 @@ export function transpileGML(
   // engine-side referent, alias it directly rather than inventing a fake
   // numeric id" choice `room`'s bare read already makes for
   // `ctx.currentRoom`. Guarded against a dotted reference the same way
-  // `sprite_index`/`image_*`'s own `(?<!\.\s*)` guard is (`inst.id`, another
+  // `sprite_index`/`image_*`'s own `(?<!\.[ \t]*)` guard is (`inst.id`, another
   // instance's id read through a local variable — unresolvable by this
   // transpiler, left untouched rather than misrewritten against the current
   // entity).
-  out = out.replace(/(?<!\.\s*)\bid\b(?!\s*:)/g, "_entity");
+  out = out.replace(/(?<!\.[ \t]*)\bid\b(?!\s*:)/g, "_entity");
 
   // -- GML `static` variables -------------------------------------------------
   // See CLAUDE.md's "GMS2.3+ syntax and array functions" entry for the full
@@ -1185,7 +1278,7 @@ export function transpileGML(
           `${ind2}GmlActions.gmlStatics[${placeholder}] = ${expr};`,
       );
       out = out.replace(
-        new RegExp(`(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
+        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\b(?!\\s*=(?!=))`, "g"),
         `(GmlActions.gmlStatics[${placeholder}])`,
       );
     }
@@ -1386,7 +1479,7 @@ export function transpileGML(
   // elsewhere in this file is substituted with the macro's real value,
   // parenthesised so it drops safely into any expression context
   // (`working_directory + (SAVEFILE)`), guarded the same
-  // `(?<!\.\s*)`/`(?<!\/\/[^\n]*)` way every other bare-identifier rewrite
+  // `(?<!\.[ \t]*)`/`(?<!\/\/[^\n]*)` way every other bare-identifier rewrite
   // in this file already is (a dotted reference to another instance's
   // field, or a `//` comment mentioning the name in prose, must not be
   // substituted).
@@ -1397,7 +1490,7 @@ export function transpileGML(
   );
   for (const [name, value] of _macros) {
     out = out.replace(
-      new RegExp(`(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      new RegExp(`(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${name}\\b`, "g"),
       `(${value})`,
     );
   }
@@ -1860,13 +1953,26 @@ export function transpileGML(
       return `(${list}[${pos}] = ${value})`;
     },
   );
+  // Wrapped through `GmlActions.gmlArr(...)` rather than a bare
+  // `${list}.length` — the exact same real, previously-undiscovered
+  // ordering bug `string_length`'s own fix above documents: this pass runs
+  // before the implicit-instance-variable pass, so a bare `ds_list`
+  // variable (`ds_list_size(messages)`, real, confirmed usage — Freedom
+  // Backup's own `oTextbox`) was left as an unresolved identifier directly
+  // followed by `.length`, a shape the later bare-read pass's own
+  // dot-exclusion guard never resolves. `gmlArr` (`compat/
+  // gmlInstanceVars.ts`) both keeps the captured name's own trailing `)`
+  // intact (so the later pass sees and resolves it exactly like any other
+  // bare read) and coerces the resolved `unknown` value to a real,
+  // `.length`-bearing array, so this typechecks too — `.length` directly
+  // on `unknown` does not.
   out = out.replace(
     /\bds_list_size\s*\(\s*([^()]+)\s*\)/g,
-    (_m, list: string) => `${list.trim()}.length`,
+    (_m, list: string) => `GmlActions.gmlArr(${list.trim()}).length`,
   );
   out = out.replace(
     /\bds_list_clear\s*\(\s*([^()]+)\s*\)/g,
-    (_m, list: string) => `(${list.trim()}.length = 0)`,
+    (_m, list: string) => `(GmlActions.gmlArr(${list.trim()}).length = 0)`,
   );
   // JS's garbage collector reclaims a plain Array on its own — ds_list_
   // destroy's manual-memory-management purpose has nothing left to do.
@@ -1919,13 +2025,15 @@ export function transpileGML(
       return `${map}.delete(${key})`;
     },
   );
+  // Same real ordering bug/fix as `ds_list_size`/`_clear` above, via the
+  // `ds_map` sibling coercion `GmlActions.gmlMap(...)`.
   out = out.replace(
     /\bds_map_size\s*\(\s*([^()]+)\s*\)/g,
-    (_m, map: string) => `${map.trim()}.size`,
+    (_m, map: string) => `GmlActions.gmlMap(${map.trim()}).size`,
   );
   out = out.replace(
     /\bds_map_clear\s*\(\s*([^()]+)\s*\)/g,
-    (_m, map: string) => `${map.trim()}.clear()`,
+    (_m, map: string) => `GmlActions.gmlMap(${map.trim()}).clear()`,
   );
   out = out.replace(
     /\bds_map_destroy\s*\(\s*([^()]+)\s*\)\s*;?/g,
@@ -2463,9 +2571,26 @@ export function transpileGML(
     (_m, x1: string, y1: string, x2: string, y2: string) =>
       `Math.hypot(${x2.trim()} - ${x1.trim()}, ${y2.trim()} - ${y1.trim()})`,
   );
+  // Wrapped in `String(...)` rather than a bare `${s}.length` — a real,
+  // previously-undiscovered ordering bug: this pass runs *before* both the
+  // implicit-instance-variable pass and the implicit-array-variable pass
+  // below, so `string_length(text_to_write)`/`string_length(endtext[i])`
+  // left a bare, still-unresolved `text_to_write`/`endtext[i]` token
+  // directly followed by `.length` — a shape neither later pass's own
+  // bare-read rewrite recognises (the instance-var pass's bare-read
+  // catch-all deliberately excludes anything followed by a dot, to avoid
+  // corrupting a real dotted local-ref read; the array-var pass's own
+  // detection never runs at all once the trailing `]` is swallowed inside
+  // an unrelated `.length` access). `String(...)` keeps the captured
+  // expression's own trailing `)`/`]` intact for those later passes to see
+  // and resolve exactly as they would for any other appearance of the same
+  // name, and is itself always a safe, no-op wrap for a value that was
+  // already a real string. Confirmed real, common usage: Freedom Backup's
+  // own `obj_typewriter`/`obj_ending` (`string_length(text_to_write)`,
+  // `string_length(endtext[currentline])`).
   out = out.replace(
     /\bstring_length\s*\(\s*([^)]+)\s*\)/g,
-    (_m, s: string) => `${s.trim()}.length`,
+    (_m, s: string) => `String(${s.trim()}).length`,
   );
   out = out.replace(
     /\bstring\s*\(\s*([^)]+)\s*\)/g,
@@ -2590,7 +2715,7 @@ export function transpileGML(
   // `other.alarm[n] = expr`/`creator.alarm[n] = expr` — setting a
   // *different* instance's alarm through a dot-access reference (a real,
   // confirmed pattern: `creator.alarm[1] = 1;`) — and the negative
-  // lookbehind here (`(?<!\.\s*)`) excludes that case, the same
+  // lookbehind here (`(?<!\.[ \t]*)`) excludes that case, the same
   // already-documented dotted-reference guard `sprite_index`/`image_*`
   // establish elsewhere in this file, rather than misrewriting it against
   // the wrong entity.
@@ -2604,7 +2729,7 @@ export function transpileGML(
   // it for real for the DnD case — the write rewrite now targets that same
   // function instead of inventing a second, parallel countdown mechanism.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*(\d+)\s*\]\s*=\s*([^;\n]+)/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\balarm\s*\[\s*(\d+)\s*\]\s*=\s*([^;\n]+)/g,
     (_m, idx: string, expr: string) => {
       // A global-variable read (already rewritten by the earlier `global.x`
       // pass above into `(_ctx.game?.globals.get("x"))`) returns `unknown`
@@ -2632,7 +2757,7 @@ export function transpileGML(
   // in expression position must be a real runtime number, not `unknown`"
   // reason every other bare-read rewrite in this file already uses.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\balarm\s*\[\s*(\d+)\s*\]/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\balarm\s*\[\s*(\d+)\s*\]/g,
     (_m, idx: string) =>
       `GmlActions.gmlNum(GmlActions.get_gml_alarm(_entity, _ctx, ${idx}))`,
   );
@@ -2813,7 +2938,7 @@ export function transpileGML(
   ];
   for (const name of GML_COLOUR_CONSTANTS) {
     out = out.replace(
-      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      new RegExp(`(?<!\\.[ \\t]*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
     );
   }
@@ -2832,7 +2957,7 @@ export function transpileGML(
   ];
   for (const name of GML_MISC_CONSTANTS) {
     out = out.replace(
-      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      new RegExp(`(?<!\\.[ \\t]*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
     );
   }
@@ -2891,7 +3016,7 @@ export function transpileGML(
   ];
   for (const name of GML_INPUT_CONSTANTS) {
     out = out.replace(
-      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      new RegExp(`(?<!\\.[ \\t]*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
     );
   }
@@ -2909,7 +3034,7 @@ export function transpileGML(
   ];
   for (const name of GML_DRAW_CONSTANTS) {
     out = out.replace(
-      new RegExp(`(?<!\\.\\s*)\\b${name}\\b`, "g"),
+      new RegExp(`(?<!\\.[ \\t]*)\\b${name}\\b`, "g"),
       `GmlActions.${name}`,
     );
   }
@@ -3028,7 +3153,7 @@ export function transpileGML(
   // one iteration, unchanged from before.
   for (const fn of THREADED_PURE_FUNCTIONS) {
     const fnPattern = new RegExp(
-      `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+      `(?<!\\.[ \\t]*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
       "g",
     );
     for (let pass = 0; pass < 10; pass++) {
@@ -3052,11 +3177,11 @@ export function transpileGML(
   // "bare read -> function call" shape `depth`'s/`image_blend`'s own
   // bare-read rewrites already use.
   out = out.replace(
-    /(?<!\.\s*)\broom_width\b(?!\s*\()/g,
+    /(?<!\.[ \t]*)\broom_width\b(?!\s*\()/g,
     "GmlActions.room_width()",
   );
   out = out.replace(
-    /(?<!\.\s*)\broom_height\b(?!\s*\()/g,
+    /(?<!\.[ \t]*)\broom_height\b(?!\s*\()/g,
     "GmlActions.room_height()",
   );
 
@@ -3068,7 +3193,7 @@ export function transpileGML(
   // spelling (`room()`, unlikely but possible) so this pass only ever
   // rewrites the bare-identifier form.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\broom\b(?!\s*\()/g,
     "GmlActions.room(_ctx)",
   );
 
@@ -3094,15 +3219,15 @@ export function transpileGML(
   // occurrence falls through untouched to that later pass, exactly as
   // intended.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom_last\b(?!\s*\()(?!\s*=(?!=))/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\broom_last\b(?!\s*\()(?!\s*=(?!=))/g,
     "GmlActions.room_last(_ctx)",
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bprevious_room\b(?!\s*\()(?!\s*=(?!=))/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bprevious_room\b(?!\s*\()(?!\s*=(?!=))/g,
     "GmlActions.previous_room(_ctx)",
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom_speed\b(?!\s*\()(?!\s*=(?!=))/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\broom_speed\b(?!\s*\()(?!\s*=(?!=))/g,
     "GmlActions.room_speed(_ctx)",
   );
 
@@ -3114,11 +3239,11 @@ export function transpileGML(
   // (`other.sprite_width`) is real, confirmed usage and is left to the
   // cross-instance-references pass elsewhere, not this one.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_width\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bsprite_width\b(?!\s*\()/g,
     "GmlActions.sprite_width(_entity)",
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_height\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bsprite_height\b(?!\s*\()/g,
     "GmlActions.sprite_height(_entity)",
   );
 
@@ -3130,7 +3255,7 @@ export function transpileGML(
   // guarded against a real call-site spelling and the dotted-reference/
   // comment shapes every other bare-read rewrite in this file already is.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\blayer\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\blayer\b(?!\s*\()/g,
     "GmlActions.gml_current_layer(_entity, _ctx)",
   );
 
@@ -3141,11 +3266,11 @@ export function transpileGML(
   // dotted-reference/call-site/comment shapes the same way every other
   // bare-read rewrite in this file already is.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bmouse_x\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bmouse_x\b(?!\s*\()/g,
     "GmlActions.mouse_x(_ctx)",
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bmouse_y\b(?!\s*\()/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bmouse_y\b(?!\s*\()/g,
     "GmlActions.mouse_y(_ctx)",
   );
 
@@ -3160,7 +3285,10 @@ export function transpileGML(
   // the same shape `spriteHalfExtents()`/`place_meeting` already use.
   for (const name of ["bbox_left", "bbox_right", "bbox_top", "bbox_bottom"]) {
     out = out.replace(
-      new RegExp(`(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${name}\\b(?!\\s*\\()`, "g"),
+      new RegExp(
+        `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${name}\\b(?!\\s*\\()`,
+        "g",
+      ),
       `GmlActions.${name}(_entity)`,
     );
   }
@@ -3271,7 +3399,7 @@ export function transpileGML(
   for (const fn of PARTICLE_PURE) {
     out = out.replace(
       new RegExp(
-        `(?<!\\.\\s*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
+        `(?<!\\.[ \\t]*)\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)`,
         "g",
       ),
       (_m, args: string) => `GmlActions.${fn}(${args})`,
@@ -3300,7 +3428,7 @@ export function transpileGML(
   for (const [arrayName, suffix] of Object.entries(VIEW_ARRAYS)) {
     out = out.replace(
       new RegExp(
-        `(?<!\\.\\s*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]\\s*=(?!=)\\s*([^;\\n]+);?`,
+        `(?<!\\.[ \\t]*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]\\s*=(?!=)\\s*([^;\\n]+);?`,
         "g",
       ),
       (_m, idx: string, expr: string) =>
@@ -3308,7 +3436,7 @@ export function transpileGML(
     );
     out = out.replace(
       new RegExp(
-        `(?<!\\.\\s*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]`,
+        `(?<!\\.[ \\t]*)\\b${arrayName}\\[(${BALANCED_PARENS_ONE_LEVEL})\\]`,
         "g",
       ),
       (_m, idx: string) => `GmlActions.view_get_${suffix}(_ctx, ${idx.trim()})`,
@@ -3413,7 +3541,7 @@ export function transpileGML(
   // `instance_position`'s own `Entity | undefined` return type already
   // makes for this exact constant.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)(?<!["'])\bnoone\b(?!["'])/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)(?<!["'])\bnoone\b(?!["'])/g,
     "undefined",
   );
 
@@ -3560,13 +3688,13 @@ export function transpileGML(
   // carries unconditionally — no new conditional import bookkeeping needed,
   // and it's the same access style every other compat call in this pass
   // (`GmlActions.place_meeting`, `GmlActions.action_move`, …) already uses.
-  // Guarded with `(?<!\.\s*)`, the same guard `alarm[n] = expr`/the
+  // Guarded with `(?<!\.[ \t]*)`, the same guard `alarm[n] = expr`/the
   // `sprite_index`/`image_*` rewrites above already use: a dotted reference
   // to another instance's timeline (`inst.timeline_index = tmFoo;`) is left
   // untouched rather than rewritten against the current entity — without
   // this, it became `inst.(() => { ... })();`, a hard `SyntaxError`.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\btimeline_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) => {
       const expr = exprRaw.trim();
       if (/^\(?\s*-1\s*\)?$/.test(expr)) {
@@ -3598,7 +3726,7 @@ export function transpileGML(
   const OP = "(?:\\+=|-=|\\*=|/=|%=|=(?!=))";
   out = out.replace(
     new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\btimeline_(running|speed|loop|position)\\s*(${OP})\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\btimeline_(running|speed|loop|position)\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     ),
     (_m, field: string, op: string, exprRaw: string) =>
@@ -3623,7 +3751,7 @@ export function transpileGML(
     position: "0",
   };
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\btimeline_(running|speed|loop|position)\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\btimeline_(running|speed|loop|position)\b/g,
     (_m, field: string) =>
       `(_entity.get(GmlActions.TimelineState)?.${field} ?? ${TIMELINE_READ_DEFAULTS[field]})`,
   );
@@ -3691,7 +3819,7 @@ export function transpileGML(
     return expr;
   }
 
-  // Every rewrite below is guarded with `(?<!\.\s*)` — the same guard
+  // Every rewrite below is guarded with `(?<!\.[ \t]*)` — the same guard
   // `alarm[n] = expr` (above) already uses for the identical reason: GML
   // allows a *different* instance's field to be read/written through a dot
   // reference (`inst.sprite_index = spr_x;`, `other.image_xscale`, a real,
@@ -3705,7 +3833,7 @@ export function transpileGML(
   // `SyntaxError`, confirmed via a real `tsc --noEmit` run against a real
   // project's generated output.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bsprite_index\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = ${resolveSpriteAssetExpr(exprRaw)}; })();`,
   );
@@ -3717,17 +3845,17 @@ export function transpileGML(
   // `==`/`!=` would be left unresolved and crash the same way the write
   // side used to.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bsprite_index\s*(==|!=)\s*([A-Za-z_]\w*|-1)/g,
     (_m, op: string, rhs: string) =>
       `sprite_index ${op} ${resolveSpriteAssetExpr(rhs)}`,
   );
   out = out.replace(
-    /\b([A-Za-z_]\w*|-1)\s*(==|!=)\s*(?<!\.\s*)sprite_index\b/g,
+    /\b([A-Za-z_]\w*|-1)\s*(==|!=)\s*(?<!\.[ \t]*)sprite_index\b/g,
     (_m, lhs: string, op: string) =>
       `${resolveSpriteAssetExpr(lhs)} ${op} sprite_index`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_index\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bsprite_index\b/g,
     `(_entity.get(GmlActions.Sprite)?.texturePath ?? "")`,
   );
 
@@ -3737,7 +3865,7 @@ export function transpileGML(
   // the exact `* Math.PI / 180` factor `gmlCamera.ts`/`gmlProjection.ts`
   // already use for every other GML-degrees-to-engine-radians field.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
@@ -3753,12 +3881,12 @@ export function transpileGML(
   // against yet, so it's left as an honest gap (falls through to the
   // bare-read rewrite below) rather than guessed at.
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\s*(\+=|-=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\s*(\+=|-=)\s*([^;\n]+);?/g,
     (_m, op: string, exprRaw: string) =>
       `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation ${op} (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_angle\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\b/g,
     `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
   );
 
@@ -3776,7 +3904,7 @@ export function transpileGML(
     // exact same operator can be applied directly to `Transform.scaleX`/
     // `.scaleY` with no further translation needed.
     const writeRe = new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\s*(${OP})\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${gmlName}\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     );
     out = out.replace(
@@ -3785,7 +3913,7 @@ export function transpileGML(
         `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.${field} ${op} ${exprRaw.trim()}; })();`,
     );
     const readRe = new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${gmlName}\\b`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${gmlName}\\b`,
       "g",
     );
     out = out.replace(
@@ -3800,14 +3928,14 @@ export function transpileGML(
   // (`OP`) applies directly with no further translation.
   out = out.replace(
     new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_alpha\\s*(${OP})\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\bimage_alpha\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     ),
     (_m, op: string, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha ${op} ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_alpha\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_alpha\b/g,
     `(_entity.get(GmlActions.Sprite)?.alpha ?? 1)`,
   );
 
@@ -3818,12 +3946,12 @@ export function transpileGML(
   // `Sprite.tint`) and the read side (RGB -> BGR back out, a real, exact
   // round trip, not an approximation).
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_blend\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _bl = (${exprRaw.trim()}); const _bb = (_bl >> 16) & 0xff; const _gg = (_bl >> 8) & 0xff; const _rr = _bl & 0xff; _sp.tint = (_rr << 16) | (_gg << 8) | _bb; } })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_blend\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_blend\b/g,
     `(() => { const _t = _entity.get(GmlActions.Sprite)?.tint ?? 0xffffff; return ((_t & 0xff) << 16) | (_t & 0xff00) | ((_t >> 16) & 0xff); })()`,
   );
 
@@ -3851,7 +3979,7 @@ export function transpileGML(
   // (write `-100` -> `Sprite.depth` becomes `100` -> read back negates to
   // `-100` again, a real, exact round trip, not an approximation).
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bdepth\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.depth = -(${exprRaw.trim()}); })();`,
   );
@@ -3870,14 +3998,14 @@ export function transpileGML(
   // already-tested single-direction conversions rather than a new one.
   out = out.replace(
     new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bdepth\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\bdepth\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
       "g",
     ),
     (_m, op: string, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) { const _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth ${op} (${exprRaw.trim()})); } })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bdepth\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bdepth\b/g,
     `(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))`,
   );
 
@@ -3898,7 +4026,7 @@ export function transpileGML(
   // displayed frame; `SpriteAnimationSystem` re-advances from wherever it's
   // left on the next tick regardless, matching real GameMaker (writing
   // `image_index` mid-step doesn't disable subsequent `image_speed`
-  // advancement). Every pass keeps the same `(?<!\.\s*)` dotted-reference
+  // advancement). Every pass keeps the same `(?<!\.[ \t]*)` dotted-reference
   // guard and `(?<!\/\/[^\n]*)` comment guard every other built-in above
   // uses, for the identical reason (a dotted reference to another
   // instance's field can't be resolved by this transpiler, and a stray
@@ -3906,26 +4034,26 @@ export function transpileGML(
   // `maskGmlStringLiterals` above).
   out = out.replace(
     new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_index\\s*(${OP})\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\bimage_index\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     ),
     (_m, op: string, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.currentFrame ${op} ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_index\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_index\b/g,
     `(_entity.get(GmlActions.Sprite)?.currentFrame ?? 0)`,
   );
   out = out.replace(
     new RegExp(
-      `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\bimage_speed\\s*(${OP})\\s*([^;\\n]+);?`,
+      `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\bimage_speed\\s*(${OP})\\s*([^;\\n]+);?`,
       "g",
     ),
     (_m, op: string, exprRaw: string) =>
       `(() => { const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.frameSpeed ${op} ${exprRaw.trim()}; })();`,
   );
   out = out.replace(
-    /(?<!\/\/[^\n]*)(?<!\.\s*)\bimage_speed\b/g,
+    /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_speed\b/g,
     `(_entity.get(GmlActions.Sprite)?.frameSpeed ?? 1)`,
   );
 
@@ -4113,7 +4241,7 @@ export function transpileGML(
   // var pass below uses, since a plain `y = ...` can equally wrap arguments
   // across lines) — before falling through to a bare-read rewrite, the same
   // increment → compound → plain → bare-read ordering every other built-in
-  // in this file already follows. Every pass keeps the same `(?<!\.\s*)`
+  // in this file already follows. Every pass keeps the same `(?<!\.[ \t]*)`
   // dotted-reference guard (`inst.x = 5;`/`other.y` is a different
   // instance's field this transpiler cannot resolve, left untouched) and
   // `(?<!\/\/[^\n]*)` comment guard `sprite_index`/`image_angle` already
@@ -4141,7 +4269,7 @@ export function transpileGML(
     for (const field of ["x", "y"] as const) {
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+\\+|--)`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\s*(\\+\\+|--)`,
           "g",
         ),
         (_m, op: string) =>
@@ -4149,7 +4277,7 @@ export function transpileGML(
       );
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
           "g",
         ),
         (_m, op: string, exprRaw: string) =>
@@ -4163,7 +4291,7 @@ export function transpileGML(
       );
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\b(?!\\s*=(?!=))`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\b(?!\\s*=(?!=))`,
           "g",
         ),
         `(_entity.get(GmlActions.Transform)?.${field} ?? 0)`,
@@ -4171,6 +4299,57 @@ export function transpileGML(
     }
 
     out = unmaskGmlStringLiterals(out, "GMLXY", maskedForXY);
+  }
+
+  // `xstart`/`ystart` — real, writable GameMaker built-ins holding the
+  // instance's own creation position (confirmed against manual.gamemaker
+  // .io's `xstart`/`ystart` reference pages — real, confirmed usage:
+  // Freedom Backup's own `obj_camera`/`obj_gun_pickup`). Same increment →
+  // compound → plain → bare-read ordering, masking, and dotted/comment
+  // guards the `x`/`y` block immediately above already establishes, routed
+  // through `compat/gmlActions.ts`'s `get_gml_xstart`/`set_gml_xstart`/
+  // `get_gml_ystart`/`set_gml_ystart` (a lazily-captured side-table, not a
+  // live `Transform` field — see that function's own doc comment for why).
+  {
+    const { masked, store: maskedForStart } = maskGmlStringLiterals(
+      out,
+      "GMLSTART",
+    );
+    out = masked;
+
+    for (const field of ["xstart", "ystart"] as const) {
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\s*(\\+\\+|--)`,
+          "g",
+        ),
+        (_m, op: string) =>
+          `GmlActions.set_gml_${field}(_entity, _ctx, GmlActions.get_gml_${field}(_entity, _ctx) ${op === "++" ? "+" : "-"} 1)`,
+      );
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          "g",
+        ),
+        (_m, op: string, exprRaw: string) =>
+          `GmlActions.set_gml_${field}(_entity, _ctx, GmlActions.get_gml_${field}(_entity, _ctx) ${op[0]} (${exprRaw.trim()}));`,
+      );
+      out = replacePlainAssignmentMultiline(
+        out,
+        field,
+        (indent, expr) =>
+          `${indent}GmlActions.set_gml_${field}(_entity, _ctx, ${expr});`,
+      );
+      out = out.replace(
+        new RegExp(
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\b(?!\\s*=(?!=))`,
+          "g",
+        ),
+        `GmlActions.get_gml_${field}(_entity, _ctx)`,
+      );
+    }
+
+    out = unmaskGmlStringLiterals(out, "GMLSTART", maskedForStart);
   }
 
   // GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
@@ -4183,7 +4362,7 @@ export function transpileGML(
   // both ultimately share `compat/gmlActions.ts`'s one per-`(World, eid)`
   // velocity side-table — see that module's own doc comment on
   // `getGmlSpeed`/`setGmlDirection`/etc. Same increment/decrement → compound
-  // → plain → bare-read ordering, same `(?<!\.\s*)` dotted-reference guard,
+  // → plain → bare-read ordering, same `(?<!\.[ \t]*)` dotted-reference guard,
   // same string-literal masking every other built-in section in this file
   // already establishes.
   {
@@ -4205,7 +4384,7 @@ export function transpileGML(
     for (const [field, getter, setter] of MOTION_BUILTINS) {
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
           "g",
         ),
         (_m, op: string, exprRaw: string) =>
@@ -4219,7 +4398,7 @@ export function transpileGML(
       );
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)\\b${field}\\b(?!\\s*=(?!=))`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)\\b${field}\\b(?!\\s*=(?!=))`,
           "g",
         ),
         `GmlActions.${getter}(_entity, _ctx)`,
@@ -4251,7 +4430,12 @@ export function transpileGML(
     for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
       declaredLocally.add(m[1] as string);
     }
-    const arrayVars = new Set<string>();
+    // Seeded from the cross-file pre-scan (`knownArrayVars`) first — a name
+    // this specific event file's own body never assigns (only reads) still
+    // needs to resolve through `getGmlArrayVar`, the same "known even if
+    // never assigned here" reasoning `knownImplicitVars` already carries
+    // for the scalar case, immediately below.
+    const arrayVars = new Set<string>(knownArrayVars);
     // `[| i]`/`[? key]` are GameMaker's ds_list/ds_map accessor syntax, not
     // a plain array index — those have their own dedicated rewrite pass
     // elsewhere in this function and must never be misidentified as an
@@ -4289,7 +4473,7 @@ export function transpileGML(
       // mutates the one real stored array in place via `getGmlArrayVar`.
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}(\\[[^\\]]*\\]\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|%=|=(?!=)))`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)(?<!_ctx, ")\\b${esc}(\\[[^\\]]*\\]\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|%=|=(?!=)))`,
           "g",
         ),
         (_m, tail: string) =>
@@ -4301,7 +4485,7 @@ export function transpileGML(
       // comment above for why the two must never overlap).
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}(?=\\[(?!\\s*[|?]))`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)(?<!_ctx, ")\\b${esc}(?=\\[(?!\\s*[|?]))`,
           "g",
         ),
         `GmlActions.getGmlArrayVar(_entity, _ctx, "${name}")`,
@@ -4310,7 +4494,7 @@ export function transpileGML(
       // `array_length_1d(name)`).
       out = out.replace(
         new RegExp(
-          `(?<!\\/\\/[^\\n]*)(?<!\\.\\s*)(?<!_ctx, ")\\b${esc}\\b(?!\\[)`,
+          `(?<!\\/\\/[^\\n]*)(?<!\\.[ \\t]*)(?<!_ctx, ")\\b${esc}\\b(?!\\[)`,
           "g",
         ),
         `GmlActions.getGmlArrayVar(_entity, _ctx, "${name}")`,
@@ -4425,7 +4609,7 @@ export function transpileGML(
     // increment/decrement → compound-assign → plain-assign → bare-read
     // rewrite order `global.x` already uses above, routed through
     // `GmlActions.getGmlVar`/`setGmlVar` instead of `_ctx.game?.globals`.
-    // The `(?<!\.\s*)` guard on every pattern excludes a dotted reference to
+    // The `(?<!\.[ \t]*)` guard on every pattern excludes a dotted reference to
     // *another* instance's field (`other.cam`, `follow.x`) — this transpiler
     // has no way to resolve that to a different entity, and rewriting it
     // against the *current* entity would silently corrupt the wrong
@@ -4536,7 +4720,7 @@ export function transpileGML(
       // this generic per-field side-table.
       out = out.replace(
         new RegExp(
-          `(?<!\\.\\s*)\\b${esc}\\b(?!\\s*=(?!=))(?!\\s*\\.[A-Za-z_])`,
+          `(?<!\\.[ \\t]*)\\b${esc}\\b(?!\\s*=(?!=))(?!\\s*\\.[A-Za-z_])`,
           "g",
         ),
         `GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, ${placeholder}))`,
@@ -4588,7 +4772,7 @@ export function transpileGML(
     // already establishes).
     for (const name of enumNames) {
       const useRe = new RegExp(
-        `(?<!\\.\\s*)(?<!GmlEnums\\.)\\b${name}\\b`,
+        `(?<!\\.[ \\t]*)(?<!GmlEnums\\.)\\b${name}\\b`,
         "g",
       );
       enumOut = enumOut.replace(useRe, `GmlEnums.${name}`);
@@ -4623,14 +4807,14 @@ export function transpileGML(
       // this file already follows).
       coOut = coOut.replace(
         new RegExp(
-          `(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
+          `(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
           "g",
         ),
         (_m: string, field: string, expr: string) =>
           `GmlActions.setGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
       );
       // Bare read (`obj_x.field`, anywhere — a sub-expression, a condition,
-      // …). The `(?<!\.\s*)` guard excludes a *further* nested dotted
+      // …). The `(?<!\.[ \t]*)` guard excludes a *further* nested dotted
       // access (`a.obj_x.field`, not real GML but defensive regardless) so
       // this can't double-fire on its own rewritten output on a second
       // transpile pass.
@@ -4640,7 +4824,7 @@ export function transpileGML(
       // summed into movement, `obj_player.hp` compared) and this is a pure
       // type-level assertion with no runtime effect.
       coOut = coOut.replace(
-        new RegExp(`(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
+        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
         (_m: string, field: string) =>
           `GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}))`,
       );
@@ -4765,14 +4949,14 @@ export function transpileGML(
       // `_objectNames` pass above documents.
       refOut = refOut.replace(
         new RegExp(
-          `(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
+          `(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
           "g",
         ),
         (_m: string, field: string, expr: string) =>
           `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
       );
       refOut = refOut.replace(
-        new RegExp(`(?<!\\.\\s*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
+        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
         (_m: string, field: string) =>
           `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
       );
@@ -4873,7 +5057,7 @@ export function transpileGML(
         // shape for a bare asset-name value, but defensive regardless).
         avOut = avOut.replace(
           new RegExp(
-            `(?<!\\.\\s*)\\b${esc}\\b(?!\\s*\\.)(?!\\s*\\()(?!\\s*=(?!=))`,
+            `(?<!\\.[ \\t]*)\\b${esc}\\b(?!\\s*\\.)(?!\\s*\\()(?!\\s*=(?!=))`,
             "g",
           ),
           resolved,
@@ -4895,6 +5079,7 @@ export async function readAndTranspileGML(
   knownImplicitVars: ReadonlySet<string> = new Set(),
   hasOtherParam = false,
   functionId = "fn",
+  knownArrayVars: ReadonlySet<string> = new Set(),
 ): Promise<string | null> {
   try {
     const source = await fs.readFile(gmlPath, "utf-8");
@@ -4904,6 +5089,8 @@ export async function readAndTranspileGML(
       knownImplicitVars,
       hasOtherParam,
       functionId,
+      _enumNames,
+      knownArrayVars,
     );
   } catch {
     return null;
