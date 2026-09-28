@@ -44,7 +44,7 @@ import {
   buildFontAsset,
   copyFontAtlas,
 } from "./gms2-font-import.js";
-import { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
+import { convertGms2Note, buildNoteText } from "./gms2-note-import.js";
 import {
   convertGms2Shader,
   buildShaderAsset,
@@ -619,8 +619,8 @@ export async function importGMS2Project(
     if (verbose) console.log(`  [note] ${name}`);
     try {
       const note = await convertGms2Note(path.join(projectRoot, "notes", name));
-      const content = buildNoteMarkdown(note);
-      filesToWrite.push({ rel: `notes/${name}.md`, content });
+      const content = buildNoteText(note);
+      filesToWrite.push({ rel: `notes/${name}.txt`, content });
       reportEntries.push({ kind: "note", name, status: "copied" });
     } catch (err) {
       const reason = `could not be read (${String(err)}) — skipped, needs manual import`;

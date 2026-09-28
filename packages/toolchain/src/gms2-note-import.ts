@@ -66,3 +66,8 @@ export function buildNoteMarkdown(note: NoteAsset): string {
 ${note.content}
 `;
 }
+
+/** The verbatim `.txt` body a note is preserved as (`notes/<name>.txt`). */
+export function buildNoteText(note: NoteAsset): string {
+  return note.content;
+}

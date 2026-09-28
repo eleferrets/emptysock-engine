@@ -41,7 +41,11 @@ export type { SoundAsset } from "./gms2-sound-import.js";
 export { convertGms2Font, buildFontAsset } from "./gms2-font-import.js";
 export type { FontAsset } from "./gms2-font-import.js";
 
-export { convertGms2Note, buildNoteMarkdown } from "./gms2-note-import.js";
+export {
+  convertGms2Note,
+  buildNoteMarkdown,
+  buildNoteText,
+} from "./gms2-note-import.js";
 export type { NoteAsset } from "./gms2-note-import.js";
 
 export {

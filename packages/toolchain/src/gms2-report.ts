@@ -230,7 +230,7 @@ GMS2 "note" resources (including GameMaker's own auto-generated
 compatibility-report notes) are IDE-only documentation with no equivalent
 concept in \`@emptysock/engine\` — nothing was fabricated to call these
 "converted" the way a sprite or sound is. Their real text content was copied
-verbatim into \`notes/<name>.md\` so it's still available to read, not lost:
+verbatim into \`notes/<name>.txt\` so it's still available to read, not lost:
 
 ${copiedAssets.length > 0 ? copiedAssets.join("\n") : "_None_"}
 
@@ -248,7 +248,7 @@ ${manualAssets.length > 0 ? manualAssets.join("\n") : "_None_"}
 4. **Sprites** — import sprite sheets into the IDE asset panel. See [IDE Reference](/manual/07-ide-reference.md).
 5. **Sounds** — each converted sound's \`assets/<name>.sound.ts\` shows the exact \`AudioSystem.load\`/\`.play\` call to wire it up; the real audio file is already copied alongside it.
 6. **Fonts** — each converted font's \`assets/<name>.font.ts\` gives the \`Label\`/\`ButtonState\`/\`Checkbox\` \`font\`/\`fontSize\` values to use; make sure the family is actually installed wherever the game runs.
-7. **Notes** — read \`notes/<name>.md\` for any GMS2 note content (including auto-generated compatibility reports) worth carrying into your project's own docs.
+7. **Notes** — read \`notes/<name>.txt\` for any GMS2 note content (including auto-generated compatibility reports) worth carrying into your project's own docs.
 8. **Tilesets** — each converted tileset's \`assets/<name>.tileset.ts\` is a real \`TilesetConfig\`, its source tile-sheet image copied alongside it; a room's tile layers produce one \`TilemapData\` module per distinct converted tileset they reference (\`rooms/<name>.tilemap.ts\` for a single tileset, \`rooms/<name>.<tileset>.tilemap.ts\` per tileset when there are several) — call \`TilemapSystem.register(...)\`/\`.loadInto(scene, name)\` (\`@emptysock/tilemap\`) once per module to load them all into the same room. A tileset reported manual still leaves the tile data referencing it unconverted — see the warnings above — and needs to be recreated by hand.
 9. **Load the manifest** — read \`project-manifest.json\` from your game's bootstrap code to enumerate every generated prefab/behavior/scene file.
 10. **Physics** — if your GMS2 project used built-in physics, review [Systems Reference § Physics](/manual/05-systems-reference.md).

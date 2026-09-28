@@ -1568,7 +1568,7 @@ describe("GMS2 bitmap font import", () => {
 });
 
 describe("GMS2 note import preserves content instead of demanding a from-scratch recreation", () => {
-  it("copies a note's real text content into notes/<name>.md and reports it as copied, not manual", async () => {
+  it("copies a note's real text content into notes/<name>.txt and reports it as copied, not manual", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-"));
     const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-note-out-"));
     try {
@@ -1601,7 +1601,7 @@ describe("GMS2 note import preserves content instead of demanding a from-scratch
       expect(result.skipped).not.toContain("TODO");
 
       const content = await fs.readFile(
-        path.join(out, "notes", "TODO.md"),
+        path.join(out, "notes", "TODO.txt"),
         "utf-8",
       );
       expect(content).toContain("Remember to balance the boss fight.");
