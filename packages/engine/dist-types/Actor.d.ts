@@ -28,4 +28,3 @@ export declare abstract class Actor {
   protected onStart(): void;
   protected onStop(): void;
 }
-//# sourceMappingURL=Actor.d.ts.map

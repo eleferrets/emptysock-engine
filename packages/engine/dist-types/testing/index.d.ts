@@ -66,4 +66,3 @@ export declare function createHeadlessGame(): HeadlessGame;
  * need `ActorSystem`/`PhysicsSystem` in the loop.
  */
 export declare function createHeadlessScene(): Scene;
-//# sourceMappingURL=index.d.ts.map

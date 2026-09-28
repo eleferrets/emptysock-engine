@@ -66,4 +66,3 @@ export declare function clearGmlInstanceVars(world: World, eid: number): void;
  * test suite already holds every other rewrite to.
  */
 export declare function gmlNum(value: unknown): number;
-//# sourceMappingURL=gmlInstanceVars.d.ts.map

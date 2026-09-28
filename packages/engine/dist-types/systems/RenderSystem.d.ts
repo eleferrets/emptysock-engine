@@ -274,4 +274,3 @@ export declare class RenderSystem {
   resize(width: number, height: number): void;
   destroy(): void;
 }
-//# sourceMappingURL=RenderSystem.d.ts.map

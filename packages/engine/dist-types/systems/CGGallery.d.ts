@@ -33,4 +33,3 @@ export declare class CGGallery {
   get unlockedCount(): number;
   private _persist;
 }
-//# sourceMappingURL=CGGallery.d.ts.map

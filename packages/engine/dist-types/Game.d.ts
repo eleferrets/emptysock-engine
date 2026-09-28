@@ -395,4 +395,3 @@ export declare class Game {
   update(dt: number): void;
 }
 export {};
-//# sourceMappingURL=Game.d.ts.map

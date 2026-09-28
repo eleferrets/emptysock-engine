@@ -34,4 +34,3 @@ export declare class TimelineSystem {
    */
   private fireCrossedMoments;
 }
-//# sourceMappingURL=TimelineSystem.d.ts.map

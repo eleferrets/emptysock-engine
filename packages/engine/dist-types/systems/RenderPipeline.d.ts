@@ -402,4 +402,3 @@ export declare class RenderPipeline implements SceneRenderer {
   releaseOverlay(scene: Scene): void;
   destroy(): void;
 }
-//# sourceMappingURL=RenderPipeline.d.ts.map

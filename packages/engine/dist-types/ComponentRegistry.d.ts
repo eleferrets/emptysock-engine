@@ -45,4 +45,3 @@ declare class ComponentRegistry {
 /** Single process-wide instance — see the class doc for the per-world scoping. */
 export declare const componentRegistry: ComponentRegistry;
 export {};
-//# sourceMappingURL=ComponentRegistry.d.ts.map

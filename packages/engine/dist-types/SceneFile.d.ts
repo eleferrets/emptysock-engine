@@ -141,4 +141,3 @@ export declare function loadSceneFile(
   prefabsByName: ReadonlyMap<string, PrefabDef>,
   options?: LoadSceneFileOptions,
 ): ReturnType<Scene["spawn"]>[];
-//# sourceMappingURL=SceneFile.d.ts.map

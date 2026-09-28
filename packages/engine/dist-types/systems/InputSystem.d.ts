@@ -42,4 +42,3 @@ export declare class InputSystem {
   /** Alias for `detach()` — compatible with SystemManager teardown. */
   destroy(): void;
 }
-//# sourceMappingURL=InputSystem.d.ts.map

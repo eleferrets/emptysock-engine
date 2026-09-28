@@ -54,4 +54,3 @@ export declare function dispatchGmlCollision(
   other: Entity,
   ctx: GmlActionContext,
 ): void;
-//# sourceMappingURL=GmlCollision.d.ts.map

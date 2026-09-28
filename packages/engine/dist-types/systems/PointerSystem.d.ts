@@ -184,4 +184,3 @@ export declare class PointerSystem {
 }
 /** Minimum recommended interactive-widget dimension, per iOS Human Interface Guidelines. */
 export declare const MIN_TOUCH_TARGET_SIZE = 44;
-//# sourceMappingURL=PointerSystem.d.ts.map

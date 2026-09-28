@@ -15,4 +15,3 @@ export declare class GamepadSystem {
   rumble(index: number, intensity: number, duration: number): void;
   rumbleDual(index: number, opts: DualRumbleOptions): void;
 }
-//# sourceMappingURL=GamepadSystem.d.ts.map

@@ -351,4 +351,3 @@ export declare function view_set_surface_id(
   idx: number,
   id: number,
 ): void;
-//# sourceMappingURL=gmlCamera.d.ts.map

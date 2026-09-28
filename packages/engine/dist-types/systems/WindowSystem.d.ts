@@ -46,4 +46,3 @@ export declare class WindowSystem {
   private _installBrowserF11;
   private _toggleBrowserFullscreen;
 }
-//# sourceMappingURL=WindowSystem.d.ts.map

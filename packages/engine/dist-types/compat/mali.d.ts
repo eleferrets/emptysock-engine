@@ -14,4 +14,3 @@ export interface MaliFixes {
 export declare function getMaliFixes(info: MaliInfo): MaliFixes;
 /** Apply Mali compatibility fixes to a canvas context */
 export declare function applyMaliFixes(fixes: MaliFixes): void;
-//# sourceMappingURL=mali.d.ts.map

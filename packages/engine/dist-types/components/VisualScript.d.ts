@@ -182,4 +182,3 @@ export declare function getVisualScriptScope(
  */
 export declare function clearVisualScriptScope(world: World, eid: number): void;
 export {};
-//# sourceMappingURL=VisualScript.d.ts.map

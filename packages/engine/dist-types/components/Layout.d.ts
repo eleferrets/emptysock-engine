@@ -57,4 +57,3 @@ export declare const Layout: import("../Component.js").ComponentDef<{
   height: number;
 }>;
 export type LayoutShape = ReturnType<typeof Layout.createDefaults>;
-//# sourceMappingURL=Layout.d.ts.map

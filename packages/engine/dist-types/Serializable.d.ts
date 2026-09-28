@@ -29,4 +29,3 @@ export type SerializableRecord = Record<string, Serializable>;
  * discovered by `SaveSystem` later.
  */
 export type AssertSerializable<T extends SerializableRecord> = T;
-//# sourceMappingURL=Serializable.d.ts.map

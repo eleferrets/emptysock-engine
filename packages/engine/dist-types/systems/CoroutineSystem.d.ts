@@ -36,4 +36,3 @@ export declare class CoroutineSystem {
   destroy(): void;
   private _step;
 }
-//# sourceMappingURL=CoroutineSystem.d.ts.map

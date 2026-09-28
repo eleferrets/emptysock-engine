@@ -53,4 +53,3 @@ export declare function evaluateCondition(
   store: VariableStore,
   condition: VariableCondition,
 ): boolean;
-//# sourceMappingURL=VariableStore.d.ts.map

@@ -66,4 +66,3 @@ export declare class SceneTransitionManager {
   update(deltaTime: number): void;
   private _complete;
 }
-//# sourceMappingURL=SceneTransition.d.ts.map

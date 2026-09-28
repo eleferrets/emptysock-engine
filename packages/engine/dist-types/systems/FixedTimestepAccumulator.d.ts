@@ -45,4 +45,3 @@ export declare function lerpSnapshot<K, S>(
   fallback: () => S,
   lerpFn: (previous: S, current: S, alpha: number) => S,
 ): S;
-//# sourceMappingURL=FixedTimestepAccumulator.d.ts.map

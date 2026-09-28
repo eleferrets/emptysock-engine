@@ -796,4 +796,3 @@ export type {
   GmsProjectRuntimeOptions,
   GmsRuntimeContext,
 } from "./GmsRuntime.js";
-//# sourceMappingURL=index.d.ts.map

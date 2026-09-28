@@ -31,6 +31,12 @@ export function toPascalCase(name: string): string {
 }
 
 /** On-disk shape of the object-relevant fields of a GMS2 object `.yy` file. */
+interface YyObjectProperty {
+  varType?: number;
+  value?: string;
+  name?: string;
+}
+
 interface YyObject {
   spriteId?: { name?: string } | null;
   physicsObject?: boolean;
@@ -41,11 +47,108 @@ interface YyObject {
   physicsRestitution?: number;
   physicsKinematic?: boolean;
   solid?: boolean;
+  /** Real GameMaker object-type reference for inheritance — `null` for a
+   * root object with no parent, `{ name }` naming the parent object
+   * resource otherwise. See `resolveGmlObjectChain()`'s own doc comment. */
+  parentObjectId?: { name?: string } | null;
+  /** GMS2.3+ "Variable Definitions" — real, typed instance-variable
+   * defaults declared on the object resource itself (not in any `.gml`
+   * file). See `resolveGmlObjectProperties()`'s own doc comment — this is
+   * a genuinely different mechanism from inheritance, confirmed against a
+   * real Freedom Backup object (`obj_enemy`'s own `grv`/`has_weapon`
+   * fields, which this importer previously had no read path for at all). */
+  properties?: YyObjectProperty[];
   [key: string]: unknown;
 }
 
 function isYyObject(val: unknown): val is YyObject {
   return typeof val === "object" && val !== null;
+}
+
+async function readYyObject(
+  name: string,
+  projectRoot: string,
+): Promise<YyObject | undefined> {
+  const yyPath = path.join(projectRoot, "objects", name, `${name}.yy`);
+  try {
+    const raw = await fs.readFile(yyPath, "utf-8");
+    const parsed = parseGmsJson(raw);
+    return isYyObject(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Walks a GMS2 object's real `parentObjectId` chain (an object can inherit
+ * from a parent that itself inherits from a grandparent — confirmed real
+ * GameMaker behaviour via the manual's Object Inheritance page). Returns
+ * the chain starting with `name` itself, then its parent, grandparent, etc.
+ * A cycle (malformed project data) is defended against with a `visited`
+ * set — genuinely impossible in a valid GameMaker project, but this is
+ * offline codegen reading arbitrary on-disk data, so it must not hang.
+ */
+export async function resolveGmlObjectChain(
+  name: string,
+  projectRoot: string,
+): Promise<string[]> {
+  const chain: string[] = [];
+  const visited = new Set<string>();
+  let current: string | undefined = name;
+  while (current !== undefined && !visited.has(current)) {
+    visited.add(current);
+    chain.push(current);
+    const yy = await readYyObject(current, projectRoot);
+    const parentName = yy?.parentObjectId?.name;
+    current = typeof parentName === "string" ? parentName : undefined;
+  }
+  return chain;
+}
+
+/**
+ * Resolves a GMS2 object's real, merged "Variable Definitions" — GMS2.3+'s
+ * per-object typed instance-variable defaults (the `.yy` `properties`
+ * array), walking the real `parentObjectId` chain so a child inherits its
+ * parent's declared defaults the same way GameMaker itself does (child
+ * overrides parent on a same-named property). `varType 3` is GameMaker's
+ * real Boolean property type (confirmed against Freedom Backup's own
+ * `obj_enemy.yy`: `afraid_of_heights`/`grounded`/`has_weapon` all carry
+ * `varType: 3` with `"True"`/`"0"`/`"1"`-shaped string values); every other
+ * `varType` is read as a number when the raw string parses as one, else
+ * passed through as a string — GameMaker's own Real/String/Colour/Asset
+ * property types all ultimately resolve to a plain GML value at runtime,
+ * and this importer has no richer typed representation to target. A value
+ * that references another property by name as an expression (a real,
+ * observed shape — `obj_enemy.yy`'s own `hsp` property has the literal
+ * value `"walksp"`) is not evaluated as an expression — this importer has
+ * no expression evaluator for object-property defaults, so it's read at
+ * face value and, since `"walksp"` doesn't parse as a number, falls back
+ * to the raw string; a real, honest, narrow gap rather than a fabricated
+ * evaluation.
+ */
+export async function resolveGmlObjectProperties(
+  name: string,
+  projectRoot: string,
+): Promise<Map<string, number | string | boolean>> {
+  const chain = await resolveGmlObjectChain(name, projectRoot);
+  const merged = new Map<string, number | string | boolean>();
+  // Walk root-most parent first so a child's own properties override.
+  for (const objectName of [...chain].reverse()) {
+    const yy = await readYyObject(objectName, projectRoot);
+    for (const prop of yy?.properties ?? []) {
+      if (typeof prop.name !== "string" || prop.name.length === 0) continue;
+      const raw = prop.value ?? "";
+      let value: number | string | boolean;
+      if (prop.varType === 3) {
+        value = raw === "True" || raw === "true" || raw === "1";
+      } else {
+        const num = Number(raw);
+        value = raw !== "" && !Number.isNaN(num) ? num : raw;
+      }
+      merged.set(prop.name, value);
+    }
+  }
+  return merged;
 }
 
 /**
@@ -141,12 +244,16 @@ export async function buildObjectPrefabJSON(
         // uses throughout (see CLAUDE.md's stale-object-reference entry).
         let frameCount = 1;
         let frameSpeed: number | undefined;
+        let spriteWidth = 0;
+        let spriteHeight = 0;
         try {
           const spriteAsset = await convertGms2Sprite(
             path.join(projectRoot, "sprites", spriteName),
           );
           frameCount = spriteAsset.frameCount;
           frameSpeed = spriteAsset.frameSpeed;
+          spriteWidth = spriteAsset.width;
+          spriteHeight = spriteAsset.height;
         } catch {
           // Left at the single-frame default — the sprite loop elsewhere in
           // `importGMS2Project` is responsible for reporting the real
@@ -162,6 +269,15 @@ export async function buildObjectPrefabJSON(
         if (frameCount > 1) {
           overrides["frameCount"] = frameCount;
           overrides["frameSpeed"] = frameSpeed ?? 1;
+        }
+        // Real per-sprite pixel dimensions, read from the sprite resource's
+        // own `.yy` `width`/`height` — this is what makes
+        // `compat/gmlActions.ts`'s `spriteHalfExtents()` use real collision
+        // extents instead of its fixed 32x32 fallback. See that function's
+        // own doc comment.
+        if (spriteWidth > 0 && spriteHeight > 0) {
+          overrides["width"] = spriteWidth;
+          overrides["height"] = spriteHeight;
         }
         components.push({ component: "Sprite", overrides });
       }
@@ -253,6 +369,50 @@ export async function buildObjectBehavior(
       // will report this the same honest way it always has.
     }
   }
+  // A real GMS2.3+ variable-definition default (`grv`/`has_weapon` on a
+  // real Freedom Backup `obj_enemy`, see `resolveGmlObjectProperties()`'s
+  // own doc comment) is never *assigned* inside any `.gml` file — it's
+  // declared on the object resource itself — so `scanGmlImplicitVars`'s
+  // own "was this name ever assigned in this object's own source" scan can
+  // never discover it, and a bare *read* of it would stay an unresolved
+  // JS identifier (`ReferenceError`) even after the onCreate prelude below
+  // sets it into the real per-entity side-table, since the read side would
+  // never be rewritten to look there. Seeding every resolved property name
+  // into `objectImplicitVars` up front closes that gap: a bare read of
+  // `grv` is now recognised the same way a same-named ordinary implicit
+  // instance variable already is.
+  const resolvedProperties = await resolveGmlObjectProperties(
+    name,
+    projectRoot,
+  );
+  for (const propName of resolvedProperties.keys()) {
+    objectImplicitVars.add(propName);
+  }
+
+  // Real GameMaker object inheritance: an object without its own event
+  // file for a given event slot still runs its parent's compiled event
+  // code for that same slot (confirmed against GameMaker's manual's Object
+  // Inheritance page — "if the child object does not have an event that
+  // the parent has, then it will use the parent's event"). `objectChain`
+  // is `[name, parent, grandparent, ...]`; `buildMethod` below searches it
+  // in order so the *nearest* ancestor that actually has the event file
+  // wins, matching GameMaker's own resolution order.
+  const objectChain = await resolveGmlObjectChain(name, projectRoot);
+  const ancestorGmlFiles = new Map<string, string[]>();
+  ancestorGmlFiles.set(name, gmlFiles);
+  for (const ancestor of objectChain.slice(1)) {
+    try {
+      const entries = await fs.readdir(
+        path.join(projectRoot, "objects", ancestor),
+      );
+      ancestorGmlFiles.set(
+        ancestor,
+        entries.filter((e) => e.endsWith(".gml")),
+      );
+    } catch {
+      ancestorGmlFiles.set(ancestor, []);
+    }
+  }
 
   async function buildMethod(
     methodName: string,
@@ -261,9 +421,11 @@ export async function buildObjectBehavior(
     prefixRe: RegExp,
     optional = false,
   ): Promise<string> {
-    const gmlFile = gmlFiles.find((f) => prefixRe.test(f));
-    if (gmlFile) {
-      const gmlPath = path.join(objectDir, gmlFile);
+    for (const ownerName of objectChain) {
+      const ownerFiles = ancestorGmlFiles.get(ownerName) ?? [];
+      const gmlFile = ownerFiles.find((f) => prefixRe.test(f));
+      if (gmlFile === undefined) continue;
+      const gmlPath = path.join(projectRoot, "objects", ownerName, gmlFile);
       const transpiled = await readAndTranspileGML(
         gmlPath,
         objectImplicitVars,
@@ -275,7 +437,11 @@ export async function buildObjectBehavior(
           injectContextArgs(transpiled, knownScripts).trimEnd(),
           2,
         );
-        return `export function ${methodName}(${paramStr}): void {\n  // [GML auto-transpiled — review carefully]\n${body}\n}`;
+        const source =
+          ownerName === name
+            ? "// [GML auto-transpiled — review carefully]"
+            : `// [GML auto-transpiled from parent object '${ownerName}' — ${name} has no own ${eventLabel}, real GameMaker object-inheritance fallback, review carefully]`;
+        return `export function ${methodName}(${paramStr}): void {\n  ${source}\n${body}\n}`;
       }
     }
     // Begin Step/End Step/Draw GUI are genuinely optional — GameMaker's own
@@ -289,12 +455,37 @@ export async function buildObjectBehavior(
     return `export function ${methodName}(${paramStr}): void {\n  // TODO: migrate ${eventLabel}\n}`;
   }
 
-  const onCreate = await buildMethod(
+  let onCreate = await buildMethod(
     "onCreate",
     "Create event",
     "_entity: Entity, _ctx: GmlActionContext",
     /^Create_/i,
   );
+  // Real GMS2.3+ "Variable Definitions" (the object's own `.yy`
+  // `properties` array, merged up the real `parentObjectId` chain — see
+  // `resolveGmlObjectProperties()`'s own doc comment) become real
+  // `GmlActions.setGmlVar()` calls prepended to the very start of
+  // `onCreate`, before any transpiled Create-event body runs — matching
+  // GameMaker's own real timing (a variable definition's default is
+  // applied before Create-event code executes) and fixing a real,
+  // previously-undiscovered gap: a real Freedom Backup object
+  // (`obj_enemy`) reads `grv`/`has_weapon` in its own Create event despite
+  // never assigning either anywhere in any `.gml` file — they're real
+  // GameMaker variable-definition defaults this importer had no read path
+  // for at all.
+  const propertyDefaults = resolvedProperties;
+  if (propertyDefaults.size > 0) {
+    const prelude = Array.from(propertyDefaults.entries())
+      .map(
+        ([propName, value]) =>
+          `  GmlActions.setGmlVar(_entity, _ctx, ${JSON.stringify(propName)}, ${JSON.stringify(value)});`,
+      )
+      .join("\n");
+    onCreate = onCreate.replace(
+      /^(export function onCreate\([^)]*\): void \{\n)/,
+      `$1  // [GMS2.3+ variable-definition defaults]\n${prelude}\n`,
+    );
+  }
   // GameMaker's real Step-family eventnum suffixes, confirmed against
   // GameMaker's own manual (manual.gamemaker.io/lts/.../Event_Order.htm —
   // "First all Begin Step events are executed, then all Step events are

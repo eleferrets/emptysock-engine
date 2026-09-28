@@ -910,17 +910,32 @@ export function action_if_collision(
 }
 
 /**
- * No real texture-size lookup is available from pure engine-side compat
- * code (that lives with the renderer/asset loader) — a fixed 16px default
- * half-extent (32px square) is used when no better data exists. Good enough
- * for a DnD/GML compat check; a project that needs pixel-accurate collision
- * should use `PhysicsBody` instead, same as GameMaker itself recommends once
+ * Real per-sprite collision extents, derived from `Sprite.width`/`.height`
+ * (populated by the GMS2 importer from the sprite resource's own real `.yy`
+ * `width`/`height` fields — see `components/Sprite.ts`'s own doc comment)
+ * when present. Falls back to a fixed 16px half-extent (32px square) only
+ * when both are `0` (genuinely absent — a hand-authored entity with no
+ * imported sprite data). A real headless playability smoke test against the
+ * real Freedom Backup project found the old fixed-32x32-always fallback
+ * permanently colliding against real wall geometry sized differently, which
+ * silently blocked all horizontal movement — this real-dimensions path is
+ * the fix. GameMaker's own sprites can in principle use a non-bbox
+ * precise/mask collision shape, but every real sprite in Freedom Backup
+ * uses a plain rectangular mask, so a real-dimensions bounding box is the
+ * correctly-scoped fix here — a full per-pixel mask system would be
+ * over-engineering for what this project actually needs. A project that
+ * needs true pixel-accurate/non-rectangular collision should use
+ * `PhysicsBody` instead, same as GameMaker itself recommends once
  * "precise" collision checking matters. Exported so `systems/GmlCollision.ts`
- * shares this exact fallback rather than defining a second one — see that
- * file's own doc comment for why it's the reused source of AABB extents for
- * GML `onCollideWith<Type>` dispatch too.
+ * shares this exact source rather than defining a second one that could
+ * drift — see that file's own doc comment for why it's the reused source
+ * of AABB extents for GML `onCollideWith<Type>` dispatch too.
  */
-export function spriteHalfExtents(_entity: Entity): { x: number; y: number } {
+export function spriteHalfExtents(entity: Entity): { x: number; y: number } {
+  const sprite = entity.get(Sprite);
+  if (sprite !== undefined && sprite.width > 0 && sprite.height > 0) {
+    return { x: sprite.width / 2, y: sprite.height / 2 };
+  }
   return { x: 16, y: 16 };
 }
 

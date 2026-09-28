@@ -49,4 +49,3 @@ export declare class GmlFileSystem {
   close(file: number): void;
   deleteFile(name: string): void;
 }
-//# sourceMappingURL=GmlFileSystem.d.ts.map

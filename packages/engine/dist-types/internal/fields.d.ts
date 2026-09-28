@@ -16,4 +16,3 @@ export declare function setFields(
   index: number,
   values: Record<string, unknown>,
 ): void;
-//# sourceMappingURL=fields.d.ts.map

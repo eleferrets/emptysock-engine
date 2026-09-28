@@ -87,6 +87,18 @@ export const Sprite = defineComponent(
      * than left unmodelled.
      */
     loop: true as boolean,
+    /**
+     * Real per-sprite pixel dimensions, `0` when genuinely unknown (a
+     * hand-authored entity with no imported sprite data). The GMS2 importer
+     * (`gms2-codegen.ts`'s `buildObjectPrefabJSON`) populates these from the
+     * sprite resource's own real `.yy` `width`/`height` fields at import
+     * time. `compat/gmlCollisionQueries.ts`'s `spriteHalfExtents()` reads
+     * these when present (real, per-sprite collision extents) and falls
+     * back to a fixed 32x32 box only when both are `0` — see that file's
+     * own doc comment.
+     */
+    width: 0,
+    height: 0,
   }),
   {
     schema: {
@@ -102,6 +114,8 @@ export const Sprite = defineComponent(
       currentFrame: { kind: "number" },
       frameSpeed: { kind: "number" },
       loop: { kind: "boolean" },
+      width: { kind: "number" },
+      height: { kind: "number" },
     },
   },
 );

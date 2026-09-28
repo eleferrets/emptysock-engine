@@ -68,4 +68,3 @@ export declare function flattenPrefab(
  * live `World` — codegen runs offline, against `ComponentDef`s alone.
  */
 export declare function prefabComponentDefs(prefab: PrefabDef): ComponentDef[];
-//# sourceMappingURL=Prefab.d.ts.map

@@ -67,4 +67,3 @@ export declare class AudioSystem {
   update(dt: number): void;
   destroy(): void;
 }
-//# sourceMappingURL=AudioSystem.d.ts.map

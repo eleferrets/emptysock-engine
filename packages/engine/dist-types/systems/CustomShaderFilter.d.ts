@@ -25,4 +25,3 @@ export declare class CustomShaderFilter extends Filter {
 export declare function createCustomShaderFilter(
   options: CustomShaderOptions,
 ): CustomShaderFilter;
-//# sourceMappingURL=CustomShaderFilter.d.ts.map

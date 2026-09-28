@@ -45,4 +45,3 @@ export declare class MemoryStorageAdapter implements StorageAdapter {
   delete(key: string): Promise<void>;
   listKeys(prefix: string): Promise<string[]>;
 }
-//# sourceMappingURL=StorageAdapter.d.ts.map

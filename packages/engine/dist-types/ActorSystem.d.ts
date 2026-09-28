@@ -24,4 +24,3 @@ export declare class ActorSystem {
   destroy(): void;
   get size(): number;
 }
-//# sourceMappingURL=ActorSystem.d.ts.map

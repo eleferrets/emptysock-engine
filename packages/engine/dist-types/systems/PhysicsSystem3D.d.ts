@@ -134,4 +134,3 @@ export declare class PhysicsSystem3D {
   get isInitialized(): boolean;
 }
 export {};
-//# sourceMappingURL=PhysicsSystem3D.d.ts.map

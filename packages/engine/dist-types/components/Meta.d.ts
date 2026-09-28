@@ -30,4 +30,3 @@ export declare const Meta: import("../Component.js").ComponentDef<{
   solid: boolean;
 }>;
 export type MetaShape = ReturnType<typeof Meta.createDefaults>;
-//# sourceMappingURL=Meta.d.ts.map

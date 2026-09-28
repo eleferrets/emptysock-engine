@@ -50,4 +50,3 @@ export declare function getGmlBehavior(
   behaviorId: string,
 ): GmlBehaviorModule | undefined;
 export declare function unregisterGmlBehavior(behaviorId: string): void;
-//# sourceMappingURL=GmlBehavior.d.ts.map

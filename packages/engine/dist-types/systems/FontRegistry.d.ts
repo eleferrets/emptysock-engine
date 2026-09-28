@@ -36,4 +36,3 @@ export declare class FontRegistry {
   /** Clears every registered font — mainly for test isolation between `Game` instances. */
   clear(): void;
 }
-//# sourceMappingURL=FontRegistry.d.ts.map

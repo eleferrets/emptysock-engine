@@ -186,4 +186,3 @@ export declare class PostProcessSystem {
   clear(): void;
   destroy(): void;
 }
-//# sourceMappingURL=PostProcessSystem.d.ts.map

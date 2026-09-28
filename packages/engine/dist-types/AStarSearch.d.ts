@@ -49,4 +49,3 @@ export interface AStarSearchResult<TNode> {
 export declare function AStarSearch<TNode>(
   options: AStarSearchOptions<TNode>,
 ): AStarSearchResult<TNode>;
-//# sourceMappingURL=AStarSearch.d.ts.map

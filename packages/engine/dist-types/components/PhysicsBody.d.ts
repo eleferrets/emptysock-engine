@@ -103,4 +103,3 @@ export declare function getPhysicsBody(
   entity: Entity,
 ): PhysicsBodyHandle | undefined;
 export {};
-//# sourceMappingURL=PhysicsBody.d.ts.map

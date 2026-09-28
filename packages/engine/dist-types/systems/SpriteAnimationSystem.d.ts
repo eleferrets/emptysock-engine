@@ -24,4 +24,3 @@ import type { Scene } from "../Scene.js";
 export declare class SpriteAnimationSystem {
   update(scene: Scene): void;
 }
-//# sourceMappingURL=SpriteAnimationSystem.d.ts.map

@@ -151,6 +151,8 @@ describe("buildObjectPrefabJSON — seeds frameCount/frameSpeed for a multi-fram
       texturePath: "./assets/sprites/spr_dad_walk/frame_{n}.png",
       frameCount: 5,
       frameSpeed: 10,
+      width: 16,
+      height: 16,
     });
   });
 
@@ -171,6 +173,8 @@ describe("buildObjectPrefabJSON — seeds frameCount/frameSpeed for a multi-fram
     const spriteComp = prefab.components.find((c) => c.component === "Sprite");
     expect(spriteComp?.overrides).toEqual({
       texturePath: "./assets/sprites/spr_crate/frame_0.png",
+      width: 16,
+      height: 16,
     });
   });
 });

@@ -19,4 +19,3 @@ export declare function getOrCreateMapEntry<K, V>(
   key: K,
   create: () => V,
 ): V;
-//# sourceMappingURL=scoped.d.ts.map

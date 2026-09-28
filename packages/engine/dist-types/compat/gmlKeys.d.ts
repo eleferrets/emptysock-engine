@@ -35,4 +35,3 @@ export declare function vkToDomCode(code: number): string | undefined;
  * no `vkToDomCode` translation anyway and is never polled.
  */
 export declare const KNOWN_VK_CODES: readonly number[];
-//# sourceMappingURL=gmlKeys.d.ts.map

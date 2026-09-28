@@ -11,4 +11,3 @@ export declare const Transform: import("../Component.js").ComponentDef<{
   scaleX: number;
   scaleY: number;
 }>;
-//# sourceMappingURL=Transform.d.ts.map

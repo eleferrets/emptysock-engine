@@ -260,4 +260,3 @@ export declare function mouse_check_button_pressed(
   ctx: GmlInputContext,
   button: number,
 ): boolean;
-//# sourceMappingURL=gmlInput.d.ts.map

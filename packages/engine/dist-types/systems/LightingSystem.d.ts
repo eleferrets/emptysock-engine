@@ -111,4 +111,3 @@ export declare class LightingSystem {
    */
   private _computeVisibility;
 }
-//# sourceMappingURL=LightingSystem.d.ts.map

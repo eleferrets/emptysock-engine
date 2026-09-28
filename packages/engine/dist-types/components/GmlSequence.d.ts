@@ -68,4 +68,3 @@ export declare function getGmlSequence(
   sequenceId: string,
 ): GmlSequenceData | undefined;
 export declare function unregisterGmlSequence(sequenceId: string): void;
-//# sourceMappingURL=GmlSequence.d.ts.map

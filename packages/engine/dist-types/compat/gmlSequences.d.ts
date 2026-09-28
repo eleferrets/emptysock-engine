@@ -34,4 +34,3 @@ export declare function layer_sequence_create(
   y: number,
   sequence: string,
 ): Entity | undefined;
-//# sourceMappingURL=gmlSequences.d.ts.map

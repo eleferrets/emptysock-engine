@@ -56,4 +56,3 @@ export declare class LayerSystem {
   getLayersSorted(): LayerConfig[];
   destroy(): void;
 }
-//# sourceMappingURL=LayerSystem.d.ts.map

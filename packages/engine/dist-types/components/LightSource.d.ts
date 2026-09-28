@@ -48,4 +48,3 @@ export declare const LightSource: import("../Component.js").ComponentDef<{
   /** Cone direction in degrees, `0` pointing along +X, increasing clockwise (screen-space convention, matching `Transform.rotation`'s degrees-vs-radians sibling fields elsewhere in this codebase). Only matters when `coneAngle < 360`. */
   coneDirection: number;
 }>;
-//# sourceMappingURL=LightSource.d.ts.map

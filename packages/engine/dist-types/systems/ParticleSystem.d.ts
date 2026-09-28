@@ -129,4 +129,3 @@ export declare class ParticleSystem {
   destroy(): void;
 }
 export {};
-//# sourceMappingURL=ParticleSystem.d.ts.map

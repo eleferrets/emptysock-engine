@@ -40,4 +40,3 @@ export declare function resolveAnchoredPosition(
   containerWidth: number,
   containerHeight: number,
 ): AnchoredPosition;
-//# sourceMappingURL=Anchor.d.ts.map

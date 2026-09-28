@@ -102,4 +102,3 @@ export declare class Scene {
   hasAll(entity: Entity, ...defs: ComponentDef[]): boolean;
 }
 export {};
-//# sourceMappingURL=Scene.d.ts.map
