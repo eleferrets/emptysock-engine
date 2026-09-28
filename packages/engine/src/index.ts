@@ -73,7 +73,11 @@ export type {
   SequenceTrackDef,
 } from "./systems/SequenceSystem.js";
 export { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
-export { ParticleEmitter } from "./systems/ParticleSystem.js";
+export {
+  ParticleEmitter,
+  rainParticlePreset,
+} from "./systems/ParticleSystem.js";
+export type { RainPresetOptions } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
   EmitterShape,

@@ -875,3 +875,7 @@ Rules:
 - Never use the personality to bury useful information. The quip sits _beneath_ the functional hint, or replaces a purely generic message. If there's a real action to communicate, say it plainly first.
 - No exclamation marks in quips. No emoji unless it's a single, well-chosen one in a serious context (e.g., a skull ☠ on a crash panel).
 - Keep every quip under 60 characters so it fits on one line at panel width.
+
+### Rain: `RainGlassFilter` (single-pass lens droplets with fading trails) and `rainParticlePreset`
+
+`RainGlassFilter`'s fragment shader (exported as `RAIN_GLASS_FRAGMENT` so tests can assert on it) is one pass with no loops: two hashed droplet grids, refraction via a procedural fake normal, and a fading vertical trail behind the falling grid's drops (drops drift down-screen; the trail sits above). `rainParticlePreset({ width, density, wind })` returns `ParticleEmitterOptions` for world-space rain (line emitter above the view). Not physically-based; no drop merging.

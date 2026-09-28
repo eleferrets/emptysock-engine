@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createRainGlassFilter,
   RainGlassFilter,
+  RAIN_GLASS_FRAGMENT,
 } from "../systems/RainGlassFilter.js";
 
 describe("RainGlassFilter", () => {
@@ -83,5 +84,12 @@ describe("RainGlassFilter", () => {
     expect(filter.glProgram.fragment).toContain("uTexture");
     expect(filter.glProgram.fragment).toContain("uDropletSize");
     expect(filter.glProgram.fragment).toContain("uStreakAmount");
+  });
+});
+
+describe("RainGlassFilter shader", () => {
+  it("is single-pass and has a droplet trail term", () => {
+    expect(RAIN_GLASS_FRAGMENT).toContain("float trail");
+    expect(RAIN_GLASS_FRAGMENT).not.toMatch(/for\s*\(/);
   });
 });

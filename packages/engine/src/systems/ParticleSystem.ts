@@ -360,3 +360,46 @@ export class ParticleSystem {
     this.clear();
   }
 }
+
+// ─── Presets ─────────────────────────────────────────────────────────────────
+
+export interface RainPresetOptions {
+  /** Width of the emission strip (usually the viewport width). Default 800. */
+  width?: number;
+  /** Rain density, drops per second. Default 300. */
+  density?: number;
+  /** Wind push in px/s² (positive = right). Default 0. */
+  wind?: number;
+  /** Texture id for the streak sprite. Default "" (renderer falls back to white). */
+  texture?: string;
+}
+
+/**
+ * Ready-made rain `ParticleEmitterOptions`: a line emitter across the top of
+ * the screen firing fast, slightly tilted, short-lived, low-alpha drops.
+ * Position the emitter just above the top edge of the view.
+ */
+export function rainParticlePreset(
+  opts: RainPresetOptions = {},
+): ParticleEmitterOptions {
+  const wind = opts.wind ?? 0;
+  return {
+    texture: opts.texture ?? "",
+    shape: "line",
+    shapeWidth: opts.width ?? 800,
+    emissionRate: opts.density ?? 300,
+    lifetime: { min: 0.6, max: 0.9 },
+    velocity: {
+      x: { min: wind * 0.05 - 20, max: wind * 0.05 + 20 },
+      y: { min: 700, max: 950 },
+    },
+    acceleration: { x: wind, y: 0 },
+    startScale: 0.6,
+    endScale: 0.5,
+    startAlpha: 0.55,
+    endAlpha: 0.25,
+    colorGradient: [0xcfe3ff, 0x9fc0e8],
+    maxParticles: 1200,
+    blendMode: "normal",
+  };
+}

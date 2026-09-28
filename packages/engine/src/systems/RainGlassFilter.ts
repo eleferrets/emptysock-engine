@@ -59,8 +59,8 @@ const RAIN_GLASS_VERTEX = /* glsl */ `
   }
 `;
 
-const RAIN_GLASS_FRAGMENT = /* glsl */ `
-  precision mediump float;
+export const RAIN_GLASS_FRAGMENT = /* glsl */ `
+  precision highp float;
   in vec2 vUV;
   out vec4 finalColor;
 
@@ -85,7 +85,7 @@ const RAIN_GLASS_FRAGMENT = /* glsl */ `
   // blends between so they don't visually line up.
   vec3 dropLayer(vec2 uv, float cellSize, float fallSpeed, float seed) {
     vec2 aspectUv = uv * uResolution / min(uResolution.x, uResolution.y);
-    aspectUv.y += uTime * fallSpeed;
+    aspectUv.y -= uTime * fallSpeed; // features drift toward +y (down the screen)
 
     vec2 cell = floor(aspectUv / cellSize);
     vec2 local = fract(aspectUv / cellSize) - 0.5;
@@ -99,7 +99,18 @@ const RAIN_GLASS_FRAGMENT = /* glsl */ `
     float drop = smoothstep(radius, radius * 0.4, d);
 
     vec2 normal = (local - centre) / max(radius, 0.001);
-    return vec3(normal * drop, drop);
+
+    // Trail: a thin, fading wet streak above a falling drop (only when the
+    // layer actually falls), narrower than the drop and shrinking upward.
+    float trail = 0.0;
+    if (fallSpeed > 0.0) {
+      float above = centre.y - local.y; // >0 above the drop
+      float along = smoothstep(0.0, 0.5, above) * (1.0 - smoothstep(0.5, 0.5 + 0.5 * rnd, above));
+      float width = radius * 0.25 * (1.0 - clamp(above, 0.0, 1.0) * 0.6);
+      trail = along * smoothstep(width, width * 0.3, abs(local.x - centre.x)) * 0.6;
+    }
+    float m = max(drop, trail);
+    return vec3(normal * drop + vec2(0.0, -0.3) * trail, m);
   }
 
   void main() {
@@ -167,10 +178,7 @@ export class RainGlassFilter extends Filter {
   }
 
   private get _u(): Record<string, { value: unknown }> {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- resources["uniforms"] is always set by the constructor above
-    return (
-      (this.resources["uniforms"] as Record<string, { value: unknown }>) ?? {}
-    );
+    return this.resources["uniforms"] as Record<string, { value: unknown }>;
   }
 
   private _set(name: string, value: unknown): void {
