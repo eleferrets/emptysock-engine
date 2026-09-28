@@ -277,8 +277,17 @@ describe("buildObjectBehavior: cross-event implicit instance variable persistenc
       expect(behavior).toContain(
         "export function onCollideWithObjBullet(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {",
       );
-      expect(behavior).toContain("_other.damage");
-      expect(behavior).toContain("_other.object_index");
+      // `other` -> `_other` is real, and a further pass now routes a
+      // dotted `_other.<field>` read through the real getGmlRefVar
+      // side-table (see CLAUDE.md's "GML local-variable-held instance
+      // references" / `_other` entry) rather than leaving a bare,
+      // type-broken property access on a real `Entity` object.
+      expect(behavior).toContain(
+        'GmlActions.getGmlRefVar(_entity, _ctx, "_other", "damage")',
+      );
+      expect(behavior).toContain(
+        'GmlActions.getGmlRefVar(_entity, _ctx, "_other", "object_index")',
+      );
       expect(behavior).not.toMatch(/[^_.\w]other\b/);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });

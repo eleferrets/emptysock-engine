@@ -2306,6 +2306,27 @@ describe("transpileGML — GML local-variable-held instance references", () => {
     expect(out).not.toContain("getGmlRefVar");
     setGmlObjectNames(new Set());
   });
+
+  // `_other` — a collision handler's real `_other: Entity` parameter, or a
+  // with-block's `const _other = _withCaller;` rescoping — is always a
+  // genuine live Entity wherever it appears, so a dotted read/write on it
+  // routes through the same getGmlRefVar/setGmlRefVar mechanism as any
+  // other local-variable-held Entity reference, closing the previously-
+  // untouched `other.image_angle`/`other.hp`-style dotted access gap (see
+  // CLAUDE.md).
+  it("rewrites a dotted read on _other inside a collision handler", () => {
+    const out = transpileGML("hp -= other.damage;", [], new Set(), true);
+    expect(out).toContain(
+      'GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, "_other", "damage"))',
+    );
+  });
+
+  it("rewrites a dotted assignment on _other inside a with-block", () => {
+    const out = transpileGML("with (obj_enemy) { other.hp = 5; }");
+    expect(out).toContain(
+      'GmlActions.setGmlRefVar(_entity, _ctx, "_other", "hp", 5);',
+    );
+  });
 });
 
 describe("transpileGML — bare asset-name identifiers used as plain values", () => {

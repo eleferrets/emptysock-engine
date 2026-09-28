@@ -4717,8 +4717,39 @@ export function transpileGML(
   // can't also be a local variable identifier in valid GML), but excluded
   // here defensively regardless, since misidentifying one as the other
   // would rewrite through the wrong compat function entirely.
+  // `_other` — GameMaker's real collision-event/with-block "the other
+  // instance" reference — is always a genuine, live `Entity` whenever it
+  // appears in generated output: `gms2-codegen.ts` gives every
+  // `onCollideWith<Other>` a real `_other: Entity` parameter, and the
+  // with-block rescoping pass above always binds `const _other =
+  // _withCaller;` before running the with-body. A dotted access on it
+  // (`other.image_angle`, `other.hp`, `other.size`, `other.direction`, …
+  // — real, confirmed occurrences: `obj_Egun`/`obj_gun`'s
+  // `_other.image_angle`, `obj_bullet`/`obj_enemy`'s `_other.hitfrom`/
+  // `_other.size`) was previously left as a bare, untouched property
+  // access on a real `Entity` object — valid JS/TS (an `Entity` has no
+  // such property, so this is a real `TS2339`), but wrong at runtime: it
+  // reads/writes a stray own-property on the `Entity` instance itself,
+  // completely disconnected from the real per-`(World, eid)`
+  // `getGmlVar`/`setGmlVar` side-table every other reference to that same
+  // field (a same-instance bare read, a `getGmlObjectVar` cross-instance
+  // reference) actually uses. This is exactly the same class of problem
+  // `localRefNames` already solves for a local-variable-held Entity
+  // reference (`my_gun.hp`, `owner.x`) — `_other` just needs no
+  // same-function/cross-file detection step, since it's *always* real
+  // wherever it appears, unlike an arbitrary local variable that might
+  // hold anything. Routed through the same `getGmlRefVar`/`setGmlRefVar`
+  // mechanism (x/y specially handled via real `Transform` fields, every
+  // other field through the generic side-table) — the same narrower,
+  // named limitation the cross-instance-references entry in CLAUDE.md
+  // already documents for a field this engine represents as a dedicated
+  // component (`sprite_index`/`image_*`/`depth`) rather than a generic
+  // instance variable: a cross-instance write to one of those still goes
+  // through the generic store, not the real `Sprite`/`Transform` field,
+  // same as `getGmlObjectVar`/`getGmlRefVar` already accept for every
+  // other dotted-reference shape.
   const localRefNames = new Set(
-    [...localEntityRefs, ..._crossFileEntityRefFields].filter(
+    [...localEntityRefs, ..._crossFileEntityRefFields, "_other"].filter(
       (n) => !_objectNames.has(n),
     ),
   );
