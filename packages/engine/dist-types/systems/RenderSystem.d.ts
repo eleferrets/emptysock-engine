@@ -120,6 +120,15 @@ export declare class RenderSystem {
    */
   syncLayerVisibility(): void;
   /**
+   * Synchronise layer container position from `LayerSystem.getOffset()` —
+   * the real render-side half of GameMaker's `layer_x`/`layer_y` compat
+   * functions (`compat/gmlLayer.ts`). A layer with no offset ever set reads
+   * `{ x: 0, y: 0 }` (`LayerSystem.getOffset()`'s own default), so an
+   * offset-free scene renders byte-identical to before this existed. Call
+   * once per frame alongside `syncLayerVisibility()`.
+   */
+  syncLayerOffsets(): void;
+  /**
    * Attach a custom shader filter (e.g. from `createCustomShaderFilter()`)
    * to a layer's container. This is the real counterpart to the ShaderEditor
    * IDE panel's live preview — the same Filter instance a shader authored

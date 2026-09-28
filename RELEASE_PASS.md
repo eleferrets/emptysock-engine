@@ -1214,6 +1214,19 @@ Traced the smoke test's own documented "`obj_player.x` never moves" finding to c
 
 ---
 
+## 2026-09-28 (cont.): sweep triage — case/default and multi-statement-brace statement-boundary bugs, layer\_\* compat, id/noone/room built-ins
+
+- [x] Verified dist-types drift risk: rebuilt via `npm run build:types`, real diff was formatting-only (prettier), no content drift this time.
+- [x] Fixed two real statement-boundary bugs in the shared `GML_STATEMENT_PREFIX` (factored out of three near-duplicate regexes): `case`/`default` inline labels, multi-statement brace bodies (`{ a; b; }`).
+- [x] New `compat/gmlLayer.ts`: `layer_exists`/`layer_get_id`/`layer_x`/`layer_y`/`layer_get_x`/`layer_get_y`/`layer_force_draw_depth`/`layer_add_instance`/`layer_sprite_get_id`/`layer_sprite_destroy`, bare `layer`. `LayerSystem` gained `hasLayer`/`setOffset`/`getOffset`; `RenderSystem.syncLayerOffsets()` real per-frame wiring. `LayerSystem`/`LAYER` now exported from index.ts (previously missing).
+- [x] `id` bare built-in -> `_entity`. `noone` bare value -> `undefined` (ordered after the pre-existing object-arg quoting pass). `shader_set`/`shader_reset` honest white-flash approximation. `room_goto_next`/`room_restart`/`room_last`/`previous_room`/`room_speed` real. `sprite_width`/`sprite_height` real; `sprite_get_width`/`_height`/`sprite_exists` honest `0`/`false` gap (no asset registry).
+- [x] Found and fixed a real regression from the `previous_room` bare-read rewrite (`obj_player_stats` shadows it with a plain instance var) via the playability smoke test's real module-load check, not tsc.
+- Sweep: 339 -> 288 error lines. Full suites green: engine 640/640, toolchain 410/410 (playability smoke test included, no regression).
+- CLAUDE.md updated. dist-types rebuilt + prettier-formatted.
+- Remaining top categories, deferred with reasons documented in CLAUDE.md: local-variable-held instance references (`owner.x`), several low-frequency (1-4 occurrence) built-ins not yet triaged (json*encode/decode, base64*\*, draw_text_ext, etc.).
+
+---
+
 ## Starting the next pass
 
 Read this whole file before writing any code or launching a sub-agent. Create a new branch from `main` in each repo (`emptysock-engine`, `emptysock-ai-skills`, `emptysock-mcp`) at the start. Track 0 is sequential and blocks everything — do it first, in one session, before parallelizing Tracks 1–6.

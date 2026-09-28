@@ -146,6 +146,7 @@ export class GmsProjectRuntime {
   private readonly _timelines = new TimelineSystem();
   private readonly _sequences = new GmlSequenceSystem();
   private _currentRoom: string | undefined;
+  private _previousRoom: string | undefined;
   /**
    * Previous frame's down/up state for every vk code `dispatchKeyTransitions`
    * polls — keyboard state is genuinely global (one physical keyboard, not
@@ -204,12 +205,18 @@ export class GmsProjectRuntime {
       ...(this._currentRoom !== undefined
         ? { currentRoom: this._currentRoom }
         : {}),
+      ...(this._previousRoom !== undefined
+        ? { previousRoom: this._previousRoom }
+        : {}),
       ...(this.data.sounds !== undefined ? { sounds: this.data.sounds } : {}),
       ...(this.options.camera !== undefined
         ? { camera: this.options.camera }
         : {}),
       ...(this.options.renderer !== undefined
-        ? { particles: this.options.renderer }
+        ? {
+            particles: this.options.renderer,
+            layers: this.options.renderer.layers,
+          }
         : {}),
     };
   }
@@ -238,6 +245,14 @@ export class GmsProjectRuntime {
     }
     return defineScene({
       onLoad: (scene) => {
+        // GameMaker's real `previous_room` built-in — the room loaded
+        // immediately before this one, real usage: `scr_save_game.gml`'s
+        // `save_data[? "room"] = previous_room;`. Captured *before*
+        // `_currentRoom` is overwritten, so it reads correctly even on the
+        // very first room load (`undefined` — GameMaker's own real "no
+        // previous room" case, honestly represented rather than a
+        // fabricated sentinel room name).
+        this._previousRoom = this._currentRoom;
         this._currentRoom = name;
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
           onSpawned: (entity) => {

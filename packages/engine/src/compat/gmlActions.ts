@@ -29,6 +29,7 @@ import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 import type { GmlDrawTarget } from "./gml.js";
 import { resolveGmlObjectType } from "../systems/GmlCollision.js";
 import { stampPrefabNameOntoMeta } from "../SceneFile.js";
+import type { LayerSystem } from "../systems/LayerSystem.js";
 
 // ---------------------------------------------------------------------------
 // Context — the one thing every generated action call needs threaded to it
@@ -66,6 +67,8 @@ export interface GmlActionContext {
   readonly roomOrder?: readonly string[];
   /** The GameMaker room name currently loaded — needed to resolve `action_next_room`'s "next" relative to "current". */
   readonly currentRoom?: string;
+  /** GameMaker's `previous_room` bare read — the room loaded immediately before this one, or absent if this is the first room loaded this session. Populated by `GmsProjectRuntime` on every room load; a caller building its own `GmlActionContext` by hand can leave this unset. */
+  readonly previousRoom?: string;
   /** GameMaker object name -> a registered prefab, for `action_create_object`/`instance_create`. */
   readonly prefabs?: Readonly<Record<string, PrefabDef>>;
   /** Optional sound-asset-id lookup for `action_sound` (GameMaker sound name -> an id playable via `ctx.game.audio.play(id)`). See `action_sound`'s doc comment for the current limits of this. */
@@ -82,6 +85,15 @@ export interface GmlActionContext {
    * a safe, honest no-op rather than throwing.
    */
   readonly drawTarget?: GmlDrawTarget;
+  /**
+   * The live `LayerSystem` this scene renders through, for GameMaker's
+   * `layer_*` room-layer compat functions (`compat/gmlLayer.ts`). Optional —
+   * a project that never calls `layer_x`/`layer_exists`/etc. doesn't need to
+   * wire this; every function in `gmlLayer.ts` is an honest no-op/`false`
+   * without it, the same "no live instance to even ask" convention
+   * `QueryChannel`'s `no-live-instance` already establishes.
+   */
+  readonly layers?: LayerSystem;
 }
 
 // ---------------------------------------------------------------------------
@@ -542,6 +554,68 @@ export function room_goto(
   action_another_room(entity, ctx, roomName);
 }
 
+/** `room_goto_next()` — GML's function-call spelling of GM8.1's "Next Room" DnD action. A plain alias, the same `room_goto`/`action_another_room` relationship above. */
+export function room_goto_next(entity: Entity, ctx: GmlActionContext): void {
+  action_next_room(entity, ctx);
+}
+
+/**
+ * `room_restart()` — reloads the currently loaded room from scratch (a real,
+ * common GameMaker idiom for a "retry level"/player-death reset). Requires
+ * the same `ctx.game`/`ctx.rooms`/`ctx.currentRoom` wiring `room_goto`/
+ * `action_next_room` already need; honestly warns and no-ops without it.
+ */
+export function room_restart(entity: Entity, ctx: GmlActionContext): void {
+  if (ctx.currentRoom === undefined) {
+    warnMissingRoomWiring("room_restart");
+    return;
+  }
+  action_another_room(entity, ctx, ctx.currentRoom);
+}
+
+/**
+ * `room_last` — GameMaker's real function returns the numeric asset index
+ * of the *last* room in the project's room order. This importer addresses
+ * rooms by name, not index (see `room_exists`'s own doc comment), so this
+ * returns the last room's *name* from `ctx.roomOrder` instead — `""` when
+ * `ctx.roomOrder` wasn't wired or is empty, an honest "no rooms known"
+ * answer rather than a fabricated one.
+ */
+export function room_last(ctx: GmlActionContext): string {
+  const order = ctx.roomOrder;
+  if (order === undefined || order.length === 0) return "";
+  return order[order.length - 1] ?? "";
+}
+
+/**
+ * `previous_room` — the room loaded immediately before the current one, or
+ * `""` if this is the first room loaded this session (GameMaker's own real
+ * behaviour: `previous_room` reads as a real, if meaningless, value even on
+ * a project's very first room — there's no numeric "none" sentinel to
+ * fabricate here, so an empty string is the honest "no previous room"
+ * answer, the same choice `room`'s own bare read already makes for an unset
+ * `ctx.currentRoom`). See `GmlActionContext.previousRoom`'s own doc comment
+ * for how this gets populated.
+ */
+export function previous_room(ctx: GmlActionContext): string {
+  return ctx.previousRoom ?? "";
+}
+
+/**
+ * `room_speed` — GameMaker's real per-room "Speed" setting (steps per
+ * second). This importer has no per-room speed field anywhere in its
+ * generated `.scene.json` (GMS2 rooms don't carry one at all — room speed
+ * is a *project*-wide setting in modern GameMaker, confirmed against
+ * manual.gamemaker.io's Room Speed reference page), so this returns the
+ * same honestly-documented assumed value (`ASSUMED_STEPS_PER_SECOND`,
+ * `gms2-sprite-import.ts`'s own real 60-steps/second assumption for
+ * `playbackSpeedType: 0` sprite frame-rate conversion) rather than
+ * fabricating a per-room number this importer has no way to know.
+ */
+export function room_speed(_ctx: GmlActionContext): number {
+  return 60;
+}
+
 // ---------------------------------------------------------------------------
 // Instances: action_create_object / instance_create / action_kill_object
 // ---------------------------------------------------------------------------
@@ -991,6 +1065,76 @@ export function bbox_bottom(entity: Entity): number {
   return t.y + spriteHalfExtents(entity).y;
 }
 
+/**
+ * `sprite_width`/`sprite_height` — the calling instance's own current
+ * on-screen sprite dimensions, GameMaker's real semantic scaled by
+ * `image_xscale`/`image_yscale` (unlike `sprite_get_width`/`_height`,
+ * which read an *asset's* raw, unscaled size — see those functions' own
+ * doc comment for why they're a real, separate, honest gap). Derived from
+ * the entity's own `Sprite.width`/`.height` (real per-sprite dimensions,
+ * see `spriteHalfExtents()`'s own doc comment) times `Transform.scaleX`/
+ * `.scaleY` (where `image_xscale`/`image_yscale` actually live on this
+ * engine — see CLAUDE.md's "GMS2 rendering built-ins" entry). `0` for an
+ * entity with no `Sprite`/`Transform`, the same honest "nothing to derive
+ * a size from" default `bbox_*` already uses.
+ */
+export function sprite_width(entity: Entity): number {
+  const sprite = entity.get(Sprite);
+  const t = entity.get(Transform);
+  if (sprite === undefined || t === undefined) return 0;
+  return sprite.width * t.scaleX;
+}
+
+/** See `sprite_width`'s doc comment. */
+export function sprite_height(entity: Entity): number {
+  const sprite = entity.get(Sprite);
+  const t = entity.get(Transform);
+  if (sprite === undefined || t === undefined) return 0;
+  return sprite.height * t.scaleY;
+}
+
+/**
+ * `sprite_get_width`/`sprite_get_height`/`sprite_exists` — GameMaker's real
+ * functions look up an *arbitrary* sprite asset's raw dimensions/existence
+ * by reference, not necessarily the calling instance's own sprite (real,
+ * confirmed usage: `oTextbox`'s `sprite_get_width(_image)`, where `_image`
+ * is a runtime variable that could hold any sprite). This compat layer has
+ * no general sprite-asset registry reachable from `compat/` at all — a
+ * sprite's real pixel dimensions are only ever known once baked as
+ * overrides onto one specific entity's own `Sprite` component at import
+ * time (`gms2-codegen.ts`'s `buildObjectPrefabJSON`), not stored anywhere
+ * addressable by sprite name/reference alone. Building a real registry
+ * would need a genuinely new import-time asset-manifest feature, not a
+ * same-file compat function — an honest, named, deeper gap, not a same-
+ * shape fix like `sprite_width`/`sprite_height` above. These three
+ * therefore honestly return `0`/`0`/`false` (never throw) rather than
+ * fabricating a plausible-looking number, matching this codebase's
+ * established "no live registry to even ask" convention
+ * (`layer_sprite_get_id`'s identical honest-gap doc comment).
+ */
+export function sprite_get_width(
+  _ctx: GmlActionContext,
+  _sprite: unknown,
+): number {
+  return 0;
+}
+
+/** See `sprite_get_width`'s doc comment. */
+export function sprite_get_height(
+  _ctx: GmlActionContext,
+  _sprite: unknown,
+): number {
+  return 0;
+}
+
+/** See `sprite_get_width`'s doc comment. */
+export function sprite_exists(
+  _ctx: GmlActionContext,
+  _sprite: unknown,
+): boolean {
+  return false;
+}
+
 /** GM8.1 "Check Grid" — true if the entity's position is aligned to the given grid size. */
 export function action_if_aligned(
   entity: Entity,
@@ -1119,4 +1263,59 @@ export function _getGmlMotion(
 ): { vx: number; vy: number } | undefined {
   const motion = motionByWorld.get(entity.world)?.get(entity.eid);
   return motion === undefined ? undefined : { vx: motion.vx, vy: motion.vy };
+}
+
+// ---------------------------------------------------------------------------
+// shader_set / shader_reset — an honest, documented approximation
+// ---------------------------------------------------------------------------
+
+/** Per-`(World, eid)` tint saved by `shader_set` so `shader_reset` can restore it — the same "component holds the derived result, a side-table holds the mutable in-flight state" split `PhysicsBody`'s callbacks/`VisualScriptState`'s evaluation scope already use. */
+const shaderTintByWorld = new WeakMap<World, Map<number, number>>();
+
+/**
+ * `shader_set(shader)`/`shader_reset()` — GameMaker's real per-draw-call
+ * shader-swap API. This importer has no shader compiler at all (GLSL
+ * source lives in a project's `shaders/` resource directory, entirely
+ * unparsed by anything in this codebase), so a genuine per-shader effect is
+ * out of scope — but the single overwhelmingly common real use of this API
+ * in a 2D game (confirmed: the one real call site in Freedom Backup,
+ * `obj_pShootable`'s `shader_set(sh_white); ...; shader_reset();`) is a
+ * hit-flash effect: render the sprite as a solid white silhouette for one
+ * draw call. `shader_set` honestly approximates exactly that one case —
+ * regardless of which shader name is actually passed (a real custom
+ * shader's real visual effect is unrepresentable without compiling GLSL,
+ * which is a materially deeper, separate feature) — by tinting the calling
+ * entity's own `Sprite.tint` white for the duration of the draw call and
+ * restoring its prior tint on `shader_reset()`. This is a real, visible,
+ * useful effect for the actual real project this was built against, not a
+ * silent no-op — but it is genuinely not a real shader system, and a
+ * project relying on a different custom shader's real visual output will
+ * see the same white-flash approximation instead. `shader_reset()` with no
+ * matching prior `shader_set()` call (or on an entity with no `Sprite`) is
+ * a safe, honest no-op.
+ */
+export function shader_set(
+  entity: Entity,
+  _ctx: GmlActionContext,
+  _shaderName: string,
+): void {
+  const sprite = entity.get(Sprite);
+  if (sprite === undefined) return;
+  const byEntity = getOrCreate(
+    shaderTintByWorld,
+    entity.world,
+    () => new Map(),
+  );
+  if (!byEntity.has(entity.eid)) byEntity.set(entity.eid, sprite.tint);
+  sprite.tint = 0xffffff;
+}
+
+/** See `shader_set`'s doc comment. */
+export function shader_reset(entity: Entity, _ctx: GmlActionContext): void {
+  const byEntity = shaderTintByWorld.get(entity.world);
+  const original = byEntity?.get(entity.eid);
+  if (original === undefined) return;
+  const sprite = entity.get(Sprite);
+  if (sprite !== undefined) sprite.tint = original;
+  byEntity?.delete(entity.eid);
 }

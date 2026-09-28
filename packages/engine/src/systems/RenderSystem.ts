@@ -313,6 +313,23 @@ export class RenderSystem {
   }
 
   /**
+   * Synchronise layer container position from `LayerSystem.getOffset()` —
+   * the real render-side half of GameMaker's `layer_x`/`layer_y` compat
+   * functions (`compat/gmlLayer.ts`). A layer with no offset ever set reads
+   * `{ x: 0, y: 0 }` (`LayerSystem.getOffset()`'s own default), so an
+   * offset-free scene renders byte-identical to before this existed. Call
+   * once per frame alongside `syncLayerVisibility()`.
+   */
+  syncLayerOffsets(): void {
+    if (!this._layerSystem) return;
+    for (const [name, container] of this._layerContainers) {
+      const offset = this._layerSystem.getOffset(name);
+      container.x = offset.x;
+      container.y = offset.y;
+    }
+  }
+
+  /**
    * Attach a custom shader filter (e.g. from `createCustomShaderFilter()`)
    * to a layer's container. This is the real counterpart to the ShaderEditor
    * IDE panel's live preview — the same Filter instance a shader authored
@@ -723,6 +740,7 @@ export class RenderSystem {
   renderMultiCamera(viewports: readonly CameraViewport[]): void {
     if (this._renderer === null || this._stage === null) return;
     this.syncLayerVisibility();
+    this.syncLayerOffsets();
 
     // Preserve whatever CameraSystem.update() last wrote to `_stage` so this
     // opt-in path can never leak into the ordinary single-camera render().
@@ -825,6 +843,7 @@ export class RenderSystem {
     if (this._renderer === null || this._root === null) return;
     // Sync visibility each frame so setVisible() changes are reflected.
     this.syncLayerVisibility();
+    this.syncLayerOffsets();
     this._renderer.render(this._root);
   }
 

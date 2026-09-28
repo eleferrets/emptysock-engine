@@ -209,6 +209,48 @@ export function string_repeat(str: string, count: number): string {
   return str.repeat(count);
 }
 
+/**
+ * `string_width`/`string_height` — GameMaker's real functions measure the
+ * pixel dimensions `str` would render at using the *currently-set* draw
+ * font, via GameMaker's own font-rendering engine. This engine has no font-
+ * metrics API reachable from `compat/` at all — real glyph measurement
+ * lives inside PixiJS's `Text`/`CanvasTextMetrics`, which only `RenderPipeline`
+ * (a pixi-wrapping file, outside the engine-environment boundary these
+ * `compat/` files must stay inside) can touch, and even that is only live
+ * during an actual `onDraw`/`onDrawGui` dispatch (`ctx.drawTarget`) — real,
+ * confirmed usage (`obj_text/Step_0.gml`'s `h = string_height(text);`) calls
+ * this from *outside* a draw dispatch entirely, where no live drawing
+ * surface exists to measure against at all.
+ *
+ * Both functions honestly approximate instead of returning `0`/throwing: a
+ * fixed average-glyph-width/line-height ratio against `GML_APPROX_FONT_SIZE`
+ * (GameMaker's own default font size when nothing else is known) — close
+ * enough for the actual real use this project makes of them (padding/layout
+ * math around a text box, never pixel-perfect glyph placement), but a real,
+ * honest approximation, not a measurement — a project relying on precise
+ * text metrics for a specific custom font will see a different real number
+ * than GameMaker's own renderer would report.
+ */
+const GML_APPROX_FONT_SIZE = 16;
+const GML_APPROX_CHAR_WIDTH_RATIO = 0.55;
+const GML_APPROX_LINE_HEIGHT_RATIO = 1.2;
+
+export function string_width(str: string): number {
+  const longestLine = str
+    .split("\n")
+    .reduce((max, line) => Math.max(max, line.length), 0);
+  return Math.round(
+    longestLine * GML_APPROX_FONT_SIZE * GML_APPROX_CHAR_WIDTH_RATIO,
+  );
+}
+
+export function string_height(str: string): number {
+  const lineCount = Math.max(1, str.split("\n").length);
+  return Math.round(
+    lineCount * GML_APPROX_FONT_SIZE * GML_APPROX_LINE_HEIGHT_RATIO,
+  );
+}
+
 /** GML string_delete(str, index, count) — 1-based index */
 export function string_delete(
   str: string,

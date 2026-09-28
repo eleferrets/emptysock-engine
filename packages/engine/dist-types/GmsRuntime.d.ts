@@ -128,6 +128,7 @@ export declare class GmsProjectRuntime {
   private readonly _timelines;
   private readonly _sequences;
   private _currentRoom;
+  private _previousRoom;
   /**
    * Previous frame's down/up state for every vk code `dispatchKeyTransitions`
    * polls — keyboard state is genuinely global (one physical keyboard, not

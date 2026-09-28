@@ -177,6 +177,8 @@ export { UISystem } from "./ui/UISystem.js";
 export { resolveAnchoredPosition } from "./ui/Anchor.js";
 export type { WidgetAnchor, AnchoredPosition } from "./ui/Anchor.js";
 export { RenderPipeline } from "./systems/RenderPipeline.js";
+export { LayerSystem, LAYER } from "./systems/LayerSystem.js";
+export type { LayerConfig, LayerSortKey } from "./systems/LayerSystem.js";
 export type {
   RenderPipelineOptions,
   TextureLoader,
@@ -356,6 +358,18 @@ export {
   setGmlHspeed,
   getGmlVspeed,
   setGmlVspeed,
+  shader_set,
+  shader_reset,
+  room_goto_next,
+  room_restart,
+  room_last,
+  previous_room,
+  room_speed,
+  sprite_width,
+  sprite_height,
+  sprite_get_width,
+  sprite_get_height,
+  sprite_exists,
 } from "./compat/gmlActions.js";
 /**
  * GMS2.3+ `layer_sequence_create()` compat (see CLAUDE.md's "GmsProjectRuntime"
@@ -534,6 +548,25 @@ export {
   stepAllGmlCameraFollows,
 } from "./compat/gmlCamera.js";
 /**
+ * GameMaker room-layer compat (`layer_x`/`layer_y`/`layer_exists`/
+ * `layer_get_id`/`layer_get_x`/`layer_get_y`/`layer_force_draw_depth`/
+ * `layer_add_instance`/`layer_sprite_get_id`/`layer_sprite_destroy`/the bare
+ * `layer` built-in) — see `compat/gmlLayer.ts`'s module doc comment.
+ */
+export {
+  layer_exists,
+  layer_get_id,
+  layer_x,
+  layer_y,
+  layer_get_x,
+  layer_get_y,
+  layer_force_draw_depth,
+  layer_add_instance,
+  layer_sprite_get_id,
+  layer_sprite_destroy,
+  gml_current_layer,
+} from "./compat/gmlLayer.js";
+/**
  * GameMaker keyboard/gamepad/mouse polling-function compat
  * (`keyboard_check*`/`gamepad_*`/`mouse_check_button_pressed`/
  * `display_get_gui_*`/`surface_get_*`/`application_surface`) — see
@@ -692,6 +725,8 @@ export {
   string_lower,
   string_upper,
   string_repeat,
+  string_width,
+  string_height,
   string_delete,
   ds_map_create,
   ds_map_destroy,

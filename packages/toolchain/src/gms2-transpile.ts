@@ -495,7 +495,21 @@ function identifyGmlImplicitVars(
   for (const m of text.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
     declared.add(m[1] as string);
   }
-  const bareAssign = /^(\s*)([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
+  // The optional `case <label>:`/`default:` prefix covers a real, confirmed
+  // GML shape: a compiled switch-dispatch body writing its result inline on
+  // the same line as the case label (Freedom Backup's own
+  // `__view_set_internal.gml`: `case e__VW.Visible: __res = view_set_visible(__index, __val); break;`).
+  // Without it, `__res` never looks like a *line-start* bare assignment (the
+  // line literally starts with `case `), so it was never recognised as an
+  // implicit instance variable at all — a real, previously-undiscovered
+  // regression sharing the same root cause as the brace-less-`if` fix this
+  // file documents elsewhere (a statement that legally starts mid-line, not
+  // at column 0). The case label itself is matched non-greedily up to its
+  // own terminating `:` (`[^:\n]*` — a case label expression can't itself
+  // contain a bare `:`, so this never over-matches into the assignment that
+  // follows).
+  const bareAssign =
+    /^(\s*)(?:case\s[^:\n]*:\s*|default\s*:\s*)?([A-Za-z_]\w*)(\s*=(?!=)\s*)/;
   let prevEndsWithComma = false;
   const implicitVars = new Set<string>();
   for (const line of text.split("\n")) {
@@ -550,6 +564,33 @@ function identifyGmlImplicitVars(
  * The scan stops at *either* a top-level `;` or a bare newline while
  * `depth <= 0`, and only keeps going past a newline when `depth > 0`.
  */
+/**
+ * Shared statement-start prefix alternation for every assignment-shaped GML
+ * rewrite pass in this file (increment/decrement, compound-assign, plain
+ * assignment): a real line start (`^[ \t]*`), immediately after a brace-less
+ * `if (cond)`'s closing paren (`\)[ \t]+`), or immediately after a `case
+ * <label>:`/`default:` switch label on the same line (`case
+ * <label>:`/`default:` — a real, confirmed shape, Freedom Backup's own
+ * `__view_set_internal.gml`: `case e__VW.Visible: __res = ...; break;`).
+ * Every alternative is a genuine statement boundary GML actually allows a
+ * new statement to begin at; echoing the captured group back verbatim in
+ * each call site keeps every existing case byte-identical.
+ */
+// The `;[ \t]*`/`\{[ \t]*` alternatives cover a real, confirmed shape this
+// prefix originally missed: a brace body with more than one statement on
+// one physical line (`{ vsp = 0; grav = 0; }`, Freedom Backup's own
+// `obj_moveblock`/`obj_slideblock` — an `if (...) { ... }` GameMaker's own
+// exporter apparently keeps compact rather than one statement per line).
+// Neither `stmt1;` (after a semicolon) nor `{ stmt` (right after an opening
+// brace) is a real line start, so without these two alternatives every
+// statement past the first on such a line silently fell through to the
+// unanchored bare-read catch-all and was never rewritten at all — a hard
+// `ReferenceError`, the same class of previously-undiscovered gap the
+// `case`/`default` alternative closed for a different statement-boundary
+// shape.
+const GML_STATEMENT_PREFIX =
+  "(^[ \\t]*|\\)[ \\t]+|case\\s[^:\\n]*:[ \\t]*|default\\s*:[ \\t]*|;[ \\t]*|\\{[ \\t]*)";
+
 function replacePlainAssignmentMultiline(
   text: string,
   name: string,
@@ -557,12 +598,13 @@ function replacePlainAssignmentMultiline(
 ): string {
   // See the matching comment on the increment/decrement and compound-
   // assignment passes above (instance-var loop) for why the prefix also
-  // accepts `\)[ \t]+` — a brace-less `if (cond) name = expr;` body needs
-  // the same statement-boundary recognition a real line-start assignment
-  // gets, or this pass never matches it and a later, unanchored bare-read
-  // pass corrupts the assignment target into a non-assignable expression.
+  // accepts `\)[ \t]+`/a `case`/`default` label — a brace-less `if (cond)
+  // name = expr;` body or a same-line switch-case assignment needs the same
+  // statement-boundary recognition a real line-start assignment gets, or
+  // this pass never matches it and a later, unanchored bare-read pass
+  // corrupts the assignment target into a non-assignable expression.
   const re = new RegExp(
-    `(^[ \\t]*|\\)[ \\t]+)${escapeRegExpTranspile(name)}\\s*=(?!=)\\s*`,
+    `${GML_STATEMENT_PREFIX}${escapeRegExpTranspile(name)}\\s*=(?!=)\\s*`,
     "gm",
   );
   let result = "";
@@ -869,6 +911,22 @@ export function transpileGML(
   if (hasOtherParam) {
     out = out.replace(/(?<!\.\s*)\bother\b/g, "_other");
   }
+
+  // GameMaker's `id` built-in — the calling instance's own instance id, real
+  // and common wherever an instance passes a reference to itself (`_other`
+  // and `layer` are exactly this same class of self-reference built-in;
+  // `id` is the general-purpose one — real, confirmed usage: Freedom
+  // Backup's own `layer_add_instance("Tiles", id);`). This engine's `Entity`
+  // *is* the calling instance's own identity, so a bare `id` read resolves
+  // straight to `_entity`, the same "the built-in already has a natural
+  // engine-side referent, alias it directly rather than inventing a fake
+  // numeric id" choice `room`'s bare read already makes for
+  // `ctx.currentRoom`. Guarded against a dotted reference the same way
+  // `sprite_index`/`image_*`'s own `(?<!\.\s*)` guard is (`inst.id`, another
+  // instance's id read through a local variable — unresolvable by this
+  // transpiler, left untouched rather than misrewritten against the current
+  // entity).
+  out = out.replace(/(?<!\.\s*)\bid\b(?!\s*:)/g, "_entity");
 
   // -- GML `static` variables -------------------------------------------------
   // See CLAUDE.md's "GMS2.3+ syntax and array functions" entry for the full
@@ -1945,6 +2003,23 @@ export function transpileGML(
     },
   );
 
+  // shader_set(shader) — GameMaker's real function takes a shader-asset
+  // reference argument, the same bare-identifier shape `instance_change`'s
+  // object-name argument above needs quoted rather than threaded raw (the
+  // real, confirmed call site: `shader_set(sh_white);`, Freedom Backup's
+  // own `obj_pShootable/Draw_0.gml` — see `compat/gmlActions.ts`'s
+  // `shader_set` doc comment for what this compat function actually does
+  // with the name). `shader_reset()` takes no arguments at all, so it needs
+  // no quoting and joins `THREADED_ACTIONS`'s generic pass instead.
+  out = out.replace(
+    new RegExp(
+      `\\bshader_set\\s*\\((${BALANCED_PARENS_ONE_LEVEL})\\)(\\s*;)?`,
+      "g",
+    ),
+    (_m, argsRaw: string, semi?: string) =>
+      `GmlActions.shader_set(_entity, _ctx, ${bareOrQuoted(argsRaw.trim())})${semi ?? ";"}`,
+  );
+
   // audio_play_sound(snd, priority, loop) / room_goto(rm_next) — GML allows
   // either of these to be the sole (unbraced) body of an `if`/`else` with
   // no surrounding block: `if (cond) room_goto(rm_next);` is real, common
@@ -2250,6 +2325,9 @@ export function transpileGML(
     "action_set_alarm",
     "action_sound",
     "draw_self",
+    "shader_reset",
+    "room_goto_next",
+    "room_restart",
     // `place_free`/`place_snapped`/`position_free` take no object-type
     // argument at all (`place_free` matches any `Meta.solid`-flagged
     // instance, `place_snapped` and `position_free` have no object concept
@@ -2413,6 +2491,35 @@ export function transpileGML(
     // camera/view family above — it spawns a *new* entity rather than
     // acting on the calling one, so there's no `_entity` for it to receive.
     "layer_sequence_create",
+    // GameMaker's real room-layer compat family (compat/gmlLayer.ts) — real,
+    // confirmed usage: Freedom Backup's own `obj_camera` parallax code
+    // (`layer_x`/`layer_get_x`/`layer_exists`), `obj_ending`'s layer-sprite
+    // element read/destroy, `__init_global`'s `layer_force_draw_depth`, and
+    // `obj_bullet`'s `layer_add_instance`. Every argument is a layer-name
+    // string or an already-resolved value/entity reference, never an
+    // object-type name needing this pass's bare-identifier quoting, so
+    // generic context-only threading is correct — see `gmlLayer.ts`'s own
+    // module doc comment for why these take `(ctx, ...)` rather than
+    // `(entity, ctx, ...)` (a room layer is room-global GameMaker state, the
+    // same reasoning the camera/view family above already documents).
+    "layer_exists",
+    "layer_get_id",
+    "layer_x",
+    "layer_y",
+    "layer_get_x",
+    "layer_get_y",
+    "layer_force_draw_depth",
+    "layer_add_instance",
+    "layer_sprite_get_id",
+    "layer_sprite_destroy",
+    // `sprite_get_width`/`_height`/`sprite_exists` (compat/gmlActions.ts) —
+    // real function-call syntax already (never a bare identifier the way
+    // `sprite_width`/`sprite_height` below are), so generic context-only
+    // threading is correct; see that function's own doc comment for why
+    // these honestly return `0`/`false` rather than a real measurement.
+    "sprite_get_width",
+    "sprite_get_height",
+    "sprite_exists",
   ];
   for (const fn of THREADED_CTX_ONLY) {
     const re = new RegExp(
@@ -2572,6 +2679,8 @@ export function transpileGML(
     "string_upper",
     "string_repeat",
     "string_delete",
+    "string_width",
+    "string_height",
     "game_end",
     "object_exists",
     "asset_get_index",
@@ -2644,6 +2753,68 @@ export function transpileGML(
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.\s*)\broom\b(?!\s*\()/g,
     "GmlActions.room(_ctx)",
+  );
+
+  // `room_last`/`previous_room`/`room_speed` bare reads (compat/gmlActions.ts)
+  // — the same "bare read -> function call" shape `room`/`room_width` above
+  // already use, guarded identically (call-site/dotted-reference/comment
+  // exclusions). Order matters: `room_last`/`room_speed` must be rewritten
+  // before the plain bare `room` pass above would otherwise partially match
+  // into them — but `\broom\b` can't partially match `room_last` at all
+  // (the `_` keeps them one word), so no separate ordering constraint
+  // exists here beyond keeping every bare-read rewrite in one place.
+  // The trailing `(?!\s*=(?!=))` guard is real, confirmed load-bearing —
+  // Freedom Backup's own `obj_player_stats` declares a plain instance
+  // variable that happens to share `previous_room`'s exact name
+  // (`previous_room = room;`, shadowing the read-only GameMaker built-in;
+  // GML allows this). Without the guard this pass rewrote that assignment's
+  // *target* into a non-assignable call expression before the generic
+  // implicit-instance-variable pass (which runs later in this pipeline and
+  // would otherwise have correctly treated it as an ordinary shadowing
+  // variable) ever got a chance to see it — a real, hard `SyntaxError`
+  // ("Cannot assign to this expression"), found by the playability smoke
+  // test's own real-module-load check, not `tsc`. An excluded assignment
+  // occurrence falls through untouched to that later pass, exactly as
+  // intended.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom_last\b(?!\s*\()(?!\s*=(?!=))/g,
+    "GmlActions.room_last(_ctx)",
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bprevious_room\b(?!\s*\()(?!\s*=(?!=))/g,
+    "GmlActions.previous_room(_ctx)",
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\broom_speed\b(?!\s*\()(?!\s*=(?!=))/g,
+    "GmlActions.room_speed(_ctx)",
+  );
+
+  // `sprite_width`/`sprite_height` bare reads (compat/gmlActions.ts) — the
+  // calling instance's own real, scaled sprite dimensions; see that
+  // function's own doc comment for why it takes only `(entity)`, no `ctx`.
+  // Guarded the same way every other bare-read rewrite in this file is
+  // (dotted-reference/call-site/comment exclusions) — a dotted reference
+  // (`other.sprite_width`) is real, confirmed usage and is left to the
+  // cross-instance-references pass elsewhere, not this one.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_width\b(?!\s*\()/g,
+    "GmlActions.sprite_width(_entity)",
+  );
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\bsprite_height\b(?!\s*\()/g,
+    "GmlActions.sprite_height(_entity)",
+  );
+
+  // GameMaker's bare `layer` built-in read — the calling instance's own
+  // creation layer, real and common as `instance_create_layer(x, y, layer,
+  // obj)`'s "same layer as me" argument (confirmed real: Freedom Backup's
+  // own `scr_load_game.gml` and `obj_crate.gml`). Rewritten to
+  // `GmlActions.gml_current_layer(_entity, _ctx)` (`compat/gmlLayer.ts`) —
+  // guarded against a real call-site spelling and the dotted-reference/
+  // comment shapes every other bare-read rewrite in this file already is.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)\blayer\b(?!\s*\()/g,
+    "GmlActions.gml_current_layer(_entity, _ctx)",
   );
 
   // `mouse_x`/`mouse_y` bare reads (compat/gmlInput.ts's `mouse_x`/
@@ -2907,6 +3078,27 @@ export function transpileGML(
       return `GmlActions.${fn}(_entity, _ctx${threaded.length > 0 ? ", " : ""}${threaded.join(", ")})${semi ?? ""}`;
     });
   }
+
+  // GameMaker's `noone` built-in constant used as a bare *value* (an
+  // assignment's right-hand side or a plain comparison target — real,
+  // confirmed usage: Freedom Backup's own `my_gun = noone;`/`new_room =
+  // noone;`/`global.checkpoint = noone;`) — distinct from `noone` used as an
+  // *object-name argument* to `place_meeting`/`collision_*`/etc. (the
+  // `bareOrQuotedUnlessVar`/object-argument-quoting pass immediately above),
+  // which deliberately quotes it into the literal string `"noone"` those
+  // functions compare against — this pass must run *after* that one, or it
+  // would corrupt the very identifier that pass still needs to see bare.
+  // The `(?<!["'])`/`(?!["'])` guards exclude any occurrence that pass just
+  // quoted (or a one-off manual `"noone"` string already in real source),
+  // so only a genuinely bare, unquoted `noone` is rewritten. Rewritten to JS
+  // `undefined` — the same "no numeric `noone` sentinel to fabricate, alias
+  // the one real value it always meant" choice `instance_place`/
+  // `instance_position`'s own `Entity | undefined` return type already
+  // makes for this exact constant.
+  out = out.replace(
+    /(?<!\/\/[^\n]*)(?<!\.\s*)(?<!["'])\bnoone\b(?!["'])/g,
+    "undefined",
+  );
 
   // Real `with (target) { body }` support (see `rewriteWithStatements`'s own
   // doc comment) — deliberately placed after every GML-builtin rewrite pass
@@ -3917,13 +4109,13 @@ export function transpileGML(
       // produces a still-valid `if (cond) GmlActions.setGmlVar(...);`
       // expression-statement for the new case (prefix = `") "`).
       out = out.replace(
-        new RegExp(`(^[ \\t]*|\\)[ \\t]+)${esc}\\s*(\\+\\+|--)`, "gm"),
+        new RegExp(`${GML_STATEMENT_PREFIX}${esc}\\s*(\\+\\+|--)`, "gm"),
         (_m, indent: string, op: string) =>
           `${indent}GmlActions.setGmlVar(_entity, _ctx, ${placeholder}, ((GmlActions.getGmlVar(_entity, _ctx, ${placeholder}) as number | undefined) ?? 0) ${op === "++" ? "+" : "-"} 1)`,
       );
       out = out.replace(
         new RegExp(
-          `(^[ \\t]*|\\)[ \\t]+)${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
+          `${GML_STATEMENT_PREFIX}${esc}\\s*(\\+=|-=|\\*=|/=|%=)\\s*([^;\\n]+);?`,
           "gm",
         ),
         (_m, indent: string, op: string, exprRaw: string) => {

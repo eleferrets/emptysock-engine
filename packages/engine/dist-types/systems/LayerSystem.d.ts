@@ -19,6 +19,8 @@ export declare class LayerSystem {
   private readonly _layers;
   /** Entity id → placement. All entity IDs in the engine are numbers. */
   private readonly _placements;
+  /** Layer name → render-position offset, for `layer_x`/`layer_y`. */
+  private readonly _offsets;
   constructor();
   private _define;
   /** Define or redefine a layer. Lower index = drawn first (behind). */
@@ -47,6 +49,28 @@ export declare class LayerSystem {
   getLayerIndex(name: string): number;
   setVisible(name: string, visible: boolean): void;
   isVisible(name: string): boolean;
+  /** True if a layer with this exact name has been defined — the real
+   * backing for GameMaker's `layer_exists()` compat function
+   * (`compat/gmlLayer.ts`). */
+  hasLayer(name: string): boolean;
+  /**
+   * Set a named layer's render-position offset — the real backing for
+   * GameMaker's `layer_x`/`layer_y` compat functions (`compat/gmlLayer.ts`),
+   * typically used for manual parallax scrolling. A no-op for a layer that
+   * hasn't been defined (`defineLayer()`/the built-in four) — matching this
+   * codebase's established "no live layer/instance to even ask" honest
+   * no-op convention (`QueryChannel`'s `no-live-instance`,
+   * `stepGmlCameraFollow`'s no-target no-op) rather than fabricating a new
+   * layer just to hold an offset nobody will ever render.
+   */
+  setOffset(name: string, x: number, y: number): void;
+  /** A named layer's current render-position offset, `{ x: 0, y: 0 }` if
+   * none was ever set — the same default an offset-free layer always had
+   * before `layer_x`/`layer_y` existed. */
+  getOffset(name: string): {
+    x: number;
+    y: number;
+  };
   /** Returns all entities on a given layer, sorted by depth ascending. */
   getEntitiesOnLayer(layerName: string): Array<{
     entityId: number;

@@ -625,8 +625,12 @@ describe("transpileGML", () => {
     const out = transpileGML(
       'show_message( "creating instance for non-existent object" + string(id) );',
     );
+    // `id` (GameMaker's own instance-id built-in) is now a real rewrite onto
+    // `_entity` — see the "GameMaker's `id` built-in" transpile pass; this
+    // test's own point (a nested `string(id)` call inside show_message's
+    // argument doesn't break the outer paren-balance scan) still holds.
     expect(out).toContain(
-      'console.log("creating instance for non-existent object" + String(id));',
+      'console.log("creating instance for non-existent object" + String(_entity));',
     );
   });
 

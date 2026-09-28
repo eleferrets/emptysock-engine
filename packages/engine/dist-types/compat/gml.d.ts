@@ -85,6 +85,8 @@ export declare function string_pos(needle: string, haystack: string): number;
 export declare function string_lower(str: string): string;
 export declare function string_upper(str: string): string;
 export declare function string_repeat(str: string, count: number): string;
+export declare function string_width(str: string): number;
+export declare function string_height(str: string): number;
 /** GML string_delete(str, index, count) — 1-based index */
 export declare function string_delete(
   str: string,
