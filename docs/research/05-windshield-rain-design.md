@@ -1,9 +1,9 @@
 # 05 Windshield rain: design for a rewrite of RainGlassFilter
 
 Status: research only. No prototype was built; all costs below are estimates
-from technique analysis, not measurements. Sources were recalled from memory
-and NOT re-fetched in this session (no network verification); treat URLs and
-claims as leads to confirm.
+from technique analysis, not measurements. Source claims were checked in a
+follow-up pass; see section 6 for the verified / corrected / unverifiable
+ledger with URLs.
 
 ## 0. Current state (verified in repo)
 
@@ -179,9 +179,10 @@ Uniforms in one `UniformGroup`: uTime, uFog (float), uBlur (float px at
 scene res), uRefract (float), uDropMap is a texture resource, uDropTexel
 (vec2 = 1/mapSize), uTint (vec3), uLightDir (vec2 for the specular), uResolution.
 Texture resource: `resources: { uniforms: group, uDropMap: source, uDropMapSampler: source.style }`
-(for GL programs pixi v8 binds `sampler2D uDropMap` by resource name; verify
-the exact binding syntax in a gpu-verify run, since the earlier bug list shows
-resource plumbing is easy to get wrong).
+(pattern verified against pixi's own DisplacementFilter, section 6: texture
+resource plus `.style` sampler resource, named after the shader uniforms;
+still confirm in a gpu-verify run, since the earlier bug list shows resource
+plumbing is easy to get wrong).
 
 Fragment sketch (single pass, vertex unchanged from current `RAIN_GLASS_VERTEX`):
 
@@ -362,7 +363,7 @@ browser (step 5) before finalising tier tap counts.
 ## 5. Risks
 
 1. Texture resource plumbing in pixi v8 Filter (`resources` naming, sampler
-   binding) is undocumented for GL-only programs; earlier work hit exactly this. Mitigate: step 7 pixel assert early; fall back to `Filter.from` with a
+   binding): pattern exists in pixi's DisplacementFilter (section 6) but is thinly documented; earlier work hit exactly this. Mitigate: step 7 pixel assert early; fall back to `Filter.from` with a
    `TextureSource` in `resources` per pixi filter examples.
 2. Per-frame map upload cost on mobile / integrated GPUs, and `BufferImageSource` update path may re-create textures. Mitigate: measure; cap upload to 30 Hz; consider `texSubImage2D` direct path.
 3. Sim CPU cost at high with stamping; mitigate with stamp LUTs and tier caps; use `Float32Array` only.
@@ -374,3 +375,25 @@ browser (step 5) before finalising tier tap counts.
 8. WebGPU renderer path would need a WGSL twin; currently GL-only like every other custom filter here.
 9. Foveal issue: a filter on a layer sees only that layer's content; users wanting rain over UI must place it on the top container (pixi ignores filters on the render root).
 10. All timing numbers here are estimates; the doc must not be quoted as measured.
+
+## 6. Source verification ledger (follow-up pass)
+
+Legend: V verified, C corrected, U unverifiable this session.
+
+| Claim | Status | Evidence |
+|---|---|---|
+| Bebber's RainEffect: canvas-drawn drops, WebGL shader, merging, trails, fog | V | https://github.com/codrops/RainEffect (Lucas Bebber; repo README describes canvas drop rendering, WebGL, merging, trails, fog; licence: free to build on, do not redistribute as-is, so implement our own, do not copy code). |
+| Codrops article "Rain & Water Effect Experiments", Nov 2015, URL tympanus.net/codrops/2015/11/04/rain-water-effect-experiments/ | U | Fetch failed (SSL handshake error). The repo page confirms an associated Codrops article exists; exact title/date/URL unconfirmed. |
+| "Heartfelt", Shadertoy ltffzl, by Martijn Steinrucken (BigWings), 2017 | U | shadertoy.com returned 403; web search found nothing. Author, ID and year are from memory only. Treat as a lead; the technique (layered hashed drop cells) is described in section 1 as generic, not dependent on this source. |
+| Dual-Kawase / dual filtering (Bjorge, SIGGRAPH 2015 "Bandwidth-Efficient Rendering") | U/C | Search confirms dual filtering exists (down/upsample approximating Gaussian at lower cost) but attributed it to "Martin et al., 2015" (ARM authors) and did not surface the exact talk. Cite as "ARM, SIGGRAPH 2015 (Bjorge, Martin et al.), dual filtering"; title and first author unconfirmed. |
+| pixi-filters `KawaseBlurFilter` available for pixi v8 | V (weak) | Search: pixi-filters 6.x targets pixi v8 and includes KawaseBlurFilter. Also see https://pixijs.com/8.x/guides/components/filters . Exact export path not opened. |
+| pixi v8 custom Filter with GlProgram (GL only is allowed) | V | https://pixijs.com/8.x/guides/components/filters : include a `gpuProgram` only "for dual-renderer support"; a GL-only filter works on the WebGL renderer, as the current RainGlassFilter already does. |
+| Extra texture resource on a Filter | V | pixi source, DisplacementFilter: https://raw.githubusercontent.com/pixijs/pixijs/dev/src/filters/defaults/displacement/DisplacementFilter.ts passes `resources: { filterUniforms, uMapTexture: textureSource, uMapSampler: textureSource.style }` to the Filter constructor and builds `GlProgram.from({vertex, fragment, name})`. Our `uDropMap` / `uDropMapSampler` naming follows that. |
+| `BufferImageSource` + `source.update()` for per-frame upload with no reallocation | U | Not checked against pixi source this pass; step 5 must confirm (fallback: a `Texture` built from a typed array, updating `source.resource` then `source.update()`). |
+| Cost estimates (ms, CPU and GPU), 100-250 ALU ops for Heartfelt, upload 0.1-0.3 ms | U | Estimates only, not sourced. |
+
+Corrections applied: status header; section 2.6 binding note now cites the
+DisplacementFilter pattern; Bebber attribution kept but code-reuse warning
+added (do not copy, licence forbids redistributing as-is). The top risk in
+section 5 is downgraded from "undocumented" to "documented by pixi's own
+filter source, still needs a real render to confirm the sampler pairing".
