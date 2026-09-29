@@ -63,4 +63,30 @@ with (target)
     const fields = await scanGmlCrossFileEntityRefFields(root);
     expect(fields.size).toBe(0);
   });
+
+  it("finds the assignment at any nesting depth, with a call in the with-target, and without a trailing semicolon", async () => {
+    const root = await makeProject({
+      "objects/a/Create_0.gml": `with (instance_place(x, y, obj_t)) { if (ready) { boss = other.id; } }`,
+      "objects/b/Create_0.gml": `with (t) mate = other.id\nz = 1;`,
+      "objects/c/Create_0.gml": `with (t) { var kept = other.id; s.link = other.id; }`,
+    });
+    const fields = await scanGmlCrossFileEntityRefFields(root);
+    expect([...fields].sort()).toEqual(["boss", "kept", "link", "mate"]);
+  });
+
+  it("ignores matches inside comments and strings, and other.idx is not other.id", async () => {
+    const root = await makeProject({
+      "objects/a/Create_0.gml": `// with (t) { c = other.id; }\ns = "with (t) { d = other.id; }";\nwith (t) { e = other.idx; }`,
+    });
+    const fields = await scanGmlCrossFileEntityRefFields(root);
+    expect(fields.size).toBe(0);
+  });
+
+  it("still finds the pattern after a syntax error earlier in the file", async () => {
+    const root = await makeProject({
+      "objects/a/Create_0.gml": `x = = = ;\nwhile ((\nwith (t) { late = other.id; }`,
+    });
+    const fields = await scanGmlCrossFileEntityRefFields(root);
+    expect(fields.has("late")).toBe(true);
+  });
 });

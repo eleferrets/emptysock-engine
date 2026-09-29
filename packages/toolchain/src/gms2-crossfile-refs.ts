@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { scanEntityRefFieldsInText } from "./gml/project-symbols.js";
 import { scanGmlImplicitVars } from "./gms2-transpile.js";
 
 /**
@@ -30,17 +31,23 @@ import { scanGmlImplicitVars } from "./gms2-transpile.js";
  * `scanGmlEnums`/`scanGmlMacros` already establish for their own
  * project-wide symbols — but it deliberately does *not* attempt full
  * cross-file dataflow analysis. It recognises exactly one concrete,
- * checkable textual pattern:
+ * checkable pattern, now recognised on the parsed AST (`gml/`) rather than by
+ * regex:
  *
- *   `with (<targetExpr>) { <fieldName> = other.id; ... }` — brace form
+ *   `with (<targetExpr>) { ... <fieldName> = other.id; ... }` — brace form,
+ *   the assignment at any nesting depth inside the body
  *   `with (<targetExpr>) <fieldName> = other.id;` — single-statement form
  *
- * (both forms mirroring `rewriteWithStatements`'s own existing dual-form
- * with-body handling), where `<fieldName>` is assigned the literal `other.
- * id` expression — GameMaker's real, idiomatic "the instance that entered
- * this `with` block hands me its own instance reference" shape. A field
- * assigned via any other cross-file mechanism (a struct property, a
- * different back-reference idiom, a value threaded through a ds_map/global)
+ * where `<fieldName>` is a bare name, a dotted property (`inst.f = ...`) or
+ * a `var` declarator assigned the literal `other.id` expression —
+ * GameMaker's real, idiomatic "the instance that entered this `with` block
+ * hands me its own instance reference" shape. The old regex form only saw a
+ * body with no nested braces, a target with no nested parens and a
+ * `;`-terminated assignment, and it also matched inside comments and
+ * strings; the AST form has none of those limits (a superset of the old
+ * result apart from those comment/string matches). A field assigned via any other cross-file
+ * mechanism (a struct property, a different back-reference idiom, a value
+ * threaded through a ds_map/global)
  * is a real, different case this scanner does not claim to cover — see
  * this function's own return value's use site in `gms2-transpile.ts` for
  * the honest, stated scope.
@@ -62,21 +69,6 @@ export async function scanGmlCrossFileEntityRefFields(
 ): Promise<Set<string>> {
   const fields = new Set<string>();
 
-  // Brace form: `with (target) { ... field = other.id; ... }`. The body is
-  // captured non-greedily up to the first `}` at the same nesting level —
-  // real GameMaker back-reference with-blocks in this idiom are short and
-  // don't nest further `{`/`}` (confirmed against a real project's own real
-  // occurrence), so a simple non-nested capture is sufficient and matches
-  // this codebase's existing enum-body-scanning precedent (`scanGmlEnums`'s
-  // own `ENUM_RE` doc comment makes the identical non-nesting assumption
-  // for the same reason).
-  const WITH_BRACE_RE = /\bwith\s*\([^()]*\)\s*\{([^{}]*)\}/g;
-  // Single-statement form: `with (target) field = other.id;` — no braces at
-  // all, matching `rewriteWithStatements`'s own dual-form handling.
-  const WITH_STMT_RE =
-    /\bwith\s*\([^()]*\)\s*([A-Za-z_]\w*)\s*=\s*other\.id\s*;/g;
-  const FIELD_ASSIGN_RE = /\b([A-Za-z_]\w*)\s*=\s*other\.id\s*;/g;
-
   async function walk(dir: string): Promise<void> {
     let entries: string[];
     try {
@@ -92,17 +84,10 @@ export async function scanGmlCrossFileEntityRefFields(
         await walk(full);
       } else if (entry.endsWith(".gml")) {
         const content = await fs.readFile(full, "utf-8").catch(() => "");
-        for (const m of content.matchAll(WITH_BRACE_RE)) {
-          const body = m[1] ?? "";
-          for (const fm of body.matchAll(FIELD_ASSIGN_RE)) {
-            const name = fm[1];
-            if (name !== undefined) fields.add(name);
-          }
-        }
-        for (const m of content.matchAll(WITH_STMT_RE)) {
-          const name = m[1];
-          if (name !== undefined) fields.add(name);
-        }
+        // AST-backed: any `with` body at any nesting depth, block or
+        // single-statement form, target expression of any shape; text in
+        // comments and strings is never a match.
+        for (const name of scanEntityRefFieldsInText(content)) fields.add(name);
       }
     }
   }

@@ -18,6 +18,7 @@ import type {
   Stmt,
 } from "./ast.js";
 import { builtinConstant, isKnownBuiltinName, lookupBuiltin } from "./builtins.js";
+import { isTrivia, tokenize } from "./lexer.js";
 import { parse } from "./parser.js";
 import { scanEnums, scanMacros } from "./scan.js";
 import {
@@ -101,7 +102,7 @@ export interface FileFacts {
   }>;
   /** `global.name` assignments. */
   globalWrites: ReadonlySet<string>;
-  /** Field names assigned `other.id` (or another entity expression) inside any `with` body. */
+  /** Names assigned exactly `other.id` (variable, field or `var` initialiser) inside any `with` body, at any nesting depth. */
   entityFieldsFromWith: ReadonlySet<string>;
 }
 
@@ -274,6 +275,14 @@ function walkStmt(s: Stmt, visit: (s: Stmt) => void): void {
 // File analysis
 // ---------------------------------------------------------------------------
 
+/** `other.id`, the one right-hand side that marks a `with` body field as holding the outer instance. */
+function isOtherId(e: Expr): boolean {
+  while (e.type === "Paren") e = e.expr;
+  return (
+    e.type === "Member" && e.property === "id" && e.object.type === "Identifier" && e.object.name === "other"
+  );
+}
+
 type Owner =
   | { kind: "self" }
   | { kind: "object"; name: string }
@@ -336,6 +345,7 @@ class FileWalker {
       case "VarDecl": {
         for (const d of s.decls) {
           if (d.init) this.expr(d.init);
+          if (d.init && this.withDepth > 0 && isOtherId(d.init)) this.entityFieldsFromWith.add(d.name);
           this.locals.add(d.name);
           const holds = d.init ? this.isEntityExpr(d.init) : false;
           const sym: Symbol = {
@@ -492,7 +502,6 @@ class FileWalker {
   private recordWrite(name: string, isArray: boolean, holdsEntity: boolean, viaSelf: boolean): void {
     const o = this.owner;
     if (o.kind === "struct") return;
-    if (holdsEntity && this.withDepth > 0) this.entityFieldsFromWith.add(name);
     if (o.kind === "self" || (viaSelf && o.kind !== "object" && o.kind !== "unknown")) {
       const prev = this.selfWrites.get(name);
       this.selfWrites.set(name, {
@@ -512,6 +521,12 @@ class FileWalker {
   private assign(e: Extract<Expr, { type: "Assign" }>): void {
     const right = e.right;
     this.expr(right);
+    if (e.op === "=" && this.withDepth > 0 && isOtherId(right)) {
+      let t = e.left;
+      while (t.type === "Paren") t = t.expr;
+      if (t.type === "Identifier") this.entityFieldsFromWith.add(t.name);
+      else if (t.type === "Member") this.entityFieldsFromWith.add(t.property);
+    }
     const holds = e.op === "=" || e.op === "??=" ? this.isEntityExpr(right) : false;
     const isArr = right.type === "ArrayLiteral";
     let l = e.left;
@@ -565,11 +580,9 @@ class FileWalker {
         if (r.via === "project" && r.symbol?.kind === "asset" && r.symbol.assetKind === "object") {
           this.externalWrites.push({ target: o.name, field: l.property, isArray: isArr, holdsEntity: holds });
         }
-        if (holds && this.withDepth > 0) this.entityFieldsFromWith.add(l.property);
         return;
       }
       this.expr(o);
-      if (holds && this.withDepth > 0) this.entityFieldsFromWith.add(l.property);
       return;
     }
     this.expr(l);
@@ -963,4 +976,41 @@ export function buildProjectSymbols(input: ProjectInput): ProjectSymbols {
 /** Analyze one file of source text against an existing project table. */
 export function analyzeFile(project: ProjectSymbols, file: SourceFile): FileAnalysis {
   return project.analyze(file);
+}
+
+/**
+ * Field names one file's `with` bodies assign `other.id` to (see
+ * `FileFacts.entityFieldsFromWith`). Needs no project knowledge: a `with`
+ * target that is not a known object simply widens the result to the
+ * project-wide field-name set, the same explicit over-approximation the
+ * cross-file scan has always made.
+ */
+export function scanEntityRefFieldsInText(text: string): Set<string> {
+  const project = buildProjectSymbols({});
+  const analysis = project.analyze({ path: "", text });
+  const fields = new Set(analysis.facts.entityFieldsFromWith);
+  if (analysis.recovered > 0) {
+    // Recovery fallback: inside a statement the parser could not parse, a token
+    // sequence `name = other.id` after a `with` keyword still counts.
+    walkStatements(analysis.ast.body, (s) => {
+      if (s.type !== "ErrorStmt") return;
+      const toks = tokenize(text.slice(s.start, s.end)).filter((t) => !isTrivia(t));
+      let seenWith = false;
+      for (let i = 0; i + 4 < toks.length; i++) {
+        const t = toks[i]!;
+        if (t.kind === "keyword" && t.text === "with") seenWith = true;
+        if (
+          seenWith &&
+          t.kind === "ident" &&
+          toks[i + 1]!.text === "=" &&
+          toks[i + 2]!.text === "other" &&
+          toks[i + 3]!.text === "." &&
+          toks[i + 4]!.text === "id"
+        ) {
+          fields.add(t.text);
+        }
+      }
+    });
+  }
+  return fields;
 }
