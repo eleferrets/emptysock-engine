@@ -97,7 +97,27 @@ export class DropPool {
   }
 }
 
+export interface WiperOptions {
+  enabled: boolean;
+  /** Pivot as a fraction of the view (0.5, 1.15 sits below the screen). */
+  pivotX: number;
+  pivotY: number;
+  /** Arm length as a fraction of view height. */
+  armLength: number;
+  /** Sweep range in radians; 0 points straight up, positive is clockwise. */
+  minAngle: number;
+  maxAngle: number;
+  /** Full out-and-back time in seconds. */
+  periodSec: number;
+  /** Blade width in map px. */
+  bladeWidth: number;
+  /** Park pause between sweeps when enabled. */
+  pauseSec: number;
+}
+
 export interface RainGlassSimOptions {
+  /** Wiper overrides. */
+  wiper?: Partial<WiperOptions>;
   /** Map width in px. */
   width: number;
   /** Map height in px. */
@@ -157,6 +177,8 @@ export class RainGlassSim {
   fogTarget: number;
   /** Eased condensation 0..1. */
   fog: number;
+  /** Wiper settings; mutate through setWiper. */
+  readonly wiper: WiperOptions;
   /** Live trail bead count. */
   beadCount = 0;
   /** Smear-trail height 0..255 per map px, decays over time. */
@@ -171,6 +193,9 @@ export class RainGlassSim {
   protected readonly _heads: Int16Array;
   protected readonly _next: Int16Array;
   protected _frame = 0;
+  protected _wiperAngle: number;
+  protected _wiperTime = 0;
+  protected _wiperOneShot = false;
   protected _acc = 0;
   protected _spawnAcc = 0;
 
@@ -196,6 +221,19 @@ export class RainGlassSim {
     this.trails = opts.trails ?? true;
     this.fogTarget = opts.fog ?? 0;
     this.fog = this.fogTarget;
+    this.wiper = {
+      enabled: false,
+      pivotX: 0.5,
+      pivotY: 1.15,
+      armLength: 1.4,
+      minAngle: -1.0,
+      maxAngle: 1.0,
+      periodSec: 1.6,
+      bladeWidth: 5 * this.unit,
+      pauseSec: 0,
+      ...opts.wiper,
+    };
+    this._wiperAngle = this.wiper.minAngle;
     this.wet = new Uint8Array(this.width * this.height);
     // Merge grid cells are never smaller than height/12, bounding the cell count.
     const maxCells = (Math.ceil((12 * this.width) / this.height) + 2) * 14;
@@ -242,6 +280,7 @@ export class RainGlassSim {
     this.simTime += dt;
     this._spawn(dt);
     this._update(dt);
+    this._advanceWiper(dt);
     this._cull();
   }
 
@@ -262,6 +301,102 @@ export class RainGlassSim {
       const stick = this.rng.next() * 2 + (r / this.unit) * 0.15;
       this.addDrop(x, y, r, stick);
       this.spawned++;
+    }
+  }
+
+  setWiper(patch: Partial<WiperOptions>): void {
+    Object.assign(this.wiper, patch);
+  }
+
+  /** Runs one wiper sweep (out and back) even when the wiper is not enabled. */
+  triggerWipe(): void {
+    if (!this._wiperOneShot && !this.wiper.enabled) {
+      this._wiperOneShot = true;
+      this._wiperTime = 0;
+    }
+  }
+
+  /** Current blade angle in radians, for a game-drawn blade. */
+  get wiperAngle(): number {
+    return this._wiperAngle;
+  }
+
+  private _angleAt(t: number): number {
+    const w = this.wiper;
+    if (t >= w.periodSec) return w.minAngle;
+    const half = w.periodSec / 2;
+    const u = t < half ? t / half : 2 - t / half;
+    const e = u * u * (3 - 2 * u);
+    return w.minAngle + (w.maxAngle - w.minAngle) * e;
+  }
+
+  protected _advanceWiper(dt: number): void {
+    const w = this.wiper;
+    if (!w.enabled && !this._wiperOneShot) return;
+    if (w.periodSec <= 0) return;
+    this._wiperTime += dt;
+    let t: number;
+    if (w.enabled) {
+      const cycle = w.periodSec + Math.max(0, w.pauseSec);
+      this._wiperTime %= cycle;
+      t = this._wiperTime;
+    } else {
+      t = this._wiperTime;
+      if (t >= w.periodSec) {
+        this._wiperOneShot = false;
+        this._wiperTime = 0;
+        t = w.periodSec;
+      }
+    }
+    const aNow = this._angleAt(t);
+    const aPrev = this._wiperAngle;
+    this._wiperAngle = aNow;
+    const delta = aNow - aPrev;
+    if (delta === 0) return;
+    const n = Math.ceil(Math.abs(delta) / 0.02);
+    for (let k = 1; k <= n; k++) this._wipeAt(aPrev + (delta * k) / n);
+    const range = Math.max(1e-6, Math.abs(w.maxAngle - w.minAngle));
+    this.fog *= 1 - (0.5 * Math.abs(delta)) / range;
+  }
+
+  /** Clears drops and wet map under the blade at `angle`. */
+  protected _wipeAt(angle: number): void {
+    const w = this.wiper;
+    const px = w.pivotX * this.width;
+    const py = w.pivotY * this.height;
+    const len = w.armLength * this.height;
+    const sx = Math.sin(angle);
+    const sy = -Math.cos(angle);
+    const half = w.bladeWidth / 2;
+    const p = this.pool;
+    for (let i = 0; i < p.capacity; i++) {
+      if (p.alive[i] === 0) continue;
+      const vx = p.x[i]! - px;
+      const vy = p.y[i]! - py;
+      const t = Math.min(len, Math.max(0, vx * sx + vy * sy));
+      const dx = vx - sx * t;
+      const dy = vy - sy * t;
+      const reach = half + p.r[i]!;
+      if (dx * dx + dy * dy <= reach * reach) this._free(i);
+    }
+    const wet = this.wet;
+    const W = this.width;
+    const H = this.height;
+    const h2 = half * half;
+    for (let d = 0; d <= len; d += 1) {
+      const cx = px + sx * d;
+      const cy = py + sy * d;
+      const x0 = Math.max(0, Math.floor(cx - half));
+      const x1 = Math.min(W - 1, Math.ceil(cx + half));
+      const y0 = Math.max(0, Math.floor(cy - half));
+      const y1 = Math.min(H - 1, Math.ceil(cy + half));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const ex = x + 0.5 - cx;
+          const ey = y + 0.5 - cy;
+          if (ex * ex + ey * ey <= h2) wet[y * W + x] = 0;
+        }
+      }
     }
   }
 

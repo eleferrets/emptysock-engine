@@ -194,3 +194,51 @@ describe("RainGlassSim slide, trails and merge", () => {
     expect(s.fog).toBeGreaterThan(0.9);
   });
 });
+
+describe("RainGlassSim wiper", () => {
+  const base = { spawnPerSec: 0, evapRate: 0, slope: 0 };
+
+  it("a disabled wiper is a no-op", () => {
+    const s = mk(1, base);
+    s.addDrop(128, 100, 4);
+    s.wet.fill(255);
+    for (let n = 0; n < 200; n++) s.step(1 / 60);
+    expect(s.dropCount).toBe(1);
+    expect(s.wet[0]).toBeGreaterThan(100);
+    expect(s.wiperAngle).toBe(s.wiper.minAngle);
+  });
+
+  it("a full sweep clears drops and wet bytes in the swept area and keeps the angle in range", () => {
+    const s = mk(1, { ...base, wiper: { enabled: true, periodSec: 1 } });
+    s.addDrop(128, 100, 4);
+    s.addDrop(60, 120, 3);
+    s.wet.fill(255);
+    let min = Infinity;
+    let max = -Infinity;
+    for (let n = 0; n < 40; n++) {
+      s.step(1 / 60);
+      min = Math.min(min, s.wiperAngle);
+      max = Math.max(max, s.wiperAngle);
+    }
+    expect(min).toBeGreaterThanOrEqual(s.wiper.minAngle - 1e-9);
+    expect(max).toBeLessThanOrEqual(s.wiper.maxAngle + 1e-9);
+    expect(s.dropCount).toBe(0);
+    // arm reaches the view centre column near the bottom
+    expect(s.wet[100 * 256 + 128]).toBe(0);
+    expect(s.wet[143 * 256 + 128]).toBe(0);
+  });
+
+  it("triggerWipe runs one sweep then parks", () => {
+    const s = mk(1, { ...base, wiper: { periodSec: 0.5 } });
+    s.addDrop(128, 100, 4);
+    s.triggerWipe();
+    let peak = s.wiperAngle;
+    for (let n = 0; n < 60; n++) {
+      s.step(1 / 60);
+      peak = Math.max(peak, s.wiperAngle);
+    }
+    expect(peak).toBeGreaterThan(0.5);
+    expect(s.wiperAngle).toBe(s.wiper.minAngle);
+    expect(s.dropCount).toBe(0);
+  });
+});
