@@ -1,4 +1,5 @@
 import type { ComponentDef } from "../Component.js";
+import { type RelationDef } from "../Relations.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { type StorageAdapter } from "./StorageAdapter.js";
@@ -23,6 +24,11 @@ export interface SaveSystemOptions {
   readonly adapter?: StorageAdapter;
   /** Prefix under which slot keys are stored. Defaults to `"emptysock_save_"`. */
   readonly keyPrefix?: string;
+  /**
+   * Relations to persist besides the built-in `ChildOf`. Edges of relations
+   * not listed here are not saved.
+   */
+  readonly relations?: readonly RelationDef[];
 }
 /**
  * ENGINE_DESIGN.md §12.1/§19.3 — generic save/load for any ECS-core component
@@ -46,6 +52,7 @@ export declare class SaveSystem {
   private readonly _migrations;
   private readonly _adapter;
   private readonly _keyPrefix;
+  private readonly _relations;
   constructor(
     scene: Scene,
     components: readonly ComponentDef[],
@@ -81,5 +88,5 @@ export declare class SaveSystem {
    * Returns `false` (and loads nothing) if the slot doesn't exist.
    */
   load(slotId: string): Promise<boolean>;
-  private _snapshotEntities;
+  private _snapshot;
 }

@@ -1,4 +1,7 @@
 import type { ComponentDef } from "../Component.js";
+import type { Entity } from "../Entity.js";
+import { ChildOf, type RelationDef } from "../Relations.js";
+import { remapRefs } from "../RefRemap.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { MemoryStorageAdapter, type StorageAdapter } from "./StorageAdapter.js";
@@ -11,13 +14,23 @@ interface SavedComponent {
 
 /** One saved entity: every save-aware component it carried, keyed by componentName. */
 interface SavedEntity {
+  /** The entity's scene `EntityId` at save time (absent in v1 blobs). */
+  readonly id?: number;
   readonly components: Record<string, SavedComponent>;
 }
 
 /** The on-disk/in-storage save blob shape. `formatVersion` is this shape's own version, not any component's. */
 interface SaveBlob {
-  readonly formatVersion: 1;
+  readonly formatVersion: 1 | 2;
   readonly entities: readonly SavedEntity[];
+  /** v2: relation edges between saved entities, by saved `id` and relation name. */
+  readonly relations?: readonly SavedRelation[];
+}
+
+interface SavedRelation {
+  readonly subject: number;
+  readonly relation: string;
+  readonly target: number;
 }
 
 /**
@@ -42,6 +55,11 @@ export interface SaveSystemOptions {
   readonly adapter?: StorageAdapter;
   /** Prefix under which slot keys are stored. Defaults to `"emptysock_save_"`. */
   readonly keyPrefix?: string;
+  /**
+   * Relations to persist besides the built-in `ChildOf`. Edges of relations
+   * not listed here are not saved.
+   */
+  readonly relations?: readonly RelationDef[];
 }
 
 /**
@@ -66,6 +84,7 @@ export class SaveSystem {
   private readonly _migrations = new Map<string, MigrateFn>();
   private readonly _adapter: StorageAdapter;
   private readonly _keyPrefix: string;
+  private readonly _relations: ReadonlyMap<string, RelationDef>;
 
   constructor(
     scene: Scene,
@@ -78,6 +97,9 @@ export class SaveSystem {
     );
     this._adapter = options.adapter ?? new MemoryStorageAdapter();
     this._keyPrefix = options.keyPrefix ?? "emptysock_save_";
+    this._relations = new Map(
+      [ChildOf, ...(options.relations ?? [])].map((r) => [r.name, r]),
+    );
   }
 
   /**
@@ -96,10 +118,7 @@ export class SaveSystem {
    * under `slotId`.
    */
   async save(slotId: string): Promise<void> {
-    const blob: SaveBlob = {
-      formatVersion: 1,
-      entities: this._snapshotEntities(),
-    };
+    const blob: SaveBlob = this._snapshot();
     await this._adapter.set(this._keyPrefix + slotId, JSON.stringify(blob));
   }
 
@@ -143,8 +162,13 @@ export class SaveSystem {
       return false;
     }
 
+    // Phase 1: spawn everything, recording saved id -> new entity.
+    const byOldId = new Map<number, Entity>();
+    const spawned: Entity[] = [];
     for (const savedEntity of blob.entities) {
       const entity = this._scene.spawn();
+      spawned.push(entity);
+      if (savedEntity.id !== undefined) byOldId.set(savedEntity.id, entity);
       for (const [componentName, saved] of Object.entries(
         savedEntity.components,
       )) {
@@ -186,26 +210,67 @@ export class SaveSystem {
       }
     }
 
+    // Phase 2: rewrite declared entityRef fields, then re-create edges.
+    remapRefs(this._scene, spawned, byOldId, [...this._components.values()]);
+    for (const edge of blob.relations ?? []) {
+      const def = this._relations.get(edge.relation);
+      const subject = byOldId.get(edge.subject);
+      const target = byOldId.get(edge.target);
+      if (def === undefined || subject === undefined || target === undefined) {
+        console.warn(
+          `[SaveSystem] Save slot "${slotId}" has a relation edge "${edge.relation}" (${edge.subject} -> ${edge.target}) that cannot be restored - dropped.`,
+        );
+        continue;
+      }
+      try {
+        this._scene.relate(subject, def, target);
+      } catch (e) {
+        console.warn(
+          `[SaveSystem] Save slot "${slotId}": relation "${edge.relation}" not restored: ${(e as Error).message}`,
+        );
+      }
+    }
+
     return true;
   }
 
-  private _snapshotEntities(): SavedEntity[] {
-    const byEid = new Map<number, Record<string, SavedComponent>>();
+  private _snapshot(): SaveBlob {
+    const byEid = new Map<
+      number,
+      { entity: Entity; components: Record<string, SavedComponent> }
+    >();
 
     for (const def of this._components.values()) {
       this._scene.each(def, (component, entity) => {
-        let components = byEid.get(entity.eid);
-        if (components === undefined) {
-          components = {};
-          byEid.set(entity.eid, components);
+        let rec = byEid.get(entity.eid);
+        if (rec === undefined) {
+          rec = { entity, components: {} };
+          byEid.set(entity.eid, rec);
         }
-        components[def.componentName] = {
+        rec.components[def.componentName] = {
           version: def.version,
           data: { ...component } as SerializableRecord,
         };
       });
     }
 
-    return [...byEid.values()].map((components) => ({ components }));
+    const entities: SavedEntity[] = [];
+    const relations: SavedRelation[] = [];
+    for (const { entity, components } of byEid.values()) {
+      entities.push({ id: this._scene.idOf(entity), components });
+    }
+    for (const { entity } of byEid.values()) {
+      for (const def of this._relations.values()) {
+        for (const target of this._scene.targetsOf(entity, def)) {
+          if (!byEid.has(target.eid)) continue;
+          relations.push({
+            subject: this._scene.idOf(entity),
+            relation: def.name,
+            target: this._scene.idOf(target),
+          });
+        }
+      }
+    }
+    return { formatVersion: 2, entities, relations };
   }
 }

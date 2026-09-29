@@ -19,6 +19,13 @@ export { Entity } from "./Entity.js";
 export { NO_REF, isEntityRef } from "./EntityRef.js";
 export type { EntityRef, EntityId } from "./EntityRef.js";
 export { defineRelation, ChildOf } from "./Relations.js";
+export {
+  remapRefs,
+  remapValue,
+  entityRefLeaf,
+  entityRefFields,
+} from "./RefRemap.js";
+export type { EntityIdMap, RemapOptions, RemapLeaf } from "./RefRemap.js";
 export type {
   RelationDef,
   DefineRelationOptions,
