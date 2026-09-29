@@ -128,4 +128,22 @@ export declare class ParticleSystem {
   clear(): void;
   destroy(): void;
 }
+export interface RainPresetOptions {
+  /** Width of the emission strip (usually the viewport width). Default 800. */
+  width?: number;
+  /** Rain density, drops per second. Default 300. */
+  density?: number;
+  /** Wind push in px/s² (positive = right). Default 0. */
+  wind?: number;
+  /** Texture id for the streak sprite. Default "" (renderer falls back to white). */
+  texture?: string;
+}
+/**
+ * Ready-made rain `ParticleEmitterOptions`: a line emitter across the top of
+ * the screen firing fast, slightly tilted, short-lived, low-alpha drops.
+ * Position the emitter just above the top edge of the view.
+ */
+export declare function rainParticlePreset(
+  opts?: RainPresetOptions,
+): ParticleEmitterOptions;
 export {};

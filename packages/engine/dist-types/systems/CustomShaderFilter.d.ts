@@ -9,7 +9,15 @@ export interface CustomShaderOptions {
   fragmentSrc: string;
   /** Vertex shader source. Defaults to DEFAULT_CUSTOM_SHADER_VERTEX. */
   vertexSrc?: string;
-  /** Adapt a sprite-MVP (importer-emitted) vertex stage to pixi's filter contract via `toFilterVertexSource`. */
+  /**
+   * Treat `vertexSrc` (or the default) as a sprite-quad MVP passthrough — the
+   * shape the GMS2 importer emits, which is not pixi's Filter vertex contract
+   * (`uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix` are never
+   * set for a filter, so the quad collapses) — and substitute pixi's own
+   * filter position maths via `toFilterVertexSource`, keeping only its `out`
+   * varyings. Set for importer-emitted shaders; leave unset for a vertex
+   * stage already written against the filter contract.
+   */
   adaptVertex?: boolean;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
@@ -30,22 +38,31 @@ export interface CustomShaderOptions {
  */
 export declare class CustomShaderFilter extends Filter {
   constructor(options: CustomShaderOptions);
-  /** Updates the uTime uniform. Call once per frame from the game loop. */
-  setTime(seconds: number): void;
   /** Writes a uniform previously declared via `options.uniforms`; undeclared names are ignored. */
   setUniform(name: string, value: number | number[]): void;
+  /** Updates the uTime uniform. Call once per frame from the game loop. */
+  setTime(seconds: number): void;
 }
 export declare function createCustomShaderFilter(
   options: CustomShaderOptions,
 ): CustomShaderFilter;
-/** Builds a Filter for a shader registered via `registerGmlShader`, vertex adapted, uniforms declared. */
+/**
+ * Builds a `CustomShaderFilter` for a shader registered via
+ * `registerGmlShader` (what an importer-emitted `assets/<name>.shader.ts`
+ * does at import time), with the vertex stage adapted to pixi's filter
+ * contract and every fragment-declared scalar/vector uniform declared up
+ * front. Used by both the per-entity path (`RenderPipeline.
+ * resolveShaderFilter`) and the per-layer path (`RenderSystem.
+ * addLayerGmlShader`), so the two can never disagree about how an importer
+ * shader becomes a Filter. `undefined` when the id isn't registered.
+ */
 export declare function buildGmlShaderFilter(id: string):
   | {
       filter: CustomShaderFilter;
       uniforms: ParsedShaderUniform[];
     }
   | undefined;
-/** Copies the registry's current uniform values for `id` into `filter`; returns the registry version applied. */
+/** Copies the registry's current `shader_set_uniform_*` values for `id` into `filter`. Returns the registry version applied. */
 export declare function applyGmlShaderUniforms(
   filter: CustomShaderFilter,
   uniforms: ParsedShaderUniform[],

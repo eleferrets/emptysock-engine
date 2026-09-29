@@ -1812,6 +1812,8 @@ renderSystem.syncLighting(lights, lighting.ambient, viewport);
 
 **GML compat.** `compat/gmlLighting.ts` wires a real, custom GameMaker lighting system (a `lightrender`-style controller plus per-instance light objects — GameMaker itself has no built-in lighting API) onto `LightSource`/`LightOccluder`: `light_attach(entity, ctx, radius, colour, options?)`, `light_set_enabled`/`_colour`/`_radius`/`_intensity`, `light_remove`, `light_occluder_attach(entity, ctx, width?, height?)`, `light_occluder_set_enabled`/`_remove`, and `lighting_set_ambient(ctx, colour, level)`/`lighting_get_ambient(ctx)` against an optional `ctx.lighting: LightingSystem`. See [LightingSystem reference](../reference/systems/lighting-system.md).
 
+**GML surface/blend cutout lighting.** `compat/gmlSurfaces.ts` supports the surface-based technique (`surface_create`/`surface_set_target`/`surface_reset_target`/`draw_surface`/`draw_clear`, `gpu_set_blendmode` with `bm_normal`/`bm_add`/`bm_max`/`bm_subtract`, `draw_ellipse_color`/`draw_triangle_color`, legacy `view_*view`) via `GmlActionContext.surfaces` (`RenderPipeline.surfaces`). See the reference page's cutout-lighting section.
+
 ---
 
 ## 5.39 KeyBindings (merged)

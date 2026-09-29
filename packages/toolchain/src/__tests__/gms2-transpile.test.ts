@@ -592,16 +592,16 @@ describe("transpileGML", () => {
     const out = transpileGML(
       "if !surface_exists(surf) surf = surface_create(room_width, room_height);\nsurface_set_target(surf);\n\nif (other_thing)\n{\n  foo();\n}",
     );
-    expect(out).toContain("if (!surface_exists(surf))");
+    expect(out).toContain("if (!GmlActions.surface_exists(_ctx, surf))");
     // `room_width`/`room_height` are now real, wired bare-built-in-variable
     // rewrites (see the dedicated describe block below) — this assertion
     // was updated to match rather than to keep asserting the pre-fix,
     // unresolved-identifier output.
     expect(out).toContain(
-      "surf = surface_create(GmlActions.room_width(), GmlActions.room_height());",
+      "surf = GmlActions.surface_create(_ctx, GmlActions.room_width(), GmlActions.room_height());",
     );
     expect(out).not.toContain(
-      "surf = surface_create(GmlActions.room_width(), GmlActions.room_height());)",
+      "GmlActions.surface_create(_ctx, GmlActions.room_width(), GmlActions.room_height());)",
     );
   });
 
@@ -2602,5 +2602,44 @@ describe("transpileGML — ds_map accessor on an implicit instance variable, dep
     const out = transpileGML("depth += 1;");
     expect(out).toContain("let _gmlDepth");
     expect(() => new Function("_entity", "GmlActions", out)).not.toThrow();
+  });
+});
+
+describe("transpileGML — GMS2 cutout lighting (surfaces, blend modes, legacy view vars)", () => {
+  const LIGHT = [
+    "surface_set_target(surf);",
+    "draw_clear(c_black);",
+    "gpu_set_blendmode(bm_subtract);",
+    "draw_ellipse_color(0, 0, 64, 64, c_orange, c_black, false);",
+    "draw_triangle_color(0, 0, 8, 0, 8, 8, c_yellow, c_black, c_black, false);",
+    "surface_reset_target();",
+    "gpu_set_blendmode(bm_normal);",
+    "draw_surface(surf, view_xview, view_yview);",
+    "surf = surface_create(view_wview, view_hview);",
+  ].join("\n");
+
+  it("threads the real surface/blend/draw calls and constants", () => {
+    const out = transpileGML(LIGHT);
+    expect(out).toContain("GmlActions.surface_set_target(_ctx,");
+    expect(out).toContain("GmlActions.draw_clear(_ctx, GmlActions.c_black)");
+    expect(out).toContain(
+      "GmlActions.gpu_set_blendmode(_ctx, GmlActions.bm_subtract)",
+    );
+    expect(out).toContain("GmlActions.surface_reset_target(_ctx)");
+    expect(out).toContain("GmlActions.draw_surface(_ctx,");
+    expect(out).toContain("GmlActions.surface_create(_ctx,");
+    expect(out).toContain("GmlActions.draw_ellipse_color(_ctx.drawTarget,");
+    expect(out).toContain("GmlActions.draw_triangle_color(_ctx.drawTarget,");
+  });
+
+  it("rewrites legacy view_xview/view_wview reads onto view 0's camera getters", () => {
+    const out = transpileGML("var w = view_wview; var x0 = view_xview[0];");
+    expect(out).toContain(
+      "GmlActions.camera_get_view_width(_ctx, GmlActions.view_get_camera(_ctx, 0))",
+    );
+    expect(out).toContain(
+      "GmlActions.camera_get_view_x(_ctx, GmlActions.view_get_camera(_ctx, 0))",
+    );
+    expect(out).not.toMatch(/\bview_xview\b/);
   });
 });

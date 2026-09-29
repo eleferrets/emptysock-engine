@@ -1,6 +1,16 @@
 import { type Texture } from "pixi.js";
 /** Loads a texture for an asset path. Swappable for tests/headless hosts. */
 export type TextureLoader = (path: string) => Promise<Texture>;
+/**
+ * The one texture load/lookup path shared by `RenderPipeline` (sprite sync,
+ * `draw_sprite`) and `UISystem` (`ImageWidget`). With no custom loader it
+ * delegates entirely to pixi's `Assets` cache: `Assets.load` (which itself
+ * dedupes concurrent loads of one path) for loading, and a synchronous
+ * `Assets.cache.has`/`Assets.get` for "already loaded?" lookups, so no
+ * parallel `Map` of textures exists to drift from pixi's own. A custom
+ * `TextureLoader` (the test/host seam) keeps a small local cache plus an
+ * in-flight map so the same path is still only loaded once.
+ */
 export declare class TextureStore {
   private readonly _custom;
   private readonly _local;

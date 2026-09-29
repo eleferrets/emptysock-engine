@@ -27,7 +27,8 @@ export declare class UISystem {
   private readonly _presses;
   private readonly _textures;
   private readonly _fonts;
-  /** Paths whose load is in flight or failed. */
+  /** Loaded/loading/failed textures keyed by `ImageWidget.src`, shared across every widget instance that references the same path — the same "cache by source path, load once" shape `RenderPipeline`'s `_textureCache` uses. */
+  /** Paths whose load is in flight or failed, so a frame never re-requests them. Loaded textures live only in `_textures`/pixi `Assets`. */
   private readonly _imageState;
   constructor(_tree: WidgetTree, options?: UISystemOptions);
   /** Resolves a widget's font: `fontId` (via the injected `FontRegistry`) when set and resolvable, else the widget's own raw `font`/`fontSize` fields. */
@@ -80,7 +81,7 @@ export declare class UISystem {
   /**
    * Draws `src` (an `ImageWidget.src` path) via this system's `ImageLoader`
    * (`Assets.load` by default, the same pixi loader `RenderPipeline` uses),
-   * cached by path in `_imageState` so the same image is loaded once and
+   * cached by path in `_imageCache` so the same image is loaded once and
    * reused by every widget instance that references it, never reloaded per
    * frame or per instance. The grey placeholder box remains the fallback
    * for both real "nothing to draw yet" states — no source set, or a load

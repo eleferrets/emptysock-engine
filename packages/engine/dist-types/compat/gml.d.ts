@@ -197,6 +197,30 @@ export interface GmlDrawTarget {
   setValign?(align: number): void;
   /** `draw_set_alpha(alpha)` — opacity (0-1) applied to every subsequent draw call until changed again — GameMaker's own persistent draw-state alpha, distinct from a per-call `alpha` argument (`spriteExt`/`spritePartExt` below still take their own explicit `alpha`, matching GameMaker's own real per-call override). Optional, same reasoning as `setFont`. */
   setAlpha?(alpha: number): void;
+  /** `gpu_set_blendmode(mode)` (`bm_normal` 0 / `bm_add` 1 / `bm_max` 2 / `bm_subtract` 3) — applies to subsequent draw calls until changed. Optional, same reasoning as `setFont`. */
+  setBlendMode?(mode: number): void;
+  /** `draw_surface(id, x, y)` — draws a `surface_create`d surface (top-left at x,y) with the current blend mode. Optional. */
+  drawSurface?(surfaceId: number, x: number, y: number): void;
+  /** `draw_clear(colour)`/`draw_clear_alpha` — replaces the target's contents with a solid colour. Optional. */
+  clear?(colour: number, alpha: number): void;
+  /** `draw_ellipse(_color)` — ellipse inscribed in the rectangle. Optional. */
+  ellipse?(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    outline: boolean,
+  ): void;
+  /** `draw_triangle(_color)`. Optional. */
+  triangle?(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    outline: boolean,
+  ): void;
   /** `shader_set(id)`/`shader_reset()` (`null`) — subsequent sprite-shaped draw calls render through that registered shader (`ShaderRegistry`). Optional, same reasoning as `setFont`. */
   setShader?(shaderId: string | null): void;
   /**
@@ -392,6 +416,51 @@ export declare function draw_line(
   y1: number,
   x2: number,
   y2: number,
+): void;
+/** `draw_ellipse(x1, y1, x2, y2, outline)`. */
+export declare function draw_ellipse(
+  target: GmlDrawTarget,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  outline: boolean | number,
+): void;
+/** `draw_ellipse_color(x1, y1, x2, y2, c1, c2, outline)` — a flat fill in `c1` (no centre-to-edge gradient is modelled, the same approximation `draw_text_color` documents). */
+export declare function draw_ellipse_color(
+  target: GmlDrawTarget,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  c1: number,
+  _c2: number,
+  outline: boolean | number,
+): void;
+/** `draw_triangle(x1, y1, x2, y2, x3, y3, outline)`. */
+export declare function draw_triangle(
+  target: GmlDrawTarget,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
+  outline: boolean | number,
+): void;
+/** `draw_triangle_color(x1, y1, x2, y2, x3, y3, c1, c2, c3, outline)` — flat fill in `c1` (no per-vertex gradient). */
+export declare function draw_triangle_color(
+  target: GmlDrawTarget,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
+  c1: number,
+  _c2: number,
+  _c3: number,
+  outline: boolean | number,
 ): void;
 export declare function draw_set_font(
   target: GmlDrawTarget,

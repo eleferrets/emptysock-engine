@@ -22,6 +22,9 @@
  * not a physics-engine concept, and `Meta` is already the one component
  * `gms2-codegen.ts`'s generated prefabs carry for exactly this kind of
  * per-instance, editor-visible flag.
+ *
+ * `persistent` mirrors GameMaker's per-object "Persistent" checkbox;
+ * `GmsProjectRuntime` carries such entities across a room change.
  */
 export declare const Meta: import("../Component.js").ComponentDef<{
   name: string;

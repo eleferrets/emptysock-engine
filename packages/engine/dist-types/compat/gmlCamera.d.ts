@@ -351,18 +351,47 @@ export declare function view_set_surface_id(
   idx: number,
   id: number,
 ): void;
-/** Legacy pre-2.3 `room_get_camera`/`room_set_camera`/`room_set_viewport`/`room_set_view_enabled` family — honestly operates on the current scene's own view registry, ignoring the `room` argument (see the implementation's own doc comment). */
+/**
+ * The legacy pre-2.3 `room_get_camera`/`room_set_camera`/`room_set_viewport`/
+ * `room_set_view_enabled` family — GameMaker's real per-*room* view-array
+ * accessors, confirmed real and still called by Freedom Backup's own
+ * `scripts/room_set_view/room_set_view.gml` (the same real GameMaker-
+ * auto-generated view-compatibility script family `__view_get`/
+ * `__view_set_internal` above already document, but this one was never
+ * previously wired — a real, confirmed gap: `room_get_camera`/
+ * `room_set_camera`/`room_set_viewport`/`room_set_view_enabled` were
+ * fully undeclared identifiers, so any call into `room_set_view` threw.
+ *
+ * GameMaker's real signature addresses an arbitrary room by its numeric
+ * index, not just the currently-loaded one — a capability this engine's
+ * room model genuinely doesn't have (this importer addresses rooms by
+ * name, and there is no live per-room camera/view state for a room that
+ * isn't the current `Scene` at all — see `room_speed`'s own doc comment
+ * for the identical "no cross-room state to answer from" shape). Rather
+ * than fabricate a numeric-room-keyed registry with no real backing data,
+ * these honestly operate on the *current* scene's own view registry —
+ * `ensureRegistry(ctx.scene)`, the exact same one every `view_get_camera`/
+ * `view_set_camera`/`view_set_visible` call above already reads/writes —
+ * and silently ignore the `room` argument. This matches real usage: every
+ * confirmed real call site in Freedom Backup passes the *current* room's
+ * own numeric index (obtained via `room`, itself just an alias in this
+ * importer — see `room()`'s own doc comment), so honestly aliasing to
+ * "the current room" produces the correct real behaviour for every actual
+ * call, not just a plausible-looking approximation.
+ */
 export declare function room_get_camera(
   ctx: GmlCameraContext,
   _room: number,
   view: number,
 ): number;
+/** See `room_get_camera`'s doc comment. */
 export declare function room_set_camera(
   ctx: GmlCameraContext,
   _room: number,
   view: number,
   camera: number,
 ): void;
+/** See `room_get_camera`'s doc comment — real GameMaker signature: `room_set_viewport(room, view, visible, xport, yport, wport, hport)`. */
 export declare function room_set_viewport(
   ctx: GmlCameraContext,
   _room: number,
@@ -373,6 +402,7 @@ export declare function room_set_viewport(
   wport: number,
   hport: number,
 ): void;
+/** See `room_get_camera`'s doc comment — real GameMaker signature: `room_set_view_enabled(room, enable)`, the room-wide switch `viewSettings.enableViews`/`configureGmlViewsFromRoom` already maintains as `registry.viewEnabled`. */
 export declare function room_set_view_enabled(
   ctx: GmlCameraContext,
   _room: number,

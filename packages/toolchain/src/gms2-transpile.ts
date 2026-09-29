@@ -2460,6 +2460,47 @@ export function transpileGML(
     },
   );
 
+  // Legacy pre-2.3 `view_xview`/`view_yview`/`view_wview`/`view_hview`
+  // (optionally indexed by `[view_current]`/`[0]`) — real, confirmed use in
+  // GMS2 lighting objects (`surface_create(view_wview, view_hview)`). Read
+  // from view slot 0's camera through the real `compat/gmlCamera.ts` getters;
+  // the index is ignored (only the primary view is addressed), and an
+  // assignment target is left alone.
+  for (const [legacy, getter] of [
+    ["view_xview", "camera_get_view_x"],
+    ["view_yview", "camera_get_view_y"],
+    ["view_wview", "camera_get_view_width"],
+    ["view_hview", "camera_get_view_height"],
+  ] as const) {
+    out = out.replace(
+      new RegExp(
+        `(?<!\\.[ \\t]*)\\b${legacy}\\b(?:\\s*\\[[^\\]]*\\])?(?!\\s*=(?!=))`,
+        "g",
+      ),
+      `${getter}(view_get_camera(0))`,
+    );
+  }
+
+  // draw_ellipse/draw_ellipse_color/draw_triangle/draw_triangle_color —
+  // shape draws with a real `GmlDrawTarget.ellipse`/`triangle` (compat/gml.ts);
+  // guarded on `_ctx.drawTarget` so a call outside a draw dispatch (or before
+  // a surface target is set) is a safe no-op, like the inline draw_* above.
+  for (const fn of [
+    "draw_ellipse_color",
+    "draw_ellipse",
+    "draw_triangle_color",
+    "draw_triangle",
+  ]) {
+    out = out.replace(
+      new RegExp(
+        `\\b${fn}\\s*\\((${BALANCED_PARENS_TWO_LEVELS})\\)(\\s*;)?`,
+        "g",
+      ),
+      (_m, args: string, semi: string | undefined) =>
+        `(_ctx.drawTarget && GmlActions.${fn}(_ctx.drawTarget, ${args.trim()}))${semi ?? ""}`,
+    );
+  }
+
   // draw_text_ext/draw_text_color/draw_roundrect_ext — real, confirmed
   // real GML draw functions (compat/gml.ts's own doc comments) with no
   // single `GmlDrawTarget` primitive to inline directly the way
@@ -2918,6 +2959,18 @@ export function transpileGML(
     "display_set_gui_size",
     "device_mouse_y_to_gui",
     "device_mouse_x_to_gui",
+    // compat/gmlSurfaces.ts — GMS2 blend modes/surfaces/cutout lighting.
+    "gpu_set_blendmode",
+    "gpu_set_blendmode_ext",
+    "draw_set_blend_mode",
+    "surface_create",
+    "surface_exists",
+    "surface_free",
+    "surface_set_target",
+    "surface_reset_target",
+    "draw_surface",
+    "draw_clear",
+    "draw_clear_alpha",
   ];
   for (const fn of THREADED_CTX_ONLY) {
     const re = new RegExp(
@@ -2978,6 +3031,10 @@ export function transpileGML(
     "cr_default",
     "cr_none",
     "working_directory",
+    "bm_normal",
+    "bm_add",
+    "bm_max",
+    "bm_subtract",
   ];
   for (const name of GML_MISC_CONSTANTS) {
     out = out.replace(

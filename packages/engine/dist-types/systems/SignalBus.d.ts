@@ -48,4 +48,3 @@ export declare class SignalGroup {
   emit<T = unknown>(name: string, payload?: T): number;
   dispose(): void;
 }
-//# sourceMappingURL=SignalBus.d.ts.map

@@ -94,6 +94,24 @@ export {
   getGmlActiveShader,
 } from "./compat/gmlShaders.js";
 export {
+  bm_normal,
+  bm_add,
+  bm_max,
+  bm_subtract,
+  gpu_set_blendmode,
+  draw_set_blend_mode,
+  gpu_set_blendmode_ext,
+  surface_create,
+  surface_exists,
+  surface_free,
+  surface_set_target,
+  surface_reset_target,
+  draw_surface,
+  draw_clear,
+  draw_clear_alpha,
+} from "./compat/gmlSurfaces.js";
+export type { GmlSurfaceBackend } from "./compat/gmlSurfaces.js";
+export {
   registerGmlShader,
   unregisterGmlShader,
   hasGmlShader,
@@ -846,6 +864,10 @@ export {
   ord,
   draw_rectangle,
   draw_circle,
+  draw_ellipse,
+  draw_ellipse_color,
+  draw_triangle,
+  draw_triangle_color,
   draw_text,
   draw_sprite,
   draw_line,

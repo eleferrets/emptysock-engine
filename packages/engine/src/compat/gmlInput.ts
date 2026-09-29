@@ -26,6 +26,7 @@
 // it only translates GameMaker's own vk-code/gp-constant vocabulary onto
 // that existing frozen snapshot.
 
+import type { GmlSurfaceBackend } from "./gmlSurfaces.js";
 import type { Game } from "../Game.js";
 import { vkToDomCode } from "./gmlKeys.js";
 import { ViewportSystem } from "../systems/ViewportSystem.js";
@@ -289,7 +290,10 @@ export function surface_get_width(
   ctx: GmlInputContext,
   surface: number,
 ): number {
-  return surface === application_surface ? display_get_gui_width(ctx) : 0;
+  if (surface === application_surface) return display_get_gui_width(ctx);
+  return (
+    (ctx as { surfaces?: GmlSurfaceBackend }).surfaces?.width(surface) ?? 0
+  );
 }
 
 /** See `surface_get_width`'s doc comment. */
@@ -297,7 +301,10 @@ export function surface_get_height(
   ctx: GmlInputContext,
   surface: number,
 ): number {
-  return surface === application_surface ? display_get_gui_height(ctx) : 0;
+  if (surface === application_surface) return display_get_gui_height(ctx);
+  return (
+    (ctx as { surfaces?: GmlSurfaceBackend }).surfaces?.height(surface) ?? 0
+  );
 }
 
 /**

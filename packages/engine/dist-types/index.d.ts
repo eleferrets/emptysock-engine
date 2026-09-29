@@ -69,7 +69,11 @@ export type {
   SequenceTrackDef,
 } from "./systems/SequenceSystem.js";
 export { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
-export { ParticleEmitter } from "./systems/ParticleSystem.js";
+export {
+  ParticleEmitter,
+  rainParticlePreset,
+} from "./systems/ParticleSystem.js";
+export type { RainPresetOptions } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
   EmitterShape,
@@ -85,6 +89,24 @@ export {
   shader_set_uniform_i_array,
   getGmlActiveShader,
 } from "./compat/gmlShaders.js";
+export {
+  bm_normal,
+  bm_add,
+  bm_max,
+  bm_subtract,
+  gpu_set_blendmode,
+  draw_set_blend_mode,
+  gpu_set_blendmode_ext,
+  surface_create,
+  surface_exists,
+  surface_free,
+  surface_set_target,
+  surface_reset_target,
+  draw_surface,
+  draw_clear,
+  draw_clear_alpha,
+} from "./compat/gmlSurfaces.js";
+export type { GmlSurfaceBackend } from "./compat/gmlSurfaces.js";
 export {
   registerGmlShader,
   unregisterGmlShader,
@@ -113,13 +135,13 @@ export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
 export { GlobalStore } from "./systems/GlobalStore.js";
-export type { GameGlobals } from "./systems/GlobalStore.js";
 export { SignalBus, SignalGroup } from "./systems/SignalBus.js";
 export type {
   GameSignals,
   SignalListener,
   Unsubscribe,
 } from "./systems/SignalBus.js";
+export type { GameGlobals } from "./systems/GlobalStore.js";
 export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export { FontRegistry } from "./systems/FontRegistry.js";
 export type { FontDescriptor } from "./systems/FontRegistry.js";
@@ -417,8 +439,8 @@ export {
   get_gml_ystart,
   set_gml_ystart,
   sprite_width,
-  get_gml_image_number,
   sprite_height,
+  get_gml_image_number,
   sprite_get_width,
   sprite_get_height,
   sprite_exists,
@@ -816,6 +838,10 @@ export {
   ord,
   draw_rectangle,
   draw_circle,
+  draw_ellipse,
+  draw_ellipse_color,
+  draw_triangle,
+  draw_triangle_color,
   draw_text,
   draw_sprite,
   draw_line,

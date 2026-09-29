@@ -1,8 +1,9 @@
-import { Container, Texture } from "pixi.js";
+import { Container, Graphics, Texture } from "pixi.js";
+import type { Renderer } from "pixi.js";
 import { type TextureLoader } from "./TextureStore.js";
 import type { FontRegistry } from "./FontRegistry.js";
-import type { Renderer } from "pixi.js";
-import { CustomShaderFilter } from "./CustomShaderFilter.js";
+import { type BitmapFontDef } from "./BitmapFontDef.js";
+import { type CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
@@ -11,6 +12,8 @@ import type { PostProcessSystem } from "./PostProcessSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
 import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
+import type { GmlDrawTarget } from "../compat/gml.js";
+import type { GmlSurfaceBackend } from "../compat/gmlSurfaces.js";
 /**
  * The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
  * the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
@@ -63,6 +66,154 @@ export interface TileLayerSource {
     }>;
   };
 }
+/**
+ * The real `GmlDrawTarget` implementation (`compat/gml.ts`'s structural
+ * interface) — a pixi `Graphics` wrapper, rebuilt from scratch on every
+ * `onDraw`/`onDrawGui` call. Construction itself clears the previous call's
+ * vector drawing and removes any `Text` children a previous `draw_text` call
+ * added (pixi's `Graphics` has no text primitive of its own, so `draw_text`
+ * appends a real `Text` child instead — removed here rather than left to
+ * accumulate, since a `Graphics` object persists across frames for a given
+ * entity while its drawing content does not).
+ */
+declare class PixiGmlDrawTarget implements GmlDrawTarget {
+  private readonly _graphics;
+  private readonly _resolveTexture;
+  private readonly _resolveShader;
+  private readonly _resolveBitmapFont;
+  private readonly _resolveSurface;
+  private _color;
+  /** Persistent draw-state font/alignment/alpha — GameMaker's `draw_set_*` calls mutate these until changed again, applied to the next `text()`/sprite draw call. Reset to defaults on every construction (every `onDraw`/`onDrawGui` dispatch), matching this class's own "rebuilt fresh every call, no cross-frame leakage" doc comment above. */
+  private _fontFamily;
+  private _halign;
+  private _valign;
+  private _alpha;
+  constructor(
+    _graphics: Graphics,
+    _resolveTexture: (path: string) => Texture,
+    _resolveShader?: (id: string) => CustomShaderFilter | undefined,
+    _resolveBitmapFont?: (id: string) =>
+      | {
+          family: string;
+          def: BitmapFontDef;
+        }
+      | undefined,
+    _resolveSurface?: (id: number) => Texture | undefined,
+  );
+  /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
+  private _g;
+  private _blend;
+  /** Set by `clear()`: colour/alpha the owning surface backend clears its texture to before replaying this target's content. */
+  pendingClear:
+    | {
+        colour: number;
+        alpha: number;
+      }
+    | undefined;
+  /**
+   * `gpu_set_blendmode`: a pixi `Graphics` has one blend mode, so a change
+   * starts a new child `Graphics` segment (in draw order) with that mode;
+   * sprites/text added afterwards are its children and inherit it.
+   */
+  setBlendMode(mode: number): void;
+  drawSurface(surfaceId: number, x: number, y: number): void;
+  clear(colour: number, alpha: number): void;
+  ellipse(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    outline: boolean,
+  ): void;
+  triangle(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    outline: boolean,
+  ): void;
+  setColor(hex: number): void;
+  setFont(fontId: string): void;
+  setHalign(align: number): void;
+  setValign(align: number): void;
+  setAlpha(alpha: number): void;
+  /** `shader_set`/`shader_reset` — every sprite-shaped draw call made while a shader is active gets that shader's shared Filter (vector shapes/text drawn on the `Graphics` itself are not filtered). */
+  setShader(shaderId: string | null): void;
+  private _shader;
+  private _shade;
+  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void;
+  circle(x: number, y: number, r: number, outline: boolean): void;
+  text(x: number, y: number, text: string): void;
+  line(x1: number, y1: number, x2: number, y2: number): void;
+  sprite(texturePath: string, x: number, y: number): void;
+  spriteExt(
+    texturePath: string,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    rotationDeg: number,
+    colour: number,
+    alpha: number,
+  ): void;
+  /** Crops a fresh `Texture` view onto the base texture's `(left, top, width, height)` source-pixel rectangle — real pixi `Texture`/`Rectangle` API, not an approximation. A crop rect that falls outside the base texture's own bounds is a real pixi runtime error, so callers should keep `left`/`top`/`width`/`height` inside the sprite's actual pixel dimensions, same as GameMaker's own function requires. */
+  private _cropTexture;
+  spritePart(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ): void;
+  spritePartExt(
+    texturePath: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number,
+    colour: number,
+    alpha: number,
+  ): void;
+}
+/**
+ * Pixi implementation of `GmlSurfaceBackend`: one `RenderTexture` per GMS2
+ * surface. `beginTarget` hands out a `PixiGmlDrawTarget` over a scratch
+ * `Graphics`; `endTarget` renders it into the surface texture (accumulating,
+ * unless `draw_clear` was called, in which case the texture is cleared to that
+ * colour first). GPU output is not verifiable headless; tests check wiring.
+ */
+declare class PixiSurfaceBackend implements GmlSurfaceBackend {
+  private readonly _renderer;
+  private readonly _makeTarget;
+  private _next;
+  private readonly _surfaces;
+  private readonly _open;
+  constructor(
+    _renderer: () => Renderer,
+    _makeTarget: (
+      graphics: Graphics,
+      resolveSurface: (id: number) => Texture | undefined,
+    ) => PixiGmlDrawTarget,
+  );
+  create(width: number, height: number): number;
+  exists(id: number): boolean;
+  free(id: number): void;
+  width(id: number): number;
+  height(id: number): number;
+  /** The texture `draw_surface` samples; undefined for an unknown/freed surface. */
+  texture(id: number): Texture | undefined;
+  beginTarget(id: number): GmlDrawTarget | undefined;
+  endTarget(id: number): void;
+  destroy(): void;
+}
 export type { TextureLoader };
 export interface RenderPipelineOptions extends Omit<
   RenderSystemOptions,
@@ -72,7 +223,7 @@ export interface RenderPipelineOptions extends Omit<
   layers?: LayerSystem;
   /** Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`. */
   textureLoader?: TextureLoader;
-  /** Font registry consulted for bitmap fonts when GML `draw_set_font`/`draw_text` runs. */
+  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when GML `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
   fonts?: FontRegistry;
 }
 /**
@@ -154,19 +305,6 @@ export declare class RenderPipeline implements SceneRenderer {
   private _mainScene;
   private readonly _overlayContainers;
   private readonly _textures;
-  private _fonts;
-  /** Installed pixi `BitmapFont`s, by font id — built once the def's atlas has loaded, rebuilt if the id is re-registered with a different def object. */
-  private readonly _bitmapFonts;
-  /** Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up in. */
-  attachFonts(fonts: FontRegistry | null): void;
-  /**
-   * The pixi `BitmapText` font family for a registered bitmap font id, or
-   * `undefined` when the id has no bitmap def or its atlas is not loaded yet
-   * (the load is kicked off and the caller falls back to ordinary Canvas
-   * `Text` for this dispatch, the same "placeholder now, real next frame"
-   * shape `_resolveTextureForDraw` uses for `draw_sprite`).
-   */
-  private _resolveBitmapFont;
   private readonly _sortedLayers;
   /**
    * Set via `attachPostProcess()`. When present, `renderFrame()` calls
@@ -207,6 +345,19 @@ export declare class RenderPipeline implements SceneRenderer {
   /** Full-screen graphics used to paint the scene-transition overlay, created lazily. */
   private _transitionOverlay;
   constructor(options?: RenderPipelineOptions);
+  private _fonts;
+  /** Installed pixi `BitmapFont`s, by font id — built once the def's atlas has loaded, rebuilt if the id is re-registered with a different def object. */
+  private readonly _bitmapFonts;
+  /** Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up in. */
+  attachFonts(fonts: FontRegistry | null): void;
+  /**
+   * The pixi `BitmapText` font family for a registered bitmap font id, or
+   * `undefined` when the id has no bitmap def or its atlas is not loaded yet
+   * (the load is kicked off and the caller falls back to ordinary Canvas
+   * `Text` for this dispatch, the same "placeholder now, real next frame"
+   * shape `_resolveTextureForDraw` uses for `draw_sprite`).
+   */
+  private _resolveBitmapFont;
   /**
    * Attach (or detach, with `null`) a `GmlBehaviorSystem` and the
    * `GmlActionContext` its dispatch calls should receive. `ctx.drawTarget`
@@ -302,6 +453,10 @@ export declare class RenderPipeline implements SceneRenderer {
    */
   private _renderGmlDraw;
   private _acquireGmlGraphics;
+  private _newDrawTarget;
+  private _surfaceBackend;
+  /** GMS2 surface backend (`surface_create`/`surface_set_target`/`draw_surface`, `compat/gmlSurfaces.ts`); wired into `GmlActionContext.surfaces` by `GmsProjectRuntime`. */
+  get surfaces(): PixiSurfaceBackend;
   private _pruneGmlGraphics;
   /**
    * Paints the scene-transition overlay described by `postProcess`'s
@@ -357,9 +512,20 @@ export declare class RenderPipeline implements SceneRenderer {
    * `Projection3D.active` every frame).
    */
   private _syncOne;
+  /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
   private readonly _shaderFilters;
-  /** The one shared Filter for a registered shader id (`undefined` when unregistered), built lazily; uniforms re-copied only when the registry version changed. */
+  /**
+   * The one live Filter for a registered shader id (`undefined` when the id
+   * isn't registered), shared by every entity/draw call using that shader —
+   * never allocated per frame. Re-registering a shader rebuilds it; uniform
+   * writes (`setGmlShaderUniform`) are copied into the Filter here, and only
+   * when the registry's version for that shader changed.
+   *
+   * GPU compilation of the generated program is not verified headless: the
+   * tests cover the wiring (which Filter lands on which sprite), not pixels.
+   */
   resolveShaderFilter(id: string): CustomShaderFilter | undefined;
+  /** Sets a tracked sprite's `.filters` to `[sharedFilter]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
   private _applySpriteShader;
   /**
    * `_syncOne()`'s `Projection3D`-active branch — a real `PerspectiveMesh`
@@ -394,7 +560,7 @@ export declare class RenderPipeline implements SceneRenderer {
    * (GML's own semantic — it's drawn this frame, not a persistent object),
    * so there's nothing to retroactively re-texture. Returns the cached
    * texture if already loaded, otherwise kicks off the same shared
-   * `_textures` load-and-cache path as `_applyTexture`
+   * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`
    * (so a *later* `draw_sprite` call for the same path is cache-hit) and
    * returns `Texture.WHITE` for this frame only — the same "visible
    * placeholder, not a blank hole" fallback `_applyTexture` already uses
@@ -407,6 +573,17 @@ export declare class RenderPipeline implements SceneRenderer {
    * structural shape rather than one concrete pixi class.
    */
   private _applyTexture;
+  /**
+   * `_syncOne()`'s `sliceMode` 1/2 branch. Mode 1 is a pixi core
+   * `NineSliceSprite` (corners fixed at the `slice*` guide sizes), mode 2 a
+   * `TilingSprite` (texture repeated at native scale, clipped to the box).
+   * Both are sized to `Sprite.width` x `Sprite.height` in local space and
+   * then scaled by `Transform.scale*`, so a scaled entity grows the whole
+   * box like a plain sprite would. Anchor maps to `anchor` (tiling) or
+   * `pivot` (nine-slice, which has no anchor in pixi v8).
+   */
+  private _syncSliced;
+  private _removeSliced;
   private _removeSprite;
   private _removeMesh;
   /**

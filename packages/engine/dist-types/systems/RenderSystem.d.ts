@@ -137,12 +137,22 @@ export declare class RenderSystem {
    */
   addLayerShaderFilter(layerName: string, filter: Filter): void;
   private readonly _layerGmlShaders;
-  /** Attaches a `registerGmlShader`-registered (importer-emitted) shader to a layer as a real Filter, vertex adapted to pixi's filter contract. `undefined` for an unregistered id. */
+  /**
+   * Attaches a shader registered via `registerGmlShader` (what an
+   * importer-emitted `assets/<name>.shader.ts` does on import) to a layer's
+   * container as a real per-layer Filter. The importer's sprite-quad vertex
+   * stage is adapted to pixi's filter contract (`adaptVertex`, same
+   * substitution the per-entity `Sprite.shader` path uses), so the quad no
+   * longer collapses. Returns the filter (pass it to
+   * `removeLayerShaderFilter` to detach), or `undefined` for an unregistered
+   * id. `shader_set_uniform_*` writes made later are copied in by
+   * `syncLayerGmlShaders()`, which `render()` calls each frame.
+   */
   addLayerGmlShader(
     layerName: string,
     shaderId: string,
   ): CustomShaderFilter | undefined;
-  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's version changed. */
+  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's registry version changed. */
   syncLayerGmlShaders(): void;
   /** Detach a previously attached shader filter from a layer's container. */
   removeLayerShaderFilter(layerName: string, filter: Filter): void;

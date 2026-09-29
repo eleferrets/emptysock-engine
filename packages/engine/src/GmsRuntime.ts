@@ -249,6 +249,7 @@ export class GmsProjectRuntime {
         ? {
             particles: this.options.renderer,
             layers: this.options.renderer.layers,
+            surfaces: this.options.renderer.surfaces,
           }
         : {}),
     };

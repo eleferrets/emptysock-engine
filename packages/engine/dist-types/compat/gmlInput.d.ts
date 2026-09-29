@@ -260,7 +260,16 @@ export declare function mouse_check_button_pressed(
   ctx: GmlInputContext,
   button: number,
 ): boolean;
-/** `mouse_check_button(button)` — real level (held-down) mouse-button check, distinct from `mouse_check_button_pressed`'s edge-triggered variant above. */
+/**
+ * `mouse_check_button(button)` — GameMaker's real *level* (held-down) mouse-
+ * button check, distinct from `mouse_check_button_pressed`'s edge-triggered
+ * variant above — confirmed real, common usage: `obj_gun`'s own real
+ * `Step_0.gml` reads it every frame to fire while the button stays held,
+ * not just on the click frame. Shares the exact same bitmask read
+ * `mouse_check_button_pressed` already uses, with no edge-tracking side-
+ * table needed at all — a level check has no "previous frame" to compare
+ * against.
+ */
 export declare function mouse_check_button(
   ctx: GmlInputContext,
   button: number,

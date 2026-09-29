@@ -95,17 +95,27 @@ export declare const Sprite: import("../Component.js").ComponentDef<{
    */
   width: number;
   height: number;
-  /** 0 plain, 1 nine-slice, 2 tiled (needs width/height > 0). */
+  /**
+   * How `width`/`height` are filled from the texture: `0` (default) plain
+   * sprite, `1` nine-slice (corners fixed at the `slice*` guide sizes,
+   * edges/centre stretched), `2` tiled (texture repeated, clipped to
+   * `width` x `height`). Sliced/tiled modes need `width`/`height > 0` to
+   * have any effect. Set by the GMS2 importer (`nineSlice.enabled`, a
+   * `GMRBackgroundLayer`'s `htiled`/`vtiled`) or marked by hand in the
+   * IDE Room Editor; `RenderPipeline._syncSliced()` renders modes 1/2 (see CLAUDE.md).
+   */
   sliceMode: number;
+  /** Nine-slice guide sizes in source-texture pixels (GMS2 `nineSlice.left/right/top/bottom`). */
   sliceLeft: number;
   sliceRight: number;
   sliceTop: number;
   sliceBottom: number;
   /**
    * Registered shader id (`ShaderRegistry`, e.g. GameMaker's `sh_white`) to
-   * render this sprite through, `""` for none. Applied by `RenderPipeline`
-   * as one shared Filter per id; GML's `shader_set`/`shader_reset` write it
-   * outside a Draw event.
+   * render this sprite through, `""` for none. `RenderPipeline._syncOne()`
+   * sets the tracked pixi sprite's `.filters` to the one shared Filter for
+   * that id (never one per entity) and clears it when this is empty. GML's
+   * `shader_set`/`shader_reset` write it outside a Draw event.
    */
   shader: string;
 }>;

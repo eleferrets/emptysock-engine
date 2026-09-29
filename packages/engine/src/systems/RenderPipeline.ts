@@ -9,6 +9,7 @@ import {
   ParticleContainer,
   PerspectiveMesh,
   Rectangle,
+  RenderTexture,
   Sprite as PixiSprite,
   Text,
   Texture,
@@ -42,6 +43,7 @@ import type { ParticleEmitter } from "./ParticleSystem.js";
 import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
 import type { GmlDrawTarget } from "../compat/gml.js";
+import type { GmlSurfaceBackend } from "../compat/gmlSurfaces.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /**
@@ -120,9 +122,84 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     private readonly _resolveBitmapFont: (
       id: string,
     ) => { family: string; def: BitmapFontDef } | undefined = () => undefined,
+    private readonly _resolveSurface: (
+      id: number,
+    ) => Texture | undefined = () => undefined,
   ) {
     this._graphics.clear();
     this._graphics.removeChildren();
+    this._g = this._graphics;
+  }
+
+  /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
+  private _g: Graphics;
+  private _blend = 0;
+  /** Set by `clear()`: colour/alpha the owning surface backend clears its texture to before replaying this target's content. */
+  pendingClear: { colour: number; alpha: number } | undefined;
+
+  /**
+   * `gpu_set_blendmode`: a pixi `Graphics` has one blend mode, so a change
+   * starts a new child `Graphics` segment (in draw order) with that mode;
+   * sprites/text added afterwards are its children and inherit it.
+   */
+  setBlendMode(mode: number): void {
+    if (mode === this._blend) return;
+    this._blend = mode;
+    const seg = new Graphics();
+    seg.blendMode =
+      mode === 1
+        ? "add"
+        : mode === 2
+          ? "max"
+          : mode === 3
+            ? "subtract"
+            : "normal";
+    this._graphics.addChild(seg);
+    this._g = seg;
+  }
+
+  drawSurface(surfaceId: number, x: number, y: number): void {
+    const texture = this._resolveSurface(surfaceId);
+    if (texture === undefined) return;
+    const node = new PixiSprite(texture);
+    node.x = x;
+    node.y = y;
+    node.alpha = this._alpha;
+    this._g.addChild(node);
+  }
+
+  clear(colour: number, alpha: number): void {
+    this._graphics.clear();
+    this._graphics.removeChildren();
+    this._g = this._graphics;
+    this._blend = 0;
+    this.pendingClear = { colour, alpha };
+  }
+
+  ellipse(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    outline: boolean,
+  ): void {
+    this._g.ellipse((x1 + x2) / 2, (y1 + y2) / 2, (x2 - x1) / 2, (y2 - y1) / 2);
+    if (outline) this._g.stroke({ color: this._color, width: 1 });
+    else this._g.fill({ color: this._color, alpha: this._alpha });
+  }
+
+  triangle(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    outline: boolean,
+  ): void {
+    this._g.poly([x1, y1, x2, y2, x3, y3]);
+    if (outline) this._g.stroke({ color: this._color, width: 1 });
+    else this._g.fill({ color: this._color, alpha: this._alpha });
   }
 
   setColor(hex: number): void {
@@ -158,15 +235,15 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
   }
 
   rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void {
-    this._graphics.rect(x1, y1, x2 - x1, y2 - y1);
-    if (outline) this._graphics.stroke({ color: this._color, width: 1 });
-    else this._graphics.fill({ color: this._color, alpha: this._alpha });
+    this._g.rect(x1, y1, x2 - x1, y2 - y1);
+    if (outline) this._g.stroke({ color: this._color, width: 1 });
+    else this._g.fill({ color: this._color, alpha: this._alpha });
   }
 
   circle(x: number, y: number, r: number, outline: boolean): void {
-    this._graphics.circle(x, y, r);
-    if (outline) this._graphics.stroke({ color: this._color, width: 1 });
-    else this._graphics.fill({ color: this._color, alpha: this._alpha });
+    this._g.circle(x, y, r);
+    if (outline) this._g.stroke({ color: this._color, width: 1 });
+    else this._g.fill({ color: this._color, alpha: this._alpha });
   }
 
   text(x: number, y: number, text: string): void {
@@ -206,11 +283,11 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     label.alpha = this._alpha;
     label.x = x;
     label.y = y;
-    this._graphics.addChild(label);
+    this._g.addChild(label);
   }
 
   line(x1: number, y1: number, x2: number, y2: number): void {
-    this._graphics
+    this._g
       .moveTo(x1, y1)
       .lineTo(x2, y2)
       .stroke({ color: this._color, width: 1 });
@@ -223,7 +300,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.y = y;
     pixiSprite.alpha = this._alpha;
     this._shade(pixiSprite);
-    this._graphics.addChild(pixiSprite);
+    this._g.addChild(pixiSprite);
   }
 
   spriteExt(
@@ -245,7 +322,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.tint = colour;
     pixiSprite.alpha = alpha;
     this._shade(pixiSprite);
-    this._graphics.addChild(pixiSprite);
+    this._g.addChild(pixiSprite);
   }
 
   /** Crops a fresh `Texture` view onto the base texture's `(left, top, width, height)` source-pixel rectangle — real pixi `Texture`/`Rectangle` API, not an approximation. A crop rect that falls outside the base texture's own bounds is a real pixi runtime error, so callers should keep `left`/`top`/`width`/`height` inside the sprite's actual pixel dimensions, same as GameMaker's own function requires. */
@@ -284,7 +361,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.y = y;
     pixiSprite.alpha = this._alpha;
     this._shade(pixiSprite);
-    this._graphics.addChild(pixiSprite);
+    this._g.addChild(pixiSprite);
   }
 
   spritePartExt(
@@ -309,7 +386,111 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.tint = colour;
     pixiSprite.alpha = alpha;
     this._shade(pixiSprite);
-    this._graphics.addChild(pixiSprite);
+    this._g.addChild(pixiSprite);
+  }
+}
+
+/**
+ * Pixi implementation of `GmlSurfaceBackend`: one `RenderTexture` per GMS2
+ * surface. `beginTarget` hands out a `PixiGmlDrawTarget` over a scratch
+ * `Graphics`; `endTarget` renders it into the surface texture (accumulating,
+ * unless `draw_clear` was called, in which case the texture is cleared to that
+ * colour first). GPU output is not verifiable headless; tests check wiring.
+ */
+class PixiSurfaceBackend implements GmlSurfaceBackend {
+  private _next = 1;
+  private readonly _surfaces = new Map<
+    number,
+    { texture: RenderTexture; w: number; h: number }
+  >();
+  private readonly _open = new Map<
+    number,
+    { root: Container; target: PixiGmlDrawTarget }
+  >();
+
+  constructor(
+    private readonly _renderer: () => Renderer,
+    private readonly _makeTarget: (
+      graphics: Graphics,
+      resolveSurface: (id: number) => Texture | undefined,
+    ) => PixiGmlDrawTarget,
+  ) {}
+
+  create(width: number, height: number): number {
+    const w = Math.max(1, Math.floor(width));
+    const h = Math.max(1, Math.floor(height));
+    const id = this._next++;
+    this._surfaces.set(id, {
+      texture: RenderTexture.create({ width: w, height: h }),
+      w,
+      h,
+    });
+    return id;
+  }
+
+  exists(id: number): boolean {
+    return this._surfaces.has(id);
+  }
+
+  free(id: number): void {
+    this._surfaces.get(id)?.texture.destroy(true);
+    this._surfaces.delete(id);
+    this._open.get(id)?.root.destroy({ children: true });
+    this._open.delete(id);
+  }
+
+  width(id: number): number {
+    return this._surfaces.get(id)?.w ?? 0;
+  }
+
+  height(id: number): number {
+    return this._surfaces.get(id)?.h ?? 0;
+  }
+
+  /** The texture `draw_surface` samples; undefined for an unknown/freed surface. */
+  texture(id: number): Texture | undefined {
+    return this._surfaces.get(id)?.texture;
+  }
+
+  beginTarget(id: number): GmlDrawTarget | undefined {
+    if (!this._surfaces.has(id)) return undefined;
+    const root = new Container();
+    const graphics = new Graphics();
+    root.addChild(graphics);
+    const target = this._makeTarget(graphics, (sid) => this.texture(sid));
+    this._open.set(id, { root, target });
+    return target;
+  }
+
+  endTarget(id: number): void {
+    const open = this._open.get(id);
+    const surface = this._surfaces.get(id);
+    this._open.delete(id);
+    if (open === undefined || surface === undefined) return;
+    const clear = open.target.pendingClear;
+    this._renderer().render({
+      container: open.root,
+      target: surface.texture,
+      clear: clear !== undefined,
+      ...(clear !== undefined
+        ? {
+            clearColor: [
+              ((clear.colour >> 16) & 0xff) / 255,
+              ((clear.colour >> 8) & 0xff) / 255,
+              (clear.colour & 0xff) / 255,
+              clear.alpha,
+            ] as [number, number, number, number],
+          }
+        : {}),
+    });
+    open.root.destroy({ children: true });
+  }
+
+  destroy(): void {
+    for (const s of this._surfaces.values()) s.texture.destroy(true);
+    this._surfaces.clear();
+    for (const o of this._open.values()) o.root.destroy({ children: true });
+    this._open.clear();
   }
 }
 
@@ -782,12 +963,31 @@ export class RenderPipeline implements SceneRenderer {
       container.addChild(graphics);
       table.set(entity.eid, graphics);
     }
+    return this._newDrawTarget(graphics, (id) => this.surfaces.texture(id));
+  }
+
+  private _newDrawTarget(
+    graphics: Graphics,
+    resolveSurface: (id: number) => Texture | undefined,
+  ): PixiGmlDrawTarget {
     return new PixiGmlDrawTarget(
       graphics,
       (path) => this._resolveTextureForDraw(path),
       (id) => this.resolveShaderFilter(id),
       (id) => this._resolveBitmapFont(id),
+      resolveSurface,
     );
+  }
+
+  private _surfaceBackend: PixiSurfaceBackend | undefined;
+
+  /** GMS2 surface backend (`surface_create`/`surface_set_target`/`draw_surface`, `compat/gmlSurfaces.ts`); wired into `GmlActionContext.surfaces` by `GmsProjectRuntime`. */
+  get surfaces(): PixiSurfaceBackend {
+    this._surfaceBackend ??= new PixiSurfaceBackend(
+      () => this._render.renderer,
+      (graphics, resolve) => this._newDrawTarget(graphics, resolve),
+    );
+    return this._surfaceBackend;
   }
 
   private _pruneGmlGraphics(
@@ -1559,6 +1759,8 @@ export class RenderPipeline implements SceneRenderer {
     this._shaderFilters.clear();
     this._transitionOverlay?.destroy();
     this._transitionOverlay = null;
+    this._surfaceBackend?.destroy();
+    this._surfaceBackend = undefined;
     this._render.destroy();
     this._layers.destroy();
   }

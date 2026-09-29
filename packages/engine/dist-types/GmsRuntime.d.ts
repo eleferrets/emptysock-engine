@@ -137,6 +137,8 @@ export declare class GmsProjectRuntime {
    * field is the right shape here, not a `(World, eid)`-keyed side-table.
    */
   private readonly _prevKeyDown;
+  /** Persistent entities snapshotted by the outgoing room's `onUnload`, restored by the next room's `onLoad`. */
+  private _carried;
   constructor(
     game: Game,
     data: GmsProjectData,
@@ -179,6 +181,15 @@ export declare class GmsProjectRuntime {
    * triggered from either path behaves identically.
    */
   private buildSceneDefinition;
+  /**
+   * A new `Scene` is a new bitECS `World`, so entities cannot be carried
+   * literally. Runs from the outgoing room's `onUnload` (synchronous within
+   * `Game.loadScene()`, so it covers `loadRoom()` and the `ctx.rooms` path
+   * `action_next_room`/`room_goto` use alike).
+   */
+  private snapshotPersistent;
+  /** Respawns every carried entity into `scene` — no `onCreate`, no `onSpawned`. */
+  private restorePersistent;
   /**
    * Loads a room by GameMaker name: unloads whatever room/scene is
    * currently loaded (via `Game.loadScene()`'s own unconditional teardown)

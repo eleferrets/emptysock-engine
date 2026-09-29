@@ -37,16 +37,18 @@ export declare function getGmlArrayVar(
   ctx: GmlActionContext,
   name: string,
 ): unknown[];
-/** Clears every stored instance variable for this `(world, eid)` pair — called from `Scene.destroy()`. */
+/** Shallow copy of every stored variable for `(world, eid)` — used by `GmsProjectRuntime`'s persistent-instance carry-over. */
 export declare function exportGmlVars(
   world: World,
   eid: number,
 ): Map<string, unknown>;
+/** Replaces `(world, eid)`'s stored variables with `vars` (a fresh copy is stored). */
 export declare function importGmlVars(
   world: World,
   eid: number,
   vars: ReadonlyMap<string, unknown>,
 ): void;
+/** Clears every stored instance variable for this `(world, eid)` pair — called from `Scene.destroy()`. */
 export declare function clearGmlInstanceVars(world: World, eid: number): void;
 /**
  * Coerces a dynamically-typed GML value (an instance/cross-instance
@@ -75,6 +77,25 @@ export declare function clearGmlInstanceVars(world: World, eid: number): void;
  * test suite already holds every other rewrite to.
  */
 export declare function gmlNum(value: unknown): number;
-/** `gmlNum`'s array/map siblings — see `gms2-transpile.ts`'s `ds_list_size`/`ds_list_clear`/`ds_map_size`/`ds_map_clear` rewrites. */
+/**
+ * `gmlNum`'s exact sibling for `ds_list_size`/`ds_list_clear`'s real
+ * `.length`/`.length = 0` rewrite: a bare GML `ds_list` variable
+ * (`messages = ds_list_create();`, real, confirmed usage — Freedom
+ * Backup's own `oTextbox`) is a plain scalar instance variable as far as
+ * `getGmlVar`/`setGmlVar`'s side-table is concerned (it holds a real JS
+ * `Array`, `ds_list_create()`'s own real rewrite target, but nothing marks
+ * it as "the array kind" the way `getGmlArrayVar`'s own *implicit-array*
+ * shape does), so a bare read of it is `unknown` by the same "`getGmlVar`
+ * bare reads are `unknown` by design" rule the `gmlNum` doc comment above
+ * already establishes — `.length` on `unknown` does not typecheck. This
+ * is the real runtime coercion `ds_list_size`/`_clear`'s rewritten output
+ * wraps around a bare-read call site so it both typechecks and behaves
+ * correctly: an already-real `Array` passes straight through unchanged
+ * (the overwhelmingly common real case), anything else falls back to a
+ * fresh empty array — the same "coerce, don't crash" shape `gmlNum` uses
+ * for `0`, not a claim that a genuinely wrong-typed GML value silently
+ * becomes a correct one.
+ */
 export declare function gmlArr(value: unknown): unknown[];
+/** `gmlArr`'s exact `ds_map` sibling, backing `ds_map_size`/`_clear`'s real `.size`/`.clear()` rewrite the same way. */
 export declare function gmlMap(value: unknown): Map<unknown, unknown>;

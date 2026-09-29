@@ -16,6 +16,7 @@
 // No DOM, Tauri, or apps/ide imports — same engine-environment-boundary
 // rule as every other file under compat/.
 
+import type { GmlSurfaceBackend } from "./gmlSurfaces.js";
 import type { World } from "bitecs";
 import { clearGmlShaderState } from "./gmlShaders.js";
 import type { Entity } from "../Entity.js";
@@ -95,6 +96,8 @@ export interface GmlActionContext {
    * `QueryChannel`'s `no-live-instance` already establishes.
    */
   readonly layers?: LayerSystem;
+  /** Backend for GMS2 surfaces (`compat/gmlSurfaces.ts`); wired from `RenderPipeline.surfaces` by `GmsProjectRuntime`. Without it every `surface_*` call is an honest no-op. */
+  readonly surfaces?: GmlSurfaceBackend;
 }
 
 // ---------------------------------------------------------------------------

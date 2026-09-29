@@ -1,3 +1,4 @@
+import type { GmlSurfaceBackend } from "./gmlSurfaces.js";
 import type { World } from "bitecs";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
@@ -64,6 +65,16 @@ export interface GmlActionContext {
    * `QueryChannel`'s `no-live-instance` already establishes.
    */
   readonly layers?: LayerSystem;
+  /** Backend for GMS2 surfaces (`compat/gmlSurfaces.ts`); wired from `RenderPipeline.surfaces` by `GmsProjectRuntime`. Without it every `surface_*` call is an honest no-op. */
+  readonly surfaces?: GmlSurfaceBackend;
+}
+/** Per-(World, eid) motion state `action_move`/`action_move_to` write and `gmlActionsStep` reads. Not part of any component — see the module doc comment on why this needs its own side-table rather than a new `Transform` field. `direction` is remembered independently of `vx`/`vy` so a real GML `speed = 0;` (a common "stop moving" idiom) doesn't lose the instance's last-facing direction the way deriving it purely from `atan2(vy, vx)` would (`atan2(0, 0)` is always `0`, which would silently reset facing on every stop). */
+export interface GmlMotionState {
+  vx: number;
+  vy: number;
+  direction: number;
+  friction: number;
+  alarms: Map<number, number>;
 }
 /**
  * GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
@@ -125,15 +136,9 @@ export declare function setGmlVspeed(
   _ctx: GmlActionContext,
   vspeed: number,
 ): void;
-/** Clear this `(world, eid)` pair's motion/alarm state. Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
+/** Clear this `(world, eid)` pair's motion/alarm state, plus the `xstart`/`ystart` capture below (the same pooled-id-reuse reasoning, folded into this one call rather than a second `Scene.destroy()` call site for one more small side-table). Call from `Scene.destroy()` — same pooled-id-reuse reasoning as `clearPhysicsBody`/`clearVisualScriptScope`. */
 export declare function clearGmlActionState(world: World, eid: number): void;
-export interface GmlMotionState {
-  vx: number;
-  vy: number;
-  direction: number;
-  friction: number;
-  alarms: Map<number, number>;
-}
+/** Opaque copy of one entity's motion/alarm and `xstart`/`ystart` side-table state, for `GmsProjectRuntime`'s persistent-instance carry-over. */
 export interface GmlActionStateSnapshot {
   readonly motion?: GmlMotionState;
   readonly start?: {
@@ -375,7 +380,6 @@ export declare function previous_room(ctx: GmlActionContext): string;
  * fabricating a per-room number this importer has no way to know.
  */
 export declare function room_speed(_ctx: GmlActionContext): number;
-/** `xstart`/`ystart` — real, writable GameMaker built-ins holding the instance's creation position, lazily captured on first access. */
 export declare function get_gml_xstart(
   entity: Entity,
   _ctx: GmlActionContext,
@@ -462,6 +466,21 @@ export declare function instance_create_layer(
  * failed, or a dead/unresolvable reference) is a safe no-op — GameMaker's
  * own `with` against a destroyed or nonexistent target simply runs its
  * body zero times, never throws.
+ *
+ * `target` is typed `unknown`, not `string | Entity | undefined`, because
+ * a real `with` target the transpiler resolves via a same-function local
+ * variable (`gms2-transpile.ts`'s `rewriteWithStatements`) is read back
+ * through `GmlActions.getGmlVar`, which — same as every other GML instance
+ * variable read in this codebase — returns `unknown` by design (see
+ * `compat/gmlInstanceVars.ts`'s own `getGmlVar` doc comment). Duck-typing
+ * `target` here, the same shape `compat/gmlCrossInstance.ts`'s
+ * `asLiveEntity` already uses for the identical "is this really a live
+ * `Entity`" question, is what lets a with-target flow straight from a real
+ * instance-variable read into this function without a type-only `as`
+ * assertion papering over a genuine runtime possibility (the variable
+ * might hold a number, a string that isn't a real object-type name, or
+ * nothing at all) — an assertion would type-check but say nothing true
+ * about what the value actually is at runtime.
  */
 export declare function with_each(
   ctx: GmlActionContext,
@@ -699,7 +718,16 @@ export declare function bbox_bottom(entity: Entity): number;
 export declare function sprite_width(entity: Entity): number;
 /** See `sprite_width`'s doc comment. */
 export declare function sprite_height(entity: Entity): number;
-/** `image_number` — read-only, the calling instance's sprite's total frame count. */
+/**
+ * `image_number` — GameMaker's real, documented **read-only** bare built-in:
+ * the calling instance's current sprite's total frame count. No write side
+ * exists in real GameMaker (the manual states it's read-only), unlike
+ * `image_index`/`image_speed` above, so only a getter is provided. Reads
+ * straight off `Sprite.frameCount` (the same field `SpriteAnimationSystem`/
+ * `resolveSpriteFramePath` already use — see the "GMS2 rendering built-ins"
+ * CLAUDE.md entry), defaulting to `1` for an entity with no `Sprite` at all,
+ * matching a fresh single-frame sprite's own real default.
+ */
 export declare function get_gml_image_number(entity: Entity): number;
 /**
  * `sprite_get_width`/`sprite_get_height`/`sprite_exists` — GameMaker's real
