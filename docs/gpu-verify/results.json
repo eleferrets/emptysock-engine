@@ -1,0 +1,65 @@
+{
+  "results": [
+    {
+      "name": "rain: not blank / droplets visible",
+      "ok": true,
+      "detail": "{\"changedFrac\":0.108,\"meanAbsDiff\":3.4}"
+    },
+    {
+      "name": "rain: background preserved (opaque, shows scene)",
+      "ok": true,
+      "detail": "opaqueFrac=1.000"
+    },
+    {
+      "name": "rain: trails elongate wet marks vertically (streak 1 vs 0)",
+      "ok": true,
+      "detail": "v/h ratio streak0=0.99 streak1=1.10"
+    },
+    {
+      "name": "rain frame cost",
+      "msBase": 12.555000000004657,
+      "msPass": 20.275,
+      "msRain": 22.14749999999767
+    },
+    {
+      "name": "sh_white: filtered sprite is white",
+      "ok": true,
+      "detail": "white=3072/3072 nonWhite=0"
+    },
+    {
+      "name": "sh_white: quad not collapsed (bbox = sprite rect)",
+      "ok": true,
+      "detail": "[0,32,47,95]"
+    },
+    {
+      "name": "sh_white: transparent area stays transparent, control sprite untouched",
+      "ok": true,
+      "detail": "control=200,30,30,255 empty=255,255,255,0"
+    },
+    {
+      "name": "bitmap text: glyphs drawn from real fnt_menu atlas",
+      "ok": true,
+      "detail": "lit=1092 glyphGroups=8 bboxY=20,42"
+    },
+    {
+      "name": "surface/bm_subtract: light cutout centre stays bright",
+      "ok": true,
+      "detail": "centre=255,255,255,255"
+    },
+    {
+      "name": "surface/bm_subtract: outside light is darkened",
+      "ok": true,
+      "detail": "outside=159,159,159,255 corner=159,159,159,255"
+    },
+    {
+      "name": "no shader compile/link errors",
+      "ok": true,
+      "detail": "0 gl messages"
+    }
+  ],
+  "console": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to create WebGPU Context Provider",
+    "    at PixiGmlDrawTarget.text (http://127.0.0.1:36775/bundle.js:63595:12)\n    at Object.bitmapText (http://127.0.0.1:36775/bundle.js:64963:5)\n    at async <anonymous>:316:30"
+  ]
+}

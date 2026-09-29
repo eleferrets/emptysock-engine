@@ -102,9 +102,16 @@ describe("RenderPipeline per-entity shader filters", () => {
 
   it("builds the filter with a filter-compatible vertex stage and declared user uniforms", () => {
     const f = pipeline.resolveShaderFilter("sh_white") as unknown as {
-      resources: { uniforms: Record<string, { value: unknown; type: string }> };
+      resources: {
+        uniforms: {
+          uniformStructures: Record<string, { type: string }>;
+          uniforms: Record<string, unknown>;
+        };
+      };
     };
-    expect(f.resources.uniforms["u_amount"]?.type).toBe("f32");
+    expect(f.resources.uniforms.uniformStructures["u_amount"]?.type).toBe(
+      "f32",
+    );
     expect(pipeline.resolveShaderFilter("sh_white")).toBe(
       pipeline.resolveShaderFilter("sh_white"),
     );
@@ -112,11 +119,11 @@ describe("RenderPipeline per-entity shader filters", () => {
 
   it("copies registry uniform writes into the shared filter only when they change", () => {
     const f = pipeline.resolveShaderFilter("sh_white") as unknown as {
-      resources: { uniforms: Record<string, { value: unknown }> };
+      resources: { uniforms: { uniforms: Record<string, unknown> } };
     };
     setGmlShaderUniform("sh_white", "u_amount", "f", [0.25]);
     pipeline.resolveShaderFilter("sh_white");
-    expect(f.resources.uniforms["u_amount"]?.value).toBe(0.25);
+    expect(f.resources.uniforms.uniforms["u_amount"]).toBe(0.25);
   });
 
   it("re-registering a shader rebuilds its filter", () => {
@@ -214,9 +221,11 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
     setGmlShaderUniform("sh_white", "u_amount", "f", [0.5]);
     render.syncLayerGmlShaders();
     expect(
-      render.getLayerContainer("default").filters[0]?.resources.uniforms[
-        "u_amount"
-      ]?.value,
+      (
+        render.getLayerContainer("default").filters[0]?.resources[
+          "uniforms"
+        ] as unknown as { uniforms: Record<string, unknown> }
+      ).uniforms["u_amount"],
     ).toBe(0.5);
     render.removeLayerShaderFilter("default", f);
     expect(render.getLayerContainer("default").filters).toHaveLength(0);

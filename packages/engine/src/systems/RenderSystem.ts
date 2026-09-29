@@ -205,6 +205,9 @@ export class RenderSystem {
       resolution: options.resolution ?? tierDefaults.resolution,
       powerPreference: "high-performance",
       preference: ["webgpu", "webgl"],
+      // WebGL needs a back buffer for pixi's advanced blend modes (GML
+      // bm_subtract etc.); pixi only pays for it on frames that use one.
+      useBackBuffer: true,
     });
 
     this._canvas = this._renderer.canvas as HTMLCanvasElement;

@@ -24,33 +24,32 @@ describe("CustomShaderFilter", () => {
 
   it("exposes a uTime uniform, updatable via setTime()", () => {
     const filter = createCustomShaderFilter({ fragmentSrc });
-    const res = filter.resources["uniforms"] as
-      | Record<string, { value: unknown }>
-      | undefined;
-    expect(res?.["uTime"]?.value).toBe(0);
+    const res = (
+      filter.resources["uniforms"] as { uniforms: Record<string, unknown> }
+    ).uniforms;
+    expect(res["uTime"]).toBe(0);
     filter.setTime(1.5);
-    expect(res?.["uTime"]?.value).toBe(1.5);
+    expect(res["uTime"]).toBe(1.5);
   });
 
   it("falls back to DEFAULT_CUSTOM_SHADER_VERTEX when no vertexSrc is given", () => {
     const filter = createCustomShaderFilter({ fragmentSrc });
     // Pixi's GlProgram wraps the source with precision/version boilerplate,
     // so check containment rather than exact equality.
-    expect(filter.glProgram.vertex).toContain("uProjectionMatrix");
-    expect(filter.glProgram.vertex).toContain("vUV = aUV;");
+    expect(filter.glProgram.vertex).toContain("uOutputFrame");
+    expect(filter.glProgram.vertex).not.toContain("aUV");
   });
 
   it("uses a supplied vertexSrc instead of the default", () => {
     const customVertex = DEFAULT_CUSTOM_SHADER_VERTEX.replace(
-      "vUV = aUV;",
-      "vUV = aUV * 2.0;",
+      "vUV = aPosition",
+      "vUV = 2.0 * aPosition",
     );
     const filter = createCustomShaderFilter({
       fragmentSrc,
       vertexSrc: customVertex,
     });
-    expect(filter.glProgram.vertex).toContain("vUV = aUV * 2.0;");
-    expect(filter.glProgram.vertex).not.toContain("vUV = aUV;\n");
+    expect(filter.glProgram.vertex).toContain("vUV = 2.0 * aPosition");
   });
 });
 
@@ -87,12 +86,22 @@ void main() {
     expect(v).not.toContain("uProjectionMatrix");
   });
 
-  it("leaves the vertex stage untouched without adaptVertex", () => {
+  it("leaves the vertex stage untouched with adaptVertex: false", () => {
+    const f = createCustomShaderFilter({
+      fragmentSrc: frag,
+      vertexSrc: importerVertex,
+      adaptVertex: false,
+    });
+    expect(f.glProgram.vertex).toContain("uProjectionMatrix");
+  });
+
+  it("adapts a sprite-contract vertex stage by default (no aUV/projection uniforms reach the GPU)", () => {
     const f = createCustomShaderFilter({
       fragmentSrc: frag,
       vertexSrc: importerVertex,
     });
-    expect(f.glProgram.vertex).toContain("uProjectionMatrix");
+    expect(f.glProgram.vertex).toContain("uOutputFrame");
+    expect(f.glProgram.vertex).not.toContain("uProjectionMatrix");
   });
 
   it("buildGmlShaderFilter adapts a registered shader and declares its uniforms; unknown id is undefined", async () => {

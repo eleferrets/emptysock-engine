@@ -151,11 +151,11 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       expect(filter).toBeInstanceOf(RainGlassFilter);
       const res = (filter as InstanceType<typeof RainGlassFilter>).resources[
         "uniforms"
-      ] as Record<string, { value: unknown }>;
-      expect(res["uIntensity"]?.value).toBe(0.6);
-      expect(res["uDropletSize"]?.value).toBe(0.12);
-      expect(res["uDropletSpeed"]?.value).toBe(0.35);
-      expect(res["uStreakAmount"]?.value).toBe(0.5);
+      ] as unknown as { uniforms: Record<string, unknown> };
+      expect(res.uniforms["uIntensity"]).toBe(0.6);
+      expect(res.uniforms["uDropletSize"]).toBe(0.12);
+      expect(res.uniforms["uDropletSpeed"]).toBe(0.35);
+      expect(res.uniforms["uStreakAmount"]).toBe(0.5);
     });
 
     it("applies intensity/dropletSize/dropletSpeed/streakAmount from options", () => {
@@ -170,14 +170,13 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       const filter = render.getLayerContainer("fg").filters[0] as InstanceType<
         typeof RainGlassFilter
       >;
-      const res = filter.resources["uniforms"] as Record<
-        string,
-        { value: unknown }
-      >;
-      expect(res["uIntensity"]?.value).toBe(0.9);
-      expect(res["uDropletSize"]?.value).toBe(0.2);
-      expect(res["uDropletSpeed"]?.value).toBe(0.7);
-      expect(res["uStreakAmount"]?.value).toBe(0.1);
+      const res = (
+        filter.resources["uniforms"] as { uniforms: Record<string, unknown> }
+      ).uniforms;
+      expect(res["uIntensity"]).toBe(0.9);
+      expect(res["uDropletSize"]).toBe(0.2);
+      expect(res["uDropletSpeed"]).toBe(0.7);
+      expect(res["uStreakAmount"]).toBe(0.1);
     });
 
     it("advances uTime across syncs (rain falls over real time, not frame count)", () => {
@@ -234,8 +233,8 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       expect(second).toBe(first);
       const res = (second as InstanceType<typeof RainGlassFilter>).resources[
         "uniforms"
-      ] as Record<string, { value: unknown }>;
-      expect(res["uIntensity"]?.value).toBe(0.8);
+      ] as unknown as { uniforms: Record<string, unknown> };
+      expect(res.uniforms["uIntensity"]).toBe(0.8);
     });
   });
 });

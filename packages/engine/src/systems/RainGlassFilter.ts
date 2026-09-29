@@ -42,20 +42,23 @@
 // (or CPU-side per-drop sprite batch feeding a shader every frame) does.
 // `RainGlassFilter` never allocates a droplet list, on the GPU or the CPU.
 
-import { Filter, GlProgram } from "pixi.js";
+import { Filter, GlProgram, UniformGroup } from "pixi.js";
 
+// Pixi Filter vertex contract (see CustomShaderFilter's DEFAULT_CUSTOM_SHADER_VERTEX):
+// a filter quad has only `aPosition`, no `aUV`/projection matrices.
 const RAIN_GLASS_VERTEX = /* glsl */ `
   in vec2 aPosition;
-  in vec2 aUV;
   out vec2 vUV;
-  uniform mat3 uProjectionMatrix;
-  uniform mat3 uWorldTransformMatrix;
-  uniform mat3 uTransformMatrix;
+  uniform vec4 uInputSize;
+  uniform vec4 uOutputFrame;
+  uniform vec4 uOutputTexture;
 
   void main() {
-    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
-    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
-    vUV = aUV;
+    vec2 position = aPosition * uOutputFrame.zw + uOutputFrame.xy;
+    position.x = position.x * (2.0 / uOutputTexture.x) - 1.0;
+    position.y = position.y * (2.0 * uOutputTexture.z / uOutputTexture.y) - uOutputTexture.z;
+    gl_Position = vec4(position, 0.0, 1.0);
+    vUV = aPosition * (uOutputFrame.zw * uInputSize.zw);
   }
 `;
 
@@ -78,62 +81,99 @@ export const RAIN_GLASS_FRAGMENT = /* glsl */ `
     return fract(p.x * p.y);
   }
 
-  // One procedural droplet grid: returns (fakeNormal.xy, dropMask).
-  // cellSize is in aspect-corrected UV units; fallSpeed scrolls the
-  // whole grid downward over time (0 = static droplet, >0 = falling
-  // streak), and seed decorrelates the two grid layers this shader
-  // blends between so they don't visually line up.
-  vec3 dropLayer(vec2 uv, float cellSize, float fallSpeed, float seed) {
-    vec2 aspectUv = uv * uResolution / min(uResolution.x, uResolution.y);
-    aspectUv.y -= uTime * fallSpeed; // features drift toward +y (down the screen)
+  // One procedural droplet layer ("Asphalt-style" windshield drops). Each drop
+  // is a small lens: inside it the scene is sampled from the *opposite* side of
+  // the drop centre (an inverted, magnified miniature of the scene), ringed by
+  // a dark refractive rim, a bright specular glint (upper-left) and a faint
+  // lower-right caustic crescent. cellSize is in aspect-corrected UV units;
+  // fallSpeed > 0 makes the layer's drops slide down at a per-column speed and
+  // leave a thin wet trail above them. presence = fraction of cells holding a
+  // drop. Returns: xy = UV offset to sample the scene at, z = drop coverage,
+  // w = trail coverage; rimGlint = (rim darkening, glint + caustic).
+  vec4 dropLayer(vec2 uv, float cellSize, float fallSpeed, float seed, float presence, float stretch, out vec2 rimGlint) {
+    float minRes = min(uResolution.x, uResolution.y);
+    vec2 aspectUv = uv * uResolution / minRes;
+    float colRnd = hash21(vec2(floor(aspectUv.x / cellSize), seed + 3.0));
+    aspectUv.y -= uTime * fallSpeed * (0.6 + 0.8 * colRnd);
 
-    vec2 cell = floor(aspectUv / cellSize);
-    vec2 local = fract(aspectUv / cellSize) - 0.5;
+    // stretch > 1 makes cells taller than wide, leaving room for a long trail.
+    vec2 cs = vec2(cellSize, cellSize * stretch);
+    vec2 cell = floor(aspectUv / cs);
+    vec2 cellPos = fract(aspectUv / cs) - 0.5;
+    vec2 local = vec2(cellPos.x, cellPos.y * stretch); // real (round) units, y grows downward
 
     float rnd = hash21(cell + seed);
-    vec2 jitter = vec2(hash21(cell + seed + 7.0), hash21(cell + seed + 13.0)) - 0.5;
-    vec2 centre = jitter * 0.6;
+    float has = step(hash21(cell + seed + 29.0), presence);
+    vec2 jit = vec2(hash21(cell + seed + 7.0), hash21(cell + seed + 13.0)) - 0.5;
+    // Tall cells keep the drop in the lower part so the trail above fits.
+    vec2 centre = vec2(jit.x * 0.4, jit.y * 0.4 + (stretch - 1.0) * 0.28);
+    float radius = mix(0.14, 0.34, rnd);
 
-    float radius = mix(0.15, 0.45, rnd);
-    float d = length(local - centre);
-    float drop = smoothstep(radius, radius * 0.4, d);
+    vec2 p = local - centre;
+    // Slightly taller than wide, heavier at the bottom: a sliding drop.
+    float d = length(vec2(p.x, p.y * (p.y > 0.0 ? 0.78 : 0.95)));
+    float mask = smoothstep(radius, radius * 0.86, d) * has;
 
-    vec2 normal = (local - centre) / max(radius, 0.001);
+    // Lens: sample from the reflected position across the drop centre.
+    vec2 toUv = vec2(minRes) / uResolution;
+    vec2 offset = -p * cellSize * 1.7 * toUv;
 
-    // Trail: a thin, fading wet streak above a falling drop (only when the
-    // layer actually falls), narrower than the drop and shrinking upward.
+    float e = clamp(d / radius, 0.0, 1.0);
+    float rim = smoothstep(0.62, 1.0, e) * mask;
+    vec2 g = p + vec2(0.35, 0.35) * radius; // glint sits up-left of centre
+    float glint = smoothstep(radius * 0.3, 0.0, length(g)) * mask;
+    float caustic = smoothstep(0.72, 1.0, e) * max(dot(normalize(p + 1e-4), vec2(0.6, 0.8)), 0.0) * mask * 0.35;
+
+    // Wet trail: a thin streak above the drop, narrowing and fading upward.
     float trail = 0.0;
     if (fallSpeed > 0.0) {
-      float above = centre.y - local.y; // >0 above the drop
-      float along = smoothstep(0.0, 0.5, above) * (1.0 - smoothstep(0.5, 0.5 + 0.5 * rnd, above));
-      float width = radius * 0.25 * (1.0 - clamp(above, 0.0, 1.0) * 0.6);
-      trail = along * smoothstep(width, width * 0.3, abs(local.x - centre.x)) * 0.6;
+      float above = -p.y; // > 0 above the drop centre
+      float len = stretch * (0.35 + 0.4 * rnd);
+      float along = smoothstep(0.0, 0.1, above) * (1.0 - smoothstep(len * 0.2, len, above));
+      float width = radius * 0.32 * (1.0 - clamp(above / len, 0.0, 1.0) * 0.7);
+      trail = along * smoothstep(width, width * 0.3, abs(p.x)) * has;
     }
-    float m = max(drop, trail);
-    return vec3(normal * drop + vec2(0.0, -0.3) * trail, m);
+
+    rimGlint = vec2(rim, glint + caustic);
+    return vec4(mix(vec2(0.0), offset, step(0.0001, mask)) + vec2(0.0, -0.004) * trail, mask, trail);
+  }
+
+  vec3 applyLayer(vec3 colour, vec2 uv, vec4 layer, vec2 rimGlint, float trailWeight) {
+    float k = uIntensity;
+    // Trail: faint refractive smear + slight brightening of the wet path.
+    if (layer.w > 0.001) {
+      vec3 trailCol = texture(uTexture, clamp(uv + vec2(0.0, -0.006), vec2(0.001), vec2(0.999))).rgb;
+      colour = mix(colour, trailCol * 1.25 + vec3(0.09), layer.w * 0.85 * trailWeight * clamp(k * 1.3, 0.0, 1.0));
+    }
+    if (layer.z > 0.001) {
+      vec3 inside = texture(uTexture, clamp(uv + layer.xy, vec2(0.001), vec2(0.999))).rgb;
+      inside *= 1.0 - 0.45 * rimGlint.x;          // dark refractive rim
+      inside += vec3(rimGlint.y * 0.55);          // specular glint + caustic
+      colour = mix(colour, inside, layer.z * clamp(k * 1.4, 0.0, 1.0));
+    }
+    return colour;
   }
 
   void main() {
     vec2 uv = vUV;
+    float streak = clamp(uStreakAmount, 0.0, 1.0);
+    vec3 colour = texture(uTexture, uv).rgb;
+    float alpha = texture(uTexture, uv).a;
 
-    // Large, near-static droplets (fallSpeed scaled way down) blended
-    // against small, fast-falling streaks — uStreakAmount picks the mix,
-    // matching PostProcessSystem's RainGlassOptions.streakAmount.
-    vec3 big = dropLayer(uv, uDropletSize, uDropletSpeed * 0.15, 1.0);
-    vec3 small = dropLayer(uv, uDropletSize * 0.4, uDropletSpeed, 42.0);
+    vec2 rg0; vec2 rg1; vec2 rg2;
+    // Micro droplets: tiny, static, dense; weaker refraction.
+    vec4 micro = dropLayer(uv, uDropletSize * 0.28, 0.0, 91.0, 0.7, 1.0, rg0);
+    micro.xy *= 0.5;
+    // Big drops: mostly static, occasionally creeping.
+    vec4 big = dropLayer(uv, uDropletSize, uDropletSpeed * 0.1, 1.0, mix(0.7, 0.4, streak), 1.0, rg1);
+    // Sliding drops with trails.
+    vec4 slide = dropLayer(uv, uDropletSize * 0.55, uDropletSpeed, 42.0, mix(0.15, 0.7, streak), 2.6, rg2);
 
-    vec2 normal = mix(big.xy, small.xy, uStreakAmount);
-    float mask = mix(big.z, small.z, uStreakAmount);
+    colour = applyLayer(colour, uv, micro, rg0, 0.0);
+    colour = applyLayer(colour, uv, big, rg1, 0.0);
+    colour = applyLayer(colour, uv, slide, rg2, 1.0);
 
-    vec2 refractedUv = uv + normal * mask * 0.06 * uIntensity;
-    vec4 refracted = texture(uTexture, clamp(refractedUv, vec2(0.001), vec2(0.999)));
-    vec4 base = texture(uTexture, uv);
-
-    // A small specular-ish highlight so a drop reads as glass/water, not
-    // just a smudge of distorted pixels.
-    float highlight = pow(clamp(mask, 0.0, 1.0), 3.0) * 0.35;
-
-    finalColor = mix(base, refracted, mask * uIntensity) + vec4(vec3(highlight), 0.0);
+    finalColor = vec4(colour, alpha);
   }
 `;
 
@@ -166,24 +206,25 @@ export class RainGlassFilter extends Filter {
       fragment: RAIN_GLASS_FRAGMENT,
       name: "emptysock-rain-glass",
     });
-    super({ glProgram: program, resources: {} });
-    this.resources["uniforms"] = {
+    // Must be handed to the Filter constructor so pixi wraps it in a real
+    // UniformGroup (a plain object assigned to `resources` afterwards is
+    // never uploaded to the GPU).
+    const group = new UniformGroup({
       uTime: { value: 0, type: "f32" },
       uIntensity: { value: options.intensity ?? 0.6, type: "f32" },
       uDropletSize: { value: options.dropletSize ?? 0.12, type: "f32" },
       uDropletSpeed: { value: options.dropletSpeed ?? 0.35, type: "f32" },
       uStreakAmount: { value: options.streakAmount ?? 0.5, type: "f32" },
       uResolution: { value: [1, 1], type: "vec2<f32>" },
-    };
+    });
+    super({ glProgram: program, resources: { uniforms: group } });
+    this._group = group;
   }
 
-  private get _u(): Record<string, { value: unknown }> {
-    return this.resources["uniforms"] as Record<string, { value: unknown }>;
-  }
+  private readonly _group: UniformGroup;
 
   private _set(name: string, value: unknown): void {
-    const uniform = this._u[name];
-    if (uniform) uniform.value = value;
+    if (name in this._group.uniforms) this._group.uniforms[name] = value;
   }
 
   setOptions(options: RainGlassFilterOptions): void {

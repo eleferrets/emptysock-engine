@@ -1,3 +1,7 @@
+// Registers pixi's advanced blend modes (incl. "subtract", used by GML
+// gpu_set_blendmode(bm_subtract)); without it pixi silently renders "subtract"
+// as normal — found by real-GPU verification (scripts/gpu-verify.mjs).
+import "pixi.js/advanced-blend-modes";
 import {
   BitmapFont,
   BitmapText,

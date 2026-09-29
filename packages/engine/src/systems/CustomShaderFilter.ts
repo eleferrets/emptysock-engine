@@ -14,7 +14,7 @@
 // A "vertex" that a developer omits falls back to DEFAULT_CUSTOM_SHADER_VERTEX,
 // which is exactly what the ShaderEditor panel's vertex tab starts from.
 
-import { Filter, GlProgram } from "pixi.js";
+import { Filter, GlProgram, UniformGroup } from "pixi.js";
 import {
   getGmlShader,
   getGmlShaderUniforms,
@@ -24,18 +24,28 @@ import {
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 
+/**
+ * The default vertex stage, written against pixi's Filter vertex contract
+ * (`aPosition` only, positioned via `uOutputFrame`/`uOutputTexture`, texture
+ * coordinate from `uInputSize`) — a filter's quad has no `aUV` attribute and
+ * no `uProjectionMatrix`/`uWorldTransformMatrix`, so a sprite-style vertex
+ * stage fails pixi's geometry check at draw time ("geometry missing the aUV
+ * attribute", found by real-GPU verification). Vertex sources that still use
+ * the sprite-quad contract are adapted automatically, see `adaptVertex`.
+ */
 export const DEFAULT_CUSTOM_SHADER_VERTEX = /* glsl */ `
   in vec2 aPosition;
-  in vec2 aUV;
   out vec2 vUV;
-  uniform mat3 uProjectionMatrix;
-  uniform mat3 uWorldTransformMatrix;
-  uniform mat3 uTransformMatrix;
+  uniform vec4 uInputSize;
+  uniform vec4 uOutputFrame;
+  uniform vec4 uOutputTexture;
 
   void main() {
-    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
-    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
-    vUV = aUV;
+    vec2 position = aPosition * uOutputFrame.zw + uOutputFrame.xy;
+    position.x = position.x * (2.0 / uOutputTexture.x) - 1.0;
+    position.y = position.y * (2.0 * uOutputTexture.z / uOutputTexture.y) - uOutputTexture.z;
+    gl_Position = vec4(position, 0.0, 1.0);
+    vUV = aPosition * (uOutputFrame.zw * uInputSize.zw);
   }
 `;
 
@@ -63,8 +73,9 @@ export interface CustomShaderOptions {
    * (`uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix` are never
    * set for a filter, so the quad collapses) — and substitute pixi's own
    * filter position maths via `toFilterVertexSource`, keeping only its `out`
-   * varyings. Set for importer-emitted shaders; leave unset for a vertex
-   * stage already written against the filter contract.
+   * varyings. Set for importer-emitted shaders. When unset it is inferred:
+   * a vertex source that does not mention `uOutputFrame` (i.e. is not already
+   * written against the filter contract) is adapted the same way.
    */
   adaptVertex?: boolean;
   /** GlProgram name, useful for debugging in browser devtools. */
@@ -81,39 +92,35 @@ export interface CustomShaderOptions {
  */
 export class CustomShaderFilter extends Filter {
   constructor(options: CustomShaderOptions) {
+    const rawVertex = options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX;
+    const adapt = options.adaptVertex ?? !rawVertex.includes("uOutputFrame");
     const program = GlProgram.from({
-      vertex:
-        options.adaptVertex === true
-          ? toFilterVertexSource(
-              options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX,
-            )
-          : (options.vertexSrc ?? DEFAULT_CUSTOM_SHADER_VERTEX),
+      vertex: adapt ? toFilterVertexSource(rawVertex) : rawVertex,
       fragment: options.fragmentSrc,
       name: options.name ?? "emptysock-custom-shader",
     });
-    super({ glProgram: program, resources: {} });
-    this.resources["uniforms"] = {
+    // The uniform structure must go through the Filter constructor so pixi
+    // wraps it in a real UniformGroup; assigning a plain object to
+    // `resources` afterwards is never uploaded (found by real-GPU
+    // verification: every uniform read as 0 on the GPU).
+    const group = new UniformGroup({
       uTime: { value: 0, type: "f32" },
       ...(options.uniforms ?? {}),
-    };
+    });
+    super({ glProgram: program, resources: { uniforms: group } });
+    this._group = group;
   }
+
+  private readonly _group: UniformGroup;
 
   /** Writes a uniform previously declared via `options.uniforms`; undeclared names are ignored. */
   setUniform(name: string, value: number | number[]): void {
-    const res = this.resources["uniforms"] as
-      | Record<string, { value: unknown }>
-      | undefined;
-    const u = res?.[name];
-    if (u) u.value = value;
+    if (name in this._group.uniforms) this._group.uniforms[name] = value;
   }
 
   /** Updates the uTime uniform. Call once per frame from the game loop. */
   setTime(seconds: number): void {
-    const res = this.resources["uniforms"] as
-      | Record<string, { value: unknown }>
-      | undefined;
-    const u = res?.["uTime"];
-    if (u) u.value = seconds;
+    this._group.uniforms["uTime"] = seconds;
   }
 }
 
