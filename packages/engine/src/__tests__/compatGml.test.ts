@@ -114,6 +114,28 @@ describe("gmlNum", () => {
   });
 });
 
+describe("gmlNum end-to-end with a stored sprite path", () => {
+  it("does not break a stored sprite-path comparison", async () => {
+    const { gmlNum, setGmlVar, getGmlVar } = await import(
+      "../compat/gmlInstanceVars.js"
+    );
+    const { Scene } = await import("../Scene.js");
+    const { definePrefab } = await import("../Prefab.js");
+    const path = "./assets/sprites/spr_x/frame_0.png";
+    const scene = new Scene();
+    const entity = scene.spawn(definePrefab("Thing", []));
+    const ctx = { scene };
+    setGmlVar(entity, ctx, "spr", path);
+    // Mirrors the transpiled `spr == spr_x` read: gmlNum(getGmlVar(...)).
+    expect((gmlNum(getGmlVar(entity, ctx, "spr")) as unknown) === path).toBe(
+      true,
+    );
+    expect((gmlNum(getGmlVar(entity, ctx, "spr")) as unknown) == 0).toBe(false);
+    // Documents the numeric-looking-name edge: it coerces.
+    expect(gmlNum("1e3")).toBe(1000);
+  });
+});
+
 describe("json_decode on invalid input", () => {
   it("returns an empty map instead of throwing", async () => {
     const { json_decode } = await import("../compat/gml.js");
