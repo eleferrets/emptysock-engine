@@ -184,7 +184,8 @@ export async function rain(
   const base = px(p, rt);
   const f = new RainGlassFilter(opts);
   f.setResolution(640, 360);
-  f.tick(3.7);
+  // The filter simulates drops on the CPU, so warm the sim up over many small steps.
+  for (let i = 0; i < 360; i++) f.tick(1 / 30);
   c.filters = [f];
   c.filterArea = undefined as never;
   r.render({ container: root, target: rtF });
