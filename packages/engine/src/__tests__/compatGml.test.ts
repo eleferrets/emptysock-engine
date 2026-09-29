@@ -96,3 +96,30 @@ describe("compat/gml.ts — misc built-ins", () => {
     expect(string_insert("XX", "hello", 3)).toBe("heXXllo");
   });
 });
+
+describe("gmlNum", () => {
+  it("coerces numbers, booleans, numeric strings and nullish; passes text and objects through", async () => {
+    const { gmlNum } = await import("../compat/gmlInstanceVars.js");
+    expect(gmlNum(5)).toBe(5);
+    expect(gmlNum(undefined)).toBe(0);
+    expect(gmlNum(null)).toBe(0);
+    expect(gmlNum(true)).toBe(1);
+    expect(gmlNum("12.5")).toBe(12.5);
+    expect(gmlNum("hello")).toBe("hello");
+    expect(gmlNum("")).toBe("");
+    const m = new Map();
+    expect(gmlNum(m)).toBe(m);
+    const a = [1, 2];
+    expect(gmlNum(a)).toBe(a);
+  });
+});
+
+describe("json_decode on invalid input", () => {
+  it("returns an empty map instead of throwing", async () => {
+    const { json_decode } = await import("../compat/gml.js");
+    const m = json_decode("");
+    expect(m).toBeInstanceOf(Map);
+    expect(m.size).toBe(0);
+    expect(json_decode("{not json").size).toBe(0);
+  });
+});

@@ -132,11 +132,12 @@ export function clearGmlInstanceVars(world: World, eid: number): void {
  * with its own `as number | undefined ?? 0` cast). Unlike a bare type
  * assertion, this actually runs at runtime: `typeof value === "number"`
  * passes the real value straight through unchanged (the overwhelmingly
- * common case), and anything else is coerced via `Number(...)`, falling
- * back to `0` for a value `Number()` can't make sense of (`undefined`, a
- * non-numeric string, `NaN`) — matching GML's own loosely-typed runtime,
- * which performs the same implicit coercion in arithmetic position rather
- * than statically rejecting it. This keeps every generated `.behavior.ts`
+ * common case); `undefined`/`null` become `0`, booleans `0`/`1` and numeric
+ * strings their number. A non-numeric string or any object (ds_map, array,
+ * struct, entity) is NOT a number and passes through unchanged rather than
+ * being flattened to `0` — GML is dynamically typed, and a "numeric
+ * position" rewrite must not destroy a text or a ds_map that merely got read
+ * through the same helper. This keeps every generated `.behavior.ts`
  * module real, executable JavaScript once TypeScript's own type-only `as`
  * syntax is stripped at build time, *and* genuinely valid, runnable plain
  * JS even before that stripping happens — the same "real syntax-validity
@@ -144,7 +145,25 @@ export function clearGmlInstanceVars(world: World, eid: number): void {
  * test suite already holds every other rewrite to.
  */
 export function gmlNum(value: unknown): number {
-  return typeof value === "number" ? value : Number(value) || 0;
+  if (typeof value === "number") return value;
+  if (value === undefined || value === null) return 0;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "string") {
+    // A numeric string is a number; any other string is a real string value
+    // (a localised text, a sprite path, a name) and must pass through
+    // unchanged — coercing it to 0 broke every `var s = obj.text_field;`
+    // and every `x == "some string"` comparison (found by the room-walk
+    // test: `load_string` returned 0 instead of the looked-up text).
+    const n = Number(value);
+    return value.trim() !== "" && !Number.isNaN(n)
+      ? n
+      : (value as unknown as number);
+  }
+  // Maps, arrays, structs, entities, functions: not numbers, so pass them
+  // through untouched (`var m = obj_game.lang_map; m[? key]`). The `number`
+  // return type is the transpiler's numeric-position assumption, not a
+  // guarantee for these values.
+  return value as unknown as number;
 }
 
 /**

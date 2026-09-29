@@ -1102,7 +1102,14 @@ export function json_decode(str: string): Map<string, unknown> {
     }
     return v;
   };
-  return revive(JSON.parse(str)) as Map<string, unknown>;
+  // Invalid or empty JSON (a missing included file reads as "") makes real
+  // GML return -1, which then errors on first use. An empty map is the
+  // defined-safe equivalent: every lookup on it is simply `undefined`.
+  try {
+    return revive(JSON.parse(str)) as Map<string, unknown>;
+  } catch {
+    return new Map<string, unknown>();
+  }
 }
 
 /**
