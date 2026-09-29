@@ -206,7 +206,7 @@ export type {
   SignalListener,
   Unsubscribe,
 } from "./systems/SignalBus.js";
-export type { GameGlobals } from "./systems/GlobalStore.js";
+export type { GameGlobals, GlobalDeclaration } from "./systems/GlobalStore.js";
 export { GmlFileSystem } from "./systems/GmlFileSystem.js";
 export { AssetRegistry } from "./systems/AssetRegistry.js";
 export { FontRegistry } from "./systems/FontRegistry.js";

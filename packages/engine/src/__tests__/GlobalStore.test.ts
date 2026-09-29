@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GlobalStore } from "../systems/GlobalStore.js";
 import { Game, defineScene } from "../Game.js";
 
@@ -49,5 +49,63 @@ describe("GlobalStore", () => {
     expect(game.globals.get("score")).toBe(42);
     expect(game.globals).toBe(globals);
     await game.unloadScene();
+  });
+});
+
+describe("GlobalStore declarations", () => {
+  it("declare sets a copy of initial only when the name is unset", () => {
+    const store = new GlobalStore();
+    const initial = { hp: 10 };
+    store.declare("stats", { initial });
+    expect(store.get("stats")).toEqual({ hp: 10 });
+    (store.get("stats") as { hp: number }).hp = 1;
+    expect(initial.hp).toBe(10);
+    store.set("score", 5);
+    store.declare("score", { initial: 0 });
+    expect(store.get("score")).toBe(5);
+    expect(store.declared()).toEqual(["stats", "score"]);
+  });
+
+  it("snapshot includes only persist:true names and drops non-serialisable values with a warning", () => {
+    const store = new GlobalStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    store.declare("gold", { initial: 3, persist: true });
+    store.declare("temp", { initial: 1 });
+    store.declare("fn", { persist: true });
+    store.declare("map", { persist: true });
+    store.declare("unset", { persist: true });
+    store.set("fn", () => 1);
+    store.set("map", new Map());
+    store.set("undeclared", 9);
+    expect(store.snapshot()).toEqual({ gold: 3 });
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it("restore applies declared persistent names and ignores the rest with a warning", () => {
+    const store = new GlobalStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    store.declare("gold", { initial: 0, persist: true });
+    store.declare("temp", { initial: 0 });
+    store.restore({ gold: 42, temp: 9, nope: 1 });
+    expect(store.get("gold")).toBe(42);
+    expect(store.get("temp")).toBe(0);
+    expect(store.has("nope")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it("reset drops every value and re-applies declared initials", () => {
+    const store = new GlobalStore();
+    store.declare("gold", { initial: 3, persist: true });
+    store.declare("flag", {});
+    store.set("gold", 99);
+    store.set("flag", true);
+    store.set("adhoc", 1);
+    store.reset();
+    expect(store.get("gold")).toBe(3);
+    expect(store.has("flag")).toBe(false);
+    expect(store.has("adhoc")).toBe(false);
+    expect(store.declared()).toEqual(["gold", "flag"]);
   });
 });

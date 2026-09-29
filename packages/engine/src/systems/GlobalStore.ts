@@ -1,3 +1,5 @@
+import type { Serializable } from "../Serializable.js";
+
 /**
  * A `Game`-scoped store for arbitrarily-named, arbitrarily-typed values
  * reachable from anywhere gameplay code runs — the real target for
@@ -30,8 +32,147 @@
  */
 export interface GameGlobals {}
 
+/** What `GlobalStore.declare` records for a name. */
+export interface GlobalDeclaration {
+  /** Value the name takes on declare (when unset) and after `reset()`. Must be JSON-clean. */
+  readonly initial?: Serializable;
+  /** Only `persist: true` names enter `snapshot()` (and so save files). Default `false`. */
+  readonly persist?: boolean;
+}
+
+const MAX_SERIALIZE_DEPTH = 32;
+
+/**
+ * Deep copy of `v` if it is JSON-clean (null, boolean, finite number, string,
+ * arrays and plain objects of those), else `undefined` in the result. Class
+ * instances (entities, maps), functions and non-finite numbers are rejected.
+ */
+function cleanCopy(
+  v: unknown,
+  depth = 0,
+): { readonly value: Serializable } | undefined {
+  if (v === null || typeof v === "boolean" || typeof v === "string") {
+    return { value: v };
+  }
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? { value: v } : undefined;
+  }
+  if (typeof v !== "object" || depth >= MAX_SERIALIZE_DEPTH) return undefined;
+  if (Array.isArray(v)) {
+    const out: Serializable[] = [];
+    for (const item of v) {
+      const c = cleanCopy(item, depth + 1);
+      if (c === undefined) return undefined;
+      out.push(c.value);
+    }
+    return { value: out };
+  }
+  const proto = Object.getPrototypeOf(v);
+  if (proto !== Object.prototype && proto !== null) return undefined;
+  const out: Record<string, Serializable> = {};
+  for (const [k, item] of Object.entries(v)) {
+    const c = cleanCopy(item, depth + 1);
+    if (c === undefined) return undefined;
+    out[k] = c.value;
+  }
+  return { value: out };
+}
+
 export class GlobalStore {
   private readonly _values = new Map<string, unknown>();
+  private readonly _decls = new Map<string, GlobalDeclaration>();
+
+  /**
+   * Declare `name` with an optional initial value and persistence flag. If
+   * the name has no value yet and an `initial` is given, it is set to a copy
+   * of it. Re-declaring replaces the declaration and never overwrites an
+   * existing value. Undeclared names keep working through `set`.
+   */
+  declare(name: string, decl: GlobalDeclaration = {}): void {
+    let initial: Serializable | undefined;
+    if (decl.initial !== undefined) {
+      const c = cleanCopy(decl.initial);
+      if (c === undefined) {
+        console.warn(
+          `[GlobalStore] declare("${name}"): initial value is not JSON-clean - ignored.`,
+        );
+      } else {
+        initial = c.value;
+      }
+    }
+    this._decls.set(name, {
+      ...(initial !== undefined ? { initial } : {}),
+      persist: decl.persist === true,
+    });
+    if (initial !== undefined && !this._values.has(name)) {
+      this._values.set(name, cleanCopy(initial)?.value);
+    }
+  }
+
+  /** Names passed to `declare`, in declaration order. */
+  declared(): string[] {
+    return [...this._decls.keys()];
+  }
+
+  /**
+   * JSON-clean copy of every declared `persist: true` name that currently has
+   * a value. A value that is not JSON-clean (function, entity, map...) is
+   * dropped with a warning rather than failing the whole snapshot.
+   */
+  snapshot(): Record<string, Serializable> {
+    const out: Record<string, Serializable> = {};
+    for (const [name, decl] of this._decls) {
+      if (decl.persist !== true || !this._values.has(name)) continue;
+      const c = cleanCopy(this._values.get(name));
+      if (c === undefined) {
+        console.warn(
+          `[GlobalStore] snapshot: value of "${name}" is not JSON-clean - not saved.`,
+        );
+        continue;
+      }
+      out[name] = c.value;
+    }
+    return out;
+  }
+
+  /**
+   * Apply a `snapshot()` result. Only declared `persist: true` names are
+   * applied; anything else is ignored with a warning (a save from an older or
+   * newer build must not inject arbitrary globals).
+   */
+  restore(data: Readonly<Record<string, unknown>>): void {
+    for (const [name, value] of Object.entries(data)) {
+      const decl = this._decls.get(name);
+      if (decl === undefined || decl.persist !== true) {
+        console.warn(
+          `[GlobalStore] restore: "${name}" is not a declared persistent global - ignored.`,
+        );
+        continue;
+      }
+      const c = cleanCopy(value);
+      if (c === undefined) {
+        console.warn(
+          `[GlobalStore] restore: value of "${name}" is not JSON-clean - ignored.`,
+        );
+        continue;
+      }
+      this._values.set(name, c.value);
+    }
+  }
+
+  /**
+   * Drop every value (declared or not), then re-apply declared initials.
+   * `game_restart` semantics: globals are whole-process state and a restart
+   * forgets all of it. Declarations themselves are kept.
+   */
+  reset(): void {
+    this._values.clear();
+    for (const [name, decl] of this._decls) {
+      if (decl.initial !== undefined) {
+        this._values.set(name, cleanCopy(decl.initial)?.value);
+      }
+    }
+  }
 
   get<K extends keyof GameGlobals>(name: K): GameGlobals[K] | undefined;
   get<T = unknown>(name: string): T | undefined;
