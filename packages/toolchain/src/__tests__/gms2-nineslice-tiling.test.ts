@@ -112,13 +112,14 @@ describe("GMS2 tiled background layers", () => {
       root,
       path.join(root, "out"),
     );
-    return r.entities[0]?.components ?? [];
+    const comps = r.entities[0]?.components;
+    return [comps?.["Transform"]?.data, comps?.["Sprite"]?.data];
   }
 
   it("htiled-only spans the room width at native height, at the layer y", async () => {
     const c = await run(true, false);
-    expect(c[0]?.overrides).toEqual({ x: 320, y: 424 });
-    expect(c[1]?.overrides).toMatchObject({
+    expect(c[0]).toEqual({ x: 320, y: 424 });
+    expect(c[1]).toMatchObject({
       width: 640,
       height: 48,
       sliceMode: 2,
@@ -127,7 +128,7 @@ describe("GMS2 tiled background layers", () => {
 
   it("both axes cover the whole room", async () => {
     const c = await run(true, true);
-    expect(c[1]?.overrides).toMatchObject({
+    expect(c[1]).toMatchObject({
       width: 640,
       height: 480,
       sliceMode: 2,
@@ -136,7 +137,7 @@ describe("GMS2 tiled background layers", () => {
 
   it("untiled keeps the stretch-to-cover behaviour", async () => {
     const c = await run(false, false);
-    expect(c[1]?.overrides).not.toHaveProperty("sliceMode");
-    expect(c[0]?.overrides).toMatchObject({ scaleX: 640 / 48 });
+    expect(c[1]).not.toHaveProperty("sliceMode");
+    expect(c[0]).toMatchObject({ scaleX: 640 / 48 });
   });
 });

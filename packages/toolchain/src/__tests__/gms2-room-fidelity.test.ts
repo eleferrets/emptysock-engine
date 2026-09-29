@@ -7,7 +7,7 @@ import { convertGms2Room } from "../gms2-room-import.js";
 
 // ---------------------------------------------------------------------------
 // Room-instance placement fidelity: proves the importer's generated
-// .scene.json prefabInstances are a genuine 1:1 mapping of the source room's
+// .scene.json prefab-instance entities are a genuine 1:1 mapping of the source room's
 // instances/positions, not a sampled or scrambled subset. This test builds a
 // synthetic room with 20 instances spread across 3 layers, at deliberately
 // varied coordinates (negative, large, duplicate-object-different-position,
@@ -140,8 +140,7 @@ ${resourceEntries}
     // doing: per layer, in layer order, per instance, in instance order.
     const expectedFlat = sourceRoom.layers.flatMap((layer) =>
       layer.instances.map((inst) => ({
-        prefab: inst.objectName,
-        props: { x: inst.x, y: inst.y },
+        prefab: { name: inst.objectName, props: { x: inst.x, y: inst.y } },
       })),
     );
 
@@ -157,18 +156,22 @@ ${resourceEntries}
       "utf-8",
     );
     const scene = JSON.parse(raw) as {
-      sceneName: string;
-      prefabInstances: Array<{
-        prefab: string;
-        props: { x: number; y: number };
+      name: string;
+      entities: Array<{
+        id: string;
+        prefab: { name: string; props: { x: number; y: number } };
       }>;
     };
 
-    expect(scene.sceneName).toBe("rm_fidelity");
+    expect(scene.name).toBe("rm_fidelity");
     // Full, ordered, exact-value equality — not a sample, not a subset, not
     // a "same set" comparison that would let a scramble slip through.
-    expect(scene.prefabInstances).toHaveLength(20);
-    expect(scene.prefabInstances).toEqual(expectedFlat);
+    expect(scene.entities).toHaveLength(20);
+    expect(scene.entities.map(({ prefab }) => ({ prefab }))).toEqual(
+      expectedFlat,
+    );
+    // Every entity carries a unique stable id.
+    expect(new Set(scene.entities.map((e) => e.id)).size).toBe(20);
 
     // Belt-and-suspenders: also verify directly against the hand-authored
     // fixture data (not just against the re-parsed source), so a bug shared
@@ -180,11 +183,11 @@ ${resourceEntries}
         (i) => i.layer === layerName,
       );
       for (const inst of layerInstances) {
-        const actual = scene.prefabInstances[cursor];
+        const actual = scene.entities[cursor];
         expect(actual).toBeDefined();
-        expect(actual?.prefab).toBe(inst.objectName);
-        expect(actual?.props.x).toBe(inst.x);
-        expect(actual?.props.y).toBe(inst.y);
+        expect(actual?.prefab.name).toBe(inst.objectName);
+        expect(actual?.prefab.props.x).toBe(inst.x);
+        expect(actual?.prefab.props.y).toBe(inst.y);
         cursor++;
       }
     }
@@ -196,8 +199,8 @@ ${resourceEntries}
     const expectedTriples = FIXTURE_INSTANCES.map(
       (i) => `${i.objectName}|${i.x}|${i.y}`,
     ).sort();
-    const actualTriples = scene.prefabInstances
-      .map((p) => `${p.prefab}|${p.props.x}|${p.props.y}`)
+    const actualTriples = scene.entities
+      .map((p) => `${p.prefab.name}|${p.prefab.props.x}|${p.prefab.props.y}`)
       .sort();
     expect(actualTriples).toEqual(expectedTriples);
   });

@@ -2,10 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  convertGms2Room,
-  buildRoomSceneFileViews,
-} from "../gms2-room-import.js";
+import { convertGms2Room, buildRoomSceneViews } from "../gms2-room-import.js";
 
 // ---------------------------------------------------------------------------
 // Real GMS2 room `.yy` view/camera data — confirmed field names against the
@@ -119,40 +116,33 @@ describe("convertGms2Room — real .yy view/camera data", () => {
   });
 });
 
-describe("buildRoomSceneFileViews — GameMaker short names -> SceneFileView", () => {
-  it("renames every field onto the runtime-facing world*/screen* convention and carries followObject through", async () => {
+describe("buildRoomSceneViews — GameMaker short names -> SceneViewDef", () => {
+  it("renames every field onto the runtime-facing world/screen convention and carries the follow object through", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-views2-"));
     try {
       const p = path.join(dir, "rm_camera_test.yy");
       await fs.writeFile(p, buildRoomYyWithViews(), "utf-8");
       const room = await convertGms2Room(p);
 
-      const views = buildRoomSceneFileViews(room);
+      const views = buildRoomSceneViews(room);
       expect(views).toHaveLength(3);
 
       expect(views[0]).toEqual({
+        id: "v0",
         visible: true,
-        worldX: 0,
-        worldY: 0,
-        worldWidth: 640,
-        worldHeight: 480,
-        screenX: 0,
-        screenY: 0,
-        screenWidth: 640,
-        screenHeight: 480,
-        borderX: 32,
-        borderY: 32,
-        speedX: 4,
-        speedY: 4,
-        followObject: "obj_player",
+        world: { x: 0, y: 0, w: 640, h: 480 },
+        screen: { x: 0, y: 0, w: 640, h: 480 },
+        border: { x: 32, y: 32 },
+        speed: { x: 4, y: 4 },
+        follow: { object: "obj_player" },
       });
 
-      // View 1 has no objectId — followObject must be genuinely absent, not
+      // View 1 has no objectId — follow must be genuinely absent, not
       // a fabricated empty string or -1 sentinel.
       const view1 = views[1];
       expect(view1).toBeDefined();
       if (view1 === undefined) throw new Error("expected view 1");
-      expect(view1.followObject).toBeUndefined();
+      expect(view1.follow).toBeUndefined();
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

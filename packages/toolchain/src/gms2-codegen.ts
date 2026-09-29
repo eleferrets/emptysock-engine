@@ -23,7 +23,7 @@ import {
 // event logic (real executable code, which a `PrefabFile`'s components
 // cannot hold — see `Widgets.ts`'s and `PhysicsBody.ts`'s "a component's
 // fields must stay plain `Serializable` data" constraint). Rooms emit a
-// `.scene.json` (`SceneFile` shape) of prefab instances instead of a
+// `.scene.json` (`SceneDocument` shape) of prefab instances instead of a
 // `loadRoomX(scene)` TypeScript function. No more `class X extends
 // Component`/`extends Scene` anywhere in this importer's output.
 // ---------------------------------------------------------------------------
@@ -1022,14 +1022,14 @@ export const ${toPascalCase(name)}Sprite = {
 }
 
 /**
- * Build a `.scene.json` file (`@emptysock/engine`'s real `SceneFile`
- * shape) from a converted GMS2 room: one prefab instance per room instance,
+ * Build a `.scene.json` file (`@emptysock/engine`'s real `SceneDocument`,
+ * `formatVersion: 2`) from a converted GMS2 room: one prefab instance per room instance,
  * referencing the `.prefab.json` `buildObjectPrefabJSON()` emits for each
  * imported object — ground rule 15's actual ask, replacing the old
  * `loadRoomX(scene)` TypeScript function. An instance whose object wasn't
  * imported (skipped or missing) is omitted with a comment explaining why
  * would be lost in translation to plain JSON (no comments), so instead it's
- * dropped from `prefabInstances` and the caller is expected to surface that
+ * dropped from the entities and the caller is expected to surface that
  * via the migration report (`gms2-report.ts`), the same place other
  * skip/manual notices already live.
  */
@@ -1081,19 +1081,35 @@ export async function buildRoomSceneJSON(
   const room = await convertGms2Room(roomYyPath, guidToObjectName);
   const knownObjects = new Set(objects);
 
-  const prefabInstances = room.layers.flatMap((layer) =>
+  // Entity ids: the placed instance's own editor name (`inst_XXXX`) when it is
+  // a valid id, so ids survive re-import; otherwise `p<index>`. Made unique.
+  const usedIds = new Set<string>();
+  const uniqueId = (wanted: string): string => {
+    let id = wanted;
+    for (let n = 2; usedIds.has(id); n++) id = `${wanted}_${n}`;
+    usedIds.add(id);
+    return id;
+  };
+  let index = 0;
+  const entities = room.layers.flatMap((layer) =>
     layer.instances
       .filter((inst) => knownObjects.has(inst.objectName))
       .map((inst) => ({
-        prefab: inst.objectName,
-        props: roomInstanceProps(inst),
-        ...(inst.gmlVars !== undefined ? { gmlVars: inst.gmlVars } : {}),
+        id: uniqueId(inst.id ?? `p${index++}`),
+        prefab: {
+          name: inst.objectName,
+          props: roomInstanceProps(inst),
+        },
+        ...(inst.gmlVars !== undefined
+          ? { ext: { gml: { vars: inst.gmlVars } } }
+          : {}),
       })),
   );
 
   const scene = {
-    sceneName: name,
-    prefabInstances,
+    formatVersion: 2,
+    name,
+    entities,
   };
   return JSON.stringify(scene, null, 2) + "\n";
 }

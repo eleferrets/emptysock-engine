@@ -90,17 +90,15 @@ describe("GMS2 room-layer sprite and sequence elements", () => {
       ),
     ) as {
       entities: {
-        components: { component: string; overrides: Record<string, unknown> }[];
+        components: Record<string, { data: Record<string, unknown> }>;
       }[];
     };
     const byName = (n: string) =>
-      scene.entities.find((e) =>
-        e.components.some(
-          (c) => c.component === "LayerElement" && c.overrides["name"] === n,
-        ),
+      scene.entities.find(
+        (e) => e.components["LayerElement"]?.data["name"] === n,
       );
     const comp = (e: (typeof scene.entities)[number] | undefined, c: string) =>
-      e?.components.find((x) => x.component === c)?.overrides;
+      e?.components[c]?.data;
 
     const gun = byName("gGun");
     expect(comp(gun, "LayerElement")).toEqual({

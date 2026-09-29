@@ -7,7 +7,7 @@ import type {
   ComponentDef,
   Entity,
   PrefabDef,
-  SceneFile,
+  SceneDocument,
   GmsProjectData,
 } from "@emptysock/engine";
 
@@ -115,10 +115,10 @@ describe("GMS2 real project — playability smoke test (a real project)", () => 
       path.join(outDir, "rooms", `${roomName}.scene.json`),
       "utf8",
     );
-    const room = JSON.parse(raw) as SceneFile;
-    expect(room.prefabInstances?.length ?? 0).toBeGreaterThan(10);
-    const hasPlayer = (room.prefabInstances ?? []).some(
-      (p) => p.prefab === "obj_player",
+    const room = JSON.parse(raw) as SceneDocument;
+    expect(room.entities.filter((e) => e.prefab).length).toBeGreaterThan(10);
+    const hasPlayer = room.entities.some(
+      (e) => e.prefab?.name === "obj_player",
     );
     expect(hasPlayer).toBe(true);
 
@@ -189,13 +189,13 @@ describe("GMS2 real project — playability smoke test (a real project)", () => 
     const roomNames = manifest.scenes.map((f) =>
       f.replace(/^rooms\//, "").replace(/\.scene\.json$/, ""),
     );
-    const rooms: Record<string, SceneFile> = {};
+    const rooms: Record<string, SceneDocument> = {};
     for (const name of roomNames) {
       const roomRaw = await fs.readFile(
         path.join(outDir, "rooms", `${name}.scene.json`),
         "utf8",
       );
-      rooms[name] = JSON.parse(roomRaw) as SceneFile;
+      rooms[name] = JSON.parse(roomRaw) as SceneDocument;
     }
 
     const data: GmsProjectData = {

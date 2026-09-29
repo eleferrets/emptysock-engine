@@ -217,7 +217,7 @@ ${summaryRows}
 Each object was emitted as a \`<name>.prefab.json\` (a real \`PrefabFile\` every
 \`Scene.spawn()\` can load directly) plus a companion \`<name>.behavior.ts\`
 holding its transpiled GML event handlers as plain exported functions. Each
-room was emitted as a \`rooms/<name>.scene.json\` (a real \`SceneFile\`) listing
+room was emitted as a \`rooms/<name>.scene.json\` (a real \`SceneDocument\`, \`formatVersion: 2\`) listing
 its prefab instances — including a real \`Transform\`+\`Sprite\` entity on the
 engine's built-in \`"background"\` render layer for any room background image.
 Each sound was emitted as \`assets/<name>.sound.ts\`, its real audio file

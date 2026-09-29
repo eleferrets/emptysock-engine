@@ -11,6 +11,8 @@ export interface TileEntry {
 }
 
 export interface InstanceEntry {
+  /** The placed instance's own editor name (`inst_XXXX` in the room `.yy`) when it is a valid scene entity id; becomes the scene entity's stable id so ids survive re-import. */
+  id?: string;
   objectName: string;
   x: number;
   y: number;
@@ -37,7 +39,7 @@ export interface RoomLayer {
    * `spriteId` set (a tiled/parallax background image, as opposed to a plain
    * solid-colour compatibility layer with `spriteId: null`). There is no
    * import path for this today — `buildRoomSceneJSON` has nowhere to put a
-   * background image reference in the current `SceneFile` shape — so this
+   * background image reference in the current `SceneDocument` shape — so this
    * field exists purely so the caller can warn that a real background image
    * was dropped, instead of silently losing it with no note anywhere.
    */
@@ -124,6 +126,8 @@ export interface RoomData {
   viewsEnabled: boolean;
   /** Up to 8 real view slots, parsed from the room's `.yy` `views` array — see `RoomView`'s own doc comment for the exact field provenance. Always length-8-or-fewer, in slot order; a room with no `views` array (or a malformed one) parses to `[]`. */
   views: RoomView[];
+  /** Real GameMaker `roomSettings.persistent`; emitted as the scene's `persistent` flag. */
+  persistent?: boolean;
 }
 
 // ── Internal shapes for the GMS2 room .yy JSON ──────────────────────────────
@@ -384,6 +388,14 @@ function instanceTransform(
   return out;
 }
 
+/** Scene entity ids: `[A-Za-z0-9_-]{1,64}` (see `SceneEntityIdSchema` in `@emptysock/types`). */
+const SCENE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+function instanceId(inst: Record<string, unknown>): { id?: string } {
+  const n = inst["name"];
+  return typeof n === "string" && SCENE_ID_RE.test(n) ? { id: n } : {};
+}
+
 function parseInstances(
   layer: YyLayer,
   guidToObjectName: Readonly<Record<string, string>>,
@@ -400,6 +412,7 @@ function parseInstances(
         objectName: (inst.objectId as Record<string, unknown>)[
           "name"
         ] as string,
+        ...instanceId(inst),
         x: typeof inst.x === "number" ? inst.x : 0,
         y: typeof inst.y === "number" ? inst.y : 0,
         ...instanceTransform(inst),
@@ -411,6 +424,7 @@ function parseInstances(
     const resolvedName =
       typeof objId === "string" ? guidToObjectName[objId] : undefined;
     return {
+      ...instanceId(inst),
       objectName: resolvedName ?? "Unknown",
       x: typeof inst.x === "number" ? inst.x : 0,
       y: typeof inst.y === "number" ? inst.y : 0,
@@ -495,7 +509,15 @@ export async function convertGms2Room(
   const viewsEnabled = parsed.viewSettings?.enableViews === true;
   const views = parseViews(parsed.views);
 
-  return { name, width, height, layers, viewsEnabled, views };
+  return {
+    name,
+    width,
+    height,
+    layers,
+    viewsEnabled,
+    views,
+    ...(settings["persistent"] === true ? { persistent: true } : {}),
+  };
 }
 
 /**
@@ -510,66 +532,70 @@ export function droppedBackgroundSprites(room: RoomData): string[] {
     .filter((sprite): sprite is string => sprite !== undefined);
 }
 
-/** On-disk shape of a view entry, matching `@emptysock/engine`'s `SceneFileView` — kept as a locally-typed mirror here rather than a real `import type` for the same reason `RoomBackgroundEntity` below mirrors `SceneFileEntity`: this module stays a plain data-transform with no runtime dependency on the engine package's module graph. */
-export interface RoomSceneFileView {
+/** On-disk shape of a view entry, matching `@emptysock/engine`'s `SceneViewDef` — kept as a locally-typed mirror here rather than a real `import type` for the same reason `RoomSceneEntity` below mirrors `SceneEntity`: this module stays a plain data-transform with no runtime dependency on the engine package's module graph. */
+export interface RoomSceneViewDef {
+  id: string;
   visible: boolean;
-  worldX: number;
-  worldY: number;
-  worldWidth: number;
-  worldHeight: number;
-  screenX: number;
-  screenY: number;
-  screenWidth: number;
-  screenHeight: number;
-  borderX: number;
-  borderY: number;
-  speedX: number;
-  speedY: number;
-  followObject?: string;
+  world: { x: number; y: number; w: number; h: number };
+  screen: { x: number; y: number; w: number; h: number };
+  border: { x: number; y: number };
+  speed: { x: number; y: number };
+  follow?: { object: string };
 }
 
 /**
- * Converts this room's parsed `views` into the runtime-facing `SceneFileView`
+ * Converts this room's parsed `views` into the runtime-facing `SceneViewDef`
  * shape — renaming GameMaker's short `x/y/w/h`-`view`/`port` field names
- * into this engine's own `world*`/`screen*` convention (see `SceneFileView`'s
- * doc comment for why the rename happens at the toolchain boundary, not the
- * runtime one). Used by `gms2-import.ts` to merge onto the generated
- * `.scene.json`'s `views`/`viewsEnabled` fields.
+ * into this engine's own `world`/`screen` convention. Used by
+ * `gms2-import.ts` to merge onto the generated `.scene.json`'s
+ * `room.views`/`room.viewsEnabled` fields.
  */
-export function buildRoomSceneFileViews(room: RoomData): RoomSceneFileView[] {
-  return room.views.map((v) => ({
+export function buildRoomSceneViews(room: RoomData): RoomSceneViewDef[] {
+  return room.views.map((v, i) => ({
+    id: `v${i}`,
     visible: v.visible,
-    worldX: v.xview,
-    worldY: v.yview,
-    worldWidth: v.wview,
-    worldHeight: v.hview,
-    screenX: v.xport,
-    screenY: v.yport,
-    screenWidth: v.wport,
-    screenHeight: v.hport,
-    borderX: v.hborder,
-    borderY: v.vborder,
-    speedX: v.hspeed,
-    speedY: v.vspeed,
-    ...(v.objectId !== undefined ? { followObject: v.objectId } : {}),
+    world: { x: v.xview, y: v.yview, w: v.wview, h: v.hview },
+    screen: { x: v.xport, y: v.yport, w: v.wport, h: v.hport },
+    border: { x: v.hborder, y: v.vborder },
+    speed: { x: v.hspeed, y: v.vspeed },
+    ...(v.objectId !== undefined ? { follow: { object: v.objectId } } : {}),
   }));
 }
 
-/** On-disk shape of a directly-declared entity, matching @emptysock/engine's `SceneFileEntity`. */
-export interface RoomBackgroundEntity {
+/** Intermediate component list an emitter builds before it becomes a scene entity. */
+interface RoomEntityDraft {
   components: Array<{ component: string; overrides?: Record<string, unknown> }>;
+}
+
+/** On-disk shape of a directly-declared (no prefab) entity, matching @emptysock/engine's `SceneEntity`: a stable `id` plus a name-keyed component-override map. */
+export interface RoomSceneEntity {
+  id: string;
+  components: Record<string, { data: Record<string, unknown> }>;
+}
+
+function toSceneEntities(
+  drafts: readonly RoomEntityDraft[],
+  idPrefix: string,
+): RoomSceneEntity[] {
+  return drafts.map((d, i) => {
+    const components: RoomSceneEntity["components"] = {};
+    for (const c of d.components) {
+      components[c.component] = { data: { ...(c.overrides ?? {}) } };
+    }
+    return { id: `${idPrefix}${i}`, components };
+  });
 }
 
 /**
  * Convert every real background image a room's `GMRBackgroundLayer`s
- * reference into a real, renderable `SceneFileEntity`: a plain
+ * reference into a real, renderable `SceneEntity`: a plain
  * `Transform`+`Sprite` entity, sized to cover the room and placed on
  * `@emptysock/engine`'s built-in `"background"` render layer (`LayerSystem`
  * already defines one, drawn behind `"default"`/`"foreground"`/`"ui"` —
  * see `packages/engine/src/systems/LayerSystem.ts`). This is a direct
- * `SceneFileEntity`, not a `prefabInstances` entry, because a GMS2
+ * `SceneEntity` (no `prefab`), not a prefab-instance entry, because a GMS2
  * background image has no corresponding GameMaker *object* and therefore no
- * `.prefab.json` to reference — `SceneFile.entities` exists precisely for
+ * `.prefab.json` to reference — a `SceneEntity` without `prefab` exists precisely for
  * "an entity this scene needs that isn't spawned from a named prefab" (see
  * `SceneFile.ts`'s `loadSceneFile`).
  *
@@ -586,8 +612,8 @@ export async function convertGms2RoomBackgrounds(
   room: RoomData,
   projectRoot: string,
   outDir: string,
-): Promise<{ entities: RoomBackgroundEntity[]; failed: string[] }> {
-  const entities: RoomBackgroundEntity[] = [];
+): Promise<{ entities: RoomSceneEntity[]; failed: string[] }> {
+  const entities: RoomEntityDraft[] = [];
   const failed: string[] = [];
 
   for (const layer of room.layers) {
@@ -676,7 +702,7 @@ export async function convertGms2RoomBackgrounds(
     }
   }
 
-  return { entities, failed };
+  return { entities: toSceneEntities(entities, "bg"), failed };
 }
 
 /** Parses a `GMRAssetLayer`'s `assets` (sprite and sequence graphics); other asset kinds are ignored. */
@@ -721,7 +747,7 @@ function parseLayerAssets(layer: YyLayer): RoomLayerAsset[] {
 
 /**
  * Convert a room's `GMRAssetLayer` sprite/sequence elements into real
- * `SceneFile.entities` entries. Each carries a `LayerElement` component
+ * `SceneDocument.entities` entries. Each carries a `LayerElement` component
  * (`name` = the element's editor name, `layer` = its room layer) so
  * `layer_sprite_get_id`/`layer_sequence_get_instance` can find it at runtime.
  *
@@ -748,11 +774,11 @@ export async function convertGms2RoomLayerElements(
   projectRoot: string,
   knownSequences: ReadonlySet<string>,
 ): Promise<{
-  entities: RoomBackgroundEntity[];
+  entities: RoomSceneEntity[];
   failed: string[];
   sequences: string[];
 }> {
-  const entities: RoomBackgroundEntity[] = [];
+  const entities: RoomEntityDraft[] = [];
   const failed: string[] = [];
   const sequences = new Set<string>();
 
@@ -854,7 +880,11 @@ export async function convertGms2RoomLayerElements(
     }
   }
 
-  return { entities, failed, sequences: [...sequences] };
+  return {
+    entities: toSceneEntities(entities, "el"),
+    failed,
+    sequences: [...sequences],
+  };
 }
 
 /** The sprite's real `.yy` origin (`sequence.xorigin`/`yorigin`), defaulting to 0,0 when absent. */

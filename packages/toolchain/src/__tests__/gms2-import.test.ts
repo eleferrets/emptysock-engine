@@ -738,7 +738,7 @@ describe("gms2-codegen wires gmlActionsStep into onUpdate for objects that use a
 });
 
 describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
-  it("writes prefabInstances for every known-object room instance, omitting unknown ones", async () => {
+  it("writes a prefab-instance entity for every known-object room instance, omitting unknown ones", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-json-"));
     const out = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-room-json-out-"));
     try {
@@ -784,12 +784,19 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
         "utf-8",
       );
       const scene = JSON.parse(raw) as {
-        sceneName: string;
-        prefabInstances: { prefab: string; props: { x: number; y: number } }[];
+        formatVersion: number;
+        name: string;
+        room: { width: number; height: number };
+        entities: {
+          id: string;
+          prefab: { name: string; props: { x: number; y: number } };
+        }[];
       };
-      expect(scene.sceneName).toBe("rm_main");
-      expect(scene.prefabInstances).toEqual([
-        { prefab: "obj_player", props: { x: 10, y: 20 } },
+      expect(scene.formatVersion).toBe(2);
+      expect(scene.name).toBe("rm_main");
+      expect(scene.room).toEqual({ width: 800, height: 600 });
+      expect(scene.entities).toEqual([
+        { id: "p0", prefab: { name: "obj_player", props: { x: 10, y: 20 } } },
       ]);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -859,19 +866,18 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       );
       const scene = JSON.parse(raw) as {
         entities?: Array<{
-          components: Array<{
-            component: string;
-            overrides?: Record<string, unknown>;
-          }>;
+          id: string;
+          components: Record<string, { data: Record<string, unknown> }>;
         }>;
       };
       expect(scene.entities).toHaveLength(1);
       const entities = scene.entities as NonNullable<typeof scene.entities>;
       const entity = entities[0];
       if (entity === undefined) throw new Error("expected one entity");
-      const sprite = entity.components.find((c) => c.component === "Sprite");
-      expect(sprite?.overrides?.["layer"]).toBe("background");
-      expect(sprite?.overrides?.["texturePath"]).toContain(
+      const sprite = entity.components["Sprite"];
+      expect(entity.id).toBe("bg0");
+      expect(sprite?.data["layer"]).toBe("background");
+      expect(sprite?.data["texturePath"]).toContain(
         "assets/backgrounds/bg_grass/",
       );
 
@@ -947,24 +953,20 @@ describe("GMS2 room import emits a real .scene.json (ground rule 15)", () => {
       );
       const scene = JSON.parse(raw) as {
         entities?: Array<{
-          components: Array<{
-            component: string;
-            overrides?: Record<string, unknown>;
-          }>;
+          id: string;
+          components: Record<string, { data: Record<string, unknown> }>;
         }>;
       };
       const entity = scene.entities?.[0];
       if (entity === undefined) throw new Error("expected one entity");
-      const transform = entity.components.find(
-        (c) => c.component === "Transform",
-      );
+      const transform = entity.components["Transform"];
       // 1600/400 = 4, 1200/300 = 4 — the Transform's scale must actually
       // stretch the sprite's native size to cover the room, not just
       // center it at native size.
-      expect(transform?.overrides?.["scaleX"]).toBe(4);
-      expect(transform?.overrides?.["scaleY"]).toBe(4);
-      expect(transform?.overrides?.["x"]).toBe(800);
-      expect(transform?.overrides?.["y"]).toBe(600);
+      expect(transform?.data["scaleX"]).toBe(4);
+      expect(transform?.data["scaleY"]).toBe(4);
+      expect(transform?.data["x"]).toBe(800);
+      expect(transform?.data["y"]).toBe(600);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });

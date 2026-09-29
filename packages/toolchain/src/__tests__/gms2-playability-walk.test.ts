@@ -8,7 +8,7 @@ import type {
   ComponentDef,
   Entity,
   PrefabDef,
-  SceneFile,
+  SceneDocument,
   GmsProjectData,
 } from "@emptysock/engine";
 
@@ -130,7 +130,7 @@ describe("GMS2 real project: room walk (a real project)", () => {
       registeredIds.push(objName);
     }
 
-    const rooms: Record<string, SceneFile> = {};
+    const rooms: Record<string, SceneDocument> = {};
     for (const f of manifest.scenes) {
       const name = f.replace(/^rooms\//, "").replace(/\.scene\.json$/, "");
       rooms[name] = JSON.parse(
@@ -138,7 +138,7 @@ describe("GMS2 real project: room walk (a real project)", () => {
           path.join(outDir, "rooms", `${name}.scene.json`),
           "utf8",
         ),
-      ) as SceneFile;
+      ) as SceneDocument;
     }
     for (const r of roomOrder) expect(rooms[r]).toBeDefined();
 

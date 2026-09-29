@@ -32,7 +32,7 @@ export type {
   RoomLayer,
   TileEntry,
   InstanceEntry,
-  RoomBackgroundEntity,
+  RoomSceneEntity,
 } from "./gms2-room-import.js";
 
 export { convertGms2Sound, buildSoundAsset } from "./gms2-sound-import.js";

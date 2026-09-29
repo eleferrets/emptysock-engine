@@ -48,11 +48,13 @@ describe("convertGms2Room — instance with a null objectId", () => {
     const room = await convertGms2Room(roomPath, {});
     const instances = room.layers.flatMap((l) => l.instances);
     expect(instances).toContainEqual({
+      id: "inst_orphan",
       objectName: "Unknown",
       x: 768,
       y: 736,
     });
     expect(instances).toContainEqual({
+      id: "inst_real",
       objectName: "obj_real",
       x: 100,
       y: 200,

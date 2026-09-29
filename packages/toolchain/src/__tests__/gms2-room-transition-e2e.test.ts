@@ -7,7 +7,7 @@ import { importGMS2Project } from "../gms2-import.js";
 import type {
   ComponentDef,
   PrefabDef,
-  SceneFile,
+  SceneDocument,
   GmsProjectData,
 } from "@emptysock/engine";
 
@@ -81,20 +81,20 @@ describe("GMS2 real project — room transition end to end (a real project)", ()
     const allRoomNames = convertedRoomFiles.map((f) =>
       f.replace(/^rooms\//, "").replace(/\.scene\.json$/, ""),
     );
-    const rooms: Record<string, SceneFile> = {};
+    const rooms: Record<string, SceneDocument> = {};
     for (const roomName of allRoomNames) {
       const raw = await fs.readFile(
         path.join(outDir, "rooms", `${roomName}.scene.json`),
         "utf8",
       );
-      rooms[roomName] = JSON.parse(raw) as SceneFile;
+      rooms[roomName] = JSON.parse(raw) as SceneDocument;
     }
     // Pick the first two real rooms that actually have prefab instances —
     // a genuinely empty room (e.g. a placeholder/test room) is valid real
     // data, but proving the room-swap pipeline needs two rooms whose
     // entity counts can actually be compared.
     const nonEmpty = allRoomNames.filter(
-      (n) => (rooms[n]?.prefabInstances?.length ?? 0) > 0,
+      (n) => (rooms[n]?.entities.filter((e) => e.prefab).length ?? 0) > 0,
     );
     expect(nonEmpty.length).toBeGreaterThanOrEqual(2);
     const roomOrder = nonEmpty.slice(0, 2);
@@ -159,7 +159,7 @@ describe("GMS2 real project — room transition end to end (a real project)", ()
 
     await runtime.nextRoom();
     expect(runtime.currentRoom).toBe(secondRoom);
-    // A genuinely different room's SceneFile was loaded — its own live
+    // A genuinely different room's SceneDocument was loaded — its own live
     // scene now reflects that room's own prefab instances, proving the
     // whole import -> parse -> runtime room-swap pipeline actually ran
     // against real data rather than merely updating a label.

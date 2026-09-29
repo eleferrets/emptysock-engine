@@ -6,7 +6,7 @@ import type {
   ComponentDef,
   Entity,
   PrefabDef,
-  SceneFile,
+  SceneDocument,
   GmsProjectData,
 } from "@emptysock/engine";
 
@@ -150,7 +150,7 @@ export async function walkProject(
     }
   }
 
-  const rooms: Record<string, SceneFile> = {};
+  const rooms: Record<string, SceneDocument> = {};
   for (const f of manifest.scenes) {
     const name = f.replace(/^rooms\//, "").replace(/\.scene\.json$/, "");
     rooms[name] = JSON.parse(
@@ -158,7 +158,7 @@ export async function walkProject(
         path.join(outDir, "rooms", `${name}.scene.json`),
         "utf8",
       ),
-    ) as SceneFile;
+    ) as SceneDocument;
   }
   if (walk.roomOrder.length === 0) walk.roomOrder = Object.keys(rooms);
   walk.roomOrder = walk.roomOrder.filter((r) => rooms[r] !== undefined);

@@ -14,7 +14,7 @@ import { importGMS2Project } from "../gms2-import.js";
 // `objectId: { name, path }` shape. Confirmed against a real legacy-format
 // GMS2 project: without resolving `objId` back to an object name via the
 // project's own resource `Key`s, `buildRoomSceneJSON` silently produced a
-// `.scene.json` with zero `prefabInstances`, even though the room's `.yy`
+// `.scene.json` with zero prefab-instance entities, even though the room's `.yy`
 // genuinely listed one. Fully synthetic fixture — no real project data.
 // ---------------------------------------------------------------------------
 
@@ -86,10 +86,15 @@ describe("legacy .yyp room instances (bare objId GUID, no objectId.name)", () =>
       "utf-8",
     );
     const scene = JSON.parse(sceneRaw) as {
-      prefabInstances: { prefab: string; props: { x: number; y: number } }[];
+      entities: {
+        id: string;
+        prefab: { name: string; props: { x: number; y: number } };
+      }[];
     };
-    expect(scene.prefabInstances).toHaveLength(1);
-    expect(scene.prefabInstances[0]?.prefab).toBe("obj_legacy");
-    expect(scene.prefabInstances[0]?.props).toEqual({ x: 480, y: 224 });
+    expect(scene.entities).toHaveLength(1);
+    // The instance's own editor name becomes its stable entity id.
+    expect(scene.entities[0]?.id).toBe("inst_1");
+    expect(scene.entities[0]?.prefab.name).toBe("obj_legacy");
+    expect(scene.entities[0]?.prefab.props).toEqual({ x: 480, y: 224 });
   });
 });

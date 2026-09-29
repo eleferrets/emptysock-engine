@@ -46,7 +46,7 @@ import {
   convertGms2Room,
   convertGms2RoomBackgrounds,
   convertGms2RoomLayerElements,
-  buildRoomSceneFileViews,
+  buildRoomSceneViews,
 } from "./gms2-room-import.js";
 import {
   assetIndexJSON,
@@ -472,7 +472,7 @@ export async function importGMS2Project(
       // now get a genuine runtime representation: a Transform+Sprite entity
       // on the engine's built-in "background" render layer, sized to cover
       // the room — see convertGms2RoomBackgrounds's doc comment for why this
-      // is a direct SceneFileEntity rather than a prefab instance. Merged
+      // is a direct SceneEntity (no prefab) rather than a prefab instance. Merged
       // into the already-built .scene.json rather than threading this
       // through buildRoomSceneJSON itself (gms2-codegen.ts has ongoing
       // parallel work in flight this pass avoids touching).
@@ -482,8 +482,8 @@ export async function importGMS2Project(
       // The room's real camera/view data (`views` array + room-wide
       // `viewSettings.enableViews`) gets merged onto the generated
       // `.scene.json` the same way background entities do above — see
-      // `SceneFile.views`/`.viewsEnabled`'s own doc comment in
-      // `@emptysock/engine`'s SceneFile.ts, and `GmsRuntime.ts`'s
+      // `SceneDocument.room.views`/`.viewsEnabled`'s own doc comment in
+      // `@emptysock/engine`'s SceneDocument.ts, and `GmsRuntime.ts`'s
       // `applyRoomViews` for how a loaded room actually wires this into a
       // live `CameraSystem`/multi-viewport render pass.
       // Room-layer sprite/sequence elements (`GMRAssetLayer` graphics) become
@@ -502,32 +502,36 @@ export async function importGMS2Project(
           `${failure} It has been left out of the generated .scene.json — recreate it manually.`,
         );
       }
-      const sceneFileViews = buildRoomSceneFileViews(room);
-      const activeViewCount = sceneFileViews.filter((v) => v.visible).length;
+      const sceneViews = buildRoomSceneViews(room);
+      const activeViewCount = sceneViews.filter((v) => v.visible).length;
 
       let content = sceneJSON;
       {
         const scene = JSON.parse(sceneJSON) as {
-          roomWidth?: number;
-          roomHeight?: number;
-          entities?: unknown[];
-          views?: unknown[];
-          viewsEnabled?: boolean;
+          entities: Array<{ id: string }>;
+          room?: Record<string, unknown>;
+          persistent?: boolean;
           [key: string]: unknown;
         };
-        scene.roomWidth = room.width;
-        scene.roomHeight = room.height;
-        if (backgroundEntities.length > 0 || elementEntities.length > 0) {
-          scene.entities = [
-            ...(scene.entities ?? []),
-            ...backgroundEntities,
-            ...elementEntities,
-          ];
+        // Merged entities keep their generated ids unless one collides with
+        // an instance's own editor name; then the merged one is suffixed.
+        const usedIds = new Set(scene.entities.map((e) => e.id));
+        for (const extra of [...backgroundEntities, ...elementEntities]) {
+          let id = extra.id;
+          for (let n = 2; usedIds.has(id); n++) id = `${extra.id}_${n}`;
+          usedIds.add(id);
+          scene.entities.push({ ...extra, id });
         }
-        if (sceneFileViews.length > 0) {
-          scene.views = sceneFileViews;
-          scene.viewsEnabled = room.viewsEnabled;
+        const sceneRoom: Record<string, unknown> = {
+          width: room.width,
+          height: room.height,
+        };
+        if (sceneViews.length > 0) {
+          sceneRoom["viewsEnabled"] = room.viewsEnabled;
+          sceneRoom["views"] = sceneViews;
         }
+        scene.room = sceneRoom;
+        if (room.persistent === true) scene.persistent = true;
         content = JSON.stringify(scene, null, 2) + "\n";
       }
       // A background sprite that failed to convert (missing on disk, bad
