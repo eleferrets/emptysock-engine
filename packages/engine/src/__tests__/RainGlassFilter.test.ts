@@ -4,6 +4,7 @@ import {
   RainGlassFilter,
   RAIN_GLASS_FRAGMENT,
 } from "../systems/RainGlassFilter.js";
+import { RAIN_GLASS_WGSL_FRAGMENT } from "../systems/RainGlassWgsl.js";
 
 describe("RainGlassFilter", () => {
   it("createRainGlassFilter builds a real RainGlassFilter instance", () => {
@@ -153,5 +154,55 @@ describe("RainGlassFilter drop map", () => {
     expect(f.elapsed).toBe(0.5);
     f.destroy();
     expect(() => f.destroy()).not.toThrow();
+  });
+  describe("WGSL program (WebGPU)", () => {
+    it("has a GpuProgram next to the GlProgram", () => {
+      const filter = createRainGlassFilter();
+      expect(filter.glProgram).toBeDefined();
+      expect(filter.gpuProgram).toBeDefined();
+      expect(filter.gpuProgram.vertex?.entryPoint).toBe("mainVertex");
+      expect(filter.gpuProgram.fragment?.entryPoint).toBe("mainFragment");
+    });
+
+    it("declares pixi's group 0 filter bindings and its own group 1 resources by name", () => {
+      const filter = createRainGlassFilter();
+      const groups = filter.gpuProgram.structsAndGroups.groups.map(
+        (g) => `${g.group}:${g.binding}:${g.name}`,
+      );
+      expect(groups).toEqual(
+        expect.arrayContaining([
+          "0:0:gfu",
+          "0:1:uTexture",
+          "0:2:uSampler",
+          "1:0:uniforms",
+          "1:1:uDropMap",
+          "1:2:uDropMapSampler",
+        ]),
+      );
+      // every resource key matched a WGSL variable: nothing parked in fallback group 99
+      expect(filter.groups[99]).toBeUndefined();
+    });
+
+    it("keeps the WGSL uniform struct in the same order as the JS UniformGroup", () => {
+      const filter = createRainGlassFilter();
+      const jsOrder = Object.keys(
+        (filter.resources["uniforms"] as { uniforms: Record<string, unknown> })
+          .uniforms,
+      );
+      const struct = filter.gpuProgram.structsAndGroups.structs.find(
+        (s) => s.name === "RainUniforms",
+      );
+      expect(Object.keys(struct?.members ?? {})).toEqual(jsOrder);
+    });
+
+    it("uses the same uniforms as the GLSL fragment", () => {
+      const glslUniforms = [
+        ...RAIN_GLASS_FRAGMENT.matchAll(/uniform\s+(?!sampler2D)\w+\s+(\w+);/g),
+      ].map((m) => m[1]);
+      expect(RAIN_GLASS_WGSL_FRAGMENT).toContain("struct RainUniforms");
+      for (const u of glslUniforms) {
+        expect(RAIN_GLASS_WGSL_FRAGMENT).toContain(`${u}:`);
+      }
+    });
   });
 });

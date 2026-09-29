@@ -8,15 +8,27 @@
 // Sim and rasteriser are pure modules with no pixi import; this file is the
 // only pixi-aware part.
 //
-// This is a GL-only filter (a GlProgram, no GpuProgram), like every other
-// custom filter here. The texture binding follows pixi's own
+// It carries both a GlProgram and a GpuProgram (a hand-ported WGSL fragment,
+// see RainGlassWgsl.ts), so it renders under pixi's WebGL and WebGPU
+// renderers. The GLSL path is unchanged; the WGSL path is UNVERIFIED on a
+// real GPU (only naga-validated headlessly). The texture binding follows pixi's own
 // DisplacementFilter pattern (`resources: { uniforms, uDropMap: source,
 // uDropMapSampler: source.style }`). That binding, the map's vertical
 // orientation against vUV, and all timing are UNVERIFIED on a real GPU:
 // headless tests only cover the sim, the map and option plumbing.
 
-import { BufferImageSource, Filter, GlProgram, UniformGroup } from "pixi.js";
+import {
+  BufferImageSource,
+  Filter,
+  GlProgram,
+  GpuProgram,
+  UniformGroup,
+} from "pixi.js";
 import type { GPUTier } from "../GPUTier.js";
+import {
+  RAIN_GLASS_WGSL_FRAGMENT,
+  RAIN_GLASS_WGSL_VERTEX,
+} from "./RainGlassWgsl.js";
 import { rasterizeRainDropMap } from "./RainGlassMap.js";
 import { RainGlassSim, type WiperOptions } from "./RainGlassSim.js";
 import {
@@ -207,6 +219,14 @@ export class RainGlassFilter extends Filter {
         vertex: RAIN_GLASS_VERTEX,
         fragment: RAIN_GLASS_FRAGMENT,
         name: "emptysock-rain-glass",
+      }),
+      gpuProgram: GpuProgram.from({
+        name: "emptysock-rain-glass",
+        vertex: { source: RAIN_GLASS_WGSL_VERTEX, entryPoint: "mainVertex" },
+        fragment: {
+          source: RAIN_GLASS_WGSL_FRAGMENT,
+          entryPoint: "mainFragment",
+        },
       }),
       resources: {
         uniforms: group,
