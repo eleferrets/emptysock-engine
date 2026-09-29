@@ -3,6 +3,8 @@ import { definePrefab, type PrefabDef } from "./Prefab.js";
 import type { Scene, SpawnOptions } from "./Scene.js";
 import type { SerializableRecord } from "./Serializable.js";
 import { Meta } from "./components/Meta.js";
+import type { SceneDocument, SceneEntity } from "./SceneDocument.js";
+import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
 
 /**
  * ENGINE_DESIGN.md §13.4 — "scene/prefab files: JSON with generated `.d.ts`
@@ -13,6 +15,11 @@ import { Meta } from "./components/Meta.js";
  * `.d.ts` codegen that reads these same files to give `scene.spawn(...)`
  * autocomplete — lives in `packages/toolchain/src/prefabCodegen.ts` (see
  * that file's header comment for why the split lands there).
+ *
+ * Scene files are `SceneDocument`s (`SceneDocument.ts`, `formatVersion: 2`);
+ * older files (no `formatVersion`) are migrated on read by
+ * `parseSceneDocument` (`SceneMigrations.ts`). Prefab files are still the
+ * original `PrefabFile` shape (prefab unification is a follow-up).
  *
  * File naming convention (not enforced by the loader, just what the IDE and
  * toolchain agree on): a prefab template lives at `<Name>.prefab.json` next
@@ -36,65 +43,6 @@ export interface PrefabFile {
   readonly components: readonly PrefabFileComponentEntry[];
   /** Names of other prefab files this one extends (§11.2 — prefabs-in-prefabs). */
   readonly extends?: readonly string[];
-}
-
-/** On-disk shape of one prefab-instance entry inside a `.scene.json` file. */
-export interface SceneFilePrefabInstance {
-  /** Name of a `PrefabFile` this instance spawns (resolved via `prefabsByName`). */
-  readonly prefab: string;
-  readonly props?: SerializableRecord;
-  /** GameMaker room-instance variable overrides, applied before the instance's Create event. */
-  readonly gmlVars?: Readonly<Record<string, number | string | boolean>>;
-  readonly pool?: boolean;
-}
-
-/** On-disk shape of one directly-declared (no prefab) entity in a `.scene.json` file. */
-export interface SceneFileEntity {
-  readonly components: readonly PrefabFileComponentEntry[];
-}
-
-/**
- * On-disk shape of one GameMaker room "view" (up to 8 per room) — see
- * `packages/toolchain/src/gms2-room-import.ts`'s `RoomView` for the real
- * `.yy` field names this is converted from, and `GmsRuntime.ts`'s
- * `applyRoomViews`/`compat/gmlCamera.ts` for how it's actually wired into a
- * live `CameraSystem`/multi-viewport render pass when a room loads. Field
- * names here are this engine's own (world/screen prefixes), not GameMaker's
- * `xview`/`xport`-style short names — this is the runtime-facing shape, the
- * `.yy` names are a toolchain-import-only concern.
- */
-export interface SceneFileView {
-  readonly visible: boolean;
-  readonly worldX: number;
-  readonly worldY: number;
-  readonly worldWidth: number;
-  readonly worldHeight: number;
-  readonly screenX: number;
-  readonly screenY: number;
-  readonly screenWidth: number;
-  readonly screenHeight: number;
-  readonly borderX: number;
-  readonly borderY: number;
-  readonly speedX: number;
-  readonly speedY: number;
-  /** The GameMaker object-type name this view follows (its `.yy` `objectId.name`), or absent for "no follow target". Resolved at runtime against `Meta.name` — see `resolveGmlObjectType`. */
-  readonly followObject?: string;
-}
-
-/** On-disk shape of a `.scene.json` file. */
-export interface SceneFile {
-  readonly sceneName: string;
-  /** Module/system names this scene needs enabled (e.g. `["physics"]`) — informational for now. */
-  readonly systems?: readonly string[];
-  readonly prefabInstances?: readonly SceneFilePrefabInstance[];
-  readonly entities?: readonly SceneFileEntity[];
-  /** Whether this room's viewport/camera system is active at all — GameMaker's room-wide `viewSettings.enableViews` (`view_enabled`). Views data (below) still parses and is still readable back via `gmlCamera.ts`'s compat functions even when this is `false`; it's just never mirrored onto a live `CameraSystem`/multi-viewport render pass. */
-  readonly viewsEnabled?: boolean;
-  /** The room's size in pixels (`room_width`/`room_height`). */
-  readonly roomWidth?: number;
-  readonly roomHeight?: number;
-  /** Up to 8 view slots (index = GameMaker view slot 0-7), converted from the room's real `.yy` `views` array. */
-  readonly views?: readonly SceneFileView[];
 }
 
 /** Looks up a registered `ComponentDef` by name, throwing with a useful message if missing. */
@@ -212,7 +160,7 @@ export interface LoadSceneFileOptions {
    */
   onSpawned?: (
     entity: ReturnType<Scene["spawn"]>,
-    instance?: SceneFilePrefabInstance,
+    sceneEntity?: SceneEntity,
   ) => void;
 }
 
@@ -243,40 +191,83 @@ export function stampPrefabNameOntoMeta(
 
 export function loadSceneFile(
   scene: Scene,
-  file: SceneFile,
+  file: SceneDocument | SceneFileV1,
   lookup: ComponentLookup,
   prefabsByName: ReadonlyMap<string, PrefabDef>,
   options?: LoadSceneFileOptions,
 ): ReturnType<Scene["spawn"]>[] {
+  const doc = parseSceneDocument(file);
   const spawned: ReturnType<Scene["spawn"]>[] = [];
 
-  for (const instance of file.prefabInstances ?? []) {
-    const prefab = prefabsByName.get(instance.prefab);
-    if (prefab === undefined) {
-      throw new Error(
-        `Scene "${file.sceneName}": unknown prefab "${instance.prefab}" — parse it first and include it in prefabsByName.`,
+  // Entities spawn in array order. `parent` is validated by
+  // `parseSceneDocument` but not acted on yet (no runtime hierarchy until the
+  // entity-relation work lands), and `$ref` remapping is likewise a later step.
+  for (const sceneEntity of doc.entities) {
+    let entity: ReturnType<Scene["spawn"]>;
+    const prefabRef = sceneEntity.prefab;
+    let prefab: PrefabDef | undefined;
+    if (prefabRef !== undefined) {
+      prefab = prefabsByName.get(prefabRef.name);
+      if (prefab === undefined) {
+        throw new Error(
+          `Scene "${doc.name}": unknown prefab "${prefabRef.name}" — parse it first and include it in prefabsByName.`,
+        );
+      }
+      const spawnOptions: SpawnOptions | undefined =
+        sceneEntity.pool === true ? { pool: true } : undefined;
+      entity = scene.spawn(
+        prefab,
+        prefabRef.props as SerializableRecord | undefined,
+        spawnOptions,
       );
+    } else {
+      entity = scene.spawn();
     }
-    const spawnOptions: SpawnOptions | undefined =
-      instance.pool === true ? { pool: true } : undefined;
-    const entity = scene.spawn(prefab, instance.props, spawnOptions);
-    stampPrefabNameOntoMeta(entity, prefab.prefabName);
-    options?.onSpawned?.(entity, instance);
-    spawned.push(entity);
-  }
 
-  for (const entityFile of file.entities ?? []) {
-    const entity = scene.spawn();
-    for (const { def, overrides } of resolveComponentEntries(
-      entityFile.components,
-      lookup,
-      `Scene "${file.sceneName}" entity`,
+    // Per-component overrides win over the prefab: an already-present
+    // component is patched in place, otherwise it is added.
+    for (const [componentName, entry] of Object.entries(
+      sceneEntity.components ?? {},
     )) {
-      entity.add(def, overrides as never);
+      const def = lookup(componentName);
+      if (def === undefined) {
+        throw new Error(
+          `Scene "${doc.name}" entity "${sceneEntity.id}": unknown component "${componentName}" — it must be registered (via defineComponent + a lookup table) before loading this file.`,
+        );
+      }
+      if (entity.has(def)) {
+        Object.assign(entity.get(def) as object, entry.data);
+      } else {
+        entity.add(def, entry.data as never);
+      }
     }
-    options?.onSpawned?.(entity);
+
+    applyEntityMeta(entity, sceneEntity);
+    if (prefab !== undefined)
+      stampPrefabNameOntoMeta(entity, prefab.prefabName);
+    options?.onSpawned?.(entity, sceneEntity);
     spawned.push(entity);
   }
 
   return spawned;
+}
+
+/** Mirrors an entity's `name`/`tags`/`active`/`persistent` fields onto `Meta`, adding it only when one is actually set. */
+function applyEntityMeta(
+  entity: ReturnType<Scene["spawn"]>,
+  e: SceneEntity,
+): void {
+  if (
+    e.name === undefined &&
+    e.tags === undefined &&
+    e.active === undefined &&
+    e.persistent === undefined
+  ) {
+    return;
+  }
+  const meta = entity.get(Meta) ?? entity.add(Meta);
+  if (e.name !== undefined) meta.name = e.name;
+  if (e.tags !== undefined) meta.tags = [...e.tags];
+  if (e.active !== undefined) meta.active = e.active;
+  if (e.persistent !== undefined) meta.persistent = e.persistent;
 }

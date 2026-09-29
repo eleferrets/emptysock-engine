@@ -2,6 +2,8 @@ import type { ComponentDef } from "./Component.js";
 import { type PrefabDef } from "./Prefab.js";
 import type { Scene } from "./Scene.js";
 import type { SerializableRecord } from "./Serializable.js";
+import type { SceneDocument, SceneEntity } from "./SceneDocument.js";
+import { type SceneFileV1 } from "./SceneMigrations.js";
 /**
  * ENGINE_DESIGN.md §13.4 — "scene/prefab files: JSON with generated `.d.ts`
  * types alongside". This module is the *runtime* half: parsing an
@@ -11,6 +13,11 @@ import type { SerializableRecord } from "./Serializable.js";
  * `.d.ts` codegen that reads these same files to give `scene.spawn(...)`
  * autocomplete — lives in `packages/toolchain/src/prefabCodegen.ts` (see
  * that file's header comment for why the split lands there).
+ *
+ * Scene files are `SceneDocument`s (`SceneDocument.ts`, `formatVersion: 2`);
+ * older files (no `formatVersion`) are migrated on read by
+ * `parseSceneDocument` (`SceneMigrations.ts`). Prefab files are still the
+ * original `PrefabFile` shape (prefab unification is a follow-up).
  *
  * File naming convention (not enforced by the loader, just what the IDE and
  * toolchain agree on): a prefab template lives at `<Name>.prefab.json` next
@@ -32,56 +39,6 @@ export interface PrefabFile {
   readonly components: readonly PrefabFileComponentEntry[];
   /** Names of other prefab files this one extends (§11.2 — prefabs-in-prefabs). */
   readonly extends?: readonly string[];
-}
-/** On-disk shape of one prefab-instance entry inside a `.scene.json` file. */
-export interface SceneFilePrefabInstance {
-  /** Name of a `PrefabFile` this instance spawns (resolved via `prefabsByName`). */
-  readonly prefab: string;
-  readonly props?: SerializableRecord;
-  readonly pool?: boolean;
-}
-/** On-disk shape of one directly-declared (no prefab) entity in a `.scene.json` file. */
-export interface SceneFileEntity {
-  readonly components: readonly PrefabFileComponentEntry[];
-}
-/**
- * On-disk shape of one GameMaker room "view" (up to 8 per room) — see
- * `packages/toolchain/src/gms2-room-import.ts`'s `RoomView` for the real
- * `.yy` field names this is converted from, and `GmsRuntime.ts`'s
- * `applyRoomViews`/`compat/gmlCamera.ts` for how it's actually wired into a
- * live `CameraSystem`/multi-viewport render pass when a room loads. Field
- * names here are this engine's own (world/screen prefixes), not GameMaker's
- * `xview`/`xport`-style short names — this is the runtime-facing shape, the
- * `.yy` names are a toolchain-import-only concern.
- */
-export interface SceneFileView {
-  readonly visible: boolean;
-  readonly worldX: number;
-  readonly worldY: number;
-  readonly worldWidth: number;
-  readonly worldHeight: number;
-  readonly screenX: number;
-  readonly screenY: number;
-  readonly screenWidth: number;
-  readonly screenHeight: number;
-  readonly borderX: number;
-  readonly borderY: number;
-  readonly speedX: number;
-  readonly speedY: number;
-  /** The GameMaker object-type name this view follows (its `.yy` `objectId.name`), or absent for "no follow target". Resolved at runtime against `Meta.name` — see `resolveGmlObjectType`. */
-  readonly followObject?: string;
-}
-/** On-disk shape of a `.scene.json` file. */
-export interface SceneFile {
-  readonly sceneName: string;
-  /** Module/system names this scene needs enabled (e.g. `["physics"]`) — informational for now. */
-  readonly systems?: readonly string[];
-  readonly prefabInstances?: readonly SceneFilePrefabInstance[];
-  readonly entities?: readonly SceneFileEntity[];
-  /** Whether this room's viewport/camera system is active at all — GameMaker's room-wide `viewSettings.enableViews` (`view_enabled`). Views data (below) still parses and is still readable back via `gmlCamera.ts`'s compat functions even when this is `false`; it's just never mirrored onto a live `CameraSystem`/multi-viewport render pass. */
-  readonly viewsEnabled?: boolean;
-  /** Up to 8 view slots (index = GameMaker view slot 0-7), converted from the room's real `.yy` `views` array. */
-  readonly views?: readonly SceneFileView[];
 }
 /** Looks up a registered `ComponentDef` by name, throwing with a useful message if missing. */
 export type ComponentLookup = (name: string) => ComponentDef | undefined;
@@ -132,7 +89,10 @@ export interface LoadSceneFileOptions {
    * entity is live (its final component values), not at prefab-definition
    * time.
    */
-  onSpawned?: (entity: ReturnType<Scene["spawn"]>) => void;
+  onSpawned?: (
+    entity: ReturnType<Scene["spawn"]>,
+    sceneEntity?: SceneEntity,
+  ) => void;
 }
 /**
  * Stamps a spawned prefab instance's `Meta.name` with the `PrefabDef` it was
@@ -153,7 +113,7 @@ export declare function stampPrefabNameOntoMeta(
 ): void;
 export declare function loadSceneFile(
   scene: Scene,
-  file: SceneFile,
+  file: SceneDocument | SceneFileV1,
   lookup: ComponentLookup,
   prefabsByName: ReadonlyMap<string, PrefabDef>,
   options?: LoadSceneFileOptions,

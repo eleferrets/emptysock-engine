@@ -51,7 +51,7 @@
 import type { GmlActionContext } from "./gmlActions.js";
 import type { CameraSystem } from "../systems/CameraSystem.js";
 import type { Scene } from "../Scene.js";
-import type { SceneFileView } from "../SceneFile.js";
+import type { SceneViewDef } from "../SceneDocument.js";
 import { getOrCreate } from "../internal/scoped.js";
 import { Transform } from "../components/Transform.js";
 import { Meta } from "../components/Meta.js";
@@ -668,7 +668,7 @@ export function buildActiveGmlCameraViewports(
 // ---------------------------------------------------------------------------
 // Room view configuration + per-frame follow — the real "cameras working"
 // integration point. `configureGmlViewsFromRoom` takes a room's already-
-// converted `SceneFileView[]` (see `SceneFile.ts`'s `SceneFileView` and
+// converted `SceneViewDef[]` (see `SceneDocument.ts`'s `SceneViewDef` and
 // `gms2-room-import.ts`'s `buildRoomSceneFileViews`) and sets up this file's
 // existing camera/view registry exactly as if a GML script had called
 // `camera_create_view`/`view_set_camera`/`view_set_visible`/`view_set_*port`
@@ -682,7 +682,7 @@ export function buildActiveGmlCameraViewports(
 
 /**
  * Configures this scene's camera/view registry from a room's real, already-
- * converted view data (`SceneFile.views`/`.viewsEnabled`). One
+ * converted view data (`SceneDocument.room.views`/`.viewsEnabled`). One
  * `camera_create_view`-equivalent handle is created per view slot (even a
  * `visible: false` one, matching GameMaker's own "all 8 slots exist, only
  * the visible/enabled ones actually render" model), bound into that slot via
@@ -695,56 +695,65 @@ export function buildActiveGmlCameraViewports(
  */
 export function configureGmlViewsFromRoom(
   ctx: GmlCameraContext,
-  views: readonly SceneFileView[],
+  views: readonly SceneViewDef[],
   viewsEnabled: boolean,
 ): void {
   view_set_enabled(ctx, viewsEnabled);
   views.forEach((v, idx) => {
     if (idx >= VIEW_SLOT_COUNT) return;
+    const worldX = v.world.x;
+    const worldY = v.world.y;
+    const worldWidth = v.world.w;
+    const worldHeight = v.world.h;
+    // Absent border/speed: no border, and -1 = the "snap instantly" sentinel.
+    const borderX = v.border?.x ?? 0;
+    const borderY = v.border?.y ?? 0;
+    const speedX = v.speed?.x ?? -1;
+    const speedY = v.speed?.y ?? -1;
     const camid =
       idx === 0
         ? DEFAULT_CAMERA_ID
         : camera_create_view(
             ctx,
-            v.worldX,
-            v.worldY,
-            v.worldWidth,
-            v.worldHeight,
+            worldX,
+            worldY,
+            worldWidth,
+            worldHeight,
             0,
             -1,
-            v.speedX,
-            v.speedY,
-            v.borderX,
-            v.borderY,
+            speedX,
+            speedY,
+            borderX,
+            borderY,
           );
     if (idx === 0) {
       const handle = getHandle(ctx, DEFAULT_CAMERA_ID);
       if (handle !== undefined) {
-        handle.x = v.worldX;
-        handle.y = v.worldY;
-        handle.width = v.worldWidth;
-        handle.height = v.worldHeight;
-        handle.speedX = v.speedX;
-        handle.speedY = v.speedY;
-        handle.borderX = v.borderX;
-        handle.borderY = v.borderY;
+        handle.x = worldX;
+        handle.y = worldY;
+        handle.width = worldWidth;
+        handle.height = worldHeight;
+        handle.speedX = speedX;
+        handle.speedY = speedY;
+        handle.borderX = borderX;
+        handle.borderY = borderY;
       }
-      camera_set_view_pos(ctx, DEFAULT_CAMERA_ID, v.worldX, v.worldY);
-      camera_set_view_size(ctx, DEFAULT_CAMERA_ID, v.worldWidth, v.worldHeight);
+      camera_set_view_pos(ctx, DEFAULT_CAMERA_ID, worldX, worldY);
+      camera_set_view_size(ctx, DEFAULT_CAMERA_ID, worldWidth, worldHeight);
       // GameMaker draws the world rectangle scaled into the port rectangle.
-      if (v.worldWidth > 0 && v.screenWidth > 0)
-        ctx.camera?.snapZoom(v.screenWidth / v.worldWidth);
+      if (worldWidth > 0 && v.screen.w > 0)
+        ctx.camera?.snapZoom(v.screen.w / worldWidth);
     }
     const handle = getHandle(ctx, camid);
-    if (handle !== undefined && v.followObject !== undefined) {
-      handle.followObjectName = v.followObject;
+    if (handle !== undefined && v.follow?.object !== undefined) {
+      handle.followObjectName = v.follow.object;
     }
     view_set_camera(ctx, idx, camid);
     view_set_visible(ctx, idx, v.visible);
-    view_set_xport(ctx, idx, v.screenX);
-    view_set_yport(ctx, idx, v.screenY);
-    view_set_wport(ctx, idx, v.screenWidth);
-    view_set_hport(ctx, idx, v.screenHeight);
+    view_set_xport(ctx, idx, v.screen.x);
+    view_set_yport(ctx, idx, v.screen.y);
+    view_set_wport(ctx, idx, v.screen.w);
+    view_set_hport(ctx, idx, v.screen.h);
   });
 }
 

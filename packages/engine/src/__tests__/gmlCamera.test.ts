@@ -5,7 +5,8 @@ import { Transform } from "../components/Transform.js";
 import { Meta } from "../components/Meta.js";
 import type { GmlActionContext } from "../compat/gmlActions.js";
 import type { GmlCameraContext } from "../compat/gmlCamera.js";
-import type { SceneFileView } from "../SceneFile.js";
+import { migrateSceneV1ToV2 } from "../SceneMigrations.js";
+import type { SceneFileV1View } from "../SceneMigrations.js";
 import {
   camera_create,
   camera_create_view,
@@ -49,6 +50,19 @@ function makeCtx(camera?: CameraSystem): GmlCameraContext {
   const scene = new Scene();
   const base: GmlActionContext = { scene };
   return camera === undefined ? { ...base } : { ...base, camera };
+}
+
+/** Room views are authored in the v1 flat shape in these fixtures and go through `migrateSceneV1ToV2` (which is what the runtime does for old files) before reaching the v2 `configureGmlViewsFromRoom`. */
+function configure(
+  ctx: Parameters<typeof configureGmlViewsFromRoom>[0],
+  views: readonly SceneFileV1View[],
+  viewsEnabled: boolean,
+): void {
+  configureGmlViewsFromRoom(
+    ctx,
+    migrateSceneV1ToV2({ sceneName: "t", views }).room?.views ?? [],
+    viewsEnabled,
+  );
 }
 
 describe("gmlCamera", () => {
@@ -240,7 +254,7 @@ describe("gmlCamera", () => {
     it("wires every view slot into the registry: enabled flag, camera binding, visibility, screen rect", () => {
       const camera = new CameraSystem();
       const ctx = makeCtx(camera);
-      const views: SceneFileView[] = [
+      const views: SceneFileV1View[] = [
         {
           visible: true,
           worldX: 10,
@@ -273,7 +287,7 @@ describe("gmlCamera", () => {
         },
       ];
 
-      configureGmlViewsFromRoom(ctx, views, true);
+      configure(ctx, views, true);
 
       expect(view_get_enabled(ctx)).toBe(true);
       // Slot 0 mirrors onto the default (id 0) camera, which also drives the
@@ -332,7 +346,7 @@ describe("gmlCamera", () => {
       const handle = _getGmlCameraHandle(ctx, camid);
       expect(handle).toBeDefined();
       // Manually mark the follow target the way configureGmlViewsFromRoom does.
-      configureGmlViewsFromRoom(
+      configure(
         ctx,
         [
           {
@@ -363,7 +377,7 @@ describe("gmlCamera", () => {
     it("snaps instantly (speed -1) once the target crosses the border", () => {
       const ctx = makeCtx();
       spawnFollowTarget(ctx.scene, "obj_player", 700, 20);
-      configureGmlViewsFromRoom(
+      configure(
         ctx,
         [
           {
@@ -396,7 +410,7 @@ describe("gmlCamera", () => {
     it("caps per-step motion at speedX/speedY instead of snapping when a real speed is set", () => {
       const ctx = makeCtx();
       spawnFollowTarget(ctx.scene, "obj_player", 700, 20);
-      configureGmlViewsFromRoom(
+      configure(
         ctx,
         [
           {
@@ -429,7 +443,7 @@ describe("gmlCamera", () => {
 
     it("no-ops when the followed object type has no live instance", () => {
       const ctx = makeCtx();
-      configureGmlViewsFromRoom(
+      configure(
         ctx,
         [
           {
@@ -459,7 +473,7 @@ describe("gmlCamera", () => {
       const ctx = makeCtx();
       spawnFollowTarget(ctx.scene, "obj_a", 700, 20);
       spawnFollowTarget(ctx.scene, "obj_b", -50, 900);
-      configureGmlViewsFromRoom(
+      configure(
         ctx,
         [
           {

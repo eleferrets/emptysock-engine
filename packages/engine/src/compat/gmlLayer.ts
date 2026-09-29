@@ -113,7 +113,7 @@ export function layer_add_instance(
 
 /**
  * Room-layer elements (`GMRSpriteGraphic`/`GMRSequenceGraphic` placed on a
- * room's asset layer) arrive as `SceneFile.entities` entries carrying a
+ * room's asset layer) arrive as `SceneDocument.entities` entries carrying a
  * `LayerElement` component (see `components/LayerElement.ts` and
  * `gms2-room-import.ts`'s `convertGms2RoomLayerElements`). These functions
  * look them up by the element's own editor name.

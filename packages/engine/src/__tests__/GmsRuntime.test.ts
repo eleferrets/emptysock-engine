@@ -12,7 +12,7 @@ import type { GmlBehaviorModule } from "../components/GmlBehavior.js";
 import type { ComponentDef } from "../Component.js";
 import type { Entity } from "../Entity.js";
 import type { PrefabDef } from "../Prefab.js";
-import type { SceneFile } from "../SceneFile.js";
+import type { SceneFileV1 } from "../SceneMigrations.js";
 import type { GmsProjectData } from "../GmsRuntime.js";
 
 /**
@@ -42,14 +42,14 @@ function buildFixture(): GmsProjectData {
     { def: Meta },
   ]);
 
-  const room0: SceneFile = {
+  const room0: SceneFileV1 = {
     sceneName: "room0",
     prefabInstances: [
       { prefab: "objPlayer", props: { x: 0, y: 0 } },
       { prefab: "objWall", props: { x: 4, y: 0 } }, // overlaps the player's default AABB
     ],
   };
-  const room1: SceneFile = {
+  const room1: SceneFileV1 = {
     sceneName: "room1",
     prefabInstances: [{ prefab: "objWall", props: { x: 100, y: 100 } }],
   };
@@ -200,7 +200,7 @@ describe("GmsProjectRuntime", () => {
 });
 
 describe("GmsProjectRuntime — real room camera/view wiring", () => {
-  it("configures the camera registry from SceneFile.views on loadRoom(), and follows the target entity across update()s", async () => {
+  it("configures the camera registry from the scene document views on loadRoom(), and follows the target entity across update()s", async () => {
     const { camera_get_view_x, camera_get_view_y, view_get_enabled } =
       await import("../compat/gmlCamera.js");
 
@@ -210,7 +210,7 @@ describe("GmsProjectRuntime — real room camera/view wiring", () => {
       { def: Meta, overrides: { name: "objPlayer" } },
     ]);
 
-    const room0: SceneFile = {
+    const room0: SceneFileV1 = {
       sceneName: "room0",
       prefabInstances: [{ prefab: "objPlayer", props: { x: 700, y: 20 } }],
       viewsEnabled: true,
@@ -329,7 +329,7 @@ describe("GmsProjectRuntime — timeline_index wiring (real onCreate dispatch)",
       { def: Transform },
       { def: GmlBehaviorState, overrides: { behaviorId: "objJiggler" } },
     ]);
-    const room0: SceneFile = {
+    const room0: SceneFileV1 = {
       sceneName: "room0",
       prefabInstances: [{ prefab: "objJiggler", props: {} }],
     };
@@ -398,7 +398,7 @@ describe("GmsProjectRuntime — alarm dispatch (real onAlarm<N> wiring)", () => 
       { def: Meta },
       { def: GmlBehaviorState, overrides: { behaviorId: "objAlarmed" } },
     ]);
-    const room0: SceneFile = {
+    const room0: SceneFileV1 = {
       sceneName: "room0",
       prefabInstances: [{ prefab: "objAlarmed", props: { x: 0, y: 0 } }],
     };
@@ -527,7 +527,7 @@ describe("GmsProjectRuntime — key dispatch (real onKeyPress<Name>/onKeyRelease
       { def: Meta },
       { def: GmlBehaviorState, overrides: { behaviorId: "objKeyed" } },
     ]);
-    const room0: SceneFile = {
+    const room0: SceneFileV1 = {
       sceneName: "room0",
       prefabInstances: [{ prefab: "objKeyed", props: { x: 0, y: 0 } }],
     };
@@ -646,7 +646,7 @@ describe("GmsProjectRuntime — key dispatch (real onKeyPress<Name>/onKeyRelease
       { def: Meta },
       { def: GmlBehaviorState, overrides: { behaviorId: "objKeyedOther" } },
     ]);
-    const room0: SceneFile = {
+    const room0: SceneFileV1 = {
       sceneName: "room0",
       prefabInstances: [
         { prefab: "objKeyed", props: { x: 0, y: 0 } },

@@ -3,11 +3,9 @@ import type { Game, SceneDefinition } from "./Game.js";
 import type { Scene } from "./Scene.js";
 import type { Entity } from "./Entity.js";
 import type { PrefabDef } from "./Prefab.js";
-import {
-  loadSceneFile,
-  type ComponentLookup,
-  type SceneFile,
-} from "./SceneFile.js";
+import { loadSceneFile, type ComponentLookup } from "./SceneFile.js";
+import type { SceneDocument } from "./SceneDocument.js";
+import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
 import { GmlBehaviorSystem } from "./systems/GmlBehaviorSystem.js";
 import { TimelineSystem } from "./systems/TimelineSystem.js";
 import { GmlSequenceSystem } from "./systems/GmlSequenceSystem.js";
@@ -85,7 +83,8 @@ export interface GmsProjectManifest {
  */
 export interface GmsProjectData {
   /** GameMaker room name -> that room's already-parsed `.scene.json`. */
-  readonly rooms: Readonly<Record<string, SceneFile>>;
+  /** Each room is a `SceneDocument` (v2) or a pre-`formatVersion` `SceneFileV1`; both are normalised with `parseSceneDocument` when a room's `SceneDefinition` is built. */
+  readonly rooms: Readonly<Record<string, SceneDocument | SceneFileV1>>;
   /** Room order (from `manifest.scenes`, in file order) — what `nextRoom()` advances through. */
   readonly roomOrder: readonly string[];
   /** GameMaker object name -> that object's already-parsed `PrefabDef` (via `parsePrefabFile`). */
@@ -273,12 +272,13 @@ export class GmsProjectRuntime {
    * triggered from either path behaves identically.
    */
   private buildSceneDefinition(name: string): SceneDefinition {
-    const file = this.data.rooms[name];
-    if (file === undefined) {
+    const raw = this.data.rooms[name];
+    if (raw === undefined) {
       throw new Error(
         `GmsProjectRuntime: unknown room "${name}" — not present in the supplied GmsProjectData.rooms.`,
       );
     }
+    const file = parseSceneDocument(raw);
     return defineScene({
       onLoad: (scene) => {
         // GameMaker's real `previous_room` built-in — the room loaded
@@ -293,12 +293,12 @@ export class GmsProjectRuntime {
         // Room size and camera/view setup come first, before any instance's
         // Create event: GameMaker cameras and `room_width` are already in
         // place when Create runs (a camera object reads its view size there).
-        if (file.roomWidth !== undefined && file.roomHeight !== undefined)
-          setRoomSize(file.roomWidth, file.roomHeight);
+        if (file.room !== undefined)
+          setRoomSize(file.room.width, file.room.height);
         configureGmlViewsFromRoom(
           { ...this.buildContext(), scene },
-          file.views ?? [],
-          file.viewsEnabled ?? false,
+          file.room?.views ?? [],
+          file.room?.viewsEnabled ?? false,
         );
         // GameMaker's `persistent` semantic (manual: Object Properties —
         // "Persistent"; a persistent instance carries into the next room and
@@ -309,11 +309,12 @@ export class GmsProjectRuntime {
         // do we.
         this.restorePersistent(scene);
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
-          onSpawned: (entity, instance) => {
-            if (instance?.gmlVars !== undefined) {
+          onSpawned: (entity, sceneEntity) => {
+            const gmlVars = sceneEntity?.ext?.["gml"]?.["vars"];
+            if (typeof gmlVars === "object" && gmlVars !== null) {
               const ctx = this.buildContext();
-              for (const [k, v] of Object.entries(instance.gmlVars))
-                setGmlVar(entity, ctx, k, v);
+              for (const [k, v] of Object.entries(gmlVars))
+                setGmlVar(entity, ctx, k, v as number | string | boolean);
             }
             if (entity.get(GmlBehaviorState) !== undefined) {
               this._behaviors.dispatchCreate(entity, this.buildContext());

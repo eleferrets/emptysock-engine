@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "../Component.js";
 import { definePrefab, flattenPrefab } from "../Prefab.js";
 import { loadSceneFile, parsePrefabFiles } from "../SceneFile.js";
-import type { PrefabFile, SceneFile } from "../SceneFile.js";
+import type { PrefabFile } from "../SceneFile.js";
+import type { SceneFileV1 } from "../SceneMigrations.js";
 import { Scene } from "../Scene.js";
 
 const Transform = defineComponent("Transform", () => ({ x: 0, y: 0 }));
@@ -171,7 +172,7 @@ describe("ECS Prefab: JSON scene/prefab file format", () => {
     };
     const prefabs = parsePrefabFiles([enemyPrefabFile], lookup);
 
-    const sceneFile: SceneFile = {
+    const sceneFile: SceneFileV1 = {
       sceneName: "Level1",
       prefabInstances: [{ prefab: "Enemy", props: { x: 50 } }],
       entities: [

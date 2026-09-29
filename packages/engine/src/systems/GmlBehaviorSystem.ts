@@ -78,7 +78,7 @@ export class GmlBehaviorSystem {
    * spawning an entity that carries `GmlBehaviorState` — the natural
    * integration point is `loadSceneFile()`'s per-spawned-entity hook
    * (`SceneFile.ts`'s `onSpawned` option), since that's the one place a
-   * GMS2-imported scene's `prefabInstances` are actually instantiated onto a
+   * GMS2-imported scene's prefab-instance entities are actually instantiated onto a
    * live `Scene`. Not called automatically by `Scene.spawn()` itself — the
    * engine's core `Scene`/`Entity` types have no concept of "GML behavior"
    * and must not grow one just to serve this optional compat layer (the same

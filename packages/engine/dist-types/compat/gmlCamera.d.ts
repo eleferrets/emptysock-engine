@@ -1,6 +1,6 @@
 import type { GmlActionContext } from "./gmlActions.js";
 import type { CameraSystem } from "../systems/CameraSystem.js";
-import type { SceneFileView } from "../SceneFile.js";
+import type { SceneViewDef } from "../SceneDocument.js";
 /**
  * `GmlActionContext` plus the one extra field this file's functions need: a
  * live `CameraSystem` to actually move. `CameraSystem` is core to
@@ -284,7 +284,7 @@ export declare function buildActiveGmlCameraViewports(
 ): GmlCameraViewport[];
 /**
  * Configures this scene's camera/view registry from a room's real, already-
- * converted view data (`SceneFile.views`/`.viewsEnabled`). One
+ * converted view data (`SceneDocument.room.views`/`.viewsEnabled`). One
  * `camera_create_view`-equivalent handle is created per view slot (even a
  * `visible: false` one, matching GameMaker's own "all 8 slots exist, only
  * the visible/enabled ones actually render" model), bound into that slot via
@@ -297,7 +297,7 @@ export declare function buildActiveGmlCameraViewports(
  */
 export declare function configureGmlViewsFromRoom(
   ctx: GmlCameraContext,
-  views: readonly SceneFileView[],
+  views: readonly SceneViewDef[],
   viewsEnabled: boolean,
 ): void;
 /**

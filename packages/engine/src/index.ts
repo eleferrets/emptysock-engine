@@ -29,10 +29,6 @@ export {
 export type {
   PrefabFile,
   PrefabFileComponentEntry,
-  SceneFile,
-  SceneFileEntity,
-  SceneFilePrefabInstance,
-  SceneFileView,
   ComponentLookup,
   LoadSceneFileOptions,
 } from "./SceneFile.js";

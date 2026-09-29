@@ -2,7 +2,9 @@ import type { Game } from "./Game.js";
 import type { Scene } from "./Scene.js";
 import type { Entity } from "./Entity.js";
 import type { PrefabDef } from "./Prefab.js";
-import { type ComponentLookup, type SceneFile } from "./SceneFile.js";
+import { type ComponentLookup } from "./SceneFile.js";
+import type { SceneDocument } from "./SceneDocument.js";
+import { type SceneFileV1 } from "./SceneMigrations.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
 import type { GmlParticleContext } from "./compat/gmlParticles.js";
@@ -34,7 +36,8 @@ export interface GmsProjectManifest {
  */
 export interface GmsProjectData {
   /** GameMaker room name -> that room's already-parsed `.scene.json`. */
-  readonly rooms: Readonly<Record<string, SceneFile>>;
+  /** Each room is a `SceneDocument` (v2) or a pre-`formatVersion` `SceneFileV1`; both are normalised with `parseSceneDocument` when a room's `SceneDefinition` is built. */
+  readonly rooms: Readonly<Record<string, SceneDocument | SceneFileV1>>;
   /** Room order (from `manifest.scenes`, in file order) — what `nextRoom()` advances through. */
   readonly roomOrder: readonly string[];
   /** GameMaker object name -> that object's already-parsed `PrefabDef` (via `parsePrefabFile`). */
