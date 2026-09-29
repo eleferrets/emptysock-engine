@@ -14,6 +14,8 @@ import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
+import { type TransferPolicy } from "./SceneTransfer.js";
+import type { EntityIdMap } from "./RefRemap.js";
 /**
  * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
  * "onUpdate cannot be async" at compile time by typing this as returning
@@ -105,8 +107,24 @@ export interface SceneLifecycle {
    * `WindowSystem`'s own runtime Tauri-detection guard).
    */
   readonly window: WindowSystem;
+  /**
+   * Respawns the entities `loadScene(def, { carry })` captured from the
+   * outgoing scene into this one and returns the old-id to new-entity map, or
+   * `undefined` when nothing was carried (or it was already restored). Call it
+   * first thing in `onLoad`, before spawning the scene's own entities:
+   * carried entities exist before the new scene's, and there is no automatic
+   * restore so the ordering stays visible to the scene author. Synchronous.
+   */
+  restoreCarried(): EntityIdMap | undefined;
 }
 export interface LoadSceneOptions {
+  /**
+   * Carry entities from the outgoing scene into this one. `false`/omitted
+   * carries nothing (today's behaviour). The policy's `select` picks the
+   * entities (see `persistentTransferPolicy`), captured after the outgoing
+   * `onUnload` and restored by `SceneLifecycle.restoreCarried()`.
+   */
+  carry?: TransferPolicy | false;
   /**
    * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
@@ -253,6 +271,8 @@ export declare class Game {
   static readonly instances: Set<Game>;
   private readonly _deterministic;
   private _current;
+  /** Entities captured from the outgoing scene by `loadScene({ carry })`, handed to the new scene's lifecycle. */
+  private _transfer;
   /**
    * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
@@ -339,6 +359,7 @@ export declare class Game {
    * those systems and is responsible for destroying them itself.
    */
   unloadScene(): Promise<void>;
+  private _unload;
   /**
    * ENGINE_DESIGN.md §12.3 — stack an additional, independently-lifecycled
    * scene on top of whatever `loadScene()` currently has loaded (a HUD,

@@ -16,6 +16,13 @@ import { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
+import {
+  captureEntities,
+  restoreEntities,
+  type SceneSnapshot,
+  type TransferPolicy,
+} from "./SceneTransfer.js";
+import type { EntityIdMap } from "./RefRemap.js";
 
 /**
  * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
@@ -110,9 +117,25 @@ export interface SceneLifecycle {
    * `WindowSystem`'s own runtime Tauri-detection guard).
    */
   readonly window: WindowSystem;
+  /**
+   * Respawns the entities `loadScene(def, { carry })` captured from the
+   * outgoing scene into this one and returns the old-id to new-entity map, or
+   * `undefined` when nothing was carried (or it was already restored). Call it
+   * first thing in `onLoad`, before spawning the scene's own entities:
+   * carried entities exist before the new scene's, and there is no automatic
+   * restore so the ordering stays visible to the scene author. Synchronous.
+   */
+  restoreCarried(): EntityIdMap | undefined;
 }
 
 export interface LoadSceneOptions {
+  /**
+   * Carry entities from the outgoing scene into this one. `false`/omitted
+   * carries nothing (today's behaviour). The policy's `select` picks the
+   * entities (see `persistentTransferPolicy`), captured after the outgoing
+   * `onUnload` and restored by `SceneLifecycle.restoreCarried()`.
+   */
+  carry?: TransferPolicy | false;
   /**
    * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
@@ -304,6 +327,11 @@ export interface GameOptions {
   deterministic?: boolean;
 }
 
+interface PendingTransfer {
+  readonly snapshot: SceneSnapshot;
+  readonly policy: TransferPolicy;
+}
+
 export class Game {
   /**
    * Every live `Game` instance, in construction order. Pure in-memory
@@ -322,6 +350,8 @@ export class Game {
 
   private readonly _deterministic: boolean;
   private _current: LoadedScene | null = null;
+  /** Entities captured from the outgoing scene by `loadScene({ carry })`, handed to the new scene's lifecycle. */
+  private _transfer: PendingTransfer | null = null;
   /**
    * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
@@ -452,9 +482,13 @@ export class Game {
     definition: SceneDefinition,
     options: LoadSceneOptions = {},
   ): Promise<SceneLifecycle> {
+    this._transfer = null;
     if (this._current !== null) {
-      await this.unloadScene();
+      await this._unload(options.carry || undefined);
     }
+    // Ownership of the captured snapshot moves to the new scene's lifecycle.
+    let pending = this._transfer as PendingTransfer | null;
+    this._transfer = null;
 
     const manageLifecycle = options.manageLifecycle ?? true;
     const scene = new Scene();
@@ -484,6 +518,13 @@ export class Game {
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
       window: this.services.get(WindowSystem),
+      restoreCarried: () => {
+        const t = pending;
+        pending = null;
+        return t === null
+          ? undefined
+          : restoreEntities(scene, t.snapshot, t.policy);
+      },
     };
     this._current = {
       definition,
@@ -506,6 +547,10 @@ export class Game {
    * those systems and is responsible for destroying them itself.
    */
   async unloadScene(): Promise<void> {
+    await this._unload(undefined);
+  }
+
+  private async _unload(carry: TransferPolicy | undefined): Promise<void> {
     const current = this._current;
     if (current === null) return;
     this._current = null;
@@ -515,6 +560,12 @@ export class Game {
         current.lifecycle.scene,
         current.lifecycle,
       );
+      if (carry !== undefined) {
+        this._transfer = {
+          snapshot: captureEntities(current.lifecycle.scene, carry),
+          policy: carry,
+        };
+      }
     } finally {
       if (current.manageLifecycle) {
         current.lifecycle.actors.destroy();
@@ -569,6 +620,7 @@ export class Game {
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
       window: this.services.get(WindowSystem),
+      restoreCarried: () => undefined,
     };
     const loaded: LoadedScene = {
       definition,
