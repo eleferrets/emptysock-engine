@@ -71,7 +71,20 @@ async function getJson(p: string): Promise<Any> {
       rooms[name] = await getJson(`/${f}`);
     }
     const roomOrder = Object.keys(rooms);
-    data = { rooms, roomOrder, prefabs, lookup: (x: string) => lookupMap[x] };
+    // Optional: a project imported before the asset index existed has no file.
+    let assetIndex: Any;
+    try {
+      assetIndex = await getJson("/asset-index.json");
+    } catch {
+      assetIndex = undefined;
+    }
+    data = {
+      rooms,
+      roomOrder,
+      prefabs,
+      lookup: (x: string) => lookupMap[x],
+      assetIndex,
+    };
     game = new Game();
     // record audio calls (this run has no real audio device)
     const audio = game.audio;

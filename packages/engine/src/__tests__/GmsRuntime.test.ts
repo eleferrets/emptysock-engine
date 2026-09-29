@@ -824,3 +824,30 @@ describe("GmsProjectRuntime — persistent instances (Meta.persistent)", () => {
     expect(named(scene, "objCtrl")).toHaveLength(1);
   });
 });
+
+describe("GmsProjectRuntime asset index", () => {
+  it("loads data.assetIndex into game.assets; absent keeps the old empty registry", () => {
+    const g1 = new Game();
+    new GmsProjectRuntime(g1, buildFixture());
+    expect(g1.assets.isEmpty).toBe(true);
+
+    const g2 = new Game();
+    new GmsProjectRuntime(g2, {
+      ...buildFixture(),
+      assetIndex: {
+        version: 1,
+        entries: [
+          {
+            kind: "sprite",
+            name: "spr_hero",
+            id: "./assets/sprites/spr_hero/frame_0.png",
+            width: 16,
+            height: 24,
+            frameCount: 1,
+          },
+        ],
+      },
+    });
+    expect(g2.assets.spriteSize("spr_hero")).toEqual({ width: 16, height: 24 });
+  });
+});

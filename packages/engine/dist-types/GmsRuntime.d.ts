@@ -46,6 +46,8 @@ export interface GmsProjectData {
   readonly lookup: ComponentLookup;
   /** Optional GameMaker sound name -> playable `AudioSystem` id map, forwarded straight into `GmlActionContext.sounds`. */
   readonly sounds?: Readonly<Record<string, string>>;
+  /** Optional already-parsed `asset-index.json` (the importer writes it). Loaded into `game.assets` at construction so `sprite_get_width`/`asset_get_index`/... answer from it; absent = the old zero/false answers, no error. A malformed index throws (zod), as `AssetRegistry.load` does. */
+  readonly assetIndex?: unknown;
 }
 /** Optional live systems `GmsProjectRuntime` wires into its merged `GmlActionContext` when given — each is a real "engine defines the interface, whoever has a live instance wires it in" dependency, never constructed here. */
 export interface GmsProjectRuntimeOptions {
