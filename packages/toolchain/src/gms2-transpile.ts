@@ -132,6 +132,32 @@ export function setGmlFontNames(names: ReadonlySet<string>): void {
 export function setGmlShaderNames(names: ReadonlySet<string>): void {
   _shaderNames = names;
 }
+let _missingFontNames: ReadonlySet<string> = new Set();
+let _missingSpriteNames: ReadonlySet<string> = new Set();
+let _missingObjectNames: ReadonlySet<string> = new Set();
+/**
+ * Installs the names `gms2-source-bugs.ts` proved the project never defines
+ * but its source still uses as a font / sprite value. The asset-value pass
+ * resolves them to a defined-safe value (the bare font id, which the engine
+ * draws with its default font; a generated placeholder sprite) instead of
+ * leaving a bare identifier that throws `ReferenceError`. Call once, before
+ * transpiling any file.
+ */
+export function setGmlMissingAssetNames(names: {
+  fonts: ReadonlySet<string>;
+  sprites: ReadonlySet<string>;
+  objects?: ReadonlySet<string>;
+}): void {
+  _missingFontNames = names.fonts;
+  _missingSpriteNames = names.sprites;
+  _missingObjectNames = names.objects ?? new Set();
+}
+/** The texture path a bare sprite name resolves to: the importer's `frame_0.png` convention, or the generated placeholder for a sprite the project never defines. */
+function spriteTexturePath(name: string): string {
+  return _missingSpriteNames.has(name)
+    ? "./assets/sprites/__missing_sprite__/frame_0.png"
+    : `./assets/sprites/${name}/frame_0.png`;
+}
 /** Installs the project-wide room-name set the asset-value rewrite pass reads. Call once, before transpiling any file. */
 export function setGmlRoomNames(names: ReadonlySet<string>): void {
   _roomNames = names;
@@ -974,6 +1000,44 @@ function rewriteWithStatements(
  * instead of being left as a bare, undeclared (and hard-`ReferenceError`-
  * throwing) identifier.
  */
+/**
+ * The text of every `with (...) <body>` in `gml` (brace body, or the single
+ * statement of a brace-less `with`). Text-level and comment-naive by design:
+ * used only to decide which names a body mentions.
+ */
+export function extractGmlWithBodies(gml: string): string[] {
+  const bodies: string[] = [];
+  const re = /\bwith\s*\(/g;
+  let m: RegExpExecArray | null;
+  const close = (open: number): number => {
+    const o = gml[open];
+    const c = o === "(" ? ")" : "}";
+    let depth = 0;
+    for (let i = open; i < gml.length; i++) {
+      if (gml[i] === o) depth++;
+      else if (gml[i] === c && --depth === 0) return i + 1;
+    }
+    return -1;
+  };
+  while ((m = re.exec(gml)) !== null) {
+    const openParen = m.index + m[0].length - 1;
+    const afterParen = close(openParen);
+    if (afterParen === -1) continue;
+    let k = afterParen;
+    while (k < gml.length && /\s/.test(gml[k] as string)) k++;
+    let end: number;
+    if (gml[k] === "{") {
+      end = close(k);
+      if (end === -1) continue;
+    } else {
+      const semi = gml.indexOf(";", k);
+      end = semi === -1 ? gml.length : semi + 1;
+    }
+    bodies.push(gml.slice(k, end));
+  }
+  return bodies;
+}
+
 export function scanGmlImplicitVars(gml: string): Set<string> {
   return identifyGmlImplicitVars(gml);
 }
@@ -1092,6 +1156,32 @@ export function transpileGML(
       for (const f of fields) merged.add(f);
     }
     knownImplicitVars = merged;
+  }
+  // A `with (<expression>) { ... }` body runs against *another* instance
+  // (`with (instance_place(x, y, obj_pShootable)) { hp--; }`,
+  // `with (bullet) { direction = ...; random_range(-bullet_tolerance, ...) }`),
+  // so a bare name inside it is that target's instance variable, not the
+  // calling object's — and the target's type is only known at runtime. When
+  // the body's own text names a variable some object in the project assigns
+  // (the project-wide `_objectFieldNames` union), read/write it through the
+  // instance-variable side-table like any other implicit variable: the
+  // with-rewrite rebinds `_entity` to the target, so the read lands on the
+  // right instance (a defined 0 when that instance never set it). Without
+  // this the name stayed a bare identifier and threw `ReferenceError`.
+  if (_objectFieldNames.size > 0 && /\bwith\s*\(/.test(gml)) {
+    const inBodies = new Set<string>();
+    for (const body of extractGmlWithBodies(gml)) {
+      for (const m of body.matchAll(/(?<![\w$.])([A-Za-z_]\w*)/g)) {
+        inBodies.add(m[1] as string);
+      }
+    }
+    if (inBodies.size > 0) {
+      const merged = new Set(knownImplicitVars);
+      for (const fields of _objectFieldNames.values()) {
+        for (const f of fields) if (inBodies.has(f)) merged.add(f);
+      }
+      knownImplicitVars = merged;
+    }
   }
   // A real GML source file can be entirely, permanently dead code — a
   // developer opened a `/* ...` block comment to disable a whole event and
@@ -3914,7 +4004,7 @@ export function transpileGML(
     const expr = exprRaw.trim();
     if (/^\(?\s*-1\s*\)?$/.test(expr)) return `""`;
     if (SPRITE_ASSET_RE.test(expr)) {
-      return JSON.stringify(`./assets/sprites/${expr}/frame_0.png`);
+      return JSON.stringify(spriteTexturePath(expr));
     }
     return expr;
   }
@@ -4192,7 +4282,7 @@ export function transpileGML(
     (_m, args: string) => {
       const [spriteArg, , x, y] = splitTopLevelArgs(args, 4);
       const texturePath = /^[A-Za-z_]\w*$/.test((spriteArg ?? "").trim())
-        ? `"./assets/sprites/${(spriteArg ?? "").trim()}/frame_0.png"`
+        ? JSON.stringify(spriteTexturePath((spriteArg ?? "").trim()))
         : (spriteArg ?? "").trim();
       return `_ctx.drawTarget?.sprite(${texturePath}, ${x}, ${y});`;
     },
@@ -4247,7 +4337,7 @@ export function transpileGML(
   const spriteTexturePathExpr = (spriteArg: string): string => {
     const trimmed = spriteArg.trim();
     return /^[A-Za-z_]\w*$/.test(trimmed)
-      ? `"./assets/sprites/${trimmed}/frame_0.png"`
+      ? JSON.stringify(spriteTexturePath(trimmed))
       : trimmed;
   };
   out = out.replace(
@@ -5118,7 +5208,14 @@ export function transpileGML(
   // this branch is exercised only by the dedicated regression test, not
   // real project data.
   {
-    type AssetKind = "sprite" | "sound" | "font" | "room" | "object" | "shader";
+    type AssetKind =
+      | "sprite"
+      | "missingSprite"
+      | "sound"
+      | "font"
+      | "room"
+      | "object"
+      | "shader";
     const kindByName = new Map<string, AssetKind>();
     const ambiguous = new Set<string>();
     const addKind = (names: ReadonlySet<string>, kind: AssetKind): void => {
@@ -5138,6 +5235,17 @@ export function transpileGML(
     addKind(_shaderNames, "shader");
     addKind(_objectNames, "object");
     for (const name of ambiguous) kindByName.delete(name);
+    // Names the project never defines (proven by gms2-source-bugs.ts): a
+    // defined-safe value instead of a bare identifier that throws.
+    for (const name of _missingFontNames) {
+      if (!kindByName.has(name)) kindByName.set(name, "font");
+    }
+    for (const name of _missingSpriteNames) {
+      if (!kindByName.has(name)) kindByName.set(name, "missingSprite");
+    }
+    for (const name of _missingObjectNames) {
+      if (!kindByName.has(name)) kindByName.set(name, "object");
+    }
 
     if (kindByName.size > 0) {
       const { masked: avMasked, store: avStrings } = maskGmlStringLiterals(
@@ -5158,7 +5266,9 @@ export function transpileGML(
         const resolved =
           kind === "sprite"
             ? `"./assets/sprites/${name}/frame_0.png"`
-            : JSON.stringify(name);
+            : kind === "missingSprite"
+              ? `"./assets/sprites/__missing_sprite__/frame_0.png"`
+              : JSON.stringify(name);
         // Never rewrite the name as an assignment *target*
         // (`spr_foo = ...;`, vanishingly rare given GameMaker's own
         // asset-prefix naming convention but defensive regardless), never

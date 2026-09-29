@@ -41,10 +41,22 @@ export interface MigrationReportEntry {
   note?: string;
 }
 
+/** A defect in the original GameMaker source, found by `gms2-source-bugs.ts`. */
+export interface SourceBugFinding {
+  kind: "unset-variable" | "missing-font" | "missing-sprite" | "missing-object";
+  name: string;
+  /** `objects/<name>/<Event>.gml:<line>` */
+  location: string;
+  detail: string;
+  /** What the importer emitted instead of code that throws. */
+  emitted: string;
+}
+
 export interface MigrationReportOptions {
   projectName: string;
   entries: MigrationReportEntry[];
   warnings: string[];
+  sourceBugs?: readonly SourceBugFinding[];
 }
 
 const CATEGORY_LABELS: Partial<
@@ -143,7 +155,7 @@ function labelFor(kind: MigrationEntryKind): string {
  * testable with a hand-built fixture and no filesystem involved.
  */
 export function migrationReport(opts: MigrationReportOptions): string {
-  const { projectName, entries, warnings } = opts;
+  const { projectName, entries, warnings, sourceBugs = [] } = opts;
 
   const manualEntries = entries.filter((e) => e.status === "manual");
   const manualAssets = manualEntries.map((e) => {
@@ -165,6 +177,22 @@ export function migrationReport(opts: MigrationReportOptions): string {
   const warningSection =
     warnings.length > 0
       ? `\n## Warnings\n\n${warnings.map((w) => `- ${w}`).join("\n")}\n`
+      : "";
+
+  const bugKindLabel: Record<SourceBugFinding["kind"], string> = {
+    "unset-variable": "Variable read but never set",
+    "missing-font": "Font not in the project",
+    "missing-sprite": "Sprite not in the project",
+    "missing-object": "Object not in the project",
+  };
+  const sourceBugSection =
+    sourceBugs.length > 0
+      ? `\n## Source bugs (defects in the original project)\n\nThese are problems in the GameMaker source itself, not conversion failures: a name is used that nothing in the project defines. GameMaker would fail (or draw nothing) if the line ran. The import emits a defined-safe default so the converted game does not throw; decide whether each should be fixed in the game.\n\n${sourceBugs
+          .map(
+            (b) =>
+              `- **${bugKindLabel[b.kind]}**: \`${b.name}\` at \`${b.location}\`. ${b.detail} Emitted: ${b.emitted}.`,
+          )
+          .join("\n")}\n`
       : "";
 
   const summaryRows = SUMMARY_ROWS.map(([kind, status]) => {
@@ -223,7 +251,7 @@ or one sibling \`rooms/<name>.<tileset>.tilemap.ts\` per tileset when it uses
 several, each holding only that tileset's own placed tile data. See
 \`project-manifest.json\` for the full list of prefab/behavior/scene files
 this import produced.
-${warningSection}
+${warningSection}${sourceBugSection}
 ## Reference Material Copied (Not Engine Assets)
 
 GMS2 "note" resources (including GameMaker's own auto-generated

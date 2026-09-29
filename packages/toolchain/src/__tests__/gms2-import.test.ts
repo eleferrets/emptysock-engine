@@ -271,7 +271,7 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         "GmlActions.action_move(_entity, _ctx, 32, 4);",
       );
       expect(content).toContain(
-        "GmlActions.action_sprite_set(_entity, _ctx, spr_walk, 0, 1);",
+        'GmlActions.action_sprite_set(_entity, _ctx, "./assets/sprites/__missing_sprite__/frame_0.png", 0, 1);',
       );
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -370,7 +370,7 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         "utf-8",
       );
       expect(content).toContain(
-        "GmlActions.action_create_object(_entity, _ctx, obj_pickup, 10, 20);",
+        'GmlActions.action_create_object(_entity, _ctx, "obj_pickup", 10, 20);',
       );
       expect(content).toContain("GmlActions.action_next_room(_entity, _ctx);");
     } finally {

@@ -12,6 +12,8 @@ import {
   buildRoomSceneJSON,
   buildSpriteAsset,
   buildScriptModule,
+  resolveGmlObjectChain,
+  resolveGmlObjectProperties,
   projectManifestJSON,
 } from "./gms2-codegen.js";
 import {
@@ -23,11 +25,18 @@ import {
   setGmlSoundNames,
   setGmlFontNames,
   setGmlShaderNames,
+  setGmlMissingAssetNames,
   setGmlRoomNames,
   setGmlCrossFileEntityRefFields,
   setGmlObjectFieldNames,
 } from "./gms2-transpile.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
+import {
+  scanGmlSourceBugs,
+  setGmlUnsetVarsByObject,
+  buildMissingSpritePng,
+  MISSING_SPRITE_REL,
+} from "./gms2-source-bugs.js";
 import {
   scanGmlCrossFileEntityRefFields,
   scanGmlObjectFieldNames,
@@ -118,7 +127,8 @@ export async function importGMS2Project(
   // transpiled — a macro defined in one script is routinely used in a
   // dozen unrelated object/script files (see `scanGmlMacros`'s own doc
   // comment in gms2-transpile.ts).
-  setGmlMacros(await scanGmlMacros(projectRoot));
+  const gmlMacros = await scanGmlMacros(projectRoot);
+  setGmlMacros(gmlMacros);
 
   // Real, project-wide `enum Name { ... }` resolution — same "must happen
   // before any file is transpiled" reasoning as #macro above (see
@@ -275,6 +285,44 @@ export async function importGMS2Project(
   setGmlFontNames(new Set(fonts));
   setGmlRoomNames(new Set(rooms));
   setGmlShaderNames(new Set(shaders));
+
+  // Real defects in the original source: names used but never defined
+  // anywhere in the project (see gms2-source-bugs.ts). Named in
+  // migration-report.md, and emitted as defined-safe values (a read through
+  // getGmlVar/gmlNum, a default font id, a placeholder sprite) so play never
+  // throws on them. Must run before any file is transpiled.
+  const sourceBugScan = await scanGmlSourceBugs({
+    projectRoot,
+    objects,
+    scripts,
+    assetNames: new Set([
+      ...objects,
+      ...scripts,
+      ...rooms,
+      ...sprites,
+      ...sounds,
+      ...tilesets,
+      ...fonts,
+      ...notes,
+      ...shaders,
+      ...timelines,
+      ...sequences,
+      ...extensions,
+    ]),
+    fontNames: new Set(fonts),
+    spriteNames: new Set(sprites),
+    macroNames: new Set(gmlMacros.keys()),
+    enumNames: new Set(gmlEnums.keys()),
+    resolveChain: (n) => resolveGmlObjectChain(n, projectRoot),
+    resolveProperties: async (n) =>
+      (await resolveGmlObjectProperties(n, projectRoot)).keys(),
+  });
+  setGmlUnsetVarsByObject(sourceBugScan.unsetVarsByObject);
+  setGmlMissingAssetNames({
+    fonts: sourceBugScan.missingFonts,
+    sprites: sourceBugScan.missingSprites,
+    objects: sourceBugScan.missingObjects,
+  });
 
   const convertedObjects: string[] = [];
   for (const name of objects) {
@@ -860,6 +908,7 @@ export async function importGMS2Project(
       projectName,
       entries: reportEntries,
       warnings,
+      sourceBugs: sourceBugScan.findings,
     }),
   });
 
@@ -872,6 +921,11 @@ export async function importGMS2Project(
     }
   } else {
     await fs.mkdir(outDir, { recursive: true });
+    if (sourceBugScan.missingSprites.size > 0) {
+      const dest = path.join(outDir, MISSING_SPRITE_REL);
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, buildMissingSpritePng());
+    }
     for (const f of filesToWrite) {
       const dest = path.join(outDir, f.rel);
       await fs.mkdir(path.dirname(dest), { recursive: true });

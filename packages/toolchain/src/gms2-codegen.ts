@@ -10,6 +10,7 @@ import {
   scanGmlImplicitArrayVars,
 } from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
+import { getGmlUnsetVars } from "./gms2-source-bugs.js";
 
 // ---------------------------------------------------------------------------
 // Per-asset-kind codegen — RELEASE_PASS.md Track 7 / ground rule 15:
@@ -413,6 +414,44 @@ export async function buildObjectBehavior(
   for (const propName of resolvedProperties.keys()) {
     objectImplicitVars.add(propName);
   }
+  // Real GameMaker inheritance: a child instance owns every variable its
+  // parent chain assigns, so a name only a *parent's* event file assigns
+  // (obj_bullet_par's `bullet_tolerance`) is a plain instance variable in
+  // the child's own events too. Scanning only the object's own files left
+  // those reads as bare identifiers (`ReferenceError`).
+  {
+    const chainForVars = await resolveGmlObjectChain(name, projectRoot);
+    for (const ancestor of chainForVars.slice(1)) {
+      let ancestorEntries: string[] = [];
+      try {
+        ancestorEntries = (
+          await fs.readdir(path.join(projectRoot, "objects", ancestor))
+        ).filter((e) => e.endsWith(".gml"));
+      } catch {
+        /* ancestor directory missing: nothing to scan */
+      }
+      for (const f of ancestorEntries) {
+        try {
+          const source = await fs.readFile(
+            path.join(projectRoot, "objects", ancestor, f),
+            "utf-8",
+          );
+          for (const v of scanGmlImplicitVars(source))
+            objectImplicitVars.add(v);
+          for (const v of scanGmlImplicitArrayVars(source))
+            objectArrayVars.add(v);
+        } catch {
+          /* unreadable: skipped, same as the object's own files above */
+        }
+      }
+    }
+  }
+  // Source bugs (gms2-source-bugs.ts): names this object reads that nothing
+  // in the project defines. Registering them as implicit instance variables
+  // makes every read go through `getGmlVar`/`gmlNum` (a defined `0`) instead
+  // of a bare identifier that throws.
+  const unsetVars = getGmlUnsetVars(name);
+  for (const v of unsetVars) objectImplicitVars.add(v);
 
   // Real GameMaker object inheritance: an object without its own event
   // file for a given event slot still runs its parent's compiled event
@@ -780,7 +819,12 @@ export async function buildObjectBehavior(
     ? "import * as GmlEnums from './assets/gml-enums.generated.js';\n"
     : "";
 
-  return `// Auto-generated GMS2 behavior for object: ${name}
+  const sourceBugHeader =
+    unsetVars.size > 0
+      ? `// [source bug] ${name}'s GML reads ${[...unsetVars].map((v) => `"${v}"`).join(", ")} without any definition anywhere in the original project (see migration-report.md); these read as 0.\n`
+      : "";
+
+  return `${sourceBugHeader}// Auto-generated GMS2 behavior for object: ${name}
 // Review and replace GML logic with EmptySock equivalents. Wire these
 // functions up to your own prefab instances however your game dispatches
 // per-prefab behavior — see ${name}.prefab.json for this object's
