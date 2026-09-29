@@ -728,38 +728,14 @@ class Parser {
 
   private parseMacro(): MacroDecl {
     const t = this.next();
-    const start = this.startOf(t);
-    // strip directive word and continuations
-    let text = t.text.replace(/^#macro/, "").replace(/\\\r?\n|\\\r/g, " ");
-    const m = /^\s*(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)([\s\S]*)$/.exec(text);
-    if (!m) this.fail("malformed #macro", t);
-    const config = m[1];
-    const name = m[2]!;
-    // drop comments from the value (string-aware via the lexer)
-    const vt = tokenize(m[3] ?? "");
-    text = vt
-      .filter((x) => x.kind !== "comment" && x.kind !== "eof")
-      .map((x) => x.text)
-      .join("")
-      .trim();
-    const node: MacroDecl = {
-      type: "MacroDecl",
-      start,
-      end: t.end + this.offset,
-      name,
-      valueText: text,
-      ...(config ? { config } : {}),
-    };
-    if (text) {
-      const sub = new Parser(text, tokenize(text), 0);
-      try {
-        const e = sub.parseExprAll();
-        if (e) node.value = e;
-      } catch {
-        /* value is not a plain expression; keep the text */
-      }
-    }
+    const node = parseMacroDirective(t.text, this.startOf(t));
+    if (!node) this.fail("malformed #macro", t);
     return node;
+  }
+
+  /** Parse exactly one statement (with recovery) from the current position. */
+  parseOne(): Stmt {
+    return this.parseStmt();
   }
 
   /** Parse the whole source as a single expression. Returns undefined if trailing tokens remain. */
@@ -1104,4 +1080,43 @@ export function parseExpression(src: string): Expr | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Parse one `#macro` directive token's text (see the lexer's `macro` token).
+ * `start` is the directive's absolute offset. Value expression offsets are relative to `valueText`.
+ * Returns undefined for a malformed directive.
+ */
+export function parseMacroDirective(tokenText: string, start: number): MacroDecl | undefined {
+  // strip directive word and continuations
+  const stripped = tokenText.replace(/^#macro/, "").replace(/\\\r?\n|\\\r/g, " ");
+  const m = /^\s*(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)([\s\S]*)$/.exec(stripped);
+  if (!m) return undefined;
+  const config = m[1];
+  const name = m[2]!;
+  // drop comments from the value (string-aware via the lexer)
+  const text = tokenize(m[3] ?? "")
+    .filter((x) => x.kind !== "comment" && x.kind !== "eof")
+    .map((x) => x.text)
+    .join("")
+    .trim();
+  const node: MacroDecl = {
+    type: "MacroDecl",
+    start,
+    end: start + tokenText.length,
+    name,
+    valueText: text,
+    ...(config ? { config } : {}),
+  };
+  if (text) {
+    const e = parseExpression(text);
+    if (e) node.value = e;
+  }
+  return node;
+}
+
+/** Parse the single statement beginning at absolute offset `start` of `src`; node offsets are absolute. */
+export function parseStatementAt(src: string, start: number): Stmt {
+  const slice = src.slice(start);
+  return new Parser(slice, tokenize(slice), start).parseOne();
 }
