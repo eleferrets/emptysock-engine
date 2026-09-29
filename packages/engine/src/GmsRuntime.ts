@@ -1,3 +1,4 @@
+import { remapValue, type RemapLeaf } from "./RefRemap.js";
 import { defineScene } from "./Game.js";
 import type { Game, SceneDefinition } from "./Game.js";
 import type { Scene } from "./Scene.js";
@@ -398,13 +399,15 @@ export class GmsProjectRuntime {
       // remapped onto its new entity; a reference to a non-persistent
       // instance (which no longer exists) becomes `undefined` (GameMaker's
       // dangling-id / `noone` equivalent) rather than a stale old-world handle.
+      const leaf: RemapLeaf = (v) =>
+        v instanceof EntityClass && v.world === p.oldWorld
+          ? { value: byOldEid.get(v.eid) }
+          : undefined;
       const vars = new Map<string, unknown>();
       for (const [k, v] of p.vars) {
-        if (v instanceof EntityClass && v.world === p.oldWorld) {
-          vars.set(k, byOldEid.get(v.eid));
-        } else {
-          vars.set(k, Array.isArray(v) ? [...v] : v);
-        }
+        // Shared two-phase remap (RefRemap.ts): recurses arrays/plain
+        // objects (depth-capped), so nested refs are remapped too.
+        vars.set(k, remapValue(Array.isArray(v) ? [...v] : v, leaf));
       }
       importGmlVars(entity.world, entity.eid, vars);
       importGmlActionState(entity, p.action);

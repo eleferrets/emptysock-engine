@@ -759,6 +759,50 @@ describe("GmsProjectRuntime — persistent instances (Meta.persistent)", () => {
     expect(creates).toBe(1);
   });
 
+  it("remaps instance references nested in arrays and structs; refs to non-carried instances become undefined", async () => {
+    const base = build(false);
+    const data: GmsProjectData = {
+      ...base,
+      rooms: {
+        ...base.rooms,
+        a: {
+          sceneName: "a",
+          prefabInstances: [
+            { prefab: "objCtrl", props: { x: 1, y: 1 } },
+            { prefab: "objCtrl", props: { x: 2, y: 2 } },
+            { prefab: "objPlain", props: { x: 3, y: 3 } },
+          ],
+        },
+      },
+    };
+    const game = new Game();
+    const runtime = new GmsProjectRuntime(game, data);
+    await runtime.loadRoom("a");
+    const sceneA = runtime.scene;
+    if (sceneA === undefined) throw new Error("no scene");
+    const [c1, c2] = named(sceneA, "objCtrl");
+    const [plain] = named(sceneA, "objPlain");
+    if (c1 === undefined || c2 === undefined || plain === undefined)
+      throw new Error("setup");
+    setGmlVar(c1, {} as never, "buddies", [c2, { deep: c2, gone: plain }]);
+    await runtime.loadRoom("b");
+    const sceneB = runtime.scene;
+    if (sceneB === undefined) throw new Error("no scene");
+    const carried = named(sceneB, "objCtrl");
+    expect(carried).toHaveLength(2);
+    const holder = carried.find(
+      (e) => getGmlVar(e, {} as never, "buddies") !== undefined,
+    );
+    const other = carried.find((e) => e.eid !== holder?.eid);
+    const buddies = getGmlVar(holder as Entity, {} as never, "buddies") as [
+      Entity,
+      { deep: Entity; gone: unknown },
+    ];
+    expect(buddies[0].eid).toBe(other?.eid);
+    expect(buddies[1].deep.eid).toBe(other?.eid);
+    expect(buddies[1].gone).toBeUndefined();
+  });
+
   it("matches GameMaker: a destination room that also places the persistent object gets a second instance (no de-dupe)", async () => {
     const game = new Game();
     const runtime = new GmsProjectRuntime(game, build(true));
