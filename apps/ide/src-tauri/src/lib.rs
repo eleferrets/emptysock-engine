@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::Manager;
 
+mod keyboard_layout;
+
 // Force discrete GPU on NVIDIA Optimus and AMD PowerXpress laptops.
 #[no_mangle]
 pub static NvOptimusEnablement: u32 = 1;
@@ -469,7 +471,8 @@ pub fn run() {
             export_game,
             open_in_vscode,
             run_git,
-            log_error
+            log_error,
+            keyboard_layout::keyboard_layout_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
