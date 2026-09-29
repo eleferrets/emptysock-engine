@@ -36,6 +36,7 @@ import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
   convertGms2RoomBackgrounds,
+  convertGms2RoomLayerElements,
   buildRoomSceneFileViews,
 } from "./gms2-room-import.js";
 import { buildSoundAsset } from "./gms2-sound-import.js";
@@ -416,19 +417,43 @@ export async function importGMS2Project(
       // `@emptysock/engine`'s SceneFile.ts, and `GmsRuntime.ts`'s
       // `applyRoomViews` for how a loaded room actually wires this into a
       // live `CameraSystem`/multi-viewport render pass.
+      // Room-layer sprite/sequence elements (`GMRAssetLayer` graphics) become
+      // real entities carrying a `LayerElement`, merged the same way.
+      const {
+        entities: elementEntities,
+        failed: failedElements,
+        sequences: elementSequences,
+      } = await convertGms2RoomLayerElements(
+        room,
+        projectRoot,
+        new Set(sequences),
+      );
+      for (const failure of failedElements) {
+        warnings.push(
+          `${failure} It has been left out of the generated .scene.json — recreate it manually.`,
+        );
+      }
       const sceneFileViews = buildRoomSceneFileViews(room);
       const activeViewCount = sceneFileViews.filter((v) => v.visible).length;
 
       let content = sceneJSON;
-      if (backgroundEntities.length > 0 || sceneFileViews.length > 0) {
+      if (
+        backgroundEntities.length > 0 ||
+        elementEntities.length > 0 ||
+        sceneFileViews.length > 0
+      ) {
         const scene = JSON.parse(sceneJSON) as {
           entities?: unknown[];
           views?: unknown[];
           viewsEnabled?: boolean;
           [key: string]: unknown;
         };
-        if (backgroundEntities.length > 0) {
-          scene.entities = [...(scene.entities ?? []), ...backgroundEntities];
+        if (backgroundEntities.length > 0 || elementEntities.length > 0) {
+          scene.entities = [
+            ...(scene.entities ?? []),
+            ...backgroundEntities,
+            ...elementEntities,
+          ];
         }
         if (sceneFileViews.length > 0) {
           scene.views = sceneFileViews;
@@ -536,6 +561,10 @@ export async function importGMS2Project(
         }
 
         roomNote = noteParts.join(" ");
+      }
+      if (elementEntities.length > 0) {
+        const elNote = `${elementEntities.length} room-layer sprite/sequence element(s) converted to scene entities (LayerElement) — layer_sprite_get_id/layer_sequence_get_instance find them by name.${elementSequences.length > 0 ? ` Sequence element(s) need registerGmlSequence() for: ${elementSequences.join(", ")}.` : ""}`;
+        roomNote = roomNote !== undefined ? `${roomNote} ${elNote}` : elNote;
       }
       if (activeViewCount > 0) {
         const viewNote = `${activeViewCount} active camera view(s) converted (viewsEnabled: ${String(room.viewsEnabled)}) — loaded automatically by GmsProjectRuntime.loadRoom() into CameraSystem${activeViewCount > 1 ? " / RenderSystem.renderMultiCamera()" : ""}.`;

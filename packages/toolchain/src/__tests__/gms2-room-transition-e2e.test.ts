@@ -61,8 +61,15 @@ describe("GMS2 real project — room transition end to end (Freedom Backup)", ()
     // Real engine-side parsing of two real generated room files.
     const { parsePrefabFile, GmsProjectRuntime, Game } =
       await import("@emptysock/engine");
-    const { Transform, Meta, Sprite, PhysicsBody, GmlBehaviorState } =
-      await import("@emptysock/engine");
+    const {
+      Transform,
+      Meta,
+      Sprite,
+      PhysicsBody,
+      GmlBehaviorState,
+      LayerElement,
+      GmlSequenceState,
+    } = await import("@emptysock/engine");
 
     const allRoomNames = convertedRoomFiles.map((f) =>
       f.replace(/^rooms\//, "").replace(/\.scene\.json$/, ""),
@@ -91,6 +98,8 @@ describe("GMS2 real project — room transition end to end (Freedom Backup)", ()
       Sprite,
       PhysicsBody,
       GmlBehaviorState,
+      LayerElement,
+      GmlSequenceState,
     };
 
     const prefabs: Record<string, PrefabDef> = {};

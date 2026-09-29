@@ -21,6 +21,8 @@
 // as every other file under compat/.
 
 import type { Entity } from "../Entity.js";
+import { LayerElement } from "../components/LayerElement.js";
+import { Transform } from "../components/Transform.js";
 import type { GmlActionContext } from "./gmlActions.js";
 
 /**
@@ -110,37 +112,117 @@ export function layer_add_instance(
 }
 
 /**
- * `layer_sprite_get_id`/`layer_sprite_destroy` — GameMaker's "layer
- * element" API for a static decorative sprite placed directly on a room
- * layer in the room editor (not an instance, no object/event code). This
- * importer's room conversion (`convertGms2RoomBackgrounds`) only ever
- * converts a room's `GMRBackgroundLayer` background image into a real
- * `Transform`+`Sprite` entity — arbitrary named per-layer sprite *elements*
- * (GameMaker's `GMRAssetLayer`/element data) are not parsed or carried
- * through the generated `.scene.json` at all, a real, separate, deeper gap
- * from anything a same-file regex/compat-function pass can honestly close
- * (it would need a new room-layer-element import path in
- * `gms2-room-import.ts`, not a compat function). `layer_sprite_get_id`
- * therefore honestly returns `undefined` (standing in for GameMaker's
- * `noone`/`-1` "not found") rather than fabricating a fake element id, and
- * `layer_sprite_destroy` is a real, safe no-op on whatever it's given —
- * matching this codebase's "no live instance to even ask" convention rather
- * than throwing on an id that was never real to begin with.
+ * Room-layer elements (`GMRSpriteGraphic`/`GMRSequenceGraphic` placed on a
+ * room's asset layer) arrive as `SceneFile.entities` entries carrying a
+ * `LayerElement` component (see `components/LayerElement.ts` and
+ * `gms2-room-import.ts`'s `convertGms2RoomLayerElements`). These functions
+ * look them up by the element's own editor name.
+ *
+ * `layer` may be a layer name or whatever `layer_get_id` returned. This
+ * engine's `LayerSystem` has no notion of GameMaker's asset layers, so
+ * `layer_get_id("TitleAssets")` yields `-1`: a non-string `layer` is
+ * therefore matched by element name alone, and a string `layer` prefers an
+ * element on that layer, falling back to the first element of that name.
  */
+function findLayerElement(
+  ctx: GmlActionContext,
+  layer: unknown,
+  name: string,
+  kind: "sprite" | "sequence",
+): Entity | undefined {
+  let fallback: Entity | undefined;
+  let exact: Entity | undefined;
+  ctx.scene.each(LayerElement, (element, entity) => {
+    if (exact !== undefined || element.name !== name || element.kind !== kind)
+      return;
+    if (typeof layer === "string" && element.layer === layer) exact = entity;
+    else fallback ??= entity;
+  });
+  return exact ?? fallback;
+}
+
+/** `layer_sprite_get_id(layer, name)` — the sprite element's entity, or `undefined` (GameMaker's `-1`/`noone`). */
 export function layer_sprite_get_id(
-  _ctx: GmlActionContext,
-  _layer: string,
-  _spriteElementName: string,
-): undefined {
+  ctx: GmlActionContext,
+  layer: unknown,
+  spriteElementName: string,
+): Entity | undefined {
+  return findLayerElement(ctx, layer, spriteElementName, "sprite");
+}
+
+function asLiveEntity(value: unknown): Entity | undefined {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "isAlive" in value &&
+    "get" in value &&
+    (value as Entity).isAlive
+  ) {
+    return value as Entity;
+  }
   return undefined;
 }
 
-/** See `layer_sprite_get_id`'s doc comment. */
+/** `layer_sprite_destroy(element)` — destroys the element's entity; a safe no-op for anything that is not a live entity. */
 export function layer_sprite_destroy(
-  _ctx: GmlActionContext,
-  _spriteElementId: unknown,
+  ctx: GmlActionContext,
+  spriteElementId: unknown,
 ): void {
-  // Intentionally empty — see `layer_sprite_get_id`'s doc comment.
+  const entity = asLiveEntity(spriteElementId);
+  if (entity !== undefined) ctx.scene.destroy(entity);
+}
+
+/** `layer_sprite_get_x(element)` — 0 for an unknown element. */
+export function layer_sprite_get_x(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+): number {
+  return asLiveEntity(spriteElementId)?.get(Transform)?.x ?? 0;
+}
+
+/** `layer_sprite_get_y(element)`. */
+export function layer_sprite_get_y(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+): number {
+  return asLiveEntity(spriteElementId)?.get(Transform)?.y ?? 0;
+}
+
+/** `layer_sprite_x(element, x)`. */
+export function layer_sprite_x(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+  x: number,
+): void {
+  const t = asLiveEntity(spriteElementId)?.get(Transform);
+  if (t) t.x = x;
+}
+
+/** `layer_sprite_y(element, y)`. */
+export function layer_sprite_y(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+  y: number,
+): void {
+  const t = asLiveEntity(spriteElementId)?.get(Transform);
+  if (t) t.y = y;
+}
+
+/** `layer_sequence_get_instance(layer, name)` — the sequence element's entity (carrying a `GmlSequenceState`), or `undefined`. */
+export function layer_sequence_get_instance(
+  ctx: GmlActionContext,
+  layer: unknown,
+  sequenceElementName: string,
+): Entity | undefined {
+  return findLayerElement(ctx, layer, sequenceElementName, "sequence");
+}
+
+/** `layer_sequence_destroy(element)`. */
+export function layer_sequence_destroy(
+  ctx: GmlActionContext,
+  sequenceElementId: unknown,
+): void {
+  layer_sprite_destroy(ctx, sequenceElementId);
 }
 
 /**

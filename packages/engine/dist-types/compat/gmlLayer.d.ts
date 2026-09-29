@@ -73,33 +73,49 @@ export declare function layer_add_instance(
   layer: string,
   instance: Entity,
 ): void;
-/**
- * `layer_sprite_get_id`/`layer_sprite_destroy` — GameMaker's "layer
- * element" API for a static decorative sprite placed directly on a room
- * layer in the room editor (not an instance, no object/event code). This
- * importer's room conversion (`convertGms2RoomBackgrounds`) only ever
- * converts a room's `GMRBackgroundLayer` background image into a real
- * `Transform`+`Sprite` entity — arbitrary named per-layer sprite *elements*
- * (GameMaker's `GMRAssetLayer`/element data) are not parsed or carried
- * through the generated `.scene.json` at all, a real, separate, deeper gap
- * from anything a same-file regex/compat-function pass can honestly close
- * (it would need a new room-layer-element import path in
- * `gms2-room-import.ts`, not a compat function). `layer_sprite_get_id`
- * therefore honestly returns `undefined` (standing in for GameMaker's
- * `noone`/`-1` "not found") rather than fabricating a fake element id, and
- * `layer_sprite_destroy` is a real, safe no-op on whatever it's given —
- * matching this codebase's "no live instance to even ask" convention rather
- * than throwing on an id that was never real to begin with.
- */
+/** `layer_sprite_get_id(layer, name)` — the sprite element's entity, or `undefined` (GameMaker's `-1`/`noone`). */
 export declare function layer_sprite_get_id(
-  _ctx: GmlActionContext,
-  _layer: string,
-  _spriteElementName: string,
-): undefined;
-/** See `layer_sprite_get_id`'s doc comment. */
+  ctx: GmlActionContext,
+  layer: unknown,
+  spriteElementName: string,
+): Entity | undefined;
+/** `layer_sprite_destroy(element)` — destroys the element's entity; a safe no-op for anything that is not a live entity. */
 export declare function layer_sprite_destroy(
+  ctx: GmlActionContext,
+  spriteElementId: unknown,
+): void;
+/** `layer_sprite_get_x(element)` — 0 for an unknown element. */
+export declare function layer_sprite_get_x(
   _ctx: GmlActionContext,
-  _spriteElementId: unknown,
+  spriteElementId: unknown,
+): number;
+/** `layer_sprite_get_y(element)`. */
+export declare function layer_sprite_get_y(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+): number;
+/** `layer_sprite_x(element, x)`. */
+export declare function layer_sprite_x(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+  x: number,
+): void;
+/** `layer_sprite_y(element, y)`. */
+export declare function layer_sprite_y(
+  _ctx: GmlActionContext,
+  spriteElementId: unknown,
+  y: number,
+): void;
+/** `layer_sequence_get_instance(layer, name)` — the sequence element's entity (carrying a `GmlSequenceState`), or `undefined`. */
+export declare function layer_sequence_get_instance(
+  ctx: GmlActionContext,
+  layer: unknown,
+  sequenceElementName: string,
+): Entity | undefined;
+/** `layer_sequence_destroy(element)`. */
+export declare function layer_sequence_destroy(
+  ctx: GmlActionContext,
+  sequenceElementId: unknown,
 ): void;
 /**
  * Resolves a bare GML `layer` read (the calling instance's own creation

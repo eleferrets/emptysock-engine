@@ -2945,6 +2945,12 @@ export function transpileGML(
     "layer_add_instance",
     "layer_sprite_get_id",
     "layer_sprite_destroy",
+    "layer_sprite_get_x",
+    "layer_sprite_get_y",
+    "layer_sprite_x",
+    "layer_sprite_y",
+    "layer_sequence_get_instance",
+    "layer_sequence_destroy",
     // `sprite_get_width`/`_height`/`sprite_exists` (compat/gmlActions.ts) —
     // real function-call syntax already (never a bare identifier the way
     // `sprite_width`/`sprite_height` below are), so generic context-only

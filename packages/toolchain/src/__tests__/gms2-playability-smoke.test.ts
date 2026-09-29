@@ -89,8 +89,15 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
       registerGmlBehavior,
       unregisterGmlBehavior,
     } = await import("@emptysock/engine");
-    const { Transform, Meta, Sprite, PhysicsBody, GmlBehaviorState } =
-      await import("@emptysock/engine");
+    const {
+      Transform,
+      Meta,
+      Sprite,
+      PhysicsBody,
+      GmlBehaviorState,
+      LayerElement,
+      GmlSequenceState,
+    } = await import("@emptysock/engine");
 
     // Real room: `rm_1` has a real `obj_player` instance plus 24 other
     // real prefab instances (enemies, walls, gun pickup, camera, level
@@ -114,6 +121,8 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
       Sprite,
       PhysicsBody,
       GmlBehaviorState,
+      LayerElement,
+      GmlSequenceState,
     };
 
     const prefabs: Record<string, PrefabDef> = {};

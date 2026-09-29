@@ -16,6 +16,8 @@ The toolchain reads your `.yyp` project and generates TypeScript stub files — 
 
 **Rooms** are converted: each room becomes a `loadRoom<Name>()` function that spawns one entity per real instance placement in the room, wired to the imported object classes. Tile layers and instance `creation code` are not reconstructed — only instance placement.
 
+**Room-layer sprite and sequence elements** (graphics you placed on an asset layer in the room editor, not instances) are converted too. Each becomes an entity in the room's `.scene.json` carrying a `LayerElement` component, with the sprite's origin, scale, rotation, colour, alpha and layer depth applied, so `layer_sprite_get_id(layer, name)`, `layer_sprite_destroy` and `layer_sequence_get_instance` find and remove them at runtime. Sequence elements need their sequence registered with `registerGmlSequence()`; the migration report lists which.
+
 ## What is not automated
 
 - **Tilesets and tile layer data** — room tile grids are read but not re-emitted as `TilemapSystem` data; recreate tile layers manually in the level editor.

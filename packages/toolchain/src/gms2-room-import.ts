@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { convertGms2Sprite } from "./gms2-sprite-import.js";
+import { parseGmsJson } from "./gms2-parse.js";
 
 export interface TileEntry {
   tilesetId: string;
@@ -35,6 +36,36 @@ export interface RoomLayer {
   vtiled?: boolean;
   offsetX?: number;
   offsetY?: number;
+  /** The layer's own `depth` (GameMaker: lower draws in front). */
+  depth?: number;
+  /** A `GMRAssetLayer`'s placed sprite/sequence elements. */
+  assets?: RoomLayerAsset[];
+}
+
+/**
+ * One element of a `GMRAssetLayer`'s `assets` array: a `GMRSpriteGraphic`
+ * (confirmed against real Freedom Backup rooms) or a `GMRSequenceGraphic`
+ * (schema from the `yy-typings` project; no real sample was available to
+ * check, so this path is covered by synthetic tests only).
+ */
+export interface RoomLayerAsset {
+  kind: "sprite" | "sequence";
+  /** The element's own name in the room editor (what `layer_sprite_get_id` looks up). */
+  name: string;
+  /** The referenced sprite or sequence resource name. */
+  assetName: string;
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  /** Degrees. */
+  rotation: number;
+  /** GameMaker 32-bit `0xAABBGGRR` blend colour (`4294967295` = opaque white). */
+  colour: number;
+  /** Start frame (sprite) or start position in frames (sequence); negative means "unset". */
+  headPosition: number;
+  /** Playback speed multiplier. */
+  animationSpeed: number;
 }
 
 /**
@@ -389,9 +420,12 @@ export async function convertGms2Room(
       typeof (layer["spriteId"] as Record<string, unknown>)["name"] === "string"
         ? ((layer["spriteId"] as Record<string, unknown>)["name"] as string)
         : undefined;
+    const assets = parseLayerAssets(layer);
     return {
       name: layerName,
       type: layerType,
+      ...(typeof layer["depth"] === "number" ? { depth: layer["depth"] } : {}),
+      ...(assets.length > 0 ? { assets } : {}),
       tiles: parseTiles(layer),
       instances: parseInstances(layer, guidToObjectName),
       ...(backgroundSprite !== undefined ? { backgroundSprite } : {}),
@@ -591,4 +625,204 @@ export async function convertGms2RoomBackgrounds(
   }
 
   return { entities, failed };
+}
+
+/** Parses a `GMRAssetLayer`'s `assets` (sprite and sequence graphics); other asset kinds are ignored. */
+function parseLayerAssets(layer: YyLayer): RoomLayerAsset[] {
+  const raw = layer["assets"];
+  if (!Array.isArray(raw)) return [];
+  const out: RoomLayerAsset[] = [];
+  for (const item of raw as unknown[]) {
+    if (typeof item !== "object" || item === null) continue;
+    const a = item as Record<string, unknown>;
+    const kind =
+      a["resourceType"] === "GMRSpriteGraphic"
+        ? "sprite"
+        : a["resourceType"] === "GMRSequenceGraphic"
+          ? "sequence"
+          : undefined;
+    if (kind === undefined) continue;
+    const ref = a[kind === "sprite" ? "spriteId" : "sequenceId"];
+    const assetName =
+      typeof ref === "object" &&
+      ref !== null &&
+      typeof (ref as Record<string, unknown>)["name"] === "string"
+        ? ((ref as Record<string, unknown>)["name"] as string)
+        : undefined;
+    if (assetName === undefined) continue;
+    out.push({
+      kind,
+      name: typeof a["name"] === "string" ? a["name"] : assetName,
+      assetName,
+      x: num(a["x"], 0),
+      y: num(a["y"], 0),
+      scaleX: num(a["scaleX"], 1),
+      scaleY: num(a["scaleY"], 1),
+      rotation: num(a["rotation"], 0),
+      colour: num(a["colour"], 0xffffffff),
+      headPosition: num(a["headPosition"], 0),
+      animationSpeed: num(a["animationSpeed"], 1),
+    });
+  }
+  return out;
+}
+
+/**
+ * Convert a room's `GMRAssetLayer` sprite/sequence elements into real
+ * `SceneFile.entities` entries. Each carries a `LayerElement` component
+ * (`name` = the element's editor name, `layer` = its room layer) so
+ * `layer_sprite_get_id`/`layer_sequence_get_instance` can find it at runtime.
+ *
+ * A sprite element becomes `Transform` + `Sprite` + `LayerElement`, pointing
+ * at the texture `buildSpriteAsset` already writes
+ * (`./assets/sprites/<name>/frame_{n}.png` when multi-frame, `frame_0.png`
+ * otherwise), so no image is copied here. The sprite's origin becomes the
+ * `Sprite` anchor (`xorigin / width`, `yorigin / height`) so the element's
+ * `x`/`y` are the origin position, as in the room editor. `colour`'s BGR part
+ * becomes `Sprite.tint` and its alpha byte `Sprite.alpha`; `rotation` is
+ * degrees to radians; layer `depth` is negated onto `Sprite.depth` (GameMaker
+ * draws lower depth in front, this engine draws higher `depth` in front).
+ * `headPosition` seeds `currentFrame`, `animationSpeed` scales the sprite's
+ * own `frameSpeed`.
+ *
+ * A sequence element becomes `Transform` + `GmlSequenceState` (playing,
+ * `speed` = 30 fps x `animationSpeed`, `position` = `headPosition`) +
+ * `LayerElement`. It plays only once the game registers the sequence
+ * (`registerGmlSequence`, see the migration report). An element whose sprite
+ * or sequence cannot be resolved is reported in `failed`, not dropped.
+ */
+export async function convertGms2RoomLayerElements(
+  room: RoomData,
+  projectRoot: string,
+  knownSequences: ReadonlySet<string>,
+): Promise<{
+  entities: RoomBackgroundEntity[];
+  failed: string[];
+  sequences: string[];
+}> {
+  const entities: RoomBackgroundEntity[] = [];
+  const failed: string[] = [];
+  const sequences = new Set<string>();
+
+  for (const layer of room.layers) {
+    for (const asset of layer.assets ?? []) {
+      const label = `Room "${room.name}" layer "${layer.name}" ${asset.kind} element "${asset.name}"`;
+      const rotation = (asset.rotation * Math.PI) / 180;
+      const transform = {
+        component: "Transform",
+        overrides: {
+          x: asset.x,
+          y: asset.y,
+          scaleX: asset.scaleX,
+          scaleY: asset.scaleY,
+          rotation,
+        },
+      };
+      const element = {
+        component: "LayerElement",
+        overrides: { name: asset.name, layer: layer.name, kind: asset.kind },
+      };
+
+      if (asset.kind === "sequence") {
+        if (!knownSequences.has(asset.assetName)) {
+          failed.push(
+            `${label} references sequence "${asset.assetName}", which is not in the project.`,
+          );
+          continue;
+        }
+        sequences.add(asset.assetName);
+        entities.push({
+          components: [
+            transform,
+            {
+              component: "GmlSequenceState",
+              overrides: {
+                sequenceId: asset.assetName,
+                position: Math.max(0, asset.headPosition),
+                speed: 30 * asset.animationSpeed,
+                playing: true,
+              },
+            },
+            element,
+          ],
+        });
+        continue;
+      }
+
+      try {
+        const spriteDir = path.join(projectRoot, "sprites", asset.assetName);
+        const sprite = await convertGms2Sprite(spriteDir);
+        if (sprite.frames.length === 0) {
+          throw new Error(`sprite "${asset.assetName}" has no frames`);
+        }
+        const multi = sprite.frameCount > 1;
+        const base = `./assets/sprites/${asset.assetName}/`;
+        const { xorigin, yorigin } = await readSpriteOrigin(
+          spriteDir,
+          asset.assetName,
+        );
+        const alpha = ((asset.colour >>> 24) & 0xff) / 255;
+        const b = (asset.colour >>> 16) & 0xff;
+        const g = (asset.colour >>> 8) & 0xff;
+        const r = asset.colour & 0xff;
+        entities.push({
+          components: [
+            transform,
+            {
+              component: "Sprite",
+              overrides: {
+                texturePath: multi
+                  ? `${base}frame_{n}.png`
+                  : `${base}frame_0.png`,
+                depth: -(layer.depth ?? 0),
+                tint: (r << 16) | (g << 8) | b,
+                alpha,
+                anchorX: sprite.width > 0 ? xorigin / sprite.width : 0.5,
+                anchorY: sprite.height > 0 ? yorigin / sprite.height : 0.5,
+                width: sprite.width,
+                height: sprite.height,
+                ...(multi
+                  ? {
+                      frameCount: sprite.frameCount,
+                      frameSpeed:
+                        (sprite.frameSpeed ?? 1) * asset.animationSpeed,
+                      currentFrame: Math.max(0, asset.headPosition),
+                    }
+                  : {}),
+              },
+            },
+            element,
+          ],
+        });
+      } catch (err) {
+        failed.push(
+          `${label} references sprite "${asset.assetName}", which could not be converted (${String(err)}).`,
+        );
+      }
+    }
+  }
+
+  return { entities, failed, sequences: [...sequences] };
+}
+
+/** The sprite's real `.yy` origin (`sequence.xorigin`/`yorigin`), defaulting to 0,0 when absent. */
+async function readSpriteOrigin(
+  spriteDir: string,
+  spriteName: string,
+): Promise<{ xorigin: number; yorigin: number }> {
+  try {
+    const raw = await fs.readFile(
+      path.join(spriteDir, `${spriteName}.yy`),
+      "utf-8",
+    );
+    const yy = parseGmsJson(raw) as {
+      sequence?: { xorigin?: unknown; yorigin?: unknown };
+    };
+    return {
+      xorigin: num(yy.sequence?.xorigin, 0),
+      yorigin: num(yy.sequence?.yorigin, 0),
+    };
+  } catch {
+    return { xorigin: 0, yorigin: 0 };
+  }
 }

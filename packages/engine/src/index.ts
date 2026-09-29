@@ -234,6 +234,7 @@ export {
   type Segment,
 } from "./systems/LightOcclusion.js";
 export { Meta } from "./components/Meta.js";
+export { LayerElement } from "./components/LayerElement.js";
 export type { MetaShape } from "./components/Meta.js";
 export { Sprite, resolveSpriteFramePath } from "./components/Sprite.js";
 export { Layout, LayoutStyle } from "./components/Layout.js";
@@ -673,6 +674,12 @@ export {
   layer_add_instance,
   layer_sprite_get_id,
   layer_sprite_destroy,
+  layer_sprite_get_x,
+  layer_sprite_get_y,
+  layer_sprite_x,
+  layer_sprite_y,
+  layer_sequence_get_instance,
+  layer_sequence_destroy,
   gml_current_layer,
 } from "./compat/gmlLayer.js";
 
