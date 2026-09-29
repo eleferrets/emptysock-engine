@@ -1,4 +1,11 @@
-import { remapValue, type RemapLeaf } from "./RefRemap.js";
+import {
+  captureEntities,
+  persistentTransferPolicy,
+  restoreEntities,
+  type EntityExtra,
+  type SceneSnapshot,
+  type TransferPolicy,
+} from "./SceneTransfer.js";
 import { defineScene } from "./Game.js";
 import type { Game, SceneDefinition } from "./Game.js";
 import type { Scene } from "./Scene.js";
@@ -25,10 +32,6 @@ import type { GmlParticleContext } from "./compat/gmlParticles.js";
 import type { CameraSystem } from "./systems/CameraSystem.js";
 import type { RenderPipeline } from "./systems/RenderPipeline.js";
 import { GmlBehaviorState } from "./components/GmlBehavior.js";
-import { Meta } from "./components/Meta.js";
-import { Entity as EntityClass } from "./Entity.js";
-import { componentRegistry } from "./ComponentRegistry.js";
-import type { ComponentDef } from "./Component.js";
 import {
   exportGmlActionState,
   importGmlActionState,
@@ -42,20 +45,37 @@ import {
 } from "./compat/gmlInstanceVars.js";
 
 /**
- * One live `Meta.persistent` entity captured before its scene tears down: a
- * plain copy of every component's fields plus its per-`(World, eid)` GML
- * side-table state (instance variables, motion/alarms, `xstart`/`ystart`).
+ * State a GML instance keeps outside its components, carried by
+ * `SceneTransfer` (`captureEntities`/`restoreEntities`): instance variables
+ * (whose values may hold references to other instances, remapped on import)
+ * and motion/alarms/`xstart`/`ystart`. `gmlStatics` is process-global, nothing
+ * to do for it.
  */
-interface PersistedEntity {
-  readonly oldEid: number;
-  readonly oldWorld: Scene["world"];
-  readonly components: ReadonlyArray<{
-    def: ComponentDef;
-    data: Record<string, unknown>;
-  }>;
-  readonly vars: Map<string, unknown>;
-  readonly action: GmlActionStateSnapshot;
-}
+const gmlVarsExtra: EntityExtra<Map<string, unknown>> = {
+  name: "gml.vars",
+  export: (entity) => exportGmlVars(entity.world, entity.eid),
+  import: (entity, vars, ctx) => {
+    const remapped = new Map<string, unknown>();
+    for (const [k, v] of vars) {
+      remapped.set(k, ctx.remap(Array.isArray(v) ? [...v] : v));
+    }
+    importGmlVars(entity.world, entity.eid, remapped);
+  },
+  clear: (world, eid) => clearGmlInstanceVars(world, eid),
+};
+
+const gmlActionExtra: EntityExtra<GmlActionStateSnapshot> = {
+  name: "gml.action",
+  export: (entity) => exportGmlActionState(entity),
+  import: (entity, snap) => importGmlActionState(entity, snap),
+  clear: (world, eid) => clearGmlActionState(world, eid),
+};
+
+/** Carry-over policy for GML rooms: `Meta.persistent` instances leave with the game. */
+const GML_CARRY_POLICY: TransferPolicy = {
+  ...persistentTransferPolicy,
+  extras: [gmlVarsExtra, gmlActionExtra],
+};
 
 /**
  * A parsed `project-manifest.json` (`gms2-codegen.ts`'s `projectManifestJSON()`)
@@ -189,7 +209,7 @@ export class GmsProjectRuntime {
    */
   private readonly _prevKeyDown = new Map<number, boolean>();
   /** Persistent entities snapshotted by the outgoing room's `onUnload`, restored by the next room's `onLoad`. */
-  private _carried: PersistedEntity[] = [];
+  private _carried: SceneSnapshot | undefined;
 
   constructor(
     private readonly game: Game,
@@ -308,7 +328,10 @@ export class GmsProjectRuntime {
         // this room also places the same object, a second instance is
         // created (the well-known duplicate-controller pitfall), so neither
         // do we.
-        this.restorePersistent(scene);
+        const carried = this._carried;
+        this._carried = undefined;
+        if (carried !== undefined)
+          restoreEntities(scene, carried, GML_CARRY_POLICY);
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
           onSpawned: (entity, sceneEntity) => {
             const gmlVars = sceneEntity?.ext?.["gml"]?.["vars"];
@@ -327,91 +350,9 @@ export class GmsProjectRuntime {
         this.runGmlPasses(dt);
       },
       onUnload: (scene) => {
-        this.snapshotPersistent(scene);
+        this._carried = captureEntities(scene, GML_CARRY_POLICY);
       },
     });
-  }
-
-  /**
-   * A new `Scene` is a new bitECS `World`, so entities cannot be carried
-   * literally. Runs from the outgoing room's `onUnload` (synchronous within
-   * `Game.loadScene()`, so it covers `loadRoom()` and the `ctx.rooms` path
-   * `action_next_room`/`room_goto` use alike).
-   */
-  private snapshotPersistent(scene: Scene): void {
-    const carried: PersistedEntity[] = [];
-    const defs = componentRegistry.registeredComponents(scene.world);
-    const toClear: Entity[] = [];
-    scene.each(Meta, (meta, entity) => {
-      if (meta.persistent !== true) return;
-      const components: PersistedEntity["components"][number][] = [];
-      for (const def of defs) {
-        const comp = entity.get(def);
-        if (comp === undefined) continue;
-        const data: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(comp)) {
-          data[k] = Array.isArray(v) ? [...v] : v;
-        }
-        // A live physics handle belongs to the old world; the new scene's
-        // PhysicsSystem re-creates the body.
-        if ("bodyHandle" in data) data["bodyHandle"] = null;
-        components.push({ def, data });
-      }
-      carried.push({
-        oldEid: entity.eid,
-        oldWorld: scene.world,
-        components,
-        vars: exportGmlVars(entity.world, entity.eid),
-        action: exportGmlActionState(entity),
-      });
-      toClear.push(entity);
-    });
-    // Pooled/recycled-id hygiene: drop the old (world, eid) side-table
-    // entries now that their contents live in the snapshot.
-    for (const e of toClear) {
-      clearGmlActionState(e.world, e.eid);
-      clearGmlInstanceVars(e.world, e.eid);
-    }
-    this._carried = carried;
-  }
-
-  /** Respawns every carried entity into `scene` — no `onCreate`, no `onSpawned`. */
-  private restorePersistent(scene: Scene): void {
-    const carried = this._carried;
-    this._carried = [];
-    if (carried.length === 0) return;
-    const byOldEid = new Map<number, Entity>();
-    const restored: Array<{ entity: Entity; p: PersistedEntity }> = [];
-    for (const p of carried) {
-      const entity = scene.spawn();
-      for (const { def, data } of p.components) {
-        const copy: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(data)) {
-          copy[k] = Array.isArray(v) ? [...v] : v;
-        }
-        entity.add(def, copy as never);
-      }
-      byOldEid.set(p.oldEid, entity);
-      restored.push({ entity, p });
-    }
-    for (const { entity, p } of restored) {
-      // Instance-variable references to another persistent instance are
-      // remapped onto its new entity; a reference to a non-persistent
-      // instance (which no longer exists) becomes `undefined` (GameMaker's
-      // dangling-id / `noone` equivalent) rather than a stale old-world handle.
-      const leaf: RemapLeaf = (v) =>
-        v instanceof EntityClass && v.world === p.oldWorld
-          ? { value: byOldEid.get(v.eid) }
-          : undefined;
-      const vars = new Map<string, unknown>();
-      for (const [k, v] of p.vars) {
-        // Shared two-phase remap (RefRemap.ts): recurses arrays/plain
-        // objects (depth-capped), so nested refs are remapped too.
-        vars.set(k, remapValue(Array.isArray(v) ? [...v] : v, leaf));
-      }
-      importGmlVars(entity.world, entity.eid, vars);
-      importGmlActionState(entity, p.action);
-    }
   }
 
   /**

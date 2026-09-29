@@ -185,15 +185,6 @@ export declare class GmsProjectRuntime {
    */
   private buildSceneDefinition;
   /**
-   * A new `Scene` is a new bitECS `World`, so entities cannot be carried
-   * literally. Runs from the outgoing room's `onUnload` (synchronous within
-   * `Game.loadScene()`, so it covers `loadRoom()` and the `ctx.rooms` path
-   * `action_next_room`/`room_goto` use alike).
-   */
-  private snapshotPersistent;
-  /** Respawns every carried entity into `scene` — no `onCreate`, no `onSpawned`. */
-  private restorePersistent;
-  /**
    * Loads a room by GameMaker name: unloads whatever room/scene is
    * currently loaded (via `Game.loadScene()`'s own unconditional teardown)
    * and loads the `SceneDefinition` `buildSceneDefinition()` builds for it

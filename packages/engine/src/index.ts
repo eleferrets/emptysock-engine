@@ -26,6 +26,18 @@ export {
   entityRefFields,
 } from "./RefRemap.js";
 export type { EntityIdMap, RemapOptions, RemapLeaf } from "./RefRemap.js";
+export {
+  captureEntities,
+  restoreEntities,
+  persistentTransferPolicy,
+} from "./SceneTransfer.js";
+export type {
+  EntityExtra,
+  TransferContext,
+  TransferPolicy,
+  EntitySnapshot,
+  SceneSnapshot,
+} from "./SceneTransfer.js";
 export type {
   RelationDef,
   DefineRelationOptions,

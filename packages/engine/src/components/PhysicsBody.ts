@@ -61,6 +61,9 @@ export const PhysicsBody = defineComponent(
       isSensor: { kind: "boolean" },
       rotation: { kind: "number" },
     },
+    // Rapier handles belong to the old world; the new scene's PhysicsSystem
+    // re-registers the body when they are null.
+    transfer: (data) => ({ ...data, bodyHandle: null, colliderHandle: null }),
   },
 );
 

@@ -73,6 +73,16 @@ export interface ComponentDef<
    * not as an error.
    */
   readonly schema?: ComponentSchema<T>;
+  /**
+   * Optional hook run on a plain copy of this component's fields when its
+   * entity is carried into another scene (`captureEntities`). Return the data
+   * to keep: use it to reset engine-managed state that belongs to the old
+   * world, e.g. `PhysicsBody` nulls its Rapier handles. Absent means the
+   * fields are copied as-is.
+   */
+  readonly transfer?: (
+    data: Record<string, unknown>,
+  ) => Record<string, unknown>;
 }
 /** Optional extra config for `defineComponent`. */
 export interface DefineComponentOptions<
@@ -82,6 +92,10 @@ export interface DefineComponentOptions<
   readonly version?: number;
   /** See `ComponentSchema`. Omit for components with no Inspector schema. */
   readonly schema?: ComponentSchema<T>;
+  /** See `ComponentDef.transfer`. */
+  readonly transfer?: (
+    data: Record<string, unknown>,
+  ) => Record<string, unknown>;
 }
 /**
  * Define a component by name and a defaults factory.
