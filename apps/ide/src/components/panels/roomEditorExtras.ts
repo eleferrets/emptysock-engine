@@ -133,6 +133,29 @@ export function viewRect(v: EditableView): Rect {
   return { x: v.worldX, y: v.worldY, w: v.worldWidth, h: v.worldHeight };
 }
 
+/** The screen (port) rectangle a view draws into, in game-window pixels. */
+export function viewPortRect(v: EditableView): Rect {
+  return { x: v.screenX, y: v.screenY, w: v.screenWidth, h: v.screenHeight };
+}
+
+/** Sets a view's whole screen (port) rectangle, rounded to whole pixels. */
+export function setViewPortRect(extra: Extra, index: number, r: Rect): Extra {
+  return patchView(extra, index, {
+    screenX: Math.round(r.x),
+    screenY: Math.round(r.y),
+    screenWidth: Math.round(r.w),
+    screenHeight: Math.round(r.h),
+  });
+}
+
+/** Flips a view's `visible` flag (hidden views are still drawn, dimmed, and editable on the canvas). */
+export function toggleViewVisible(extra: Extra, index: number): Extra {
+  const v = getViews(extra)[index];
+  return v === undefined
+    ? extra
+    : patchView(extra, index, { visible: !v.visible });
+}
+
 /** Moves a view's world rectangle, keeping its size. */
 export function moveView(
   extra: Extra,
@@ -216,9 +239,9 @@ export const VIEW_CHIP = { w: 48, h: 14 };
  * What a click at (px,py) selects among the room's direct entities and views:
  * entities by body (topmost, i.e. last, first), views only by their border
  * (within `tolerance`) or label chip, so a view rectangle never swallows
- * clicks meant for what is inside it. Invisible views are not drawn, so they
- * are not hittable either; toggle **Visible** in the side panel to bring one
- * onto the canvas.
+ * clicks meant for what is inside it. Invisible views are skipped unless
+ * `includeHidden` is set (the canvas draws them dimmed and lets them be
+ * selected, moved and resized like any other).
  */
 export function hitTestExtras(
   extra: Extra,
@@ -226,6 +249,7 @@ export function hitTestExtras(
   py: number,
   tolerance: number,
   defaultSize: number,
+  includeHidden = false,
 ): ExtraHit | null {
   const entities = getEntities(extra);
   for (let i = entities.length - 1; i >= 0; i--) {
@@ -239,7 +263,7 @@ export function hitTestExtras(
   const views = getViews(extra);
   for (let i = views.length - 1; i >= 0; i--) {
     const v = views[i];
-    if (v === undefined || !v.visible) continue;
+    if (v === undefined || (!v.visible && !includeHidden)) continue;
     const r = viewRect(v);
     const inChip =
       px >= r.x &&

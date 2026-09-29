@@ -616,10 +616,115 @@ describe("RoomEditor — canvas editing of views and entities", () => {
     });
   });
 
-  it("draws visible views only", async () => {
+  it("draws hidden views too (dimmed), so they can be edited", async () => {
     await setup(false);
     expect(strokes).toContainEqual([320, 160, 320, 192]);
-    expect(strokes).not.toContainEqual([0, 0, 320, 192]);
+    expect(strokes).toContainEqual([0, 0, 320, 192]);
+  });
+
+  it("drags a hidden view by its border on the canvas", async () => {
+    const canvas = await setup(false);
+    // Hidden view 1 sits at world (0,0) 320x192: top border at y=0.
+    fire(canvas, "pointerdown", 100, 0);
+    fire(canvas, "pointermove", 130, 20);
+    fire(canvas, "pointerup", 130, 20);
+    expect(saved().views[1]).toMatchObject({
+      worldX: 30,
+      worldY: 20,
+      visible: false,
+    });
+    expect(saved().views[0]).toMatchObject({ worldX: 320, worldY: 160 });
+  });
+
+  it("double-clicking a view toggles its visibility", async () => {
+    const canvas = await setup(false);
+    act(() => {
+      canvas.dispatchEvent(
+        new MouseEvent("dblclick", { clientX: 100, clientY: 0, bubbles: true }),
+      );
+    });
+    expect(saved().views[1]).toMatchObject({ visible: true });
+  });
+
+  it("drags a view by its screen (port) rectangle in the game-window overlay", async () => {
+    const canvas = await setup(false);
+    // Two 640x384 ports -> overlay scale 0.375, frame at (710,486) 240x144.
+    // Both ports coincide, so the topmost (view 1) is grabbed at the overlay centre at the overlay centre and move it 40px right.
+    fire(canvas, "pointerdown", 830, 558);
+    fire(canvas, "pointermove", 870, 558);
+    fire(canvas, "pointerup", 870, 558);
+    const v0 = saved().views[1] as {
+      screenX: number;
+      screenY: number;
+      worldX: number;
+    };
+    expect(v0.screenX).toBe(107);
+    expect(v0.screenY).toBe(0);
+    expect(v0.worldX).toBe(0); // world rectangle untouched
+    clickUndo();
+    expect((saved().views[1] as { screenX: number }).screenX).toBe(0);
+  });
+
+  it("pans by dragging empty background and edits at the panned position", async () => {
+    const canvas = await setup(false);
+    const level = (): string =>
+      container.querySelector("[data-testid=room-zoom-level]")?.textContent ??
+      "";
+    expect(level()).toBe("100%");
+    fire(canvas, "pointerdown", 900, 100);
+    fire(canvas, "pointermove", 850, 130);
+    fire(canvas, "pointerup", 850, 130);
+    // The file is untouched by a pan.
+    expect(saved().views[0]).toMatchObject({ worldX: 320, worldY: 160 });
+    // View 0's top border (world 400,160) is now at screen (350,190).
+    fire(canvas, "pointerdown", 350, 190);
+    fire(canvas, "pointermove", 380, 230);
+    fire(canvas, "pointerup", 380, 230);
+    expect(saved().views[0]).toMatchObject({ worldX: 350, worldY: 200 });
+  });
+
+  it("zooms with the wheel about the cursor, and the zoom buttons reset and fit", async () => {
+    const canvas = await setup(false);
+    const level = (): string =>
+      container.querySelector("[data-testid=room-zoom-level]")?.textContent ??
+      "";
+    act(() => {
+      canvas.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: -500,
+          clientX: 0,
+          clientY: 0,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(level()).toBe("212%");
+    const btn = (t: string): HTMLButtonElement | undefined =>
+      Array.from(container.querySelectorAll("button")).find(
+        (b) => b.title === t,
+      );
+    act(() => btn("Reset zoom and pan")?.click());
+    expect(level()).toBe("100%");
+    act(() => btn("Fit the whole room in view")?.click());
+    expect(level()).not.toBe("100%");
+    act(() => btn("Zoom in")?.click());
+    expect(Number.parseInt(level(), 10)).toBeGreaterThan(0);
+  });
+
+  it("picks the right thing at a zoomed position", async () => {
+    const canvas = await setup(false);
+    // Zoom 2x about the origin via two wheel notches is fuzzy; use the buttons: 1.25^n.
+    const zin = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.title === "Zoom in",
+    );
+    act(() => zin?.click()); // zoom 1.25 about canvas centre (480,320)
+    // World point (400,160) -> screen = (400-480)*1.25+480, (160-320)*1.25+320 = (380,120).
+    fire(canvas, "pointerdown", 380, 120);
+    fire(canvas, "pointermove", 405, 145);
+    fire(canvas, "pointerup", 405, 145);
+    // +25 screen px = +20 world px at 1.25x.
+    expect(saved().views[0]).toMatchObject({ worldX: 340, worldY: 180 });
   });
 
   it("edits followObject from the side panel on blur, and clears it when emptied", async () => {

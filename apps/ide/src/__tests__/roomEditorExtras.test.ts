@@ -10,6 +10,9 @@ import {
   getEntities,
   entityRect,
   hitTestExtras,
+  viewPortRect,
+  setViewPortRect,
+  toggleViewVisible,
   moveView,
   setViewFollowObject,
   setViewRect,
@@ -155,5 +158,48 @@ describe("roomEditorExtras geometry", () => {
     expect(
       followCandidates([{ prefab: "b" }, { prefab: "a" }, { prefab: "b" }]),
     ).toEqual(["a", "b"]);
+  });
+
+  it("hit-tests hidden views only when asked", () => {
+    const hidden = { views: [{ ...viewFull, visible: false }] };
+    expect(hitTestExtras(hidden, 100, 150, 6, 32, true)).toEqual({
+      kind: "view",
+      index: 0,
+    });
+  });
+
+  it("reads and writes a view's screen (port) rectangle, rounded", () => {
+    const extra = { views: [viewFull], other: 1 };
+    const r = viewPortRect(viewFull);
+    expect(r).toEqual({
+      x: viewFull.screenX,
+      y: viewFull.screenY,
+      w: viewFull.screenWidth,
+      h: viewFull.screenHeight,
+    });
+    const next = setViewPortRect(extra, 0, {
+      x: 10.4,
+      y: 20.6,
+      w: 100.2,
+      h: 50,
+    });
+    expect(next["views"]).toEqual([
+      {
+        ...viewFull,
+        screenX: 10,
+        screenY: 21,
+        screenWidth: 100,
+        screenHeight: 50,
+      },
+    ]);
+    expect(next["other"]).toBe(1);
+  });
+
+  it("toggles visibility", () => {
+    const next = toggleViewVisible({ views: [viewFull] }, 0);
+    expect((next["views"] as { visible: boolean }[])[0]?.visible).toBe(false);
+    expect(toggleViewVisible({ views: [viewFull] }, 5)["views"]).toEqual([
+      viewFull,
+    ]);
   });
 });

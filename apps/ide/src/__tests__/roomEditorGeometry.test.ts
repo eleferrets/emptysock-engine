@@ -6,6 +6,18 @@ import {
   snapValue,
   boxFromCenter,
   centerOfBox,
+  screenToWorld,
+  worldToScreen,
+  zoomAt,
+  fitCamera,
+  clampZoom,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  portLayout,
+  portToOverlay,
+  overlayToPort,
+  hitPort,
+  insidePortOverlay,
 } from "../components/panels/roomEditorGeometry";
 
 describe("nineSliceRects", () => {
@@ -106,5 +118,64 @@ describe("resizeBox / snap", () => {
     const b = boxFromCenter(100, 50, 40, 20);
     expect(b).toEqual({ x: 80, y: 40, w: 40, h: 20 });
     expect(centerOfBox(b)).toEqual({ x: 100, y: 50 });
+  });
+});
+
+describe("pan / zoom camera", () => {
+  it("screen and world conversions round-trip", () => {
+    const cam = { x: 40, y: -20, zoom: 2 };
+    const w = screenToWorld(cam, 140, 80);
+    expect(w).toEqual({ x: 50, y: 50 });
+    expect(worldToScreen(cam, w.x, w.y)).toEqual({ x: 140, y: 80 });
+  });
+  it("zoomAt keeps the world point under the cursor fixed and clamps", () => {
+    const cam = { x: 10, y: 20, zoom: 1 };
+    const before = screenToWorld(cam, 300, 200);
+    const z = zoomAt(cam, 2, 300, 200);
+    expect(z.zoom).toBe(2);
+    expect(screenToWorld(z, 300, 200)).toEqual(before);
+    expect(zoomAt(cam, 1e6, 0, 0).zoom).toBe(MAX_ZOOM);
+    expect(zoomAt(cam, 1e-6, 0, 0).zoom).toBe(MIN_ZOOM);
+    expect(clampZoom(3)).toBe(3);
+  });
+  it("fitCamera centres the bounds with margin", () => {
+    const c = fitCamera({ x: 100, y: 100, w: 400, h: 200 }, 900, 500, 50);
+    expect(c.zoom).toBe(2);
+    const tl = worldToScreen(c, 100, 100);
+    const br = worldToScreen(c, 500, 300);
+    expect(tl).toEqual({ x: 50, y: 50 });
+    expect(br).toEqual({ x: 850, y: 450 });
+  });
+});
+
+describe("game-window port overlay", () => {
+  const ports = [
+    { x: 0, y: 0, w: 640, h: 384 },
+    { x: 320, y: 192, w: 320, h: 192 },
+  ];
+  it("fits the window into the corner of the canvas", () => {
+    const l = portLayout(ports, 960, 640);
+    expect(l.winW).toBe(640);
+    expect(l.winH).toBe(384);
+    expect(l.scale).toBeCloseTo(0.375);
+    expect(l.frame.x + l.frame.w).toBeCloseTo(950);
+    expect(l.frame.y + l.frame.h).toBeCloseTo(630);
+  });
+  it("maps ports to the overlay and back", () => {
+    const l = portLayout(ports, 960, 640);
+    const b = portToOverlay(l, ports[1] as never);
+    const back = overlayToPort(l, b.x, b.y);
+    expect(back.x).toBeCloseTo(320);
+    expect(back.y).toBeCloseTo(192);
+  });
+  it("hit-tests the topmost port and the overlay area", () => {
+    const l = portLayout(ports, 960, 640);
+    const inBoth = portToOverlay(l, { x: 400, y: 250, w: 1, h: 1 });
+    expect(hitPort(l, ports, inBoth.x, inBoth.y)).toBe(1);
+    const onlyFirst = portToOverlay(l, { x: 10, y: 10, w: 1, h: 1 });
+    expect(hitPort(l, ports, onlyFirst.x, onlyFirst.y)).toBe(0);
+    expect(hitPort(l, ports, 5, 5)).toBeNull();
+    expect(insidePortOverlay(l, 5, 5)).toBe(false);
+    expect(insidePortOverlay(l, l.frame.x + 1, l.frame.y + 1)).toBe(true);
   });
 });

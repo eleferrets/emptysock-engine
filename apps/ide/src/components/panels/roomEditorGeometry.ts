@@ -157,3 +157,160 @@ export function boxFromCenter(x: number, y: number, w: number, h: number): Box {
 export function centerOfBox(b: Box): { x: number; y: number } {
   return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
 }
+
+// ── Pan / zoom camera ───────────────────────────────────────────────────────
+
+/** Editor camera: a world point `w` is drawn at screen `w * zoom + (x, y)`. */
+export interface Camera2D {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 8;
+export const DEFAULT_CAMERA: Camera2D = { x: 0, y: 0, zoom: 1 };
+
+export function clampZoom(z: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}
+
+export function screenToWorld(
+  cam: Camera2D,
+  sx: number,
+  sy: number,
+): { x: number; y: number } {
+  return { x: (sx - cam.x) / cam.zoom, y: (sy - cam.y) / cam.zoom };
+}
+
+export function worldToScreen(
+  cam: Camera2D,
+  wx: number,
+  wy: number,
+): { x: number; y: number } {
+  return { x: wx * cam.zoom + cam.x, y: wy * cam.zoom + cam.y };
+}
+
+/** Zooms by `factor` keeping the world point under screen (sx, sy) fixed. */
+export function zoomAt(
+  cam: Camera2D,
+  factor: number,
+  sx: number,
+  sy: number,
+): Camera2D {
+  const zoom = clampZoom(cam.zoom * factor);
+  const w = screenToWorld(cam, sx, sy);
+  return { zoom, x: sx - w.x * zoom, y: sy - w.y * zoom };
+}
+
+/** Camera that fits `bounds` (world) inside a `viewW` x `viewH` screen with `margin`, centred. */
+export function fitCamera(
+  bounds: Box,
+  viewW: number,
+  viewH: number,
+  margin = 24,
+): Camera2D {
+  const bw = Math.max(1, bounds.w);
+  const bh = Math.max(1, bounds.h);
+  const zoom = clampZoom(
+    Math.min((viewW - margin * 2) / bw, (viewH - margin * 2) / bh),
+  );
+  return {
+    zoom,
+    x: (viewW - bw * zoom) / 2 - bounds.x * zoom,
+    y: (viewH - bh * zoom) / 2 - bounds.y * zoom,
+  };
+}
+
+// ── Game-window "port" overlay ──────────────────────────────────────────────
+
+/**
+ * A view's screen (port) rectangle lives in game-window space, not room
+ * space, so it is edited in a small fixed overlay showing the whole window
+ * with every view's port inside it.
+ */
+export interface PortLayout {
+  scale: number;
+  winW: number;
+  winH: number;
+  /** The window rectangle in canvas (screen) pixels. */
+  frame: Box;
+}
+
+export const PORT_OVERLAY_MAX = { w: 240, h: 150 };
+export const PORT_OVERLAY_MARGIN = 10;
+
+export function portLayout(
+  ports: readonly Box[],
+  canvasW: number,
+  canvasH: number,
+): PortLayout {
+  let winW = 320;
+  let winH = 180;
+  for (const p of ports) {
+    winW = Math.max(winW, p.x + p.w);
+    winH = Math.max(winH, p.y + p.h);
+  }
+  const scale = Math.min(PORT_OVERLAY_MAX.w / winW, PORT_OVERLAY_MAX.h / winH);
+  const w = winW * scale;
+  const h = winH * scale;
+  return {
+    scale,
+    winW,
+    winH,
+    frame: {
+      x: canvasW - PORT_OVERLAY_MARGIN - w,
+      y: canvasH - PORT_OVERLAY_MARGIN - h,
+      w,
+      h,
+    },
+  };
+}
+
+export function portToOverlay(l: PortLayout, p: Box): Box {
+  return {
+    x: l.frame.x + p.x * l.scale,
+    y: l.frame.y + p.y * l.scale,
+    w: p.w * l.scale,
+    h: p.h * l.scale,
+  };
+}
+
+export function overlayToPort(
+  l: PortLayout,
+  sx: number,
+  sy: number,
+): { x: number; y: number } {
+  return { x: (sx - l.frame.x) / l.scale, y: (sy - l.frame.y) / l.scale };
+}
+
+/** Whether a canvas point lies inside the overlay (including a small grab margin). */
+export function insidePortOverlay(
+  l: PortLayout,
+  sx: number,
+  sy: number,
+  pad = 6,
+): boolean {
+  return (
+    sx >= l.frame.x - pad &&
+    sx <= l.frame.x + l.frame.w + pad &&
+    sy >= l.frame.y - pad &&
+    sy <= l.frame.y + l.frame.h + pad
+  );
+}
+
+/** Topmost (last) port whose overlay rectangle contains the canvas point. */
+export function hitPort(
+  l: PortLayout,
+  ports: readonly Box[],
+  sx: number,
+  sy: number,
+): number | null {
+  for (let i = ports.length - 1; i >= 0; i--) {
+    const p = ports[i];
+    if (p === undefined) continue;
+    const b = portToOverlay(l, p);
+    if (sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) return i;
+  }
+  return null;
+}

@@ -6,14 +6,25 @@ import { isElementShown } from "../../hooks/isElementShown";
 import { ViewControls } from "./shared/ViewControls";
 import {
   type Box,
+  type Camera2D,
   type HandleId,
+  type PortLayout,
+  DEFAULT_CAMERA,
   SLICE_NINE,
   SLICE_TILED,
   boxFromCenter,
   centerOfBox,
+  fitCamera,
+  hitPort,
   hitResizeHandle,
+  insidePortOverlay,
   nineSliceRects,
+  overlayToPort,
+  portLayout,
+  portToOverlay,
   resizeBox,
+  screenToWorld,
+  zoomAt,
 } from "./roomEditorGeometry";
 import {
   VIEW_CHIP,
@@ -30,8 +41,11 @@ import {
   moveView,
   patchView,
   setViewFollowObject,
+  setViewPortRect,
   setViewRect,
   setViewsEnabled,
+  toggleViewVisible,
+  viewPortRect,
   viewRect,
   type Extra,
   type ExtraHit,
@@ -334,6 +348,31 @@ export function RoomEditor(): React.ReactElement {
     handle: HandleId;
   } | null>(null);
 
+  // Editor camera (pan/zoom). Mirrored into a ref so the native wheel
+  // listener and pointer handlers always read the latest value.
+  const [cam, setCamState] = React.useState<Camera2D>(DEFAULT_CAMERA);
+  const camRef = React.useRef<Camera2D>(DEFAULT_CAMERA);
+  const setCam = React.useCallback((next: Camera2D): void => {
+    camRef.current = next;
+    setCamState(next);
+  }, []);
+  const panRef = React.useRef<{
+    startX: number;
+    startY: number;
+    camX: number;
+    camY: number;
+  } | null>(null);
+  const spaceHeldRef = React.useRef(false);
+  // Dragging/resizing a view's screen (port) rectangle in the game-window overlay.
+  const portDragRef = React.useRef<{
+    index: number;
+    handle: HandleId | null;
+    offsetX: number;
+    offsetY: number;
+    /** Overlay layout frozen at drag start so the mapping does not drift as the window grows. */
+    layout: PortLayout;
+  } | null>(null);
+
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const dragRef = React.useRef<{
     index: number;
@@ -429,20 +468,44 @@ export function RoomEditor(): React.ReactElement {
     ctx.fillStyle = computed.getPropertyValue("--es-bg").trim() || "#14141f";
     ctx.fillRect(0, 0, width, height);
 
-    if (showGrid) {
+    // Everything below up to the matching restore() is drawn in room (world)
+    // space, through the pan/zoom camera.
+    ctx.save();
+    ctx.translate(cam.x, cam.y);
+    if (cam.zoom !== 1 && typeof ctx.scale === "function") {
+      ctx.scale(cam.zoom, cam.zoom);
+    }
+    const hs = HANDLE / cam.zoom;
+
+    if (showGrid && gridSize > 0) {
       ctx.strokeStyle =
         computed.getPropertyValue("--es-border").trim() || "#2a2a3e";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x <= width; x += gridSize) {
-        ctx.moveTo(x + 0.5, 0);
-        ctx.lineTo(x + 0.5, height);
+      ctx.lineWidth = 1 / cam.zoom;
+      const wx0 = -cam.x / cam.zoom;
+      const wy0 = -cam.y / cam.zoom;
+      const wx1 = wx0 + width / cam.zoom;
+      const wy1 = wy0 + height / cam.zoom;
+      // Skip the grid when it would be denser than ~4 screen px per cell.
+      if (gridSize * cam.zoom >= 4) {
+        ctx.beginPath();
+        for (
+          let x = Math.floor(wx0 / gridSize) * gridSize;
+          x <= wx1;
+          x += gridSize
+        ) {
+          ctx.moveTo(x + 0.5 / cam.zoom, wy0);
+          ctx.lineTo(x + 0.5 / cam.zoom, wy1);
+        }
+        for (
+          let y = Math.floor(wy0 / gridSize) * gridSize;
+          y <= wy1;
+          y += gridSize
+        ) {
+          ctx.moveTo(wx0, y + 0.5 / cam.zoom);
+          ctx.lineTo(wx1, y + 0.5 / cam.zoom);
+        }
+        ctx.stroke();
       }
-      for (let y = 0; y <= height; y += gridSize) {
-        ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(width, y + 0.5);
-      }
-      ctx.stroke();
     }
 
     // Direct entities (converted backgrounds, layer elements): faint boxes
@@ -548,8 +611,8 @@ export function RoomEditor(): React.ReactElement {
           [b.x, b.y + b.h / 2],
         ] as const;
         for (const [hx, hy] of pts) {
-          ctx.fillRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
-          ctx.strokeRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
+          ctx.fillRect(hx - hs, hy - hs, hs * 2, hs * 2);
+          ctx.strokeRect(hx - hs, hy - hs, hs * 2, hs * 2);
         }
       }
 
@@ -565,15 +628,17 @@ export function RoomEditor(): React.ReactElement {
     // object it follows.
     const viewsOn = getViewsEnabled(liveExtra);
     getViews(liveExtra).forEach((v, vi) => {
-      if (!v.visible) return;
       const r = viewRect(v);
       const isSel = selExtra?.kind === "view" && selExtra.index === vi;
       const colour = isSel
         ? computed.getPropertyValue("--es-accent").trim() || "#818cf8"
         : "#4ad0a0";
-      setDash(ctx, viewsOn ? [] : [6, 4]);
+      // Hidden views stay on the canvas, dimmed and dotted, so they can still
+      // be selected, moved and resized (double-click a view to toggle it).
+      setDash(ctx, !v.visible ? [2, 4] : viewsOn ? [] : [6, 4]);
+      ctx.globalAlpha = v.visible ? 1 : 0.5;
       ctx.strokeStyle = colour;
-      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.lineWidth = (isSel ? 2 : 1) / cam.zoom;
       ctx.strokeRect(r.x, r.y, r.w, r.h);
       setDash(ctx, []);
       ctx.fillStyle = colour;
@@ -583,20 +648,83 @@ export function RoomEditor(): React.ReactElement {
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillText(
-        v.followObject !== undefined ? `View ${vi}*` : `View ${vi}`,
+        `View ${vi}${v.followObject !== undefined ? "*" : ""}${v.visible ? "" : " off"}`,
         r.x + 3,
         r.y - VIEW_CHIP.h + 2,
       );
+      ctx.globalAlpha = 1;
       if (isSel) {
         ctx.fillStyle = "#ffffff";
         ctx.strokeStyle = colour;
         for (const [hx, hy] of handlePoints(r)) {
-          ctx.fillRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
-          ctx.strokeRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
+          ctx.fillRect(hx - hs, hy - hs, hs * 2, hs * 2);
+          ctx.strokeRect(hx - hs, hy - hs, hs * 2, hs * 2);
         }
       }
     });
+    ctx.restore();
+
+    // Game-window overlay (screen space): every view's screen (port)
+    // rectangle inside the window, draggable and resizable.
+    const allViews = getViews(liveExtra);
+    if (allViews.length > 0) {
+      const ports = allViews.map(viewPortRect);
+      const layout = portLayout(ports, width, height);
+      ctx.fillStyle = "#000000";
+      ctx.globalAlpha = 0.55;
+      ctx.fillRect(
+        layout.frame.x - 4,
+        layout.frame.y - 16,
+        layout.frame.w + 8,
+        layout.frame.h + 20,
+      );
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        `Game window ${layout.winW}x${layout.winH}`,
+        layout.frame.x,
+        layout.frame.y - 13,
+      );
+      ctx.strokeStyle = "#888888";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        layout.frame.x,
+        layout.frame.y,
+        layout.frame.w,
+        layout.frame.h,
+      );
+      allViews.forEach((v, vi) => {
+        const b = portToOverlay(
+          layout,
+          ports[vi] ?? { x: 0, y: 0, w: 0, h: 0 },
+        );
+        const isSel = selExtra?.kind === "view" && selExtra.index === vi;
+        const colour = isSel
+          ? computed.getPropertyValue("--es-accent").trim() || "#818cf8"
+          : "#4ad0a0";
+        ctx.globalAlpha = v.visible ? 0.35 : 0.15;
+        ctx.fillStyle = colour;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.globalAlpha = 1;
+        setDash(ctx, v.visible ? [] : [2, 3]);
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = isSel ? 2 : 1;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        setDash(ctx, []);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(`${vi}`, b.x + 3, b.y + 2);
+        if (isSel) {
+          for (const [hx, hy] of handlePoints(b)) {
+            ctx.fillRect(hx - 3, hy - 3, 6, 6);
+          }
+        }
+      });
+    }
   }, [
+    cam,
     liveExtra,
     selExtra,
     liveInstances,
@@ -621,15 +749,102 @@ export function RoomEditor(): React.ReactElement {
     return null;
   }
 
+  /** Pointer position in canvas (screen) pixels, corrected for the canvas being CSS-scaled. */
+  function screenPoint(e: {
+    clientX: number;
+    clientY: number;
+    currentTarget: HTMLCanvasElement;
+  }): {
+    x: number;
+    y: number;
+  } {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const kx = rect.width > 0 ? el.width / rect.width : 1;
+    const ky = rect.height > 0 ? el.height / rect.height : 1;
+    return { x: (e.clientX - rect.left) * kx, y: (e.clientY - rect.top) * ky };
+  }
+
+  /** Pointer position in room (world) coordinates, through the editor camera. */
   function canvasPoint(e: React.PointerEvent<HTMLCanvasElement>): {
     x: number;
     y: number;
   } {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const s = screenPoint(e);
+    return screenToWorld(camRef.current, s.x, s.y);
+  }
+
+  function capture(e: React.PointerEvent<HTMLCanvasElement>): void {
+    if (typeof e.currentTarget.setPointerCapture === "function") {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>): void {
+    const scr = screenPoint(e);
+    // Middle button, or Space held: pan regardless of what is under the pointer.
+    if (e.button === 1 || spaceHeldRef.current) {
+      panRef.current = {
+        startX: scr.x,
+        startY: scr.y,
+        camX: camRef.current.x,
+        camY: camRef.current.y,
+      };
+      capture(e);
+      return;
+    }
+    // The game-window overlay is in screen space and wins over the room.
+    const allViews = getViews(liveExtra);
+    if (allViews.length > 0) {
+      const ports = allViews.map(viewPortRect);
+      const layout = portLayout(
+        ports,
+        e.currentTarget.width,
+        e.currentTarget.height,
+      );
+      if (insidePortOverlay(layout, scr.x, scr.y)) {
+        // A resize handle of the selected view's port first.
+        if (selExtra?.kind === "view") {
+          const sel = ports[selExtra.index];
+          if (sel !== undefined) {
+            const handle = hitResizeHandle(
+              scr.x,
+              scr.y,
+              portToOverlay(layout, sel),
+              4,
+            );
+            if (handle !== null) {
+              portDragRef.current = {
+                index: selExtra.index,
+                handle,
+                offsetX: 0,
+                offsetY: 0,
+                layout,
+              };
+              capture(e);
+              return;
+            }
+          }
+        }
+        const idx = hitPort(layout, ports, scr.x, scr.y);
+        if (idx !== null) {
+          const port = ports[idx];
+          const at = overlayToPort(layout, scr.x, scr.y);
+          setSelectedIndex(null);
+          setSelExtra({ kind: "view", index: idx });
+          portDragRef.current = {
+            index: idx,
+            handle: null,
+            offsetX: at.x - (port?.x ?? 0),
+            offsetY: at.y - (port?.y ?? 0),
+            layout,
+          };
+          capture(e);
+        }
+        return;
+      }
+    }
+    const tol = (HANDLE + 1) / camRef.current.zoom;
     const { x, y } = canvasPoint(e);
     // A resize handle of the already-selected sliced/tiled instance wins over body hits.
     if (selectedIndex !== null) {
@@ -639,7 +854,7 @@ export function RoomEditor(): React.ReactElement {
           x,
           y,
           instanceBox(cur, prefabSprites),
-          HANDLE + 1,
+          tol,
         );
         if (handle !== null) {
           resizeRef.current = { index: selectedIndex, handle };
@@ -654,7 +869,7 @@ export function RoomEditor(): React.ReactElement {
     if (selExtra?.kind === "view") {
       const v = getViews(liveExtra)[selExtra.index];
       if (v !== undefined) {
-        const handle = hitResizeHandle(x, y, viewRect(v), HANDLE + 1);
+        const handle = hitResizeHandle(x, y, viewRect(v), tol);
         if (handle !== null) {
           extraResizeRef.current = { index: selExtra.index, handle };
           if (typeof e.currentTarget.setPointerCapture === "function") {
@@ -668,15 +883,19 @@ export function RoomEditor(): React.ReactElement {
     if (hit === null) {
       // Not on an instance: try direct entities and camera views.
       setSelectedIndex(null);
-      const extraHit = hitTestExtras(
-        liveExtra,
-        x,
-        y,
-        HANDLE + 1,
-        INSTANCE_SIZE,
-      );
+      const extraHit = hitTestExtras(liveExtra, x, y, tol, INSTANCE_SIZE, true);
       setSelExtra(extraHit);
-      if (extraHit === null) return;
+      if (extraHit === null) {
+        // Empty background: drag to pan.
+        panRef.current = {
+          startX: scr.x,
+          startY: scr.y,
+          camX: camRef.current.x,
+          camY: camRef.current.y,
+        };
+        capture(e);
+        return;
+      }
       const origin =
         extraHit.kind === "entity"
           ? entityPosition(getEntities(liveExtra)[extraHit.index] ?? {})
@@ -709,6 +928,46 @@ export function RoomEditor(): React.ReactElement {
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>): void {
+    const pan = panRef.current;
+    if (pan !== null) {
+      const scr = screenPoint(e);
+      setCam({
+        ...camRef.current,
+        x: pan.camX + (scr.x - pan.startX),
+        y: pan.camY + (scr.y - pan.startY),
+      });
+      return;
+    }
+    const portDrag = portDragRef.current;
+    if (portDrag !== null) {
+      const scr = screenPoint(e);
+      const layout = portDrag.layout;
+      const at = overlayToPort(layout, scr.x, scr.y);
+      setLiveExtra((prev) => {
+        const v = getViews(prev)[portDrag.index];
+        if (v === undefined) return prev;
+        if (portDrag.handle === null) {
+          const nx = snapValueOn(at.x - portDrag.offsetX);
+          const ny = snapValueOn(at.y - portDrag.offsetY);
+          return setViewPortRect(prev, portDrag.index, {
+            ...viewPortRect(v),
+            x: Math.max(0, nx),
+            y: Math.max(0, ny),
+          });
+        }
+        const nb = resizeBox(
+          viewPortRect(v),
+          portDrag.handle,
+          at.x,
+          at.y,
+          snapToGrid,
+          gridSize,
+          MIN_SLICED_SIZE,
+        );
+        return setViewPortRect(prev, portDrag.index, nb);
+      });
+      return;
+    }
     const extraResize = extraResizeRef.current;
     if (extraResize !== null) {
       const { x, y } = canvasPoint(e);
@@ -789,7 +1048,22 @@ export function RoomEditor(): React.ReactElement {
     });
   }
 
+  function snapValueOn(v: number): number {
+    return snapToGrid && gridSize > 0 ? Math.round(v / gridSize) * gridSize : v;
+  }
+
   function handlePointerUp(): void {
+    if (panRef.current !== null) {
+      panRef.current = null;
+      return;
+    }
+    if (portDragRef.current !== null) {
+      portDragRef.current = null;
+      if (state !== undefined && liveExtra !== state.extra) {
+        commitExtra(liveExtra);
+      }
+      return;
+    }
     if (extraResizeRef.current !== null || extraDragRef.current !== null) {
       extraResizeRef.current = null;
       extraDragRef.current = null;
@@ -807,6 +1081,116 @@ export function RoomEditor(): React.ReactElement {
     if (dragRef.current === null) return;
     dragRef.current = null;
     commit(liveInstances);
+  }
+
+  function handleDoubleClick(e: React.MouseEvent<HTMLCanvasElement>): void {
+    const scr = screenPoint(e);
+    const w = screenToWorld(camRef.current, scr.x, scr.y);
+    const hit = hitTestExtras(
+      liveExtra,
+      w.x,
+      w.y,
+      (HANDLE + 1) / camRef.current.zoom,
+      INSTANCE_SIZE,
+      true,
+    );
+    if (hit?.kind !== "view") return;
+    const next = toggleViewVisible(liveExtra, hit.index);
+    setLiveExtra(next);
+    setSelExtra(hit);
+    commitExtra(next);
+  }
+
+  const showCanvas =
+    scenePaths.length > 0 &&
+    !(
+      liveInstances.length === 0 &&
+      getViews(liveExtra).length === 0 &&
+      getEntities(liveExtra).length === 0
+    );
+
+  // Wheel zoom about the cursor. A native, non-passive listener: React's
+  // onWheel is passive, so it could not stop the page from scrolling.
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas === null || !showCanvas) return;
+    const onWheel = (ev: WheelEvent): void => {
+      ev.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const kx = rect.width > 0 ? canvas.width / rect.width : 1;
+      const ky = rect.height > 0 ? canvas.height / rect.height : 1;
+      const factor = Math.exp(-ev.deltaY * 0.0015);
+      setCam(
+        zoomAt(
+          camRef.current,
+          factor,
+          (ev.clientX - rect.left) * kx,
+          (ev.clientY - rect.top) * ky,
+        ),
+      );
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [showCanvas, setCam]);
+
+  // Hold Space to pan with the primary button.
+  React.useEffect(() => {
+    const isTyping = (t: EventTarget | null): boolean =>
+      t instanceof HTMLElement &&
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT");
+    const down = (ev: KeyboardEvent): void => {
+      if (
+        ev.code === "Space" &&
+        !isTyping(ev.target) &&
+        isElementShown(rootRef.current)
+      ) {
+        spaceHeldRef.current = true;
+        ev.preventDefault();
+      }
+    };
+    const up = (ev: KeyboardEvent): void => {
+      if (ev.code === "Space") spaceHeldRef.current = false;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
+
+  /** Bounds of everything in the room: instances, entities, view world rectangles. */
+  function contentBounds(): Box {
+    const boxes: Box[] = [
+      ...liveInstances.map((i) => instanceBox(i, prefabSprites)),
+      ...getEntities(liveExtra).map((en) => entityRect(en, INSTANCE_SIZE)),
+      ...getViews(liveExtra).map(viewRect),
+    ];
+    if (boxes.length === 0) return { x: 0, y: 0, w: 960, h: 640 };
+    const x0 = Math.min(...boxes.map((b) => b.x));
+    const y0 = Math.min(...boxes.map((b) => b.y));
+    const x1 = Math.max(...boxes.map((b) => b.x + b.w));
+    const y1 = Math.max(...boxes.map((b) => b.y + b.h));
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  function zoomBy(factor: number): void {
+    const c = canvasRef.current;
+    setCam(
+      zoomAt(
+        camRef.current,
+        factor,
+        (c?.width ?? 960) / 2,
+        (c?.height ?? 640) / 2,
+      ),
+    );
+  }
+
+  function fitToContent(): void {
+    const c = canvasRef.current;
+    setCam(fitCamera(contentBounds(), c?.width ?? 960, c?.height ?? 640));
   }
 
   const selected =
@@ -938,10 +1322,62 @@ export function RoomEditor(): React.ReactElement {
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
+              onDoubleClick={handleDoubleClick}
               style={{ width: "100%", height: "100%", cursor: "grab" }}
             />
           )}
           <ViewControls />
+          {showCanvas ? (
+            <div
+              data-testid="room-zoom-controls"
+              style={{
+                position: "absolute",
+                bottom: 8,
+                left: 8,
+                zIndex: 5,
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                padding: 2,
+                borderRadius: 6,
+                background:
+                  "color-mix(in srgb, var(--es-surface) 90%, transparent)",
+                border: "1px solid var(--es-border)",
+                fontSize: 11,
+                color: "var(--es-text-muted)",
+              }}
+            >
+              {(
+                [
+                  ["\u2212", "Zoom out", () => zoomBy(1 / 1.25)],
+                  ["+", "Zoom in", () => zoomBy(1.25)],
+                  ["100%", "Reset zoom and pan", () => setCam(DEFAULT_CAMERA)],
+                  ["Fit", "Fit the whole room in view", fitToContent],
+                ] as const
+              ).map(([label, title, onClick]) => (
+                <button
+                  key={title}
+                  type="button"
+                  title={title}
+                  onClick={onClick}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--es-text)",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <span data-testid="room-zoom-level" style={{ padding: "0 6px" }}>
+                {Math.round(cam.zoom * 100)}%
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {selected !== undefined && selectedIndex !== null ? (
