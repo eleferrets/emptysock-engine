@@ -88,6 +88,10 @@ describe("RainGlassFilter shader", () => {
     expect(RAIN_GLASS_FRAGMENT).toContain("uFog");
   });
 
+  it("declares GLSL ES 3.00 as the first bytes (pixi otherwise prepends a GLSL ES 1.00 header and textureLod fails to compile)", () => {
+    expect(RAIN_GLASS_FRAGMENT.startsWith("#version 300 es")).toBe(true);
+  });
+
   it("has no dynamic-bound loop: the only loop is bounded by a constant", () => {
     const loops = RAIN_GLASS_FRAGMENT.match(/for\s*\([^)]*\)/g) ?? [];
     expect(loops).toHaveLength(1);

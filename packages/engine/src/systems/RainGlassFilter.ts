@@ -30,7 +30,7 @@ export type { RainQuality, WiperOptions };
 
 // Pixi Filter vertex contract (see CustomShaderFilter's DEFAULT_CUSTOM_SHADER_VERTEX):
 // a filter quad has only `aPosition`, no `aUV`/projection matrices.
-const RAIN_GLASS_VERTEX = /* glsl */ `
+const RAIN_GLASS_VERTEX = /* glsl */ `#version 300 es
   in vec2 aPosition;
   out vec2 vUV;
   uniform vec4 uInputSize;
@@ -46,7 +46,7 @@ const RAIN_GLASS_VERTEX = /* glsl */ `
   }
 `;
 
-export const RAIN_GLASS_FRAGMENT = /* glsl */ `
+export const RAIN_GLASS_FRAGMENT = /* glsl */ `#version 300 es
   precision highp float;
   in vec2 vUV;
   out vec4 finalColor;
