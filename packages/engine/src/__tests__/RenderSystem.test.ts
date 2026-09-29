@@ -271,3 +271,44 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
     });
   });
 });
+
+describe("RenderSystem GL-only filter warning under WebGPU", () => {
+  const WEBGPU = 0b10; // pixi RendererType.WEBGPU
+
+  async function setup(type: number) {
+    const { createCustomShaderFilter } =
+      await import("../systems/CustomShaderFilter.js");
+    const render = new RenderSystem();
+    await render.init();
+    (render as unknown as { _renderer: { type: number } })._renderer.type =
+      type;
+    const glOnly = () =>
+      createCustomShaderFilter({
+        fragmentSrc:
+          "in vec2 vUV; out vec4 finalColor; void main(){ finalColor = vec4(1.0); }",
+      });
+    return { render, glOnly, createCustomShaderFilter };
+  }
+
+  it("warns exactly once when a GL-only filter is attached under WebGPU", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { render, glOnly } = await setup(WEBGPU);
+    render.addLayerShaderFilter("fg", glOnly());
+    render.addLayerShaderFilter("fg", glOnly());
+    render.addLayerShaderFilter("bg", glOnly());
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/WebGPU.*GLSL/);
+    warn.mockRestore();
+  });
+
+  it("does not warn under WebGL, or for a filter that has a GpuProgram", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const gl = await setup(0b01);
+    gl.render.addLayerShaderFilter("fg", gl.glOnly());
+    const gpu = await setup(WEBGPU);
+    gpu.render.addLayerShaderFilter("fg", new BlurFilter());
+    gpu.render.addLayerShaderFilter("fg", new ColorMatrixFilter());
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});

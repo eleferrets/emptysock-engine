@@ -5,6 +5,7 @@ import {
   Container,
   Graphics,
   RenderTexture,
+  RendererType,
   Sprite,
   type Filter,
   type Renderer,
@@ -352,12 +353,36 @@ export class RenderSystem {
    * there produces is what gets attached here.
    */
   addLayerShaderFilter(layerName: string, filter: Filter): void {
+    this.warnIfGlOnlyFilter(filter);
     const container = this.getLayerContainer(layerName);
     // `Container.filters` is typed `readonly Filter[]` (never null/undefined)
     // but a freshly constructed Container actually has it unset until first
     // assigned — spreading it directly throws on a container's first filter.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- pixi.js's own type is wrong about this at runtime
     container.filters = [...(container.filters ?? []), filter];
+  }
+
+  private _glOnlyFilterWarned = false;
+
+  /**
+   * Logs ONE clear warning (per RenderSystem) when the active renderer is
+   * WebGPU and `filter` carries only a GL program: pixi skips such a filter
+   * under WebGPU, so it would otherwise silently render nothing. Called for
+   * every layer filter attach and by `RenderPipeline` for per-entity shaders.
+   */
+  warnIfGlOnlyFilter(filter: Filter): void {
+    if (this._glOnlyFilterWarned || this._renderer === null) return;
+    if (this._renderer.type !== RendererType.WEBGPU) return;
+    // Pixi's own FilterSystem skips a filter when this mask test fails.
+    if ((filter.compatibleRenderers & this._renderer.type) !== 0) return;
+    this._glOnlyFilterWarned = true;
+    const name =
+      (filter as { shaderName?: string }).shaderName ?? filter.constructor.name;
+    console.warn(
+      `[emptysock] The WebGPU renderer is active but the shader filter "${name}" has only a GLSL (WebGL) program, so it will render nothing. ` +
+        `Give it a WGSL program (imported shaders get one automatically when the GLSL-to-WGSL conversion succeeds) or run with the WebGL renderer. ` +
+        `This warning is shown once; other GL-only filters are affected the same way.`,
+    );
   }
 
   private readonly _layerGmlShaders = new Map<

@@ -1439,6 +1439,7 @@ export class RenderPipeline implements SceneRenderer {
         source,
       };
       this._shaderFilters.set(id, entry);
+      this._render.warnIfGlOnlyFilter(built.filter);
     }
     if (entry.appliedVersion !== version && registration !== undefined) {
       entry.appliedVersion = applyGmlShaderUniforms(

@@ -19,6 +19,13 @@ export interface GmlShaderSource {
   /** The translated (GLSL ES 3.00) vertex stage the importer emitted. Only its `out` varyings are read; see `toFilterVertexSource`. */
   vertexSrc: string;
   fragmentSrc: string;
+  /**
+   * Optional WGSL fragment stage (entry point `main`) the importer converted
+   * from the GLSL one at build time. Present, the shader can also run under
+   * the WebGPU renderer; absent, it is GL-only. Its bind layout and locations
+   * follow pixi 8.21's filter contract, see `toFilterWgslVertexSource`.
+   */
+  wgslFragmentSrc?: string;
 }
 export type GmlShaderUniformKind = "f" | "i";
 export interface GmlShaderUniformValue {
@@ -78,3 +85,14 @@ export declare function parseShaderUniforms(
  * assigns them.
  */
 export declare function toFilterVertexSource(vertexSrc: string): string;
+/**
+ * The WGSL vertex stage that pairs with an importer-generated WGSL fragment
+ * (pixi 8.21 filter contract, verified in docs/research/11): `gfu` global
+ * filter uniforms at group 0 binding 0, `mainVertex(@location(0) aPosition)`,
+ * pixi's `filterVertexPosition` maths, and one `@location(n)` output per
+ * vertex-stage varying in declaration order (texcoord-named varyings carry
+ * the filter texture coordinate, the rest are `vec4(1.0)`), mirroring
+ * `toFilterVertexSource` for GLSL. Takes the translated GLSL ES 3.00 vertex
+ * (`out` lines) the importer emits.
+ */
+export declare function toFilterWgslVertexSource(vertexSrc: string): string;

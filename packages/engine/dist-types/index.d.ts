@@ -174,6 +174,7 @@ export {
   getGmlShaderUniforms,
   parseShaderUniforms,
   toFilterVertexSource,
+  toFilterWgslVertexSource,
 } from "./systems/ShaderRegistry.js";
 export type {
   GmlShaderSource,

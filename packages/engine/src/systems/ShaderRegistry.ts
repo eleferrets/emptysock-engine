@@ -19,6 +19,13 @@ export interface GmlShaderSource {
   /** The translated (GLSL ES 3.00) vertex stage the importer emitted. Only its `out` varyings are read; see `toFilterVertexSource`. */
   vertexSrc: string;
   fragmentSrc: string;
+  /**
+   * Optional WGSL fragment stage (entry point `main`) the importer converted
+   * from the GLSL one at build time. Present, the shader can also run under
+   * the WebGPU renderer; absent, it is GL-only. Its bind layout and locations
+   * follow pixi 8.21's filter contract, see `toFilterWgslVertexSource`.
+   */
+  wgslFragmentSrc?: string;
 }
 
 export type GmlShaderUniformKind = "f" | "i";
@@ -48,6 +55,9 @@ export function registerGmlShader(id: string, source: GmlShaderSource): void {
     source: {
       vertexSrc: normaliseNewlines(source.vertexSrc),
       fragmentSrc: normaliseNewlines(source.fragmentSrc),
+      ...(source.wgslFragmentSrc !== undefined
+        ? { wgslFragmentSrc: normaliseNewlines(source.wgslFragmentSrc) }
+        : {}),
     },
     uniforms: new Map(),
     version: (prev?.version ?? 0) + 1,
@@ -186,6 +196,62 @@ void main() {
   position.y = position.y * (2.0 * uOutputTexture.z / uOutputTexture.y) - uOutputTexture.z;
   gl_Position = vec4(position, 0.0, 1.0);
 ${assigns}
+}
+`;
+}
+
+/**
+ * The WGSL vertex stage that pairs with an importer-generated WGSL fragment
+ * (pixi 8.21 filter contract, verified in docs/research/11): `gfu` global
+ * filter uniforms at group 0 binding 0, `mainVertex(@location(0) aPosition)`,
+ * pixi's `filterVertexPosition` maths, and one `@location(n)` output per
+ * vertex-stage varying in declaration order (texcoord-named varyings carry
+ * the filter texture coordinate, the rest are `vec4(1.0)`), mirroring
+ * `toFilterVertexSource` for GLSL. Takes the translated GLSL ES 3.00 vertex
+ * (`out` lines) the importer emits.
+ */
+export function toFilterWgslVertexSource(vertexSrc: string): string {
+  const varyings: Array<{ type: string; name: string }> = [];
+  const re = /^\s*out\s+(\w+)\s+(\w+)\s*;/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(vertexSrc)) !== null) {
+    varyings.push({ type: m[1] as string, name: m[2] as string });
+  }
+  const wgslType = (t: string): string =>
+    /^vec[234]$/.test(t) ? `${t}<f32>` : "f32";
+  const fields = varyings
+    .map((v, i) => `  @location(${i}) ${v.name}: ${wgslType(v.type)},`)
+    .join("\n");
+  const values = varyings
+    .map((v) => {
+      if (/texcoord|uv/i.test(v.name)) return "uv";
+      const t = wgslType(v.type);
+      return t === "f32" ? "1.0" : `${t}(1.0)`;
+    })
+    .join(", ");
+  return `struct GlobalFilterUniforms {
+  uInputSize: vec4<f32>,
+  uInputPixel: vec4<f32>,
+  uInputClamp: vec4<f32>,
+  uOutputFrame: vec4<f32>,
+  uGlobalFrame: vec4<f32>,
+  uOutputTexture: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> gfu: GlobalFilterUniforms;
+
+struct VSOutput {
+  @builtin(position) position: vec4<f32>,
+${fields}
+};
+
+@vertex
+fn mainVertex(@location(0) aPosition: vec2<f32>) -> VSOutput {
+  var position = aPosition * gfu.uOutputFrame.zw + gfu.uOutputFrame.xy;
+  position.x = position.x * (2.0 / gfu.uOutputTexture.x) - 1.0;
+  position.y = position.y * (2.0 * gfu.uOutputTexture.z / gfu.uOutputTexture.y) - gfu.uOutputTexture.z;
+  let uv = aPosition * (gfu.uOutputFrame.zw * gfu.uInputSize.zw);
+  return VSOutput(vec4<f32>(position, 0.0, 1.0)${values ? `, ${values}` : ""});
 }
 `;
 }

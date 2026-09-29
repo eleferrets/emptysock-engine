@@ -138,6 +138,14 @@ export declare class RenderSystem {
    * there produces is what gets attached here.
    */
   addLayerShaderFilter(layerName: string, filter: Filter): void;
+  private _glOnlyFilterWarned;
+  /**
+   * Logs ONE clear warning (per RenderSystem) when the active renderer is
+   * WebGPU and `filter` carries only a GL program: pixi skips such a filter
+   * under WebGPU, so it would otherwise silently render nothing. Called for
+   * every layer filter attach and by `RenderPipeline` for per-entity shaders.
+   */
+  warnIfGlOnlyFilter(filter: Filter): void;
   private readonly _layerGmlShaders;
   /**
    * Attaches a shader registered via `registerGmlShader` (what an

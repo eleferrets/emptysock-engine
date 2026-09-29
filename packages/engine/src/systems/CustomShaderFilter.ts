@@ -14,13 +14,14 @@
 // A "vertex" that a developer omits falls back to DEFAULT_CUSTOM_SHADER_VERTEX,
 // which is exactly what the ShaderEditor panel's vertex tab starts from.
 
-import { Filter, GlProgram, UniformGroup } from "pixi.js";
+import { Filter, GlProgram, GpuProgram, UniformGroup } from "pixi.js";
 import {
   getGmlShader,
   getGmlShaderUniforms,
   getGmlShaderVersion,
   parseShaderUniforms,
   toFilterVertexSource,
+  toFilterWgslVertexSource,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 
@@ -78,6 +79,19 @@ export interface CustomShaderOptions {
    * written against the filter contract) is adapted the same way.
    */
   adaptVertex?: boolean;
+  /**
+   * Optional WGSL fragment stage (entry point `main`), which makes the filter
+   * usable under the WebGPU renderer. Without it the filter is GL-only and
+   * renders nothing under WebGPU (RenderSystem warns once). Must follow the
+   * pixi 8.21 filter contract: `@group(0) @binding(1/2)` `uTexture`/`uSampler`,
+   * user uniforms as ONE block at `@group(1) @binding(0)` named `uniforms`
+   * whose members are `uTime` followed by `options.uniforms` in key order
+   * (the JS UniformGroup is laid out from that order), varyings at
+   * `@location(n)` in the vertex stage's order. The importer generates it.
+   */
+  wgslFragment?: string;
+  /** Optional WGSL vertex stage (entry point `mainVertex`). Defaults to `toFilterWgslVertexSource(vertexSrc)`. */
+  wgslVertex?: string;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
   /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
@@ -107,9 +121,28 @@ export class CustomShaderFilter extends Filter {
       uTime: { value: 0, type: "f32" },
       ...(options.uniforms ?? {}),
     });
-    super({ glProgram: program, resources: { uniforms: group } });
+    const gpuProgram =
+      options.wgslFragment === undefined
+        ? undefined
+        : GpuProgram.from({
+            name: options.name ?? "emptysock-custom-shader",
+            vertex: {
+              source: options.wgslVertex ?? toFilterWgslVertexSource(rawVertex),
+              entryPoint: "mainVertex",
+            },
+            fragment: { source: options.wgslFragment, entryPoint: "main" },
+          });
+    super({
+      glProgram: program,
+      ...(gpuProgram !== undefined ? { gpuProgram } : {}),
+      resources: { uniforms: group },
+    });
     this._group = group;
+    this.shaderName = options.name ?? "emptysock-custom-shader";
   }
+
+  /** The program name (registry id for importer shaders); used in diagnostics. */
+  readonly shaderName: string;
 
   private readonly _group: UniformGroup;
 
@@ -159,6 +192,9 @@ export function buildGmlShaderFilter(
     fragmentSrc: source.fragmentSrc,
     name: id,
     uniforms: declared,
+    ...(source.wgslFragmentSrc !== undefined
+      ? { wgslFragment: source.wgslFragmentSrc }
+      : {}),
   });
   return { filter, uniforms };
 }
