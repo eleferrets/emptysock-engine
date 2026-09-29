@@ -299,6 +299,8 @@ export declare function action_another_room(
   _entity: Entity,
   ctx: GmlActionContext,
   roomName: string,
+  /** Internal: `room_restart`/`game_restart` pass this so persistence is reset (see `LoadSceneOptions.restart`). */
+  restart?: "room" | "game",
 ): void;
 /**
  * `room_goto(rm)` — GML's function-call spelling of "Go to Room" (as
@@ -325,7 +327,7 @@ export declare function room_goto_next(
   ctx: GmlActionContext,
 ): void;
 /**
- * `room_restart()` — reloads the currently loaded room from scratch (a real,
+ * `room_restart()` — reloads the currently loaded room from scratch, discarding its persistent-room cache entry (a real,
  * common GameMaker idiom for a "retry level"/player-death reset). Requires
  * the same `ctx.game`/`ctx.rooms`/`ctx.currentRoom` wiring `room_goto`/
  * `action_next_room` already need; honestly warns and no-ops without it.
@@ -335,17 +337,15 @@ export declare function room_restart(
   ctx: GmlActionContext,
 ): void;
 /**
- * `game_restart()` — GameMaker's real function reloads the entire game from
- * its very first room, resetting every instance and every global variable.
- * This engine has no single "reset everything" primitive that also clears
- * arbitrary global GML state living in `gmlStatics`/side-tables/a game's
- * own module-level variables — a genuine, honest gap, the same class as
- * `randomize()`'s "no seed API to hook" limitation above. What *is* honestly
- * representable is reloading the *first* room in `ctx.roomOrder` (the
- * closest real approximation this importer's room-name-addressed model can
- * offer, mirroring `room_restart`'s own "reload the current room" shape one
- * level up) — a real room reload, not a full state reset, and documented as
- * such rather than silently claiming a full restart happened.
+ * `game_restart()` — reloads the first room in `ctx.roomOrder` as a restart
+ * (`LoadSceneOptions.restart: "game"`): every persistent room's cached state
+ * is discarded and persistent objects are dropped, which is what the manual
+ * documents ("persistent room ... only being reset to the start state when the
+ * game is restarted"; "all persistent objects will be removed"). Global
+ * variables are deliberately NOT reset: the manual states they "will not be
+ * re-initialised unless explicitly coded as such". Remaining gap: process-
+ * global state such as `gmlStatics` and a game's own module-level variables is
+ * not reset.
  */
 export declare function game_restart(
   entity: Entity,

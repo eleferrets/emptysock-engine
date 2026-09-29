@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { Game } = await import("../Game.js");
 const { GmsProjectRuntime } = await import("../GmsRuntime.js");
@@ -8,6 +8,7 @@ const { GmlBehaviorState, registerGmlBehavior, unregisterGmlBehavior } =
   await import("../components/GmlBehavior.js");
 const { definePrefab } = await import("../Prefab.js");
 const compat = await import("../compat/gmlInstanceVars.js");
+const actions = await import("../compat/gmlActions.js");
 import type { GmlBehaviorModule } from "../components/GmlBehavior.js";
 import type { ComponentDef } from "../Component.js";
 import type { Entity } from "../Entity.js";
@@ -109,5 +110,51 @@ describe("room-level persistence", () => {
     // carried ctrl arrives, plus room a's own restored state has no ctrl
     expect(all(runtime, "objRoomCtrl")).toHaveLength(1);
     expect(all(runtime, "objThing")).toHaveLength(1);
+  });
+
+  it("room_restart clears that room's cache; game_restart clears all and drops carried objects", async () => {
+    const game = new Game();
+    const spy = vi.spyOn(game, "loadScene");
+    /** Await the load the GML action started with `void`. */
+    const settle = async (): Promise<void> => {
+      await spy.mock.results.at(-1)?.value;
+    };
+    const runtime = new GmsProjectRuntime(game, build());
+    await runtime.loadRoom("a");
+    const move = (x: number) => {
+      const tr = all(runtime, "objThing")[0]?.get(Transform);
+      if (tr) tr.x = x;
+    };
+    move(42);
+    await runtime.loadRoom("b");
+    expect(game.roomCache.keys()).toEqual(["a"]);
+    await runtime.loadRoom("a");
+    move(43);
+
+    const ctx = {
+      game,
+      rooms: (
+        runtime as unknown as { buildContext(): { rooms: never } }
+      ).buildContext().rooms,
+      roomOrder: ["a", "b"],
+      currentRoom: "a",
+    };
+    const dummy = all(runtime, "objThing")[0] as Entity;
+    actions.room_restart(dummy, ctx as never);
+    await settle();
+    expect(all(runtime, "objThing")[0]?.get(Transform)?.x).toBe(1);
+    expect(creates).toBe(3);
+
+    await runtime.loadRoom("b");
+    expect(game.roomCache.keys()).toEqual(["a"]);
+    game.globals.set("score", 3);
+    actions.game_restart(dummy, { ...ctx, currentRoom: "b" } as never);
+    await settle();
+    expect(game.roomCache.keys()).toEqual([]);
+    // GameMaker: globals are not re-initialised by game_restart.
+    expect(game.globals.get("score")).toBe(3);
+    expect(all(runtime, "objThing")[0]?.get(Transform)?.x).toBe(1);
+    // ctrl is placed by room a itself; the carried one from b was dropped
+    expect(all(runtime, "objRoomCtrl")).toHaveLength(1);
   });
 });
