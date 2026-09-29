@@ -10,7 +10,11 @@ import {
   scanGmlImplicitArrayVars,
 } from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
-import { getGmlUnsetVars } from "./gms2-source-bugs.js";
+import {
+  getGmlUnsetVars,
+  getGmlScriptInstanceVars,
+  getGmlProjectInstanceVars,
+} from "./gms2-source-bugs.js";
 
 // ---------------------------------------------------------------------------
 // Per-asset-kind codegen — RELEASE_PASS.md Track 7 / ground rule 15:
@@ -133,21 +137,29 @@ export async function resolveGmlObjectChain(
 export async function resolveGmlObjectProperties(
   name: string,
   projectRoot: string,
-): Promise<Map<string, number | string | boolean>> {
+): Promise<Map<string, number | string | boolean | { expr: string }>> {
   const chain = await resolveGmlObjectChain(name, projectRoot);
-  const merged = new Map<string, number | string | boolean>();
+  const merged = new Map<
+    string,
+    number | string | boolean | { expr: string }
+  >();
   // Walk root-most parent first so a child's own properties override.
   for (const objectName of [...chain].reverse()) {
     const yy = await readYyObject(objectName, projectRoot);
     for (const prop of yy?.properties ?? []) {
       if (typeof prop.name !== "string" || prop.name.length === 0) continue;
       const raw = prop.value ?? "";
-      let value: number | string | boolean;
+      let value: number | string | boolean | { expr: string };
       if (prop.varType === 3) {
         value = raw === "True" || raw === "true" || raw === "1";
       } else {
         const num = Number(raw);
-        value = raw !== "" && !Number.isNaN(num) ? num : raw;
+        if (raw !== "" && !Number.isNaN(num)) value = num;
+        // A real-typed (varType 0) default that is not a number is a GML
+        // expression, evaluated when the instance is created (`hsp` =
+        // `walksp`). Other types (string) keep their literal text.
+        else if (prop.varType === 0 && raw !== "") value = { expr: raw };
+        else value = raw;
       }
       merged.set(prop.name, value);
     }
@@ -251,6 +263,8 @@ export async function buildObjectPrefabJSON(
         let spriteWidth = 0;
         let spriteHeight = 0;
         let nineSlice: SpriteAsset["nineSlice"];
+        let spriteOrigin: { x: number; y: number } | undefined;
+        let spriteBbox: SpriteAsset["bbox"];
         try {
           const spriteAsset = await convertGms2Sprite(
             path.join(projectRoot, "sprites", spriteName),
@@ -260,6 +274,12 @@ export async function buildObjectPrefabJSON(
           spriteWidth = spriteAsset.width;
           spriteHeight = spriteAsset.height;
           nineSlice = spriteAsset.nineSlice;
+          if (
+            spriteAsset.originX !== undefined &&
+            spriteAsset.originY !== undefined
+          )
+            spriteOrigin = { x: spriteAsset.originX, y: spriteAsset.originY };
+          spriteBbox = spriteAsset.bbox;
         } catch {
           // Left at the single-frame default — the sprite loop elsewhere in
           // `importGMS2Project` is responsible for reporting the real
@@ -284,7 +304,22 @@ export async function buildObjectPrefabJSON(
         if (spriteWidth > 0 && spriteHeight > 0) {
           overrides["width"] = spriteWidth;
           overrides["height"] = spriteHeight;
+          // GameMaker positions an instance by the sprite's origin, not its
+          // centre, and its collision mask is a box relative to that origin.
+          if (spriteOrigin !== undefined) {
+            overrides["anchorX"] = spriteOrigin.x / spriteWidth;
+            overrides["anchorY"] = spriteOrigin.y / spriteHeight;
+          }
+          if (spriteBbox !== undefined) {
+            overrides["bboxLeft"] = spriteBbox.left;
+            overrides["bboxTop"] = spriteBbox.top;
+            overrides["bboxRight"] = spriteBbox.right;
+            overrides["bboxBottom"] = spriteBbox.bottom;
+          }
         }
+        // An object with its "Visible" box unticked (invisible collision
+        // blocks, controllers) draws nothing.
+        if (parsed["visible"] === false) overrides["visible"] = false;
         if (nineSlice !== undefined) {
           overrides["sliceMode"] = 1;
           overrides["sliceLeft"] = nineSlice.left;
@@ -452,6 +487,10 @@ export async function buildObjectBehavior(
   // of a bare identifier that throws.
   const unsetVars = getGmlUnsetVars(name);
   for (const v of unsetVars) objectImplicitVars.add(v);
+  // Names any script assigns (a script runs in its caller's instance scope).
+  const scriptVars = getGmlScriptInstanceVars();
+  for (const v of scriptVars.scalars) objectImplicitVars.add(v);
+  for (const v of scriptVars.arrays) objectArrayVars.add(v);
 
   // Real GameMaker object inheritance: an object without its own event
   // file for a given event slot still runs its parent's compiled event
@@ -478,6 +517,44 @@ export async function buildObjectBehavior(
     }
   }
 
+  // `event_inherited()` runs the parent object's handler for the same event.
+  // The parent's generated module is imported under an alias and the handler
+  // looked up by name (a parent without that event simply has none).
+  const inheritAliases = new Map<string, string>();
+  const parentModuleExists = new Map<string, boolean>();
+  for (const anc of objectChain.slice(1)) {
+    parentModuleExists.set(
+      anc,
+      await fs
+        .access(path.join(projectRoot, "objects", anc, `${anc}.yy`))
+        .then(() => true)
+        .catch(() => false),
+    );
+  }
+  function applyInherited(
+    body: string,
+    ownerName: string,
+    handler: string,
+    params: string,
+  ): string {
+    const re = /\bevent_inherited\s*\(\s*\)/g;
+    if (!re.test(body)) return body;
+    const parent = objectChain[objectChain.indexOf(ownerName) + 1];
+    if (parent === undefined || parentModuleExists.get(parent) !== true)
+      return body.replace(re, "undefined");
+    const alias = `__Inherit_${parent.replace(/\W/g, "_")}`;
+    inheritAliases.set(parent, alias);
+    const args = params
+      .split(",")
+      .map((p) => p.split(":")[0]?.trim() ?? "")
+      .filter((p) => p.length > 0)
+      .join(", ");
+    return body.replace(
+      re,
+      `(${alias} as unknown as Record<string, ((...a: unknown[]) => void) | undefined>)[${JSON.stringify(handler)}]?.(${args})`,
+    );
+  }
+
   async function buildMethod(
     methodName: string,
     eventLabel: string,
@@ -499,7 +576,12 @@ export async function buildObjectBehavior(
       );
       if (transpiled !== null) {
         const body = indent(
-          injectContextArgs(transpiled, knownScripts).trimEnd(),
+          applyInherited(
+            injectContextArgs(transpiled, knownScripts).trimEnd(),
+            ownerName,
+            methodName,
+            paramStr,
+          ),
           2,
         );
         const source =
@@ -540,11 +622,22 @@ export async function buildObjectBehavior(
   // for at all.
   const propertyDefaults = resolvedProperties;
   if (propertyDefaults.size > 0) {
+    const propNames = new Set(propertyDefaults.keys());
     const prelude = Array.from(propertyDefaults.entries())
-      .map(
-        ([propName, value]) =>
-          `  GmlActions.setGmlVar(_entity, _ctx, ${JSON.stringify(propName)}, ${JSON.stringify(value)});`,
-      )
+      .map(([propName, value]) => {
+        if (typeof value === "object") {
+          // Evaluate the expression like any other GML statement.
+          const stmt = transpileGML(
+            `${propName} = ${value.expr};`,
+            [],
+            propNames,
+            false,
+            `${name}_prop_${propName}`,
+          );
+          return indent(stmt.trimEnd(), 2);
+        }
+        return `  GmlActions.setGmlVarDefault(_entity, _ctx, ${JSON.stringify(propName)}, ${JSON.stringify(value)});`;
+      })
       .join("\n");
     onCreate = onCreate.replace(
       /^(export function onCreate\([^)]*\): void \{\n)/,
@@ -651,7 +744,15 @@ export async function buildObjectBehavior(
     );
     const body =
       transpiled !== null
-        ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
+        ? indent(
+            applyInherited(
+              injectContextArgs(transpiled, knownScripts).trimEnd(),
+              name,
+              `onCollideWith${otherClass}`,
+              "_entity, _other, _ctx",
+            ),
+            2,
+          )
         : `  // TODO: migrate collision with ${otherName}`;
     collisionFns.push(
       `export function onCollideWith${otherClass}(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from Collision_${otherName}.gml — review carefully]\n${body}\n}`,
@@ -699,7 +800,15 @@ export async function buildObjectBehavior(
       );
       const body =
         transpiled !== null
-          ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
+          ? indent(
+              applyInherited(
+                injectContextArgs(transpiled, knownScripts).trimEnd(),
+                name,
+                methodName,
+                "_entity, _ctx",
+              ),
+              2,
+            )
           : `  // TODO: migrate ${eventLabel} (vk ${code})`;
       fns.push(
         `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully]\n${body}\n}`,
@@ -759,7 +868,15 @@ export async function buildObjectBehavior(
     );
     const body =
       transpiled !== null
-        ? indent(injectContextArgs(transpiled, knownScripts).trimEnd(), 2)
+        ? indent(
+            applyInherited(
+              injectContextArgs(transpiled, knownScripts).trimEnd(),
+              name,
+              methodName,
+              "_entity, _ctx",
+            ),
+            2,
+          )
         : `  // TODO: migrate ${baseName}`;
     leftoverFns.push(
       `export function ${methodName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from ${gmlFile} — review carefully; unmapped event kind, verify its real GameMaker semantics before wiring it up]\n${body}\n}`,
@@ -838,7 +955,7 @@ export async function buildObjectBehavior(
 // actions need more, see that type's own doc comment).
 import type { Entity, GmlActionContext } from '@emptysock/engine';
 import * as GmlActions from '@emptysock/engine';
-${enumImportLine}${scriptImportLines ? scriptImportLines + "\n" : ""}
+${enumImportLine}${scriptImportLines ? scriptImportLines + "\n" : ""}${[...inheritAliases].map(([p, a]) => `import * as ${a} from './${p}.behavior.js';\n`).join("")}
 ${onCreate}
 ${onStepBegin ? `\n${onStepBegin}\n` : ""}
 ${onUpdate}
@@ -917,6 +1034,44 @@ export const ${toPascalCase(name)}Sprite = {
  * via the migration report (`gms2-report.ts`), the same place other
  * skip/manual notices already live.
  */
+/**
+ * Spawn props for one room instance: position always, and only the transform
+ * and blend values that differ from GameMaker's defaults (scale 1, angle 0,
+ * white, image_index 0, image_speed 1) so unchanged instances stay compact.
+ * GameMaker rotation is counter-clockwise degrees; `Transform.rotation` is
+ * clockwise radians (pixi), so the sign flips.
+ */
+export function roomInstanceProps(inst: {
+  x: number;
+  y: number;
+  scaleX?: number;
+  scaleY?: number;
+  rotation?: number;
+  colour?: number;
+  imageIndex?: number;
+  imageSpeed?: number;
+}): Record<string, number> {
+  const props: Record<string, number> = { x: inst.x, y: inst.y };
+  if (inst.scaleX !== undefined && inst.scaleX !== 1)
+    props["scaleX"] = inst.scaleX;
+  if (inst.scaleY !== undefined && inst.scaleY !== 1)
+    props["scaleY"] = inst.scaleY;
+  if (inst.rotation !== undefined && inst.rotation !== 0)
+    props["rotation"] = (-inst.rotation * Math.PI) / 180;
+  if (inst.colour !== undefined) {
+    const c = inst.colour >>> 0;
+    const rgb = ((c & 0xff) << 16) | (c & 0xff00) | ((c >>> 16) & 0xff);
+    const alpha = ((c >>> 24) & 0xff) / 255;
+    if ((c & 0xffffff) !== 0xffffff) props["tint"] = rgb;
+    if (alpha !== 1) props["alpha"] = alpha;
+  }
+  if (inst.imageIndex !== undefined && inst.imageIndex !== 0)
+    props["currentFrame"] = inst.imageIndex;
+  if (inst.imageSpeed !== undefined && inst.imageSpeed !== 1)
+    props["frameSpeed"] = inst.imageSpeed;
+  return props;
+}
+
 export async function buildRoomSceneJSON(
   name: string,
   projectRoot: string,
@@ -932,7 +1087,8 @@ export async function buildRoomSceneJSON(
       .filter((inst) => knownObjects.has(inst.objectName))
       .map((inst) => ({
         prefab: inst.objectName,
-        props: { x: inst.x, y: inst.y },
+        props: roomInstanceProps(inst),
+        ...(inst.gmlVars !== undefined ? { gmlVars: inst.gmlVars } : {}),
       })),
   );
 
@@ -1072,7 +1228,19 @@ export function ${name}(
   }
 
   const { paramNames, body, isLegacyArgStyle } = extractScriptSignature(source);
-  let transpiled = transpileGML(body, paramNames, new Set(), false, name);
+  // A script runs in its caller's instance scope, so a bare name that any
+  // object or script assigns is an instance variable here too (minus the
+  // script's own parameters and `var` locals, which transpileGML handles).
+  const projectVars = getGmlProjectInstanceVars();
+  let transpiled = transpileGML(
+    body,
+    paramNames,
+    projectVars.scalars,
+    false,
+    name,
+    undefined,
+    projectVars.arrays,
+  );
   // A real GMS2 script can declare `function name() { ... }` (so
   // `extractScriptSignature` sees a real signature and reports
   // `isLegacyArgStyle: false`) while its *body* still uses the legacy
@@ -1085,7 +1253,25 @@ export function ${name}(
   // declared zero named parameters is safe either way: a script with real
   // named parameters never contains a bare `argument`/`argumentN` reference
   // in valid GML, so this never misfires on one that doesn't need it.
+  // A script with named parameters may still refer to them as `argumentN`
+  // (GameMaker aliases them); map each onto the matching named parameter.
+  if (paramNames.length > 0) {
+    transpiled = transpiled.replace(
+      /(?<![\w.])argument(?:\[(\d+)\]|(\d+))(?![\w])/g,
+      (m: string, a: string | undefined, b: string | undefined) => {
+        const idx = Number(a ?? b);
+        return paramNames[idx] ?? m;
+      },
+    );
+  }
   if (isLegacyArgStyle || paramNames.length === 0) {
+    // Assignment targets first: `argument4 = current_time;` must stay an
+    // lvalue (`args[4] = ...`), not a `gmlNum(...)` call.
+    transpiled = transpiled.replace(
+      /(?<![\w.])argument(?:\[(\d+)\]|(\d+))(\s*(?:[-+*\/%|&^]|<<|>>)?=(?!=))/g,
+      (_m: string, a: string | undefined, b: string | undefined, op: string) =>
+        `args[${a ?? b}]${op}`,
+    );
     // `argument[N]` (bracket-index legacy syntax — GameMaker's own doc notes
     // this is interchangeable with `argumentN`, real confirmed usage in
     // Freedom Backup's scr_slide_transition.gml) must be rewritten before

@@ -291,3 +291,81 @@ export function followCandidates(
 ): string[] {
   return [...new Set(instances.map((i) => i.prefab))].sort();
 }
+
+// ── Drawing a brand-new view ─────────────────────────────────────────────────
+
+/** GameMaker has 8 view slots per room. */
+export const MAX_VIEWS = 8;
+
+/** Smallest rectangle (room pixels, each side) a drag must cover to create a view. */
+export const MIN_NEW_VIEW = 16;
+
+/** Normalises a drag from (x0,y0) to (x1,y1) into a top-left-origin rectangle. */
+export function rectFromDrag(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): Rect {
+  return {
+    x: Math.min(x0, x1),
+    y: Math.min(y0, y1),
+    w: Math.abs(x1 - x0),
+    h: Math.abs(y1 - y0),
+  };
+}
+
+/** True for an imported room's untouched placeholder slot (hidden, at the origin, following nothing). */
+function isUnusedView(v: EditableView): boolean {
+  return (
+    !v.visible &&
+    v.followObject === undefined &&
+    v.worldX === 0 &&
+    v.worldY === 0
+  );
+}
+
+/**
+ * Adds a new visible view looking at `rect`. It takes the first unused
+ * placeholder slot (imported rooms carry 8 hidden ones) or appends, up to
+ * `MAX_VIEWS`; returns the unchanged `extra` and `index: -1` when the room is
+ * full or `rect` is smaller than `MIN_NEW_VIEW`. The port starts as the same
+ * size at the window origin, the values GameMaker's own editor defaults to;
+ * views are switched on because a view that cannot show is no use.
+ */
+export function addView(
+  extra: Extra,
+  rect: Rect,
+): { extra: Extra; index: number } {
+  if (rect.w < MIN_NEW_VIEW || rect.h < MIN_NEW_VIEW)
+    return { extra, index: -1 };
+  const views = getViews(extra);
+  const fresh: EditableView = {
+    visible: true,
+    worldX: Math.round(rect.x),
+    worldY: Math.round(rect.y),
+    worldWidth: Math.round(rect.w),
+    worldHeight: Math.round(rect.h),
+    screenX: 0,
+    screenY: 0,
+    screenWidth: Math.round(rect.w),
+    screenHeight: Math.round(rect.h),
+    borderX: 32,
+    borderY: 32,
+    speedX: -1,
+    speedY: -1,
+  };
+  const slot = views.findIndex(isUnusedView);
+  if (slot >= 0) {
+    const next = views.map((v, i) => (i === slot ? fresh : v));
+    return {
+      extra: { ...extra, views: next, viewsEnabled: true },
+      index: slot,
+    };
+  }
+  if (views.length >= MAX_VIEWS) return { extra, index: -1 };
+  return {
+    extra: { ...extra, views: [...views, fresh], viewsEnabled: true },
+    index: views.length,
+  };
+}

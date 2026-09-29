@@ -86,16 +86,13 @@ export interface GmlParticleContext extends GmlActionContext {
 // ---------------------------------------------------------------------------
 
 /**
- * Same convention `gml.ts`'s `lengthdir_x`/`lengthdir_y` and `gmlActions.ts`'s
- * `MOVE_DIRECTION_BITS` already use in this codebase: degrees, `0` =
- * screen-right, increasing clockwise, `y` down — not GameMaker's own
- * "counterclockwise, y-up" `direction` variable. Kept consistent with the one
- * angle convention this compat layer has already established everywhere else,
- * rather than introducing a second one only particle functions would use.
+ * GameMaker's `direction`: degrees, `0` = screen-right, increasing
+ * counter-clockwise (`90` = up); screen `y` grows downward, hence `-sin`.
+ * Same as `gml.ts`'s `lengthdir_*` and `gmlActions.ts`'s motion.
  */
 function dirToUnit(degrees: number): { x: number; y: number } {
   const rad = (degrees * Math.PI) / 180;
-  return { x: Math.cos(rad), y: Math.sin(rad) };
+  return { x: Math.cos(rad), y: -Math.sin(rad) };
 }
 
 /**

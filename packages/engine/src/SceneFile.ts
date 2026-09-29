@@ -43,6 +43,8 @@ export interface SceneFilePrefabInstance {
   /** Name of a `PrefabFile` this instance spawns (resolved via `prefabsByName`). */
   readonly prefab: string;
   readonly props?: SerializableRecord;
+  /** GameMaker room-instance variable overrides, applied before the instance's Create event. */
+  readonly gmlVars?: Readonly<Record<string, number | string | boolean>>;
   readonly pool?: boolean;
 }
 
@@ -88,6 +90,9 @@ export interface SceneFile {
   readonly entities?: readonly SceneFileEntity[];
   /** Whether this room's viewport/camera system is active at all — GameMaker's room-wide `viewSettings.enableViews` (`view_enabled`). Views data (below) still parses and is still readable back via `gmlCamera.ts`'s compat functions even when this is `false`; it's just never mirrored onto a live `CameraSystem`/multi-viewport render pass. */
   readonly viewsEnabled?: boolean;
+  /** The room's size in pixels (`room_width`/`room_height`). */
+  readonly roomWidth?: number;
+  readonly roomHeight?: number;
   /** Up to 8 view slots (index = GameMaker view slot 0-7), converted from the room's real `.yy` `views` array. */
   readonly views?: readonly SceneFileView[];
 }
@@ -205,7 +210,10 @@ export interface LoadSceneFileOptions {
    * entity is live (its final component values), not at prefab-definition
    * time.
    */
-  onSpawned?: (entity: ReturnType<Scene["spawn"]>) => void;
+  onSpawned?: (
+    entity: ReturnType<Scene["spawn"]>,
+    instance?: SceneFilePrefabInstance,
+  ) => void;
 }
 
 /**
@@ -253,7 +261,7 @@ export function loadSceneFile(
       instance.pool === true ? { pool: true } : undefined;
     const entity = scene.spawn(prefab, instance.props, spawnOptions);
     stampPrefabNameOntoMeta(entity, prefab.prefabName);
-    options?.onSpawned?.(entity);
+    options?.onSpawned?.(entity, instance);
     spawned.push(entity);
   }
 

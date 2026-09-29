@@ -62,6 +62,18 @@ export function setGmlVar(
   return value;
 }
 
+/** Sets a variable-definition default only when nothing (a room instance's override) already set it. */
+export function setGmlVarDefault(
+  entity: Entity,
+  ctx: GmlActionContext,
+  name: string,
+  value: unknown,
+): void {
+  const vars = ensureVars(entity.world, entity.eid);
+  if (!vars.has(name)) vars.set(name, value);
+  void ctx;
+}
+
 export function hasGmlVar(
   entity: Entity,
   _ctx: GmlActionContext,

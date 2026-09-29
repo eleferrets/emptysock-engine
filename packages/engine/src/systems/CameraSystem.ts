@@ -212,8 +212,10 @@ export class CameraSystem {
     }
 
     if (this._stage !== null) {
-      this._stage.x = -this._x + shakeX;
-      this._stage.y = -this._y + shakeY;
+      // (x, y) is the world point at the view's top-left; the stage is
+      // scaled by `zoom`, so its offset is in scaled units.
+      this._stage.x = -this._x * this._zoom + shakeX;
+      this._stage.y = -this._y * this._zoom + shakeY;
       this._stage.scale.set(this._zoom);
       this._stage.rotation = this._rotation;
     }

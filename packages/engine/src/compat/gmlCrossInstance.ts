@@ -1,7 +1,18 @@
 import type { Entity } from "../Entity.js";
 import { Meta } from "../components/Meta.js";
 import { Transform } from "../components/Transform.js";
-import type { GmlActionContext } from "./gmlActions.js";
+import { Sprite } from "../components/Sprite.js";
+import {
+  getGmlDirection,
+  setGmlDirection,
+  getGmlSpeed,
+  setGmlSpeed,
+  getGmlHspeed,
+  setGmlHspeed,
+  getGmlVspeed,
+  setGmlVspeed,
+  type GmlActionContext,
+} from "./gmlActions.js";
 import { getGmlVar, setGmlVar } from "./gmlInstanceVars.js";
 
 /**
@@ -57,10 +68,104 @@ export function getGmlObjectVar(
   // `obj_player.x`/`obj_player.y`, 11+12 occurrences) must resolve
   // consistently with that, not silently read `undefined` from a
   // side-table `x`/`y` never actually populates.
-  if (field === "x" || field === "y") {
-    return target.get(Transform)?.[field] ?? 0;
+  return readInstanceField(target, ctx, field);
+}
+
+/**
+ * A GameMaker built-in instance variable (position, image_*, motion) lives on
+ * a component or in the motion side-table, not in the generic instance-variable
+ * store, so a dotted read/write of it on another instance must route the same
+ * way a same-instance bare `image_angle` does.
+ */
+export function readInstanceField(
+  target: Entity,
+  ctx: GmlActionContext,
+  field: string,
+): unknown {
+  const t = target.get(Transform);
+  const sp = target.get(Sprite);
+  switch (field) {
+    case "x":
+    case "y":
+      return t?.[field] ?? 0;
+    case "image_angle":
+      return t === undefined ? 0 : (-t.rotation * 180) / Math.PI;
+    case "image_xscale":
+      return t?.scaleX ?? 1;
+    case "image_yscale":
+      return t?.scaleY ?? 1;
+    case "image_alpha":
+      return sp?.alpha ?? 1;
+    case "image_index":
+      return sp?.currentFrame ?? 0;
+    case "image_speed":
+      return sp?.frameSpeed ?? 1;
+    case "depth":
+      return sp === undefined ? 0 : -sp.depth;
+    case "direction":
+      return getGmlDirection(target, ctx);
+    case "speed":
+      return getGmlSpeed(target, ctx);
+    case "hspeed":
+      return getGmlHspeed(target, ctx);
+    case "vspeed":
+      return getGmlVspeed(target, ctx);
+    default:
+      return getGmlVar(target, ctx, field);
   }
-  return getGmlVar(target, ctx, field);
+}
+
+/** See `readInstanceField`. */
+export function writeInstanceField(
+  target: Entity,
+  ctx: GmlActionContext,
+  field: string,
+  value: unknown,
+): void {
+  const t = target.get(Transform);
+  const sp = target.get(Sprite);
+  const n = Number(value) || 0;
+  switch (field) {
+    case "x":
+    case "y":
+      if (t !== undefined) t[field] = n;
+      return;
+    case "image_angle":
+      if (t !== undefined) t.rotation = (-n * Math.PI) / 180;
+      return;
+    case "image_xscale":
+      if (t !== undefined) t.scaleX = n;
+      return;
+    case "image_yscale":
+      if (t !== undefined) t.scaleY = n;
+      return;
+    case "image_alpha":
+      if (sp !== undefined) sp.alpha = n;
+      return;
+    case "image_index":
+      if (sp !== undefined) sp.currentFrame = n;
+      return;
+    case "image_speed":
+      if (sp !== undefined) sp.frameSpeed = n;
+      return;
+    case "depth":
+      if (sp !== undefined) sp.depth = -n;
+      return;
+    case "direction":
+      setGmlDirection(target, ctx, n);
+      return;
+    case "speed":
+      setGmlSpeed(target, ctx, n);
+      return;
+    case "hspeed":
+      setGmlHspeed(target, ctx, n);
+      return;
+    case "vspeed":
+      setGmlVspeed(target, ctx, n);
+      return;
+    default:
+      setGmlVar(target, ctx, field, value);
+  }
 }
 
 export function setGmlObjectVar(
@@ -77,12 +182,8 @@ export function setGmlObjectVar(
     );
     return value;
   }
-  if (field === "x" || field === "y") {
-    const t = target.get(Transform);
-    if (t !== undefined) t[field] = value as number;
-    return value;
-  }
-  return setGmlVar(target, ctx, field, value);
+  writeInstanceField(target, ctx, field, value);
+  return value;
 }
 
 function findFirstInstanceOfType(
@@ -133,12 +234,12 @@ export function getGmlRefVar(
   field: string,
 ): unknown {
   const ref = getGmlVar(entity, ctx, varName);
+  // A variable holding an object *index* (`follow = obj_player;`) refers to
+  // the first live instance of that object, as in GameMaker.
+  if (typeof ref === "string") return getGmlObjectVar(entity, ctx, ref, field);
   const target = asLiveEntity(ref);
   if (target === undefined) return undefined;
-  if (field === "x" || field === "y") {
-    return target.get(Transform)?.[field] ?? 0;
-  }
-  return getGmlVar(target, ctx, field);
+  return readInstanceField(target, ctx, field);
 }
 
 /** See `getGmlRefVar`'s own doc comment. */
@@ -150,6 +251,8 @@ export function setGmlRefVar(
   value: unknown,
 ): unknown {
   const ref = getGmlVar(entity, ctx, varName);
+  if (typeof ref === "string")
+    return setGmlObjectVar(entity, ctx, ref, field, value);
   const target = asLiveEntity(ref);
   if (target === undefined) {
     console.warn(
@@ -157,12 +260,8 @@ export function setGmlRefVar(
     );
     return value;
   }
-  if (field === "x" || field === "y") {
-    const t = target.get(Transform);
-    if (t !== undefined) t[field] = value as number;
-    return value;
-  }
-  return setGmlVar(target, ctx, field, value);
+  writeInstanceField(target, ctx, field, value);
+  return value;
 }
 
 /**
@@ -186,4 +285,26 @@ function asLiveEntity(value: unknown): Entity | undefined {
   }
   const candidate = value as Entity;
   return candidate.isAlive ? candidate : undefined;
+}
+
+/** Reads `field` off a known instance (`_other` in a collision event or `with` body). */
+export function getGmlEntityField(
+  ctx: GmlActionContext,
+  target: unknown,
+  field: string,
+): unknown {
+  const e = asLiveEntity(target);
+  return e === undefined ? undefined : readInstanceField(e, ctx, field);
+}
+
+/** Writes `field` on a known instance. */
+export function setGmlEntityField(
+  ctx: GmlActionContext,
+  target: unknown,
+  field: string,
+  value: unknown,
+): unknown {
+  const e = asLiveEntity(target);
+  if (e !== undefined) writeInstanceField(e, ctx, field, value);
+  return value;
 }

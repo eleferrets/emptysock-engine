@@ -116,30 +116,29 @@ export interface GmlActionContext {
  * `speed` — this is what produces GM8.1's diagonal movement when two
  * adjacent buttons are both pressed.
  *
- * Angles follow this codebase's own existing GML-angle convention (see
- * `gml.ts`'s `lengthdir_x`/`lengthdir_y`: `direction` in degrees, `0` =
- * screen-right, increasing clockwise, `y` down) rather than GameMaker's
- * real "counterclockwise, y-up" `direction` variable — deliberately kept
- * consistent with the one angle convention this compat layer already
- * established, rather than introducing a second one only this file uses.
+ * Angles follow GameMaker's own convention (`direction` in degrees, `0` =
+ * screen-right, increasing counter-clockwise, so `90` is screen-up). Screen
+ * `y` grows downward, so a velocity is `(cos, -sin)`. This matches
+ * `point_direction`/`lengthdir_x`/`lengthdir_y` in `gml.ts`; an earlier
+ * clockwise convention here mirrored every real game's aim vertically.
  */
 const MOVE_DIRECTION_BITS: readonly number[] = [
-  225, // NW (bit 0)
-  270, // N  (bit 1) — screen "up" is -y, i.e. 270° in this y-down convention
-  315, // NE (bit 2)
+  135, // NW (bit 0)
+  90, // N  (bit 1) — GameMaker angles are counter-clockwise, screen "up" is 90°
+  45, // NE (bit 2)
   180, // W  (bit 3)
   -1, // centre / "no direction" (bit 4) — never contributes
   0, // E  (bit 5)
-  135, // SW (bit 6)
-  90, // S  (bit 7)
-  45, // SE (bit 8)
+  225, // SW (bit 6)
+  270, // S  (bit 7)
+  315, // SE (bit 8)
 ];
 
 /** Per-(World, eid) motion state `action_move`/`action_move_to` write and `gmlActionsStep` reads. Not part of any component — see the module doc comment on why this needs its own side-table rather than a new `Transform` field. `direction` is remembered independently of `vx`/`vy` so a real GML `speed = 0;` (a common "stop moving" idiom) doesn't lose the instance's last-facing direction the way deriving it purely from `atan2(vy, vx)` would (`atan2(0, 0)` is always `0`, which would silently reset facing on every stop). */
 export interface GmlMotionState {
   vx: number;
   vy: number;
-  direction: number; // degrees, this file's lengthdir-style convention (0 = right, clockwise, y-down)
+  direction: number; // degrees, GameMaker convention (0 = right, counter-clockwise, 90 = up)
   friction: number;
   alarms: Map<number, number>; // alarm index -> frames remaining
 }
@@ -195,7 +194,7 @@ export function setGmlSpeed(
   const motion = ensureMotion(entity.world, entity.eid);
   const rad = (motion.direction * Math.PI) / 180;
   motion.vx = speed * Math.cos(rad);
-  motion.vy = speed * Math.sin(rad);
+  motion.vy = -speed * Math.sin(rad);
 }
 
 export function getGmlDirection(
@@ -205,7 +204,7 @@ export function getGmlDirection(
   const motion = motionByWorld.get(entity.world)?.get(entity.eid);
   if (motion === undefined) return 0;
   if (motion.vx === 0 && motion.vy === 0) return motion.direction;
-  let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+  let deg = (Math.atan2(-motion.vy, motion.vx) * 180) / Math.PI;
   if (deg < 0) deg += 360;
   motion.direction = deg;
   return deg;
@@ -221,7 +220,7 @@ export function setGmlDirection(
   motion.direction = direction;
   const rad = (direction * Math.PI) / 180;
   motion.vx = speed * Math.cos(rad);
-  motion.vy = speed * Math.sin(rad);
+  motion.vy = -speed * Math.sin(rad);
 }
 
 export function getGmlHspeed(entity: Entity, _ctx: GmlActionContext): number {
@@ -236,7 +235,7 @@ export function setGmlHspeed(
   const motion = ensureMotion(entity.world, entity.eid);
   motion.vx = hspeed;
   if (motion.vx !== 0 || motion.vy !== 0) {
-    let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+    let deg = (Math.atan2(-motion.vy, motion.vx) * 180) / Math.PI;
     if (deg < 0) deg += 360;
     motion.direction = deg;
   }
@@ -254,7 +253,7 @@ export function setGmlVspeed(
   const motion = ensureMotion(entity.world, entity.eid);
   motion.vy = vspeed;
   if (motion.vx !== 0 || motion.vy !== 0) {
-    let deg = (Math.atan2(motion.vy, motion.vx) * 180) / Math.PI;
+    let deg = (Math.atan2(-motion.vy, motion.vx) * 180) / Math.PI;
     if (deg < 0) deg += 360;
     motion.direction = deg;
   }
@@ -363,7 +362,7 @@ export function action_move(
     const angle = MOVE_DIRECTION_BITS[bit];
     if (angle === undefined || angle < 0) continue;
     sumX += Math.cos((angle * Math.PI) / 180);
-    sumY += Math.sin((angle * Math.PI) / 180);
+    sumY -= Math.sin((angle * Math.PI) / 180);
     count++;
   }
   const motion = ensureMotion(entity.world, entity.eid);
@@ -1034,6 +1033,25 @@ export function get_gml_alarm(
   return motion.alarms.get(index) ?? -1;
 }
 
+/** GML 2.3 `alarm_set(index, steps)` — the function form of `alarm[index] = steps`. */
+export function alarm_set(
+  entity: Entity,
+  ctx: GmlActionContext,
+  index: number,
+  steps: number,
+): void {
+  action_set_alarm(entity, ctx, index, steps);
+}
+
+/** GML 2.3 `alarm_get(index)` — the function form of reading `alarm[index]`. */
+export function alarm_get(
+  entity: Entity,
+  ctx: GmlActionContext,
+  index: number,
+): number {
+  return get_gml_alarm(entity, ctx, index);
+}
+
 // ---------------------------------------------------------------------------
 // Sound: action_sound
 // ---------------------------------------------------------------------------
@@ -1181,8 +1199,8 @@ export function action_if_collision(
   const aSize = spriteHalfExtents(entity);
   const bSize = spriteHalfExtents(other);
   return (
-    Math.abs(a.x - b.x) <= aSize.x + bSize.x &&
-    Math.abs(a.y - b.y) <= aSize.y + bSize.y
+    Math.abs(a.x + aSize.ox - (b.x + bSize.ox)) < aSize.x + bSize.x &&
+    Math.abs(a.y + aSize.oy - (b.y + bSize.oy)) < aSize.y + bSize.y
   );
 }
 
@@ -1208,12 +1226,51 @@ export function action_if_collision(
  * drift — see that file's own doc comment for why it's the reused source
  * of AABB extents for GML `onCollideWith<Type>` dispatch too.
  */
-export function spriteHalfExtents(entity: Entity): { x: number; y: number } {
+export function spriteHalfExtents(entity: Entity): {
+  x: number;
+  y: number;
+  /** Offset from the entity's `Transform` position to the mask box's centre. */
+  ox: number;
+  oy: number;
+} {
   const sprite = entity.get(Sprite);
-  if (sprite !== undefined && sprite.width > 0 && sprite.height > 0) {
-    return { x: sprite.width / 2, y: sprite.height / 2 };
+  const t = entity.get(Transform);
+  const sx = t?.scaleX ?? 1;
+  const sy = t?.scaleY ?? 1;
+  let l: number;
+  let r: number;
+  let tp: number;
+  let b: number;
+  if (
+    sprite !== undefined &&
+    sprite.bboxRight > sprite.bboxLeft &&
+    sprite.bboxBottom > sprite.bboxTop
+  ) {
+    // Real collision mask, offsets from the sprite origin (GMS2 `bbox_*`).
+    l = sprite.bboxLeft;
+    r = sprite.bboxRight;
+    tp = sprite.bboxTop;
+    b = sprite.bboxBottom;
+  } else if (sprite !== undefined && sprite.width > 0 && sprite.height > 0) {
+    // No mask data: the whole image, positioned by the sprite's anchor.
+    l = -sprite.anchorX * sprite.width;
+    r = (1 - sprite.anchorX) * sprite.width;
+    tp = -sprite.anchorY * sprite.height;
+    b = (1 - sprite.anchorY) * sprite.height;
+  } else {
+    return { x: 16, y: 16, ox: 0, oy: 0 };
   }
-  return { x: 16, y: 16 };
+  // A negative scale mirrors the mask about the origin; the size is |scale|.
+  const x0 = l * sx;
+  const x1 = r * sx;
+  const y0 = tp * sy;
+  const y1 = b * sy;
+  return {
+    x: Math.abs(x1 - x0) / 2,
+    y: Math.abs(y1 - y0) / 2,
+    ox: (x0 + x1) / 2,
+    oy: (y0 + y1) / 2,
+  };
 }
 
 /**
@@ -1234,28 +1291,32 @@ export function spriteHalfExtents(entity: Entity): { x: number; y: number } {
 export function bbox_left(entity: Entity): number {
   const t = entity.get(Transform);
   if (t === undefined) return 0;
-  return t.x - spriteHalfExtents(entity).x;
+  const e = spriteHalfExtents(entity);
+  return t.x + e.ox - e.x;
 }
 
 /** See `bbox_left`'s doc comment. */
 export function bbox_right(entity: Entity): number {
   const t = entity.get(Transform);
   if (t === undefined) return 0;
-  return t.x + spriteHalfExtents(entity).x;
+  const e = spriteHalfExtents(entity);
+  return t.x + e.ox + e.x;
 }
 
 /** See `bbox_left`'s doc comment. */
 export function bbox_top(entity: Entity): number {
   const t = entity.get(Transform);
   if (t === undefined) return 0;
-  return t.y - spriteHalfExtents(entity).y;
+  const e = spriteHalfExtents(entity);
+  return t.y + e.oy - e.y;
 }
 
 /** See `bbox_left`'s doc comment. */
 export function bbox_bottom(entity: Entity): number {
   const t = entity.get(Transform);
   if (t === undefined) return 0;
-  return t.y + spriteHalfExtents(entity).y;
+  const e = spriteHalfExtents(entity);
+  return t.y + e.oy + e.y;
 }
 
 /**
@@ -1377,8 +1438,8 @@ export function action_if_empty(
     }
     const size = spriteHalfExtents(other);
     if (
-      Math.abs(t.x - targetX) <= size.x &&
-      Math.abs(t.y - targetY) <= size.y
+      Math.abs(t.x + size.ox - targetX) < size.x &&
+      Math.abs(t.y + size.oy - targetY) < size.y
     ) {
       occupied = true;
     }

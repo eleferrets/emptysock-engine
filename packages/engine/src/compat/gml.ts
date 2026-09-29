@@ -88,11 +88,23 @@ export function sign(val: number): number {
  * argument-count translation needed.
  */
 export function max(...vals: number[]): number {
-  return Math.max(...vals);
+  // GameMaker compares with `>`, so a NaN argument never wins (JS Math.max
+  // would return NaN). `max(0, 1/0*0)` is 0 there.
+  let best = vals[0] ?? 0;
+  for (let i = 1; i < vals.length; i++) {
+    const v = vals[i] as number;
+    if (v > best) best = v;
+  }
+  return best;
 }
 
 export function min(...vals: number[]): number {
-  return Math.min(...vals);
+  let best = vals[0] ?? 0;
+  for (let i = 1; i < vals.length; i++) {
+    const v = vals[i] as number;
+    if (v < best) best = v;
+  }
+  return best;
 }
 
 export function abs(val: number): number {
@@ -150,7 +162,7 @@ export function lengthdir_x(length: number, direction: number): number {
 
 /** y component of a vector given length and direction (degrees, GML y-down) */
 export function lengthdir_y(length: number, direction: number): number {
-  return length * Math.sin((direction * Math.PI) / 180);
+  return -length * Math.sin((direction * Math.PI) / 180);
 }
 
 export function point_distance(
@@ -1297,3 +1309,20 @@ export function window_get_cursor(): number {
  * defaults (`font_get_size`'s `0`, `sprite_get_width`'s `0`).
  */
 export const working_directory = "";
+
+/** `chr(code)` — the character for a numeric code point (GML's inverse of `ord`). */
+export function chr(code: number): string {
+  return String.fromCodePoint(Math.max(0, Math.trunc(code)));
+}
+
+/** GML's `pi` constant. */
+export const pi: number = Math.PI;
+
+/**
+ * GML's `current_time` built-in: milliseconds since the game started. Rewritten
+ * from a bare `current_time` read; measured against the same start marker
+ * `get_timer` uses.
+ */
+export function get_current_time(): number {
+  return Date.now() - _gmlStart;
+}

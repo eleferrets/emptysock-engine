@@ -14,6 +14,17 @@ export interface InstanceEntry {
   objectName: string;
   x: number;
   y: number;
+  /** Per-instance transform/blend from the room `.yy` (defaults: 1, 1, 0, white, 0, 1). */
+  scaleX?: number;
+  scaleY?: number;
+  /** Degrees, GameMaker convention (counter-clockwise positive). */
+  rotation?: number;
+  /** `0xAABBGGRR`. */
+  colour?: number;
+  imageIndex?: number;
+  imageSpeed?: number;
+  /** Variable-definition overrides set on this placed instance in the room editor. */
+  gmlVars?: Record<string, number | string | boolean>;
 }
 
 export interface RoomLayer {
@@ -333,6 +344,46 @@ function parseViews(views: unknown): RoomView[] {
   });
 }
 
+function instanceTransform(
+  inst: Record<string, unknown>,
+): Partial<InstanceEntry> {
+  const num = (k: string): number | undefined =>
+    typeof inst[k] === "number" ? (inst[k] as number) : undefined;
+  const out: Partial<InstanceEntry> = {};
+  const sx = num("scaleX");
+  const sy = num("scaleY");
+  const rot = num("rotation");
+  const col = num("colour");
+  const idx = num("imageIndex");
+  const spd = num("imageSpeed");
+  if (sx !== undefined) out.scaleX = sx;
+  if (sy !== undefined) out.scaleY = sy;
+  if (rot !== undefined) out.rotation = rot;
+  if (col !== undefined) out.colour = col;
+  if (idx !== undefined) out.imageIndex = idx;
+  if (spd !== undefined) out.imageSpeed = spd;
+  const props = inst["properties"];
+  if (Array.isArray(props)) {
+    const vars: Record<string, number | string | boolean> = {};
+    for (const p of props as Record<string, unknown>[]) {
+      const pid = p["propertyId"] as { name?: unknown } | undefined;
+      const raw = p["value"];
+      if (typeof pid?.name !== "string" || typeof raw !== "string") continue;
+      const n = Number(raw);
+      vars[pid.name] =
+        raw === "True" || raw === "true"
+          ? true
+          : raw === "False" || raw === "false"
+            ? false
+            : raw !== "" && !Number.isNaN(n)
+              ? n
+              : raw;
+    }
+    if (Object.keys(vars).length > 0) out.gmlVars = vars;
+  }
+  return out;
+}
+
 function parseInstances(
   layer: YyLayer,
   guidToObjectName: Readonly<Record<string, string>>,
@@ -351,6 +402,7 @@ function parseInstances(
         ] as string,
         x: typeof inst.x === "number" ? inst.x : 0,
         y: typeof inst.y === "number" ? inst.y : 0,
+        ...instanceTransform(inst),
       };
     }
     // Legacy room format: no `objectId.name` — just a bare `objId` GUID
@@ -707,7 +759,7 @@ export async function convertGms2RoomLayerElements(
   for (const layer of room.layers) {
     for (const asset of layer.assets ?? []) {
       const label = `Room "${room.name}" layer "${layer.name}" ${asset.kind} element "${asset.name}"`;
-      const rotation = (asset.rotation * Math.PI) / 180;
+      const rotation = (-asset.rotation * Math.PI) / 180;
       const transform = {
         component: "Transform",
         overrides: {

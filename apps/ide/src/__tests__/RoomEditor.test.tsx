@@ -577,6 +577,58 @@ describe("RoomEditor — canvas editing of views and entities", () => {
     });
   });
 
+  it("draws a brand-new view by dragging a rectangle, as one undoable step", async () => {
+    const canvas = await setup(true);
+    const btn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="room-new-view"]',
+    );
+    expect(btn).not.toBeNull();
+    act(() => btn?.click());
+    // Drag from (100,100) to (420,292) in room space; snaps to the 32 grid.
+    fire(canvas, "pointerdown", 100, 100);
+    fire(canvas, "pointermove", 300, 200);
+    fire(canvas, "pointermove", 420, 292);
+    fire(canvas, "pointerup", 420, 292);
+    const views = saved().views;
+    // The second placeholder slot was hidden at the origin, so it is reused.
+    expect(views).toHaveLength(2);
+    expect(views[1]).toMatchObject({
+      visible: true,
+      worldX: 96,
+      worldY: 96,
+      worldWidth: 320,
+      worldHeight: 192,
+    });
+    expect(views[0]).toMatchObject({ worldX: 320, worldY: 160 });
+    clickUndo();
+    expect(saved().views[1]).toMatchObject({
+      visible: false,
+      worldX: 0,
+      worldY: 0,
+    });
+    // The tool switches itself off after one view.
+    expect(btn?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("adds nothing when the new-view drag is tiny or cancelled with Escape", async () => {
+    const canvas = await setup(false);
+    const before = useIDEStore.getState().openFiles[PATH];
+    const btn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="room-new-view"]',
+    );
+    act(() => btn?.click());
+    fire(canvas, "pointerdown", 100, 100);
+    fire(canvas, "pointerup", 104, 104);
+    expect(useIDEStore.getState().openFiles[PATH]).toBe(before);
+    act(() => btn?.click());
+    fire(canvas, "pointerdown", 100, 100);
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape" }));
+    });
+    fire(canvas, "pointerup", 400, 400);
+    expect(useIDEStore.getState().openFiles[PATH]).toBe(before);
+  });
+
   it("drags a visible view by its border and ignores clicks inside it", async () => {
     const canvas = await setup(false);
     // Inside the view (not near an edge, not on an entity): selects nothing, saves nothing.

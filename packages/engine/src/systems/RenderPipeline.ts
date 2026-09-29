@@ -322,7 +322,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     pixiSprite.x = x;
     pixiSprite.y = y;
     pixiSprite.scale.set(scaleX, scaleY);
-    pixiSprite.rotation = (rotationDeg * Math.PI) / 180;
+    pixiSprite.rotation = (-rotationDeg * Math.PI) / 180;
     pixiSprite.tint = colour;
     pixiSprite.alpha = alpha;
     this._shade(pixiSprite);

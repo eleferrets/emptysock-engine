@@ -210,7 +210,7 @@ describe("gmlParticles — part_particles_create actually produces a live Partic
     part_type_alpha2(typeId, 1, 0);
     part_type_speed(typeId, 100, 100, 0, 7);
     part_type_direction(typeId, 0, 0, 0, 12); // straight right in this codebase's convention
-    part_type_gravity(typeId, 50, 90); // straight down
+    part_type_gravity(typeId, 50, 270); // straight down (GameMaker: 270 is screen-down)
     part_type_life(typeId, 60, 60); // 1 second at the assumed 60 steps/sec
     part_type_blend(typeId, true);
 
@@ -241,7 +241,7 @@ describe("gmlParticles — part_particles_create actually produces a live Partic
     expect(opts?.lifetime.max).toBeCloseTo(1);
     // direction 0 (screen-right) at speed 100 -> vx bounds both include 100.
     expect(opts?.velocity.x?.max).toBeCloseTo(100, 5);
-    // gravity 50 at direction 90 (screen-down) -> ay = 50.
+    // gravity 50 at direction 270 (screen-down) -> ay = 50.
     expect(opts?.acceleration.y).toBeCloseTo(50, 5);
     expect(opts?.sizeWiggle).toBe(0.3);
     expect(opts?.speedWiggle).toBe(7);

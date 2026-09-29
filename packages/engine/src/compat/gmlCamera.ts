@@ -731,6 +731,9 @@ export function configureGmlViewsFromRoom(
       }
       camera_set_view_pos(ctx, DEFAULT_CAMERA_ID, v.worldX, v.worldY);
       camera_set_view_size(ctx, DEFAULT_CAMERA_ID, v.worldWidth, v.worldHeight);
+      // GameMaker draws the world rectangle scaled into the port rectangle.
+      if (v.worldWidth > 0 && v.screenWidth > 0)
+        ctx.camera?.snapZoom(v.screenWidth / v.worldWidth);
     }
     const handle = getHandle(ctx, camid);
     if (handle !== undefined && v.followObject !== undefined) {

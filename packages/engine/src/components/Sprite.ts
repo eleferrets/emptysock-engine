@@ -122,6 +122,15 @@ export const Sprite = defineComponent(
      * `shader_set`/`shader_reset` write it outside a Draw event.
      */
     shader: "",
+    /**
+     * Collision-mask box as offsets from the sprite origin (GMS2 `bbox_*`,
+     * right/bottom exclusive). All `0` means "no mask data": collision then
+     * uses the whole `width` x `height` image positioned by the anchor.
+     */
+    bboxLeft: 0,
+    bboxTop: 0,
+    bboxRight: 0,
+    bboxBottom: 0,
   }),
   {
     schema: {
@@ -130,6 +139,10 @@ export const Sprite = defineComponent(
       alpha: { kind: "number" },
       anchorX: { kind: "number" },
       anchorY: { kind: "number" },
+      bboxLeft: { kind: "number" },
+      bboxTop: { kind: "number" },
+      bboxRight: { kind: "number" },
+      bboxBottom: { kind: "number" },
       layer: { kind: "string" },
       depth: { kind: "number" },
       visible: { kind: "boolean" },

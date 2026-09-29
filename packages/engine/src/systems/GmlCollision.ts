@@ -60,7 +60,8 @@ export function checkGmlAabbOverlap(a: Entity, b: Entity): boolean {
   const ea = spriteHalfExtents(a);
   const eb = spriteHalfExtents(b);
   return (
-    Math.abs(ta.x - tb.x) <= ea.x + eb.x && Math.abs(ta.y - tb.y) <= ea.y + eb.y
+    Math.abs(ta.x + ea.ox - (tb.x + eb.ox)) < ea.x + eb.x &&
+    Math.abs(ta.y + ea.oy - (tb.y + eb.oy)) < ea.y + eb.y
   );
 }
 

@@ -12,6 +12,8 @@ import { GmlBehaviorSystem } from "./systems/GmlBehaviorSystem.js";
 import { TimelineSystem } from "./systems/TimelineSystem.js";
 import { GmlSequenceSystem } from "./systems/GmlSequenceSystem.js";
 import { gmlActionsStep } from "./compat/gmlActions.js";
+import { setRoomSize } from "./compat/gml.js";
+import { setGmlVar } from "./compat/gmlInstanceVars.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
 import { KNOWN_VK_CODES, vkToDomCode } from "./compat/gmlKeys.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
@@ -288,6 +290,16 @@ export class GmsProjectRuntime {
         // fabricated sentinel room name).
         this._previousRoom = this._currentRoom;
         this._currentRoom = name;
+        // Room size and camera/view setup come first, before any instance's
+        // Create event: GameMaker cameras and `room_width` are already in
+        // place when Create runs (a camera object reads its view size there).
+        if (file.roomWidth !== undefined && file.roomHeight !== undefined)
+          setRoomSize(file.roomWidth, file.roomHeight);
+        configureGmlViewsFromRoom(
+          { ...this.buildContext(), scene },
+          file.views ?? [],
+          file.viewsEnabled ?? false,
+        );
         // GameMaker's `persistent` semantic (manual: Object Properties —
         // "Persistent"; a persistent instance carries into the next room and
         // does not re-run Create): persisted instances exist *before* the new
@@ -297,23 +309,17 @@ export class GmsProjectRuntime {
         // do we.
         this.restorePersistent(scene);
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
-          onSpawned: (entity) => {
+          onSpawned: (entity, instance) => {
+            if (instance?.gmlVars !== undefined) {
+              const ctx = this.buildContext();
+              for (const [k, v] of Object.entries(instance.gmlVars))
+                setGmlVar(entity, ctx, k, v);
+            }
             if (entity.get(GmlBehaviorState) !== undefined) {
               this._behaviors.dispatchCreate(entity, this.buildContext());
             }
           },
         });
-        // Real camera/view setup — the room's converted `.yy` `views` data
-        // (see CLAUDE.md's "GMS2 room camera/view import" entry). Configures
-        // this scene's camera/view registry (`gmlCamera.ts`) from real room
-        // data before anything else runs this frame, so a Create-event GML
-        // call that reads `camera_get_view_x`/`view_camera[idx]` on frame 1
-        // already sees the room's real view state, not defaults.
-        configureGmlViewsFromRoom(
-          this.buildContext(),
-          file.views ?? [],
-          file.viewsEnabled ?? false,
-        );
       },
       onUpdate: (dt) => {
         this.runGmlPasses(dt);
@@ -465,6 +471,10 @@ export class GmsProjectRuntime {
     // instances), so this pass runs over every GmlSequenceState entity, not
     // just the ones gmlActionsStep/timelines just touched.
     this._sequences.update(scene, dt);
+
+    // Apply the (possibly just moved) camera to the stage before this
+    // frame's render step, which runs after this hook.
+    this.options.camera?.update(dt);
   }
 
   /**
@@ -561,6 +571,9 @@ export class GmsProjectRuntime {
     this.game.update(dt);
 
     if (this.options.renderer === undefined) return;
+    // A room change the game itself started (`room_goto`) is async: until the
+    // new scene finishes loading there is no current scene to read views from.
+    if (this.scene === undefined) return;
     const viewports = buildActiveGmlCameraViewports(this.buildContext());
     if (viewports.length > 1) {
       this.options.renderer.renderMultiCamera(viewports);

@@ -16,6 +16,11 @@ export interface SpriteAsset {
   frameCount: number;
   width: number;
   height: number;
+  /** Sprite origin in pixels from the top-left (`sequence.xorigin`/`yorigin`). */
+  originX?: number;
+  originY?: number;
+  /** Collision mask as offsets from the origin (right/bottom exclusive): GMS2 `bbox_*` minus the origin. */
+  bbox?: { left: number; top: number; right: number; bottom: number };
   /**
    * @deprecated kept for backward compatibility with callers that expect a
    * single image path. GMS2 stores one PNG per frame (named by frame UUID),
@@ -62,6 +67,8 @@ interface YyFrame {
 }
 
 interface YySequence {
+  xorigin?: number;
+  yorigin?: number;
   playbackSpeed?: number;
   playbackSpeedType?: number;
   [key: string]: unknown;
@@ -71,6 +78,10 @@ interface YySprite {
   name?: string;
   width?: number;
   height?: number;
+  bbox_left?: number;
+  bbox_right?: number;
+  bbox_top?: number;
+  bbox_bottom?: number;
   frames?: YyFrame[];
   sequence?: YySequence | null;
   nineSlice?: {
@@ -203,8 +214,42 @@ export async function convertGms2Sprite(
     frameCount: frames.length,
     width,
     height,
+    ...spriteOriginAndMask(parsed, width, height),
     imagePath: frames[0]?.imagePath ?? path.join(spriteYyDir, `${name}.png`),
     ...(frameSpeed !== undefined ? { frameSpeed } : {}),
     ...(nineSlice !== undefined ? { nineSlice } : {}),
   };
+}
+
+/** Reads the sprite origin and collision-mask box from a parsed sprite `.yy`. */
+function spriteOriginAndMask(
+  parsed: YySprite,
+  width: number,
+  height: number,
+): Pick<SpriteAsset, "originX" | "originY" | "bbox"> {
+  const seq = parsed.sequence ?? undefined;
+  const ox = typeof seq?.xorigin === "number" ? seq.xorigin : undefined;
+  const oy = typeof seq?.yorigin === "number" ? seq.yorigin : undefined;
+  const out: Pick<SpriteAsset, "originX" | "originY" | "bbox"> = {};
+  if (ox !== undefined && oy !== undefined) {
+    out.originX = ox;
+    out.originY = oy;
+    const { bbox_left: l, bbox_right: r, bbox_top: t, bbox_bottom: b } = parsed;
+    if (
+      typeof l === "number" &&
+      typeof r === "number" &&
+      typeof t === "number" &&
+      typeof b === "number" &&
+      width > 0 &&
+      height > 0
+    ) {
+      out.bbox = {
+        left: l - ox,
+        top: t - oy,
+        right: r + 1 - ox,
+        bottom: b + 1 - oy,
+      };
+    }
+  }
+  return out;
 }

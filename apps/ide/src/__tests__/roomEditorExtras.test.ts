@@ -17,6 +17,9 @@ import {
   setViewFollowObject,
   setViewRect,
   followCandidates,
+  addView,
+  rectFromDrag,
+  MAX_VIEWS,
   type EditableView,
 } from "../components/panels/roomEditorExtras";
 
@@ -201,5 +204,72 @@ describe("roomEditorExtras geometry", () => {
     expect(toggleViewVisible({ views: [viewFull] }, 5)["views"]).toEqual([
       viewFull,
     ]);
+  });
+});
+
+describe("addView / rectFromDrag", () => {
+  const unused = (): EditableView => ({
+    visible: false,
+    worldX: 0,
+    worldY: 0,
+    worldWidth: 1024,
+    worldHeight: 768,
+    screenX: 0,
+    screenY: 0,
+    screenWidth: 1024,
+    screenHeight: 768,
+    borderX: 0,
+    borderY: 0,
+    speedX: -1,
+    speedY: -1,
+  });
+
+  it("normalises a drag in any direction", () => {
+    expect(rectFromDrag(300, 200, 100, 50)).toEqual({
+      x: 100,
+      y: 50,
+      w: 200,
+      h: 150,
+    });
+  });
+
+  it("appends a visible view and switches views on", () => {
+    const r = addView({}, { x: 10.4, y: 20, w: 320, h: 240 });
+    expect(r.index).toBe(0);
+    expect(getViewsEnabled(r.extra)).toBe(true);
+    expect(getViews(r.extra)[0]).toMatchObject({
+      visible: true,
+      worldX: 10,
+      worldY: 20,
+      worldWidth: 320,
+      worldHeight: 240,
+      screenWidth: 320,
+      screenHeight: 240,
+      speedX: -1,
+    });
+  });
+
+  it("takes the first unused placeholder slot of an imported room", () => {
+    const first = { ...unused(), visible: true, worldX: 5 };
+    const extra = { views: [first, unused(), unused()] };
+    const r = addView(extra, { x: 64, y: 64, w: 128, h: 96 });
+    expect(r.index).toBe(1);
+    expect(getViews(r.extra)).toHaveLength(3);
+    expect(getViews(r.extra)[0]).toBe(first);
+    expect(getViews(r.extra)[1]).toMatchObject({ visible: true, worldX: 64 });
+  });
+
+  it("refuses a tiny drag and a full room", () => {
+    const tiny = addView({}, { x: 0, y: 0, w: 4, h: 200 });
+    expect(tiny.index).toBe(-1);
+    const full = {
+      views: Array.from({ length: MAX_VIEWS }, () => ({
+        ...unused(),
+        visible: true,
+      })),
+    };
+    const r = addView(full, { x: 0, y: 0, w: 100, h: 100 });
+    expect(r.index).toBe(-1);
+    expect(r.extra).toBe(full);
   });
 });

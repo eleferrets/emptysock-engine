@@ -190,6 +190,21 @@ export function setGmlCrossFileEntityRefFields(
   _crossFileEntityRefFields = names;
 }
 
+/** Removes a trailing line or block comment from a `#macro` value (outside string literals). */
+function stripMacroComment(value: string): string {
+  let quote = "";
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i] as string;
+    if (quote !== "") {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = "";
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "/" && (value[i + 1] === "/" || value[i + 1] === "*"))
+      return value.slice(0, i);
+  }
+  return value;
+}
+
 /**
  * Walks every `.gml` file under `projectRoot` and extracts every real
  * `#macro NAME value` declaration into a `name -> value` map. Real
@@ -222,7 +237,8 @@ export async function scanGmlMacros(
         const content = await fs.readFile(full, "utf-8").catch(() => "");
         for (const m of content.matchAll(MACRO_RE)) {
           const name = m[1];
-          const value = m[2]?.trim();
+          const value =
+            m[2] === undefined ? undefined : stripMacroComment(m[2]).trim();
           if (name !== undefined && value !== undefined && value !== "") {
             macros.set(name, value);
           }
@@ -604,6 +620,35 @@ const GML_RESERVED_IDENTIFIERS = new Set([
 ]);
 
 /**
+ * Every name declared by a `var`/`let`/`const` statement in `text`, including
+ * every comma-separated name (`var tempX, tempY, tempDir;`) and not just the
+ * first. Missing the rest made `tempY` look like an undeclared instance
+ * variable, rewriting the declaration itself into invalid code.
+ */
+export function gmlDeclaredLocalNames(text: string): string[] {
+  const names: string[] = [];
+  for (const m of text.matchAll(/\b(?:var|let|const)\s+([^;\n]+)/g)) {
+    let depth = 0;
+    let cur = "";
+    const parts: string[] = [];
+    for (const ch of m[1] as string) {
+      if ("([{".includes(ch)) depth++;
+      if (")]}".includes(ch)) depth--;
+      if (ch === "," && depth === 0) {
+        parts.push(cur);
+        cur = "";
+      } else cur += ch;
+    }
+    parts.push(cur);
+    for (const part of parts) {
+      const id = /^\s*([A-Za-z_]\w*)/.exec(part);
+      if (id) names.push(id[1] as string);
+    }
+  }
+  return names;
+}
+
+/**
  * Identify every name GML would treat as an implicit (undeclared-`var`)
  * instance field within `text` — a line-start bare assignment (`name =
  * expr;`) whose name isn't a reserved word, an already-`var`/`let`/`const`-
@@ -620,9 +665,7 @@ function identifyGmlImplicitVars(
   extraReserved: ReadonlySet<string> = new Set(),
 ): Set<string> {
   const declared = new Set<string>();
-  for (const m of text.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
-    declared.add(m[1] as string);
-  }
+  for (const n of gmlDeclaredLocalNames(text)) declared.add(n);
   // The optional `case <label>:`/`default:` prefix covers a real, confirmed
   // GML shape: a compiled switch-dispatch body writing its result inline on
   // the same line as the case label (Freedom Backup's own
@@ -1062,9 +1105,7 @@ export function scanGmlImplicitVars(gml: string): Set<string> {
  */
 export function scanGmlImplicitArrayVars(gml: string): Set<string> {
   const declaredLocally = new Set<string>();
-  for (const m of gml.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
-    declaredLocally.add(m[1] as string);
-  }
+  for (const n of gmlDeclaredLocalNames(gml)) declaredLocally.add(n);
   const arrayVars = new Set<string>();
   const arrayAssignRe = /^\s*([A-Za-z_]\w*)\[(?!\s*[|?])[^\]]*\]\s*=(?!=)/gm;
   for (const m of gml.matchAll(arrayAssignRe)) {
@@ -1078,6 +1119,58 @@ export function scanGmlImplicitArrayVars(gml: string): Set<string> {
     }
   }
   return arrayVars;
+}
+
+/**
+ * Source-syntax normalisation run before any rewrite pass, for two GML shapes
+ * that are legal in GameMaker but not in JavaScript:
+ *  - a single-line brace body whose last statement has no `;` (`{x-=4}`);
+ *    every statement-anchored rewrite below needs the terminator.
+ *  - `=` used as a comparison inside an `if`/`while`/`until` condition
+ *    (`if (argument4 = 0)`); GML treats it as `==` there.
+ */
+export function normalizeGmlSyntax(gml: string): string {
+  const { masked, store } = maskGmlStringLiterals(gml, "GMLNORM");
+  let t = masked.replace(
+    /\{([^{}\n]*?[^{}\n;\s])[ \t]*\}/g,
+    (m: string, inner: string) => {
+      if (/^\s*[A-Za-z_]\w*\s*:/.test(inner) || inner.includes("//")) return m;
+      return `{${inner};}`;
+    },
+  );
+  const condRe = /\b(?:if|while|until)\s*\(/g;
+  let out = "";
+  let last = 0;
+  let cm: RegExpExecArray | null;
+  while ((cm = condRe.exec(t)) !== null) {
+    const open = cm.index + cm[0].length - 1;
+    let depth = 0;
+    let close = -1;
+    for (let i = open; i < t.length; i++) {
+      const ch = t[i];
+      if (ch === "/" && t[i + 1] === "/") {
+        const nl = t.indexOf("\n", i);
+        if (nl === -1) break;
+        i = nl;
+      } else if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    if (close === -1) continue;
+    const cond = t.slice(open + 1, close);
+    if (cond.includes("//") || !/=/.test(cond)) continue;
+    const fixed = cond.replace(/(?<![=!<>+\-*\/%&|^:])=(?!=)/g, "==");
+    out += t.slice(last, open + 1) + fixed;
+    last = close;
+    condRe.lastIndex = close;
+  }
+  t = out + t.slice(last);
+  return unmaskGmlStringLiterals(t, "GMLNORM", store);
 }
 
 /**
@@ -1137,6 +1230,7 @@ export function transpileGML(
   // file, the same shape `objectImplicitVars` already establishes.
   knownArrayVars: ReadonlySet<string> = new Set(),
 ): string {
+  gml = normalizeGmlSyntax(gml);
   // Real, project-wide `with (objName) { ... }` field-name seeding — see
   // `setGmlObjectFieldNames`/`scanGmlObjectFieldNames`'s own doc comments
   // for the real `scr_save_game`/`obj_player_stats` gap this closes. A
@@ -2248,7 +2342,9 @@ export function transpileGML(
   // syntax. Matching a whole `"..."`/`'...'` string literal as one unit
   // (before falling back to "any character that isn't `]`") is what lets a
   // bracket character safely appear inside quotes.
-  const DS_MAP_KEY = `(?:"[^"]*"|'[^']*'|[^\\]])+`;
+  // The third branch excludes quotes so the alternation is unambiguous;
+  // otherwise a failing match backtracks exponentially over quoted keys.
+  const DS_MAP_KEY = `(?:"[^"]*"|'[^']*'|[^\\]"'])+`;
   out = out.replace(
     new RegExp(
       `([A-Za-z_$][\\w.]*)\\s*\\[\\s*\\?\\s*(${DS_MAP_KEY})\\]\\s*=(?!=)\\s*([^;\\n]+)`,
@@ -2782,6 +2878,8 @@ export function transpileGML(
     "action_kill_object",
     "instance_destroy",
     "action_set_alarm",
+    "alarm_set",
+    "alarm_get",
     "action_sound",
     "draw_self",
     "shader_reset",
@@ -3122,6 +3220,7 @@ export function transpileGML(
   // for a handful of individually low-frequency but real built-ins found
   // in this sweep's own top `TS2304` categories.
   const GML_MISC_CONSTANTS = [
+    "pi",
     "gamespeed_fps",
     "gamespeed_microseconds",
     "cr_default",
@@ -3138,6 +3237,12 @@ export function transpileGML(
       `GmlActions.${name}`,
     );
   }
+
+  // `current_time` (ms since game start): a bare read becomes a call.
+  out = out.replace(
+    /(?<!\.[ \t]*)(?<!\/\/[^\n]*)\bcurrent_time\b(?!\s*=(?!=))/g,
+    "GmlActions.get_current_time()",
+  );
 
   // GameMaker's `vk_*`/`gp_*`/`mb_*` input constants (compat/gmlInput.ts) —
   // same "plain value, not a call" rewrite `GML_COLOUR_CONSTANTS` above
@@ -3285,6 +3390,7 @@ export function transpileGML(
     "max",
     "min",
     "ord",
+    "chr",
     // json_encode/json_decode/base64_encode/base64_decode/font_get_size/
     // get_timer/randomize/point_in_circle/is_string/is_undefined/
     // game_set_speed/window_set_cursor/window_get_cursor (compat/gml.ts) —
@@ -4049,15 +4155,15 @@ export function transpileGML(
     `(_entity.get(GmlActions.Sprite)?.texturePath ?? "")`,
   );
 
-  // `image_angle` — GameMaker degrees, this engine's `Transform.rotation`
-  // radians (matching pixi's own convention — see `RenderPipeline`'s
-  // `pixiSprite.rotation = transform.rotation`). Converted both ways with
-  // the exact `* Math.PI / 180` factor `gmlCamera.ts`/`gmlProjection.ts`
-  // already use for every other GML-degrees-to-engine-radians field.
+  // `image_angle` — GameMaker degrees, counter-clockwise positive; this
+  // engine's `Transform.rotation` is radians, clockwise positive (pixi's
+  // convention — see `RenderPipeline`'s `pixiSprite.rotation =
+  // transform.rotation`). So both directions convert with `* Math.PI / 180`
+  // and a sign flip.
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\s*=(?!=)\s*([^;\n]+);?/g,
     (_m, exprRaw: string) =>
-      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (${exprRaw.trim()}) * Math.PI / 180; })();`,
+      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = -(${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
   // `+=`/`-=` add/subtract a *degree* delta — converting that same delta to
   // radians and applying it with the identical `+=`/`-=` operator is exact,
@@ -4073,11 +4179,11 @@ export function transpileGML(
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\s*(\+=|-=)\s*([^;\n]+);?/g,
     (_m, op: string, exprRaw: string) =>
-      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation ${op} (${exprRaw.trim()}) * Math.PI / 180; })();`,
+      `(() => { const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation ${op === "+=" ? "-=" : "+="} (${exprRaw.trim()}) * Math.PI / 180; })();`,
   );
   out = out.replace(
     /(?<!\/\/[^\n]*)(?<!\.[ \t]*)\bimage_angle\b/g,
-    `((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
+    `(-(_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)`,
   );
 
   // `image_xscale`/`image_yscale` — GameMaker's per-instance sprite scale
@@ -4617,9 +4723,7 @@ export function transpileGML(
     out = masked;
 
     const declaredLocally = new Set<string>();
-    for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
-      declaredLocally.add(m[1] as string);
-    }
+    for (const n of gmlDeclaredLocalNames(out)) declaredLocally.add(n);
     // Seeded from the cross-file pre-scan (`knownArrayVars`) first — a name
     // this specific event file's own body never assigns (only reads) still
     // needs to resolve through `getGmlArrayVar`, the same "known even if
@@ -4761,9 +4865,7 @@ export function transpileGML(
     // collide with a sibling event's instance field.
     if (knownImplicitVars.size > 0) {
       const declaredHere = new Set<string>();
-      for (const m of out.matchAll(/\b(?:var|let|const)\s+([A-Za-z_]\w*)/g)) {
-        declaredHere.add(m[1] as string);
-      }
+      for (const n of gmlDeclaredLocalNames(out)) declaredHere.add(n);
       for (const name of knownImplicitVars) {
         if (
           !declaredHere.has(name) &&
@@ -5154,12 +5256,16 @@ export function transpileGML(
           "g",
         ),
         (_m: string, field: string, expr: string) =>
-          `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
+          varName === "_other"
+            ? `GmlActions.setGmlEntityField(_ctx, _other, ${JSON.stringify(field)}, ${expr.trim()});`
+            : `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
       );
       refOut = refOut.replace(
         new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
         (_m: string, field: string) =>
-          `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
+          varName === "_other"
+            ? `GmlActions.gmlNum(GmlActions.getGmlEntityField(_ctx, _other, ${JSON.stringify(field)}))`
+            : `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
       );
     }
     out = unmaskGmlStringLiterals(refOut, "GMLSTR4", refStrings);

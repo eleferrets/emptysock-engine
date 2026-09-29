@@ -88,7 +88,7 @@ function aabbOverlap(
   bHalfH: number,
 ): boolean {
   return (
-    Math.abs(ax - bx) <= aHalfW + bHalfW && Math.abs(ay - by) <= aHalfH + bHalfH
+    Math.abs(ax - bx) < aHalfW + bHalfW && Math.abs(ay - by) < aHalfH + bHalfH
   );
 }
 
@@ -271,7 +271,16 @@ export function place_meeting(
     if (hit) return;
     const otherExt = spriteHalfExtents(other);
     if (
-      aabbOverlap(x, y, selfExt.x, selfExt.y, t.x, t.y, otherExt.x, otherExt.y)
+      aabbOverlap(
+        x + selfExt.ox,
+        y + selfExt.oy,
+        selfExt.x,
+        selfExt.y,
+        t.x + otherExt.ox,
+        t.y + otherExt.oy,
+        otherExt.x,
+        otherExt.y,
+      )
     ) {
       hit = true;
     }
@@ -300,7 +309,16 @@ export function place_free(
     if (!isSolid(other)) return;
     const otherExt = spriteHalfExtents(other);
     if (
-      aabbOverlap(x, y, selfExt.x, selfExt.y, t.x, t.y, otherExt.x, otherExt.y)
+      aabbOverlap(
+        x + selfExt.ox,
+        y + selfExt.oy,
+        selfExt.x,
+        selfExt.y,
+        t.x + otherExt.ox,
+        t.y + otherExt.oy,
+        otherExt.x,
+        otherExt.y,
+      )
     ) {
       blocked = true;
     }
@@ -349,7 +367,7 @@ export function position_meeting(
   eachOtherMatching(ctx, obj, entity, (other, t) => {
     if (hit) return;
     const ext = spriteHalfExtents(other);
-    if (pointInAabb(x, y, t.x, t.y, ext.x, ext.y)) hit = true;
+    if (pointInAabb(x, y, t.x + ext.ox, t.y + ext.oy, ext.x, ext.y)) hit = true;
   });
   return hit;
 }
@@ -367,7 +385,8 @@ export function position_free(
     if (other.eid === entity.eid) return;
     if (!isSolid(other)) return;
     const ext = spriteHalfExtents(other);
-    if (pointInAabb(x, y, t.x, t.y, ext.x, ext.y)) blocked = true;
+    if (pointInAabb(x, y, t.x + ext.ox, t.y + ext.oy, ext.x, ext.y))
+      blocked = true;
   });
   return !blocked;
 }
@@ -390,7 +409,16 @@ export function instance_place(
     if (found !== undefined) return;
     const otherExt = spriteHalfExtents(other);
     if (
-      aabbOverlap(x, y, selfExt.x, selfExt.y, t.x, t.y, otherExt.x, otherExt.y)
+      aabbOverlap(
+        x + selfExt.ox,
+        y + selfExt.oy,
+        selfExt.x,
+        selfExt.y,
+        t.x + otherExt.ox,
+        t.y + otherExt.oy,
+        otherExt.x,
+        otherExt.y,
+      )
     ) {
       found = other;
     }
@@ -410,7 +438,8 @@ export function instance_position(
   eachOtherMatching(ctx, obj, entity, (other, t) => {
     if (found !== undefined) return;
     const ext = spriteHalfExtents(other);
-    if (pointInAabb(x, y, t.x, t.y, ext.x, ext.y)) found = other;
+    if (pointInAabb(x, y, t.x + ext.ox, t.y + ext.oy, ext.x, ext.y))
+      found = other;
   });
   return found;
 }
@@ -448,7 +477,18 @@ export function collision_rectangle(
     if (notme && other.eid === entity.eid) return;
     if (!objectRefMatches(other, obj)) return;
     const ext = spriteHalfExtents(other);
-    if (rectOverlapsAabb(rx1, ry1, rx2, ry2, t.x, t.y, ext.x, ext.y))
+    if (
+      rectOverlapsAabb(
+        rx1,
+        ry1,
+        rx2,
+        ry2,
+        t.x + ext.ox,
+        t.y + ext.oy,
+        ext.x,
+        ext.y,
+      )
+    )
       found = other;
   });
   return found;
@@ -471,7 +511,10 @@ export function collision_circle(
     if (notme && other.eid === entity.eid) return;
     if (!objectRefMatches(other, obj)) return;
     const ext = spriteHalfExtents(other);
-    if (circleOverlapsAabb(x, y, radius, t.x, t.y, ext.x, ext.y)) found = other;
+    if (
+      circleOverlapsAabb(x, y, radius, t.x + ext.ox, t.y + ext.oy, ext.x, ext.y)
+    )
+      found = other;
   });
   return found;
 }
@@ -494,7 +537,18 @@ export function collision_line(
     if (notme && other.eid === entity.eid) return;
     if (!objectRefMatches(other, obj)) return;
     const ext = spriteHalfExtents(other);
-    if (segmentOverlapsAabb(x1, y1, x2, y2, t.x, t.y, ext.x, ext.y))
+    if (
+      segmentOverlapsAabb(
+        x1,
+        y1,
+        x2,
+        y2,
+        t.x + ext.ox,
+        t.y + ext.oy,
+        ext.x,
+        ext.y,
+      )
+    )
       found = other;
   });
   return found;
@@ -516,7 +570,8 @@ export function collision_point(
     if (notme && other.eid === entity.eid) return;
     if (!objectRefMatches(other, obj)) return;
     const ext = spriteHalfExtents(other);
-    if (pointInAabb(x, y, t.x, t.y, ext.x, ext.y)) found = other;
+    if (pointInAabb(x, y, t.x + ext.ox, t.y + ext.oy, ext.x, ext.y))
+      found = other;
   });
   return found;
 }

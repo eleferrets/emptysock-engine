@@ -485,17 +485,17 @@ export async function importGMS2Project(
       const activeViewCount = sceneFileViews.filter((v) => v.visible).length;
 
       let content = sceneJSON;
-      if (
-        backgroundEntities.length > 0 ||
-        elementEntities.length > 0 ||
-        sceneFileViews.length > 0
-      ) {
+      {
         const scene = JSON.parse(sceneJSON) as {
+          roomWidth?: number;
+          roomHeight?: number;
           entities?: unknown[];
           views?: unknown[];
           viewsEnabled?: boolean;
           [key: string]: unknown;
         };
+        scene.roomWidth = room.width;
+        scene.roomHeight = room.height;
         if (backgroundEntities.length > 0 || elementEntities.length > 0) {
           scene.entities = [
             ...(scene.entities ?? []),

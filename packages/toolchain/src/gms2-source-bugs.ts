@@ -308,6 +308,53 @@ export function setGmlUnsetVarsByObject(
   _unsetVarsByObject = map;
 }
 
+// Instance variables a script assigns (`playerInputDevice[0] = -1;` in an init
+// script). A script runs in its caller's instance scope, so any object may read them.
+let _scriptInstanceVars: {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+} = {
+  scalars: new Set(),
+  arrays: new Set(),
+};
+
+export function setGmlScriptInstanceVars(v: {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+}): void {
+  _scriptInstanceVars = v;
+}
+
+// Every instance variable any object or script assigns: what a script may read.
+let _projectInstanceVars: {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+} = {
+  scalars: new Set(),
+  arrays: new Set(),
+};
+
+export function setGmlProjectInstanceVars(v: {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+}): void {
+  _projectInstanceVars = v;
+}
+
+export function getGmlProjectInstanceVars(): {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+} {
+  return _projectInstanceVars;
+}
+
+export function getGmlScriptInstanceVars(): {
+  scalars: ReadonlySet<string>;
+  arrays: ReadonlySet<string>;
+} {
+  return _scriptInstanceVars;
+}
+
 /** Names `objectName`'s events read without any definition (see the file header). Empty when none. */
 export function getGmlUnsetVars(objectName: string): ReadonlySet<string> {
   return _unsetVarsByObject.get(objectName) ?? new Set();
@@ -623,11 +670,39 @@ export async function scanGmlSourceBugs(
     for (const v of scanGmlImplicitArrayVars(f.src)) set.add(v);
   }
 
+  const scriptScalars = new Set<string>();
+  const scriptArrays = new Set<string>();
+  for (const f of allFiles) {
+    if (!f.isScript) continue;
+    const params = new Set<string>();
+    for (const m of f.src.matchAll(/\bfunction\s*\w*\s*\(([^)]*)\)/g)) {
+      for (const p of (m[1] as string).split(","))
+        params.add(p.trim().split("=")[0]?.trim() ?? "");
+    }
+    for (const v of scanGmlImplicitVars(f.src))
+      if (!params.has(v) && !/^argument\d*$/.test(v)) scriptScalars.add(v);
+    for (const v of scanGmlImplicitArrayVars(f.src))
+      if (!params.has(v)) scriptArrays.add(v);
+  }
+  setGmlScriptInstanceVars({ scalars: scriptScalars, arrays: scriptArrays });
+  {
+    const pScalars = new Set(scriptScalars);
+    const pArrays = new Set(scriptArrays);
+    for (const f of allFiles) {
+      if (f.isScript) continue;
+      for (const v of scanGmlImplicitVars(f.src)) pScalars.add(v);
+      for (const v of scanGmlImplicitArrayVars(f.src)) pArrays.add(v);
+    }
+    setGmlProjectInstanceVars({ scalars: pScalars, arrays: pArrays });
+  }
+
   const chainAssigned = new Map<string, Set<string>>();
   for (const o of ctx.objects) {
     const chain = await ctx.resolveChain(o);
     const set = new Set<string>();
     for (const c of chain) for (const v of ownAssigned.get(c) ?? []) set.add(v);
+    for (const v of scriptScalars) set.add(v);
+    for (const v of scriptArrays) set.add(v);
     for (const p of await ctx.resolveProperties(o)) set.add(p);
     chainAssigned.set(o, set);
   }

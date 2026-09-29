@@ -45,6 +45,9 @@ import {
   setViewRect,
   setViewsEnabled,
   toggleViewVisible,
+  addView,
+  rectFromDrag,
+  type Rect,
   viewPortRect,
   viewRect,
   type Extra,
@@ -338,6 +341,10 @@ export function RoomEditor(): React.ReactElement {
     setLiveExtra(state?.extra ?? {});
   }, [state]);
   const [selExtra, setSelExtra] = React.useState<ExtraHit | null>(null);
+  // "New view" tool: drag out a rectangle on the canvas to create a view.
+  const [drawViewMode, setDrawViewMode] = React.useState(false);
+  const [drawPreview, setDrawPreview] = React.useState<Rect | null>(null);
+  const drawViewRef = React.useRef<{ x: number; y: number } | null>(null);
   const extraDragRef = React.useRef<{
     hit: ExtraHit;
     offsetX: number;
@@ -662,6 +669,20 @@ export function RoomEditor(): React.ReactElement {
         }
       }
     });
+    // The rectangle being dragged out with the "New view" tool.
+    if (drawPreview !== null && drawPreview.w + drawPreview.h > 0) {
+      setDash(ctx, [4, 3]);
+      ctx.strokeStyle =
+        computed.getPropertyValue("--es-accent").trim() || "#818cf8";
+      ctx.lineWidth = 2 / cam.zoom;
+      ctx.strokeRect(
+        drawPreview.x,
+        drawPreview.y,
+        drawPreview.w,
+        drawPreview.h,
+      );
+      setDash(ctx, []);
+    }
     ctx.restore();
 
     // Game-window overlay (screen space): every view's screen (port)
@@ -727,6 +748,7 @@ export function RoomEditor(): React.ReactElement {
     cam,
     liveExtra,
     selExtra,
+    drawPreview,
     liveInstances,
     selectedIndex,
     showGrid,
@@ -790,6 +812,22 @@ export function RoomEditor(): React.ReactElement {
         camX: camRef.current.x,
         camY: camRef.current.y,
       };
+      capture(e);
+      return;
+    }
+    // "New view" tool: start dragging out a rectangle in room space.
+    if (drawViewMode) {
+      const start = canvasPoint(e);
+      drawViewRef.current = {
+        x: snapValueOn(start.x),
+        y: snapValueOn(start.y),
+      };
+      setDrawPreview({
+        x: drawViewRef.current.x,
+        y: drawViewRef.current.y,
+        w: 0,
+        h: 0,
+      });
       capture(e);
       return;
     }
@@ -938,6 +976,19 @@ export function RoomEditor(): React.ReactElement {
       });
       return;
     }
+    const drawStart = drawViewRef.current;
+    if (drawStart !== null) {
+      const p = canvasPoint(e);
+      setDrawPreview(
+        rectFromDrag(
+          drawStart.x,
+          drawStart.y,
+          snapValueOn(p.x),
+          snapValueOn(p.y),
+        ),
+      );
+      return;
+    }
     const portDrag = portDragRef.current;
     if (portDrag !== null) {
       const scr = screenPoint(e);
@@ -1057,6 +1108,22 @@ export function RoomEditor(): React.ReactElement {
       panRef.current = null;
       return;
     }
+    if (drawViewRef.current !== null) {
+      drawViewRef.current = null;
+      const rect = drawPreview;
+      setDrawPreview(null);
+      setDrawViewMode(false);
+      if (rect !== null && state !== undefined) {
+        // One history step for the whole new view; too small a drag adds nothing.
+        const added = addView(liveExtra, rect);
+        if (added.index >= 0) {
+          setLiveExtra(added.extra);
+          setSelExtra({ kind: "view", index: added.index });
+          commitExtra(added.extra);
+        }
+      }
+      return;
+    }
     if (portDragRef.current !== null) {
       portDragRef.current = null;
       if (state !== undefined && liveExtra !== state.extra) {
@@ -1141,6 +1208,12 @@ export function RoomEditor(): React.ReactElement {
         t.tagName === "TEXTAREA" ||
         t.tagName === "SELECT");
     const down = (ev: KeyboardEvent): void => {
+      if (ev.code === "Escape" && drawViewRef.current !== null) {
+        drawViewRef.current = null;
+        setDrawPreview(null);
+        setDrawViewMode(false);
+        return;
+      }
       if (
         ev.code === "Space" &&
         !isTyping(ev.target) &&
@@ -1323,7 +1396,11 @@ export function RoomEditor(): React.ReactElement {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onDoubleClick={handleDoubleClick}
-              style={{ width: "100%", height: "100%", cursor: "grab" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                cursor: drawViewMode ? "crosshair" : "grab",
+              }}
             />
           )}
           <ViewControls />
@@ -1373,6 +1450,26 @@ export function RoomEditor(): React.ReactElement {
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                data-testid="room-new-view"
+                title="Draw a new camera view: drag a rectangle on the room (Esc cancels)"
+                aria-pressed={drawViewMode}
+                onClick={() => setDrawViewMode((m) => !m)}
+                style={{
+                  background: drawViewMode ? "var(--es-accent)" : "transparent",
+                  border: "none",
+                  color: drawViewMode
+                    ? "var(--es-accent-fg, #000)"
+                    : "var(--es-text)",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                }}
+              >
+                New view
+              </button>
               <span data-testid="room-zoom-level" style={{ padding: "0 6px" }}>
                 {Math.round(cam.zoom * 100)}%
               </span>

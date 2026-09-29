@@ -423,6 +423,8 @@ export {
   instance_destroy,
   action_set_alarm,
   get_gml_alarm,
+  alarm_set,
+  alarm_get,
   action_sound,
   audio_play_sound,
   audio_sound_pitch,
@@ -475,6 +477,7 @@ export type { GmlDrawTarget } from "./compat/gml.js";
 export {
   getGmlVar,
   setGmlVar,
+  setGmlVarDefault,
   hasGmlVar,
   getGmlArrayVar,
   clearGmlInstanceVars,
@@ -486,6 +489,8 @@ export {
   getGmlObjectVar,
   setGmlObjectVar,
   getGmlRefVar,
+  getGmlEntityField,
+  setGmlEntityField,
   setGmlRefVar,
 } from "./compat/gmlCrossInstance.js";
 
@@ -934,6 +939,9 @@ export {
   sqrt,
   power,
   string_insert,
+  chr,
+  pi,
+  get_current_time,
 } from "./compat/gml.js";
 
 /**
