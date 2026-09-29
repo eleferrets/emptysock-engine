@@ -24,12 +24,14 @@
     "@emptysock/engine": "workspace:*",
     "@emptysock/types": "workspace:*",
     "commander": "^12.1.0",
+    "naga-wasm": "30.1.0",
     "rolldown": "^1.2.7",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "^26.3.0",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wgsl_reflect": "^1.6.0"
   }
 }
