@@ -8,6 +8,7 @@ import {
 } from "bitecs";
 import type { World } from "bitecs";
 import type { ComponentDef } from "./Component.js";
+import { entityIdTable, type EntityRef } from "./EntityRef.js";
 import { componentRegistry } from "./ComponentRegistry.js";
 import {
   startCoroutine,
@@ -102,6 +103,17 @@ export class Entity {
       >
     )[$internal];
     return getId(ctx.entityIndex, this.eid);
+  }
+
+  /**
+   * Stable serialisable reference to this entity (assigns a per-scene id on
+   * first call). Throws on a destroyed entity. See `EntityRef`.
+   */
+  ref(): EntityRef {
+    if (!this.isAlive) {
+      throw new Error("Entity.ref() called on a destroyed entity.");
+    }
+    return { $ref: entityIdTable(this.world).idOf(this) };
   }
 
   /**

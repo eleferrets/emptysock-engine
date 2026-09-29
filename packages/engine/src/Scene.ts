@@ -12,6 +12,12 @@ import type { ComponentDef } from "./Component.js";
 import { componentRegistry } from "./ComponentRegistry.js";
 import { Entity, type ProxyCache } from "./Entity.js";
 import {
+  entityIdTable,
+  type EntityId,
+  type EntityRef,
+  NO_REF,
+} from "./EntityRef.js";
+import {
   assertSerializableOverrides,
   flattenPrefab,
   type PrefabDef,
@@ -174,6 +180,7 @@ export class Scene {
     const pooledFrom = this._pooledOrigin.get(entity.eid);
     this._liveEntities.delete(entity.eid);
     this._proxyCache.delete(entity.eid);
+    entityIdTable(this.world).drop(entity.eid);
     // This is the one place that actually knows "this entity's component
     // data is being reset/removed", regardless of which component types
     // were attached — so it's also the right call site to clear
@@ -212,6 +219,39 @@ export class Scene {
     }
 
     bitecsRemoveEntity(this.world, entity.eid);
+  }
+
+  /**
+   * Stable per-scene id for `entity`, assigned on first call (monotonic,
+   * never reused within this scene). Throws for a destroyed entity or one
+   * from another scene.
+   */
+  idOf(entity: Entity): EntityId {
+    if (entity.world !== this.world) {
+      throw new Error("Scene.idOf(): entity belongs to a different scene.");
+    }
+    if (!entity.isAlive) {
+      throw new Error("Scene.idOf(): entity is destroyed.");
+    }
+    return entityIdTable(this.world).idOf(entity);
+  }
+
+  /** `EntityRef` for `entity` (see `idOf`). */
+  refTo(entity: Entity): EntityRef {
+    return { $ref: this.idOf(entity) };
+  }
+
+  /**
+   * The live entity `ref` points at, or `undefined` when it is `NO_REF`,
+   * never existed, or was destroyed. A pooled-and-recycled entity counts as
+   * destroyed: pooled destroy drops its id, so the ref does not alias the
+   * entity's next occupant.
+   */
+  resolve(ref: EntityRef | null | undefined): Entity | undefined {
+    if (ref === null || ref === undefined || ref.$ref === NO_REF.$ref) {
+      return undefined;
+    }
+    return entityIdTable(this.world).get(ref.$ref);
   }
 
   /** Number of entities currently alive in this scene. */

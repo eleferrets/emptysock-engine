@@ -1,5 +1,6 @@
 import type { ComponentDef } from "./Component.js";
 import { Entity } from "./Entity.js";
+import { type EntityId, type EntityRef } from "./EntityRef.js";
 import { type PrefabDef } from "./Prefab.js";
 import type { SerializableRecord } from "./Serializable.js";
 /**
@@ -86,6 +87,21 @@ export declare class Scene {
    * the freed slot to (§23).
    */
   destroy(entity: Entity): void;
+  /**
+   * Stable per-scene id for `entity`, assigned on first call (monotonic,
+   * never reused within this scene). Throws for a destroyed entity or one
+   * from another scene.
+   */
+  idOf(entity: Entity): EntityId;
+  /** `EntityRef` for `entity` (see `idOf`). */
+  refTo(entity: Entity): EntityRef;
+  /**
+   * The live entity `ref` points at, or `undefined` when it is `NO_REF`,
+   * never existed, or was destroyed. A pooled-and-recycled entity counts as
+   * destroyed: pooled destroy drops its id, so the ref does not alias the
+   * entity's next occupant.
+   */
+  resolve(ref: EntityRef | null | undefined): Entity | undefined;
   /** Number of entities currently alive in this scene. */
   get entityCount(): number;
   /**
