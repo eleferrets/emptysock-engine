@@ -6,11 +6,11 @@ and asserts on the pixels.
 
 ```
 pnpm --filter @emptysock/engine build
-FREEDOM_ASSETS=<gms2 importer output dir> node packages/engine/scripts/gpu-verify.mjs [--out docs/gpu-verify]
+GMS_FIXTURE_ASSETS=<gms2 importer output dir> node packages/engine/scripts/gpu-verify.mjs [--out docs/gpu-verify]
 ```
 
 Chromium and Playwright are taken from `/opt/pw-browsers/chromium` and `/opt/node22/lib/node_modules`
-(override with `CHROMIUM_PATH`, `PLAYWRIGHT_MODULE_DIR`). Without `FREEDOM_ASSETS` the `sh_white` and
+(override with `CHROMIUM_PATH`, `PLAYWRIGHT_MODULE_DIR`). Without `GMS_FIXTURE_ASSETS` the `sh_white` and
 `fnt_menu` checks are skipped. Screenshots land next to this file.
 
 Checks: `RainGlassFilter` (droplets visible, scene preserved, trails), an importer-emitted shader
