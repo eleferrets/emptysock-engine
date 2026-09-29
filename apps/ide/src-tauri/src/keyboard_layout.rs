@@ -162,7 +162,13 @@ mod platform {
             return None;
         }
         let mut buf = [0 as c_char; 256];
-        if CFStringGetCString(s, buf.as_mut_ptr(), buf.len() as _, K_CF_STRING_ENCODING_UTF8) == 0 {
+        if CFStringGetCString(
+            s,
+            buf.as_mut_ptr(),
+            buf.len() as _,
+            K_CF_STRING_ENCODING_UTF8,
+        ) == 0
+        {
             return None;
         }
         Some(CStr::from_ptr(buf.as_ptr()).to_string_lossy().into_owned())
@@ -219,7 +225,10 @@ mod platform {
                 if status != 0 || len == 0 || len > buf.len() {
                     continue;
                 }
-                if let Some(c) = String::from_utf16(&buf[..len]).ok().and_then(|s| clean_char(&s)) {
+                if let Some(c) = String::from_utf16(&buf[..len])
+                    .ok()
+                    .and_then(|s| clean_char(&s))
+                {
                     chars.insert((*code).to_string(), c);
                 }
             }
@@ -304,8 +313,14 @@ mod platform {
 
     fn detect() -> Option<(Names, &'static str)> {
         if let (Some(s), Some(c)) = (
-            run("gsettings", &["get", "org.gnome.desktop.input-sources", "sources"]),
-            run("gsettings", &["get", "org.gnome.desktop.input-sources", "current"]),
+            run(
+                "gsettings",
+                &["get", "org.gnome.desktop.input-sources", "sources"],
+            ),
+            run(
+                "gsettings",
+                &["get", "org.gnome.desktop.input-sources", "current"],
+            ),
         ) {
             if let Some(n) = parse_gsettings(&s, &c) {
                 return Some((n, "gsettings"));
@@ -350,7 +365,9 @@ mod platform {
             Some(k) => k,
             None => {
                 return KeyboardLayoutResult {
-                    error: Some(format!("xkbcommon rejected layout '{layout}' variant '{variant}'")),
+                    error: Some(format!(
+                        "xkbcommon rejected layout '{layout}' variant '{variant}'"
+                    )),
                     ..Default::default()
                 }
             }
@@ -365,7 +382,14 @@ mod platform {
         }
         KeyboardLayoutResult {
             supported: true,
-            layout_id: Some(format!("linux:{via}:{layout}{}", if variant.is_empty() { String::new() } else { format!("+{variant}") })),
+            layout_id: Some(format!(
+                "linux:{via}:{layout}{}",
+                if variant.is_empty() {
+                    String::new()
+                } else {
+                    format!("+{variant}")
+                }
+            )),
             chars,
             error: None,
         }
@@ -378,8 +402,14 @@ mod platform {
         #[test]
         fn gsettings_picks_current_source() {
             let s = "[('xkb', 'us'), ('xkb', 'ru+phonetic')]";
-            assert_eq!(parse_gsettings(s, "uint32 1"), Some(("ru".into(), "phonetic".into())));
-            assert_eq!(parse_gsettings(s, "uint32 0"), Some(("us".into(), "".into())));
+            assert_eq!(
+                parse_gsettings(s, "uint32 1"),
+                Some(("ru".into(), "phonetic".into()))
+            );
+            assert_eq!(
+                parse_gsettings(s, "uint32 0"),
+                Some(("us".into(), "".into()))
+            );
         }
 
         #[test]
@@ -389,7 +419,8 @@ mod platform {
 
         #[test]
         fn setxkbmap_takes_first_entry() {
-            let out = "rules:      evdev\nmodel:      pc105\nlayout:     fr,us\nvariant:    ,dvorak\n";
+            let out =
+                "rules:      evdev\nmodel:      pc105\nlayout:     fr,us\nvariant:    ,dvorak\n";
             assert_eq!(parse_setxkbmap(out), Some(("fr".into(), "".into())));
         }
     }
@@ -426,5 +457,32 @@ mod tests {
         assert_eq!(clean_char("ab"), None);
         assert_eq!(clean_char(" "), None);
         assert_eq!(clean_char("\u{0}"), None);
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+    use super::platform::query;
+
+    // Runs the real Carbon TIS/UCKeyTranslate query. On a machine whose current layout is a
+    // Latin one, the physical KeyA..KeyZ codes must map to 26 single lowercase letters.
+    #[test]
+    fn carbon_query_returns_letter_map() {
+        let r = query();
+        assert!(r.supported, "error: {:?}", r.error);
+        assert!(r.layout_id.is_some());
+        let letters = ('a'..='z')
+            .filter(|c| r.chars.values().any(|v| v == &c.to_string()))
+            .count();
+        assert!(
+            letters >= 24,
+            "only {letters} letters mapped: {:?}",
+            r.chars
+        );
+        assert_eq!(
+            r.chars.get("KeyA").map(String::as_str),
+            Some("a"),
+            "US layout expected on the test machine"
+        );
     }
 }
