@@ -3,6 +3,33 @@ import { type RelationDef } from "../Relations.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { type StorageAdapter } from "./StorageAdapter.js";
+import type { GlobalStore } from "./GlobalStore.js";
+import type { VariableStore } from "./VariableStore.js";
+/** Newest blob `formatVersion` this build reads and the only one it writes. */
+export declare const SAVE_FORMAT_VERSION = 2;
+/**
+ * Thrown by `load`/`peek` when a save was written by a newer build than this
+ * one understands. Nothing is loaded in that case.
+ */
+export declare class SaveFormatError extends Error {
+  readonly slotId: string;
+  readonly found: unknown;
+  readonly supported: number;
+  constructor(slotId: string, found: unknown, supported: number);
+}
+/** Provenance stamped into every v2 save. */
+export interface SaveMeta {
+  readonly savedAt: number;
+  readonly engineVersion?: string;
+  readonly gameVersion?: string;
+}
+/** What `peek` reports without loading anything. */
+export interface SaveHeader {
+  readonly formatVersion: number;
+  readonly meta?: SaveMeta;
+  /** Room/scene key current at save time, if the `SaveSystem` was given a `room` provider. */
+  readonly room?: string;
+}
 /**
  * Migrates one component's saved data forward from the version it was saved
  * under to the currently-registered def's version. Register with
@@ -29,6 +56,22 @@ export interface SaveSystemOptions {
    * not listed here are not saved.
    */
   readonly relations?: readonly RelationDef[];
+  /** Game services whose state is saved beside the entities: omit either to leave it out. */
+  readonly globals?: GlobalStore;
+  readonly variables?: VariableStore;
+  /** Supplies the current room/scene key stored in the save (see `SaveHeader.room`). */
+  readonly room?: () => string | undefined;
+  /** Stamped into `meta` so a later build can tell what wrote a save. */
+  readonly engineVersion?: string;
+  readonly gameVersion?: string;
+}
+export interface LoadOptions {
+  /**
+   * `"replace"` (default) destroys the scene's existing entities that carry a
+   * save-aware component before loading, so a load yields the saved state
+   * rather than saved plus current. `"append"` keeps them (the old behaviour).
+   */
+  readonly mode?: "replace" | "append";
 }
 /**
  * ENGINE_DESIGN.md §12.1/§19.3 — generic save/load for any ECS-core component
@@ -53,6 +96,7 @@ export declare class SaveSystem {
   private readonly _adapter;
   private readonly _keyPrefix;
   private readonly _relations;
+  private readonly _options;
   constructor(
     scene: Scene,
     components: readonly ComponentDef[],
@@ -87,6 +131,18 @@ export declare class SaveSystem {
    *
    * Returns `false` (and loads nothing) if the slot doesn't exist.
    */
-  load(slotId: string): Promise<boolean>;
+  load(slotId: string, options?: LoadOptions): Promise<boolean>;
+  /** Header of `slotId` (version, provenance, room) without loading it; `null` if absent or unreadable. Throws `SaveFormatError` for a newer format. */
+  peek(slotId: string): Promise<SaveHeader | null>;
+  /**
+   * Read and version-check a slot. `null` when missing or not valid JSON
+   * (warned); throws `SaveFormatError` for a `formatVersion` newer than
+   * `SAVE_FORMAT_VERSION`, before anything is touched. A blob without a
+   * numeric `formatVersion` is treated as v1. Older versions load as-is: v1
+   * differs from v2 only by fields v2 makes optional, so no rewrite is needed.
+   */
+  private _read;
+  /** Destroy every live entity that carries a save-aware component. */
+  private _clearSaved;
   private _snapshot;
 }

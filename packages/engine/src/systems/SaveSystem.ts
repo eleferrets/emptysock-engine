@@ -5,6 +5,43 @@ import { remapRefs } from "../RefRemap.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { MemoryStorageAdapter, type StorageAdapter } from "./StorageAdapter.js";
+import type { GlobalStore } from "./GlobalStore.js";
+import type { VariableStore, VariableStoreData } from "./VariableStore.js";
+
+/** Newest blob `formatVersion` this build reads and the only one it writes. */
+export const SAVE_FORMAT_VERSION = 2;
+
+/**
+ * Thrown by `load`/`peek` when a save was written by a newer build than this
+ * one understands. Nothing is loaded in that case.
+ */
+export class SaveFormatError extends Error {
+  constructor(
+    readonly slotId: string,
+    readonly found: unknown,
+    readonly supported: number,
+  ) {
+    super(
+      `Save slot "${slotId}" has formatVersion ${String(found)}, but this build only reads up to ${supported}. Update the game to load it.`,
+    );
+    this.name = "SaveFormatError";
+  }
+}
+
+/** Provenance stamped into every v2 save. */
+export interface SaveMeta {
+  readonly savedAt: number;
+  readonly engineVersion?: string;
+  readonly gameVersion?: string;
+}
+
+/** What `peek` reports without loading anything. */
+export interface SaveHeader {
+  readonly formatVersion: number;
+  readonly meta?: SaveMeta;
+  /** Room/scene key current at save time, if the `SaveSystem` was given a `room` provider. */
+  readonly room?: string;
+}
 
 /** One saved component instance, stamped with the schema version it was saved under. */
 interface SavedComponent {
@@ -21,7 +58,16 @@ interface SavedEntity {
 
 /** The on-disk/in-storage save blob shape. `formatVersion` is this shape's own version, not any component's. */
 interface SaveBlob {
-  readonly formatVersion: 1 | 2;
+  /** 1: entities only. 2: adds entity ids, relations and the optional service sections below. */
+  readonly formatVersion: number;
+  /** v2: provenance. */
+  readonly meta?: SaveMeta;
+  /** v2: current room/scene key (see `SaveSystemOptions.room`). */
+  readonly room?: string;
+  /** v2: `GlobalStore.snapshot()` (declared `persist: true` names only). */
+  readonly globals?: Record<string, unknown>;
+  /** v2: `VariableStore.snapshot()`. */
+  readonly variables?: VariableStoreData;
   readonly entities: readonly SavedEntity[];
   /** v2: relation edges between saved entities, by saved `id` and relation name. */
   readonly relations?: readonly SavedRelation[];
@@ -60,6 +106,23 @@ export interface SaveSystemOptions {
    * not listed here are not saved.
    */
   readonly relations?: readonly RelationDef[];
+  /** Game services whose state is saved beside the entities: omit either to leave it out. */
+  readonly globals?: GlobalStore;
+  readonly variables?: VariableStore;
+  /** Supplies the current room/scene key stored in the save (see `SaveHeader.room`). */
+  readonly room?: () => string | undefined;
+  /** Stamped into `meta` so a later build can tell what wrote a save. */
+  readonly engineVersion?: string;
+  readonly gameVersion?: string;
+}
+
+export interface LoadOptions {
+  /**
+   * `"replace"` (default) destroys the scene's existing entities that carry a
+   * save-aware component before loading, so a load yields the saved state
+   * rather than saved plus current. `"append"` keeps them (the old behaviour).
+   */
+  readonly mode?: "replace" | "append";
 }
 
 /**
@@ -85,6 +148,7 @@ export class SaveSystem {
   private readonly _adapter: StorageAdapter;
   private readonly _keyPrefix: string;
   private readonly _relations: ReadonlyMap<string, RelationDef>;
+  private readonly _options: SaveSystemOptions;
 
   constructor(
     scene: Scene,
@@ -95,6 +159,7 @@ export class SaveSystem {
     this._components = new Map(
       components.map((def) => [def.componentName, def]),
     );
+    this._options = options;
     this._adapter = options.adapter ?? new MemoryStorageAdapter();
     this._keyPrefix = options.keyPrefix ?? "emptysock_save_";
     this._relations = new Map(
@@ -148,19 +213,11 @@ export class SaveSystem {
    *
    * Returns `false` (and loads nothing) if the slot doesn't exist.
    */
-  async load(slotId: string): Promise<boolean> {
-    const raw = await this._adapter.get(this._keyPrefix + slotId);
-    if (raw === null) return false;
+  async load(slotId: string, options: LoadOptions = {}): Promise<boolean> {
+    const blob = await this._read(slotId);
+    if (blob === null) return false;
 
-    let blob: SaveBlob;
-    try {
-      blob = JSON.parse(raw) as SaveBlob;
-    } catch {
-      console.warn(
-        `[SaveSystem] Save slot "${slotId}" is not valid JSON — nothing loaded.`,
-      );
-      return false;
-    }
+    if ((options.mode ?? "replace") === "replace") this._clearSaved();
 
     // Phase 1: spawn everything, recording saved id -> new entity.
     const byOldId = new Map<number, Entity>();
@@ -231,7 +288,61 @@ export class SaveSystem {
       }
     }
 
+    if (blob.globals !== undefined)
+      this._options.globals?.restore(blob.globals);
+    if (blob.variables !== undefined) {
+      this._options.variables?.restore(blob.variables);
+    }
     return true;
+  }
+
+  /** Header of `slotId` (version, provenance, room) without loading it; `null` if absent or unreadable. Throws `SaveFormatError` for a newer format. */
+  async peek(slotId: string): Promise<SaveHeader | null> {
+    const blob = await this._read(slotId);
+    if (blob === null) return null;
+    return {
+      formatVersion: blob.formatVersion,
+      ...(blob.meta !== undefined ? { meta: blob.meta } : {}),
+      ...(blob.room !== undefined ? { room: blob.room } : {}),
+    };
+  }
+
+  /**
+   * Read and version-check a slot. `null` when missing or not valid JSON
+   * (warned); throws `SaveFormatError` for a `formatVersion` newer than
+   * `SAVE_FORMAT_VERSION`, before anything is touched. A blob without a
+   * numeric `formatVersion` is treated as v1. Older versions load as-is: v1
+   * differs from v2 only by fields v2 makes optional, so no rewrite is needed.
+   */
+  private async _read(slotId: string): Promise<SaveBlob | null> {
+    const raw = await this._adapter.get(this._keyPrefix + slotId);
+    if (raw === null) return null;
+    let blob: SaveBlob;
+    try {
+      blob = JSON.parse(raw) as SaveBlob;
+    } catch {
+      console.warn(
+        `[SaveSystem] Save slot "${slotId}" is not valid JSON — nothing loaded.`,
+      );
+      return null;
+    }
+    const found: unknown = (blob as { formatVersion?: unknown }).formatVersion;
+    const version = typeof found === "number" ? found : 1;
+    if (version > SAVE_FORMAT_VERSION) {
+      throw new SaveFormatError(slotId, found, SAVE_FORMAT_VERSION);
+    }
+    return { ...blob, formatVersion: version };
+  }
+
+  /** Destroy every live entity that carries a save-aware component. */
+  private _clearSaved(): void {
+    const doomed = new Map<number, Entity>();
+    for (const def of this._components.values()) {
+      this._scene.each(def, (_c, entity) => {
+        doomed.set(entity.eid, entity);
+      });
+    }
+    for (const entity of doomed.values()) this._scene.destroy(entity);
   }
 
   private _snapshot(): SaveBlob {
@@ -259,6 +370,8 @@ export class SaveSystem {
     for (const { entity, components } of byEid.values()) {
       entities.push({ id: this._scene.idOf(entity), components });
     }
+    // Stable order (by scene id) so saves diff cleanly regardless of def order.
+    entities.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
     for (const { entity } of byEid.values()) {
       for (const def of this._relations.values()) {
         for (const target of this._scene.targetsOf(entity, def)) {
@@ -271,6 +384,29 @@ export class SaveSystem {
         }
       }
     }
-    return { formatVersion: 2, entities, relations };
+    const opts = this._options;
+    const room = opts.room?.();
+    const meta: SaveMeta = {
+      savedAt: Date.now(),
+      ...(opts.engineVersion !== undefined
+        ? { engineVersion: opts.engineVersion }
+        : {}),
+      ...(opts.gameVersion !== undefined
+        ? { gameVersion: opts.gameVersion }
+        : {}),
+    };
+    return {
+      formatVersion: SAVE_FORMAT_VERSION,
+      meta,
+      ...(room !== undefined ? { room } : {}),
+      ...(opts.globals !== undefined
+        ? { globals: opts.globals.snapshot() }
+        : {}),
+      ...(opts.variables !== undefined
+        ? { variables: opts.variables.snapshot() }
+        : {}),
+      entities,
+      relations,
+    };
   }
 }

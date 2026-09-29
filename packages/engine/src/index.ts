@@ -345,8 +345,18 @@ export type {
 export type { CameraViewport } from "./systems/RenderSystem.js";
 export { ServiceRegistry } from "./Services.js";
 export type { ServiceConstructor } from "./Services.js";
-export { SaveSystem } from "./systems/SaveSystem.js";
-export type { MigrateFn, SaveSystemOptions } from "./systems/SaveSystem.js";
+export {
+  SaveSystem,
+  SaveFormatError,
+  SAVE_FORMAT_VERSION,
+} from "./systems/SaveSystem.js";
+export type {
+  MigrateFn,
+  SaveSystemOptions,
+  LoadOptions,
+  SaveMeta,
+  SaveHeader,
+} from "./systems/SaveSystem.js";
 export { MemoryStorageAdapter } from "./systems/StorageAdapter.js";
 export type { StorageAdapter } from "./systems/StorageAdapter.js";
 export { CGGallery } from "./systems/CGGallery.js";
