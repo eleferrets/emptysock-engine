@@ -4,7 +4,7 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 
 ## Needs a real GPU or real browser (only software WebGL was available)
 
-- `RainGlassFilter`: only software-rendered timing (+2-3 ms at 640x360). Needs a rewrite toward an on-screen windshield rain look (CPU-simulated drops with merging and trails into a low-res texture, then one refraction/blur/fog pass, quality tiers) and real-device profiling.
+- `RainGlassFilter` (rewritten as a CPU sim, drop-map texture and one GL pass): NOT verified on any GPU. Top risk: pixi v8 texture-resource binding for the GL-only filter (`resources: { uniforms, uDropMap: BufferImageSource, uDropMapSampler: source.style }`) may leave the drop map unbound or read as zero; the map format is set to `rgba8unorm` explicitly because pixi defaults a `Uint8Array` source to `bgra8unorm`. Also unchecked: vertical orientation of the map against `vUV`, `source.update()` re-uploading without re-creating the texture, the `textureLod` fog loop compiling on real drivers, and every cost figure (all tier timings are estimates; the old +2-3 ms swiftshader number is for the previous shader). Needs pixel asserts (flat map returns the scene, drop region displaced, fog blur monotonic), screenshots per tier, and frame timing on integrated, discrete and mobile GPUs. The gpu-verify harness was not updated for the new filter.
 - Per-entity and per-layer importer shaders: pixel-checked in swiftshader only.
 - Bitmap font atlas text (`BitmapText`): pixel-checked in swiftshader only.
 - Surface / `bm_subtract` cutout lighting: swiftshader only; advanced blend modes need a real GPU pass.
@@ -30,7 +30,7 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 2. Keyboard layouts: `navigator.keyboard.getLayoutMap()` (Chromium only) plus `event.key` fallback, host-injected label provider (engine has no DOM); letters in `keyboard_check(ord(..))` should match by produced character; add a "capture next input" rebind helper.
 3. Pixi audit with https://github.com/pixijs/pixijs-skills, ecosystem page, pixijs-userland: candidates `@pixi/layout` (WidgetTree yoga adapter), `@pixi/ui` (UISystem widgets), `pixi-viewport` (room editor camera), `@pixi/tilemap`, `@pixi/particle-emitter`, dynamic `BitmapFont`, room editor Canvas2D vs pixi. Mixing-three guide for optional real 3D behind the `d3d_*` compat. Expect mostly removals.
 4. Shader: `Mesh` + `Shader` for sprite-level `shader_set` (avoids an offscreen pass per sprite) vs per-object `Filter`.
-5. Rain glass design and prototype (see above).
+5. Rain glass: real-GPU verification of the rewrite (see above).
 6. Cross-entity relationships: serialisable `EntityRef` fields with save/load remap, public relation API, queries, SignalBus.
 7. Persistence: generalise carry-over into core scene transitions; room-level persistent flag.
 8. Typed `AssetRegistry`: importer-generated manifest (kind, id, dimensions, frame count) plus engine registry; closes `sprite_get_width`, `sprite_exists`, `font_get_size` honest-zero gaps.
