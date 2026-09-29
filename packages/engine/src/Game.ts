@@ -13,6 +13,7 @@ import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
+import { SpriteFlashSystem } from "./systems/SpriteFlashSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
@@ -313,6 +314,7 @@ interface LoadedScene {
  * works").
  */
 const spriteAnimation = new SpriteAnimationSystem();
+const spriteFlash = new SpriteFlashSystem();
 
 function runFrame(loaded: LoadedScene, dt: number): void {
   loaded.lifecycle.actors.update(dt);
@@ -325,6 +327,7 @@ function runFrame(loaded: LoadedScene, dt: number): void {
   // doc comment) — every loaded scene (main + overlays) gets its `Sprite`
   // frames advanced every tick, the same reach `actors`/`physics` above get.
   spriteAnimation.update(loaded.lifecycle.scene);
+  spriteFlash.update(loaded.lifecycle.scene, dt);
 
   // After physics settles, before onUpdate — a coroutine resuming this
   // frame sees this frame's post-physics state, and onUpdate sees whatever

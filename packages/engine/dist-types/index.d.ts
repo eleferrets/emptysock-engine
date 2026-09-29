@@ -120,6 +120,12 @@ export type {
 } from "./systems/SequenceSystem.js";
 export { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
 export {
+  SpriteFlashSystem,
+  FlashFilterPool,
+} from "./systems/SpriteFlashSystem.js";
+export { SpriteFlash, startSpriteFlash } from "./components/SpriteFlash.js";
+export type { SpriteFlashOptions } from "./components/SpriteFlash.js";
+export {
   ParticleEmitter,
   rainParticlePreset,
 } from "./systems/ParticleSystem.js";

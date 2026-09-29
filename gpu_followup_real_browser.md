@@ -47,3 +47,7 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 - Real-run checks not possible headless: macOS WKWebView and Linux WebKitGTK native query on AZERTY/QWERTZ/Dvorak/Cyrillic; Windows WebView2 `getLayoutMap` and whether the Tauri origin is a secure context; layout switch mid-session (refresh only on focus/visibility); Wayland (layout is read from GNOME gsettings or `setxkbmap`, which cannot see a compositor-only active group).
 - The exported-game Tauri shell (`game-shell-template`) does not have the native command; only the IDE play iframe is wired. Exported games on macOS/Linux rely on keydown learning.
 - `ENGINE_BUNDLE` in the IDE must be rebuilt to pick up `input.layout` for the play iframe.
+
+## SpriteFlash pixel check (needs a real GPU)
+
+`SpriteFlash` attaches a pooled pixi-filters `ColorOverlayFilter` only while `amount > 0`. Headless tests cover timing, pooling and attach/detach; they do not prove pixels. Needs a real GPU (or at least the swiftshader `gpu-verify.mjs` extended): white at amount 1, original texels at 0, alpha edge preserved (no halo on soft edges), stacking with a `shader_set` filter. Also the 50/200/1000 concurrent-flash cost benchmark (filter vs additive clone vs mesh, research 12 step 4).

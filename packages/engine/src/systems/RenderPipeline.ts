@@ -38,6 +38,9 @@ import type { Scene } from "../Scene.js";
 import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
 import { Sprite, resolveSpriteFramePath } from "../components/Sprite.js";
+import { SpriteFlash } from "../components/SpriteFlash.js";
+import { FlashFilterPool } from "./SpriteFlashSystem.js";
+import type { ColorOverlayFilter } from "pixi-filters";
 import { Transform } from "../components/Transform.js";
 import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
@@ -1356,7 +1359,47 @@ export class RenderPipeline implements SceneRenderer {
     pixiSprite.visible = sprite.visible;
     pixiSprite.anchor.set(sprite.anchorX, sprite.anchorY);
     pixiSprite.zIndex = sprite.depth;
+    this._resolveSpriteFlash(pixiSprite, entity);
     this._applySpriteShader(pixiSprite, sprite.shader);
+  }
+
+  private readonly _flashPool = new FlashFilterPool();
+  private readonly _flashFilters = new WeakMap<
+    PixiSprite,
+    ColorOverlayFilter
+  >();
+
+  /** Flash filters currently attached (pool checked out). */
+  get activeFlashFilterCount(): number {
+    return this._flashPool.liveCount;
+  }
+
+  /**
+   * Check a pooled `ColorOverlayFilter` out while the entity's `SpriteFlash.amount`
+   * is above 0, return it to the pool otherwise. `_applySpriteShader` (called
+   * right after) attaches/detaches it, after any shader filter.
+   */
+  private _resolveSpriteFlash(
+    pixiSprite: PixiSprite,
+    entity: { has(c: unknown): boolean; get(c: never): unknown },
+  ): void {
+    const flash = entity.has(SpriteFlash)
+      ? (entity.get(SpriteFlash as never) as { color: number; amount: number })
+      : undefined;
+    const held = this._flashFilters.get(pixiSprite);
+    if (flash === undefined || !(flash.amount > 0)) {
+      if (held !== undefined) {
+        this._flashFilters.delete(pixiSprite);
+        this._flashPool.release(held);
+      }
+      return;
+    }
+    if (held !== undefined) {
+      this._flashPool.configure(held, flash.color, flash.amount);
+      return;
+    }
+    const f = this._flashPool.acquire(flash.color, flash.amount);
+    this._flashFilters.set(pixiSprite, f);
   }
 
   /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
@@ -1407,30 +1450,25 @@ export class RenderPipeline implements SceneRenderer {
     return entry.filter;
   }
 
-  /** Sets a tracked sprite's `.filters` to `[sharedFilter]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
+  /** Sets a tracked sprite's `.filters` to `[sharedShader?, flash?]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
   private _applySpriteShader(
     pixiSprite: PixiSprite,
     shaderId: string | undefined,
   ): void {
-    const filter =
+    const shader =
       shaderId !== undefined && shaderId !== ""
         ? this.resolveShaderFilter(shaderId)
         : undefined;
+    const flash = this._flashFilters.get(pixiSprite);
     const current = pixiSprite.filters as readonly unknown[] | null | undefined;
-    if (filter === undefined) {
-      if (current !== null && current !== undefined && current.length > 0) {
-        pixiSprite.filters = null;
-      }
+    const want: unknown[] = [];
+    if (shader !== undefined) want.push(shader);
+    if (flash !== undefined) want.push(flash);
+    const have = current ?? [];
+    if (have.length === want.length && want.every((f, i) => have[i] === f)) {
       return;
     }
-    if (
-      current === null ||
-      current === undefined ||
-      current.length !== 1 ||
-      current[0] !== filter
-    ) {
-      pixiSprite.filters = [filter];
-    }
+    pixiSprite.filters = want.length > 0 ? (want as never) : null;
   }
 
   /**
@@ -1776,6 +1814,11 @@ export class RenderPipeline implements SceneRenderer {
   private _removeSprite(tracking: SceneTracking, eid: number): void {
     const pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) return;
+    const held = this._flashFilters.get(pixiSprite);
+    if (held !== undefined) {
+      this._flashFilters.delete(pixiSprite);
+      this._flashPool.release(held);
+    }
     pixiSprite.parent?.removeChild(pixiSprite);
     pixiSprite.destroy();
     tracking.sprites.delete(eid);

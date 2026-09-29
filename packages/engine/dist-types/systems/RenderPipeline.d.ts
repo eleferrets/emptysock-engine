@@ -1,3 +1,4 @@
+import "pixi.js/advanced-blend-modes";
 import { Container, Graphics, Texture } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import { type TextureLoader } from "./TextureStore.js";
@@ -66,16 +67,6 @@ export interface TileLayerSource {
     }>;
   };
 }
-/**
- * The real `GmlDrawTarget` implementation (`compat/gml.ts`'s structural
- * interface) — a pixi `Graphics` wrapper, rebuilt from scratch on every
- * `onDraw`/`onDrawGui` call. Construction itself clears the previous call's
- * vector drawing and removes any `Text` children a previous `draw_text` call
- * added (pixi's `Graphics` has no text primitive of its own, so `draw_text`
- * appends a real `Text` child instead — removed here rather than left to
- * accumulate, since a `Graphics` object persists across frames for a given
- * entity while its drawing content does not).
- */
 declare class PixiGmlDrawTarget implements GmlDrawTarget {
   private readonly _graphics;
   private readonly _resolveTexture;
@@ -100,6 +91,13 @@ declare class PixiGmlDrawTarget implements GmlDrawTarget {
       | undefined,
     _resolveSurface?: (id: number) => Texture | undefined,
   );
+  /**
+   * Detach the previous call's children: `Text`/`BitmapText` labels go back to
+   * this `Graphics`' pool for reuse by `text()`; everything else is destroyed
+   * (pixi's `removeChildren()` alone does not destroy).
+   */
+  private _discardChildren;
+  private _harvest;
   /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
   private _g;
   private _blend;
@@ -387,6 +385,7 @@ export declare class RenderPipeline implements SceneRenderer {
   /** Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on an emitter that was never mounted (a no-op). */
   unmountParticles(emitter: ParticleEmitter): void;
   private _syncParticles;
+  private readonly _particlePool;
   /**
    * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
    * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
@@ -512,6 +511,16 @@ export declare class RenderPipeline implements SceneRenderer {
    * `Projection3D.active` every frame).
    */
   private _syncOne;
+  private readonly _flashPool;
+  private readonly _flashFilters;
+  /** Flash filters currently attached (pool checked out). */
+  get activeFlashFilterCount(): number;
+  /**
+   * Check a pooled `ColorOverlayFilter` out while the entity's `SpriteFlash.amount`
+   * is above 0, return it to the pool otherwise. `_applySpriteShader` (called
+   * right after) attaches/detaches it, after any shader filter.
+   */
+  private _resolveSpriteFlash;
   /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
   private readonly _shaderFilters;
   /**
@@ -525,7 +534,7 @@ export declare class RenderPipeline implements SceneRenderer {
    * tests cover the wiring (which Filter lands on which sprite), not pixels.
    */
   resolveShaderFilter(id: string): CustomShaderFilter | undefined;
-  /** Sets a tracked sprite's `.filters` to `[sharedFilter]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
+  /** Sets a tracked sprite's `.filters` to `[sharedShader?, flash?]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
   private _applySpriteShader;
   /**
    * `_syncOne()`'s `Projection3D`-active branch — a real `PerspectiveMesh`
