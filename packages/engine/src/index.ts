@@ -36,6 +36,32 @@ export type {
   ComponentLookup,
   LoadSceneFileOptions,
 } from "./SceneFile.js";
+export { SCENE_FORMAT_VERSION } from "./SceneDocument.js";
+export type {
+  SceneDocument,
+  SceneEntity,
+  SceneEntityId,
+  SceneComponentEntry,
+  ScenePrefabRef,
+  SceneLayerDef,
+  SceneViewDef,
+  SceneRoom,
+  SceneRect,
+  ScenePoint,
+  EntityRefJson,
+} from "./SceneDocument.js";
+export {
+  migrateScene,
+  migrateSceneV1ToV2,
+  parseSceneDocument,
+} from "./SceneMigrations.js";
+export type {
+  SceneFileV1,
+  SceneFileV1Entity,
+  SceneFileV1PrefabInstance,
+  SceneFileV1View,
+  SceneFileV1ComponentEntry,
+} from "./SceneMigrations.js";
 export {
   startCoroutine,
   stopCoroutine,
