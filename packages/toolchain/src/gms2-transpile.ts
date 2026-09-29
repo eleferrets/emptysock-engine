@@ -5227,7 +5227,11 @@ export function transpileGML(
   // reference (`my_gun.hp`, `owner.x`) — `_other` just needs no
   // same-function/cross-file detection step, since it's *always* real
   // wherever it appears, unlike an arbitrary local variable that might
-  // hold anything. Routed through the same `getGmlRefVar`/`setGmlRefVar`
+  // hold anything. `_other` dotted access is deliberately routed to
+  // `GmlActions.getGmlEntityField`/`setGmlEntityField` (it takes the live
+  // `_other` entity directly, with no `(entity, varName)` local-variable
+  // indirection); every other name in this set goes through
+  // `getGmlRefVar`/`setGmlRefVar`. Both share the same underlying
   // mechanism (x/y specially handled via real `Transform` fields, every
   // other field through the generic side-table) — the same narrower,
   // named limitation the cross-instance-references entry in CLAUDE.md
