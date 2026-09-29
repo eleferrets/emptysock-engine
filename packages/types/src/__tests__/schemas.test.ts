@@ -6,6 +6,7 @@ import {
   GPUTierSchema,
   EngineConfigSchema,
   AssetEntrySchema,
+  AssetIndexSchema,
   SceneSchema,
 } from "../index.js";
 
@@ -172,5 +173,36 @@ describe("SceneSchema", () => {
     expect(() =>
       SceneSchema.parse({ ...valid, backgroundColor: "red" }),
     ).toThrow(z.ZodError);
+  });
+});
+
+describe("AssetIndexSchema", () => {
+  it("round-trips and defaults collisions", () => {
+    const parsed = AssetIndexSchema.parse({
+      version: 1,
+      entries: [
+        {
+          kind: "sprite",
+          name: "spr_a",
+          id: "./assets/sprites/spr_a/frame_0.png",
+          width: 16,
+          height: 32,
+          frameCount: 2,
+        },
+      ],
+    });
+    expect(parsed.collisions).toEqual([]);
+    expect(AssetIndexSchema.parse(JSON.parse(JSON.stringify(parsed)))).toEqual(
+      parsed,
+    );
+  });
+  it("rejects unknown kinds and bad versions", () => {
+    expect(() =>
+      AssetIndexSchema.parse({
+        version: 1,
+        entries: [{ kind: "bogus", name: "x", id: "x" }],
+      }),
+    ).toThrow();
+    expect(() => AssetIndexSchema.parse({ version: 2, entries: [] })).toThrow();
   });
 });
