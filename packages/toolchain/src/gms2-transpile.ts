@@ -9,7 +9,7 @@ import path from "path";
  * Real, project-wide `#macro NAME value` resolution. GameMaker's `#macro`
  * is pure textual substitution at compile time, applied project-wide — a
  * macro defined in one script routinely gets used in a dozen unrelated
- * object/script files (real, confirmed: `#macro SAVEFILE "freedom.sav"` in
+ * object/script files (real, confirmed: `#macro SAVEFILE "game.sav"` in
  * one script, referenced throughout the game's own save/load system
  * elsewhere). `transpileGML` itself only ever sees one file's text at a
  * time, so this map has to be built once, project-wide, before any file is
@@ -463,7 +463,7 @@ function escapeRegExpTranspile(str: string): string {
  * (`/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g`) has no notion of a `//` line
  * comment, and real GML comments routinely contain a lone apostrophe —
  * English possessives/contractions (`// Taking away the player's control`,
- * confirmed against Freedom Backup's own real `obj_player/Step_0.gml`,
+ * confirmed against a real project's own real `obj_player/Step_0.gml`,
  * which has half a dozen of these). An *odd* number of `'` characters
  * scattered across a function body's comments makes that regex's own
  * single-quote alternative pair up the *wrong* two apostrophes — one from
@@ -668,7 +668,7 @@ function identifyGmlImplicitVars(
   for (const n of gmlDeclaredLocalNames(text)) declared.add(n);
   // The optional `case <label>:`/`default:` prefix covers a real, confirmed
   // GML shape: a compiled switch-dispatch body writing its result inline on
-  // the same line as the case label (Freedom Backup's own
+  // the same line as the case label (a real project's own
   // `__view_set_internal.gml`: `case e__VW.Visible: __res = view_set_visible(__index, __val); break;`).
   // Without it, `__res` never looks like a *line-start* bare assignment (the
   // line literally starts with `case `), so it was never recognised as an
@@ -685,7 +685,7 @@ function identifyGmlImplicitVars(
   // `if (cond)`'s closing paren, right after a `case`/`default` label, right
   // after a `;` or `{`) — a real, previously-undiscovered gap: this
   // *detection* regex only ever recognised a real line-start assignment,
-  // so a target that only ever appears mid-line (Freedom Backup's own
+  // so a target that only ever appears mid-line (a real project's own
   // `obj_platform`: `if (round(...) > y) || (obj_player.key_down)
   // mask_index = -1;`) was never added to `implicitVars` at all, which
   // meant the rewrite passes below — even though *their* own anchor already
@@ -698,7 +698,7 @@ function identifyGmlImplicitVars(
   // once the prefix started recognising a statement start *mid-line*
   // (right after a `;`/`{`/`else `), a single physical line can legally
   // hold more than one real assignment (`{ global.pause = false; canDraw =
-  // false; canEdit = false; }`, real, confirmed — Freedom Backup's own
+  // false; canEdit = false; }`, real, confirmed — a real project's own
   // `obj_shop`), and a non-global `.exec()` only ever finds the *first*
   // match per line — silently dropping every assignment after it from
   // `implicitVars` entirely. Scanning every match via `matchAll` is what
@@ -739,7 +739,7 @@ function identifyGmlImplicitVars(
 /**
  * Rewrites every statement-start `name = <expr>;` in `text` via `build`,
  * where `<expr>` may itself span multiple physical lines — real, confirmed
- * case (Freedom Backup's obj_trans): `fin_msg = choose(a, b, c,\n  d, e,\n
+ * case (a real project's obj_trans): `fin_msg = choose(a, b, c,\n  d, e,\n
  * f);`, a single real GML statement whose call arguments wrap across
  * several lines. A plain `[^;\n]+` regex capture (used by the increment/
  * decrement and compound-assign passes, where a multi-line RHS is far
@@ -750,7 +750,7 @@ function identifyGmlImplicitVars(
  * argument list's own internal newlines never end the expression early.
  *
  * GML's own `;` is optional — a real, confirmed second regression this
- * scan has to account for: Freedom Backup's obj_enemy has `grounded =
+ * scan has to account for: a real project's obj_enemy has `grounded =
  * true\nimage_speed = 1;` (no semicolon after `true` at all; the newline
  * alone ends the statement, GML's own valid syntax). Stopping the scan
  * *only* at `;` merged that bare newline's following statement straight
@@ -769,7 +769,7 @@ function identifyGmlImplicitVars(
  * assignment): a real line start (`^[ \t]*`), immediately after a brace-less
  * `if (cond)`'s closing paren (`\)[ \t]+`), or immediately after a `case
  * <label>:`/`default:` switch label on the same line (`case
- * <label>:`/`default:` — a real, confirmed shape, Freedom Backup's own
+ * <label>:`/`default:` — a real, confirmed shape, a real project's own
  * `__view_set_internal.gml`: `case e__VW.Visible: __res = ...; break;`).
  * Every alternative is a genuine statement boundary GML actually allows a
  * new statement to begin at; echoing the captured group back verbatim in
@@ -777,7 +777,7 @@ function identifyGmlImplicitVars(
  */
 // The `;[ \t]*`/`\{[ \t]*` alternatives cover a real, confirmed shape this
 // prefix originally missed: a brace body with more than one statement on
-// one physical line (`{ vsp = 0; grav = 0; }`, Freedom Backup's own
+// one physical line (`{ vsp = 0; grav = 0; }`, a real project's own
 // `obj_moveblock`/`obj_slideblock` — an `if (...) { ... }` GameMaker's own
 // exporter apparently keeps compact rather than one statement per line).
 // Neither `stmt1;` (after a semicolon) nor `{ stmt` (right after an opening
@@ -789,7 +789,7 @@ function identifyGmlImplicitVars(
 // shape.
 // The `\belse\s+` alternative covers a real, confirmed shape this prefix
 // originally missed: a brace-less `else` body on the same line as its own
-// `else` keyword (`if (cond) stmt1; else my_gun = noone;`, Freedom Backup's
+// `else` keyword (`if (cond) stmt1; else my_gun = noone;`, a real project's
 // own `obj_enemy`/`obj_enemyBig` Create events) — GML's brace-less `if`
 // already had its own `\)[ \t]+` alternative above, but the matching
 // brace-less `else` never got the same treatment, so a statement starting
@@ -966,7 +966,7 @@ function rewriteWithStatements(
         // is — `gmlNum` would coerce a real `Entity` object to `0` (`
         // Number(entity) || 0`), which `with_each` would then read as "no
         // matching entity", silently no-opping the whole `with` block at
-        // runtime. Real, confirmed usage: Freedom Backup's own `obj_enemy`
+        // runtime. Real, confirmed usage: a real project's own `obj_enemy`
         // Create event, `with (my_gun) { owner = other.id; }` — `my_gun`
         // holds the just-spawned `obj_Egun` instance, and the with-block's
         // body is what actually gives that instance its real `owner`
@@ -1006,7 +1006,7 @@ function rewriteWithStatements(
     // instance's own built-in variable holding a reference to itself, so
     // `other.id` and `other` are the exact same value (confirmed against
     // manual.gamemaker.io's `id`/`other` reference pages). Real, confirmed
-    // usage: Freedom Backup's own `obj_enemy` back-reference idiom,
+    // usage: a real project's own `obj_enemy` back-reference idiom,
     // `with (my_gun) { owner = other.id; }` — this engine's `Entity` type
     // has no `.id` field of its own (there's no numeric instance-id
     // concept to expose one from), so leaving `.id` un-rewritten would
@@ -1030,7 +1030,7 @@ function rewriteWithStatements(
  * Pre-scans a single raw (untranspiled) GML event file for the names it
  * would identify as implicit instance variables, on its own. Real GameMaker
  * instance state routinely gets *set* in one event (Create) and only *read*
- * — never assigned — in another (Step): Freedom Backup's obj_camera sets
+ * — never assigned — in another (Step): a real project's obj_camera sets
  * `cam`/`view_w_half`/`buff`/etc. once in Create and reads them every frame
  * in Step. Since `transpileGML` processes one event file per call (each
  * becomes its own generated function — gms2-codegen.ts), a name never
@@ -1091,7 +1091,7 @@ export function scanGmlImplicitVars(gml: string): Set<string> {
  * be an indexed one (`endtext[0] = "...";`), which the array-variable
  * detection pass inside `transpileGML` recognises on its own — but, like
  * `scanGmlImplicitVars` itself, only within *this one call's own* body
- * text. Real, confirmed cross-event-file gap: Freedom Backup's own
+ * text. Real, confirmed cross-event-file gap: a real project's own
  * `obj_ending` builds `endtext[]` entirely in `Create_0.gml` and only ever
  * *reads* it (`endtext[currentline]`, `array_length_1d(endtext)`) from
  * `Step_0.gml`/`Draw_64.gml` — a name never indexed-assigned within one of
@@ -1223,7 +1223,7 @@ export function transpileGML(
   // same-function-only scan (`arrayAssignRe`), never fed by
   // `scanGmlImplicitVars`'s scalar-only `identifyGmlImplicitVars` the way
   // `knownImplicitVars` already is — confirmed real, previously-
-  // undiscovered: Freedom Backup's own `obj_ending` (`endtext`) is assigned
+  // undiscovered: a real project's own `obj_ending` (`endtext`) is assigned
   // only in `Create_0.gml` and read in `Step_0.gml`. See
   // `scanGmlImplicitArrayVars`'s own doc comment for the matching
   // cross-file pre-scan `gms2-codegen.ts` unions from every sibling event
@@ -1352,7 +1352,7 @@ export function transpileGML(
   // GameMaker's `id` built-in — the calling instance's own instance id, real
   // and common wherever an instance passes a reference to itself (`_other`
   // and `layer` are exactly this same class of self-reference built-in;
-  // `id` is the general-purpose one — real, confirmed usage: Freedom
+  // `id` is the general-purpose one — real, confirmed usage: a real project
   // Backup's own `layer_add_instance("Tiles", id);`). This engine's `Entity`
   // *is* the calling instance's own identity, so a bare `id` read resolves
   // straight to `_entity`, the same "the built-in already has a natural
@@ -1660,7 +1660,7 @@ export function transpileGML(
   // (called once by `importGMS2Project`, before any file is transpiled)
   // walks every `.gml` file in the project and builds a real
   // `name -> value` map, installed via `setGmlMacros()`. Real, confirmed,
-  // load-bearing shape: `#macro SAVEFILE "freedom.sav"` in one script,
+  // load-bearing shape: `#macro SAVEFILE "game.sav"` in one script,
   // referenced as a bare `SAVEFILE` identifier throughout the game's own
   // save/load system (`file_text_open_write(working_directory +
   // SAVEFILE)`) — leaving the definition as a TODO comment (the old
@@ -1856,10 +1856,10 @@ export function transpileGML(
   //
   // GML's `switch` also allows the same paren-optional subject syntax as
   // `if`/`while` — confirmed against three separate real projects:
-  // `switch _inputDevice { ... }` (LocalInputSystemFauxOperativeGames'
+  // `switch _inputDevice { ... }` (a real project's input-system code
   // `scr_inputControlUpdateInputs.gml`), `switch toggleHighlight { ... }`
-  // (MenuProject's `scr_drawCurrentMenu.gml`), and `switch
-  // window_get_fullscreen() { ... }` (MenuProject's
+  // (a real project's `scr_drawCurrentMenu.gml`), and `switch
+  // window_get_fullscreen() { ... }` (a real project's
   // `scr_setOptionVariableStrings.gml`). Unlike `if`/`while`, JS/TS's
   // `switch` syntax has no bare-condition form at all, so an unwrapped
   // `switch expr { case ...: }` is a hard SyntaxError (`switch` expects `(`
@@ -2151,7 +2151,7 @@ export function transpileGML(
   // `${list}.length` — the exact same real, previously-undiscovered
   // ordering bug `string_length`'s own fix above documents: this pass runs
   // before the implicit-instance-variable pass, so a bare `ds_list`
-  // variable (`ds_list_size(messages)`, real, confirmed usage — Freedom
+  // variable (`ds_list_size(messages)`, real, confirmed usage — a real project
   // Backup's own `oTextbox`) was left as an unresolved identifier directly
   // followed by `.length`, a shape the later bare-read pass's own
   // dot-exclusion guard never resolves. `gmlArr` (`compat/
@@ -2460,7 +2460,7 @@ export function transpileGML(
   // shader_set(shader) — GameMaker's real function takes a shader-asset
   // reference argument, the same bare-identifier shape `instance_change`'s
   // object-name argument above needs quoted rather than threaded raw (the
-  // real, confirmed call site: `shader_set(sh_white);`, Freedom Backup's
+  // real, confirmed call site: `shader_set(sh_white);`, a real project's
   // own `obj_pShootable/Draw_0.gml` — see `compat/gmlActions.ts`'s
   // `shader_set` doc comment for what this compat function actually does
   // with the name). `shader_reset()` takes no arguments at all, so it needs
@@ -2519,12 +2519,12 @@ export function transpileGML(
     },
   );
   // `audio_sound_pitch(snd, pitch)` — real, confirmed bug found running
-  // the playability smoke test against real Freedom Backup gameplay: this
+  // the playability smoke test against real project gameplay: this
   // used to be generically threaded via `THREADED_ACTIONS` (no quoting,
   // the same already-documented gap `action_create_object`/
   // `instance_create`'s object-name argument has), so a real, common call
   // shape (`audio_sound_pitch(snd_Landing, choose(0.8, 1.0, 1.2))`,
-  // confirmed in Freedom Backup's own `obj_player/Step_0.gml`) left the
+  // confirmed in a real project's own `obj_player/Step_0.gml`) left the
   // bare `snd_Landing` identifier completely unresolved — a hard runtime
   // `ReferenceError` the moment this line actually executed, not a
   // degraded/no-op result. Given its own dedicated quoting pass here,
@@ -2551,7 +2551,7 @@ export function transpileGML(
   // which is itself a parenthesized expression containing a further
   // nested call's own parens — two levels deep, not one. `_ONE_LEVEL`
   // silently failed to match the whole argument at all in that real case
-  // (confirmed: Freedom Backup's own `scr_death.gml`'s
+  // (confirmed: a real project's own `scr_death.gml`'s
   // `room_goto(checkpointR);`, after the earlier global-read rewrite),
   // leaving the call entirely unrewritten — a hard `ReferenceError`, not a
   // degraded result.
@@ -2832,7 +2832,7 @@ export function transpileGML(
   // expression's own trailing `)`/`]` intact for those later passes to see
   // and resolve exactly as they would for any other appearance of the same
   // name, and is itself always a safe, no-op wrap for a value that was
-  // already a real string. Confirmed real, common usage: Freedom Backup's
+  // already a real string. Confirmed real, common usage: a real project's
   // own `obj_typewriter`/`obj_ending` (`string_length(text_to_write)`,
   // `string_length(endtext[currentline])`).
   out = out.replace(
@@ -2911,7 +2911,7 @@ export function transpileGML(
     // correct: a bare filename argument is either already a real string
     // literal (`file_text_open_read("lang.txt")`) or, after this pass's
     // own #macro substitution runs earlier in the pipeline, already a
-    // quoted string too (`working_directory + ("freedom.sav")`).
+    // quoted string too (`working_directory + ("game.sav")`).
     "file_exists",
     "file_delete",
     "file_text_open_read",
@@ -2944,7 +2944,7 @@ export function transpileGML(
     // regression: after `#macro` substitution (above) replaces a bare
     // macro-name argument with its real, parenthesised value
     // (`file_text_open_write(working_directory + SAVEFILE)` becomes
-    // `file_text_open_write(working_directory + ("freedom.sav"))`), a
+    // `file_text_open_write(working_directory + ("game.sav"))`), a
     // `[^)]*` capture stopped at that nested `)`, leaving the real outer
     // `)` dangling — the exact same class of bug already fixed for
     // `show_message`/`repeat` elsewhere in this file, newly triggered here
@@ -2986,7 +2986,7 @@ export function transpileGML(
     (_m, idx: string, expr: string) => {
       // A global-variable read (already rewritten by the earlier `global.x`
       // pass above into `(_ctx.game?.globals.get("x"))`) returns `unknown`
-      // — real, confirmed: Freedom Backup's own `obj_trans`'s
+      // — real, confirmed: a real project's own `obj_trans`'s
       // `alarm[0] = global.one_second * trans_time;`. `unknown` cannot
       // participate in arithmetic at all, so wrapping the *whole* steps
       // expression in `gmlNum` below doesn't help — the type error is at
@@ -3004,7 +3004,7 @@ export function transpileGML(
       return `GmlActions.action_set_alarm(_entity, _ctx, ${idx}, GmlActions.gmlNum(${coerced}));`;
     },
   );
-  // A bare read (`if (alarm[0] <= 0)`, real, confirmed: Freedom Backup's
+  // A bare read (`if (alarm[0] <= 0)`, real, confirmed: a real project's
   // own `obj_pause_menu`/`obj_player_dead`) reads the same side-table via
   // `get_gml_alarm`, wrapped in `gmlNum` for the same "bare GML read used
   // in expression position must be a real runtime number, not `unknown`"
@@ -3016,7 +3016,7 @@ export function transpileGML(
   );
 
   // GameMaker's real camera/view function family (compat/gmlCamera.ts) —
-  // confirmed a real, previously-untranspiled gap against Freedom Backup's
+  // confirmed a real, previously-untranspiled gap against a real project's
   // own obj_camera (a real GML camera-follow controller: cam =
   // view_camera[0]; view_w_half = camera_get_view_width(cam); ...
   // camera_set_view_pos(cam, ...)). None of these are entity-affecting —
@@ -3068,7 +3068,7 @@ export function transpileGML(
     // (compat/gmlInput.ts) — real, confirmed high-value gap: none of these
     // were wired anywhere despite `keyboard_check`/`keyboard_check_pressed`
     // being GameMaker's single most common input idiom (confirmed against
-    // Freedom Backup's own `scr_get_input.gml`). Context-only, like the
+    // a real project's own `scr_get_input.gml`). Context-only, like the
     // camera/view family above — keyboard/gamepad/mouse state is
     // game-global, never per-instance, so there is no `_entity` to thread.
     "keyboard_check",
@@ -3097,7 +3097,7 @@ export function transpileGML(
     "surface_resize",
     // `room_exists(room)` (compat/gmlActions.ts) — a real object-type-name-
     // free function (its argument is either already a real expression like
-    // a loop index or a dotted field reference — Freedom Backup's own real
+    // a loop index or a dotted field reference — a real project's own real
     // usage is `room_exists(i)`/`room_exists(_other.new_room)`, neither a
     // bare room-name identifier — or, on the rare occasion it *is* one,
     // still resolves correctly since `room_exists` itself just checks
@@ -3113,7 +3113,7 @@ export function transpileGML(
     // acting on the calling one, so there's no `_entity` for it to receive.
     "layer_sequence_create",
     // GameMaker's real room-layer compat family (compat/gmlLayer.ts) — real,
-    // confirmed usage: Freedom Backup's own `obj_camera` parallax code
+    // confirmed usage: a real project's own `obj_camera` parallax code
     // (`layer_x`/`layer_get_x`/`layer_exists`), `obj_ending`'s layer-sprite
     // element read/destroy, `__init_global`'s `layer_force_draw_depth`, and
     // `obj_bullet`'s `layer_add_instance`. Every argument is a layer-name
@@ -3180,7 +3180,7 @@ export function transpileGML(
 
   // GameMaker's real, fixed colour-constant palette (compat/gml.ts's
   // c_white/c_black/etc. — see that module's own doc comment) — confirmed a
-  // real, common gap: Freedom Backup alone uses c_white/c_black/c_gray
+  // real, common gap: a real project alone uses c_white/c_black/c_gray
   // roughly 48 times across 20 files, every one a bare, undeclared
   // identifier (a hard ReferenceError at runtime) since nothing recognised
   // GML's colour-constant family at all. A plain `\bname\b` → `GmlActions.
@@ -3325,7 +3325,7 @@ export function transpileGML(
   // implemented and exported but never actually wired into this transpiler
   // at all — a real, confirmed, severe gap: `sign`/`random_range`/`choose`/
   // `lengthdir_x`/`lengthdir_y`/`point_distance`/`degtorad` etc. are
-  // genuinely common in real GML (confirmed against Freedom Backup's own
+  // genuinely common in real GML (confirmed against a real project's own
   // obj_camera: `random_range(-shake_remain, shake_remain)`, `sign(hsp)`),
   // and every one of them was left as a bare, undeclared identifier. These
   // take no `_entity`/`_ctx` (they're pure value functions, not
@@ -3394,7 +3394,7 @@ export function transpileGML(
     // json_encode/json_decode/base64_encode/base64_decode/font_get_size/
     // get_timer/randomize/point_in_circle/is_string/is_undefined/
     // game_set_speed/window_set_cursor/window_get_cursor (compat/gml.ts) —
-    // real, confirmed usage: Freedom Backup's own `scr_save_game.gml`/
+    // real, confirmed usage: a real project's own `scr_save_game.gml`/
     // `scr_load_game.gml` save-file chain (`json_encode` -> `base64_encode`,
     // and the reverse), each a pure value function needing no `_entity`/
     // `_ctx` and no object-name-argument quoting — the same shape every
@@ -3413,7 +3413,7 @@ export function transpileGML(
     "window_set_cursor",
     "window_get_cursor",
     // sin/cos/tan/sqrt/power/string_insert (compat/gml.ts) — real,
-    // confirmed usage: Freedom Backup's own `obj_gun_pickup` float-bob
+    // confirmed usage: a real project's own `obj_gun_pickup` float-bob
     // effect (`sin`) and `obj_menu`'s cursor rendering (`string_insert`).
     // Each is a thin, unit-preserving wrapper needing no `_entity`/`_ctx`
     // and no object-name-argument quoting, the same shape every other
@@ -3427,7 +3427,7 @@ export function transpileGML(
   ];
   // A single `.replace()` pass only rewrites non-overlapping matches, so a
   // call that nests *itself* as one of its own arguments (real, confirmed:
-  // Freedom Backup's own `obj_sidebars`, `max(0, ... - max((...), 0.005))`)
+  // a real project's own `obj_sidebars`, `max(0, ... - max((...), 0.005))`)
   // has its outer occurrence consumed whole by `BALANCED_PARENS_TWO_LEVELS`
   // — the inner `max(` sits inside the captured `args` string, which is
   // re-emitted verbatim, never reprocessed — leaving the inner call a bare,
@@ -3491,7 +3491,7 @@ export function transpileGML(
   // (the `_` keeps them one word), so no separate ordering constraint
   // exists here beyond keeping every bare-read rewrite in one place.
   // The trailing `(?!\s*=(?!=))` guard is real, confirmed load-bearing —
-  // Freedom Backup's own `obj_player_stats` declares a plain instance
+  // a real project's own `obj_player_stats` declares a plain instance
   // variable that happens to share `previous_room`'s exact name
   // (`previous_room = room;`, shadowing the read-only GameMaker built-in;
   // GML allows this). Without the guard this pass rewrote that assignment's
@@ -3545,7 +3545,7 @@ export function transpileGML(
 
   // GameMaker's bare `layer` built-in read — the calling instance's own
   // creation layer, real and common as `instance_create_layer(x, y, layer,
-  // obj)`'s "same layer as me" argument (confirmed real: Freedom Backup's
+  // obj)`'s "same layer as me" argument (confirmed real: a real project's
   // own `scr_load_game.gml` and `obj_crate.gml`). Rewritten to
   // `GmlActions.gml_current_layer(_entity, _ctx)` (`compat/gmlLayer.ts`) —
   // guarded against a real call-site spelling and the dotted-reference/
@@ -3557,7 +3557,7 @@ export function transpileGML(
 
   // `mouse_x`/`mouse_y` bare reads (compat/gmlInput.ts's `mouse_x`/
   // `mouse_y`) — real, confirmed gap found running the playability smoke
-  // test against real Freedom Backup gameplay (`obj_gun`/`obj_pna`'s own
+  // test against real project gameplay (`obj_gun`/`obj_pna`'s own
   // aiming code reads both bare, never as a call). Guarded against the
   // dotted-reference/call-site/comment shapes the same way every other
   // bare-read rewrite in this file already is.
@@ -3572,7 +3572,7 @@ export function transpileGML(
 
   // `bbox_left`/`bbox_right`/`bbox_top`/`bbox_bottom` bare reads
   // (compat/gmlActions.ts) — real, confirmed gap found running the
-  // playability smoke test against real Freedom Backup gameplay
+  // playability smoke test against real project gameplay
   // (`obj_player/Step_0.gml` reads `bbox_bottom` every Step for its
   // ground/wall probe — this was the single largest blocker to a real
   // demonstration of sustained player movement, since it threw on most
@@ -3706,7 +3706,7 @@ export function transpileGML(
   // variables (as opposed to the function-call twins just above, which
   // handle an explicit `view_get_camera(idx)`/`view_set_camera(idx, v)`
   // call) — real GML source overwhelmingly uses the array-subscript form
-  // (confirmed: Freedom Backup's obj_camera reads `view_camera[0]`, never
+  // (confirmed: a real project's obj_camera reads `view_camera[0]`, never
   // `view_get_camera(0)`). `view_visible`/`view_enabled`/`view_xport`/
   // `view_yport`/`view_wport`/`view_hport` are GameMaker's other real
   // `view_*[idx]` built-in arrays, given the identical treatment for the
@@ -3786,7 +3786,7 @@ export function transpileGML(
   // `place_meeting(x, y, obj_wall)`, but this same argument position can
   // equally hold a real GML variable that *references* a live instance
   // (`follow = obj_player;` earlier, then `instance_exists(follow)` later —
-  // Freedom Backup's own obj_camera). A known implicit-instance-variable
+  // a real project's own obj_camera). A known implicit-instance-variable
   // name (this event's own, or another sibling event's via
   // `knownImplicitVars`/`scanGmlImplicitVars`) is left bare instead of
   // quoted, so it resolves through `GmlInstanceVars` like any other
@@ -3822,7 +3822,7 @@ export function transpileGML(
 
   // GameMaker's `noone` built-in constant used as a bare *value* (an
   // assignment's right-hand side or a plain comparison target — real,
-  // confirmed usage: Freedom Backup's own `my_gun = noone;`/`new_room =
+  // confirmed usage: a real project's own `my_gun = noone;`/`new_room =
   // noone;`/`global.checkpoint = noone;`) — distinct from `noone` used as an
   // *object-name argument* to `place_meeting`/`collision_*`/etc. (the
   // `bareOrQuotedUnlessVar`/object-argument-quoting pass immediately above),
@@ -4396,7 +4396,7 @@ export function transpileGML(
 
   // draw_set_halign/draw_set_valign/draw_set_font/draw_set_alpha — real
   // GmlDrawTarget draw-state setters (see `@emptysock/engine`'s
-  // `compat/gml.ts` `GmlDrawTarget` interface doc comment). Freedom
+  // `compat/gml.ts` `GmlDrawTarget` interface doc comment). A real project
   // Backup's own real usage (`obj_pause_menu`/`obj_menu`/`obj_text`/
   // `obj_text_fade`/`obj_typewriter`) is exclusively `draw_set_halign
   // (fa_center)`/`draw_set_font(fnt_sign)` etc — the `fa_*` constant
@@ -4437,7 +4437,7 @@ export function transpileGML(
   // bare-identifier-sprite-name -> quoted-texture-path resolution
   // `draw_sprite`'s own rewrite just above already establishes, reused
   // here rather than duplicated as a separate helper — real, confirmed
-  // usage: Freedom Backup's own `draw_9slice.gml` script, a real 9-slice UI
+  // usage: a real project's own `draw_9slice.gml` script, a real 9-slice UI
   // panel renderer built entirely out of `draw_sprite_part`/
   // `draw_sprite_part_ext` calls slicing one panel sprite into 9 cells.
   const spriteTexturePathExpr = (spriteArg: string): string => {
@@ -4501,7 +4501,7 @@ export function transpileGML(
   //
   // Real, confirmed the single highest-frequency unresolved-identifier gap
   // in this transpiler: a real full-project `tsc --noEmit` sweep against
-  // Freedom Backup's regenerated output showed `x`/`y` as by far the most
+  // a real project's regenerated output showed `x`/`y` as by far the most
   // common `TS2304: Cannot find name` (dozens of occurrences each,
   // concentrated in `obj_player`'s movement code — `x += hsp_final;`,
   // `place_meeting(_entity, _ctx, x, y + 1, "obj_wall")`, etc.). `x`/`y` are
@@ -4551,7 +4551,7 @@ export function transpileGML(
   // Known, honest, deliberately-unhandled limitation: a GMS2.3+ struct
   // literal that happens to use the exact key name `x`/`y` (`{x: 5, y: 10}`)
   // would have that key wrongly rewritten into a `Transform` read/write
-  // expression, which is not valid as an object-literal key. Freedom
+  // expression, which is not valid as an object-literal key. A real project
   // Backup's own real source (confirmed by the full project sweep this fix
   // was verified against) uses GameMaker's classic `x += ...`/`y += ...`
   // assignment style throughout, never a struct literal keyed `x`/`y` — this
@@ -4600,7 +4600,7 @@ export function transpileGML(
   // `xstart`/`ystart` — real, writable GameMaker built-ins holding the
   // instance's own creation position (confirmed against manual.gamemaker
   // .io's `xstart`/`ystart` reference pages — real, confirmed usage:
-  // Freedom Backup's own `obj_camera`/`obj_gun_pickup`). Same increment →
+  // a real project's own `obj_camera`/`obj_gun_pickup`). Same increment →
   // compound → plain → bare-read ordering, masking, and dotted/comment
   // guards the `x`/`y` block immediately above already establishes, routed
   // through `compat/gmlActions.ts`'s `get_gml_xstart`/`set_gml_xstart`/
@@ -4649,7 +4649,7 @@ export function transpileGML(
   }
 
   // GameMaker's real `speed`/`direction`/`hspeed`/`vspeed` built-in instance
-  // variables — real, common movement idiom (confirmed against Freedom
+  // variables — real, common movement idiom (confirmed against a real project
   // Backup's `obj_Egun`/`obj_bullet_par`: `direction = other.image_angle +
   // random_range(...);` inside a `with` block targeting a freshly spawned
   // bullet, with no other code ever moving it — the bullet's motion comes
@@ -4708,7 +4708,7 @@ export function transpileGML(
   // *first* assignment can be an indexed one (`endtext[0] = "...";`), which
   // implicitly creates a real per-instance array the same way a bare `name
   // = expr;` implicitly creates a scalar field (see the implicit-variable
-  // pass just below). Confirmed real in Freedom Backup: `obj_ending`'s
+  // pass just below). Confirmed real in a real project: `obj_ending`'s
   // `endtext[0]..[6]`, `obj_pause_menu`'s `option[0]..[3]`, `obj_menu`'s
   // `menu[0]..[2]` — a dialogue/menu-option list built entirely this way,
   // with no array-literal declaration anywhere. This must run *before* the
@@ -4836,7 +4836,7 @@ export function transpileGML(
   // value an instance's Create event set was silently gone the instant
   // Create's function returned — a later event reading the same bare name
   // saw a fresh, re-initialized local, never the value Create actually
-  // stored. Confirmed against a real, full GameMaker project: Freedom
+  // stored. Confirmed against a real, full GameMaker project: a real project
   // Backup's obj_camera sets `cam`/`follow`/`view_w_half`/`view_h_half` once
   // in Create and reads every one of them every frame in Step — exactly the
   // "must survive across events" shape the old `var` behavior silently
@@ -4880,7 +4880,7 @@ export function transpileGML(
     // Real, confirmed regression: a bare-word regex has no notion of string
     // boundaries, and a real GML source string literal routinely contains
     // text that happens to match an implicit variable's own name —
-    // confirmed against Freedom Backup's obj_trans:
+    // confirmed against a real project's obj_trans:
     // `trans_intro0 = load_string("trans_intro0");` (a save-key string that
     // happens to equal the variable's own name is a common, ordinary
     // naming convention, not a contrived edge case). Without masking,
@@ -4941,7 +4941,7 @@ export function transpileGML(
       // The prefix alternation (`^[ \t]*` — a real statement start — or
       // `\)[ \t]+` — immediately after a condition's closing paren) covers
       // a real, confirmed shape: a brace-less `if (cond) name += expr;`
-      // body (Freedom Backup's own `oTextbox`'s `if (messageChar <=
+      // body (a real project's own `oTextbox`'s `if (messageChar <=
       // _text.length) messageChar += messageSpeed;`). Without the second
       // alternative, this pass's line-start-only anchor never matched that
       // statement at all, so it silently fell through to the unanchored
@@ -5035,7 +5035,7 @@ export function transpileGML(
   }
 
   // GameMaker 2.3+ real project-defined `enum Name { ... }` declarations
-  // (confirmed real, e.g. Freedom Backup's own `TRANS_MODE`/`MSG` — see
+  // (confirmed real, e.g. A real project's own `TRANS_MODE`/`MSG` — see
   // CLAUDE.md's "GML enum declarations" section). `enum` is TypeScript-only
   // syntax in a plain generated .behavior.ts module (this codebase doesn't
   // emit TS enums), so a real declaration site is stripped entirely — the
@@ -5086,7 +5086,7 @@ export function transpileGML(
   // Real, project-wide cross-instance dotted references — `obj_x.field`,
   // where `obj_x` is a genuine, known GameMaker object *type* name (not a
   // local variable holding a specific instance reference such as
-  // `inst`/`other`). Real, confirmed usage in Freedom Backup:
+  // `inst`/`other`). Real, confirmed usage in a real project:
   // `obj_player.x`/`.y` (11/12 occurrences), `obj_input.key_down` etc. — see
   // CLAUDE.md's "Cross-file symbol table..." section. `_objectNames` (every
   // real object directory name, installed by `gms2-import.ts` before any
@@ -5158,7 +5158,7 @@ export function transpileGML(
   //
   // A real cross-file case this same-function heuristic alone cannot
   // close, now resolved for real by a genuine project-wide pre-scan:
-  // Freedom Backup's own `obj_Egun.Step_1.gml` reads `owner.x`/
+  // a real project's own `obj_Egun.Step_1.gml` reads `owner.x`/
   // `owner.image_xscale`, but `owner` is never assigned inside `obj_Egun`'s
   // own event files at all — it's set externally, from a *different*
   // object's `Create_0.gml`, via `with (my_gun) { owner = other.id; }` (a
@@ -5193,7 +5193,7 @@ export function transpileGML(
   // unresolved identifier, the same honest "not this exact pattern, not
   // covered" limitation every other narrow heuristic in this file already
   // carries — no other real occurrence of a *different* cross-file
-  // Entity-reference shape was found in Freedom Backup while building this
+  // Entity-reference shape was found in a real project while building this
   // pass (confirmed by grepping every real `with (` block project-wide for
   // an assignment sourced from `other`/`other.id` — `obj_enemy`'s
   // `my_gun`/`owner` pair is the only real match).
@@ -5276,7 +5276,7 @@ export function transpileGML(
   // quotes (`sprite_index = spr_foo;`, `draw_sprite(spr_foo, ...)`,
   // `audio_play_sound(snd_foo)`, `instance_create_layer(..., obj_foo)`, all
   // real and wired well before this pass runs). Real, confirmed
-  // occurrences in Freedom Backup: a *local* variable — not `sprite_index`
+  // occurrences in a real project: a *local* variable — not `sprite_index`
   // itself — compared against/assigned a bare sprite name
   // (`obj_player/Step_0.gml`'s `spr_ind == spr_player_walk`/`spr_ind =
   // spr_player_stand`; `obj_platformH/Step_0.gml`'s `mask_index =
@@ -5309,7 +5309,7 @@ export function transpileGML(
   // deliberately left *unresolved* rather than guessed — resolving it
   // against the wrong kind would silently corrupt working code, and there
   // is no positional/type information available at this text-rewrite
-  // stage to disambiguate the two. Freedom Backup itself has zero such
+  // stage to disambiguate the two. A real project itself has zero such
   // collisions across its real sprite/sound/font/room/object name sets, so
   // this branch is exercised only by the dedicated regression test, not
   // real project data.

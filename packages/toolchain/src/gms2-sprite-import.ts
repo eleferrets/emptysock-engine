@@ -38,7 +38,7 @@ export interface SpriteAsset {
    *
    * A real GMS2 `.yy` sprite's `sequence.playbackSpeed` is paired with
    * `playbackSpeedType`: `0` means the number is already **frames per
-   * second** (GameMaker's own default, confirmed against a real Freedom
+   * second** (GameMaker's own default, confirmed against a real project
    * Backup sprite: `playbackSpeed: 15.0, playbackSpeedType: 0`), `1` means
    * **frames per game-step** — the exact same per-tick unit
    * `Sprite.frameSpeed` already uses, needing no conversion. Converting FPS
@@ -51,7 +51,7 @@ export interface SpriteAsset {
   frameSpeed?: number;
   /**
    * Real GMS2 `nineSlice` metadata, present only when the `.yy`'s
-   * `nineSlice` block exists AND `enabled` is `true`. Freedom Backup has
+   * `nineSlice` block exists AND `enabled` is `true`. A real project has
    * exactly one such block (`spr_back`) and it is `enabled: false` with all
    * guides `0`, so this stays `undefined` for it — an honest "not authored".
    */

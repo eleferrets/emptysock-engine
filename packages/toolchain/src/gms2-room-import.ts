@@ -42,7 +42,7 @@ export interface RoomLayer {
    * was dropped, instead of silently losing it with no note anywhere.
    */
   backgroundSprite?: string;
-  /** `GMRBackgroundLayer` `htiled`/`vtiled` (real: 20 of Freedom's 40 background layers are htiled) and its `x`/`y` offset. */
+  /** `GMRBackgroundLayer` `htiled`/`vtiled` (real: 20 of a real project's 40 background layers are htiled) and its `x`/`y` offset. */
   htiled?: boolean;
   vtiled?: boolean;
   offsetX?: number;
@@ -55,7 +55,7 @@ export interface RoomLayer {
 
 /**
  * One element of a `GMRAssetLayer`'s `assets` array: a `GMRSpriteGraphic`
- * (confirmed against real Freedom Backup rooms) or a `GMRSequenceGraphic`
+ * (confirmed against real project rooms) or a `GMRSequenceGraphic`
  * (schema from the `yy-typings` project; no real sample was available to
  * check, so this path is covered by synthetic tests only).
  */

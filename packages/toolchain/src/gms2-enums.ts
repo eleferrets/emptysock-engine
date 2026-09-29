@@ -3,7 +3,7 @@ import path from "path";
 
 /**
  * Real, project-wide GameMaker 2.3+ `enum Name { A, B = value, C }`
- * declarations (confirmed real against Freedom Backup's own `TRANS_MODE`
+ * declarations (confirmed real against a real project's own `TRANS_MODE`
  * — `objects/obj_sidebars/Create_0.gml` — and `MSG` —
  * `objects/oTextbox/Create_0.gml` — both plain, user-authored, sequential
  * enums with no explicit member values). These are ordinary user GML code,

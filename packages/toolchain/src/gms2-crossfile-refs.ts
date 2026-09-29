@@ -14,7 +14,7 @@ import { scanGmlImplicitVars } from "./gms2-transpile.js";
  * }
  * ```
  *
- * Confirmed real in Freedom Backup: `objects/obj_enemy/Create_0.gml` spawns
+ * Confirmed real in a real project: `objects/obj_enemy/Create_0.gml` spawns
  * `obj_Egun` this exact way and reaches back into the spawned instance to
  * give it a live reference to its creator — a common, idiomatic GameMaker
  * pattern (spawn something, then immediately tell it who spawned it), not
@@ -46,7 +46,7 @@ import { scanGmlImplicitVars } from "./gms2-transpile.js";
  * the honest, stated scope.
  *
  * `<targetExpr>` itself is not required to resolve to anything in
- * particular — a bare local variable (`my_gun`, the real Freedom Backup
+ * particular — a bare local variable (`my_gun`, the real project
  * shape) or a real object-type name are both accepted, since either way
  * the *field name* being populated with a live Entity reference is the
  * only fact this scanner needs to record. Whether `<targetExpr>` itself
@@ -65,7 +65,7 @@ export async function scanGmlCrossFileEntityRefFields(
   // Brace form: `with (target) { ... field = other.id; ... }`. The body is
   // captured non-greedily up to the first `}` at the same nesting level —
   // real GameMaker back-reference with-blocks in this idiom are short and
-  // don't nest further `{`/`}` (confirmed against Freedom Backup's own real
+  // don't nest further `{`/`}` (confirmed against a real project's own real
   // occurrence), so a simple non-nested capture is sufficient and matches
   // this codebase's existing enum-body-scanning precedent (`scanGmlEnums`'s
   // own `ENUM_RE` doc comment makes the identical non-nesting assumption
@@ -120,7 +120,7 @@ export async function scanGmlCrossFileEntityRefFields(
  * assignment, not the `other.id` back-reference idiom above) *only* inside
  * `objName`'s own event files, never anywhere inside the script itself.
  *
- * Confirmed real in Freedom Backup: `scripts/scr_save_game/scr_save_game.gml`
+ * Confirmed real in a real project: `scripts/scr_save_game/scr_save_game.gml`
  * does `with (obj_player_stats) { save_data.set("x", player_xstart); ...
  * save_data.set("hp", hp); ... }` — `player_xstart`/`hp`/`maxhp`/`stamina`/
  * `maxstamina`/`expr`/`maxexpr`/`level`/`attack` are all real, plain

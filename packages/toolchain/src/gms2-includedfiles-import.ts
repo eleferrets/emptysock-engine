@@ -19,7 +19,7 @@ export interface IncludedFileEntry {
 
 /**
  * GameMaker's "Included Files" feature bundles arbitrary real files
- * (config, licence text, data files — Freedom Backup's own real example is
+ * (config, licence text, data files — a real project's own real example is
  * `datafiles/lang.txt`, read at runtime via the `file_text_*` family this
  * importer already supports — see CLAUDE.md's GmlFileSystem entry) into the
  * build. This is a genuine, load-bearing feature in real GameMaker

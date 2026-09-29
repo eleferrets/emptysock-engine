@@ -13,7 +13,7 @@ const AUDIO_EXTENSIONS = [".ogg", ".wav", ".mp3", ".m4a"];
 /**
  * A real GMS2 sound resource's on-disk audio file routinely has NO file
  * extension at all — confirmed against a real, full GameMaker project
- * (Freedom Backup's `sounds/snd_Foot1/snd_Foot1` is a real RIFF/WAVE file
+ * (a real project's `sounds/snd_Foot1/snd_Foot1` is a real RIFF/WAVE file
  * with no `.wav` suffix; every sound in that project follows this same
  * pattern). `soundFile` in the `.yy` just names the on-disk file, extension
  * or not — GameMaker's own player doesn't need an extension since it reads

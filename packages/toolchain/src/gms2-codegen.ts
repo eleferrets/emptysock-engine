@@ -63,7 +63,7 @@ interface YyObject {
    * defaults declared on the object resource itself (not in any `.gml`
    * file). See `resolveGmlObjectProperties()`'s own doc comment — this is
    * a genuinely different mechanism from inheritance, confirmed against a
-   * real Freedom Backup object (`obj_enemy`'s own `grv`/`has_weapon`
+   * real project object (`obj_enemy`'s own `grv`/`has_weapon`
    * fields, which this importer previously had no read path for at all). */
   properties?: YyObjectProperty[];
   [key: string]: unknown;
@@ -119,7 +119,7 @@ export async function resolveGmlObjectChain(
  * array), walking the real `parentObjectId` chain so a child inherits its
  * parent's declared defaults the same way GameMaker itself does (child
  * overrides parent on a same-named property). `varType 3` is GameMaker's
- * real Boolean property type (confirmed against Freedom Backup's own
+ * real Boolean property type (confirmed against a real project's own
  * `obj_enemy.yy`: `afraid_of_heights`/`grounded`/`has_weapon` all carry
  * `varType: 3` with `"True"`/`"0"`/`"1"`-shaped string values); every other
  * `varType` is read as a number when the raw string parses as one, else
@@ -406,7 +406,7 @@ export async function buildObjectBehavior(
   }
 
   // A real GML instance variable can be *set* in one event (Create) and
-  // only ever *read* — never assigned — in another (Step): Freedom Backup's
+  // only ever *read* — never assigned — in another (Step): a real project's
   // obj_camera sets cam/view_w_half/buff/etc. once in Create and reads them
   // every frame in Step. `transpileGML` processes one event file per call,
   // each becoming its own generated function, so a name never assigned
@@ -431,7 +431,7 @@ export async function buildObjectBehavior(
     }
   }
   // A real GMS2.3+ variable-definition default (`grv`/`has_weapon` on a
-  // real Freedom Backup `obj_enemy`, see `resolveGmlObjectProperties()`'s
+  // real project `obj_enemy`, see `resolveGmlObjectProperties()`'s
   // own doc comment) is never *assigned* inside any `.gml` file — it's
   // declared on the object resource itself — so `scanGmlImplicitVars`'s
   // own "was this name ever assigned in this object's own source" scan can
@@ -615,7 +615,7 @@ export async function buildObjectBehavior(
   // `onCreate`, before any transpiled Create-event body runs — matching
   // GameMaker's own real timing (a variable definition's default is
   // applied before Create-event code executes) and fixing a real,
-  // previously-undiscovered gap: a real Freedom Backup object
+  // previously-undiscovered gap: a real project object
   // (`obj_enemy`) reads `grv`/`has_weapon` in its own Create event despite
   // never assigning either anywhere in any `.gml` file — they're real
   // GameMaker variable-definition defaults this importer had no read path
@@ -1247,7 +1247,7 @@ export function ${name}(
   // `argument`/`argumentN`/`argument[N]`/`argument_count` idiom, since that
   // idiom predates GMS2.3's named-parameter syntax and GameMaker never
   // forces a script to stop using it just because it also has an (empty)
-  // parameter list — confirmed real in Freedom Backup's own
+  // parameter list — confirmed real in a real project's own
   // scr_slide_transition.gml (`function scr_slide_transition() { ... mode =
   // argument[0]; ... }`). Rewriting legacy-arg syntax whenever the script
   // declared zero named parameters is safe either way: a script with real
@@ -1274,7 +1274,7 @@ export function ${name}(
     );
     // `argument[N]` (bracket-index legacy syntax — GameMaker's own doc notes
     // this is interchangeable with `argumentN`, real confirmed usage in
-    // Freedom Backup's scr_slide_transition.gml) must be rewritten before
+    // a real project's scr_slide_transition.gml) must be rewritten before
     // the bare `argumentN` pass below, or its `[N]` survives untouched.
     // `args` is typed `unknown[]` (a script's real arguments are
     // dynamically typed) — `args[N]` is coerced through
@@ -1315,7 +1315,7 @@ export function ${name}(
   // Typed `number`, not `unknown` — the same honest, already-precedented
   // assumption `getGmlVar`'s bare-read cast makes: a real GML script
   // parameter used in the script's own body is overwhelmingly arithmetic
-  // (`scr_screen_shake(magnitude, frames)`, confirmed real in Freedom
+  // (`scr_screen_shake(magnitude, frames)`, confirmed real in a real project
   // Backup — both params compared/assigned numerically throughout). This is
   // a type-level-only choice; a caller genuinely passing a string still
   // works identically at runtime (TypeScript's structural typing doesn't
