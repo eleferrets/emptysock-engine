@@ -305,6 +305,8 @@ export interface EnumDecl extends NodeBase {
   type: "EnumDecl";
   name: string;
   members: EnumMember[];
+  /** False when the closing `}` / `end` is missing (unterminated declaration). */
+  closed: boolean;
 }
 
 export interface MacroDecl extends NodeBase {

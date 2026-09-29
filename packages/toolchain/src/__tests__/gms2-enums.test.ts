@@ -63,6 +63,65 @@ mode = TRANS_MODE.INTRO;
   });
 });
 
+describe("scanGmlEnums (lexer/parser-backed)", () => {
+  it("handles nested braces, comments containing braces, trailing commas and hex/shift/multiply expressions", async () => {
+    const root = await makeProject({
+      "scripts/a/a.gml": `enum E {
+  A, // } tricky
+  /* { */ B = 1 << 3,
+  C, D = $10,
+  F = C * 2,
+  G = -1,
+}`,
+    });
+    const enums = await scanGmlEnums(root);
+    expect([...(enums.get("E") ?? [])]).toEqual([
+      ["A", 0],
+      ["B", 8],
+      ["C", 9],
+      ["D", 16],
+      ["F", 18],
+      ["G", -1],
+    ]);
+  });
+
+  it("ignores enums in comments and strings, and unterminated declarations", async () => {
+    const root = await makeProject({
+      "scripts/a/a.gml": `// enum Fake { X }\ns = "enum Str { Y }";\nenum Open { Z`,
+    });
+    const enums = await scanGmlEnums(root);
+    expect(enums.size).toBe(0);
+  });
+
+  it("still skips an unresolvable member and malformed members without losing the rest", async () => {
+    const root = await makeProject({
+      "scripts/a/a.gml": `enum M { A, B = some_call(), 5, C, D E, F }`,
+    });
+    const enums = await scanGmlEnums(root);
+    expect([...(enums.get("M") ?? [])]).toEqual([
+      ["A", 0],
+      ["C", 1],
+      ["F", 2],
+    ]);
+  });
+
+  it("resolves a member expression referencing an enum declared earlier", async () => {
+    const root = await makeProject({
+      "scripts/a/a.gml": `enum P { X = 5 }\nenum Q { Y = P.X + 1 }`,
+    });
+    const enums = await scanGmlEnums(root);
+    expect(enums.get("Q")?.get("Y")).toBe(6);
+  });
+
+  it("finds an enum after a syntax error earlier in the same file", async () => {
+    const root = await makeProject({
+      "scripts/a/a.gml": `x = = ;\nwhile ((\nenum After { A, B }`,
+    });
+    const enums = await scanGmlEnums(root);
+    expect(enums.get("After")?.get("B")).toBe(1);
+  });
+});
+
 describe("buildEnumsModule", () => {
   it("emits one real, valid `const ... as const` object per enum", () => {
     const enums = new Map([

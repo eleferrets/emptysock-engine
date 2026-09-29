@@ -636,6 +636,7 @@ class Parser {
     const open = this.next();
     const closer = open.text === "{" ? "}" : "end";
     const members: Array<{ name: string; start: number; end: number; value?: Expr }> = [];
+    let closed = false;
     for (;;) {
       if (this.atEof()) {
         this.diagnostics.push({ message: "unterminated enum", start, end: this.prevEnd });
@@ -644,28 +645,49 @@ class Parser {
       const t = this.peek();
       if ((closer === "}" && t.kind === "punct" && t.text === "}") || (closer === "end" && t.kind === "keyword" && t.text === "end")) {
         this.next();
+        closed = true;
         break;
       }
       if (t.kind === "punct" && t.text === ",") {
         this.next();
         continue;
       }
-      if (t.kind !== "ident") this.fail("expected enum member name");
-      this.next();
-      const m: { name: string; start: number; end: number; value?: Expr } = {
-        name: t.text,
-        start: this.startOf(t),
-        end: t.end + this.offset,
-      };
-      if (this.isP("=")) {
+      // A malformed member is skipped (and reported) without losing the rest of the enum.
+      const memberPos = this.pos;
+      try {
+        if (t.kind !== "ident") this.fail("expected enum member name");
         this.next();
-        m.value = this.withEq(true, () => this.parseTernary());
-        m.end = this.prevEnd;
+        const m: { name: string; start: number; end: number; value?: Expr } = {
+          name: t.text,
+          start: this.startOf(t),
+          end: t.end + this.offset,
+        };
+        if (this.isP("=")) {
+          this.next();
+          m.value = this.withEq(true, () => this.parseTernary());
+          m.end = this.prevEnd;
+        }
+        if (!(this.isP(",") || this.isP("}") || this.isK("end") || this.atEof())) this.fail("expected ',' after enum member");
+        members.push(m);
+      } catch (e) {
+        if (!(e instanceof ParseError)) throw e;
+        this.diagnostics.push({ message: e.message, start: e.start, end: e.end });
+        this.pos = memberPos;
+        let depth = 0;
+        while (!this.atEof()) {
+          const k = this.peek();
+          if (k.kind === "punct") {
+            if (k.text === "(" || k.text === "[" || k.text.startsWith("[")) depth++;
+            else if ((k.text === ")" || k.text === "]") && depth > 0) depth--;
+            else if (depth === 0 && (k.text === "," || k.text === "}")) break;
+          } else if (depth === 0 && k.kind === "keyword" && k.text === "end") break;
+          this.next();
+        }
+        if (this.pos === memberPos) this.next();
       }
-      members.push(m);
     }
     this.consumeSemi();
-    return { type: "EnumDecl", start, end: this.prevEnd, name: id.text, members };
+    return { type: "EnumDecl", start, end: this.prevEnd, name: id.text, members, closed };
   }
 
   private parseParams(): Param[] {

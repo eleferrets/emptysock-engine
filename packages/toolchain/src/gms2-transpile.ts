@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { scanMacros } from "./gml/scan.js";
 
 // ---------------------------------------------------------------------------
 // GML pattern-level transpiler
@@ -190,35 +191,20 @@ export function setGmlCrossFileEntityRefFields(
   _crossFileEntityRefFields = names;
 }
 
-/** Removes a trailing line or block comment from a `#macro` value (outside string literals). */
-function stripMacroComment(value: string): string {
-  let quote = "";
-  for (let i = 0; i < value.length; i++) {
-    const ch = value[i] as string;
-    if (quote !== "") {
-      if (ch === "\\") i++;
-      else if (ch === quote) quote = "";
-    } else if (ch === '"' || ch === "'") quote = ch;
-    else if (ch === "/" && (value[i + 1] === "/" || value[i + 1] === "*"))
-      return value.slice(0, i);
-  }
-  return value;
-}
-
 /**
  * Walks every `.gml` file under `projectRoot` and extracts every real
- * `#macro NAME value` declaration into a `name -> value` map. Real
- * GameMaker macros are one value expression per line (GameMaker's own IDE
- * doesn't support multi-line macro bodies without an explicit trailing
- * `\`, which is rare enough in real projects to leave as an honest,
- * undocumented edge case rather than build multi-line continuation
- * handling with no real example to verify it against).
+ * `#macro NAME value` declaration into a `name -> value` map. Declarations
+ * come from the GML lexer (`gml/scan.ts`): a `#macro` line inside a comment
+ * or string is not a declaration, `\` line continuations are joined, and
+ * trailing line and block comments are dropped from the value. A
+ * config-scoped macro (`#macro Config:NAME value`) is keyed `Config:NAME`,
+ * exactly as before, so it never substitutes a bare `NAME`. The last
+ * declaration of a name wins.
  */
 export async function scanGmlMacros(
   projectRoot: string,
 ): Promise<Map<string, string>> {
   const macros = new Map<string, string>();
-  const MACRO_RE = /^[ \t]*#macro\s+(\S+)\s+(.*)$/gm;
 
   async function walk(dir: string): Promise<void> {
     let entries: string[];
@@ -235,12 +221,9 @@ export async function scanGmlMacros(
         await walk(full);
       } else if (entry.endsWith(".gml")) {
         const content = await fs.readFile(full, "utf-8").catch(() => "");
-        for (const m of content.matchAll(MACRO_RE)) {
-          const name = m[1];
-          const value =
-            m[2] === undefined ? undefined : stripMacroComment(m[2]).trim();
-          if (name !== undefined && value !== undefined && value !== "") {
-            macros.set(name, value);
+        for (const m of scanMacros(content)) {
+          if (m.valueText !== "") {
+            macros.set(m.config ? `${m.config}:${m.name}` : m.name, m.valueText);
           }
         }
       }

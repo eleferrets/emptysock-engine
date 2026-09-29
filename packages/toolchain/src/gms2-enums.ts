@@ -1,5 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
+import { evaluateEnumDecl } from "./gml/project-symbols.js";
+import { scanEnums } from "./gml/scan.js";
 
 /**
  * Real, project-wide GameMaker 2.3+ `enum Name { A, B = value, C }`
@@ -33,12 +35,6 @@ export async function scanGmlEnums(
   projectRoot: string,
 ): Promise<Map<string, Map<string, number>>> {
   const enums = new Map<string, Map<string, number>>();
-  // Matches `enum Name { ...body... }` — body captured non-greedily up to
-  // the first `}`, which is safe here because real GameMaker enum bodies
-  // never contain a nested `{`/`}` (each member is a plain identifier or a
-  // simple arithmetic `= expr`, never a struct/function literal).
-  const ENUM_RE = /enum\s+([A-Za-z_]\w*)\s*\{([^}]*)\}/g;
-
   async function walk(dir: string): Promise<void> {
     let entries: string[];
     try {
@@ -54,12 +50,13 @@ export async function scanGmlEnums(
         await walk(full);
       } else if (entry.endsWith(".gml")) {
         const content = await fs.readFile(full, "utf-8").catch(() => "");
-        for (const m of content.matchAll(ENUM_RE)) {
-          const name = m[1];
-          const body = m[2];
-          if (name === undefined || body === undefined) continue;
-          if (enums.has(name)) continue; // first declaration wins — real GameMaker allows only one project-wide declaration per enum name
-          enums.set(name, parseEnumBody(body));
+        // Declarations come from the GML lexer/parser (`gml/scan.ts`), so an
+        // `enum` inside a comment or string is ignored, member bodies may
+        // contain nested braces/comments, and a syntax error elsewhere in the
+        // file cannot hide a declaration.
+        for (const decl of scanEnums(content)) {
+          if (enums.has(decl.name)) continue; // first declaration wins — real GameMaker allows only one project-wide declaration per enum name
+          enums.set(decl.name, evaluateEnumDecl(decl, enums));
         }
       }
     }
@@ -67,71 +64,6 @@ export async function scanGmlEnums(
 
   await walk(projectRoot);
   return enums;
-}
-
-function parseEnumBody(body: string): Map<string, number> {
-  const members = new Map<string, number>();
-  let next = 0;
-  for (const rawMember of body.split(",")) {
-    const member = rawMember.trim();
-    if (member === "") continue; // trailing comma before `}` — GameMaker's IDE writes this routinely
-    const eq = member.indexOf("=");
-    if (eq === -1) {
-      const memberName = member;
-      if (!/^[A-Za-z_]\w*$/.test(memberName)) continue;
-      members.set(memberName, next);
-      next += 1;
-      continue;
-    }
-    const memberName = member.slice(0, eq).trim();
-    const exprText = member.slice(eq + 1).trim();
-    if (!/^[A-Za-z_]\w*$/.test(memberName)) continue;
-    const value = evaluateEnumExpr(exprText, members);
-    if (value === undefined) continue; // an expression this scanner can't statically resolve (e.g. referencing something outside the enum) — honestly skipped, not guessed
-    members.set(memberName, value);
-    next = value + 1;
-  }
-  return members;
-}
-
-/**
- * Evaluates a real, simple GameMaker enum member override expression —
- * an integer literal, or a `+`/`-` arithmetic combination referencing an
- * earlier member of the *same* enum by name (the only forward-reference
- * shape GameMaker's own parser allows here). Deliberately narrow: this is
- * not a general GML expression evaluator, and any expression outside this
- * shape (a call, a reference to another enum, a multiplication) returns
- * `undefined` so the caller can skip it honestly rather than fabricate a
- * wrong value.
- */
-function evaluateEnumExpr(
-  expr: string,
-  known: ReadonlyMap<string, number>,
-): number | undefined {
-  const tokens = expr.match(/[A-Za-z_]\w*|\d+|[+-]/g);
-  if (tokens === null || tokens.length === 0) return undefined;
-  let result: number | undefined;
-  let sign = 1;
-  for (const tok of tokens) {
-    if (tok === "+") {
-      sign = 1;
-      continue;
-    }
-    if (tok === "-") {
-      sign = -1;
-      continue;
-    }
-    let value: number | undefined;
-    if (/^\d+$/.test(tok)) {
-      value = Number(tok);
-    } else {
-      value = known.get(tok);
-    }
-    if (value === undefined) return undefined;
-    result = (result ?? 0) + sign * value;
-    sign = 1;
-  }
-  return result;
 }
 
 /**

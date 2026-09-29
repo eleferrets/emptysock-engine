@@ -32,7 +32,8 @@ export function scanEnums(text: string): EnumDecl[] {
     if (name.kind !== "ident") continue;
     if (!((open.kind === "punct" && open.text === "{") || (open.kind === "keyword" && open.text === "begin"))) continue;
     const s = parseStatementAt(text, t.start);
-    if (s.type === "EnumDecl") out.push(s);
+    // an unterminated declaration is not a declaration (the regex scan it replaces also required the closing brace)
+    if (s.type === "EnumDecl" && s.closed) out.push(s);
   }
   return out;
 }
