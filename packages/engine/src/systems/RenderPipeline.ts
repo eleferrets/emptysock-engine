@@ -109,6 +109,35 @@ export interface TileLayerSource {
  * accumulate, since a `Graphics` object persists across frames for a given
  * entity while its drawing content does not).
  */
+type LabelNode = (Text | BitmapText) & { __poolKey?: string };
+
+/** Max recycled labels kept per `Graphics` (extras are destroyed). */
+const TEXT_POOL_CAP = 256;
+
+interface TextPool {
+  size: number;
+  byKey: Map<string, LabelNode[]>;
+}
+
+const textPools = new WeakMap<Graphics, TextPool>();
+
+/** Per-`Graphics` label pool; its pooled (unparented) labels are destroyed with the `Graphics`. */
+function getTextPool(g: Graphics): TextPool {
+  let pool = textPools.get(g);
+  if (pool === undefined) {
+    const created: TextPool = { size: 0, byKey: new Map() };
+    pool = created;
+    textPools.set(g, created);
+    g.once("destroyed", () => {
+      for (const list of created.byKey.values())
+        for (const n of list) n.destroy();
+      created.byKey.clear();
+      created.size = 0;
+    });
+  }
+  return pool;
+}
+
 class PixiGmlDrawTarget implements GmlDrawTarget {
   private _color = 0x000000;
   /** Persistent draw-state font/alignment/alpha — GameMaker's `draw_set_*` calls mutate these until changed again, applied to the next `text()`/sprite draw call. Reset to defaults on every construction (every `onDraw`/`onDrawGui` dispatch), matching this class's own "rebuilt fresh every call, no cross-frame leakage" doc comment above. */
@@ -135,10 +164,32 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     this._g = this._graphics;
   }
 
-  /** Detach and destroy the previous call's children (pixi's `removeChildren()` alone does not destroy them). */
+  /**
+   * Detach the previous call's children: `Text`/`BitmapText` labels go back to
+   * this `Graphics`' pool for reuse by `text()`; everything else is destroyed
+   * (pixi's `removeChildren()` alone does not destroy).
+   */
   private _discardChildren(): void {
-    for (const c of this._graphics.removeChildren())
-      c.destroy({ children: true });
+    this._harvest(this._graphics.removeChildren());
+  }
+
+  private _harvest(nodes: readonly Container[]): void {
+    const pool = getTextPool(this._graphics);
+    for (const c of nodes) {
+      if (c instanceof Text || c instanceof BitmapText) {
+        const key = (c as LabelNode).__poolKey;
+        if (key !== undefined && pool.size < TEXT_POOL_CAP) {
+          pool.size++;
+          getOrCreateMapEntry(pool.byKey, key, () => []).push(c);
+          continue;
+        }
+        c.destroy();
+        continue;
+      }
+      // blend-mode segments hold labels of their own: harvest those first.
+      this._harvest(c.removeChildren());
+      c.destroy();
+    }
   }
 
   /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
@@ -264,25 +315,40 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     // A registered bitmap font (a GMS2 font's pre-rendered atlas) draws through
     // pixi `BitmapText`; both classes expose `anchor`/`alpha`/`x`/`y`, so the
     // alignment code below is shared. `fill` tints the (white) glyphs.
-    const label: Text | BitmapText =
+    const pool = getTextPool(this._graphics);
+    const key =
       bitmap !== undefined
-        ? new BitmapText({
-            text,
-            style: {
-              fontFamily: bitmap.family,
-              fontSize: bitmap.def.size,
-              fill: this._color,
-            },
-          })
-        : new Text({
-            text,
-            style: {
-              fill: this._color,
-              ...(this._fontFamily !== undefined
-                ? { fontFamily: this._fontFamily }
-                : {}),
-            },
-          });
+        ? `b|${bitmap.family}|${bitmap.def.size}`
+        : `t|${this._fontFamily ?? ""}`;
+    const reused = pool.byKey.get(key)?.pop();
+    let label: LabelNode;
+    if (reused !== undefined) {
+      pool.size--;
+      label = reused;
+      if (label.text !== text) label.text = text;
+      label.style.fill = this._color;
+    } else {
+      label =
+        bitmap !== undefined
+          ? new BitmapText({
+              text,
+              style: {
+                fontFamily: bitmap.family,
+                fontSize: bitmap.def.size,
+                fill: this._color,
+              },
+            })
+          : new Text({
+              text,
+              style: {
+                fill: this._color,
+                ...(this._fontFamily !== undefined
+                  ? { fontFamily: this._fontFamily }
+                  : {}),
+              },
+            });
+      label.__poolKey = key;
+    }
     // `fa_left`/`fa_top` (both 0) need no anchor at all — pixi's own default
     // anchor (0,0) already puts (x,y) at the text's top-left corner, exactly
     // matching GameMaker's own default alignment.
@@ -813,27 +879,42 @@ export class RenderPipeline implements SceneRenderer {
 
   private _syncParticles(): void {
     for (const [emitter, container] of this._particleContainers) {
-      container.removeParticles();
       const texture = this._particleTextures.get(emitter) ?? Texture.WHITE;
+      // Reuse pixi `Particle` objects across frames (mutate fields in place)
+      // instead of allocating one per live particle per frame; the container's
+      // `particleChildren` is rewritten to the live prefix and flagged once
+      // via `update()`.
+      let pool = this._particlePool.get(container);
+      if (pool === undefined) {
+        pool = [];
+        this._particlePool.set(container, pool);
+      }
+      const live = container.particleChildren;
+      live.length = 0;
+      let n = 0;
       for (const p of emitter.getParticles()) {
         if (!p.active) continue;
-        container.addParticle(
-          new Particle({
-            texture,
-            x: p.x,
-            y: p.y,
-            scaleX: p.scale,
-            scaleY: p.scale,
-            rotation: p.rotation,
-            anchorX: 0.5,
-            anchorY: 0.5,
-            tint: p.colour,
-            alpha: p.alpha,
-          }),
-        );
+        let part = pool[n];
+        if (part === undefined) {
+          part = new Particle({ texture, anchorX: 0.5, anchorY: 0.5 });
+          pool.push(part);
+        }
+        part.texture = texture;
+        part.x = p.x;
+        part.y = p.y;
+        part.scaleX = p.scale;
+        part.scaleY = p.scale;
+        part.rotation = p.rotation;
+        part.tint = p.colour;
+        part.alpha = p.alpha;
+        live.push(part);
+        n++;
       }
+      container.update();
     }
   }
+
+  private readonly _particlePool = new WeakMap<ParticleContainer, Particle[]>();
 
   /**
    * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md

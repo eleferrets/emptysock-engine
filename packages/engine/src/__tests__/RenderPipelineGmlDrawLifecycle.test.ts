@@ -31,6 +31,7 @@ describe("RenderPipeline gml draw target child lifecycle", () => {
   let pipeline: InstanceType<typeof RenderPipeline>;
   let scene: InstanceType<typeof Scene>;
   let eid = -1;
+  let skipDraw = false;
 
   const kids = (): Kid[] =>
     (
@@ -40,8 +41,10 @@ describe("RenderPipeline gml draw target child lifecycle", () => {
     )._gmlDrawGraphics.get(eid)?.children ?? [];
 
   beforeEach(async () => {
+    skipDraw = false;
     registerGmlBehavior("leaky", {
       onDraw: (_e, ctx) => {
+        if (skipDraw) return;
         ctx.drawTarget?.sprite("a.png", 1, 2);
         ctx.drawTarget?.text(3, 4, "hello");
       },
@@ -59,15 +62,36 @@ describe("RenderPipeline gml draw target child lifecycle", () => {
     pipeline.attachGmlBehaviors(new GmlBehaviorSystem(), { scene } as never);
   });
 
-  it("destroys the previous frame's discarded children instead of dropping them", () => {
+  it("destroys discarded non-label children and recycles labels instead of allocating", () => {
     pipeline.renderFrame(scene);
-    const first = [...kids()];
-    expect(first.length).toBe(2);
-    pipeline.renderFrame(scene);
-    for (const k of first) {
-      expect(k.destroyed).toBe(true);
-      expect(k.parent).toBeNull();
-    }
+    const [sprite1, label1] = [...kids()];
     expect(kids()).toHaveLength(2);
+    pipeline.renderFrame(scene);
+    expect(sprite1?.destroyed).toBe(true);
+    const [sprite2, label2] = [...kids()];
+    expect(sprite2).not.toBe(sprite1);
+    expect(label2).toBe(label1);
+    expect(label2?.destroyed).toBe(false);
+    expect(label2?.parent).not.toBeNull();
+    for (let i = 0; i < 20; i++) pipeline.renderFrame(scene);
+    expect(kids()).toHaveLength(2);
+    expect(kids()[1]).toBe(label1);
+  });
+
+  it("destroys pooled labels when the owning Graphics is destroyed", () => {
+    pipeline.renderFrame(scene);
+    const label = kids()[1];
+    skipDraw = true; // next frame returns the label to the pool, draws nothing
+    pipeline.renderFrame(scene);
+    expect(kids()).toHaveLength(0);
+    expect(label?.destroyed).toBe(false);
+    (
+      pipeline as unknown as {
+        _gmlDrawGraphics: Map<number, { destroy(): void }>;
+      }
+    )._gmlDrawGraphics
+      .get(eid)
+      ?.destroy();
+    expect(label?.destroyed).toBe(true);
   });
 });

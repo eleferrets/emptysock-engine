@@ -57,6 +57,27 @@ describe("ECS RenderPipeline — particle wiring", () => {
     expect(found).toBe(true);
   });
 
+  it("reuses pixi Particle objects across frames instead of reallocating", async () => {
+    const emitter = particles.create({
+      emissionRate: 1000,
+      lifetime: { min: 10, max: 10 },
+      maxParticles: 5,
+    });
+    await pipeline.mountParticles(emitter);
+    particles.update(0.5);
+    pipeline.renderFrame(scene);
+    const container = pipeline.stage.children
+      .flatMap((c) => c.children)
+      .find((c) => c instanceof ParticleContainer) as InstanceType<
+      typeof ParticleContainer
+    >;
+    const first = [...container.particleChildren];
+    expect(first.length).toBeGreaterThan(0);
+    pipeline.renderFrame(scene);
+    expect(container.particleChildren).toEqual(first);
+    expect(container.particleChildren[0]).toBe(first[0]);
+  });
+
   it("syncs active particles from the emitter into the mounted container each renderFrame()", async () => {
     const emitter = particles.create({
       emissionRate: 1000,
