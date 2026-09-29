@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useIDEStore } from "../store/ideStore";
 import { useLocalisationStore } from "../store/localisationStore";
+import { useGameGlobalsStore } from "../store/gameGlobalsStore";
 
 // Reset to a known clean state before each test so tests do not bleed into each other.
 beforeEach(() => {
@@ -66,6 +67,38 @@ describe("ideStore — saveProjectJson / loadProjectFiles round-trip", () => {
       "es",
       "pt",
     ]);
+  });
+
+  it("declared game globals survive a save/load round trip and reset with the project", () => {
+    useGameGlobalsStore.getState().setGameGlobal("score", "number");
+    useGameGlobalsStore.getState().setGameGlobal("player", "{ hp: number }");
+    const json = useIDEStore.getState().saveProjectJson();
+    expect(JSON.parse(json).gameGlobals).toEqual({
+      score: "number",
+      player: "{ hp: number }",
+    });
+    useIDEStore.getState().resetProject();
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({});
+    useIDEStore.getState().loadProjectFiles({ "emptysock.project.json": json });
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({
+      score: "number",
+      player: "{ hp: number }",
+    });
+  });
+
+  it("loading a project drops a stale global and ignores non-string entries", () => {
+    useGameGlobalsStore.getState().setGameGlobal("stale", "number");
+    useIDEStore.getState().loadProjectFiles({
+      "emptysock.project.json": JSON.stringify({
+        gameGlobals: { keep: "string", bad: 3 },
+      }),
+    });
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({
+      keep: "string",
+    });
+    // A project file with no gameGlobals key leaves none behind.
+    useIDEStore.getState().loadProjectFiles({ "emptysock.project.json": "{}" });
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({});
   });
 
   it("saveProjectJson produces valid JSON", () => {

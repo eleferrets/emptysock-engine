@@ -12,6 +12,7 @@ import { useAudioStore } from "./audioStore";
 import { useVNStore } from "./vnStore";
 import { useVSStore } from "./vsStore";
 import { useCGStore } from "./cgStore";
+import { useGameGlobalsStore } from "./gameGlobalsStore";
 import { DEFAULT_WINDOW_CONFIG } from "./ideTypes";
 import type {
   LogLevel,
@@ -802,6 +803,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     useVNStore.getState().resetVNStore();
     useVSStore.getState().resetVSStore();
     useCGStore.getState().resetCGStore();
+    useGameGlobalsStore.getState().resetGameGlobalsStore();
     get().addLog("info", "New project created", "IDE");
   },
 

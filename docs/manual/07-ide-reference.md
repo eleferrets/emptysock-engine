@@ -414,7 +414,7 @@ Declares the typed game-wide globals that `ctx.globals.get("name")` / `game.glob
 - **Undo / redo**: the toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (50 steps, session only) while the panel is on screen.
 - **Filter**: narrows the list by name.
 
-The declarations live in the editor session (`useGameGlobalsStore`); they are not yet saved into the project file.
+The declarations are saved in the project file (`gameGlobals`, name to type expression) and restored when the project is opened.
 
 ---
 

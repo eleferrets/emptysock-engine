@@ -21,6 +21,7 @@ import {
 import { useVNStore, type VnNode } from "../store/vnStore";
 import { useVSStore } from "../store/vsStore";
 import { useCGStore } from "../store/cgStore";
+import { useGameGlobalsStore } from "../store/gameGlobalsStore";
 import {
   DEFAULT_WINDOW_CONFIG,
   type LogLevel,
@@ -90,6 +91,7 @@ export function saveProjectJson(state: ProjectSnapshot): string {
   const audio = useAudioStore.getState();
   const tilemap = useTilemapStore.getState();
   const vn = useVNStore.getState();
+  const globals = useGameGlobalsStore.getState();
   return JSON.stringify(
     {
       projectName: state.projectName,
@@ -108,6 +110,7 @@ export function saveProjectJson(state: ProjectSnapshot): string {
       variableStoreVarNames: vars.variableStoreVarNames,
       variableStoreSwitchNames: vars.variableStoreSwitchNames,
       windowConfig: state.windowConfig,
+      gameGlobals: globals.gameGlobals,
       vnNodes: vn.vnNodes,
       autoTileRuleSets: tilemap.autoTileRuleSets,
       dbActors: db.dbActors,
@@ -189,6 +192,7 @@ export function loadProjectFiles(
   useVNStore.getState().resetVNStore();
   useVSStore.getState().resetVSStore();
   useCGStore.getState().resetCGStore();
+  useGameGlobalsStore.getState().resetGameGlobalsStore();
 
   if (projectJsonKey !== undefined) {
     const raw = files[projectJsonKey];
@@ -299,6 +303,20 @@ export function loadProjectFiles(
             ...DEFAULT_WINDOW_CONFIG,
             ...(proj["windowConfig"] as Partial<WindowConfig>),
           };
+        }
+        if (
+          proj["gameGlobals"] !== null &&
+          typeof proj["gameGlobals"] === "object" &&
+          !Array.isArray(proj["gameGlobals"])
+        ) {
+          // name -> TypeScript type expression; anything else is dropped.
+          const restored: Record<string, string> = {};
+          for (const [k, v] of Object.entries(
+            proj["gameGlobals"] as Record<string, unknown>,
+          )) {
+            if (typeof v === "string") restored[k] = v;
+          }
+          useGameGlobalsStore.getState().hydrateGameGlobals(restored);
         }
         if (Array.isArray(proj["vnNodes"])) {
           useVNStore.getState().setVNNodes(proj["vnNodes"] as VnNode[]);
