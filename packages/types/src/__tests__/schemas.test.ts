@@ -7,7 +7,7 @@ import {
   EngineConfigSchema,
   AssetEntrySchema,
   AssetIndexSchema,
-  SceneSchema,
+  SceneDocumentSchema,
 } from "../index.js";
 
 describe("ProjectManifestSchema", () => {
@@ -152,26 +152,84 @@ describe("AssetEntrySchema", () => {
   });
 });
 
-describe("SceneSchema", () => {
+describe("SceneDocumentSchema", () => {
   const valid = {
-    id: "123e4567-e89b-12d3-a456-426614174000",
+    formatVersion: 2,
     name: "GameScene",
+    entities: [
+      { id: "a" },
+      { id: "b", parent: "a", components: { Meta: { data: { name: "B" } } } },
+    ],
   };
 
-  it("parses valid scene with defaults", () => {
-    const result = SceneSchema.parse(valid);
+  it("parses a valid document", () => {
+    const result = SceneDocumentSchema.parse(valid);
     expect(result.name).toBe("GameScene");
-    expect(result.version).toBe(1);
-    expect(result.entities).toEqual([]);
+    expect(result.entities).toHaveLength(2);
   });
 
-  it("throws on missing id", () => {
-    expect(() => SceneSchema.parse({ name: "X" })).toThrow(z.ZodError);
+  it("round-trips through JSON", () => {
+    const doc = SceneDocumentSchema.parse(valid);
+    expect(SceneDocumentSchema.parse(JSON.parse(JSON.stringify(doc)))).toEqual(
+      doc,
+    );
   });
 
-  it("throws on invalid backgroundColor", () => {
+  it("rejects a missing or wrong formatVersion", () => {
     expect(() =>
-      SceneSchema.parse({ ...valid, backgroundColor: "red" }),
+      SceneDocumentSchema.parse({ ...valid, formatVersion: 1 }),
+    ).toThrow(z.ZodError);
+    expect(() =>
+      SceneDocumentSchema.parse({ name: "X", entities: [] }),
+    ).toThrow(z.ZodError);
+  });
+
+  it("rejects invalid backgroundColor", () => {
+    expect(() =>
+      SceneDocumentSchema.parse({ ...valid, backgroundColor: "red" }),
+    ).toThrow(z.ZodError);
+  });
+
+  it("rejects duplicate ids, missing parents and parent cycles", () => {
+    expect(() =>
+      SceneDocumentSchema.parse({
+        ...valid,
+        entities: [{ id: "a" }, { id: "a" }],
+      }),
+    ).toThrow(/duplicate/);
+    expect(() =>
+      SceneDocumentSchema.parse({
+        ...valid,
+        entities: [{ id: "a", parent: "zz" }],
+      }),
+    ).toThrow(/unknown parent/);
+    expect(() =>
+      SceneDocumentSchema.parse({
+        ...valid,
+        entities: [
+          { id: "a", parent: "b" },
+          { id: "b", parent: "a" },
+        ],
+      }),
+    ).toThrow(/cycle/);
+  });
+
+  it("rejects an unresolved view follow ref and bad ids", () => {
+    const view = {
+      id: "v0",
+      visible: true,
+      world: { x: 0, y: 0, w: 1, h: 1 },
+      screen: { x: 0, y: 0, w: 1, h: 1 },
+      follow: { entity: { $ref: "nope" } },
+    };
+    expect(() =>
+      SceneDocumentSchema.parse({
+        ...valid,
+        room: { width: 1, height: 1, views: [view] },
+      }),
+    ).toThrow(/follows unknown entity/);
+    expect(() =>
+      SceneDocumentSchema.parse({ ...valid, entities: [{ id: "bad id!" }] }),
     ).toThrow(z.ZodError);
   });
 });

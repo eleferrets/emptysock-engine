@@ -52,41 +52,7 @@ export type SaveSlot = z.infer<typeof SaveSlotSchema>;
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 
-export const ComponentDataSchema = z.object({
-  type: z.string(),
-  data: z.record(z.string(), z.unknown()),
-});
-
-export const EntitySchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  tags: z.array(z.string()).default([]),
-  active: z.boolean().default(true),
-  components: z.array(ComponentDataSchema).default([]),
-  children: z.array(z.lazy((): z.ZodTypeAny => EntitySchema)).default([]),
-});
-
-export type EntityData = z.infer<typeof EntitySchema>;
-
-export const SceneSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  version: z.number().int().positive().default(1),
-  backgroundColor: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .default("#1a1a2e"),
-  entities: z.array(EntitySchema).default([]),
-  metadata: z
-    .object({
-      author: z.string().optional(),
-      createdAt: z.number().optional(),
-      updatedAt: z.number().optional(),
-    })
-    .default({}),
-});
-
-export type Scene = z.infer<typeof SceneSchema>;
+export * from "./scene.js";
 
 // ─── Asset Manifest ───────────────────────────────────────────────────────────
 
