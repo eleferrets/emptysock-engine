@@ -66,6 +66,11 @@ export const ALL_MODULES: ModuleDef[] = [
     description: "Named integer variables and boolean switches store",
   },
   {
+    id: "globals",
+    label: "Game Globals",
+    description: "Declare typed game-wide globals for ctx.globals",
+  },
+  {
     id: "vn-preview",
     label: "VN Preview",
     description: "Live Story Graph playback preview",

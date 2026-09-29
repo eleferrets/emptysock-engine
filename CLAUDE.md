@@ -900,7 +900,7 @@ Rules:
 
 ### Typed game-wide globals
 
-`GameGlobals` (empty, augmentable interface in `systems/GlobalStore.ts`) types `GlobalStore.get/set` per key via declaration merging; undeclared names use the untyped overloads. The IDE keeps declared globals in `useGameGlobalsStore` (name -> TS type string), and `services/gameGlobalsTypes.ts` regenerates an ambient augmentation of the flattened `@emptysock/engine/__internal/systems/GlobalStore` module into Monaco whenever it changes (wired in `MonacoSetupService`). There is still no bare importable global; reach it via `ctx.globals`/`game.globals`. No IDE panel yet edits the store (only the store + Monaco sync exist).
+`GameGlobals` (empty, augmentable interface in `systems/GlobalStore.ts`) types `GlobalStore.get/set` per key via declaration merging; undeclared names use the untyped overloads. The IDE keeps declared globals in `useGameGlobalsStore` (name -> TS type string), and `services/gameGlobalsTypes.ts` regenerates an ambient augmentation of the flattened `@emptysock/engine/__internal/systems/GlobalStore` module into Monaco whenever it changes (wired in `MonacoSetupService`). There is still no bare importable global; reach it via `ctx.globals`/`game.globals`. The Game Globals panel (`components/panels/GameGlobalsPanel.tsx`, module id `globals`, bottom group, docs in manual 7.18a) edits the store: `useHistory` is the source of truth for edits (undo/redo, 50 steps) and an effect pushes each state into the store via `syncGlobals()` (remove gone names, set changed ones), which triggers the Monaco sync; Ctrl+Z is only handled while the panel is visible. Not yet persisted to the project file. Tests: `GameGlobalsPanel.test.tsx`.
 
 ### SignalBus: a `Game` service, synchronous, scene-scoped via `SignalGroup`
 

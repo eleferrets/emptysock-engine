@@ -21,6 +21,7 @@ import { AudioMixer } from "./components/panels/AudioMixer";
 import { Profiler } from "./components/panels/Profiler";
 import { LocalisationEditor } from "./components/panels/LocalisationEditor";
 import { VariablesPanel } from "./components/panels/VariablesPanel";
+import { GameGlobalsPanel } from "./components/panels/GameGlobalsPanel";
 import { VNPreviewPanel } from "./components/panels/VNPreviewPanel";
 import { UIPlacementPanel } from "./components/panels/UIPlacementPanel";
 import { DatabaseEditor } from "./components/panels/DatabaseEditor";
@@ -103,6 +104,7 @@ const GATED_TABS: Record<string, TabData> = {
   i18n: makeTab("i18n", "Localisation", <LocalisationEditor />, true),
   shader: makeTab("shader", "Shader Editor", <ShaderEditor />, true),
   variables: makeTab("variables", "Variables", <VariablesPanel />, true),
+  globals: makeTab("globals", "Game Globals", <GameGlobalsPanel />, true),
   "vn-preview": makeTab("vn-preview", "VN Preview", <VNPreviewPanel />, true),
   "ui-placement": makeTab("ui-placement", "UI Placement", <UIPlacementPanel />),
   database: makeTab("database", "Database", <DatabaseEditor />, true),
@@ -133,6 +135,7 @@ const BOTTOM_GATED_MODULES = [
   "i18n",
   "audio",
   "variables",
+  "globals",
   "ui-placement",
   "database",
 ];
@@ -241,6 +244,9 @@ const ALL_PANEL_TABS: Record<string, () => TabData> = {
   variables: () =>
     GATED_TABS["variables"] ??
     makeTab("variables", "Variables", <VariablesPanel />),
+  globals: () =>
+    GATED_TABS["globals"] ??
+    makeTab("globals", "Game Globals", <GameGlobalsPanel />),
   "vn-preview": () =>
     GATED_TABS["vn-preview"] ??
     makeTab("vn-preview", "VN Preview", <VNPreviewPanel />),

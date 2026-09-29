@@ -403,6 +403,21 @@ Changes take effect immediately in the running game (the VariableStore is shared
 
 ---
 
+## 7.18a Game Globals Panel
+
+Open via **Module → Game Globals** (enable it in the module list first).
+
+Declares the typed game-wide globals that `ctx.globals.get("name")` / `game.globals` return. Each row is a name and a TypeScript type expression (`number`, `string`, `boolean`, `number[]`, `Record<string, number>`, or any type expression you type in). Adding, renaming, retyping or removing a global updates the Code editor's declarations straight away, so `ctx.globals.get("score")` is typed `number` as soon as you declare it.
+
+- **Add**: type a name and a type at the bottom, press Enter or **+ Add**. Names must be identifiers and unique.
+- **Rename / retype**: edit the cell and press Enter or click away; each commit is one undo step.
+- **Undo / redo**: the toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (50 steps, session only) while the panel is on screen.
+- **Filter**: narrows the list by name.
+
+The declarations live in the editor session (`useGameGlobalsStore`); they are not yet saved into the project file.
+
+---
+
 ## 7.19 UI Placement Panel
 
 Open via **Module → UI Placement** in the menu bar.
