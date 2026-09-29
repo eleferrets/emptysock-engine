@@ -48,6 +48,17 @@ import {
   convertGms2RoomLayerElements,
   buildRoomSceneFileViews,
 } from "./gms2-room-import.js";
+import {
+  assetIndexJSON,
+  assetIndexWarnings,
+  buildAssetIndex,
+  fontIndexEntry,
+  isAssetKind,
+  nameIndexEntry,
+  spriteIndexEntry,
+} from "./gms2-asset-index.js";
+import type { AssetIndexEntry, AssetKind } from "@emptysock/types";
+import { convertGms2Sprite } from "./gms2-sprite-import.js";
 import { buildSoundAsset } from "./gms2-sound-import.js";
 import {
   convertGms2Font,
@@ -376,12 +387,22 @@ export async function importGMS2Project(
   }
 
   const convertedSprites: string[] = [];
+  // Rich (dimension/size) index entries by "kind:name", filled as assets convert.
+  const richIndexEntries = new Map<string, AssetIndexEntry>();
   for (const name of sprites) {
     if (verbose) console.log(`  [sprite] ${name}`);
     try {
       const content = await buildSpriteAsset(name, projectRoot, outDir);
       filesToWrite.push({ rel: `assets/${name}.sprite.ts`, content });
       convertedSprites.push(name);
+      try {
+        const sprite = await convertGms2Sprite(
+          path.join(projectRoot, "sprites", name),
+        );
+        richIndexEntries.set(`sprite:${name}`, spriteIndexEntry(sprite));
+      } catch {
+        // buildSpriteAsset just read the same files; fall back to a name-only entry.
+      }
       reportEntries.push({ kind: "sprite", name, status: "converted" });
     } catch (err) {
       const reason = `conversion failed (${String(err)}) — skipped, needs manual import`;
@@ -672,6 +693,7 @@ export async function importGMS2Project(
       const content = buildFontAsset(font);
       filesToWrite.push({ rel: `assets/${name}.font.ts`, content });
       await copyFontAtlas(font, outDir);
+      richIndexEntries.set(`font:${name}`, fontIndexEntry({ ...font, name }));
       reportEntries.push({ kind: "font", name, status: "converted" });
       if (font.bitmap === undefined) {
         warnings.push(
@@ -898,6 +920,24 @@ export async function importGMS2Project(
     }
   }
 
+  const assetIndex = buildAssetIndex(
+    reportEntries
+      .filter(
+        (e) =>
+          (e.status === "converted" || e.status === "copied") &&
+          isAssetKind(e.kind),
+      )
+      .map(
+        (e) =>
+          richIndexEntries.get(`${e.kind}:${e.name}`) ??
+          nameIndexEntry(e.kind as AssetKind, e.name),
+      ),
+  );
+  warnings.push(...assetIndexWarnings(assetIndex));
+  filesToWrite.push({
+    rel: "asset-index.json",
+    content: assetIndexJSON(assetIndex),
+  });
   filesToWrite.push({
     rel: "project-manifest.json",
     content: projectManifestJSON(convertedObjects, convertedRooms),

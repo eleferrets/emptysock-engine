@@ -3147,6 +3147,11 @@ export function transpileGML(
     "sprite_get_width",
     "sprite_get_height",
     "sprite_exists",
+    // Asset-registry-backed lookups (compat/gml.ts, gmlActions.ts): they read
+    // `ctx.game.assets`, so they need `_ctx` (moved out of the pure list).
+    "font_get_size",
+    "object_exists",
+    "asset_get_index",
     // `display_set_gui_size`/`device_mouse_y_to_gui`/`device_mouse_x_to_gui`
     // (compat/gmlInput.ts) — context-only, like the rest of the display/
     // mouse family above.
@@ -3359,8 +3364,6 @@ export function transpileGML(
     "string_width",
     "string_height",
     "game_end",
-    "object_exists",
-    "asset_get_index",
     "array_length_1d",
     "array_length",
     "array_create",
@@ -3403,7 +3406,6 @@ export function transpileGML(
     "json_decode",
     "base64_encode",
     "base64_decode",
-    "font_get_size",
     "get_timer",
     "randomize",
     "point_in_circle",

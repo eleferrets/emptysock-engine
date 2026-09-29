@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@emptysock/engine": "workspace:*",
+    "@emptysock/types": "workspace:*",
     "commander": "^12.1.0",
     "rolldown": "^1.2.7",
     "zod": "catalog:"
