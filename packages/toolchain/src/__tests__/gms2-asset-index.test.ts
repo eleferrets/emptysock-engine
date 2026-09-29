@@ -144,7 +144,7 @@ describe("importGMS2Project — asset-index.json", () => {
 
 describe("transpile — registry-backed getters are ctx-threaded", () => {
   it("threads _ctx into font_get_size, object_exists, asset_get_index, sprite_exists", () => {
-    setGmlSpriteNames(["spr_a"]);
+    setGmlSpriteNames(new Set(["spr_a"]));
     const out = transpileGML(
       'a = font_get_size(fnt_x); b = object_exists(obj_y); c = asset_get_index("spr_a"); d = sprite_exists(spr_a);',
     );
@@ -152,6 +152,6 @@ describe("transpile — registry-backed getters are ctx-threaded", () => {
     expect(out).toContain("GmlActions.object_exists(_ctx,");
     expect(out).toContain("GmlActions.asset_get_index(_ctx,");
     expect(out).toContain("GmlActions.sprite_exists(_ctx,");
-    setGmlSpriteNames([]);
+    setGmlSpriteNames(new Set());
   });
 });
