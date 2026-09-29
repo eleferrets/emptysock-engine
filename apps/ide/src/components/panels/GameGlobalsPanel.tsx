@@ -1,6 +1,7 @@
 import React from "react";
 import { useGameGlobalsStore } from "../../store/gameGlobalsStore";
 import { useHistory } from "../../hooks/useHistory";
+import { isElementShown } from "../../hooks/isElementShown";
 
 // Empty-state quips (dry, deadpan, stable per session).
 const QUIPS: readonly string[] = [
@@ -91,7 +92,7 @@ export function GameGlobalsPanel(): React.ReactElement {
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const root = rootRef.current;
-      if (root === null || root.offsetParent === null) return;
+      if (!isElementShown(root)) return;
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();

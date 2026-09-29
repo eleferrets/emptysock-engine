@@ -117,3 +117,153 @@ export function entityLabel(e: EntityLike, index: number): string {
   if (typeof tex === "string" && tex !== "") return tex.split("/").pop() ?? tex;
   return `Entity ${index}`;
 }
+
+// ── Canvas geometry for views and direct entities ───────────────────────────
+
+/** Axis-aligned box in room pixels (top-left origin), the same shape as `roomEditorGeometry`'s `Box`. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The world-space rectangle a view's camera looks at. */
+export function viewRect(v: EditableView): Rect {
+  return { x: v.worldX, y: v.worldY, w: v.worldWidth, h: v.worldHeight };
+}
+
+/** Moves a view's world rectangle, keeping its size. */
+export function moveView(
+  extra: Extra,
+  index: number,
+  x: number,
+  y: number,
+): Extra {
+  return patchView(extra, index, { worldX: x, worldY: y });
+}
+
+/** Sets a view's whole world rectangle (used by corner/edge resizing). */
+export function setViewRect(extra: Extra, index: number, r: Rect): Extra {
+  return patchView(extra, index, {
+    worldX: r.x,
+    worldY: r.y,
+    worldWidth: r.w,
+    worldHeight: r.h,
+  });
+}
+
+/** Sets which object type a view follows; an empty name removes the field. */
+export function setViewFollowObject(
+  extra: Extra,
+  index: number,
+  name: string,
+): Extra {
+  const views = getViews(extra);
+  if (index < 0 || index >= views.length) return extra;
+  const trimmed = name.trim();
+  const next = views.map((v, i) => {
+    if (i !== index) return v;
+    const rest: EditableView = { ...v };
+    delete rest.followObject;
+    return trimmed === "" ? rest : { ...rest, followObject: trimmed };
+  });
+  return { ...extra, views: next };
+}
+
+function compNumber(
+  e: EntityLike,
+  component: string,
+  field: string,
+  fallback: number,
+): number {
+  const v = e.components?.find((c) => c.component === component)?.overrides?.[
+    field
+  ];
+  return typeof v === "number" ? v : fallback;
+}
+
+/**
+ * The room-space box an entity is drawn as: its `Sprite` width/height times
+ * `Transform` scale (falling back to `defaultSize` when it has no sized
+ * sprite), positioned so `Transform` x/y sits at the sprite's anchor
+ * (default centre, as `Sprite.anchorX/anchorY`).
+ */
+export function entityRect(e: EntityLike, defaultSize: number): Rect {
+  const { x, y } = entityPosition(e);
+  const sw = compNumber(e, "Sprite", "width", 0);
+  const sh = compNumber(e, "Sprite", "height", 0);
+  const w =
+    (sw > 0 ? sw : defaultSize) *
+    Math.abs(compNumber(e, "Transform", "scaleX", 1));
+  const h =
+    (sh > 0 ? sh : defaultSize) *
+    Math.abs(compNumber(e, "Transform", "scaleY", 1));
+  const ax = compNumber(e, "Sprite", "anchorX", 0.5);
+  const ay = compNumber(e, "Sprite", "anchorY", 0.5);
+  return { x: x - ax * w, y: y - ay * h, w, h };
+}
+
+export interface ExtraHit {
+  kind: "entity" | "view";
+  index: number;
+}
+
+/** Height/width of the label chip drawn at a view's top-left corner, which is also its grab area. */
+export const VIEW_CHIP = { w: 48, h: 14 };
+
+/**
+ * What a click at (px,py) selects among the room's direct entities and views:
+ * entities by body (topmost, i.e. last, first), views only by their border
+ * (within `tolerance`) or label chip, so a view rectangle never swallows
+ * clicks meant for what is inside it. Invisible views are not drawn, so they
+ * are not hittable either; toggle **Visible** in the side panel to bring one
+ * onto the canvas.
+ */
+export function hitTestExtras(
+  extra: Extra,
+  px: number,
+  py: number,
+  tolerance: number,
+  defaultSize: number,
+): ExtraHit | null {
+  const entities = getEntities(extra);
+  for (let i = entities.length - 1; i >= 0; i--) {
+    const e = entities[i];
+    if (e === undefined) continue;
+    const r = entityRect(e, defaultSize);
+    if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
+      return { kind: "entity", index: i };
+    }
+  }
+  const views = getViews(extra);
+  for (let i = views.length - 1; i >= 0; i--) {
+    const v = views[i];
+    if (v === undefined || !v.visible) continue;
+    const r = viewRect(v);
+    const inChip =
+      px >= r.x &&
+      px <= r.x + VIEW_CHIP.w &&
+      py >= r.y - VIEW_CHIP.h &&
+      py <= r.y;
+    const outer =
+      px >= r.x - tolerance &&
+      px <= r.x + r.w + tolerance &&
+      py >= r.y - tolerance &&
+      py <= r.y + r.h + tolerance;
+    const inner =
+      px > r.x + tolerance &&
+      px < r.x + r.w - tolerance &&
+      py > r.y + tolerance &&
+      py < r.y + r.h - tolerance;
+    if (inChip || (outer && !inner)) return { kind: "view", index: i };
+  }
+  return null;
+}
+
+/** Object-type names offered when choosing a view's follow target: every prefab placed in the room. */
+export function followCandidates(
+  instances: readonly { prefab: string }[],
+): string[] {
+  return [...new Set(instances.map((i) => i.prefab))].sort();
+}

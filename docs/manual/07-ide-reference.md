@@ -554,3 +554,19 @@ Double-clicking (or right-click → "Open in …") an asset dispatches to whiche
 Hovering an asset (without opening it) shows a lightweight preview popover: a real thumbnail for an image, the first few lines of source for a script (when it's already open in a Code tab), and for a scene/prefab JSON that's open in a Code tab, an entity-count and component-type-count summary parsed from its `PrefabFile`/`SceneFile` shape. Audio gets a placeholder waveform, not a real one — there is no audio-decoding/waveform library in this IDE. Any asset type without a richer preview falls back to its path and size.
 
 ---
+
+## 7.24 Room Editor
+
+Open via **Module → Room** and pick a `*.scene.json` from the file list (open it in the Files panel first).
+
+The canvas draws three things, all in room pixels:
+
+- **Instances** (`prefabInstances`) as labelled boxes; drag to move, rotation/scale/slicing in the side panel.
+- **Direct entities** (`entities`: converted backgrounds, room-layer sprite and sequence elements) as faint boxes behind the instances, sized from their `Sprite` width/height, `Transform` scale and anchor. Drag to move.
+- **Camera views** (`views`): the world rectangle each _visible_ view looks at, in green (dashed while **Enable views** is off), with a `View n` chip at its top-left corner (`*` when it follows an object). Drag the border or the chip to move it; click the chip to select it, then drag a corner or edge handle to resize. A click inside a view still hits whatever is under it. Invisible views are not drawn; tick **Visible** in the side panel to bring one onto the canvas.
+
+With **Snap to grid** on (grid button on the tab), positions and view edges snap to the grid size. Each drag or resize is one undo step: use the **Undo**/**Redo** buttons or Ctrl+Z / Ctrl+Shift+Z (text fields keep their own undo). Undo and redo write the file back, so the editor and the `.scene.json` never disagree.
+
+The **Views** section of the side panel has numeric fields for every view value and a **followObject** field: type an object-type name (the datalist offers every prefab placed in the room) and press Enter or click away; clear it to stop following. The **Entities** section has x/y fields per entity.
+
+---

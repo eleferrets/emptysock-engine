@@ -5,6 +5,8 @@ export interface HistoryControls<T> {
   set: (next: T | ((prev: T) => T)) => void;
   undo: () => void;
   redo: () => void;
+  /** Replaces the state and clears both stacks (a different document was loaded; nothing to undo across). */
+  reset: (value: T) => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -28,6 +30,10 @@ export function useHistory<T>(initial: T): HistoryControls<T> {
         future: [],
       };
     });
+  }, []);
+
+  const reset = useCallback((value: T) => {
+    setSnapshot({ current: value, past: [], future: [] });
   }, []);
 
   const undo = useCallback(() => {
@@ -59,6 +65,7 @@ export function useHistory<T>(initial: T): HistoryControls<T> {
     set,
     undo,
     redo,
+    reset,
     canUndo: snapshot.past.length > 0,
     canRedo: snapshot.future.length > 0,
   };

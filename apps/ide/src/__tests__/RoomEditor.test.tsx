@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react-dom/test-utils";
 import { createRoot, type Root } from "react-dom/client";
 import { RoomEditor } from "../components/panels/RoomEditor.js";
@@ -432,5 +432,220 @@ describe("RoomEditor — imported room views and entities", () => {
       x: 77,
       y: 2,
     });
+  });
+});
+
+describe("RoomEditor — canvas editing of views and entities", () => {
+  const PATH = "rooms/rm_c.scene.json";
+  const view = {
+    visible: true,
+    worldX: 320,
+    worldY: 160,
+    worldWidth: 320,
+    worldHeight: 192,
+    screenX: 0,
+    screenY: 0,
+    screenWidth: 640,
+    screenHeight: 384,
+    borderX: 0,
+    borderY: 0,
+    speedX: -1,
+    speedY: -1,
+  };
+  const FILE = JSON.stringify({
+    sceneName: "rm_c",
+    prefabInstances: [{ prefab: "obj_player", props: { x: 50, y: 50 } }],
+    viewsEnabled: true,
+    views: [view, { ...view, visible: false, worldX: 0, worldY: 0 }],
+    entities: [
+      {
+        components: [
+          { component: "Transform", overrides: { x: 600, y: 400 } },
+          { component: "Meta", overrides: { name: "gGun" } },
+        ],
+      },
+    ],
+  });
+
+  const strokes: [number, number, number, number][] = [];
+  function fakeCtx(): CanvasRenderingContext2D {
+    const noop = (): undefined => undefined;
+    return {
+      fillRect: noop,
+      strokeRect: (x: number, y: number, w: number, h: number) => {
+        strokes.push([x, y, w, h]);
+      },
+      fillText: noop,
+      beginPath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      stroke: noop,
+      save: noop,
+      restore: noop,
+      translate: noop,
+      rotate: noop,
+      setLineDash: noop,
+    } as unknown as CanvasRenderingContext2D;
+  }
+  function fire(canvas: HTMLCanvasElement, type: string, x: number, y: number) {
+    act(() => {
+      canvas.dispatchEvent(
+        new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }),
+      );
+    });
+  }
+  async function setup(snap: boolean): Promise<HTMLCanvasElement> {
+    strokes.length = 0;
+    act(() => {
+      useIDEStore.setState({
+        openFiles: { [PATH]: FILE },
+        editorSnapToGrid: snap,
+        editorGridSize: 32,
+      });
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      (() => fakeCtx()) as never,
+    );
+    await act(async () => {
+      root.render(<RoomEditor />);
+      await Promise.resolve();
+    });
+    const canvas = container.querySelector("canvas");
+    if (canvas === null) throw new Error("no canvas");
+    return canvas;
+  }
+  const saved = (): {
+    views: Record<string, unknown>[];
+    entities: { components: { overrides: Record<string, number> }[] }[];
+  } => JSON.parse(useIDEStore.getState().openFiles[PATH] ?? "{}");
+  const clickUndo = (): void => {
+    const b = Array.from(container.querySelectorAll("button")).find(
+      (x) => x.textContent === "Undo",
+    );
+    act(() => b?.click());
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("undoes and redoes a canvas drag with Ctrl+Z / Ctrl+Shift+Z", async () => {
+    const canvas = await setup(false);
+    fire(canvas, "pointerdown", 600, 400);
+    fire(canvas, "pointermove", 650, 450);
+    fire(canvas, "pointerup", 650, 450);
+    expect(saved().entities[0]?.components[0]?.overrides).toMatchObject({
+      x: 650,
+    });
+    const key = (init: KeyboardEventInit): void => {
+      act(() => {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", { ctrlKey: true, ...init }),
+        );
+      });
+    };
+    key({ key: "z" });
+    expect(saved().entities[0]?.components[0]?.overrides).toMatchObject({
+      x: 600,
+    });
+    key({ key: "z", shiftKey: true });
+    expect(saved().entities[0]?.components[0]?.overrides).toMatchObject({
+      x: 650,
+    });
+  });
+
+  it("shows the canvas for a room with only views and entities", async () => {
+    const canvas = await setup(false);
+    expect(canvas).not.toBeNull();
+    expect(container.textContent).not.toContain("no placed instances");
+  });
+
+  it("drags a direct entity, snapping to the grid, as one undoable step", async () => {
+    const canvas = await setup(true);
+    fire(canvas, "pointerdown", 600, 400);
+    fire(canvas, "pointermove", 691, 470);
+    fire(canvas, "pointerup", 691, 470);
+    // 691 -> 704, 470 -> 480 (grid 32).
+    expect(saved().entities[0]?.components[0]?.overrides).toMatchObject({
+      x: 704,
+      y: 480,
+    });
+    clickUndo();
+    expect(saved().entities[0]?.components[0]?.overrides).toMatchObject({
+      x: 600,
+      y: 400,
+    });
+  });
+
+  it("drags a visible view by its border and ignores clicks inside it", async () => {
+    const canvas = await setup(false);
+    // Inside the view (not near an edge, not on an entity): selects nothing, saves nothing.
+    const before = useIDEStore.getState().openFiles[PATH];
+    fire(canvas, "pointerdown", 480, 250);
+    fire(canvas, "pointerup", 480, 250);
+    expect(useIDEStore.getState().openFiles[PATH]).toBe(before);
+    // Top border at y=160.
+    fire(canvas, "pointerdown", 400, 160);
+    fire(canvas, "pointermove", 430, 200);
+    fire(canvas, "pointerup", 430, 200);
+    expect(saved().views[0]).toMatchObject({
+      worldX: 350,
+      worldY: 200,
+      worldWidth: 320,
+    });
+    expect(saved().views[1]).toMatchObject({ worldX: 0, worldY: 0 });
+    clickUndo();
+    expect(saved().views[0]).toMatchObject({ worldX: 320, worldY: 160 });
+  });
+
+  it("resizes the selected view from its south-east handle with snapping", async () => {
+    const canvas = await setup(true);
+    // Select via the label chip (x 320..368, y 146..160).
+    fire(canvas, "pointerdown", 330, 152);
+    fire(canvas, "pointerup", 330, 152);
+    // SE corner is (640, 352).
+    fire(canvas, "pointerdown", 640, 352);
+    fire(canvas, "pointermove", 700, 400);
+    fire(canvas, "pointerup", 700, 400);
+    // right 700 -> 704, bottom 400 -> 416.
+    expect(saved().views[0]).toMatchObject({
+      worldX: 320,
+      worldY: 160,
+      worldWidth: 384,
+      worldHeight: 256,
+    });
+  });
+
+  it("draws visible views only", async () => {
+    await setup(false);
+    expect(strokes).toContainEqual([320, 160, 320, 192]);
+    expect(strokes).not.toContainEqual([0, 0, 320, 192]);
+  });
+
+  it("edits followObject from the side panel on blur, and clears it when emptied", async () => {
+    await setup(false);
+    const input = container.querySelector<HTMLInputElement>(
+      'input[aria-label="view 0 followObject"]',
+    );
+    if (input === null) throw new Error("no followObject input");
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    act(() => {
+      setter?.call(input, "obj_player");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(saved().views[0]?.["followObject"]).toBe("obj_player");
+    expect(
+      Array.from(container.querySelectorAll("#room-follow-objects option")).map(
+        (o) => (o as HTMLOptionElement).value,
+      ),
+    ).toEqual(["obj_player"]);
+    clickUndo();
+    expect(saved().views[0]).not.toHaveProperty("followObject");
   });
 });

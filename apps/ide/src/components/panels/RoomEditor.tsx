@@ -2,6 +2,7 @@ import React from "react";
 import type { SceneFile, SceneFilePrefabInstance } from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
+import { isElementShown } from "../../hooks/isElementShown";
 import { ViewControls } from "./shared/ViewControls";
 import {
   type Box,
@@ -15,16 +16,25 @@ import {
   resizeBox,
 } from "./roomEditorGeometry";
 import {
+  VIEW_CHIP,
   VIEW_NUMBER_FIELDS,
   entityLabel,
   entityPosition,
+  entityRect,
+  followCandidates,
   getEntities,
   getViews,
   getViewsEnabled,
+  hitTestExtras,
   moveEntity,
+  moveView,
   patchView,
+  setViewFollowObject,
+  setViewRect,
   setViewsEnabled,
+  viewRect,
   type Extra,
+  type ExtraHit,
 } from "./roomEditorExtras";
 
 /** Half-size (px) of a resize handle square, also its hit tolerance. */
@@ -33,6 +43,26 @@ const MIN_SLICED_SIZE = 8;
 
 /** Default footprint drawn for a placed instance — this editor has no live sprite dimensions to draw from (a room's `.scene.json` only records `{ prefab, x, y }`), so every instance renders as a same-size labeled box, the same "honest placeholder, not a fabricated size" shape `ImageWidget`'s grey box uses before its real texture loads. */
 const INSTANCE_SIZE = 32;
+
+/** `setLineDash` is missing from some canvas test doubles; treat it as optional. */
+function setDash(ctx: CanvasRenderingContext2D, dash: number[]): void {
+  const c = ctx as Partial<CanvasRenderingContext2D>;
+  if (typeof c.setLineDash === "function") c.setLineDash(dash);
+}
+
+/** The eight resize-handle positions of a box, in the order `roomEditorGeometry`'s `HandleId` lists them. */
+function handlePoints(b: Box): [number, number][] {
+  return [
+    [b.x, b.y],
+    [b.x + b.w / 2, b.y],
+    [b.x + b.w, b.y],
+    [b.x + b.w, b.y + b.h / 2],
+    [b.x + b.w, b.y + b.h],
+    [b.x + b.w / 2, b.y + b.h],
+    [b.x, b.y + b.h],
+    [b.x, b.y + b.h / 2],
+  ];
+}
 
 const QUIPS = [
   "Drag it somewhere it belongs. Or doesn't. Your call.",
@@ -256,18 +286,29 @@ export function RoomEditor(): React.ReactElement {
     return raw !== undefined ? parseSceneFile(raw) : undefined;
   }, [selectedPath, openFiles]);
 
-  const { state, set, undo, redo, canUndo, canRedo } = useHistory<
+  const { state, set, undo, redo, reset, canUndo, canRedo } = useHistory<
     RoomEditorState | undefined
   >(parsedInitial);
 
   // Reset history when a different file is selected (not on every openFiles edit).
   const loadedPathRef = React.useRef<string | null>(null);
+  const committedRef = React.useRef<RoomEditorState | undefined>(parsedInitial);
   React.useEffect(() => {
     if (loadedPathRef.current !== selectedPath) {
       loadedPathRef.current = selectedPath;
-      set(parsedInitial);
+      committedRef.current = parsedInitial;
+      reset(parsedInitial);
     }
-  }, [selectedPath, parsedInitial, set]);
+  }, [selectedPath, parsedInitial, reset]);
+
+  // A state the panel did not itself commit can only have come from undo/redo:
+  // write it back to the file so the editor and the file never disagree.
+  React.useEffect(() => {
+    if (state === undefined || selectedPath === null) return;
+    if (state === committedRef.current) return;
+    committedRef.current = state;
+    setFileContent(selectedPath, serializeSceneFile(state));
+  }, [state, selectedPath, setFileContent]);
 
   const [liveInstances, setLiveInstances] = React.useState<
     SceneFilePrefabInstance[]
@@ -275,6 +316,23 @@ export function RoomEditor(): React.ReactElement {
   React.useEffect(() => {
     setLiveInstances(state?.instances ?? []);
   }, [state]);
+
+  // Direct entities and camera views, edited live during a drag and committed
+  // as one history step on pointer-up (mirrors `liveInstances` above).
+  const [liveExtra, setLiveExtra] = React.useState<Extra>(state?.extra ?? {});
+  React.useEffect(() => {
+    setLiveExtra(state?.extra ?? {});
+  }, [state]);
+  const [selExtra, setSelExtra] = React.useState<ExtraHit | null>(null);
+  const extraDragRef = React.useRef<{
+    hit: ExtraHit;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const extraResizeRef = React.useRef<{
+    index: number;
+    handle: HandleId;
+  } | null>(null);
 
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const dragRef = React.useRef<{
@@ -308,10 +366,39 @@ export function RoomEditor(): React.ReactElement {
     }
   }, [liveInstances, prefabSprites, openFiles]);
 
+  // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) while this panel is on screen; text
+  // fields keep their own native undo.
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const root = rootRef.current;
+      if (!isElementShown(root)) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
   const commit = React.useCallback(
     (instances: SceneFilePrefabInstance[]) => {
       if (state === undefined || selectedPath === null) return;
       const next: RoomEditorState = { ...state, instances };
+      committedRef.current = next;
       set(next);
       setFileContent(selectedPath, serializeSceneFile(next));
     },
@@ -322,6 +409,7 @@ export function RoomEditor(): React.ReactElement {
     (extra: Extra) => {
       if (state === undefined || selectedPath === null) return;
       const next: RoomEditorState = { ...state, extra };
+      committedRef.current = next;
       set(next);
       setFileContent(selectedPath, serializeSceneFile(next));
     },
@@ -356,6 +444,27 @@ export function RoomEditor(): React.ReactElement {
       }
       ctx.stroke();
     }
+
+    // Direct entities (converted backgrounds, layer elements): faint boxes
+    // behind the instances, at their Transform position.
+    getEntities(liveExtra).forEach((en, ei) => {
+      const r = entityRect(en, INSTANCE_SIZE);
+      const isSel = selExtra?.kind === "entity" && selExtra.index === ei;
+      ctx.fillStyle = isSel
+        ? computed.getPropertyValue("--es-accent").trim() || "#818cf8"
+        : "#7c7c4a";
+      ctx.globalAlpha = isSel ? 0.35 : 0.18;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = isSel ? "#ffffff" : "#7c7c4a";
+      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(entityLabel(en, ei), r.x + 2, r.y + 2);
+    });
 
     liveInstances.forEach((inst, i) => {
       const { x, y } = instancePos(inst);
@@ -450,7 +559,46 @@ export function RoomEditor(): React.ReactElement {
       ctx.textBaseline = "top";
       ctx.fillText(inst.prefab, x, y + h / 2 + 2);
     });
+    // Camera views: the world rectangle each visible view looks at (dashed
+    // when the room's views are switched off), with a label chip at the
+    // top-left, corner/edge handles when selected, and a marker for the
+    // object it follows.
+    const viewsOn = getViewsEnabled(liveExtra);
+    getViews(liveExtra).forEach((v, vi) => {
+      if (!v.visible) return;
+      const r = viewRect(v);
+      const isSel = selExtra?.kind === "view" && selExtra.index === vi;
+      const colour = isSel
+        ? computed.getPropertyValue("--es-accent").trim() || "#818cf8"
+        : "#4ad0a0";
+      setDash(ctx, viewsOn ? [] : [6, 4]);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      setDash(ctx, []);
+      ctx.fillStyle = colour;
+      ctx.fillRect(r.x, r.y - VIEW_CHIP.h, VIEW_CHIP.w, VIEW_CHIP.h);
+      ctx.fillStyle = "#000000";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        v.followObject !== undefined ? `View ${vi}*` : `View ${vi}`,
+        r.x + 3,
+        r.y - VIEW_CHIP.h + 2,
+      );
+      if (isSel) {
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = colour;
+        for (const [hx, hy] of handlePoints(r)) {
+          ctx.fillRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
+          ctx.strokeRect(hx - HANDLE, hy - HANDLE, HANDLE * 2, HANDLE * 2);
+        }
+      }
+    });
   }, [
+    liveExtra,
+    selExtra,
     liveInstances,
     selectedIndex,
     showGrid,
@@ -502,9 +650,52 @@ export function RoomEditor(): React.ReactElement {
         }
       }
     }
+    // A resize handle of the selected camera view.
+    if (selExtra?.kind === "view") {
+      const v = getViews(liveExtra)[selExtra.index];
+      if (v !== undefined) {
+        const handle = hitResizeHandle(x, y, viewRect(v), HANDLE + 1);
+        if (handle !== null) {
+          extraResizeRef.current = { index: selExtra.index, handle };
+          if (typeof e.currentTarget.setPointerCapture === "function") {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }
+          return;
+        }
+      }
+    }
     const hit = hitTest(x, y);
+    if (hit === null) {
+      // Not on an instance: try direct entities and camera views.
+      setSelectedIndex(null);
+      const extraHit = hitTestExtras(
+        liveExtra,
+        x,
+        y,
+        HANDLE + 1,
+        INSTANCE_SIZE,
+      );
+      setSelExtra(extraHit);
+      if (extraHit === null) return;
+      const origin =
+        extraHit.kind === "entity"
+          ? entityPosition(getEntities(liveExtra)[extraHit.index] ?? {})
+          : (() => {
+              const v = getViews(liveExtra)[extraHit.index];
+              return { x: v?.worldX ?? 0, y: v?.worldY ?? 0 };
+            })();
+      extraDragRef.current = {
+        hit: extraHit,
+        offsetX: x - origin.x,
+        offsetY: y - origin.y,
+      };
+      if (typeof e.currentTarget.setPointerCapture === "function") {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
+    setSelExtra(null);
     setSelectedIndex(hit);
-    if (hit === null) return;
     const inst = liveInstances[hit];
     if (inst === undefined) return;
     const p = instancePos(inst);
@@ -518,6 +709,41 @@ export function RoomEditor(): React.ReactElement {
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>): void {
+    const extraResize = extraResizeRef.current;
+    if (extraResize !== null) {
+      const { x, y } = canvasPoint(e);
+      setLiveExtra((prev) => {
+        const v = getViews(prev)[extraResize.index];
+        if (v === undefined) return prev;
+        const nb = resizeBox(
+          viewRect(v),
+          extraResize.handle,
+          x,
+          y,
+          snapToGrid,
+          gridSize,
+          MIN_SLICED_SIZE,
+        );
+        return setViewRect(prev, extraResize.index, nb);
+      });
+      return;
+    }
+    const extraDrag = extraDragRef.current;
+    if (extraDrag !== null) {
+      const { x, y } = canvasPoint(e);
+      let nx = x - extraDrag.offsetX;
+      let ny = y - extraDrag.offsetY;
+      if (snapToGrid) {
+        nx = Math.round(nx / gridSize) * gridSize;
+        ny = Math.round(ny / gridSize) * gridSize;
+      }
+      setLiveExtra((prev) =>
+        extraDrag.hit.kind === "entity"
+          ? moveEntity(prev, extraDrag.hit.index, nx, ny)
+          : moveView(prev, extraDrag.hit.index, nx, ny),
+      );
+      return;
+    }
     const resize = resizeRef.current;
     if (resize !== null) {
       const { x, y } = canvasPoint(e);
@@ -564,6 +790,15 @@ export function RoomEditor(): React.ReactElement {
   }
 
   function handlePointerUp(): void {
+    if (extraResizeRef.current !== null || extraDragRef.current !== null) {
+      extraResizeRef.current = null;
+      extraDragRef.current = null;
+      // One history step per drag/resize; a plain click changes nothing.
+      if (state !== undefined && liveExtra !== state.extra) {
+        commitExtra(liveExtra);
+      }
+      return;
+    }
     if (resizeRef.current !== null) {
       resizeRef.current = null;
       commit(liveInstances);
@@ -579,6 +814,7 @@ export function RoomEditor(): React.ReactElement {
 
   return (
     <div
+      ref={rootRef}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -676,7 +912,9 @@ export function RoomEditor(): React.ReactElement {
               </div>
               <div style={{ fontSize: 11, opacity: 0.7 }}>{quip.current}</div>
             </div>
-          ) : liveInstances.length === 0 ? (
+          ) : liveInstances.length === 0 &&
+            getViews(liveExtra).length === 0 &&
+            getEntities(liveExtra).length === 0 ? (
             <div
               style={{
                 display: "flex",
@@ -959,6 +1197,11 @@ export function RoomEditor(): React.ReactElement {
             {getViews(state.extra).length > 0 ? (
               <>
                 <div style={{ fontWeight: 600 }}>Views</div>
+                <datalist id="room-follow-objects">
+                  {followCandidates(state.instances).map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
                 <label>
                   <input
                     type="checkbox"
@@ -974,7 +1217,14 @@ export function RoomEditor(): React.ReactElement {
                 {getViews(state.extra).map((v, vi) => (
                   <fieldset
                     key={vi}
-                    style={{ border: "1px solid var(--es-border)" }}
+                    data-testid={`room-view-${vi}`}
+                    onClick={() => setSelExtra({ kind: "view", index: vi })}
+                    style={{
+                      border:
+                        selExtra?.kind === "view" && selExtra.index === vi
+                          ? "1px solid var(--es-accent)"
+                          : "1px solid var(--es-border)",
+                    }}
                   >
                     <legend>View {vi}</legend>
                     <label>
@@ -1022,6 +1272,25 @@ export function RoomEditor(): React.ReactElement {
                         />
                       </label>
                     ))}
+                    <label
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      followObject
+                      <FollowObjectInput
+                        key={`${vi}-${v.followObject ?? ""}`}
+                        index={vi}
+                        value={v.followObject ?? ""}
+                        listId="room-follow-objects"
+                        onCommit={(name) =>
+                          commitExtra(
+                            setViewFollowObject(state.extra, vi, name),
+                          )
+                        }
+                      />
+                    </label>
                   </fieldset>
                 ))}
               </>
@@ -1034,7 +1303,17 @@ export function RoomEditor(): React.ReactElement {
                   return (
                     <div
                       key={ei}
-                      style={{ display: "flex", gap: 4, alignItems: "center" }}
+                      data-testid={`room-entity-${ei}`}
+                      onClick={() => setSelExtra({ kind: "entity", index: ei })}
+                      style={{
+                        display: "flex",
+                        gap: 4,
+                        alignItems: "center",
+                        fontWeight:
+                          selExtra?.kind === "entity" && selExtra.index === ei
+                            ? 600
+                            : 400,
+                      }}
                     >
                       <span
                         style={{
@@ -1100,5 +1379,40 @@ export function RoomEditor(): React.ReactElement {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** Text field for a view's follow target: commits on blur or Enter (one undo step, not one per keystroke) and offers the room's prefab names via a datalist. */
+function FollowObjectInput(props: {
+  index: number;
+  value: string;
+  listId: string;
+  onCommit: (name: string) => void;
+}): React.ReactElement {
+  const [text, setText] = React.useState(props.value);
+  const commit = (): void => {
+    if (text.trim() !== props.value) props.onCommit(text);
+  };
+  return (
+    <input
+      type="text"
+      list={props.listId}
+      aria-label={`view ${props.index} followObject`}
+      placeholder="none"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+      }}
+      style={{
+        background: "var(--es-surface)",
+        color: "var(--es-text)",
+        border: "1px solid var(--es-border)",
+        borderRadius: 4,
+        padding: "2px 6px",
+        width: 96,
+      }}
+    />
   );
 }

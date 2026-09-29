@@ -150,4 +150,19 @@ describe("GameGlobalsPanel", () => {
     click(q("[aria-label='Undo']"));
     expect(useGameGlobalsStore.getState().gameGlobals["hp"]).toBe("number");
   });
+
+  it("handles Ctrl+Z while visible", () => {
+    act(() => root.render(<GameGlobalsPanel />));
+    act(() => setInput(q("[aria-label='New global name']"), "hp"));
+    click(addButton());
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({
+      hp: "number",
+    });
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", ctrlKey: true }),
+      );
+    });
+    expect(useGameGlobalsStore.getState().gameGlobals).toEqual({});
+  });
 });
