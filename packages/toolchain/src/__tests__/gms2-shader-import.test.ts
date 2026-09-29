@@ -7,6 +7,7 @@ import {
   convertGms2Shader,
   translateGms2ShaderToPixi,
   buildShaderAsset,
+  buildShaderAssetWithDiagnostics,
   ShaderTranslationError,
 } from "../gms2-shader-import.js";
 
@@ -237,5 +238,40 @@ describe("convertGms2Shader + buildShaderAsset (synthetic project directory)", (
     );
     await expect(convertGms2Shader(emptyDir)).rejects.toThrow();
     await fs.rm(emptyDir, { recursive: true, force: true });
+  });
+});
+
+describe("buildShaderAssetWithDiagnostics (WGSL program)", () => {
+  const mk = (fragmentRaw: string) => ({
+    name: "sh_tint",
+    language: "glsl-es" as const,
+    vertexRaw: GM_PASSTHROUGH_VERTEX,
+    fragmentRaw,
+  });
+
+  it("emits wgslFragmentSrc next to fragmentSrc", () => {
+    const { content, wgslWarning } = buildShaderAssetWithDiagnostics(
+      mk(GM_TINT_FRAGMENT),
+    );
+    expect(wgslWarning).toBeUndefined();
+    expect(content).toContain("fragmentSrc:");
+    expect(content).toContain("wgslFragmentSrc:");
+    const m = content.match(/wgslFragmentSrc: (".*"),\n/);
+    const wgsl = JSON.parse(m?.[1] ?? "null") as string;
+    expect(wgsl).toContain("@fragment");
+    expect(wgsl).toContain("var<uniform> uniforms: Uniforms");
+    expect(buildShaderAsset(mk(GM_TINT_FRAGMENT))).toBe(content);
+  });
+
+  it("falls back to GL-only with a warning when naga cannot convert", () => {
+    const frag = `varying vec2 v_vTexcoord;
+uniform sampler2D u_extra;
+void main() { gl_FragColor = texture2D(u_extra, v_vTexcoord); }
+`;
+    const { content, wgslWarning } = buildShaderAssetWithDiagnostics(mk(frag));
+    expect(wgslWarning).toMatch(/cannot map/);
+    expect(content).not.toContain("wgslFragmentSrc:");
+    expect(content).toContain("WebGPU: NOT available");
+    expect(content).toContain("fragmentSrc:");
   });
 });

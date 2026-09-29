@@ -1,5 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  convertFragmentToWgsl,
+  WgslConversionError,
+} from "./glsl-es-to-wgsl.js";
 
 /**
  * GMS2 `GMShader` resource import.
@@ -327,13 +331,56 @@ function toPascalCase(name: string): string {
  * contract the IDE's ShaderEditor panel already compiles shaders against.
  */
 export function buildShaderAsset(shader: ShaderAsset): string {
+  return buildShaderAssetWithDiagnostics(shader).content;
+}
+
+export interface ShaderAssetBuild {
+  content: string;
+  /** Set when the WGSL (WebGPU) program could not be produced; the shader is GL-only. */
+  wgslWarning?: string;
+}
+
+/**
+ * `buildShaderAsset` plus diagnostics. Next to the GLSL program it also emits
+ * `wgslFragmentSrc` (naga-converted, see `glsl-es-to-wgsl.ts`) so the shader
+ * can run under pixi's WebGPU renderer. When that conversion fails no WGSL is
+ * emitted and `wgslWarning` says why; the shader then stays GL-only. Neither
+ * program has been run on a GPU at import time.
+ */
+export function buildShaderAssetWithDiagnostics(
+  shader: ShaderAsset,
+): ShaderAssetBuild {
   const translated = translateGms2ShaderToPixi(
     shader.vertexRaw,
     shader.fragmentRaw,
   );
   const pascal = toPascalCase(shader.name);
 
-  return `// Auto-generated from GMS2 shader: ${shader.name}
+  let wgslFragmentSrc: string | undefined;
+  let wgslWarning: string | undefined;
+  try {
+    wgslFragmentSrc = convertFragmentToWgsl(
+      shader.fragmentRaw,
+      shader.vertexRaw,
+    ).wgslFragmentSrc;
+  } catch (err) {
+    wgslWarning =
+      err instanceof WgslConversionError
+        ? err.message
+        : `WGSL conversion failed (${String(err)})`;
+  }
+  const wgslLine =
+    wgslFragmentSrc === undefined
+      ? ""
+      : `\n  wgslFragmentSrc: ${JSON.stringify(wgslFragmentSrc)},`;
+  const wgslHeader =
+    wgslFragmentSrc === undefined
+      ? `// WebGPU: NOT available. The GLSL->WGSL conversion failed (${(wgslWarning ?? "").replace(/\s+/g, " ")}),
+// so this shader is GL-only and renders nothing under the WebGPU renderer.`
+      : `// WebGPU: wgslFragmentSrc was converted at import time (GLSL ES 1.00 ->
+// GLSL 450 -> naga -> WGSL). Validated by naga only, NOT run on a GPU.`;
+
+  const content = `// Auto-generated from GMS2 shader: ${shader.name}
 // Mechanically translated from GameMaker's GLSL ES shader convention
 // (attribute/varying, in_Position/in_TextureCoord/in_Colour,
 // gm_Matrices[MATRIX_WORLD_VIEW_PROJECTION], gm_BaseTexture, texture2D(),
@@ -342,8 +389,9 @@ export function buildShaderAsset(shader: ShaderAsset): string {
 // uWorldTransformMatrix/uTransformMatrix, uTexture, texture(), finalColor).
 // GPU compilation was NOT verified (no headless WebGL context available at
 // import time) — only that the output is structurally well-formed GLSL ES
-// 3.00 following CustomShaderFilter's own established contract. Any
-// GameMaker uniform the original shader declared beyond the built-ins above
+// 3.00 following CustomShaderFilter's own established contract.
+${wgslHeader}
+// Any GameMaker uniform the original shader declared beyond the built-ins above
 // (set at runtime via shader_set_uniform_f) passed through untouched by
 // name — wire it the same way via the constructed filter's own
 // \`.resources.uniforms\` (see CustomShaderFilter.ts).
@@ -367,9 +415,10 @@ import { registerGmlShader } from "@emptysock/engine";
 export const ${pascal}Shader = {
   name: ${JSON.stringify(shader.name)},
   vertexSrc: ${JSON.stringify(translated.vertexSrc)},
-  fragmentSrc: ${JSON.stringify(translated.fragmentSrc)},
+  fragmentSrc: ${JSON.stringify(translated.fragmentSrc)},${wgslLine}
 } as const;
 
 registerGmlShader(${JSON.stringify(shader.name)}, ${pascal}Shader);
 `;
+  return wgslWarning === undefined ? { content } : { content, wgslWarning };
 }

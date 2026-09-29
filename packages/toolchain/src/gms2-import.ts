@@ -68,7 +68,7 @@ import {
 import { convertGms2Note, buildNoteText } from "./gms2-note-import.js";
 import {
   convertGms2Shader,
-  buildShaderAsset,
+  buildShaderAssetWithDiagnostics,
   ShaderTranslationError,
 } from "./gms2-shader-import.js";
 import { buildTimelineModule } from "./gms2-timeline-import.js";
@@ -771,7 +771,13 @@ export async function importGMS2Project(
         });
         continue;
       }
-      const content = buildShaderAsset(shader);
+      const built = buildShaderAssetWithDiagnostics(shader);
+      const content = built.content;
+      if (built.wgslWarning !== undefined) {
+        warnings.push(
+          `Shader "${name}" has no WebGPU (WGSL) program (${built.wgslWarning}); it stays GL-only and renders nothing under the WebGPU renderer.`,
+        );
+      }
       filesToWrite.push({ rel: `assets/${name}.shader.ts`, content });
       reportEntries.push({ kind: "shader", name, status: "converted" });
       warnings.push(
