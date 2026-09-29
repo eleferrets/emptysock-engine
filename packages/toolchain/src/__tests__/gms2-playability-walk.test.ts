@@ -24,7 +24,7 @@ import type {
  */
 // Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
 const REAL_PROJECT = (() => {
-  const dir = process.env.GMS_FIXTURE_DIR ?? "";
+  const dir = process.env["GMS_FIXTURE_DIR"] ?? "";
   try {
     const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
     return yyp ? path.join(dir, yyp) : "";
