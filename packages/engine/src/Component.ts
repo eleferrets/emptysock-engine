@@ -12,7 +12,15 @@ export type ComponentFieldSchema =
   | { readonly kind: "number" }
   | { readonly kind: "string" }
   | { readonly kind: "boolean" }
-  | { readonly kind: "enum"; readonly options: readonly string[] };
+  | { readonly kind: "enum"; readonly options: readonly string[] }
+  /**
+   * The field holds an `EntityRef` (`{ $ref: number }`, `NO_REF` when
+   * empty). Scene load, save/load and room carry-over remap exactly the
+   * fields declared this way (`remapRefs`). `relation`, when set, names a
+   * `RelationDef` the pointed-at entity is expected to be linked through
+   * (Inspector hint only; not enforced).
+   */
+  | { readonly kind: "entityRef"; readonly relation?: string };
 
 /**
  * A component's schema maps each field name in its defaults object to a

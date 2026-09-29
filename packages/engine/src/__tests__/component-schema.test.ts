@@ -62,3 +62,23 @@ describe("defineComponent schema (ENGINE_DESIGN.md §10.1)", () => {
     expect(PhysicsBody.schema?.position).toBeUndefined();
   });
 });
+
+describe("entityRef schema kind", () => {
+  it("is accepted with and without a relation hint", () => {
+    const Follow = defineComponent(
+      "EntityRefSchemaFollow",
+      () => ({ target: { $ref: 0 }, aux: { $ref: 0 } }),
+      {
+        schema: {
+          target: { kind: "entityRef" },
+          aux: { kind: "entityRef", relation: "ChildOf" },
+        },
+      },
+    );
+    expect(Follow.schema?.target).toEqual({ kind: "entityRef" });
+    expect(Follow.schema?.aux).toEqual({
+      kind: "entityRef",
+      relation: "ChildOf",
+    });
+  });
+});
