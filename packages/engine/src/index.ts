@@ -216,6 +216,12 @@ export type {
   SceneRenderer,
 } from "./Game.js";
 export { Diagnostics } from "./Diagnostics.js";
+export {
+  KeyboardLayout,
+  defaultKeyLabel,
+  isLetterChar,
+} from "./systems/KeyboardLayout.js";
+export type { KeyboardLayoutProvider } from "./systems/KeyboardLayout.js";
 export { InputManager, INPUT_BINDINGS_STORAGE_KEY } from "./Input.js";
 export type {
   Binding,
