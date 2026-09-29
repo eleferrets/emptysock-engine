@@ -1,5 +1,4 @@
 import React from "react";
-import type { SceneFile, SceneFilePrefabInstance } from "@emptysock/engine";
 import { useIDEStore } from "../../store/ideStore";
 import { useHistory } from "../../hooks/useHistory";
 import { isElementShown } from "../../hooks/isElementShown";
@@ -53,6 +52,12 @@ import {
   type Extra,
   type ExtraHit,
 } from "./roomEditorExtras";
+import {
+  parseRoomScene,
+  serializeRoomScene,
+  type RoomEditorState,
+  type RoomInstance,
+} from "./roomEditorScene";
 
 /** Half-size (px) of a resize handle square, also its hit tolerance. */
 const HANDLE = 5;
@@ -87,14 +92,6 @@ const QUIPS = [
   "Snap to grid: for when your mouse hand shakes less than your resolve.",
   "Nothing selected. The room stares back, unbothered.",
 ];
-
-interface RoomEditorState {
-  sceneName: string;
-  systems?: readonly string[];
-  instances: SceneFilePrefabInstance[];
-  /** Every other top-level field of the file (entities, views, ...), preserved verbatim on save. */
-  extra: Record<string, unknown>;
-}
 
 /** Sprite fields a prefab (or an instance prop override) can supply for nine-slice/tiled rendering. */
 interface SpriteInfo {
@@ -140,10 +137,13 @@ function collectPrefabSprites(
 
 /** Effective sprite info: prefab Sprite overrides, then instance props on top (the same precedence `Scene.spawn` applies). */
 function instanceSprite(
-  inst: SceneFilePrefabInstance,
+  inst: RoomInstance,
   prefabs: Map<string, Record<string, unknown>>,
 ): SpriteInfo {
-  const o = { ...(prefabs.get(inst.prefab) ?? {}), ...(inst.props ?? {}) };
+  const o = {
+    ...(prefabs.get(inst.prefab.name) ?? {}),
+    ...(inst.prefab.props ?? {}),
+  };
   return {
     texturePath: typeof o["texturePath"] === "string" ? o["texturePath"] : "",
     width: num(o["width"]),
@@ -158,7 +158,7 @@ function instanceSprite(
 
 /** Bounding box (top-left origin) an instance occupies in the room. Sliced/tiled instances use their real width/height. */
 function instanceBox(
-  inst: SceneFilePrefabInstance,
+  inst: RoomInstance,
   prefabs: Map<string, Record<string, unknown>>,
 ): Box {
   const { x, y } = instancePos(inst);
@@ -176,81 +176,61 @@ function instanceBox(
 }
 
 function isSliced(
-  inst: SceneFilePrefabInstance,
+  inst: RoomInstance,
   prefabs: Map<string, Record<string, unknown>>,
 ): boolean {
   const sp = instanceSprite(inst, prefabs);
   return sp.sliceMode !== 0 && sp.width > 0 && sp.height > 0;
 }
 
-function withProps(
-  inst: SceneFilePrefabInstance,
+/** Copy of `inst` with `patch` merged into its `prefab.props` (id and every other field untouched). */
+function patchProps(
+  inst: RoomInstance,
   patch: Record<string, number>,
-): SceneFilePrefabInstance {
-  return { ...inst, props: { ...(inst.props ?? {}), ...patch } };
+): RoomInstance {
+  return {
+    ...inst,
+    prefab: {
+      ...inst.prefab,
+      props: { ...(inst.prefab.props ?? {}), ...patch },
+    },
+  };
+}
+
+function withProps(
+  inst: RoomInstance,
+  patch: Record<string, number>,
+): RoomInstance {
+  return patchProps(inst, patch);
 }
 
 function isSceneJsonPath(path: string): boolean {
   return path.endsWith(".scene.json");
 }
 
-function parseSceneFile(raw: string): RoomEditorState | undefined {
-  try {
-    const parsed = JSON.parse(raw) as SceneFile;
-    if (typeof parsed.sceneName !== "string") return undefined;
-    return {
-      sceneName: parsed.sceneName,
-      ...(parsed.systems !== undefined ? { systems: parsed.systems } : {}),
-      instances: [...(parsed.prefabInstances ?? [])],
-      extra: Object.fromEntries(
-        Object.entries(parsed).filter(
-          ([k]) => !["sceneName", "systems", "prefabInstances"].includes(k),
-        ),
-      ),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function serializeSceneFile(state: RoomEditorState): string {
-  const file: SceneFile = {
-    ...(state.extra as Partial<SceneFile>),
-    sceneName: state.sceneName,
-    ...(state.systems !== undefined ? { systems: state.systems } : {}),
-    prefabInstances: state.instances,
-  };
-  return JSON.stringify(file, null, 2) + "\n";
-}
-
-function instancePos(inst: SceneFilePrefabInstance): { x: number; y: number } {
-  const props = inst.props as { x?: unknown; y?: unknown } | undefined;
+function instancePos(inst: RoomInstance): { x: number; y: number } {
+  const props = inst.prefab.props as { x?: unknown; y?: unknown } | undefined;
   return {
     x: typeof props?.x === "number" ? props.x : 0,
     y: typeof props?.y === "number" ? props.y : 0,
   };
 }
 
-function withPos(
-  inst: SceneFilePrefabInstance,
-  x: number,
-  y: number,
-): SceneFilePrefabInstance {
-  return { ...inst, props: { ...(inst.props ?? {}), x, y } };
+function withPos(inst: RoomInstance, x: number, y: number): RoomInstance {
+  return patchProps(inst, { x, y });
 }
 
 /** Rotation (degrees, matching `Transform.rotation`'s on-disk convention elsewhere in this
  * importer's prefab props) and non-uniform scale — mirrors `Transform`'s own field names
  * (`rotation`/`scaleX`/`scaleY`) so a room-editor edit round-trips through `loadSceneFile()`
  * without a translation step. */
-function instanceTransform(inst: SceneFilePrefabInstance): {
+function instanceTransform(inst: RoomInstance): {
   rotation: number;
   scaleX: number;
   scaleY: number;
 } {
-  const props = inst.props as
-    | { rotation?: unknown; scaleX?: unknown; scaleY?: unknown }
-    | undefined;
+  const props = inst.prefab.props as
+    { rotation?: unknown; scaleX?: unknown; scaleY?: unknown } | undefined;
   return {
     rotation: typeof props?.rotation === "number" ? props.rotation : 0,
     scaleX: typeof props?.scaleX === "number" ? props.scaleX : 1,
@@ -259,10 +239,10 @@ function instanceTransform(inst: SceneFilePrefabInstance): {
 }
 
 function withTransform(
-  inst: SceneFilePrefabInstance,
+  inst: RoomInstance,
   patch: Partial<{ rotation: number; scaleX: number; scaleY: number }>,
-): SceneFilePrefabInstance {
-  return { ...inst, props: { ...(inst.props ?? {}), ...patch } };
+): RoomInstance {
+  return patchProps(inst, patch);
 }
 
 export function RoomEditor(): React.ReactElement {
@@ -300,7 +280,7 @@ export function RoomEditor(): React.ReactElement {
   const parsedInitial = React.useMemo<RoomEditorState | undefined>(() => {
     if (selectedPath === null) return undefined;
     const raw = openFiles[selectedPath];
-    return raw !== undefined ? parseSceneFile(raw) : undefined;
+    return raw !== undefined ? parseRoomScene(raw) : undefined;
   }, [selectedPath, openFiles]);
 
   const { state, set, undo, redo, reset, canUndo, canRedo } = useHistory<
@@ -324,12 +304,12 @@ export function RoomEditor(): React.ReactElement {
     if (state === undefined || selectedPath === null) return;
     if (state === committedRef.current) return;
     committedRef.current = state;
-    setFileContent(selectedPath, serializeSceneFile(state));
+    setFileContent(selectedPath, serializeRoomScene(state));
   }, [state, selectedPath, setFileContent]);
 
-  const [liveInstances, setLiveInstances] = React.useState<
-    SceneFilePrefabInstance[]
-  >(state?.instances ?? []);
+  const [liveInstances, setLiveInstances] = React.useState<RoomInstance[]>(
+    state?.instances ?? [],
+  );
   React.useEffect(() => {
     setLiveInstances(state?.instances ?? []);
   }, [state]);
@@ -441,12 +421,12 @@ export function RoomEditor(): React.ReactElement {
   }, [undo, redo]);
 
   const commit = React.useCallback(
-    (instances: SceneFilePrefabInstance[]) => {
+    (instances: RoomInstance[]) => {
       if (state === undefined || selectedPath === null) return;
       const next: RoomEditorState = { ...state, instances };
       committedRef.current = next;
       set(next);
-      setFileContent(selectedPath, serializeSceneFile(next));
+      setFileContent(selectedPath, serializeRoomScene(next));
     },
     [state, selectedPath, set, setFileContent],
   );
@@ -457,7 +437,7 @@ export function RoomEditor(): React.ReactElement {
       const next: RoomEditorState = { ...state, extra };
       committedRef.current = next;
       set(next);
-      setFileContent(selectedPath, serializeSceneFile(next));
+      setFileContent(selectedPath, serializeRoomScene(next));
     },
     [state, selectedPath, set, setFileContent],
   );
@@ -627,7 +607,7 @@ export function RoomEditor(): React.ReactElement {
       ctx.font = "10px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillText(inst.prefab, x, y + h / 2 + 2);
+      ctx.fillText(inst.prefab.name, x, y + h / 2 + 2);
     });
     // Camera views: the world rectangle each visible view looks at (dashed
     // when the room's views are switched off), with a label chip at the
@@ -1489,7 +1469,7 @@ export function RoomEditor(): React.ReactElement {
               gap: 8,
             }}
           >
-            <div style={{ fontWeight: 600 }}>{selected.prefab}</div>
+            <div style={{ fontWeight: 600 }}>{selected.prefab.name}</div>
             <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               X
               <input
@@ -1682,8 +1662,8 @@ export function RoomEditor(): React.ReactElement {
                       value={num(
                         (
                           {
-                            ...(prefabSprites.get(selected.prefab) ?? {}),
-                            ...(selected.props ?? {}),
+                            ...(prefabSprites.get(selected.prefab.name) ?? {}),
+                            ...(selected.prefab.props ?? {}),
                           } as Record<string, unknown>
                         )[key],
                       )}

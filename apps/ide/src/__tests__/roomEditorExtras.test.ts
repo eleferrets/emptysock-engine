@@ -24,6 +24,7 @@ import {
 } from "../components/panels/roomEditorExtras";
 
 const view = {
+  id: "v0",
   visible: true,
   worldX: 0,
   worldY: 0,
@@ -55,14 +56,12 @@ describe("roomEditorExtras", () => {
     const extra = {
       entities: [
         {
-          components: [
-            { component: "Transform", overrides: { x: 1, y: 2, scaleX: 3 } },
-          ],
+          id: "e0",
+          components: { Transform: { data: { x: 1, y: 2, scaleX: 3 } } },
         },
         {
-          components: [
-            { component: "Sprite", overrides: { texturePath: "a/bg.png" } },
-          ],
+          id: "e1",
+          components: { Sprite: { data: { texturePath: "a/bg.png" } } },
         },
       ],
     };
@@ -71,13 +70,14 @@ describe("roomEditorExtras", () => {
     const ents = getEntities(b);
     expect(ents[0] && entityPosition(ents[0])).toEqual({ x: 10, y: 20 });
     expect(ents[1] && entityPosition(ents[1])).toEqual({ x: 5, y: 6 });
-    const t = ents[0]?.components?.find((c) => c.component === "Transform");
-    expect(t?.overrides?.["scaleX"]).toBe(3);
+    expect(ents[0]?.components?.["Transform"]?.data["scaleX"]).toBe(3);
+    expect(ents[0]?.id).toBe("e0");
     expect(ents[1] && entityLabel(ents[1], 1)).toBe("bg.png");
   });
 });
 
 const viewFull: EditableView = {
+  id: "v0",
   visible: true,
   worldX: 100,
   worldY: 100,
@@ -96,13 +96,10 @@ const viewFull: EditableView = {
 describe("roomEditorExtras geometry", () => {
   it("sizes an entity from Sprite width/height, scale and anchor", () => {
     const e = {
-      components: [
-        { component: "Transform", overrides: { x: 10, y: 20, scaleX: 2 } },
-        {
-          component: "Sprite",
-          overrides: { width: 20, height: 10, anchorX: 0, anchorY: 1 },
-        },
-      ],
+      components: {
+        Transform: { data: { x: 10, y: 20, scaleX: 2 } },
+        Sprite: { data: { width: 20, height: 10, anchorX: 0, anchorY: 1 } },
+      },
     };
     expect(entityRect(e, 32)).toEqual({ x: 10, y: 10, w: 40, h: 10 });
     expect(entityRect({}, 32)).toEqual({ x: -16, y: -16, w: 32, h: 32 });
@@ -111,9 +108,7 @@ describe("roomEditorExtras geometry", () => {
   it("hit-tests entities by body and views by border or chip only", () => {
     const extra = {
       views: [viewFull],
-      entities: [
-        { components: [{ component: "Transform", overrides: { x: 0, y: 0 } }] },
-      ],
+      entities: [{ components: { Transform: { data: { x: 0, y: 0 } } } }],
     };
     expect(hitTestExtras(extra, 0, 0, 6, 32)).toEqual({
       kind: "entity",
@@ -159,7 +154,11 @@ describe("roomEditorExtras geometry", () => {
 
   it("lists distinct prefab names for the follow datalist", () => {
     expect(
-      followCandidates([{ prefab: "b" }, { prefab: "a" }, { prefab: "b" }]),
+      followCandidates([
+        { prefab: { name: "b" } },
+        { prefab: { name: "a" } },
+        { prefab: { name: "b" } },
+      ]),
     ).toEqual(["a", "b"]);
   });
 
@@ -208,7 +207,9 @@ describe("roomEditorExtras geometry", () => {
 });
 
 describe("addView / rectFromDrag", () => {
+  let seq = 0;
   const unused = (): EditableView => ({
+    id: `u${seq++}`,
     visible: false,
     worldX: 0,
     worldY: 0,

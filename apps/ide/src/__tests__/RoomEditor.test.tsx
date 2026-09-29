@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react-dom/test-utils";
 import { createRoot, type Root } from "react-dom/client";
 import { RoomEditor } from "../components/panels/RoomEditor.js";
+import { viewToEditable } from "../components/panels/roomEditorScene.js";
 import { useIDEStore } from "../store/ideStore.js";
+import type { SceneViewDef } from "@emptysock/engine";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -139,18 +141,22 @@ describe("RoomEditor — loading and editing a real .scene.json", () => {
     const saved = useIDEStore.getState().openFiles["rooms/rm_test.scene.json"];
     expect(saved).toBeDefined();
     const parsed = JSON.parse(saved ?? "{}") as {
-      prefabInstances: { prefab: string; props: { x: number; y: number } }[];
+      formatVersion: number;
+      entities: {
+        id: string;
+        prefab?: { name: string; props: { x: number; y: number } };
+      }[];
     };
-    const player = parsed.prefabInstances.find(
-      (i) => i.prefab === "obj_player",
-    );
-    expect(player?.props.x).toBe(300);
-    expect(player?.props.y).toBe(250);
+    // The v1 fixture is saved back as v2, with its migrated ids untouched.
+    expect(parsed.formatVersion).toBe(2);
+    expect(parsed.entities.map((e) => e.id)).toEqual(["p0", "p1"]);
+    const player = parsed.entities.find((i) => i.prefab?.name === "obj_player");
+    expect(player?.id).toBe("p0");
+    expect(player?.prefab?.props.x).toBe(300);
+    expect(player?.prefab?.props.y).toBe(250);
     // The untouched instance is preserved unchanged.
-    const camera = parsed.prefabInstances.find(
-      (i) => i.prefab === "obj_camera",
-    );
-    expect(camera?.props).toEqual({ x: 200, y: 150 });
+    const camera = parsed.entities.find((i) => i.prefab?.name === "obj_camera");
+    expect(camera?.prefab?.props).toEqual({ x: 200, y: 150 });
   });
 
   it("editing rotation/scale fields via the side panel writes back to openFiles", async () => {
@@ -216,12 +222,10 @@ describe("RoomEditor — loading and editing a real .scene.json", () => {
 
     const saved = useIDEStore.getState().openFiles["rooms/rm_test.scene.json"];
     const parsed = JSON.parse(saved ?? "{}") as {
-      prefabInstances: { prefab: string; props: { rotation?: number } }[];
+      entities: { prefab?: { name: string; props: { rotation?: number } } }[];
     };
-    const player = parsed.prefabInstances.find(
-      (i) => i.prefab === "obj_player",
-    );
-    expect(player?.props.rotation).toBe(45);
+    const player = parsed.entities.find((i) => i.prefab?.name === "obj_player");
+    expect(player?.prefab?.props.rotation).toBe(45);
   });
 });
 
@@ -285,8 +289,10 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
   }
 
   function saved(): {
-    entities?: unknown[];
-    prefabInstances: { prefab: string; props: Record<string, number> }[];
+    entities: {
+      id: string;
+      prefab?: { name: string; props: Record<string, number> };
+    }[];
   } {
     return JSON.parse(useIDEStore.getState().openFiles[PATH] ?? "{}");
   }
@@ -308,9 +314,16 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
     fire(canvas, "pointerdown", 248, 232);
     fire(canvas, "pointermove", 300, 300);
     fire(canvas, "pointerup", 300, 300);
-    const p = saved().prefabInstances.find((i) => i.prefab === "obj_panel");
-    expect(p?.props).toMatchObject({ width: 148, height: 132, x: 226, y: 234 });
-    expect(saved().entities).toHaveLength(1);
+    const p = saved().entities.find((i) => i.prefab?.name === "obj_panel");
+    expect(p?.prefab?.props).toMatchObject({
+      width: 148,
+      height: 132,
+      x: 226,
+      y: 234,
+    });
+    expect(saved().entities.filter((e) => e.prefab === undefined)).toHaveLength(
+      1,
+    );
   });
 
   it("snaps the dragged edge to the grid when snap is on", async () => {
@@ -320,9 +333,9 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
     fire(canvas, "pointerdown", 248, 232);
     fire(canvas, "pointermove", 300, 300);
     fire(canvas, "pointerup", 300, 300);
-    const p = saved().prefabInstances.find((i) => i.prefab === "obj_panel");
+    const p = saved().entities.find((i) => i.prefab?.name === "obj_panel");
     // right edge 300 -> 288, bottom 300 -> 288
-    expect(p?.props).toMatchObject({ width: 136, height: 120 });
+    expect(p?.prefab?.props).toMatchObject({ width: 136, height: 120 });
   });
 
   it("undo reverts a resize", async () => {
@@ -359,8 +372,12 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
       setter?.call(select, "2");
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const p = saved().prefabInstances.find((i) => i.prefab === "obj_plain");
-    expect(p?.props).toMatchObject({ sliceMode: 2, width: 32, height: 32 });
+    const p = saved().entities.find((i) => i.prefab?.name === "obj_plain");
+    expect(p?.prefab?.props).toMatchObject({
+      sliceMode: 2,
+      width: 32,
+      height: 32,
+    });
   });
 });
 
@@ -421,14 +438,23 @@ describe("RoomEditor — imported room views and entities", () => {
     const saved = JSON.parse(
       useIDEStore.getState().openFiles["rooms/rm_v.scene.json"] ?? "{}",
     ) as {
-      viewsEnabled: boolean;
-      views: { worldX: number; worldWidth: number }[];
-      entities: { components: { overrides: { x: number; y: number } }[] }[];
+      formatVersion: number;
+      room: {
+        viewsEnabled: boolean;
+        views: { id: string; world: { x: number; w: number } }[];
+      };
+      entities: {
+        id: string;
+        components: { Transform: { data: { x: number; y: number } } };
+      }[];
     };
-    expect(saved.viewsEnabled).toBe(true);
-    expect(saved.views[0]?.worldX).toBe(48);
-    expect(saved.views[0]?.worldWidth).toBe(320);
-    expect(saved.entities[0]?.components[0]?.overrides).toEqual({
+    expect(saved.formatVersion).toBe(2);
+    expect(saved.room.viewsEnabled).toBe(true);
+    expect(saved.room.views[0]?.id).toBe("v0");
+    expect(saved.room.views[0]?.world.x).toBe(48);
+    expect(saved.room.views[0]?.world.w).toBe(320);
+    expect(saved.entities[0]?.id).toBe("e0");
+    expect(saved.entities[0]?.components.Transform.data).toEqual({
       x: 77,
       y: 2,
     });
@@ -514,10 +540,32 @@ describe("RoomEditor — canvas editing of views and entities", () => {
     if (canvas === null) throw new Error("no canvas");
     return canvas;
   }
+  // The file on disk is a v2 document; the canvas tests assert on the
+  // editor's flat view model and on each direct entity's component data.
   const saved = (): {
     views: Record<string, unknown>[];
     entities: { components: { overrides: Record<string, number> }[] }[];
-  } => JSON.parse(useIDEStore.getState().openFiles[PATH] ?? "{}");
+  } => {
+    const doc = JSON.parse(useIDEStore.getState().openFiles[PATH] ?? "{}") as {
+      room?: { views?: SceneViewDef[] };
+      entities: {
+        prefab?: unknown;
+        components?: Record<string, { data: Record<string, number> }>;
+      }[];
+    };
+    return {
+      views: (doc.room?.views ?? []).map(
+        (v) => viewToEditable(v) as unknown as Record<string, unknown>,
+      ),
+      entities: doc.entities
+        .filter((e) => e.prefab === undefined)
+        .map((e) => ({
+          components: Object.values(e.components ?? {}).map((c) => ({
+            overrides: c.data,
+          })),
+        })),
+    };
+  };
   const clickUndo = (): void => {
     const b = Array.from(container.querySelectorAll("button")).find(
       (x) => x.textContent === "Undo",
@@ -726,8 +774,8 @@ describe("RoomEditor — canvas editing of views and entities", () => {
     fire(canvas, "pointerdown", 900, 100);
     fire(canvas, "pointermove", 850, 130);
     fire(canvas, "pointerup", 850, 130);
-    // The file is untouched by a pan.
-    expect(saved().views[0]).toMatchObject({ worldX: 320, worldY: 160 });
+    // The file is untouched by a pan (still the original v1 text, not rewritten).
+    expect(useIDEStore.getState().openFiles[PATH]).toBe(FILE);
     // View 0's top border (world 400,160) is now at screen (350,190).
     fire(canvas, "pointerdown", 350, 190);
     fire(canvas, "pointermove", 380, 230);
