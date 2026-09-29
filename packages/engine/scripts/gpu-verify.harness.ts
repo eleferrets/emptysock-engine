@@ -459,7 +459,11 @@ void PixiSprite;
 // rain filter changes the frame under it (it cannot under WebGPU).
 export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
   const p = await mkPipeline(640, 360);
-  const r = p.renderer as unknown as { gl?: unknown; type?: number; name?: string };
+  const r = p.renderer as unknown as {
+    gl?: unknown;
+    type?: number;
+    name?: string;
+  };
   const rt = RenderTexture.create({ width: 640, height: 360 });
   const c = scene();
   const root = new Container();
@@ -478,9 +482,24 @@ export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
   } catch (e) {
     errors.push(String(e));
   }
+  let png: string | undefined;
+  if (out) {
+    const canvas = document.createElement("canvas");
+    canvas.width = out.width;
+    canvas.height = out.height;
+    canvas
+      .getContext("2d")!
+      .putImageData(
+        new ImageData(new Uint8ClampedArray(out.data), out.width, out.height),
+        0,
+        0,
+      );
+    png = canvas.toDataURL("image/png");
+  }
   return {
     renderer: r.gl ? "webgl" : (r.name ?? "not-webgl"),
     errors,
+    png,
     ...(out ? rainStats(base, out) : {}),
   };
 }

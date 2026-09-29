@@ -15,6 +15,8 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 
 - WebGPU renderer (measured on a real Mac browser): `RenderSystem` prefers `["webgpu", "webgl"]`, and under WebGPU the GL-only `RainGlassFilter` silently renders nothing (no error, frame unchanged; `rendererFilterProbe` in `gpu-verify.harness.ts`). Every `CustomShaderFilter` (imported GML shaders) is GL-only too, so they are assumed to do the same. Fix landed but UNVERIFIED on a GPU: GLSL-to-WGSL conversion (`docs/research/11-glsl-to-wgsl.md`; see the WGSL section below); fallback is `preference: ["webgl"]`.
 
+- WebGPU rain (measured on a real Mac browser after the WGSL port): the WGSL `RainGlassFilter` runs without errors and draws refracting drops, but the result differs from WebGL: 1.2% of pixels changed vs 7.6%, drops appear only in the upper part of the frame and none in the lower half, no visible trails. Suspects: drop-map orientation or sampling under WebGPU, texture upload of the `BufferImageSource` map, or a uniform landing in the wrong UBO slot. Compare with `rendererFilterProbe` (returns a PNG). Imported GML shaders under WebGPU have not been rendered yet.
+
 ## Open (not built)
 
 - Room editor: drawing a brand-new view on the canvas; numeric window-size setting.
