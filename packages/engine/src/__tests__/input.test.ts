@@ -299,3 +299,98 @@ describe("InputManager PointerSystem integration", () => {
     expect(input.wheelEvents[0]?.isPinchZoom).toBe(true);
   });
 });
+
+describe("InputManager layout-aware bindings (Binding.char)", () => {
+  const azerty = {
+    charForCode: (c: string) =>
+      (({ KeyQ: "a", KeyA: "q" }) as Record<string, string | undefined>)[c],
+  };
+
+  it("char binding follows the layout; code is the fallback", () => {
+    const input = new InputManager({
+      left: [{ kind: "key", code: "KeyA", char: "a" }],
+    });
+    input.layout.setProvider(azerty);
+    input.simulateKeyDown("KeyQ");
+    input.snapshot();
+    expect(input.isDown("left")).toBe(true);
+    input.simulateKeyUp("KeyQ");
+    input.layout.setProvider(null);
+    input.simulateKeyDown("KeyA");
+    input.snapshot();
+    expect(input.isDown("left")).toBe(true); // no layout knowledge: physical code
+  });
+
+  it("plain physical bindings ignore the layout", () => {
+    const input = new InputManager({ left: [{ kind: "key", code: "KeyA" }] });
+    input.layout.setProvider(azerty);
+    input.simulateKeyDown("KeyQ");
+    input.snapshot();
+    expect(input.isDown("left")).toBe(false);
+    input.simulateKeyDown("KeyA");
+    input.snapshot();
+    expect(input.isDown("left")).toBe(true);
+  });
+
+  it("isCharDown is layout-aware, isDown stays physical", () => {
+    const input = new InputManager();
+    input.layout.setProvider(azerty);
+    input.simulateKeyDown("KeyQ");
+    input.snapshot();
+    expect(input.keyboard.isCharDown("a")).toBe(true);
+    expect(input.keyboard.isCharDown("q")).toBe(false);
+    expect(input.keyboard.isDown("KeyQ")).toBe(true);
+    expect(input.keyboard.isCharDown("z")).toBe(false);
+  });
+
+  it("sameBinding distinguishes char: addBinding dedupes only identical", () => {
+    const input = new InputManager();
+    input.addBinding("a", { kind: "key", code: "KeyA" });
+    input.addBinding("a", { kind: "key", code: "KeyA" });
+    input.addBinding("a", { kind: "key", code: "KeyA", char: "a" });
+    expect(input.getBindings("a")).toHaveLength(2);
+  });
+
+  it("bindingLabel follows the layout and names pad inputs", () => {
+    const input = new InputManager();
+    input.layout.setProvider(azerty);
+    expect(input.bindingLabel({ kind: "key", code: "KeyA", char: "a" })).toBe(
+      "A",
+    );
+    expect(input.bindingLabel({ kind: "key", code: "KeyA" })).toBe("Q");
+    expect(input.bindingLabel({ kind: "key", code: "Space" })).toBe("Space");
+    expect(input.bindingLabel({ kind: "gamepadButton", index: 0 })).toBe(
+      "Pad A",
+    );
+    expect(
+      input.bindingLabel({ kind: "gamepadAxis", axis: 1, threshold: -0.5 }),
+    ).toBe("Axis 1-");
+  });
+
+  it("save/load round-trips char and old saves without char still load", async () => {
+    const store = new MemoryStorageAdapter();
+    const a = new InputManager({
+      l: [{ kind: "key", code: "KeyA", char: "a" }],
+    });
+    await a.saveBindings(store);
+    const b = new InputManager();
+    expect(await b.loadBindings(store)).toBe(true);
+    expect(b.getBindings("l")).toEqual([
+      { kind: "key", code: "KeyA", char: "a" },
+    ]);
+
+    await store.set(
+      "old",
+      JSON.stringify({ l: [{ kind: "key", code: "KeyA" }] }),
+    );
+    const c = new InputManager();
+    expect(await c.loadBindings(store, "old")).toBe(true);
+    expect(c.getBindings("l")).toEqual([{ kind: "key", code: "KeyA" }]);
+
+    await store.set(
+      "bad",
+      JSON.stringify({ l: [{ kind: "key", code: "KeyA", char: 5 }] }),
+    );
+    expect(await new InputManager().loadBindings(store, "bad")).toBe(false);
+  });
+});

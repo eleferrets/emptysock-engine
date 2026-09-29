@@ -19,7 +19,16 @@ import type { StorageAdapter } from "./systems/StorageAdapter.js";
 export type Binding =
   | {
       readonly kind: "key";
+      /** Physical `KeyboardEvent.code`. Always present; the fallback when `char` cannot be resolved. */
       readonly code: string;
+      /**
+       * Optional: "the key that types this letter". When set and the active
+       * layout knows a key for it, that key is read instead of `code`
+       * (`layout.codeForChar(char) ?? code`). Letters only. Absent means a
+       * purely physical binding, which is what old saves and authored
+       * defaults are.
+       */
+      readonly char?: string;
     }
   | {
       readonly kind: "gamepadButton";
@@ -36,7 +45,10 @@ export type Binding =
 export type ActionMap = Record<string, readonly Binding[]>;
 /** Read-only, per-frame-frozen keyboard state — ENGINE_DESIGN.md §15.3's raw escape hatch. */
 export interface KeyboardSnapshot {
+  /** Physical: is the key with this `KeyboardEvent.code` down. */
   isDown(code: string): boolean;
+  /** Layout-aware: is the key that types this letter on the active layout down. False when the layout has no such key. */
+  isCharDown(ch: string): boolean;
 }
 /** Read-only, per-frame-frozen state for one gamepad. */
 export interface GamepadSnapshot {
@@ -189,5 +201,8 @@ export declare class InputManager {
   simulateKeyDown(code: string, key?: string): void;
   /** See `simulateKeyDown`. */
   simulateKeyUp(code: string): void;
+  private _resolveKeyCode;
+  /** Human label for a binding ("A", "Q", "Space", "Pad A", "Axis 1+"). Key labels follow the active layout. */
+  bindingLabel(b: Binding): string;
   private _isBindingActive;
 }

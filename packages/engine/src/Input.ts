@@ -18,7 +18,19 @@ import type { StorageAdapter } from "./systems/StorageAdapter.js";
  * pinch gesture active" the way it does onto a key or a gamepad button.
  */
 export type Binding =
-  | { readonly kind: "key"; readonly code: string }
+  | {
+      readonly kind: "key";
+      /** Physical `KeyboardEvent.code`. Always present; the fallback when `char` cannot be resolved. */
+      readonly code: string;
+      /**
+       * Optional: "the key that types this letter". When set and the active
+       * layout knows a key for it, that key is read instead of `code`
+       * (`layout.codeForChar(char) ?? code`). Letters only. Absent means a
+       * purely physical binding, which is what old saves and authored
+       * defaults are.
+       */
+      readonly char?: string;
+    }
   | {
       readonly kind: "gamepadButton";
       readonly index: number;
@@ -36,7 +48,10 @@ export type ActionMap = Record<string, readonly Binding[]>;
 
 /** Read-only, per-frame-frozen keyboard state — ENGINE_DESIGN.md §15.3's raw escape hatch. */
 export interface KeyboardSnapshot {
+  /** Physical: is the key with this `KeyboardEvent.code` down. */
   isDown(code: string): boolean;
+  /** Layout-aware: is the key that types this letter on the active layout down. False when the layout has no such key. */
+  isCharDown(ch: string): boolean;
 }
 
 /** Read-only, per-frame-frozen state for one gamepad. */
@@ -53,7 +68,7 @@ function sameBinding(a: Binding, b: Binding): boolean {
   if (a.kind !== b.kind) return false;
   switch (a.kind) {
     case "key":
-      return a.code === (b as typeof a).code;
+      return a.code === (b as typeof a).code && a.char === (b as typeof a).char;
     case "gamepadButton": {
       const o = b as typeof a;
       return a.index === o.index && (a.padIndex ?? 0) === (o.padIndex ?? 0);
@@ -75,6 +90,7 @@ function isBinding(v: unknown): v is Binding {
     padIndex?: unknown;
     kind?: unknown;
     code?: unknown;
+    char?: unknown;
     index?: unknown;
     axis?: unknown;
     threshold?: unknown;
@@ -83,7 +99,10 @@ function isBinding(v: unknown): v is Binding {
   if (!padOk) return false;
   switch (o.kind) {
     case "key":
-      return typeof o.code === "string";
+      return (
+        typeof o.code === "string" &&
+        (o.char === undefined || typeof o.char === "string")
+      );
     case "gamepadButton":
       return typeof o.index === "number";
     case "gamepadAxis":
@@ -102,6 +121,27 @@ function parseActionMap(v: unknown): ActionMap | null {
   }
   return out;
 }
+
+/** W3C Standard Gamepad button names, for `bindingLabel`. */
+const PAD_BUTTON_NAMES: readonly string[] = [
+  "A",
+  "B",
+  "X",
+  "Y",
+  "LB",
+  "RB",
+  "LT",
+  "RT",
+  "Back",
+  "Start",
+  "L3",
+  "R3",
+  "Up",
+  "Down",
+  "Left",
+  "Right",
+  "Home",
+];
 
 const DISCONNECTED_GAMEPAD: GamepadSnapshot = {
   connected: false,
@@ -391,7 +431,14 @@ export class InputManager {
   /** Raw keyboard escape hatch (§15.3) — reads the frozen snapshot, not live state. */
   get keyboard(): KeyboardSnapshot {
     const keys = this._frozen.keys;
-    return { isDown: (code: string) => keys.get(code) === true };
+    const layout = this._input.layout;
+    return {
+      isDown: (code: string) => keys.get(code) === true,
+      isCharDown: (ch: string) => {
+        const code = layout.codeForChar(ch);
+        return code !== undefined && keys.get(code) === true;
+      },
+    };
   }
 
   /** Raw gamepad escape hatch (§15.3) — reads the frozen snapshot, not live state. */
@@ -449,10 +496,31 @@ export class InputManager {
     this._input.simulateKeyUp(code);
   }
 
+  private _resolveKeyCode(b: { code: string; char?: string }): string {
+    if (b.char === undefined) return b.code;
+    return this._input.layout.codeForChar(b.char) ?? b.code;
+  }
+
+  /** Human label for a binding ("A", "Q", "Space", "Pad A", "Axis 1+"). Key labels follow the active layout. */
+  bindingLabel(b: Binding): string {
+    switch (b.kind) {
+      case "key":
+        return this._input.layout.label(this._resolveKeyCode(b));
+      case "gamepadButton": {
+        const name = PAD_BUTTON_NAMES[b.index] ?? String(b.index);
+        return `${b.padIndex ? `P${b.padIndex + 1} ` : ""}Pad ${name}`;
+      }
+      case "gamepadAxis":
+        return `${b.padIndex ? `P${b.padIndex + 1} ` : ""}Axis ${b.axis}${
+          b.threshold >= 0 ? "+" : "-"
+        }`;
+    }
+  }
+
   private _isBindingActive(b: Binding): boolean {
     switch (b.kind) {
       case "key":
-        return this._frozen.keys.get(b.code) === true;
+        return this._frozen.keys.get(this._resolveKeyCode(b)) === true;
       case "gamepadButton": {
         const state = this._frozen.gamepads.get(b.padIndex ?? 0);
         return state?.buttons[b.index] === true;
