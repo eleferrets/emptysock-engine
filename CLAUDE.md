@@ -908,7 +908,7 @@ Rules:
 
 ### SignalBus: a `Game` service, synchronous, scene-scoped via `SignalGroup`
 
-`systems/SignalBus.ts` is the engine's signal/broadcast primitive (`game.signals`, `ctx.signals`; registered like `GlobalStore`, so one per `Game`, never a module singleton). Dispatch is synchronous in registration order; one throwing listener never blocks the rest (errors surface as one `AggregateError`). Scenes should subscribe through `bus.group()` and `dispose()` it in `onDestroy` so handlers cannot outlive their scene. It is distinct from `ActorSystem` (addressed mailboxes drained before update) and from `QueryChannel` (tooling bridge). `docs/reference/systems/signal-bus.md`; the sibling `emptysock-ai-skills` skill file/api-reference entry and `docs/manual/05-systems-reference.md` section are NOT yet written (other repo not in this session; manual not updated).
+`systems/SignalBus.ts` is the engine's signal/broadcast primitive (`game.signals`, `ctx.signals`; registered like `GlobalStore`, so one per `Game`, never a module singleton). Dispatch is synchronous in registration order; one throwing listener never blocks the rest (errors surface as one `AggregateError`). Scenes should subscribe through `bus.group()` and `dispose()` it in `onDestroy` so handlers cannot outlive their scene. It is distinct from `ActorSystem` (addressed mailboxes drained before update) and from `QueryChannel` (tooling bridge). `docs/reference/systems/signal-bus.md`, manual section 5.40, and the `emptysock-ai-skills` skill (`skills/37-signal-bus.md`) plus its `api-reference.json` entry.
 
 ### Room Editor edits imported rooms' views and direct entities in place
 

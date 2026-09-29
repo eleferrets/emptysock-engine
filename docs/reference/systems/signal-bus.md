@@ -9,6 +9,6 @@ off();
 ```
 
 - `on` / `once` / `off` / `onAny` (wildcard tap) / `emit` (returns listener count) / `broadcast(payload)` (every signal with listeners).
-- `bus.group()` returns a `SignalGroup`; call `dispose()` in `onDestroy` to remove everything the scene subscribed.
+- `bus.group()` returns a `SignalGroup`; call `dispose()` in `onUnload` to remove everything the scene subscribed.
 - A throwing listener does not stop the rest; errors are re-thrown together as an `AggregateError`.
 - Dispatch is synchronous and nested emits run immediately.

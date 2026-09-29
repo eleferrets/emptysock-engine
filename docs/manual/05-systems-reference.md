@@ -1819,3 +1819,50 @@ renderSystem.syncLighting(lights, lighting.ambient, viewport);
 ## 5.39 KeyBindings (merged)
 
 Merged into `InputManager`; see 5.31.
+
+---
+
+## 5.40 SignalBus
+
+`SignalBus` is the game-wide, named-signal broadcast primitive. One instance per `Game`: `game.signals`, and `ctx.signals` inside a scene. Use it when code that has no reference to another system still needs to tell the game something happened (a player died, a door opened, a setting changed).
+
+```ts
+import { defineScene, type SignalGroup } from "@emptysock/engine";
+
+let signals: SignalGroup | undefined;
+
+export const level1 = defineScene({
+  onLoad(_scene, ctx) {
+    // Subscribe through a group so everything is removed with one call.
+    signals = ctx.signals.group();
+    signals.on<{ id: number }>("player-died", (p) => respawn(p.id));
+    signals.once("level-clear", () => goToNextLevel());
+  },
+  onUnload() {
+    signals?.dispose(); // nothing outlives the scene
+  },
+});
+
+// Anywhere with a Game or a scene context:
+game.signals.emit("player-died", { id: 3 }); // returns 1 (one listener ran)
+```
+
+| Member                             | Description                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `on(name, fn)` / `once(name, fn)`  | Subscribe; both return an unsubscribe function. Listeners receive `(payload, name)`.          |
+| `off(name, fn)`                    | Remove one listener.                                                                          |
+| `onAny(fn)`                        | Wildcard tap: called for every emitted signal, after that signal's own listeners.             |
+| `emit(name, payload?)`             | Call every listener of `name`, then the wildcards. Returns how many ran.                      |
+| `broadcast(payload?)`              | Emit `payload` to every signal name that currently has at least one listener.                 |
+| `listenerCount(name?)` / `clear()` | Inspect or drop subscriptions (`listenerCount()` with no name counts everything).             |
+| `group()`                          | A `SignalGroup` (`on`/`once`/`emit`/`dispose`); `dispose()` removes everything it subscribed. |
+
+Behaviour worth knowing:
+
+- Dispatch is **synchronous**, in registration order. Emitting from inside a listener dispatches immediately (nested), so a listener that re-emits its own signal loops forever.
+- A throwing listener never stops the others. Every error is collected and re-thrown after all listeners ran, as one `AggregateError`.
+- Subscribe through `bus.group()` in `onLoad` and `dispose()` it in `onUnload`. A handler that outlives its scene runs against destroyed entities in the next one.
+- Type names and payloads by augmenting the `GameSignals` interface (`declare module "@emptysock/engine" { interface GameSignals { "player-died": { id: number } } }`).
+- It is not `ActorSystem` (addressed mailboxes, drained before `update()`) and not the editor `QueryChannel` (tooling bridge).
+
+See the [SignalBus reference](../reference/systems/signal-bus.md).
