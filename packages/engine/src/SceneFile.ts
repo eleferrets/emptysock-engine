@@ -2,6 +2,8 @@ import type { ComponentDef } from "./Component.js";
 import { definePrefab, type PrefabDef } from "./Prefab.js";
 import type { Scene, SpawnOptions } from "./Scene.js";
 import type { SerializableRecord } from "./Serializable.js";
+import { componentRegistry } from "./ComponentRegistry.js";
+import { remapRefs } from "./RefRemap.js";
 import { Meta } from "./components/Meta.js";
 import type { SceneDocument, SceneEntity } from "./SceneDocument.js";
 import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
@@ -158,6 +160,12 @@ export interface LoadSceneFileOptions {
    * entity is live (its final component values), not at prefab-definition
    * time.
    */
+  /**
+   * Out-parameter: filled with `SceneEntity.id` -> spawned entity for the
+   * loaded document, so callers can resolve file ids (e.g. a view's
+   * `follow.entity`) after the load.
+   */
+  idMap?: Map<string, ReturnType<Scene["spawn"]>>;
   onSpawned?: (
     entity: ReturnType<Scene["spawn"]>,
     sceneEntity?: SceneEntity,
@@ -199,9 +207,12 @@ export function loadSceneFile(
   const doc = parseSceneDocument(file);
   const spawned: ReturnType<Scene["spawn"]>[] = [];
 
-  // Entities spawn in array order. `parent` is validated by
-  // `parseSceneDocument` but not acted on yet (no runtime hierarchy until the
-  // entity-relation work lands), and `$ref` remapping is likewise a later step.
+  // Phase 1: entities spawn in array order, recording file id -> entity.
+  // Phase 2 (after the loop, `remapRefs` + `setParent`) resolves references
+  // once every entity exists, so forward refs and children-before-parents
+  // both work.
+  const byFileId =
+    options?.idMap ?? new Map<string, ReturnType<Scene["spawn"]>>();
   for (const sceneEntity of doc.entities) {
     let entity: ReturnType<Scene["spawn"]>;
     const prefabRef = sceneEntity.prefab;
@@ -247,6 +258,28 @@ export function loadSceneFile(
       stampPrefabNameOntoMeta(entity, prefab.prefabName);
     options?.onSpawned?.(entity, sceneEntity);
     spawned.push(entity);
+    byFileId.set(sceneEntity.id, entity);
+  }
+
+  // Phase 2a: declared `entityRef` fields hold `{ $ref: "<file id>" }`; rewrite
+  // them to runtime `{ $ref: <EntityId> }` (unknown ids become NO_REF + warn).
+  remapRefs(
+    scene,
+    spawned,
+    byFileId,
+    componentRegistry.registeredComponents(scene.world),
+  );
+
+  // Phase 2b: hierarchy. `parent` is validated (existing, acyclic) by
+  // `parseSceneDocument`; it becomes a `ChildOf` edge, so destroying a parent
+  // destroys its children. Importer output does not set `parent`.
+  for (const sceneEntity of doc.entities) {
+    if (sceneEntity.parent === undefined) continue;
+    const child = byFileId.get(sceneEntity.id);
+    const parent = byFileId.get(sceneEntity.parent);
+    if (child !== undefined && parent !== undefined) {
+      scene.setParent(child, parent);
+    }
   }
 
   return spawned;

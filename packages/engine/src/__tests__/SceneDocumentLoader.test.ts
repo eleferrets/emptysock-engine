@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "../Component.js";
 import { Meta } from "../components/Meta.js";
 import { definePrefab } from "../Prefab.js";
@@ -102,5 +102,46 @@ describe("loadSceneFile on a v2 SceneDocument", () => {
     expect(out).toHaveLength(2);
     expect(out[0]!.get(Transform)?.x).toBe(7);
     expect(out[1]!.get(Transform)?.y).toBe(3);
+  });
+});
+
+describe("loadSceneFile ids, refs and parent", () => {
+  const Aim = defineComponent(
+    "Aim",
+    () => ({ at: { $ref: 0 } as { readonly $ref: number } }),
+    { schema: { at: { kind: "entityRef" } } },
+  );
+  const withAim = (n: string) => (n === "Aim" ? Aim : lookup(n));
+
+  it("resolves file-id refs (forward refs too) and wires parent as ChildOf", () => {
+    const doc: SceneDocument = {
+      formatVersion: 2,
+      name: "R",
+      entities: [
+        // child listed before its parent; ref points forward.
+        {
+          id: "kid",
+          parent: "dad",
+          components: { Aim: { data: { at: { $ref: "dad" } } } },
+        },
+        { id: "dad", components: { Transform: { data: { x: 4 } } } },
+        { id: "lost", components: { Aim: { data: { at: { $ref: "nope" } } } } },
+      ],
+    };
+    const scene = new Scene();
+    const idMap = new Map();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const [kid, dad, lost] = loadSceneFile(scene, doc, withAim, prefabs, {
+      idMap,
+    });
+    expect(idMap.get("dad")).toBe(dad);
+    expect(scene.resolve(kid!.get(Aim)!.at)?.eid).toBe(dad!.eid);
+    expect(scene.parentOf(kid!)?.eid).toBe(dad!.eid);
+    expect(scene.childrenOf(dad!)).toHaveLength(1);
+    expect(lost!.get(Aim)!.at.$ref).toBe(0);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+    scene.destroy(dad!);
+    expect(kid!.isAlive).toBe(false);
   });
 });

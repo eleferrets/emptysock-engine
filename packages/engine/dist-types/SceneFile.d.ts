@@ -89,6 +89,12 @@ export interface LoadSceneFileOptions {
    * entity is live (its final component values), not at prefab-definition
    * time.
    */
+  /**
+   * Out-parameter: filled with `SceneEntity.id` -> spawned entity for the
+   * loaded document, so callers can resolve file ids (e.g. a view's
+   * `follow.entity`) after the load.
+   */
+  idMap?: Map<string, ReturnType<Scene["spawn"]>>;
   onSpawned?: (
     entity: ReturnType<Scene["spawn"]>,
     sceneEntity?: SceneEntity,
