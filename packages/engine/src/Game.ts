@@ -18,11 +18,13 @@ import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
 import {
   captureEntities,
+  persistentTransferPolicy,
   restoreEntities,
   type SceneSnapshot,
   type TransferPolicy,
 } from "./SceneTransfer.js";
 import type { EntityIdMap } from "./RefRemap.js";
+import { RoomStateCache } from "./RoomStateCache.js";
 
 /**
  * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
@@ -41,6 +43,19 @@ export interface SceneDefinition {
   onUnload?(scene: Scene, ctx: SceneLifecycle): void | Promise<void>;
   /** Called every frame, after physics/actors/collision, before render. */
   onUpdate?: UpdateFn;
+  /**
+   * Makes this a persistent room: when it is left, the state of its entities
+   * is cached under this key and `SceneLifecycle.restoreRoom()` brings it back
+   * on the next visit (GameMaker's room "Persistent" flag).
+   */
+  persistentKey?: string;
+  /**
+   * Transfer policy describing this scene's entities: `select` marks the ones
+   * that travel with the game (object-persistent) and are therefore excluded
+   * from the room cache; `extras` are the per-entity side tables cached and
+   * restored with the room. Default: `persistentTransferPolicy`, no extras.
+   */
+  transfer?: TransferPolicy;
 }
 
 /** What a loaded scene gets handed for the lifetime of that load. */
@@ -126,6 +141,14 @@ export interface SceneLifecycle {
    * restore so the ordering stays visible to the scene author. Synchronous.
    */
   restoreCarried(): EntityIdMap | undefined;
+  /**
+   * For a scene with a `persistentKey`: if a cached state exists from a
+   * previous visit, respawns it (consuming the cache entry) and returns the
+   * old-id map; the scene should then skip its own initial population. Returns
+   * `undefined` on the first visit and after a restart, when the scene should
+   * populate itself normally. Call after `restoreCarried()`.
+   */
+  restoreRoom(): EntityIdMap | undefined;
 }
 
 export interface LoadSceneOptions {
@@ -136,6 +159,15 @@ export interface LoadSceneOptions {
    * `onUnload` and restored by `SceneLifecycle.restoreCarried()`.
    */
   carry?: TransferPolicy | false;
+  /**
+   * Marks this load as a restart. `"room"` discards the cached state of the
+   * room being loaded (GameMaker `room_restart`); `"game"` discards every
+   * cached room, skips caching the outgoing one and sets `Game.restarting`
+   * during the unload so runtimes drop their own carry-over (`game_restart`:
+   * persistent rooms are reset and persistent objects removed). Globals are
+   * untouched, matching GameMaker.
+   */
+  restart?: "room" | "game";
   /**
    * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
@@ -327,6 +359,24 @@ export interface GameOptions {
   deterministic?: boolean;
 }
 
+/**
+ * Policy for caching a persistent room: everything except entities that
+ * travel with the game (selected by the scene's own `transfer` policy or the
+ * `carry` policy of the load leaving it), with the scene's extras.
+ */
+function roomPolicy(
+  def: SceneDefinition,
+  carry: TransferPolicy | undefined,
+): TransferPolicy {
+  const own = def.transfer ?? persistentTransferPolicy;
+  return {
+    select: (e, scene) =>
+      !own.select(e, scene) && !(carry?.select(e, scene) ?? false),
+    extras: own.extras ?? [],
+    ...(own.remap !== undefined ? { remap: own.remap } : {}),
+  };
+}
+
 interface PendingTransfer {
   readonly snapshot: SceneSnapshot;
   readonly policy: TransferPolicy;
@@ -352,6 +402,8 @@ export class Game {
   private _current: LoadedScene | null = null;
   /** Entities captured from the outgoing scene by `loadScene({ carry })`, handed to the new scene's lifecycle. */
   private _transfer: PendingTransfer | null = null;
+  private readonly _roomCache = new RoomStateCache();
+  private _restarting = false;
   /**
    * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
@@ -449,6 +501,16 @@ export class Game {
     });
   }
 
+  /** Cached state of persistent rooms (`SceneDefinition.persistentKey`). */
+  get roomCache(): RoomStateCache {
+    return this._roomCache;
+  }
+
+  /** `true` while a `loadScene({ restart: "game" })` is unloading the outgoing scene. */
+  get restarting(): boolean {
+    return this._restarting;
+  }
+
   get signals(): SignalBus {
     return this.services.get(SignalBus);
   }
@@ -483,8 +545,17 @@ export class Game {
     options: LoadSceneOptions = {},
   ): Promise<SceneLifecycle> {
     this._transfer = null;
-    if (this._current !== null) {
-      await this._unload(options.carry || undefined);
+    this._restarting = options.restart === "game";
+    try {
+      if (this._current !== null) {
+        await this._unload(options.carry || undefined, options.restart);
+      }
+      if (options.restart === "game") this._roomCache.clear();
+      else if (options.restart === "room" && definition.persistentKey) {
+        this._roomCache.clear(definition.persistentKey);
+      }
+    } finally {
+      this._restarting = false;
     }
     // Ownership of the captured snapshot moves to the new scene's lifecycle.
     let pending = this._transfer as PendingTransfer | null;
@@ -525,6 +596,18 @@ export class Game {
           ? undefined
           : restoreEntities(scene, t.snapshot, t.policy);
       },
+      restoreRoom: () => {
+        const key = definition.persistentKey;
+        if (key === undefined) return undefined;
+        const snap = this._roomCache.take(key);
+        return snap === undefined
+          ? undefined
+          : restoreEntities(
+              scene,
+              snap,
+              roomPolicy(definition, options.carry || undefined),
+            );
+      },
     };
     this._current = {
       definition,
@@ -547,10 +630,13 @@ export class Game {
    * those systems and is responsible for destroying them itself.
    */
   async unloadScene(): Promise<void> {
-    await this._unload(undefined);
+    await this._unload(undefined, undefined);
   }
 
-  private async _unload(carry: TransferPolicy | undefined): Promise<void> {
+  private async _unload(
+    carry: TransferPolicy | undefined,
+    restart: "room" | "game" | undefined,
+  ): Promise<void> {
     const current = this._current;
     if (current === null) return;
     this._current = null;
@@ -565,6 +651,16 @@ export class Game {
           snapshot: captureEntities(current.lifecycle.scene, carry),
           policy: carry,
         };
+      }
+      const key = current.definition.persistentKey;
+      if (key !== undefined && restart !== "game") {
+        this._roomCache.store(
+          key,
+          captureEntities(
+            current.lifecycle.scene,
+            roomPolicy(current.definition, carry),
+          ),
+        );
       }
     } finally {
       if (current.manageLifecycle) {
@@ -621,6 +717,7 @@ export class Game {
       viewport: this.services.get(ViewportSystem),
       window: this.services.get(WindowSystem),
       restoreCarried: () => undefined,
+      restoreRoom: () => undefined,
     };
     const loaded: LoadedScene = {
       definition,

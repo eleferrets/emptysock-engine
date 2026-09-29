@@ -26,6 +26,7 @@ export {
   entityRefFields,
 } from "./RefRemap.js";
 export type { EntityIdMap, RemapOptions, RemapLeaf } from "./RefRemap.js";
+export { RoomStateCache } from "./RoomStateCache.js";
 export {
   captureEntities,
   restoreEntities,

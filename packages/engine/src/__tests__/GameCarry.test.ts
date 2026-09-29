@@ -109,3 +109,69 @@ describe("Game.loadScene({ carry })", () => {
     expect(scores(game)).toEqual([7, 100]);
   });
 });
+
+describe("Game persistent rooms", () => {
+  const Tag = defineComponent("RoomTag", () => ({ n: 0 }));
+  function room(key: string | undefined, log: string[]) {
+    return defineScene({
+      ...(key !== undefined ? { persistentKey: key } : {}),
+      onLoad(scene, ctx) {
+        if (ctx.restoreRoom() !== undefined) {
+          log.push("restored");
+          return;
+        }
+        log.push("fresh");
+        scene.spawn().add(Tag, { n: 1 });
+      },
+    });
+  }
+  function tags(game: ReturnType<typeof createHeadlessGame>): number[] {
+    const out: number[] = [];
+    game.currentScene?.each(Tag, (t) => {
+      out.push(t.n);
+    });
+    return out;
+  }
+
+  it("caches on leave and restores on return; consumed once", async () => {
+    const game = createHeadlessGame();
+    const log: string[] = [];
+    const a = room("a", log);
+    await game.loadScene(a);
+    game.currentScene?.each(Tag, (t) => {
+      t.n = 5;
+    });
+    await game.loadScene(room(undefined, log));
+    expect(game.roomCache.keys()).toEqual(["a"]);
+    await game.loadScene(a);
+    expect(log).toEqual(["fresh", "fresh", "restored"]);
+    expect(tags(game)).toEqual([5]);
+    expect(game.roomCache.keys()).toEqual([]);
+  });
+
+  it("restart room discards that room's cache; restart game discards all and sets restarting", async () => {
+    const game = createHeadlessGame();
+    const log: string[] = [];
+    const a = room("a", log);
+    const b = room("b", log);
+    await game.loadScene(a);
+    await game.loadScene(b);
+    await game.loadScene(room(undefined, log));
+    expect(game.roomCache.keys().sort()).toEqual(["a", "b"]);
+    await game.loadScene(a, { restart: "room" });
+    expect(log.at(-1)).toBe("fresh");
+    expect(game.roomCache.keys()).toEqual(["b"]);
+    let seen = false;
+    await game.loadScene(
+      defineScene({
+        onUnload() {
+          seen = game.restarting;
+        },
+      }),
+    );
+    await game.loadScene(a, { restart: "game" });
+    expect(seen).toBe(true);
+    expect(game.restarting).toBe(false);
+    expect(game.roomCache.keys()).toEqual([]);
+  });
+});

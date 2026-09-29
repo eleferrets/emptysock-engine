@@ -301,7 +301,9 @@ export class GmsProjectRuntime {
     }
     const file = parseSceneDocument(raw);
     return defineScene({
-      onLoad: (scene) => {
+      ...(file.persistent === true ? { persistentKey: name } : {}),
+      transfer: GML_CARRY_POLICY,
+      onLoad: (scene, life) => {
         // GameMaker's real `previous_room` built-in — the room loaded
         // immediately before this one, real usage: `scr_save_game.gml`'s
         // `save_data[? "room"] = previous_room;`. Captured *before*
@@ -332,6 +334,10 @@ export class GmsProjectRuntime {
         this._carried = undefined;
         if (carried !== undefined)
           restoreEntities(scene, carried, GML_CARRY_POLICY);
+        // Room-level persistent (manual: Room Properties, "Persistent"): a
+        // revisited persistent room comes back exactly as it was left, and
+        // its Creation Code / instance Create events do not run again.
+        if (life.restoreRoom() !== undefined) return;
         loadSceneFile(scene, file, this.data.lookup, this.prefabsByName(), {
           onSpawned: (entity, sceneEntity) => {
             const gmlVars = sceneEntity?.ext?.["gml"]?.["vars"];
@@ -350,7 +356,9 @@ export class GmsProjectRuntime {
         this.runGmlPasses(dt);
       },
       onUnload: (scene) => {
-        this._carried = captureEntities(scene, GML_CARRY_POLICY);
+        const snap = captureEntities(scene, GML_CARRY_POLICY);
+        // game_restart removes persistent objects (manual: game_restart).
+        this._carried = this.game.restarting ? undefined : snap;
       },
     });
   }

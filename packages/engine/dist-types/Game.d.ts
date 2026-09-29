@@ -16,6 +16,7 @@ import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
 import { type TransferPolicy } from "./SceneTransfer.js";
 import type { EntityIdMap } from "./RefRemap.js";
+import { RoomStateCache } from "./RoomStateCache.js";
 /**
  * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
  * "onUpdate cannot be async" at compile time by typing this as returning
@@ -32,6 +33,19 @@ export interface SceneDefinition {
   onUnload?(scene: Scene, ctx: SceneLifecycle): void | Promise<void>;
   /** Called every frame, after physics/actors/collision, before render. */
   onUpdate?: UpdateFn;
+  /**
+   * Makes this a persistent room: when it is left, the state of its entities
+   * is cached under this key and `SceneLifecycle.restoreRoom()` brings it back
+   * on the next visit (GameMaker's room "Persistent" flag).
+   */
+  persistentKey?: string;
+  /**
+   * Transfer policy describing this scene's entities: `select` marks the ones
+   * that travel with the game (object-persistent) and are therefore excluded
+   * from the room cache; `extras` are the per-entity side tables cached and
+   * restored with the room. Default: `persistentTransferPolicy`, no extras.
+   */
+  transfer?: TransferPolicy;
 }
 /** What a loaded scene gets handed for the lifetime of that load. */
 export interface SceneLifecycle {
@@ -116,6 +130,14 @@ export interface SceneLifecycle {
    * restore so the ordering stays visible to the scene author. Synchronous.
    */
   restoreCarried(): EntityIdMap | undefined;
+  /**
+   * For a scene with a `persistentKey`: if a cached state exists from a
+   * previous visit, respawns it (consuming the cache entry) and returns the
+   * old-id map; the scene should then skip its own initial population. Returns
+   * `undefined` on the first visit and after a restart, when the scene should
+   * populate itself normally. Call after `restoreCarried()`.
+   */
+  restoreRoom(): EntityIdMap | undefined;
 }
 export interface LoadSceneOptions {
   /**
@@ -125,6 +147,15 @@ export interface LoadSceneOptions {
    * `onUnload` and restored by `SceneLifecycle.restoreCarried()`.
    */
   carry?: TransferPolicy | false;
+  /**
+   * Marks this load as a restart. `"room"` discards the cached state of the
+   * room being loaded (GameMaker `room_restart`); `"game"` discards every
+   * cached room, skips caching the outgoing one and sets `Game.restarting`
+   * during the unload so runtimes drop their own carry-over (`game_restart`:
+   * persistent rooms are reset and persistent objects removed). Globals are
+   * untouched, matching GameMaker.
+   */
+  restart?: "room" | "game";
   /**
    * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
@@ -273,6 +304,8 @@ export declare class Game {
   private _current;
   /** Entities captured from the outgoing scene by `loadScene({ carry })`, handed to the new scene's lifecycle. */
   private _transfer;
+  private readonly _roomCache;
+  private _restarting;
   /**
    * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
@@ -331,6 +364,10 @@ export declare class Game {
    * a shared bus should only interpret them for the scene they care about.
    */
   private forwardSceneSignals;
+  /** Cached state of persistent rooms (`SceneDefinition.persistentKey`). */
+  get roomCache(): RoomStateCache;
+  /** `true` while a `loadScene({ restart: "game" })` is unloading the outgoing scene. */
+  get restarting(): boolean;
   get signals(): SignalBus;
   get globals(): GlobalStore;
   /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
