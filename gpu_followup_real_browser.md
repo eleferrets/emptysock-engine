@@ -39,3 +39,11 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 10. `gmlNum` comparison fix: confirm string pass-through fixed the always-false sprite-name comparison with a test.
 11. Purge every reference to the reference projects used during development from code, comments, tests, scripts, env var names and notes; keep only the learnings. Use a generic fixture-dir env var.
 12. Stop touching docs, skills and mcp repos; they will be redone. Ask whether to revert the skills-repo commit `d3a04dd` and the engine doc edits from this session.
+
+
+## Unverified (keyboard layout pass)
+
+- Rust is NOT installed in the authoring environment: `apps/ide/src-tauri/src/keyboard_layout.rs`, the `lib.rs` registration and the new Cargo target dependencies (`core-foundation-sys` on macOS, `xkbcommon` 0.7 on Linux) are UNCOMPILED, and `Cargo.lock` was not regenerated. Run `cargo check` and `cargo test` in `apps/ide/src-tauri` on macOS and Linux (Linux needs libxkbcommon dev headers). Risks: exact `xkbcommon` 0.7 API signatures, the Carbon FFI declarations, and that TIS calls really run on the main thread for a sync Tauri command.
+- Real-run checks not possible headless: macOS WKWebView and Linux WebKitGTK native query on AZERTY/QWERTZ/Dvorak/Cyrillic; Windows WebView2 `getLayoutMap` and whether the Tauri origin is a secure context; layout switch mid-session (refresh only on focus/visibility); Wayland (layout is read from GNOME gsettings or `setxkbmap`, which cannot see a compositor-only active group).
+- The exported-game Tauri shell (`game-shell-template`) does not have the native command; only the IDE play iframe is wired. Exported games on macOS/Linux rely on keydown learning.
+- `ENGINE_BUNDLE` in the IDE must be rebuilt to pick up `input.layout` for the play iframe.

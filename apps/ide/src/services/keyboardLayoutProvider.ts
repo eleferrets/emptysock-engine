@@ -4,11 +4,10 @@
  * Tauri). Source order:
  *
  * 1. `navigator.keyboard.getLayoutMap()` (Chromium, and Tauri on Windows via
- *    WebView2), refreshed on the experimental `layoutchange` event when the
- *    browser fires it.
+ *    WebView2), refreshed on window focus / tab visibility (and on
+ *    `layoutchange` if a browser ever fires it; MDN does not document it).
  * 2. The native Tauri command `keyboard_layout_map` (macOS WKWebView and Linux
- *    WebKitGTK have no getLayoutMap), refreshed on window focus and tab
- *    visibility since the OS gives no change event.
+ *    WebKitGTK have no getLayoutMap), refreshed on focus / visibility too.
  * 3. Nothing: the engine falls back to learning layout from `keydown`.
  */
 import type { KeyboardLayoutProvider } from "@emptysock/engine";
@@ -120,19 +119,18 @@ export async function createKeyboardLayoutProvider(
   };
 
   const cleanups: Array<() => void> = [];
-  if (source === "getLayoutMap") {
-    if (kb?.addEventListener !== undefined) {
-      kb.addEventListener("layoutchange", onEvent);
-      cleanups.push(() => kb.removeEventListener?.("layoutchange", onEvent));
-    }
-  } else {
-    for (const [t, type] of [
-      [env.win, "focus"],
-      [env.doc, "visibilitychange"],
-    ] as const) {
-      t?.addEventListener(type, onEvent);
-      cleanups.push(() => t?.removeEventListener(type, onEvent));
-    }
+  // `layoutchange` is not documented on MDN's Keyboard page, so it is only a
+  // best-effort extra; focus and visibility refresh are the reliable path.
+  if (source === "getLayoutMap" && kb?.addEventListener !== undefined) {
+    kb.addEventListener("layoutchange", onEvent);
+    cleanups.push(() => kb.removeEventListener?.("layoutchange", onEvent));
+  }
+  for (const [t, type] of [
+    [env.win, "focus"],
+    [env.doc, "visibilitychange"],
+  ] as const) {
+    t?.addEventListener(type, onEvent);
+    cleanups.push(() => t?.removeEventListener(type, onEvent));
   }
 
   return {
