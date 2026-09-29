@@ -24,7 +24,7 @@ import type {
  * What this test proves: the whole GML behavior dispatch pipeline
  * (Create -> Step Begin/Update/End -> Collision -> Alarm -> Key dispatch,
  * all real, all wired per `GmsProjectRuntime`'s own CLAUDE.md entry) runs
- * against real, transpiled a real project object code — `obj_player`,
+ * against real, transpiled real-project object code — `obj_player`,
  * `obj_enemy`, `obj_gun`, `obj_wall`, `obj_camera`, `obj_input`, `obj_pna`,
  * `obj_checkpoint`, `obj_level_end` — for several hundred simulated
  * frames, fully headless (no renderer, matching this engine's own
@@ -57,7 +57,7 @@ const REAL_PROJECT = (() => {
 })();
 
 describe("GMS2 real project — playability smoke test (a real project)", () => {
-  it("runs sustained headless gameplay against real transpiled a real project object code with no crash", async () => {
+  it("runs sustained headless gameplay against real transpiled real-project object code with no crash", async () => {
     const exists = await fs
       .access(REAL_PROJECT)
       .then(() => true)
