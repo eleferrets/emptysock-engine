@@ -1,4 +1,5 @@
 import { GamepadSystem } from "./systems/GamepadSystem.js";
+import type { KeyboardLayout } from "./systems/KeyboardLayout.js";
 import { InputSystem } from "./systems/InputSystem.js";
 import {
   PointerSystem,
@@ -153,6 +154,8 @@ export declare class InputManager {
   wasReleased(action: string): boolean;
   /** True if any binding for `action` is active in the current frozen snapshot. */
   isDown(action: string): boolean;
+  /** The keyboard layout translation layer. Hosts call `layout.setProvider(...)` at bootstrap; the engine itself never touches `navigator`. */
+  get layout(): KeyboardLayout;
   /** Raw keyboard escape hatch (§15.3) — reads the frozen snapshot, not live state. */
   get keyboard(): KeyboardSnapshot;
   /** Raw gamepad escape hatch (§15.3) — reads the frozen snapshot, not live state. */
@@ -183,7 +186,7 @@ export declare class InputManager {
    * point: it is how the freeze-for-the-frame behavior gets exercised by a
    * test without needing a real `KeyboardEvent`.
    */
-  simulateKeyDown(code: string): void;
+  simulateKeyDown(code: string, key?: string): void;
   /** See `simulateKeyDown`. */
   simulateKeyUp(code: string): void;
   private _isBindingActive;

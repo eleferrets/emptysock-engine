@@ -1,3 +1,5 @@
+import { KeyboardLayout } from "./KeyboardLayout.js";
+
 export type KeyState = "up" | "down" | "pressed" | "released";
 
 export class InputSystem {
@@ -5,6 +7,13 @@ export class InputSystem {
   private readonly _prevKeys: Map<string, boolean> = new Map();
 
   private _boundTarget: EventTarget | null = null;
+
+  /**
+   * Layout translation layer (host-injected provider plus keydown learning).
+   * Key state itself stays keyed by physical `code`; this only answers
+   * "which code types this character".
+   */
+  readonly layout: KeyboardLayout = new KeyboardLayout();
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -67,8 +76,11 @@ export class InputSystem {
    * under a headless Node harness (CLAUDE.md's engine-environment-boundary
    * rule: no DOM dependency on this path).
    */
-  simulateKeyDown(code: string): void {
+  simulateKeyDown(code: string, key?: string): void {
     this._keys.set(code, true);
+    // Optional `key` simulates a clean (unmodified, non-composing) keydown so
+    // headless tests can exercise the learning fallback without a DOM.
+    if (key !== undefined) this.layout.learn(code, key);
   }
 
   /** See `simulateKeyDown`. */
@@ -79,7 +91,21 @@ export class InputSystem {
   // ─── Event handlers ───────────────────────────────────────────────────────
 
   private readonly _onKeyDown = (e: Event): void => {
-    this._keys.set((e as KeyboardEvent).code, true);
+    const ev = e as KeyboardEvent;
+    this._keys.set(ev.code, true);
+    // Learn only from clean events: no IME composition, no Ctrl/Alt/Meta
+    // (AltGr layers), no Shift (Turkish dotted/dotless i, symbol layers).
+    if (
+      typeof ev.key === "string" &&
+      ev.key.length <= 2 &&
+      ev.isComposing !== true &&
+      ev.ctrlKey !== true &&
+      ev.altKey !== true &&
+      ev.metaKey !== true &&
+      ev.shiftKey !== true
+    ) {
+      this.layout.learn(ev.code, ev.key);
+    }
   };
   private readonly _onKeyUp = (e: Event): void => {
     this._keys.set((e as KeyboardEvent).code, false);

@@ -55,3 +55,63 @@ describe('InputSystem', () => {
     expect(input.isKeyDown('Space')).toBe(false);
   });
 });
+
+describe('InputSystem layout learning (no DOM)', () => {
+  function key(target: EventTarget, type: string, init: Record<string, unknown>): void {
+    target.dispatchEvent(Object.assign(new Event(type), init));
+  }
+
+  it('learns from a clean keydown but state stays keyed by code', () => {
+    const target = new EventTarget();
+    const input = new InputSystem();
+    input.attach(target);
+    key(target, 'keydown', { code: 'KeyQ', key: 'a' });
+    expect(input.layout.codeForChar('a')).toBe('KeyQ');
+    expect(input.isKeyDown('KeyQ')).toBe(true);
+    expect(input.isKeyDown('KeyA')).toBe(false);
+    input.detach();
+  });
+
+  it('does not learn from dead, composing, modified or shifted events', () => {
+    const target = new EventTarget();
+    const input = new InputSystem();
+    input.attach(target);
+    key(target, 'keydown', { code: 'KeyE', key: 'Dead' });
+    key(target, 'keydown', { code: 'KeyE', key: 'e', isComposing: true });
+    key(target, 'keydown', { code: 'KeyE', key: 'e', ctrlKey: true });
+    key(target, 'keydown', { code: 'KeyE', key: 'e', altKey: true });
+    key(target, 'keydown', { code: 'KeyE', key: 'e', metaKey: true });
+    key(target, 'keydown', { code: 'KeyE', key: 'E', shiftKey: true });
+    expect(input.layout.charForCode('KeyE')).toBeUndefined();
+    input.detach();
+  });
+
+  it('keyup after a Shift press still releases the code (state not keyed by key)', () => {
+    const target = new EventTarget();
+    const input = new InputSystem();
+    input.attach(target);
+    key(target, 'keydown', { code: 'KeyA', key: 'a' });
+    key(target, 'keydown', { code: 'ShiftLeft', key: 'Shift', shiftKey: true });
+    key(target, 'keyup', { code: 'KeyA', key: 'A', shiftKey: true });
+    expect(input.isKeyDown('KeyA')).toBe(false);
+    expect(input.isKeyDown('ShiftLeft')).toBe(true);
+    input.detach();
+  });
+
+  it('events without a key property (legacy test events) still work', () => {
+    const target = new EventTarget();
+    const input = new InputSystem();
+    input.attach(target);
+    key(target, 'keydown', { code: 'KeyA' });
+    expect(input.isKeyDown('KeyA')).toBe(true);
+    input.detach();
+  });
+
+  it('simulateKeyDown(code, key) learns; without key it does not', () => {
+    const input = new InputSystem();
+    input.simulateKeyDown('KeyW');
+    expect(input.layout.charForCode('KeyW')).toBeUndefined();
+    input.simulateKeyDown('KeyQ', 'a');
+    expect(input.layout.codeForChar('a')).toBe('KeyQ');
+  });
+});
