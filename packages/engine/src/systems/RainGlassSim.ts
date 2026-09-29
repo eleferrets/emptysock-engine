@@ -116,6 +116,20 @@ export interface RainGlassSimOptions {
   stepSec?: number;
   /** Evaporation, map-height-relative radius loss per second for static drops. Default 0.02. */
   evapRate?: number;
+  /** Gravity scale, 0 (flat) to 1 (vertical glass). Default 1. */
+  slope?: number;
+  /** Lateral drift in map px/s at unit scale. Default 0. */
+  wind?: number;
+  /** Scales slide speed (legacy dropletSpeed / 0.35). Default 1. */
+  speedScale?: number;
+  /** Scales trail wet stamp and shed rate (legacy streakAmount / 0.5). 0 disables trails. Default 1. */
+  trailScale?: number;
+  /** Max simultaneous trail beads; 0 leaves trails to the wet map only. Default 0. */
+  beadCap?: number;
+  /** Whether sliding drops stamp the wet map and shed volume. Default true. */
+  trails?: boolean;
+  /** Target condensation 0..1. Default 0. */
+  fog?: number;
 }
 
 const MAX_FRAME_DT = 1 / 20;
@@ -134,6 +148,19 @@ export class RainGlassSim {
   /** Total drops ever spawned by the spawner (not counting beads or addDrop). */
   spawned = 0;
   simTime = 0;
+  slope: number;
+  wind: number;
+  speedScale: number;
+  trailScale: number;
+  beadCap: number;
+  trails: boolean;
+  fogTarget: number;
+  /** Eased condensation 0..1. */
+  fog: number;
+  /** Live trail bead count. */
+  beadCount = 0;
+  /** Smear-trail height 0..255 per map px, decays over time. */
+  readonly wet: Uint8Array;
 
   /** Geometry unit: map height / 144, so tuning constants are resolution independent. */
   readonly unit: number;
@@ -141,6 +168,9 @@ export class RainGlassSim {
   readonly rMax: number;
   readonly rSlide: number;
 
+  protected readonly _heads: Int16Array;
+  protected readonly _next: Int16Array;
+  protected _frame = 0;
   protected _acc = 0;
   protected _spawnAcc = 0;
 
@@ -158,6 +188,19 @@ export class RainGlassSim {
     this.rMin = 1.0 * this.unit;
     this.rMax = 8 * this.unit;
     this.rSlide = 2.6 * this.unit;
+    this.slope = opts.slope ?? 1;
+    this.wind = opts.wind ?? 0;
+    this.speedScale = opts.speedScale ?? 1;
+    this.trailScale = opts.trailScale ?? 1;
+    this.beadCap = opts.beadCap ?? 0;
+    this.trails = opts.trails ?? true;
+    this.fogTarget = opts.fog ?? 0;
+    this.fog = this.fogTarget;
+    this.wet = new Uint8Array(this.width * this.height);
+    // Merge grid cells are never smaller than height/12, bounding the cell count.
+    const maxCells = (Math.ceil((12 * this.width) / this.height) + 2) * 14;
+    this._heads = new Int16Array(maxCells);
+    this._next = new Int16Array(this.pool.capacity);
   }
 
   get dropCount(): number {
@@ -222,13 +265,192 @@ export class RainGlassSim {
     }
   }
 
-  /** Per-substep motion, merging and evaporation; extended by later phases. */
+  /** Per-substep motion, trails, merging, evaporation, fog and wet decay. */
   protected _update(dt: number): void {
     const p = this.pool;
+    const u = this.unit;
+    const vMax = 90 * u * this.slope * this.speedScale;
+    const rs2 = (this.rSlide / u) * (this.rSlide / u);
+    const rm2 = (this.rMax / u) * (this.rMax / u);
+    const trailsOn = this.trails && this.trailScale > 0;
+    const trailStep = (4 * u) / Math.max(this.trailScale, 0.01);
+    const wetVal = Math.min(255, Math.round(200 * this.trailScale));
+    const lerp = Math.min(1, dt * 4);
     for (let i = 0; i < p.capacity; i++) {
       if (p.alive[i] === 0) continue;
       if (p.stick[i]! > 0) p.stick[i] = p.stick[i]! - dt;
-      if (p.vy[i] === 0) p.r[i] = p.r[i]! - this.evapRate * dt;
+      const r = p.r[i]!;
+      if (p.bead[i] === 0 && r >= this.rSlide && p.stick[i]! <= 0) {
+        const rr = r / u;
+        const norm = Math.min(1, Math.max(0, (rr * rr - rs2) / (rm2 - rs2)));
+        const target = vMax * (0.15 + 0.85 * norm);
+        p.vy[i] = p.vy[i]! + (target - p.vy[i]!) * lerp;
+        p.vx[i] =
+          this.wind * u + Math.sin(i * 12.9898 + this.simTime * 3) * 3 * u;
+        const dx = p.vx[i]! * dt;
+        const dy = p.vy[i]! * dt;
+        p.x[i] = Math.min(this.width, Math.max(0, p.x[i]! + dx));
+        p.y[i] = p.y[i]! + dy;
+        p.trailAcc[i] = p.trailAcc[i]! + Math.sqrt(dx * dx + dy * dy);
+        if (trailsOn) {
+          this._stampWet(p.x[i]!, p.y[i]!, Math.max(0.8 * u, 0.3 * r), wetVal);
+          if (p.trailAcc[i]! >= trailStep) {
+            p.trailAcc[i] = p.trailAcc[i]! - trailStep;
+            this._shed(i, r);
+          }
+        }
+        if (p.r[i]! < this.rSlide) {
+          p.vy[i] = 0;
+          p.vx[i] = 0;
+        }
+      } else {
+        p.vy[i] = 0;
+        p.vx[i] = 0;
+        p.r[i] = r - this.evapRate * dt * (p.bead[i] === 1 ? 2 : 1);
+      }
+    }
+    this._merge();
+    this.fog += (this.fogTarget - this.fog) * Math.min(1, dt * 0.5);
+    if ((this._frame++ & 3) === 3) this._decayWet(2);
+  }
+
+  /** A sliding drop loses a bead's worth of volume (a bead drop is left behind when allowed). */
+  protected _shed(i: number, r: number): void {
+    const p = this.pool;
+    const b = 0.35 * r;
+    const rNew = Math.cbrt(r * r * r - b * b * b);
+    p.r[i] = rNew;
+    if (
+      this.beadCap > 0 &&
+      this.beadCount < this.beadCap &&
+      b >= 0.5 * this.unit
+    ) {
+      const k = p.alloc();
+      if (k >= 0) {
+        p.x[k] = p.x[i]!;
+        p.y[k] = p.y[i]! - (rNew + b);
+        p.r[k] = b;
+        p.stick[k] = 1e6;
+        p.bead[k] = 1;
+        this.beadCount++;
+      }
+    }
+  }
+
+  protected _stampWet(cx: number, cy: number, rad: number, val: number): void {
+    const w = this.width;
+    const h = this.height;
+    const x0 = Math.max(0, Math.floor(cx - rad));
+    const x1 = Math.min(w - 1, Math.ceil(cx + rad));
+    const y0 = Math.max(0, Math.floor(cy - rad));
+    const y1 = Math.min(h - 1, Math.ceil(cy + rad));
+    const r2 = rad * rad;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - cx;
+        const dy = y + 0.5 - cy;
+        if (dx * dx + dy * dy <= r2) {
+          const k = y * w + x;
+          if (this.wet[k]! < val) this.wet[k] = val;
+        }
+      }
+    }
+  }
+
+  protected _decayWet(amount: number): void {
+    const wet = this.wet;
+    for (let k = 0; k < wet.length; k++) {
+      const v = wet[k]!;
+      if (v > 0) wet[k] = v > amount ? v - amount : 0;
+    }
+  }
+
+  /** Merges overlapping pairs (distance < 0.8 * sum of radii), conserving volume. */
+  protected _merge(): void {
+    const p = this.pool;
+    const heads = this._heads;
+    const next = this._next;
+    for (let pass = 0; pass < 8; pass++) {
+      let maxR = 0;
+      for (let i = 0; i < p.capacity; i++) {
+        if (p.alive[i] === 1 && p.r[i]! > maxR) maxR = p.r[i]!;
+      }
+      const cell = Math.max(1.6 * maxR, this.height / 12);
+      const cols = Math.ceil(this.width / cell) + 1;
+      const rows = Math.ceil(this.height / cell) + 1;
+      const cells = cols * rows;
+      if (cells > heads.length) return;
+      heads.fill(-1, 0, cells);
+      for (let i = p.capacity - 1; i >= 0; i--) {
+        if (p.alive[i] === 0) continue;
+        const c = this._cellOf(p.x[i]!, p.y[i]!, cell, cols, rows);
+        next[i] = heads[c]!;
+        heads[c] = i;
+      }
+      let merged = false;
+      for (let i = 0; i < p.capacity; i++) {
+        if (p.alive[i] === 0) continue;
+        const cx = Math.min(cols - 1, Math.max(0, Math.floor(p.x[i]! / cell)));
+        const cy = Math.min(rows - 1, Math.max(0, Math.floor(p.y[i]! / cell)));
+        let done = false;
+        for (let oy = -1; oy <= 1 && !done; oy++) {
+          const gy = cy + oy;
+          if (gy < 0 || gy >= rows) continue;
+          for (let ox = -1; ox <= 1 && !done; ox++) {
+            const gx = cx + ox;
+            if (gx < 0 || gx >= cols) continue;
+            for (let j = heads[gy * cols + gx]!; j >= 0; j = next[j]!) {
+              if (j <= i || p.alive[j] === 0) continue;
+              const dx = p.x[i]! - p.x[j]!;
+              const dy = p.y[i]! - p.y[j]!;
+              const lim = 0.8 * (p.r[i]! + p.r[j]!);
+              if (dx * dx + dy * dy < lim * lim) {
+                this._mergePair(i, j);
+                merged = true;
+                if (p.alive[i] === 0) done = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!merged) return;
+    }
+  }
+
+  protected _cellOf(
+    x: number,
+    y: number,
+    cell: number,
+    cols: number,
+    rows: number,
+  ): number {
+    const cx = Math.min(cols - 1, Math.max(0, Math.floor(x / cell)));
+    const cy = Math.min(rows - 1, Math.max(0, Math.floor(y / cell)));
+    return cy * cols + cx;
+  }
+
+  protected _mergePair(i: number, j: number): void {
+    const p = this.pool;
+    const vi = p.r[i]! * p.r[i]! * p.r[i]!;
+    const vj = p.r[j]! * p.r[j]! * p.r[j]!;
+    const keep = p.r[i]! >= p.r[j]! ? i : j;
+    const other = keep === i ? j : i;
+    const v = vi + vj;
+    const wi = vi / v;
+    const wj = vj / v;
+    const bothBeads = p.bead[i] === 1 && p.bead[j] === 1;
+    p.x[keep] = p.x[i]! * wi + p.x[j]! * wj;
+    p.y[keep] = p.y[i]! * wi + p.y[j]! * wj;
+    p.vy[keep] = p.vy[i]! * wi + p.vy[j]! * wj;
+    p.vx[keep] = p.vx[i]! * wi + p.vx[j]! * wj;
+    p.r[keep] = Math.cbrt(v);
+    p.stick[keep] = 0;
+    p.trailAcc[keep] = 0;
+    this._free(other);
+    if (!bothBeads && p.bead[keep] === 1) {
+      p.bead[keep] = 0;
+      this.beadCount--;
     }
   }
 
@@ -243,6 +465,7 @@ export class RainGlassSim {
   }
 
   protected _free(i: number): void {
+    if (this.pool.bead[i] === 1 && this.pool.alive[i] === 1) this.beadCount--;
     this.pool.release(i);
   }
 }
