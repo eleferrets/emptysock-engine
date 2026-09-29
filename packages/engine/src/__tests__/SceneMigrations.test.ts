@@ -77,6 +77,13 @@ describe("parseSceneDocument", () => {
     expect(parseSceneDocument(v1)).toEqual(doc);
   });
 
+  it("keeps unknown top-level keys when migrating v1", () => {
+    const doc = parseSceneDocument({ sceneName: "x", editorNote: { a: 1 } });
+    expect((doc as unknown as Record<string, unknown>)["editorNote"]).toEqual({
+      a: 1,
+    });
+  });
+
   it("omits room when a v1 file has no room data", () => {
     const doc = parseSceneDocument({ sceneName: "x" });
     expect(doc.room).toBeUndefined();

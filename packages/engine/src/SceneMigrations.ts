@@ -153,6 +153,18 @@ function migrateView(v: SceneFileV1View, index: number): SceneViewDef {
   };
 }
 
+const V1_KNOWN_KEYS: ReadonlySet<string> = new Set([
+  "sceneName",
+  "systems",
+  "prefabInstances",
+  "entities",
+  "viewsEnabled",
+  "roomWidth",
+  "roomHeight",
+  "views",
+  "persistent",
+]);
+
 /** Migrates a v1 `SceneFile` to a v2 `SceneDocument`. Prefab instances come first, then direct entities (the order v1's `loadSceneFile` spawned). Synthesised ids are `p<i>` / `e<j>`. */
 export function migrateSceneV1ToV2(file: SceneFileV1): SceneDocument {
   const entities: SceneEntity[] = [];
@@ -195,7 +207,12 @@ export function migrateSceneV1ToV2(file: SceneFileV1): SceneDocument {
           : {}),
       }
     : undefined;
+  // Unknown top-level keys (tool-specific data) survive migration verbatim.
+  const unknown = Object.fromEntries(
+    Object.entries(file).filter(([k]) => !V1_KNOWN_KEYS.has(k)),
+  );
   return {
+    ...unknown,
     formatVersion: SCENE_FORMAT_VERSION,
     name: file.sceneName,
     ...(file.persistent !== undefined ? { persistent: file.persistent } : {}),
