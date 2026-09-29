@@ -1,5 +1,5 @@
 import { GamepadSystem } from "./systems/GamepadSystem.js";
-import type { KeyboardLayout } from "./systems/KeyboardLayout.js";
+import { type KeyboardLayout } from "./systems/KeyboardLayout.js";
 import { InputSystem } from "./systems/InputSystem.js";
 import {
   PointerSystem,
@@ -58,6 +58,27 @@ export interface GamepadSnapshot {
 }
 /** Default `StorageAdapter` key for `saveBindings`/`loadBindings`. */
 export declare const INPUT_BINDINGS_STORAGE_KEY = "emptysock_input_bindings";
+export type CaptureKind = "key" | "gamepadButton" | "gamepadAxis";
+export interface CaptureOptions {
+  /** Which input kinds may be captured. Default: all. */
+  kinds?: readonly CaptureKind[];
+  /** Resolve `null` if nothing is captured within this many ms. Default: none. */
+  timeoutMs?: number;
+  /** Key codes that cancel the capture (resolve `null`). Default `["Escape"]`. */
+  cancelCodes?: readonly string[];
+  /** `"physical"` (default) records `code` only; `"char"` also records `char` for letter keys the layout knows. */
+  mode?: "physical" | "char";
+  /** Resolve `null` when aborted. */
+  signal?: AbortSignal;
+  /** Accept a lone Shift/Ctrl/Alt/Meta press. Default false. */
+  allowModifiers?: boolean;
+  /** Axis magnitude that counts as a press. Default 0.5. */
+  axisThreshold?: number;
+}
+export interface CaptureResult {
+  readonly binding: Binding;
+  readonly label: string;
+}
 /**
  * ENGINE_DESIGN.md §4 step 1 / §15.3 — the action-mapping input layer.
  *
@@ -98,6 +119,9 @@ export declare class InputManager {
   private readonly _prevActive;
   private readonly _pressed;
   private readonly _released;
+  private _capture;
+  /** Inputs swallowed by a capture, hidden until physically released. Ids: `k:<code>`, `b:<pad>:<idx>`, `a:<pad>:<axis>:<+|->`. */
+  private readonly _suppressed;
   constructor(
     actions?: ActionMap,
     input?: InputSystem,
@@ -201,6 +225,26 @@ export declare class InputManager {
   simulateKeyDown(code: string, key?: string): void;
   /** See `simulateKeyDown`. */
   simulateKeyUp(code: string): void;
+  /**
+   * Wait for the next new input and resolve with a `Binding` for it, or
+   * `null` on cancel (Escape by default), timeout or abort. Arms on the
+   * next `snapshot()`; anything already held at that moment must be released
+   * first. The captured press is swallowed (reads as up) until released so
+   * it does not also trigger the game action. Only one capture is pending
+   * at a time: starting a new one cancels the previous with `null`.
+   */
+  captureNext(opts?: CaptureOptions): Promise<CaptureResult | null>;
+  /** `captureNext`, then `rebind` (or `addBinding` with `add: true`) the action to the result. Resolves `null` if cancelled. */
+  rebindByCapture(
+    action: string,
+    opts?: CaptureOptions & {
+      add?: boolean;
+    },
+  ): Promise<CaptureResult | null>;
+  private _applySuppressionAndCapture;
+  private _swallow;
+  private _keyBinding;
+  private _rawGamepadIdDown;
   private _resolveKeyCode;
   /** Human label for a binding ("A", "Q", "Space", "Pad A", "Axis 1+"). Key labels follow the active layout. */
   bindingLabel(b: Binding): string;

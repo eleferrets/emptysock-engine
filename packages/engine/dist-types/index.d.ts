@@ -218,6 +218,9 @@ export type {
   ActionMap,
   KeyboardSnapshot,
   GamepadSnapshot,
+  CaptureKind,
+  CaptureOptions,
+  CaptureResult,
 } from "./Input.js";
 export type {
   PointerState,

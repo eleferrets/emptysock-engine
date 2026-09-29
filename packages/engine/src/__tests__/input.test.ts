@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { GamepadSystem } from "../systems/GamepadSystem.js";
 import { InputManager, INPUT_BINDINGS_STORAGE_KEY } from "../Input.js";
 import { keyboard_check } from "../compat/gmlInput.js";
 import { Game, defineScene } from "../Game.js";
@@ -392,5 +393,218 @@ describe("InputManager layout-aware bindings (Binding.char)", () => {
       JSON.stringify({ l: [{ kind: "key", code: "KeyA", char: 5 }] }),
     );
     expect(await new InputManager().loadBindings(store, "bad")).toBe(false);
+  });
+});
+
+describe("InputManager.captureNext / rebindByCapture", () => {
+  function padInput(actions = {}) {
+    let state: {
+      connected: boolean;
+      buttons: boolean[];
+      axes: number[];
+    } | null = null;
+    const fakePad = {
+      update: () => {},
+      getState: (i: number) => (i === 0 ? state : null),
+    } as unknown as GamepadSystem;
+    const input = new InputManager(actions, undefined, fakePad);
+    return {
+      input,
+      setPad: (s: typeof state) => {
+        state = s;
+      },
+    };
+  }
+
+  it("resolves with the first new key press after arming", async () => {
+    const input = new InputManager();
+    const p = input.captureNext();
+    input.snapshot(); // arms
+    input.simulateKeyDown("KeyX");
+    input.snapshot();
+    const r = await p;
+    expect(r?.binding).toEqual({ kind: "key", code: "KeyX" });
+    expect(r?.label).toBe("X");
+  });
+
+  it("ignores keys already held at arm time until released and pressed again", async () => {
+    const input = new InputManager();
+    input.simulateKeyDown("KeyZ");
+    const p = input.captureNext();
+    input.snapshot(); // arms with Z held
+    input.snapshot();
+    input.simulateKeyUp("KeyZ");
+    input.snapshot();
+    input.simulateKeyDown("KeyZ");
+    input.snapshot();
+    expect((await p)?.binding).toEqual({ kind: "key", code: "KeyZ" });
+  });
+
+  it("swallows the captured press so a bound action does not fire", async () => {
+    const input = new InputManager({ jump: [{ kind: "key", code: "Space" }] });
+    const p = input.captureNext();
+    input.snapshot();
+    input.simulateKeyDown("Space");
+    input.snapshot();
+    await p;
+    expect(input.isDown("jump")).toBe(false);
+    expect(input.keyboard.isDown("Space")).toBe(false);
+    expect(input.wasPressed("jump")).toBe(false);
+    input.snapshot();
+    expect(input.isDown("jump")).toBe(false); // still held, still hidden
+    input.simulateKeyUp("Space");
+    input.snapshot();
+    input.simulateKeyDown("Space");
+    input.snapshot();
+    expect(input.isDown("jump")).toBe(true); // released, so live again
+  });
+
+  it("Escape cancels to null and is swallowed", async () => {
+    const input = new InputManager({ menu: [{ kind: "key", code: "Escape" }] });
+    const p = input.captureNext();
+    input.snapshot();
+    input.simulateKeyDown("Escape");
+    input.snapshot();
+    expect(await p).toBeNull();
+    expect(input.isDown("menu")).toBe(false);
+  });
+
+  it("modifiers alone are not accepted unless allowModifiers", async () => {
+    const input = new InputManager();
+    const p = input.captureNext();
+    input.snapshot();
+    input.simulateKeyDown("ShiftLeft");
+    input.snapshot();
+    input.simulateKeyDown("KeyB");
+    input.snapshot();
+    expect((await p)?.binding).toEqual({ kind: "key", code: "KeyB" });
+
+    const i2 = new InputManager();
+    const p2 = i2.captureNext({ allowModifiers: true });
+    i2.snapshot();
+    i2.simulateKeyDown("ShiftLeft");
+    i2.snapshot();
+    expect((await p2)?.binding).toEqual({ kind: "key", code: "ShiftLeft" });
+  });
+
+  it("times out to null", async () => {
+    vi.useFakeTimers();
+    const input = new InputManager();
+    const p = input.captureNext({ timeoutMs: 500 });
+    input.snapshot();
+    vi.advanceTimersByTime(501);
+    expect(await p).toBeNull();
+    vi.useRealTimers();
+    input.simulateKeyDown("KeyB");
+    input.snapshot(); // no pending capture; nothing thrown
+  });
+
+  it("abort signal resolves null; a new capture cancels the previous", async () => {
+    const input = new InputManager();
+    const ac = new AbortController();
+    const p = input.captureNext({ signal: ac.signal });
+    ac.abort();
+    expect(await p).toBeNull();
+    const first = input.captureNext();
+    const second = input.captureNext();
+    expect(await first).toBeNull();
+    input.snapshot();
+    input.simulateKeyDown("KeyC");
+    input.snapshot();
+    expect((await second)?.binding.kind).toBe("key");
+  });
+
+  it("kinds filter: keyboard ignored when only gamepadButton is allowed", async () => {
+    const { input, setPad } = padInput();
+    setPad({ connected: true, buttons: [false, false], axes: [0, 0] });
+    const p = input.captureNext({ kinds: ["gamepadButton"] });
+    input.snapshot();
+    input.simulateKeyDown("KeyQ");
+    input.snapshot();
+    setPad({ connected: true, buttons: [false, true], axes: [0, 0] });
+    input.snapshot();
+    const r = await p;
+    expect(r?.binding).toEqual({ kind: "gamepadButton", index: 1 });
+    expect(r?.label).toBe("Pad B");
+  });
+
+  it("gamepad button capture is swallowed for bound actions", async () => {
+    const { input, setPad } = padInput({
+      fire: [{ kind: "gamepadButton", index: 0 }],
+    });
+    setPad({ connected: true, buttons: [false], axes: [] });
+    const p = input.captureNext();
+    input.snapshot();
+    setPad({ connected: true, buttons: [true], axes: [] });
+    input.snapshot();
+    await p;
+    expect(input.isDown("fire")).toBe(false);
+  });
+
+  it("axis crossing the threshold is captured with its sign", async () => {
+    const { input, setPad } = padInput();
+    setPad({ connected: true, buttons: [], axes: [0, 0] });
+    const p = input.captureNext();
+    input.snapshot();
+    setPad({ connected: true, buttons: [], axes: [0, -0.9] });
+    input.snapshot();
+    const r = await p;
+    expect(r?.binding).toEqual({
+      kind: "gamepadAxis",
+      axis: 1,
+      threshold: -0.5,
+    });
+    expect(r?.label).toBe("Axis 1-");
+  });
+
+  it("mode 'char' records char for a layout-known letter, else code only", async () => {
+    const input = new InputManager();
+    input.layout.setProvider({
+      charForCode: (c) =>
+        (({ KeyQ: "a", KeyA: "ф", Digit1: "&" }) as Record<string, string>)[c],
+    });
+    let p = input.captureNext({ mode: "char" });
+    input.snapshot();
+    input.simulateKeyDown("KeyQ");
+    input.snapshot();
+    expect((await p)?.binding).toEqual({
+      kind: "key",
+      code: "KeyQ",
+      char: "a",
+    });
+    input.simulateKeyUp("KeyQ");
+    input.snapshot();
+
+    p = input.captureNext({ mode: "char" });
+    input.snapshot();
+    input.simulateKeyDown("Digit1"); // digits stay physical
+    input.snapshot();
+    expect((await p)?.binding).toEqual({ kind: "key", code: "Digit1" });
+  });
+
+  it("rebindByCapture replaces (or adds) and returns null on cancel without touching bindings", async () => {
+    const input = new InputManager({ jump: [{ kind: "key", code: "Space" }] });
+    let p = input.rebindByCapture("jump");
+    input.snapshot();
+    input.simulateKeyDown("KeyJ");
+    input.snapshot();
+    await p;
+    expect(input.getBindings("jump")).toEqual([{ kind: "key", code: "KeyJ" }]);
+    input.simulateKeyUp("KeyJ");
+    input.snapshot();
+    p = input.rebindByCapture("jump", { add: true });
+    input.snapshot();
+    input.simulateKeyDown("KeyK");
+    input.snapshot();
+    await p;
+    expect(input.getBindings("jump")).toHaveLength(2);
+    input.simulateKeyUp("KeyK");
+    input.snapshot();
+    p = input.rebindByCapture("jump");
+    input.snapshot();
+    input.simulateKeyDown("Escape");
+    input.snapshot();
+    expect(await p).toBeNull();
+    expect(input.getBindings("jump")).toHaveLength(2);
   });
 });
