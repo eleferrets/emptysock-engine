@@ -937,7 +937,7 @@ export class RenderSystem {
     this._layerContainers.clear();
     this._defaultContainer = null;
     this._layerSystem = null;
-    this._renderer?.destroy();
+    this._renderer?.destroy({ releaseGlobalResources: true });
     this._renderer = null;
     this._stage = null;
     this._guiStage = null;

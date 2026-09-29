@@ -145,7 +145,7 @@ export class BouncingBallsDemo {
 
   destroy(): void {
     this.app?.ticker.remove(this.update);
-    this.app?.destroy();
+    this.app?.destroy({ releaseGlobalResources: true });
     this.app = null;
     this.balls = [];
   }

@@ -143,6 +143,18 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
     // filters are tracked — the real assertion is "no error, no leak".
   });
 
+  it("destroy() releases pixi's global pooled resources with the renderer", async () => {
+    const { autoDetectRenderer } = await import("pixi.js");
+    const results = vi.mocked(autoDetectRenderer).mock.results;
+    const renderer = (await results[results.length - 1]?.value) as {
+      destroy: ReturnType<typeof vi.fn>;
+    };
+    render.destroy();
+    expect(renderer.destroy).toHaveBeenCalledWith({
+      releaseGlobalResources: true,
+    });
+  });
+
   describe("rain-glass", () => {
     it("attaches a real RainGlassFilter with default uniform values", () => {
       pp.setLayerFilter("fg", { type: "rain-glass" });

@@ -393,7 +393,7 @@ export function ShaderEditor(): React.ReactElement {
     return () => {
       runTokenRef.current++;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rendererRef.current?.destroy();
+      rendererRef.current?.destroy({ releaseGlobalResources: true });
       rendererRef.current = null;
     };
   }, []);
