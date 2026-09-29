@@ -181,7 +181,7 @@ describe("buildObjectBehavior imports scripts it calls", () => {
 });
 
 describe("buildObjectBehavior: cross-event implicit instance variable persistence", () => {
-  // Real, confirmed regression against Freedom Backup's own obj_camera: a
+  // Real, confirmed regression against a real project's own obj_camera: a
   // name set once in Create (cam = view_camera[0];) and only ever read —
   // never assigned — in Step (camera_set_view_pos(cam, ...)) used to be
   // left as a bare, undeclared identifier in Step's own generated function,

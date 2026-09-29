@@ -10,7 +10,7 @@ import {
 
 // ---------------------------------------------------------------------------
 // A real GMS2 sound resource's on-disk audio file routinely has NO file
-// extension at all (confirmed against Freedom Backup, a real, full
+// extension at all (confirmed against a real project, a real, full
 // GameMaker project — every one of its sounds/<name>/<name> files is a
 // real RIFF/WAVE file with no .wav suffix). buildSoundAsset used to copy
 // it out with `path.extname()`'s empty string, producing an unplayable
@@ -79,7 +79,7 @@ describe("buildSoundAsset — real GMS2 extensionless audio file", () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-sound-noext-"));
     const soundDir = path.join(dir, "sounds", "snd_test");
     await fs.mkdir(soundDir, { recursive: true });
-    // Matches Freedom Backup's real on-disk shape: the audio file's name
+    // Matches a real project's real on-disk shape: the audio file's name
     // has no extension at all.
     await fs.writeFile(path.join(soundDir, "snd_test"), makeWavHeader());
     await fs.writeFile(

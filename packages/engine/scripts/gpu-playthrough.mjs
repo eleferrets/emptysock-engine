@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Real-GPU playthrough of a GMS2-imported project: renders real rooms through
+// Fixture env vars: GMS_FIXTURE_OUT here and GMS_FIXTURE_ASSETS in gpu-verify.mjs each name a GMS2 importer output dir; tests use GMS_FIXTURE_DIR (dir holding a .yyp).
+// Fixture env vars (generic, no project names): GMS_FIXTURE_OUT here and GMS_FIXTURE_ASSETS in gpu-verify.mjs both name a GMS2 importer output dir; tests use GMS_FIXTURE_DIR (dir holding a .yyp).
 // GmsProjectRuntime + RenderPipeline in headless Chromium (swiftshader) and saves PNGs.
-//   FREEDOM_OUT=<importer output dir> node packages/engine/scripts/gpu-playthrough.mjs [--out <dir>]
+//   GMS_FIXTURE_OUT=<importer output dir> node packages/engine/scripts/gpu-playthrough.mjs [--out <dir>]
 // Requires `pnpm --filter @emptysock/engine build` first (imports dist/).
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -13,8 +15,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const outIdx = process.argv.indexOf("--out");
 const outDir = path.resolve(outIdx > 0 ? process.argv[outIdx + 1] : path.join(here, "..", "..", "..", "docs", "gpu-verify", "playthrough"));
 fs.mkdirSync(outDir, { recursive: true });
-const project = path.resolve(process.env.FREEDOM_OUT ?? "");
-if (!process.env.FREEDOM_OUT || !fs.existsSync(path.join(project, "project-manifest.json"))) { console.log("SKIP: set FREEDOM_OUT to an importer output dir"); process.exit(0); }
+const project = path.resolve(process.env.GMS_FIXTURE_OUT ?? "");
+if (!process.env.GMS_FIXTURE_OUT || !fs.existsSync(path.join(project, "project-manifest.json"))) { console.log("SKIP: set GMS_FIXTURE_OUT to an importer output dir"); process.exit(0); }
 const req = createRequire(path.join(process.env.PLAYWRIGHT_MODULE_DIR ?? "/opt/node22/lib/node_modules", "x.js"));
 const { chromium } = req("playwright");
 const { rolldown } = createRequire(path.join(here, "..", "..", "toolchain", "x.js"))("rolldown");

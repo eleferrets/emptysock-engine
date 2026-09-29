@@ -12,7 +12,7 @@ import { convertGms2Room } from "../gms2-room-import.js";
 // case). `typeof null === "object"` in JS, so the pre-existing guard
 // (`typeof inst.objectId === "object"`) matched this case and then crashed
 // trying to read `.name` off `null` — confirmed against a real GameMaker
-// project (Freedom Backup's rm_menuf, whose "Instances" layer has three
+// project (a real project's rm_menuf, whose "Instances" layer has three
 // such placeholder instances). The fix treats a null objectId the same as
 // any other unresolvable instance reference: it falls through to
 // `objectName: "Unknown"`, which callers already filter out via

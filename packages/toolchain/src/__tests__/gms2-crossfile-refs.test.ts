@@ -15,7 +15,7 @@ async function makeProject(files: Record<string, string>): Promise<string> {
 }
 
 describe("scanGmlCrossFileEntityRefFields", () => {
-  it("finds a real with(...) { field = other.id; } back-reference (Freedom Backup's obj_enemy/obj_Egun shape)", async () => {
+  it("finds a real with(...) { field = other.id; } back-reference (a real project's obj_enemy/obj_Egun shape)", async () => {
     const root = await makeProject({
       "objects/obj_enemy/Create_0.gml": `
 if (has_weapon)

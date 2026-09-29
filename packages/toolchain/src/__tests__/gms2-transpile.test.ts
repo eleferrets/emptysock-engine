@@ -932,19 +932,19 @@ describe("transpileGML", () => {
   });
 
   it("substitutes a real project-wide macro value at every use site — real gap: this used to leave every use site an undeclared bare identifier (ReferenceError)", () => {
-    setGmlMacros(new Map([["SAVEFILE", '"freedom.sav"']]));
+    setGmlMacros(new Map([["SAVEFILE", '"game.sav"']]));
     try {
       const out = transpileGML(
         "var file = file_text_open_write(working_directory + SAVEFILE);",
       );
-      expect(out).toContain('working_directory + ("freedom.sav")');
+      expect(out).toContain('working_directory + ("game.sav")');
     } finally {
       setGmlMacros(new Map());
     }
   });
 
   it("does not substitute a macro name inside a dotted reference or a // comment", () => {
-    setGmlMacros(new Map([["SAVEFILE", '"freedom.sav"']]));
+    setGmlMacros(new Map([["SAVEFILE", '"game.sav"']]));
     try {
       const out = transpileGML(
         "x = other.SAVEFILE;\n// SAVEFILE is the save file name",
@@ -1108,7 +1108,7 @@ describe("transpileGML", () => {
       // image_speed" describe block above) — by the time this generic
       // implicit-var pass runs, neither bare identifier exists in the text
       // any more to route through `setGmlVar`. `shake_remain` (a real,
-      // project-defined camera-shake field from Freedom Backup's own
+      // project-defined camera-shake field from a real project's own
       // obj_camera) is a genuinely un-special-cased instance variable,
       // exercising the same real regression this test documents.
       const out = transpileGML("shake_remain = 0;\nvisible = true;");
@@ -1131,7 +1131,7 @@ describe("transpileGML", () => {
     it("also routes a first bare assignment to a project-defined (non-built-in) instance variable through real persistence", () => {
       // Real, confirmed regression: `obj_crate`'s Create event does
       // `mywall = instance_create_layer(...);` — GML implicitly declares
-      // `mywall` on this first assignment, and Freedom Backup's own
+      // `mywall` on this first assignment, and a real project's own
       // obj_camera reads several such implicit fields (cam, follow,
       // shake_remain, ...) every frame in Step after Create sets them —
       // real cross-event persistence, not just within-one-event validity.
@@ -1476,7 +1476,7 @@ describe("transpileGML", () => {
       expect(() => new Function(out)).not.toThrow();
     });
 
-    it("rewrites with (var) singleStatement; (no braces) — real, extremely common shape confirmed against Freedom Backup", () => {
+    it("rewrites with (var) singleStatement; (no braces) — real, extremely common shape confirmed against a real project", () => {
       // Real, confirmed shape: `with (mywall) instance_destroy();` —
       // obj_crate's real Destroy_0.gml. `mywall` is a known implicit
       // instance variable (assigned earlier in the same object), so it's
@@ -1495,7 +1495,7 @@ describe("transpileGML", () => {
     it("rewrites with (other) { ... } and re-scopes a nested `other` inside the body to the with-caller", () => {
       // Real, confirmed shape: obj_player/obj_pna's real
       // Collision_obj_Ebullet.gml: `with (other) instance_destroy();`.
-      // Freedom Backup's own obj_player_dead/Create_0.gml goes further:
+      // a real project's own obj_player_dead/Create_0.gml goes further:
       // `with (obj_camera) follow = other.id;` — a with-body that itself
       // reads `other`, meaning the instance that *entered* the with block
       // (the collision's own _other), not the newly-iterated obj_camera
@@ -1526,7 +1526,7 @@ describe("transpileGML", () => {
 // compat/gml.ts fully implements and exports ~20 of these (sign, lerp,
 // random_range, choose, point_distance, c_white, c_black, ...) but nothing
 // in this transpiler ever rewrote a bare call/reference to route through
-// them — a real, confirmed, severe gap: Freedom Backup's own obj_camera
+// them — a real, confirmed, severe gap: a real project's own obj_camera
 // calls sign(hsp)/random_range(...) every frame, and uses c_white/c_black/
 // c_gray roughly 48 times across 20 files, every one left as a bare,
 // undeclared identifier (a hard ReferenceError at runtime).
@@ -2110,7 +2110,7 @@ describe("transpileGML — draw_sprite_ext/draw_sprite_part/draw_sprite_part_ext
       "draw_sprite_part(_sprite, _subimg, 0, 0, cellSize, cellSize, _x, _y);",
     );
     // `_sprite` is itself a bare identifier (GML's own real convention
-    // matches this too — Freedom Backup's own `draw_9slice.gml` script
+    // matches this too — a real project's own `draw_9slice.gml` script
     // takes a `_sprite` argument and this rewrite quotes it the same way a
     // named sprite constant would be), so it's quoted into a texture path
     // just like `draw_sprite`'s own rewrite already does.

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
+import { readdirSync } from "fs";
 import { importGMS2Project } from "../gms2-import.js";
 import type {
   ComponentDef,
@@ -12,7 +13,7 @@ import type {
 
 /**
  * A real, automated "does this actually play" smoke test against the real
- * Freedom Backup project — not a synthetic fixture, and not a `tsc` type
+ * a real project — not a synthetic fixture, and not a `tsc` type
  * sweep. `gms2-room-transition-e2e.test.ts` already proves the import ->
  * parse -> room-swap pipeline runs against real data, but it never loads a
  * single real generated `.behavior.ts` module or calls `runtime.update()`
@@ -23,7 +24,7 @@ import type {
  * What this test proves: the whole GML behavior dispatch pipeline
  * (Create -> Step Begin/Update/End -> Collision -> Alarm -> Key dispatch,
  * all real, all wired per `GmsProjectRuntime`'s own CLAUDE.md entry) runs
- * against real, transpiled Freedom Backup object code — `obj_player`,
+ * against real, transpiled a real project object code — `obj_player`,
  * `obj_enemy`, `obj_gun`, `obj_wall`, `obj_camera`, `obj_input`, `obj_pna`,
  * `obj_checkpoint`, `obj_level_end` — for several hundred simulated
  * frames, fully headless (no renderer, matching this engine's own
@@ -38,19 +39,25 @@ import type {
  *
  * What this test does NOT prove: visual correctness, exact game-feel,
  * frame-perfect physics/collision response, or that every one of
- * Freedom Backup's ~49 real GameMaker object types individually behaves
+ * a real project's ~49 real GameMaker object types individually behaves
  * exactly like real GameMaker — only that the real dispatch pipeline survives
  * real, sustained gameplay against real transpiled code with no crash and
  * sane entity-count/position behaviour. There is no renderer and no human
  * judgement involved.
  */
-const REAL_PROJECT = path.join(
-  "/tmp/claude-0/-home-user/d9d27a5d-d452-5476-af0b-0dfbb98299ec/scratchpad/freedom_backup_src",
-  "Freedom Backup.yyp",
-);
+// Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
+const REAL_PROJECT = (() => {
+  const dir = process.env.GMS_FIXTURE_DIR ?? "";
+  try {
+    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
+    return yyp ? path.join(dir, yyp) : "";
+  } catch {
+    return "";
+  }
+})();
 
-describe("GMS2 real project — playability smoke test (Freedom Backup)", () => {
-  it("runs sustained headless gameplay against real transpiled Freedom Backup object code with no crash", async () => {
+describe("GMS2 real project — playability smoke test (a real project)", () => {
+  it("runs sustained headless gameplay against real transpiled a real project object code with no crash", async () => {
     const exists = await fs
       .access(REAL_PROJECT)
       .then(() => true)
@@ -172,7 +179,7 @@ describe("GMS2 real project — playability smoke test (Freedom Backup)", () => 
         }
       }
     }
-    // Every real Freedom Backup object with a `.behavior.ts` file must
+    // Every real project object with a `.behavior.ts` file must
     // actually load as a real ES module — a load failure here is a
     // real transpile/codegen bug, not a runtime-dispatch one, and this
     // test's whole premise (real code, really running) depends on it.

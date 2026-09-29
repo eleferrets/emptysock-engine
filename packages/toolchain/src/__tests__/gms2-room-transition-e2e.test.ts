@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
+import { readdirSync } from "fs";
 import os from "os";
 import { importGMS2Project } from "../gms2-import.js";
 import type {
@@ -12,7 +13,7 @@ import type {
 
 /**
  * Real, full end-to-end proof of the whole import -> transpile -> runtime
- * room-swap pipeline against the real Freedom Backup project (not a
+ * room-swap pipeline against the real project (not a
  * synthetic fixture — `GmsRuntime.test.ts`'s own suite already covers the
  * per-feature unit shapes against a hand-authored fixture; this test is
  * specifically the "does the real pipeline actually work end to end on
@@ -27,12 +28,18 @@ import type {
  * to prove `currentRoom` and the live scene's own entities actually swap
  * to the next real room's real prefab instances.
  */
-const REAL_PROJECT = path.join(
-  "/tmp/claude-0/-home-user/d9d27a5d-d452-5476-af0b-0dfbb98299ec/scratchpad/freedom_backup_src",
-  "Freedom Backup.yyp",
-);
+// Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
+const REAL_PROJECT = (() => {
+  const dir = process.env.GMS_FIXTURE_DIR ?? "";
+  try {
+    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
+    return yyp ? path.join(dir, yyp) : "";
+  } catch {
+    return "";
+  }
+})();
 
-describe("GMS2 real project — room transition end to end (Freedom Backup)", () => {
+describe("GMS2 real project — room transition end to end (a real project)", () => {
   it("imports real rooms and swaps between them via GmsProjectRuntime.nextRoom()", async () => {
     const exists = await fs
       .access(REAL_PROJECT)

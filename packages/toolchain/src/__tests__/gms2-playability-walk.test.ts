@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
+import { readdirSync } from "fs";
 import { importGMS2Project } from "../gms2-import.js";
 import { parseGmsJson } from "../gms2-parse.js";
 import type {
@@ -12,7 +13,7 @@ import type {
 } from "@emptysock/engine";
 
 /**
- * Walks every room of the real Freedom Backup project in its real `.yyp`
+ * Walks every room of the real project in its real `.yyp`
  * `RoomOrderNodes` order through a real headless `GmsProjectRuntime`, running
  * 600 frames in each with `vk_right` held, and reports per room: that it
  * loaded, entity counts, whether a live `obj_player` moved, every room change
@@ -21,10 +22,16 @@ import type {
  * "`update()` did not throw" alone proves nothing about the transpiled code).
  * Skipped honestly when the real project is not on disk.
  */
-const REAL_PROJECT = path.join(
-  "/tmp/claude-0/-home-user/d9d27a5d-d452-5476-af0b-0dfbb98299ec/scratchpad/freedom_backup_src",
-  "Freedom Backup.yyp",
-);
+// Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
+const REAL_PROJECT = (() => {
+  const dir = process.env.GMS_FIXTURE_DIR ?? "";
+  try {
+    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
+    return yyp ? path.join(dir, yyp) : "";
+  } catch {
+    return "";
+  }
+})();
 
 interface RoomResult {
   room: string;
@@ -38,7 +45,7 @@ interface RoomResult {
   thrown: string | null;
 }
 
-describe("GMS2 real project: room walk (Freedom Backup)", () => {
+describe("GMS2 real project: room walk (a real project)", () => {
   it("loads and runs every room in roomOrder for 600 frames with no uncaught throws and no handler exceptions", async () => {
     const exists = await fs
       .access(REAL_PROJECT)
@@ -143,7 +150,7 @@ describe("GMS2 real project: room walk (Freedom Backup)", () => {
     };
     const game = new Game();
     // The importer copies datafiles to `included/`; a real host mounts them
-    // into the game's file system (Freedom's `obj_game` reads `lang.txt`).
+    // into the game's file system (a real project's `obj_game` reads `lang.txt`).
     const includedDir = path.join(outDir, "included");
     for (const f of await fs.readdir(includedDir).catch(() => [] as string[])) {
       game.files.preload(

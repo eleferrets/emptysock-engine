@@ -15,7 +15,7 @@ async function makeProject(files: Record<string, string>): Promise<string> {
 }
 
 describe("scanGmlEnums", () => {
-  it("scans a real sequential enum (Freedom Backup's TRANS_MODE shape) with default values 0..n", async () => {
+  it("scans a real sequential enum (a real project's TRANS_MODE shape) with default values 0..n", async () => {
     const root = await makeProject({
       "objects/obj_sidebars/Create_0.gml": `
 enum TRANS_MODE

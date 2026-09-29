@@ -45,7 +45,7 @@ export interface WalkOptions {
 /**
  * Imports one real GameMaker project with the full importer and loads every
  * room headless through a real `GmsProjectRuntime`, running `frames` frames
- * (default 600) in each with `vk_right` held. Shared by the Freedom Backup
+ * (default 600) in each with `vk_right` held. Shared by the a real project
  * walk and the multi-project walk so both use one code path.
  */
 export async function walkProject(

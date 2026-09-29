@@ -43,7 +43,7 @@ describe("GMS2 nineSlice metadata", () => {
     expect(s.nineSlice).toEqual({ left: 16, right: 16, top: 12, bottom: 12 });
   });
 
-  it("ignores a disabled block (the only real Freedom shape) and null", async () => {
+  it("ignores a disabled block (the only real project shape) and null", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "ns-"));
     tmpDirs.push(root);
     await writeSprite(root, "spr_back", DISABLED);

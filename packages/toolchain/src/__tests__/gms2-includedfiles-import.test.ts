@@ -11,7 +11,7 @@ import { importGMS2Project } from "../gms2-import.js";
 // ---------------------------------------------------------------------------
 // GameMaker's "Included Files" feature (`.yyp`'s IncludedFiles array,
 // datafiles/<name> on disk) was entirely unimplemented until this pass —
-// confirmed load-bearing in Freedom Backup (datafiles/lang.txt, read at
+// confirmed load-bearing in a real project (datafiles/lang.txt, read at
 // runtime via file_text_open_read, see gmlFileText.ts/GmlFileSystem.ts).
 // ---------------------------------------------------------------------------
 

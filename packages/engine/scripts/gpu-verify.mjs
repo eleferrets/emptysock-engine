@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Real-GPU (swiftshader WebGL) verification of engine rendering paths.
 //   node packages/engine/scripts/gpu-verify.mjs [--out <dir>]
-// Env: FREEDOM_ASSETS = dir of a GMS2 importer output (for sh_white + fnt_menu
+// Env: GMS_FIXTURE_ASSETS = dir of a GMS2 importer output (for sh_white + fnt_menu
 //      checks); those two checks are reported "skipped" without it.
 //      PLAYWRIGHT_MODULE_DIR (default /opt/node22/lib/node_modules),
 //      CHROMIUM_PATH (default /opt/pw-browsers/chromium).
@@ -25,7 +25,7 @@ const { rolldown } = createRequire(path.join(here, "..", "..", "toolchain", "x.j
 const b0 = await rolldown({ input: path.join(here, "gpu-verify.harness.ts"), platform: "browser", logLevel: "warn" });
 await b0.write({ file: bundle, format: "iife" }); if (process.env.KEEP) fs.copyFileSync(bundle, "/tmp/bundle.dbg.js");
 
-const assets = process.env.FREEDOM_ASSETS ? path.resolve(process.env.FREEDOM_ASSETS) : undefined;
+const assets = process.env.GMS_FIXTURE_ASSETS ? path.resolve(process.env.GMS_FIXTURE_ASSETS) : undefined;
 const cfg = {};
 if (assets) {
   const sh = fs.readFileSync(path.join(assets, "assets", "sh_white.shader.ts"), "utf8");
@@ -79,14 +79,14 @@ console.log(`  frame cost 640x360 (swiftshader, CPU raster): scene only ${r.msBa
 results.push({ name: "rain frame cost", msBase: r.msBase, msPass: r.msPass, msRain: r.msRain });
 
 const w = await run("shWhite", cfg);
-if (w.skipped) console.log("SKIP  sh_white (set FREEDOM_ASSETS)");
+if (w.skipped) console.log("SKIP  sh_white (set GMS_FIXTURE_ASSETS)");
 else {
   check("sh_white: filtered sprite is white", w.whiteCount > w.expectedArea * 0.95 && w.nonWhiteOpaque < 20, `white=${w.whiteCount}/${w.expectedArea} nonWhite=${w.nonWhiteOpaque}`);
   check("sh_white: quad not collapsed (bbox = sprite rect)", w.bbox[0] <= 1 && w.bbox[2] >= 46 && w.bbox[2] <= 50 && w.bbox[1] >= 30 && w.bbox[1] <= 34 && w.bbox[3] >= 93 && w.bbox[3] <= 97, JSON.stringify(w.bbox));
   check("sh_white: transparent area stays transparent, control sprite untouched", w.filteredEmpty[3] < 10 && w.control[0] > 150 && w.control[1] < 80, `control=${w.control} empty=${w.filteredEmpty}`);
 }
 const b = await run("bitmapText", cfg);
-if (b.skipped) console.log("SKIP  bitmap text (set FREEDOM_ASSETS)");
+if (b.skipped) console.log("SKIP  bitmap text (set GMS_FIXTURE_ASSETS)");
 else {
   save("bitmap-fnt_menu.png", b.png);
   check("bitmap text: glyphs drawn from real fnt_menu atlas", b.lit > 300 && b.glyphGroups >= 6, `lit=${b.lit} glyphGroups=${b.glyphGroups} bboxY=${b.bboxY}`);
