@@ -451,5 +451,36 @@ export async function probe(): Promise<unknown> {
   shWhite,
   bitmapText,
   darkness,
+  rendererFilterProbe,
 };
 void PixiSprite;
+
+// Real-browser only: reports which renderer pixi picked and whether the GL-only
+// rain filter changes the frame under it (it cannot under WebGPU).
+export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
+  const p = await mkPipeline(640, 360);
+  const r = p.renderer as unknown as { gl?: unknown; type?: number; name?: string };
+  const rt = RenderTexture.create({ width: 640, height: 360 });
+  const c = scene();
+  const root = new Container();
+  root.addChild(c);
+  p.renderer.render({ container: root, target: rt });
+  const base = px(p, rt);
+  const f = new RainGlassFilter({});
+  f.setResolution(640, 360);
+  for (let i = 0; i < 360; i++) f.tick(1 / 30);
+  c.filters = [f];
+  const errors: string[] = [];
+  let out: Pixels | undefined;
+  try {
+    p.renderer.render({ container: root, target: rt });
+    out = px(p, rt);
+  } catch (e) {
+    errors.push(String(e));
+  }
+  return {
+    renderer: r.gl ? "webgl" : (r.name ?? "not-webgl"),
+    errors,
+    ...(out ? rainStats(base, out) : {}),
+  };
+}

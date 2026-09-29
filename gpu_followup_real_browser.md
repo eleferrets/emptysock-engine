@@ -13,6 +13,8 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 - Multi-camera compositing (N render textures + composite): never profiled.
 - Anything in `docs/gpu-verify/` and `packages/engine/scripts/gpu-*.mjs` (last commits: run with a generic fixture-dir env var; the harness and multi-project walk test were committed but never run).
 
+- WebGPU renderer (measured on a real Mac browser): `RenderSystem` prefers `["webgpu", "webgl"]`, and under WebGPU the GL-only `RainGlassFilter` silently renders nothing (no error, frame unchanged; `rendererFilterProbe` in `gpu-verify.harness.ts`). Every `CustomShaderFilter` (imported GML shaders) is GL-only too, so they are assumed to do the same. Fix in progress: GLSL-to-WGSL conversion (`docs/research/11-glsl-to-wgsl.md`); fallback is `preference: ["webgl"]`.
+
 ## Open (not built)
 
 - Room editor: drawing a brand-new view on the canvas; numeric window-size setting.
