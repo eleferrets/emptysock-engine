@@ -1,48 +1,32 @@
-// "Rain on glass" post-process filter — a GPU-cheap, screen-space
-// approximation of streaking water droplets on the camera lens (the visual
-// this file exists to replace was the user's own GameMaker/GMS2 shader,
-// which "killed the game's performance" there — see RELEASE_PASS.md for the
-// full writeup of what made that approach expensive and why this one isn't).
+// Windshield rain post-process filter.
 //
-// This is built on the exact same mechanism `CustomShaderFilter.ts` already
-// established for a user-authored GLSL post-process filter (a pixi.js v8
-// `Filter` with a `GlProgram`, a `uTime` uniform updated once per frame) —
-// it is not a new filter *mechanism*, just a new *shader* plus a handful of
-// extra tunable uniforms, following the "framework-agnostic options type in
-// PostProcessSystem, real pixi Filter built in RenderSystem, cached per
-// layer" split CLAUDE.md's "PostProcessSystem's layer filters become real
-// pixi Filters" entry documents for every other layer-filter type.
+// A CPU simulation (RainGlassSim: pooled drops that spawn, slide, shed
+// trails, merge and get cleared by a wiper) is rasterised into a small RGBA8
+// "drop map" (RainGlassMap) every frame or two, uploaded through a pixi
+// BufferImageSource, and a single fragment pass turns it into refraction
+// through the drops, fog blur where the glass is dry, and a specular glint.
+// Sim and rasteriser are pure modules with no pixi import; this file is the
+// only pixi-aware part.
 //
-// ── The technique, and its honest limits ───────────────────────────────────
-// This is a single fragment-shader pass, O(screen pixels), with no particle
-// system, no per-drop simulation, and no physically-based refraction. Each
-// screen pixel is assigned to a procedural "cell" (two overlapping grids —
-// one of large, slow droplets, one of small, fast-falling streaks) via a
-// cheap hash function; inside a cell, the pixel's offset from the drop's
-// (jittered) centre gives a fake radial "normal" that's used to offset the
-// texture lookup into the already-rendered scene — the standard cheap
-// "refraction" trick real-time screen-space rain/water effects use (the
-// same idea as a `DisplacementFilter`, but computed procedurally in-shader
-// instead of sampled from a displacement-map texture, so there is no extra
-// texture upload or droplet-position CPU bookkeeping per frame at all).
-// This is genuinely 2D and screen-space: there is no lens geometry, no
-// light bending through an actual water volume, and no accumulation of
-// drops merging/sliding into each other over time the way real running
-// water does. It is a convincing approximation for "it's raining and the
-// screen is wet", not a physical simulation — exactly the tradeoff a real
-// Asphalt-8-style effect needs, and exactly the class of naive-per-pixel
-// GMS2 shader this replaces (see RELEASE_PASS.md) got wrong by trying to
-// do too much per pixel without any of the cheap hashing/cell tricks here.
-//
-// Cost, concretely: one texture sample for `base`, one more for the
-// refracted lookup, a handful of `hash21`/`smoothstep` ALU ops per pixel —
-// no loops, no branching on droplet count, no per-drop uniform arrays. This
-// scales with screen resolution only, never with "how many raindrops are
-// currently on screen" the way a GMS2 shader driving a real per-drop loop
-// (or CPU-side per-drop sprite batch feeding a shader every frame) does.
-// `RainGlassFilter` never allocates a droplet list, on the GPU or the CPU.
+// This is a GL-only filter (a GlProgram, no GpuProgram), like every other
+// custom filter here. The texture binding follows pixi's own
+// DisplacementFilter pattern (`resources: { uniforms, uDropMap: source,
+// uDropMapSampler: source.style }`). That binding, the map's vertical
+// orientation against vUV, and all timing are UNVERIFIED on a real GPU:
+// headless tests only cover the sim, the map and option plumbing.
 
-import { Filter, GlProgram, UniformGroup } from "pixi.js";
+import { BufferImageSource, Filter, GlProgram, UniformGroup } from "pixi.js";
+import type { GPUTier } from "../GPUTier.js";
+import { rasterizeRainDropMap } from "./RainGlassMap.js";
+import { RainGlassSim, type WiperOptions } from "./RainGlassSim.js";
+import {
+  rainMapSize,
+  resolveRainQuality,
+  type RainQuality,
+  type RainTier,
+} from "./RainGlassTiers.js";
+
+export type { RainQuality, WiperOptions };
 
 // Pixi Filter vertex contract (see CustomShaderFilter's DEFAULT_CUSTOM_SHADER_VERTEX):
 // a filter quad has only `aPosition`, no `aUV`/projection matrices.
@@ -68,193 +52,352 @@ export const RAIN_GLASS_FRAGMENT = /* glsl */ `
   out vec4 finalColor;
 
   uniform sampler2D uTexture;
-  uniform float uTime;
-  uniform float uIntensity;
-  uniform float uDropletSize;
-  uniform float uDropletSpeed;
-  uniform float uStreakAmount;
+  uniform sampler2D uDropMap;
+  uniform float uFog;
+  uniform float uBlur;
+  uniform float uRefract;
+  uniform float uTaps;
+  uniform float uChroma;
+  uniform vec3 uTint;
+  uniform vec2 uLightDir;
   uniform vec2 uResolution;
 
-  float hash21(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
+  #define MAX_TAPS 8
+
+  float ign(vec2 p) {
+    return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
   }
 
-  // One procedural droplet layer ("Asphalt-style" windshield drops). Each drop
-  // is a small lens: inside it the scene is sampled from the *opposite* side of
-  // the drop centre (an inverted, magnified miniature of the scene), ringed by
-  // a dark refractive rim, a bright specular glint (upper-left) and a faint
-  // lower-right caustic crescent. cellSize is in aspect-corrected UV units;
-  // fallSpeed > 0 makes the layer's drops slide down at a per-column speed and
-  // leave a thin wet trail above them. presence = fraction of cells holding a
-  // drop. Returns: xy = UV offset to sample the scene at, z = drop coverage,
-  // w = trail coverage; rimGlint = (rim darkening, glint + caustic).
-  vec4 dropLayer(vec2 uv, float cellSize, float fallSpeed, float seed, float presence, float stretch, out vec2 rimGlint) {
-    float minRes = min(uResolution.x, uResolution.y);
-    vec2 aspectUv = uv * uResolution / minRes;
-    float colRnd = hash21(vec2(floor(aspectUv.x / cellSize), seed + 3.0));
-    aspectUv.y -= uTime * fallSpeed * (0.6 + 0.8 * colRnd);
-
-    // stretch > 1 makes cells taller than wide, leaving room for a long trail.
-    vec2 cs = vec2(cellSize, cellSize * stretch);
-    vec2 cell = floor(aspectUv / cs);
-    vec2 cellPos = fract(aspectUv / cs) - 0.5;
-    vec2 local = vec2(cellPos.x, cellPos.y * stretch); // real (round) units, y grows downward
-
-    float rnd = hash21(cell + seed);
-    float has = step(hash21(cell + seed + 29.0), presence);
-    vec2 jit = vec2(hash21(cell + seed + 7.0), hash21(cell + seed + 13.0)) - 0.5;
-    // Tall cells keep the drop in the lower part so the trail above fits.
-    vec2 centre = vec2(jit.x * 0.4, jit.y * 0.4 + (stretch - 1.0) * 0.28);
-    float radius = mix(0.14, 0.34, rnd);
-
-    vec2 p = local - centre;
-    // Slightly taller than wide, heavier at the bottom: a sliding drop.
-    float d = length(vec2(p.x, p.y * (p.y > 0.0 ? 0.78 : 0.95)));
-    float mask = smoothstep(radius, radius * 0.86, d) * has;
-
-    // Lens: sample from the reflected position across the drop centre.
-    vec2 toUv = vec2(minRes) / uResolution;
-    vec2 offset = -p * cellSize * 1.7 * toUv;
-
-    float e = clamp(d / radius, 0.0, 1.0);
-    float rim = smoothstep(0.62, 1.0, e) * mask;
-    vec2 g = p + vec2(0.35, 0.35) * radius; // glint sits up-left of centre
-    float glint = smoothstep(radius * 0.3, 0.0, length(g)) * mask;
-    float caustic = smoothstep(0.72, 1.0, e) * max(dot(normalize(p + 1e-4), vec2(0.6, 0.8)), 0.0) * mask * 0.35;
-
-    // Wet trail: a thin streak above the drop, narrowing and fading upward.
-    float trail = 0.0;
-    if (fallSpeed > 0.0) {
-      float above = -p.y; // > 0 above the drop centre
-      float len = stretch * (0.35 + 0.4 * rnd);
-      float along = smoothstep(0.0, 0.1, above) * (1.0 - smoothstep(len * 0.2, len, above));
-      float width = radius * 0.32 * (1.0 - clamp(above / len, 0.0, 1.0) * 0.7);
-      trail = along * smoothstep(width, width * 0.3, abs(p.x)) * has;
+  // Golden-angle disc blur, rotated per pixel; uTaps <= MAX_TAPS.
+  vec3 fogBlur(vec2 uv, float px, vec2 texel) {
+    vec3 acc = vec3(0.0);
+    float n = 6.2831853 * ign(gl_FragCoord.xy);
+    int taps = int(uTaps);
+    for (int i = 0; i < MAX_TAPS; i++) {
+      if (i >= taps) break;
+      float a = float(i) * 2.39996 + n;
+      float r = sqrt((float(i) + 0.5) / float(taps)) * px;
+      acc += textureLod(uTexture, uv + vec2(cos(a), sin(a)) * r * texel, 0.0).rgb;
     }
-
-    rimGlint = vec2(rim, glint + caustic);
-    return vec4(mix(vec2(0.0), offset, step(0.0001, mask)) + vec2(0.0, -0.004) * trail, mask, trail);
-  }
-
-  vec3 applyLayer(vec3 colour, vec2 uv, vec4 layer, vec2 rimGlint, float trailWeight) {
-    float k = uIntensity;
-    // Trail: faint refractive smear + slight brightening of the wet path.
-    if (layer.w > 0.001) {
-      vec3 trailCol = texture(uTexture, clamp(uv + vec2(0.0, -0.006), vec2(0.001), vec2(0.999))).rgb;
-      colour = mix(colour, trailCol * 1.25 + vec3(0.09), layer.w * 0.85 * trailWeight * clamp(k * 1.3, 0.0, 1.0));
-    }
-    if (layer.z > 0.001) {
-      vec3 inside = texture(uTexture, clamp(uv + layer.xy, vec2(0.001), vec2(0.999))).rgb;
-      inside *= 1.0 - 0.45 * rimGlint.x;          // dark refractive rim
-      inside += vec3(rimGlint.y * 0.55);          // specular glint + caustic
-      colour = mix(colour, inside, layer.z * clamp(k * 1.4, 0.0, 1.0));
-    }
-    return colour;
+    return acc / float(max(taps, 1));
   }
 
   void main() {
-    vec2 uv = vUV;
-    float streak = clamp(uStreakAmount, 0.0, 1.0);
-    vec3 colour = texture(uTexture, uv).rgb;
-    float alpha = texture(uTexture, uv).a;
-
-    vec2 rg0; vec2 rg1; vec2 rg2;
-    // Micro droplets: tiny, static, dense; weaker refraction.
-    vec4 micro = dropLayer(uv, uDropletSize * 0.28, 0.0, 91.0, 0.7, 1.0, rg0);
-    micro.xy *= 0.5;
-    // Big drops: mostly static, occasionally creeping.
-    vec4 big = dropLayer(uv, uDropletSize, uDropletSpeed * 0.1, 1.0, mix(0.7, 0.4, streak), 1.0, rg1);
-    // Sliding drops with trails.
-    vec4 slide = dropLayer(uv, uDropletSize * 0.55, uDropletSpeed, 42.0, mix(0.15, 0.7, streak), 2.6, rg2);
-
-    colour = applyLayer(colour, uv, micro, rg0, 0.0);
-    colour = applyLayer(colour, uv, big, rg1, 0.0);
-    colour = applyLayer(colour, uv, slide, rg2, 1.0);
-
-    finalColor = vec4(colour, alpha);
+    vec4 m = texture(uDropMap, vUV);
+    vec2 n = (m.rg * 255.0 - 128.0) / 127.0;
+    float h = m.b;
+    float wet = m.a;
+    vec2 off = n * uRefract * h;
+    vec2 uv = clamp(vUV - off, 0.0, 1.0);
+    vec4 base = textureLod(uTexture, uv, 0.0);
+    vec3 col = base.rgb;
+    if (uChroma > 0.5) {
+      col.r = textureLod(uTexture, clamp(uv + off * 0.25, 0.0, 1.0), 0.0).r;
+      col.b = textureLod(uTexture, clamp(uv - off * 0.25, 0.0, 1.0), 0.0).b;
+    }
+    float fogHere = uFog * (1.0 - wet);
+    if (fogHere > 0.001 && uTaps > 0.5) {
+      vec3 b = fogBlur(uv, uBlur * fogHere, 1.0 / uResolution);
+      col = mix(col, b, smoothstep(0.0, 0.2, fogHere));
+    }
+    col = mix(col, uTint, fogHere * 0.25);
+    float spec = pow(max(dot(normalize(vec3(n, 0.6)), normalize(vec3(uLightDir, 0.7))), 0.0), 24.0);
+    col += spec * h * 0.6;
+    col *= 1.0 - 0.25 * smoothstep(0.7, 1.0, length(n)) * h;
+    finalColor = vec4(col, base.a);
   }
 `;
 
 export interface RainGlassFilterOptions {
-  /** 0..1 overall droplet opacity/refraction strength. Default 0.6. */
+  /** 0..1 spawn rate and refraction strength. Default 0.6. */
   intensity?: number;
-  /** Aspect-corrected UV-space cell size for the large droplet grid — smaller = more, smaller drops. Default 0.12. */
+  /** Droplet size; 0.12 is the default size, scales radii proportionally. */
   dropletSize?: number;
-  /** UV-space fall speed per second for the streak grid. Default 0.35. */
+  /** Slide speed scale; 0.35 is the default speed. */
   dropletSpeed?: number;
-  /** 0..1 blend between static droplets (0) and falling streaks (1). Default 0.5. */
+  /** Trail amount scale; 0.5 is the default, 0 disables trails. */
   streakAmount?: number;
+  /** Quality tier; "auto" (default) uses the host GPU tier. */
+  quality?: RainQuality;
+  /** 0..1 condensation. Default 0. */
+  fog?: number;
+  /** Max fog blur radius in scene px. Default 6. */
+  blur?: number;
+  /** 0..1 gravity scale (0 flat, 1 vertical glass). Default 1. */
+  slope?: number;
+  /** Lateral wind in map px/s. Default 0. */
+  wind?: number;
+  /** Sim RNG seed. Default 1. */
+  seed?: number;
+  wiper?: Partial<WiperOptions>;
+  /** Fog tint rgb 0..1. */
+  tint?: [number, number, number];
 }
 
-/**
- * The real pixi Filter for `PostProcessSystem`'s `"rain-glass"` layer
- * filter type — see this file's header comment for the technique and its
- * honest limits. Built and cached exactly like `CustomShaderFilter`: one
- * instance per layer, its uniforms re-applied in place on every
- * `RenderSystem.syncPostProcessLayerFilters()` call rather than being
- * reconstructed, and `tick()` called once per frame to advance `uTime` (the
- * one uniform this shader needs updated continuously for droplets to fall).
- */
+const DEFAULT_DROPLET_SIZE = 0.12;
+const DEFAULT_DROPLET_SPEED = 0.35;
+const DEFAULT_STREAK = 0.5;
+
 export class RainGlassFilter extends Filter {
   private _elapsed = 0;
+  private _frame = 0;
+  private _rainDestroyed = false;
+  private readonly _group: UniformGroup;
+  private readonly _source: BufferImageSource;
+  private _buffer: Uint8Array;
+  private _sim: RainGlassSim;
+  private _tier: RainTier;
+  private readonly _gpuTier: GPUTier | undefined;
+  private _quality: RainQuality;
+  private _seed: number;
+  private _mapW: number;
+  private _mapH: number;
+  private _aspect = 16 / 9;
+  private _wiperPatch: Partial<WiperOptions> = {};
+  private readonly _o = {
+    intensity: 0.6,
+    dropletSize: DEFAULT_DROPLET_SIZE,
+    dropletSpeed: DEFAULT_DROPLET_SPEED,
+    streakAmount: DEFAULT_STREAK,
+    fog: 0,
+    blur: 6,
+    slope: 1,
+    wind: 0,
+  };
 
-  constructor(options: RainGlassFilterOptions = {}) {
-    const program = GlProgram.from({
-      vertex: RAIN_GLASS_VERTEX,
-      fragment: RAIN_GLASS_FRAGMENT,
-      name: "emptysock-rain-glass",
+  constructor(options: RainGlassFilterOptions = {}, gpuTier?: GPUTier) {
+    const tier = resolveRainQuality(options.quality, gpuTier);
+    const size = rainMapSize(tier, 16 / 9);
+    const buffer = new Uint8Array(size.width * size.height * 4);
+    // rgba8unorm must be explicit: pixi picks bgra8unorm for a Uint8Array.
+    const source = new BufferImageSource({
+      resource: buffer,
+      width: size.width,
+      height: size.height,
+      format: "rgba8unorm",
+      scaleMode: "linear",
     });
-    // Must be handed to the Filter constructor so pixi wraps it in a real
-    // UniformGroup (a plain object assigned to `resources` afterwards is
-    // never uploaded to the GPU).
+    const tint = options.tint ?? [0.8, 0.85, 0.9];
     const group = new UniformGroup({
       uTime: { value: 0, type: "f32" },
       uIntensity: { value: options.intensity ?? 0.6, type: "f32" },
-      uDropletSize: { value: options.dropletSize ?? 0.12, type: "f32" },
-      uDropletSpeed: { value: options.dropletSpeed ?? 0.35, type: "f32" },
-      uStreakAmount: { value: options.streakAmount ?? 0.5, type: "f32" },
+      uDropletSize: {
+        value: options.dropletSize ?? DEFAULT_DROPLET_SIZE,
+        type: "f32",
+      },
+      uDropletSpeed: {
+        value: options.dropletSpeed ?? DEFAULT_DROPLET_SPEED,
+        type: "f32",
+      },
+      uStreakAmount: {
+        value: options.streakAmount ?? DEFAULT_STREAK,
+        type: "f32",
+      },
       uResolution: { value: [1, 1], type: "vec2<f32>" },
+      uFog: { value: options.fog ?? 0, type: "f32" },
+      uBlur: { value: options.blur ?? 6, type: "f32" },
+      uRefract: { value: 0.1, type: "f32" },
+      uTaps: { value: tier.blurTaps, type: "f32" },
+      uChroma: { value: tier.chromatic ? 1 : 0, type: "f32" },
+      uTint: { value: [tint[0], tint[1], tint[2]], type: "vec3<f32>" },
+      uLightDir: { value: [-0.5, -0.6], type: "vec2<f32>" },
     });
-    super({ glProgram: program, resources: { uniforms: group } });
+    super({
+      glProgram: GlProgram.from({
+        vertex: RAIN_GLASS_VERTEX,
+        fragment: RAIN_GLASS_FRAGMENT,
+        name: "emptysock-rain-glass",
+      }),
+      resources: {
+        uniforms: group,
+        uDropMap: source,
+        uDropMapSampler: source.style,
+      },
+    });
     this._group = group;
+    this._source = source;
+    this._buffer = buffer;
+    this._tier = tier;
+    this._gpuTier = gpuTier;
+    this._quality = options.quality ?? "auto";
+    this._seed = options.seed ?? 1;
+    this._mapW = size.width;
+    this._mapH = size.height;
+    if (options.intensity !== undefined) this._o.intensity = options.intensity;
+    if (options.dropletSize !== undefined)
+      this._o.dropletSize = options.dropletSize;
+    if (options.dropletSpeed !== undefined)
+      this._o.dropletSpeed = options.dropletSpeed;
+    if (options.streakAmount !== undefined)
+      this._o.streakAmount = options.streakAmount;
+    if (options.fog !== undefined) this._o.fog = options.fog;
+    if (options.blur !== undefined) this._o.blur = options.blur;
+    if (options.slope !== undefined) this._o.slope = options.slope;
+    if (options.wind !== undefined) this._o.wind = options.wind;
+    if (options.wiper) this._wiperPatch = { ...options.wiper };
+    this._sim = this._buildSim();
+    this._syncUniforms();
   }
-
-  private readonly _group: UniformGroup;
 
   private _set(name: string, value: unknown): void {
     if (name in this._group.uniforms) this._group.uniforms[name] = value;
   }
 
+  private _buildSim(): RainGlassSim {
+    const t = this._tier;
+    const o = this._o;
+    return new RainGlassSim({
+      width: this._mapW,
+      height: this._mapH,
+      maxDrops: t.maxDrops,
+      spawnPerSec: t.spawnPerSec,
+      seed: this._seed,
+      intensity: o.intensity,
+      sizeScale: o.dropletSize / DEFAULT_DROPLET_SIZE,
+      stepSec: 1 / t.simHz,
+      slope: o.slope,
+      wind: o.wind,
+      speedScale: o.dropletSpeed / DEFAULT_DROPLET_SPEED,
+      trailScale: o.streakAmount / DEFAULT_STREAK,
+      beadCap: t.beadCap,
+      trails: t.trails,
+      fog: o.fog,
+      wiper: this._wiperPatch,
+    });
+  }
+
+  /** Pushes tier and live option values into the sim and uniforms. */
+  private _syncUniforms(): void {
+    const o = this._o;
+    const s = this._sim;
+    s.intensity = o.intensity;
+    s.sizeScale = o.dropletSize / DEFAULT_DROPLET_SIZE;
+    s.speedScale = o.dropletSpeed / DEFAULT_DROPLET_SPEED;
+    s.trailScale = o.streakAmount / DEFAULT_STREAK;
+    s.slope = o.slope;
+    s.wind = o.wind;
+    s.fogTarget = o.fog;
+    this._set("uIntensity", o.intensity);
+    this._set("uDropletSize", o.dropletSize);
+    this._set("uDropletSpeed", o.dropletSpeed);
+    this._set("uStreakAmount", o.streakAmount);
+    this._set("uBlur", o.blur);
+    this._set("uFog", s.fog);
+    this._set("uTaps", this._tier.blurTaps);
+    this._set("uChroma", this._tier.chromatic ? 1 : 0);
+  }
+
+  /** Rebuilds the sim (drops reset) and resizes the map when tier, aspect or seed changed. */
+  private _rebuild(): void {
+    const size = rainMapSize(this._tier, this._aspect);
+    if (size.width !== this._mapW || size.height !== this._mapH) {
+      this._mapW = size.width;
+      this._mapH = size.height;
+      this._buffer = new Uint8Array(size.width * size.height * 4);
+      this._source.resource = this._buffer;
+      this._source.resize(size.width, size.height);
+    }
+    this._sim = this._buildSim();
+    this._syncUniforms();
+  }
+
   setOptions(options: RainGlassFilterOptions): void {
-    if (options.intensity !== undefined)
-      this._set("uIntensity", options.intensity);
-    if (options.dropletSize !== undefined)
-      this._set("uDropletSize", options.dropletSize);
+    const o = this._o;
+    if (options.intensity !== undefined) o.intensity = options.intensity;
+    if (options.dropletSize !== undefined) o.dropletSize = options.dropletSize;
     if (options.dropletSpeed !== undefined)
-      this._set("uDropletSpeed", options.dropletSpeed);
+      o.dropletSpeed = options.dropletSpeed;
     if (options.streakAmount !== undefined)
-      this._set("uStreakAmount", options.streakAmount);
+      o.streakAmount = options.streakAmount;
+    if (options.fog !== undefined) o.fog = options.fog;
+    if (options.blur !== undefined) o.blur = options.blur;
+    if (options.slope !== undefined) o.slope = options.slope;
+    if (options.wind !== undefined) o.wind = options.wind;
+    if (options.tint !== undefined)
+      this._set("uTint", [options.tint[0], options.tint[1], options.tint[2]]);
+    let rebuild = false;
+    if (options.quality !== undefined && options.quality !== this._quality) {
+      this._quality = options.quality;
+      this._tier = resolveRainQuality(options.quality, this._gpuTier);
+      rebuild = true;
+    }
+    if (options.seed !== undefined && options.seed !== this._seed) {
+      this._seed = options.seed;
+      rebuild = true;
+    }
+    if (options.wiper !== undefined) {
+      Object.assign(this._wiperPatch, options.wiper);
+      this._sim.setWiper(options.wiper);
+    }
+    if (rebuild) this._rebuild();
+    else this._syncUniforms();
   }
 
   setResolution(width: number, height: number): void {
-    this._set("uResolution", [Math.max(1, width), Math.max(1, height)]);
+    const w = Math.max(1, width);
+    const h = Math.max(1, height);
+    this._set("uResolution", [w, h]);
+    const aspect = w / h;
+    const size = rainMapSize(this._tier, aspect);
+    this._aspect = aspect;
+    if (size.width !== this._mapW || size.height !== this._mapH)
+      this._rebuild();
   }
 
-  /** Advances `uTime` by `dtSeconds`. Call once per frame. */
-  tick(dtSeconds: number): void {
-    this._elapsed += dtSeconds;
+  /** Advances the sim by `dtSeconds * timeScale`, uploads the map, and updates `uTime`. */
+  tick(dtSeconds: number, timeScale = 1): void {
+    const dt = Math.max(0, dtSeconds) * timeScale;
+    this._elapsed += dt;
     this._set("uTime", this._elapsed);
+    this._sim.step(dt);
+    if (this._frame++ % this._tier.uploadEvery === 0) {
+      rasterizeRainDropMap(this._sim, this._buffer);
+      this._source.update();
+    }
+    this._set("uFog", this._sim.fog);
+  }
+
+  /** One-shot wiper sweep. */
+  triggerWipe(): void {
+    this._sim.triggerWipe();
+  }
+
+  /** Blade angle in radians for a game-drawn wiper. */
+  get wiperAngle(): number {
+    return this._sim.wiperAngle;
+  }
+
+  get dropCount(): number {
+    return this._sim.dropCount;
   }
 
   get elapsed(): number {
     return this._elapsed;
   }
+
+  get sim(): RainGlassSim {
+    return this._sim;
+  }
+
+  get tier(): RainTier {
+    return this._tier;
+  }
+
+  get dropMap(): Uint8Array {
+    return this._buffer;
+  }
+
+  override destroy(destroyProgram = false): void {
+    if (this._rainDestroyed) return;
+    this._rainDestroyed = true;
+    super.destroy(destroyProgram);
+    this._source.destroy();
+  }
 }
 
 export function createRainGlassFilter(
   options?: RainGlassFilterOptions,
+  gpuTier?: GPUTier,
 ): RainGlassFilter {
-  return new RainGlassFilter(options);
+  return new RainGlassFilter(options, gpuTier);
 }
