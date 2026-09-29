@@ -17,7 +17,12 @@ import type {
   Program,
   Stmt,
 } from "./ast.js";
-import { builtinConstant, isKnownBuiltinName, lookupBuiltin } from "./builtins.js";
+import {
+  TRANSPILER_RESERVED_IDENTIFIERS,
+  builtinConstant,
+  isKnownBuiltinName,
+  lookupBuiltin,
+} from "./builtins.js";
 import { isTrivia, tokenize } from "./lexer.js";
 import { parse } from "./parser.js";
 import { scanEnums, scanMacros } from "./scan.js";
@@ -104,6 +109,14 @@ export interface FileFacts {
   globalWrites: ReadonlySet<string>;
   /** Names assigned exactly `other.id` (variable, field or `var` initialiser) inside any `with` body, at any nesting depth. */
   entityFieldsFromWith: ReadonlySet<string>;
+  /**
+   * Owner-agnostic bare `name = expr` targets that are not lexical locals/parameters/functions
+   * and not reserved words: the historical "undeclared assignment" set (built-in and asset names
+   * included, `with`-body and constructor-body assignments included).
+   */
+  implicitScalars: ReadonlySet<string>;
+  /** Owner-agnostic `name[..] = expr` targets (any accessor except `[|` / `[?`) under the same rules. */
+  implicitArrays: ReadonlySet<string>;
 }
 
 export interface FileAnalysis {
@@ -300,6 +313,8 @@ class FileWalker {
   }> = [];
   readonly globalWrites = new Set<string>();
   readonly entityFieldsFromWith = new Set<string>();
+  readonly implicitScalars = new Set<string>();
+  readonly implicitArrays = new Set<string>();
   readonly references: Array<{ node: Identifier; resolved: Resolved }> = [];
   private owner: Owner = { kind: "self" };
   private withDepth = 0;
@@ -535,6 +550,9 @@ class FileWalker {
       const r = this.scope.resolve(l.name);
       this.references.push({ node: l, resolved: r });
       const plain = e.op === "=" || e.op === "??=";
+      if (e.op === "=" && r.via !== "lexical" && !TRANSPILER_RESERVED_IDENTIFIERS.has(l.name)) {
+        this.implicitScalars.add(l.name);
+      }
       if (plain && (r.via === "none" || r.via === "instance" || r.via === "with")) {
         this.recordWrite(l.name, isArr, holds, false);
         if (holds && r.symbol) r.symbol.holdsEntity = true;
@@ -544,13 +562,17 @@ class FileWalker {
       return;
     }
     if (l.type === "Index") {
-      let base = l.object;
-      while (base.type === "Paren") base = base.expr;
+      let base: Expr = l.object;
+      while (base.type === "Paren" || base.type === "Index") base = base.type === "Paren" ? base.expr : base.object;
       if (base.type === "Identifier") {
         const r = this.scope.resolve(base.name);
         this.references.push({ node: base, resolved: r });
-        // only plain `[` / `[@` indexing declares an array; `[| [? [# [$` write into an existing ds/struct
-        const arrayAccess = l.accessor === "[" || l.accessor === "@";
+        // `[| [?` write into an existing ds_list/ds_map; every other accessor (`[`, `[@`, and, as the
+        // historical regex did, `[# [$`) marks the variable array-like
+        const arrayAccess = l.accessor !== "|" && l.accessor !== "?";
+        if (e.op === "=" && arrayAccess && r.via !== "lexical" && !TRANSPILER_RESERVED_IDENTIFIERS.has(base.name)) {
+          this.implicitArrays.add(base.name);
+        }
         if (arrayAccess && (r.via === "none" || r.via === "instance" || r.via === "with")) {
           this.recordWrite(base.name, true, false, false);
         } else if (r.symbol && r.via === "lexical") {
@@ -932,6 +954,8 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
         externalWrites: second.externalWrites,
         globalWrites: second.globalWrites,
         entityFieldsFromWith: second.entityFieldsFromWith,
+        implicitScalars: second.implicitScalars,
+        implicitArrays: second.implicitArrays,
       },
       resolve: (n) => byNode.get(n),
       references: second.references,
@@ -1013,4 +1037,40 @@ export function scanEntityRefFieldsInText(text: string): Set<string> {
     });
   }
   return fields;
+}
+
+/**
+ * Bare-assignment ("implicit instance variable") scan of one file's raw GML,
+ * with no project knowledge. Replaces the regex-based `scanGmlImplicitVars` /
+ * `scanGmlImplicitArrayVars`: same owner-agnostic contract, but statement
+ * boundaries come from the parser (so `then`, `for` headers, comments and
+ * multi-line `var` lists are handled exactly).
+ */
+export function scanImplicitVarsInText(text: string): { scalars: Set<string>; arrays: Set<string> } {
+  const analysis = buildProjectSymbols({}).analyze({ path: "", text });
+  const scalars = new Set(analysis.facts.implicitScalars);
+  const arrays = new Set(analysis.facts.implicitArrays);
+  if (analysis.recovered > 0) {
+    // Real projects contain GML that does not parse (see gms2-source-bugs.ts). Inside a
+    // statement the parser had to skip, keep the old tolerance: an identifier followed by a
+    // single `=` at a statement boundary still counts as an assignment target.
+    const locals = analysis.facts.locals;
+    walkStatements(analysis.ast.body, (s) => {
+      if (s.type !== "ErrorStmt") return;
+      const toks = tokenize(text.slice(s.start, s.end)).filter((t) => !isTrivia(t) && t.kind !== "eof");
+      for (let i = 0; i + 1 < toks.length; i++) {
+        const t = toks[i]!;
+        const n = toks[i + 1]!;
+        if (t.kind !== "ident" || n.kind !== "punct" || n.text !== "=") continue;
+        const prev = toks[i - 1];
+        const boundary =
+          !prev ||
+          !!t.nlBefore ||
+          (prev.kind === "punct" && (prev.text === ";" || prev.text === "{" || prev.text === "}" || prev.text === ")" || prev.text === ":")) ||
+          (prev.kind === "keyword" && prev.text === "else");
+        if (boundary && !locals.has(t.text) && !TRANSPILER_RESERVED_IDENTIFIERS.has(t.text)) scalars.add(t.text);
+      }
+    });
+  }
+  return { scalars, arrays };
 }

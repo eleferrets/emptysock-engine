@@ -1,5 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
+import { TRANSPILER_RESERVED_IDENTIFIERS } from "./gml/builtins.js";
+import { scanImplicitVarsInText } from "./gml/project-symbols.js";
 import { scanMacros } from "./gml/scan.js";
 
 // ---------------------------------------------------------------------------
@@ -559,48 +561,9 @@ function buildFunctionDepthProbe(source: string): (offset: number) => number {
     depthAtOffset[Math.max(0, Math.min(offset, source.length))] ?? 0;
 }
 
-const GML_RESERVED_IDENTIFIERS = new Set([
-  "if",
-  "else",
-  "for",
-  "while",
-  "do",
-  "function",
-  "return",
-  "var",
-  "let",
-  "const",
-  "new",
-  "typeof",
-  "instanceof",
-  "in",
-  "of",
-  "break",
-  "continue",
-  "switch",
-  "case",
-  "default",
-  "try",
-  "catch",
-  "finally",
-  "throw",
-  "delete",
-  "void",
-  "this",
-  "class",
-  "extends",
-  "super",
-  "import",
-  "export",
-  "yield",
-  "async",
-  "await",
-  "null",
-  "undefined",
-  "true",
-  "false",
-  "with",
-]);
+// Shared with the gml/ symbol table (gml/builtins-data.ts) so the in-pipeline
+// regex passes and the AST-backed scans can never disagree on what is reserved.
+const GML_RESERVED_IDENTIFIERS: ReadonlySet<string> = TRANSPILER_RESERVED_IDENTIFIERS;
 
 /**
  * Every name declared by a `var`/`let`/`const` statement in `text`, including
@@ -1064,8 +1027,15 @@ export function extractGmlWithBodies(gml: string): string[] {
   return bodies;
 }
 
+/**
+ * Every bare `name = expr` target in raw GML `gml` that is not a declared
+ * local: the per-file "implicit instance variable" scan. Backed by the GML
+ * parser's symbol table (`gml/project-symbols.ts`); the mid-pipeline
+ * `identifyGmlImplicitVars` regex pass is kept only for text that is already
+ * partly rewritten JS (`let`, `_entity.get(...)`), which is no longer GML.
+ */
 export function scanGmlImplicitVars(gml: string): Set<string> {
-  return identifyGmlImplicitVars(gml);
+  return scanImplicitVarsInText(gml).scalars;
 }
 
 /**
@@ -1087,21 +1057,15 @@ export function scanGmlImplicitVars(gml: string): Set<string> {
  * `knownImplicitVars`.
  */
 export function scanGmlImplicitArrayVars(gml: string): Set<string> {
-  const declaredLocally = new Set<string>();
-  for (const n of gmlDeclaredLocalNames(gml)) declaredLocally.add(n);
-  const arrayVars = new Set<string>();
-  const arrayAssignRe = /^\s*([A-Za-z_]\w*)\[(?!\s*[|?])[^\]]*\]\s*=(?!=)/gm;
-  for (const m of gml.matchAll(arrayAssignRe)) {
-    const name = m[1] as string;
-    if (
-      name !== "" &&
-      !GML_RESERVED_IDENTIFIERS.has(name) &&
-      !declaredLocally.has(name)
-    ) {
-      arrayVars.add(name);
-    }
-  }
-  return arrayVars;
+  return scanImplicitVarsInText(gml).arrays;
+}
+
+/** Both implicit-variable scans from a single parse of `gml`. */
+export function scanGmlImplicitAllVars(gml: string): {
+  scalars: Set<string>;
+  arrays: Set<string>;
+} {
+  return scanImplicitVarsInText(gml);
 }
 
 /**

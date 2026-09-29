@@ -408,7 +408,7 @@ class Parser {
           let arg: Expr | undefined;
           const n = this.peek();
           if (!(n.kind === "eof" || (n.kind === "punct" && (n.text === ";" || n.text === "}")) || (n.kind === "keyword" && (n.text === "end" || n.text === "else" || n.text === "case" || n.text === "default")) || n.nlBefore)) {
-            arg = this.parseAssignExpr();
+            arg = this.withEq(true, () => this.parseTernary());
           }
           this.consumeSemi();
           return { type: "Return", start, end: this.prevEnd, ...(arg ? { arg } : {}) };
@@ -423,7 +423,7 @@ class Parser {
         }
         case "throw": {
           this.next();
-          const arg = this.parseAssignExpr();
+          const arg = this.withEq(true, () => this.parseTernary());
           this.consumeSemi();
           return { type: "Throw", start, end: this.prevEnd, arg };
         }

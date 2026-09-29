@@ -6,8 +6,7 @@ import {
   indent,
   readAndTranspileGML,
   transpileGML,
-  scanGmlImplicitVars,
-  scanGmlImplicitArrayVars,
+  scanGmlImplicitAllVars,
 } from "./gms2-transpile.js";
 import { parseGmsJson } from "./gms2-parse.js";
 import {
@@ -423,8 +422,9 @@ export async function buildObjectBehavior(
   for (const gmlFile of gmlFiles) {
     try {
       const source = await fs.readFile(path.join(objectDir, gmlFile), "utf-8");
-      for (const v of scanGmlImplicitVars(source)) objectImplicitVars.add(v);
-      for (const v of scanGmlImplicitArrayVars(source)) objectArrayVars.add(v);
+      const scan = scanGmlImplicitAllVars(source);
+      for (const v of scan.scalars) objectImplicitVars.add(v);
+      for (const v of scan.arrays) objectArrayVars.add(v);
     } catch {
       // unreadable — skip; the per-file readAndTranspileGML call below
       // will report this the same honest way it always has.
@@ -471,10 +471,9 @@ export async function buildObjectBehavior(
             path.join(projectRoot, "objects", ancestor, f),
             "utf-8",
           );
-          for (const v of scanGmlImplicitVars(source))
-            objectImplicitVars.add(v);
-          for (const v of scanGmlImplicitArrayVars(source))
-            objectArrayVars.add(v);
+          const scan = scanGmlImplicitAllVars(source);
+          for (const v of scan.scalars) objectImplicitVars.add(v);
+          for (const v of scan.arrays) objectArrayVars.add(v);
         } catch {
           /* unreadable: skipped, same as the object's own files above */
         }
