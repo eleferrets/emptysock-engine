@@ -33,6 +33,29 @@ export declare class UISystem {
   constructor(_tree: WidgetTree, options?: UISystemOptions);
   /** Resolves a widget's font: `fontId` (via the injected `FontRegistry`) when set and resolvable, else the widget's own raw `font`/`fontSize` fields. */
   private _resolveFont;
+  /**
+   * The drawable behind an already-loaded texture at `src`, kicking off a
+   * (deduplicated) load when it is not loaded yet. `undefined` while loading,
+   * after a failed load, or when the texture has no drawable resource.
+   */
+  private _resourceFor;
+  /**
+   * Draws `text` for a widget. Precedence: `fontId` with a registered
+   * `BitmapFontDef` and a loaded atlas > `fontId` CSS descriptor > raw
+   * `font`/`fontSize`. The bitmap path needs the renderer's optional
+   * `drawImageRegion`, and only runs for the default white text colour:
+   * region blits cannot tint, and GMS2 atlases are white-on-transparent, so
+   * a coloured widget keeps the (correctly coloured) CSS path instead of
+   * drawing the wrong colour. Whenever the bitmap path is unavailable
+   * (no def, no `drawImageRegion`, atlas still loading/failed, tinted) it
+   * falls back to `fillText` exactly as before. On the bitmap path the def's
+   * own metrics win over any CSS descriptor registered for the same id.
+   *
+   * `align`: 0 left / 1 center / 2 right relative to `anchorX`; text is
+   * vertically centred on `centerY`. Multi-line text aligns as one block.
+   */
+  private _drawText;
+  private _drawBitmapText;
   private _isVisible;
   private _contains;
   /**

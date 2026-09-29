@@ -7,6 +7,10 @@ import { UISystem } from "../ui/UISystem.js";
 import { LayoutStyle, type LayoutStyleShape } from "../components/Layout.js";
 import type { Texture } from "pixi.js";
 import {
+  layoutBitmapText,
+  type BitmapFontDef,
+} from "../systems/BitmapFontDef.js";
+import {
   ButtonState,
   Checkbox,
   ImageWidget,
@@ -397,5 +401,177 @@ describe("UISystem — ImageWidget loading/caching", () => {
     expect(ctx2.drawImage).not.toHaveBeenCalled();
     expect(ctx2.fillRect).toHaveBeenCalled();
     consoleSpy.mockRestore();
+  });
+});
+
+describe("UISystem — bitmap font text (drawImageRegion)", () => {
+  const def: BitmapFontDef = {
+    name: "fnt_bmp",
+    atlasPath: "fonts/fnt_bmp.png",
+    size: 8,
+    lineHeight: 10,
+    glyphs: {
+      65: { x: 0, y: 0, w: 6, h: 10, shift: 7, offset: 1 },
+      66: { x: 6, y: 0, w: 5, h: 10, shift: 6, offset: 0 },
+    },
+    kerning: [],
+  };
+  const atlas = { atlas: true };
+  const fakeTexture = { source: { resource: atlas } } as unknown as Texture;
+
+  function makeRegionCtx(): IUIRenderer & {
+    drawImageRegion: ReturnType<typeof vi.fn>;
+  } {
+    return Object.assign(makeCtx(), { drawImageRegion: vi.fn() });
+  }
+
+  async function setup(opts: {
+    align?: number;
+    color?: string;
+    loaded?: boolean;
+    kind?: "label" | "button" | "checkbox";
+  }) {
+    const { FontRegistry } = await import("../systems/FontRegistry.js");
+    const fonts = new FontRegistry();
+    fonts.registerBitmap("fnt_bmp", def);
+    fonts.register("fnt_bmp", {
+      family: "Arial",
+      size: 9,
+      bold: false,
+      italic: false,
+    });
+    const loader = vi.fn(async () => fakeTexture);
+    const bmpUi = new UISystem(tree, { fonts, imageLoader: loader });
+    const w = tree.createWidget(scene);
+    const kind = opts.kind ?? "label";
+    if (kind === "label") {
+      w.add(Label, {
+        text: "AB",
+        fontId: "fnt_bmp",
+        align: opts.align ?? 0,
+        ...(opts.color !== undefined ? { color: opts.color } : {}),
+      });
+    } else if (kind === "button") {
+      w.add(ButtonState, { label: "AB", fontId: "fnt_bmp" });
+    } else {
+      w.add(Checkbox, { label: "AB", fontId: "fnt_bmp" });
+    }
+    styleOf(w).width = 100;
+    styleOf(w).height = 20;
+    tree.layout(scene, 100, 20);
+    if (opts.loaded !== false) {
+      bmpUi.render(scene, makeRegionCtx()); // kicks off the atlas load
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    return { bmpUi, loader };
+  }
+
+  it("blits one region per glyph at layoutBitmapText positions (left aligned)", async () => {
+    const { bmpUi } = await setup({ align: 0 });
+    const ctx = makeRegionCtx();
+    bmpUi.render(scene, ctx);
+    const layout = layoutBitmapText(def, "AB");
+    expect(ctx.drawImageRegion).toHaveBeenCalledTimes(2);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+    const oy = 10 - layout.height / 2;
+    layout.placements.forEach((p, i) => {
+      expect(ctx.drawImageRegion.mock.calls[i]).toEqual([
+        atlas,
+        p.glyph.x,
+        p.glyph.y,
+        p.glyph.w,
+        p.glyph.h,
+        p.x,
+        oy + p.y,
+        p.glyph.w,
+        p.glyph.h,
+      ]);
+    });
+  });
+
+  it("center and right alignment shift the origin by the layout width", async () => {
+    const width = layoutBitmapText(def, "AB").width;
+    const centre = await setup({ align: 1 });
+    const c1 = makeRegionCtx();
+    centre.bmpUi.render(scene, c1);
+    // first glyph offset 1, origin 50 - width/2
+    expect(c1.drawImageRegion.mock.calls[0]?.[5]).toBe(50 - width / 2 + 1);
+  });
+
+  it("right alignment ends at the box's right edge", async () => {
+    const width = layoutBitmapText(def, "AB").width;
+    const { bmpUi } = await setup({ align: 2 });
+    const ctx = makeRegionCtx();
+    bmpUi.render(scene, ctx);
+    expect(ctx.drawImageRegion.mock.calls[0]?.[5]).toBe(100 - width + 1);
+  });
+
+  it("falls back to fillText with the CSS font when the renderer has no drawImageRegion", async () => {
+    const { bmpUi } = await setup({});
+    const ctx = makeCtx();
+    bmpUi.render(scene, ctx);
+    expect(ctx.fillText).toHaveBeenCalledWith("AB", 0, 10);
+    expect(ctx.font).toBe("9px Arial");
+  });
+
+  it("falls back while the atlas is loading, then uses the bitmap once loaded", async () => {
+    const { bmpUi, loader } = await setup({ loaded: false });
+    const before = makeRegionCtx();
+    bmpUi.render(scene, before);
+    expect(before.drawImageRegion).not.toHaveBeenCalled();
+    expect(before.fillText).toHaveBeenCalled();
+    expect(loader).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    const after = makeRegionCtx();
+    bmpUi.render(scene, after);
+    expect(after.drawImageRegion).toHaveBeenCalledTimes(2);
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the CSS path for a tinted (non-white) label since region blits cannot tint", async () => {
+    const { bmpUi } = await setup({ color: "#ff0000" });
+    const ctx = makeRegionCtx();
+    bmpUi.render(scene, ctx);
+    expect(ctx.drawImageRegion).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalled();
+    expect(ctx.fillStyle).toBe("#ff0000");
+  });
+
+  it("buttons and checkbox labels share the same resolution", async () => {
+    const b = await setup({ kind: "button" });
+    const cb = makeRegionCtx();
+    b.bmpUi.render(scene, cb);
+    expect(cb.drawImageRegion).toHaveBeenCalledTimes(2);
+  });
+
+  it("checkbox label uses the bitmap path too", async () => {
+    scene = new Scene();
+    const c = await setup({ kind: "checkbox" });
+    const cc = makeRegionCtx();
+    c.bmpUi.render(scene, cc);
+    expect(cc.drawImageRegion).toHaveBeenCalledTimes(2);
+  });
+
+  it("a fontId without a bitmap def is unchanged", async () => {
+    const { FontRegistry } = await import("../systems/FontRegistry.js");
+    const fonts = new FontRegistry();
+    fonts.register("fnt_css", {
+      family: "Impact",
+      size: 20,
+      bold: false,
+      italic: false,
+    });
+    const localUi = new UISystem(tree, { fonts });
+    const l = tree.createWidget(scene);
+    l.add(Label, { text: "x", fontId: "fnt_css" });
+    styleOf(l).width = 50;
+    styleOf(l).height = 20;
+    tree.layout(scene, 50, 20);
+    const ctx = makeRegionCtx();
+    localUi.render(scene, ctx);
+    expect(ctx.drawImageRegion).not.toHaveBeenCalled();
+    expect(ctx.font).toBe("20px Impact");
   });
 });

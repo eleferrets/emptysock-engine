@@ -17,6 +17,13 @@ import {
 import type { WidgetTree } from "./WidgetTree.js";
 import { widgetRoundRect } from "./canvasHelpers.js";
 import type { FontRegistry } from "../systems/FontRegistry.js";
+import { layoutBitmapText } from "../systems/BitmapFontDef.js";
+
+/** True for the untinted default text colours (`#fff`/`#ffffff`/`white`, any case). */
+function isUntintedWhite(color: string): boolean {
+  const c = color.trim().toLowerCase();
+  return c === "#fff" || c === "#ffffff" || c === "white";
+}
 
 /** A press that moves further than this before release is a drag, not a click. */
 const CLICK_DRAG_THRESHOLD = 6;
@@ -72,6 +79,113 @@ export class UISystem {
       if (css !== undefined) return css;
     }
     return `${fontSize}px ${font}`;
+  }
+
+  /**
+   * The drawable behind an already-loaded texture at `src`, kicking off a
+   * (deduplicated) load when it is not loaded yet. `undefined` while loading,
+   * after a failed load, or when the texture has no drawable resource.
+   */
+  private _resourceFor(src: string): object | undefined {
+    const texture = this._textures.get(src);
+    if (texture === undefined) {
+      if (!this._imageState.has(src)) {
+        this._imageState.set(src, "loading");
+        this._textures
+          .load(src)
+          .then(() => {
+            this._imageState.delete(src);
+          })
+          .catch((err: unknown) => {
+            this._imageState.set(src, "error");
+            console.error(`[UISystem] failed to load image "${src}":`, err);
+          });
+      }
+      return undefined;
+    }
+    // `texture.source.resource` is the underlying drawable (an
+    // `ImageBitmap`/`HTMLImageElement`/canvas, depending on host and asset
+    // type) pixi's loader resolved — exactly the `object` shape
+    // `IUIRenderer.drawImage()` accepts, without this file importing any
+    // DOM image type itself.
+    const resource: unknown = texture.source.resource;
+    if (resource === null || resource === undefined) return undefined;
+    return resource as object;
+  }
+
+  /**
+   * Draws `text` for a widget. Precedence: `fontId` with a registered
+   * `BitmapFontDef` and a loaded atlas > `fontId` CSS descriptor > raw
+   * `font`/`fontSize`. The bitmap path needs the renderer's optional
+   * `drawImageRegion`, and only runs for the default white text colour:
+   * region blits cannot tint, and GMS2 atlases are white-on-transparent, so
+   * a coloured widget keeps the (correctly coloured) CSS path instead of
+   * drawing the wrong colour. Whenever the bitmap path is unavailable
+   * (no def, no `drawImageRegion`, atlas still loading/failed, tinted) it
+   * falls back to `fillText` exactly as before. On the bitmap path the def's
+   * own metrics win over any CSS descriptor registered for the same id.
+   *
+   * `align`: 0 left / 1 center / 2 right relative to `anchorX`; text is
+   * vertically centred on `centerY`. Multi-line text aligns as one block.
+   */
+  private _drawText(
+    ctx: IUIRenderer,
+    text: string,
+    fontId: string,
+    font: string,
+    fontSize: number,
+    color: string,
+    align: number,
+    anchorX: number,
+    centerY: number,
+  ): void {
+    ctx.fillStyle = color;
+    if (this._drawBitmapText(ctx, text, fontId, color, align, anchorX, centerY))
+      return;
+    ctx.font = this._resolveFont(fontId, font, fontSize);
+    ctx.textBaseline = "middle";
+    ctx.textAlign = align === 1 ? "center" : align === 2 ? "right" : "left";
+    ctx.fillText(text, anchorX, centerY);
+  }
+
+  private _drawBitmapText(
+    ctx: IUIRenderer,
+    text: string,
+    fontId: string,
+    color: string,
+    align: number,
+    anchorX: number,
+    centerY: number,
+  ): boolean {
+    if (ctx.drawImageRegion === undefined) return false;
+    if (fontId.length === 0 || this._fonts === undefined) return false;
+    const def = this._fonts.getBitmap(fontId);
+    if (def === undefined || !isUntintedWhite(color)) return false;
+    const atlas = this._resourceFor(def.atlasPath);
+    if (atlas === undefined) return false;
+    const layout = layoutBitmapText(def, text);
+    const ox =
+      align === 1
+        ? anchorX - layout.width / 2
+        : align === 2
+          ? anchorX - layout.width
+          : anchorX;
+    const oy = centerY - layout.height / 2;
+    for (const p of layout.placements) {
+      const g = p.glyph;
+      ctx.drawImageRegion(
+        atlas,
+        g.x,
+        g.y,
+        g.w,
+        g.h,
+        ox + p.x,
+        oy + p.y,
+        g.w,
+        g.h,
+      );
+    }
+    return true;
   }
 
   private _isVisible(entity: Entity): boolean {
@@ -272,11 +386,17 @@ export class UISystem {
       button.borderRadius,
     );
     ctx.fill();
-    ctx.fillStyle = button.color;
-    ctx.font = this._resolveFont(button.fontId, button.font, button.fontSize);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(button.label, box.x + box.width / 2, box.y + box.height / 2);
+    this._drawText(
+      ctx,
+      button.label,
+      button.fontId,
+      button.font,
+      button.fontSize,
+      button.color,
+      1,
+      box.x + box.width / 2,
+      box.y + box.height / 2,
+    );
   }
 
   private _renderCheckbox(
@@ -301,15 +421,17 @@ export class UISystem {
       ctx.stroke();
     }
     if (checkbox.label.length > 0) {
-      ctx.fillStyle = checkbox.color;
-      ctx.font = this._resolveFont(
+      this._drawText(
+        ctx,
+        checkbox.label,
         checkbox.fontId,
         checkbox.font,
         checkbox.fontSize,
+        checkbox.color,
+        0,
+        box.x + boxSize + 8,
+        box.y + box.height / 2,
       );
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(checkbox.label, box.x + boxSize + 8, box.y + box.height / 2);
     }
   }
 
@@ -357,18 +479,23 @@ export class UISystem {
     box: { x: number; y: number; width: number; height: number },
     label: ReturnType<typeof Label.createDefaults>,
   ): void {
-    ctx.fillStyle = label.color;
-    ctx.font = this._resolveFont(label.fontId, label.font, label.fontSize);
-    ctx.textBaseline = "middle";
     const tx =
       label.align === 1
         ? box.x + box.width / 2
         : label.align === 2
           ? box.x + box.width
           : box.x;
-    ctx.textAlign =
-      label.align === 1 ? "center" : label.align === 2 ? "right" : "left";
-    ctx.fillText(label.text, tx, box.y + box.height / 2);
+    this._drawText(
+      ctx,
+      label.text,
+      label.fontId,
+      label.font,
+      label.fontSize,
+      label.color,
+      label.align,
+      tx,
+      box.y + box.height / 2,
+    );
   }
 
   /**
@@ -390,34 +517,12 @@ export class UISystem {
       this._renderImagePlaceholder(ctx, box);
       return;
     }
-    const texture = this._textures.get(src);
-    if (texture === undefined) {
-      if (!this._imageState.has(src)) {
-        this._imageState.set(src, "loading");
-        this._textures
-          .load(src)
-          .then(() => {
-            this._imageState.delete(src);
-          })
-          .catch((err: unknown) => {
-            this._imageState.set(src, "error");
-            console.error(`[UISystem] failed to load image "${src}":`, err);
-          });
-      }
+    const resource = this._resourceFor(src);
+    if (resource === undefined) {
       this._renderImagePlaceholder(ctx, box);
       return;
     }
-    // `texture.source.resource` is the underlying drawable (an
-    // `ImageBitmap`/`HTMLImageElement`/canvas, depending on host and asset
-    // type) pixi's loader resolved — exactly the `object` shape
-    // `IUIRenderer.drawImage()` accepts, without this file importing any
-    // DOM image type itself.
-    const resource: unknown = texture.source.resource;
-    if (resource === null || resource === undefined) {
-      this._renderImagePlaceholder(ctx, box);
-      return;
-    }
-    ctx.drawImage(resource as object, box.x, box.y, box.width, box.height);
+    ctx.drawImage(resource, box.x, box.y, box.width, box.height);
   }
 
   /** Fallback for an `ImageWidget` with no source set yet, a source still loading, or a source that failed to load — a grey placeholder box. */
