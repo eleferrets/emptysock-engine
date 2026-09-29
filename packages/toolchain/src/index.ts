@@ -83,6 +83,12 @@ export type {
   CompressAudioResult,
 } from "./audioCompress.js";
 
+export { stageNativePlatform, includedFilesDestFor } from "./nativeStage.js";
+export type {
+  StagedNativePlatform,
+  StageNativeOptions,
+  StageNativeResult,
+} from "./nativeStage.js";
 export {
   loadIncludedFilesManifest,
   resolveIncludedFilesForPlatform,

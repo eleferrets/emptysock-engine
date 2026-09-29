@@ -40,7 +40,7 @@ unless you pass `--included-files` pointing somewhere else) and can name a
 single file or a whole directory — a directory is copied recursively.
 
 `platforms` accepts any of `"all"`, `"windows"`, `"mac"`, `"linux"`, `"web"`,
-`"android"`, `"ios"`. Omitting it (or including `"all"`) means every
+`"android"`, `"ios"`, `"raspi"`. Omitting it (or including `"all"`) means every
 platform. A file tagged for platforms your current export target isn't one
 of is simply left out of that build — not an error.
 
@@ -58,6 +58,22 @@ same directory Tauri's `frontendDist` config bundles alongside your compiled
 via a relative fetch (browser/Tauri WebView) or `@tauri-apps/plugin-fs` on
 desktop, the same "engine defines no opinion, your game code reads the
 files" split `SaveSystem`'s `StorageAdapter` uses.
+
+### Android, iOS and Raspberry Pi
+
+`--platform android|ios|raspi` bundles your entry to `<out>/game.js`, stages
+that platform's files, and writes `<platform>-export.json` listing what was
+staged. It does not run Gradle or Xcode, so no apk/aab/ipa is produced by this
+command. Included Files land where each platform's packaging expects extra
+resources:
+
+| Platform | Directory                   |
+| -------- | --------------------------- |
+| android  | `<out>/assets/included/`    |
+| ios      | `<out>/Resources/included/` |
+| raspi    | `<out>/included/`           |
+
+`--format zip` on `raspi` zips the whole output directory.
 
 No manifest present is a silent no-op — most projects have nothing to
 include, and this feature never becomes mandatory just by existing.

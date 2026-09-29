@@ -888,7 +888,7 @@ Rules:
 
 ### Included Files also stage for the web export
 
-`stageIncludedFilesForPlatform(projectDir, platform, destDir, manifestPath?)` (`includedFiles.ts`) is the one-call load/filter/copy used by the CLI's `--platform web` branch (into `<out>/dist/included`, before any zip). Desktop still goes through `buildDesktopApp`. android/ios/raspi have no CLI path yet.
+`stageIncludedFilesForPlatform(projectDir, platform, destDir, manifestPath?)` (`includedFiles.ts`) is the one-call load/filter/copy used by the CLI's `--platform web` branch (into `<out>/dist/included`, before any zip). Desktop still goes through `buildDesktopApp`. android/ios/raspi go through `nativeStage.ts`'s `stageNativePlatform()` (CLI `--platform android|ios|raspi`): bundle the entry with the same `bundleGameEntry()` to `<out>/game.js`, stage that platform's files (`IncludedFilePlatform` gained `"raspi"`) into `assets/included` (android), `Resources/included` (ios) or `included` (raspi), write `<platform>-export.json`. It does not run Gradle/Xcode (those stay in `packages/export-utils`, which `toolchain` does not depend on), so no apk/ipa is produced by the CLI; `--format zip` zips the raspi output. Tests: `nativeStage.test.ts`.
 
 ### Typed game-wide globals
 

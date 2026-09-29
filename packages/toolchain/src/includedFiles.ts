@@ -35,7 +35,8 @@ export type IncludedFilePlatform =
   | "linux"
   | "web"
   | "android"
-  | "ios";
+  | "ios"
+  | "raspi";
 
 export interface IncludedFileEntry {
   /** File or directory path, relative to the manifest's own directory (a directory copies recursively). */

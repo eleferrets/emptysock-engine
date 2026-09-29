@@ -12,6 +12,7 @@ import {
 import { importGMS2Project } from "./gms2-import.js";
 import { buildDesktopApp } from "./desktopBuild.js";
 import { stageIncludedFilesForPlatform } from "./includedFiles.js";
+import { stageNativePlatform } from "./nativeStage.js";
 import { runCodegenPrefabs } from "./prefabCodegenCli.js";
 
 const exec = promisify(execFile);
@@ -35,7 +36,7 @@ program
   .description("Export a game build")
   .requiredOption(
     "--platform <platform>",
-    "Target platform (web|linux|windows|mac)",
+    "Target platform (web|linux|windows|mac|android|ios|raspi)",
   )
   .option(
     "--format <format>",
@@ -59,7 +60,7 @@ program
   .action(
     async (opts: {
       platform: string;
-      format: string;
+      format: string | undefined;
       entry: string;
       out: string;
       minify: boolean;
@@ -108,7 +109,7 @@ program
         // minimal Tauri v2 shell around it, and runs `cargo tauri build`.
         // See desktopBuild.ts for exactly what this can and can't do
         // (notably: no cross-compiling a different OS's installer).
-        const wantsZipWrapper = opts.format.toLowerCase() === "zip";
+        const wantsZipWrapper = opts.format?.toLowerCase() === "zip";
         const format = mapLegacyFormat(opts.platform, opts.format);
         const result = await buildDesktopApp({
           platform: opts.platform,
@@ -149,6 +150,44 @@ program
           );
         }
 
+        console.log(`\nDone. Output: ${opts.out}`);
+        return;
+      }
+
+      if (
+        opts.platform === "android" ||
+        opts.platform === "ios" ||
+        opts.platform === "raspi"
+      ) {
+        // No native packager here (Gradle/Xcode live in export-utils): bundle
+        // the entry and stage this platform's Included Files so the platform's
+        // own packaging step picks them up. See nativeStage.ts.
+        const result = await stageNativePlatform({
+          platform: opts.platform,
+          entry: opts.entry,
+          out: opts.out,
+          minify: opts.minify,
+          dropConsole: opts.dropConsole,
+          sourcemap: opts.sourcemap,
+          aggressive: opts.aggressive,
+          includedFilesManifest: opts.includedFiles,
+        });
+        if (!result.success) {
+          console.error(result.error);
+          process.exitCode = 1;
+          return;
+        }
+        for (const w of result.warnings) console.warn(`[included-files] ${w}`);
+        console.log(
+          `Staged ${result.includedFiles.length} included file(s) for ${opts.platform}.`,
+        );
+        if (opts.platform === "raspi" && opts.format?.toLowerCase() === "zip") {
+          await zipDirectory(opts.out, "game-raspi-arm.zip");
+        } else if (opts.platform !== "raspi") {
+          console.log(
+            `Note: ${opts.platform} packaging (${opts.platform === "android" ? "Gradle apk/aab" : "Xcode ipa"}) is not run by this command; point it at ${opts.out}.`,
+          );
+        }
         console.log(`\nDone. Output: ${opts.out}`);
         return;
       }
