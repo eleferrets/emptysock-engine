@@ -5,7 +5,8 @@ Monorepo: `packages/engine` (ECS runtime, one export surface `src/index.ts`), `p
 Read before working:
 
 - `HANDOFF.md`: session handoff and orchestration method.
-- `gpu_followup_real_browser.md`: open items, unverified-on-GPU items, and the full historical decision record.
+- `gpu_followup_real_browser.md`: open items and unverified-on-GPU items.
+- `docs/decisions/README.md`: index of the historical decision record.
 - `docs/README.md`: documentation map.
 
 Hard rules:

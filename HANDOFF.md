@@ -16,7 +16,7 @@ Port a large real GameMaker game to this engine so it "just works": full asset c
 
 ## Next session tasks
 
-Full list in `gpu_followup_real_browser.md` under "Research pass to do next". Order: housekeeping (purge project names, split the decision record into topic files), read-only research agents, sweeps, then the user's `AskUserQuestion` round, then the user's architecture-skills review, then the docs pass (docs, skills and mcp repos are being redone by the user; do not touch them).
+Full list in `gpu_followup_real_browser.md` under "Research pass to do next". Housekeeping is done (project names purged, decision record split into `docs/decisions/`). Order: read-only research agents, sweeps, then the user's `AskUserQuestion` round, then the user's architecture-skills review, then the docs pass (docs, skills and mcp repos are being redone by the user; do not touch them).
 
 ## Orchestration method that worked
 
