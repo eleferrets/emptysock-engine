@@ -2,6 +2,7 @@ import type { ComponentDef } from "./Component.js";
 import { Entity } from "./Entity.js";
 import { type EntityId, type EntityRef } from "./EntityRef.js";
 import { type PrefabDef } from "./Prefab.js";
+import { type RelationDef } from "./Relations.js";
 import type { SerializableRecord } from "./Serializable.js";
 /**
  * A `scene.each(...)` callback receives one live component object per
@@ -51,6 +52,7 @@ export declare class Scene {
   private readonly _pools;
   /** eid -> the prefab it was spawned from, only tracked for pooled spawns. */
   private readonly _pooledOrigin;
+  private readonly _relations;
   constructor();
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
   spawn(name?: string): Entity;
@@ -102,6 +104,23 @@ export declare class Scene {
    * entity's next occupant.
    */
   resolve(ref: EntityRef | null | undefined): Entity | undefined;
+  /** Add the edge `subject --relation--> target` (see `RelationDef`). */
+  relate(subject: Entity, relation: RelationDef, target: Entity): void;
+  /** Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted. */
+  unrelate(subject: Entity, relation: RelationDef, target?: Entity): void;
+  /** Entities `subject` points at through `relation`, in insertion order. */
+  targetsOf(subject: Entity, relation: RelationDef): Entity[];
+  /** Entities pointing at `target` through `relation`, in insertion order. */
+  subjectsOf(target: Entity, relation: RelationDef): Entity[];
+  /** `ChildOf` parent of `e`, if any. */
+  parentOf(e: Entity): Entity | undefined;
+  /** `ChildOf` children of `e`, in the order they were parented. */
+  childrenOf(e: Entity): Entity[];
+  /**
+   * Set (or with `undefined`, clear) `child`'s parent. Opt-in hierarchy:
+   * destroying a parent destroys its children. Throws on a cycle.
+   */
+  setParent(child: Entity, parent: Entity | undefined): void;
   /** Number of entities currently alive in this scene. */
   get entityCount(): number;
   /**

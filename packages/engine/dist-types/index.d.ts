@@ -18,6 +18,12 @@ export { componentRegistry } from "./ComponentRegistry.js";
 export { Entity } from "./Entity.js";
 export { NO_REF, isEntityRef } from "./EntityRef.js";
 export type { EntityRef, EntityId } from "./EntityRef.js";
+export { defineRelation, ChildOf } from "./Relations.js";
+export type {
+  RelationDef,
+  DefineRelationOptions,
+  TargetDestroyedPolicy,
+} from "./Relations.js";
 export { Scene } from "./Scene.js";
 export type { SpawnOptions } from "./Scene.js";
 export { definePrefab, flattenPrefab, prefabComponentDefs } from "./Prefab.js";

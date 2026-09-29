@@ -22,6 +22,7 @@ import {
   flattenPrefab,
   type PrefabDef,
 } from "./Prefab.js";
+import { ChildOf, RelationStore, type RelationDef } from "./Relations.js";
 import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
 import { clearVisualScriptScope } from "./components/VisualScript.js";
@@ -80,9 +81,16 @@ export class Scene {
   /** eid -> the prefab it was spawned from, only tracked for pooled spawns. */
   private readonly _pooledOrigin = new Map<number, PrefabDef>();
 
+  private readonly _relations: RelationStore;
+
   constructor() {
     // §23: versioned entity IDs, enabled by default, not configurable off.
     this.world = createWorld(createEntityIndex(withVersioning()));
+    this._relations = new RelationStore(
+      this.world,
+      (eid) => new Entity(this.world, eid, this._proxyCache),
+      (e) => this.destroy(e),
+    );
   }
 
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
@@ -177,6 +185,9 @@ export class Scene {
    */
   destroy(entity: Entity): void {
     if (!entity.isAlive) return;
+    // Cascade/unlink relations first: "destroy"-policy subjects go through
+    // this same method, and pooled entities never reach bitECS removal.
+    if (this._relations.active) this._relations.onDestroyed(entity);
     const pooledFrom = this._pooledOrigin.get(entity.eid);
     this._liveEntities.delete(entity.eid);
     this._proxyCache.delete(entity.eid);
@@ -252,6 +263,45 @@ export class Scene {
       return undefined;
     }
     return entityIdTable(this.world).get(ref.$ref);
+  }
+
+  /** Add the edge `subject --relation--> target` (see `RelationDef`). */
+  relate(subject: Entity, relation: RelationDef, target: Entity): void {
+    this._relations.relate(subject, relation, target);
+  }
+
+  /** Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted. */
+  unrelate(subject: Entity, relation: RelationDef, target?: Entity): void {
+    this._relations.unrelate(subject, relation, target);
+  }
+
+  /** Entities `subject` points at through `relation`, in insertion order. */
+  targetsOf(subject: Entity, relation: RelationDef): Entity[] {
+    return this._relations.targetsOf(subject, relation);
+  }
+
+  /** Entities pointing at `target` through `relation`, in insertion order. */
+  subjectsOf(target: Entity, relation: RelationDef): Entity[] {
+    return this._relations.subjectsOf(target, relation);
+  }
+
+  /** `ChildOf` parent of `e`, if any. */
+  parentOf(e: Entity): Entity | undefined {
+    return this._relations.targetsOf(e, ChildOf)[0];
+  }
+
+  /** `ChildOf` children of `e`, in the order they were parented. */
+  childrenOf(e: Entity): Entity[] {
+    return this._relations.subjectsOf(e, ChildOf);
+  }
+
+  /**
+   * Set (or with `undefined`, clear) `child`'s parent. Opt-in hierarchy:
+   * destroying a parent destroys its children. Throws on a cycle.
+   */
+  setParent(child: Entity, parent: Entity | undefined): void {
+    if (parent === undefined) this._relations.unrelate(child, ChildOf);
+    else this._relations.relate(child, ChildOf, parent);
   }
 
   /** Number of entities currently alive in this scene. */
