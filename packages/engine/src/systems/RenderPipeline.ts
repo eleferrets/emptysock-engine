@@ -131,8 +131,14 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
     ) => Texture | undefined = () => undefined,
   ) {
     this._graphics.clear();
-    this._graphics.removeChildren();
+    this._discardChildren();
     this._g = this._graphics;
+  }
+
+  /** Detach and destroy the previous call's children (pixi's `removeChildren()` alone does not destroy them). */
+  private _discardChildren(): void {
+    for (const c of this._graphics.removeChildren())
+      c.destroy({ children: true });
   }
 
   /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
@@ -174,7 +180,7 @@ class PixiGmlDrawTarget implements GmlDrawTarget {
 
   clear(colour: number, alpha: number): void {
     this._graphics.clear();
-    this._graphics.removeChildren();
+    this._discardChildren();
     this._g = this._graphics;
     this._blend = 0;
     this.pendingClear = { colour, alpha };
