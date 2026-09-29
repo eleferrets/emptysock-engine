@@ -135,6 +135,22 @@ export {
   RainGlassFilter,
 } from "./systems/RainGlassFilter.js";
 export type { RainGlassFilterOptions } from "./systems/RainGlassFilter.js";
+export { RainGlassSim } from "./systems/RainGlassSim.js";
+export type {
+  RainGlassSimOptions,
+  WiperOptions,
+} from "./systems/RainGlassSim.js";
+export {
+  RAIN_TIERS,
+  resolveRainTier,
+  resolveRainQuality,
+} from "./systems/RainGlassTiers.js";
+export type {
+  RainQuality,
+  RainTier,
+  RainTierName,
+} from "./systems/RainGlassTiers.js";
+export { rasterizeRainDropMap } from "./systems/RainGlassMap.js";
 // `Game`'s five constructor-registered services (CLAUDE.md's "PluginSystem,
 // VariableStore, LocalisationSystem, ViewportSystem, and WindowSystem are
 // Game services" entry) — game code needs the class itself as a type-safe

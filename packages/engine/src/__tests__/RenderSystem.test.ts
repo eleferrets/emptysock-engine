@@ -191,6 +191,27 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       expect(res["uStreakAmount"]).toBe(0.1);
     });
 
+    it("applies quality, fog and wiper options and ticks the sim", () => {
+      pp.setLayerFilter("fg", {
+        type: "rain-glass",
+        quality: "low",
+        fog: 0.5,
+        wiperEnabled: true,
+        wiperPeriod: 2,
+        seed: 9,
+      });
+      render.syncPostProcessLayerFilters(pp);
+      const filter = render.getLayerContainer("fg").filters[0] as InstanceType<
+        typeof RainGlassFilter
+      >;
+      expect(filter.tier.name).toBe("low");
+      expect(filter.sim.fogTarget).toBe(0.5);
+      expect(filter.sim.wiper.enabled).toBe(true);
+      expect(filter.sim.wiper.periodSec).toBe(2);
+      render.syncPostProcessLayerFilters(pp); // idempotent, no rebuild
+      expect(render.getLayerContainer("fg").filters[0]).toBe(filter);
+    });
+
     it("advances uTime across syncs (rain falls over real time, not frame count)", () => {
       pp.setLayerFilter("fg", { type: "rain-glass" });
       render.syncPostProcessLayerFilters(pp);

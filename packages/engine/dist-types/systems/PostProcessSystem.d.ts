@@ -1,4 +1,5 @@
 import type { TransitionEffect } from "./SceneTransition.js";
+import type { RainQuality } from "./RainGlassTiers.js";
 export type LayerFilterType =
   | "blur"
   | "colour-grade"
@@ -41,14 +42,30 @@ export interface LayerFilterOptions {
   thickness?: number;
   /** colourblind: which deficiency to simulate */
   mode?: ColourblindMode;
-  /** rain-glass: 0..1 overall droplet opacity/refraction strength. Default 0.6. */
+  /** rain-glass: 0..1 spawn rate and refraction strength. Default 0.6. */
   intensity?: number;
-  /** rain-glass: aspect-corrected UV-space cell size for the large droplet grid — smaller = more, smaller drops. Default 0.12. */
+  /** rain-glass: droplet size; 0.12 is the default, radii scale proportionally. */
   dropletSize?: number;
-  /** rain-glass: UV-space fall speed per second for the streak grid. Default 0.35. */
+  /** rain-glass: slide speed; 0.35 is the default, speed scales proportionally. */
   dropletSpeed?: number;
-  /** rain-glass: 0..1 blend between static droplets (0) and falling streaks (1). Default 0.5. */
+  /** rain-glass: trail amount; 0.5 is the default, 0 disables trails. */
   streakAmount?: number;
+  /** rain-glass: quality tier, "auto" (default) follows the host GPU tier. */
+  quality?: RainQuality;
+  /** rain-glass: 0..1 condensation fog. Default 0. */
+  fog?: number;
+  /** rain-glass: max fog blur radius in scene px. Default 6. */
+  blur?: number;
+  /** rain-glass: 0..1 gravity scale (0 flat, 1 vertical glass). Default 1. */
+  slope?: number;
+  /** rain-glass: lateral wind in map px/s. Default 0. */
+  wind?: number;
+  /** rain-glass: sim RNG seed. Default 1. */
+  seed?: number;
+  /** rain-glass: run the wiper continuously. Default false. */
+  wiperEnabled?: boolean;
+  /** rain-glass: wiper out-and-back time in seconds. */
+  wiperPeriod?: number;
   enabled?: boolean;
 }
 /**

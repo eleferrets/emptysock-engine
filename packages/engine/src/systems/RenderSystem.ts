@@ -178,6 +178,9 @@ export class RenderSystem {
    * long the engine had been running before rain-glass was ever enabled.
    */
   private _rainGlassLastTick: number | null = null;
+
+  /** Host GPU tier from init(), used for the rain filter's "auto" quality. */
+  private _gpuTier: GPUTier | undefined;
   /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
   private _lightingFilter: SimpleLightmapFilter | null = null;
   private _lightMapTexture: RenderTexture | null = null;
@@ -192,6 +195,7 @@ export class RenderSystem {
 
   async init(options: RenderSystemOptions = {}): Promise<void> {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
+    this._gpuTier = options.gpuTier;
     const tierDefaults =
       options.gpuTier !== undefined
         ? gpuTierRenderDefaults(options.gpuTier, dpr)
@@ -455,7 +459,7 @@ export class RenderSystem {
   }
 
   /**
-   * Advances every live `RainGlassFilter`'s `uTime` uniform by the wall-clock
+   * Ticks every live `RainGlassFilter` (sim step, map upload, `uTime`) by the wall-clock
    * seconds elapsed since the last call that had at least one — droplets
    * fall by real time, not by frame count, so this stays correct under a
    * variable frame rate the same way `Game.update(dt)`'s own delta-time
@@ -520,7 +524,7 @@ export class RenderSystem {
       case "colourblind":
         return new ColorMatrixFilter();
       case "rain-glass":
-        return new RainGlassFilter();
+        return new RainGlassFilter({}, this._gpuTier);
       default:
         return null;
     }
@@ -631,6 +635,19 @@ export class RenderSystem {
           rainOptions.dropletSpeed = opts.dropletSpeed;
         if (opts.streakAmount !== undefined)
           rainOptions.streakAmount = opts.streakAmount;
+        if (opts.quality !== undefined) rainOptions.quality = opts.quality;
+        if (opts.fog !== undefined) rainOptions.fog = opts.fog;
+        if (opts.blur !== undefined) rainOptions.blur = opts.blur;
+        if (opts.slope !== undefined) rainOptions.slope = opts.slope;
+        if (opts.wind !== undefined) rainOptions.wind = opts.wind;
+        if (opts.seed !== undefined) rainOptions.seed = opts.seed;
+        if (opts.wiperEnabled !== undefined || opts.wiperPeriod !== undefined) {
+          rainOptions.wiper = {};
+          if (opts.wiperEnabled !== undefined)
+            rainOptions.wiper.enabled = opts.wiperEnabled;
+          if (opts.wiperPeriod !== undefined)
+            rainOptions.wiper.periodSec = opts.wiperPeriod;
+        }
         rain.setOptions(rainOptions);
         rain.setResolution(
           this._renderer?.width ?? 1,

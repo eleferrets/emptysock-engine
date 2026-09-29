@@ -131,6 +131,22 @@ export {
   RainGlassFilter,
 } from "./systems/RainGlassFilter.js";
 export type { RainGlassFilterOptions } from "./systems/RainGlassFilter.js";
+export { RainGlassSim } from "./systems/RainGlassSim.js";
+export type {
+  RainGlassSimOptions,
+  WiperOptions,
+} from "./systems/RainGlassSim.js";
+export {
+  RAIN_TIERS,
+  resolveRainTier,
+  resolveRainQuality,
+} from "./systems/RainGlassTiers.js";
+export type {
+  RainQuality,
+  RainTier,
+  RainTierName,
+} from "./systems/RainGlassTiers.js";
+export { rasterizeRainDropMap } from "./systems/RainGlassMap.js";
 export { PluginSystem } from "./PluginSystem.js";
 export type { Plugin, PluginContext } from "./PluginSystem.js";
 export { VariableStore, evaluateCondition } from "./systems/VariableStore.js";
@@ -406,6 +422,8 @@ export {
   instance_destroy,
   action_set_alarm,
   get_gml_alarm,
+  alarm_set,
+  alarm_get,
   action_sound,
   audio_play_sound,
   audio_sound_pitch,
@@ -458,6 +476,7 @@ export type { GmlDrawTarget } from "./compat/gml.js";
 export {
   getGmlVar,
   setGmlVar,
+  setGmlVarDefault,
   hasGmlVar,
   getGmlArrayVar,
   clearGmlInstanceVars,
@@ -469,6 +488,8 @@ export {
   getGmlObjectVar,
   setGmlObjectVar,
   getGmlRefVar,
+  getGmlEntityField,
+  setGmlEntityField,
   setGmlRefVar,
 } from "./compat/gmlCrossInstance.js";
 /**
@@ -908,6 +929,9 @@ export {
   sqrt,
   power,
   string_insert,
+  chr,
+  pi,
+  get_current_time,
 } from "./compat/gml.js";
 /**
  * Real, automatic dispatch for GMS2-imported `.behavior.ts` modules — see

@@ -80,6 +80,8 @@ export declare class RenderSystem {
    * long the engine had been running before rain-glass was ever enabled.
    */
   private _rainGlassLastTick;
+  /** Host GPU tier from init(), used for the rain filter's "auto" quality. */
+  private _gpuTier;
   /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
   private _lightingFilter;
   private _lightMapTexture;
@@ -177,7 +179,7 @@ export declare class RenderSystem {
    */
   syncPostProcessLayerFilters(postProcess: PostProcessSystem): void;
   /**
-   * Advances every live `RainGlassFilter`'s `uTime` uniform by the wall-clock
+   * Ticks every live `RainGlassFilter` (sim step, map upload, `uTime`) by the wall-clock
    * seconds elapsed since the last call that had at least one — droplets
    * fall by real time, not by frame count, so this stays correct under a
    * variable frame rate the same way `Game.update(dt)`'s own delta-time
