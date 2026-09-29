@@ -1,3 +1,6 @@
+import type { World } from "bitecs";
+import type { Entity } from "../Entity.js";
+
 /**
  * Game-wide signal/broadcast bus. Any code holding the `Game` (or a scene's
  * `ctx.signals`) can `emit` a named signal with a payload and every listener
@@ -105,10 +108,55 @@ export class SignalBus {
     this._wildcards.clear();
   }
 
+  /**
+   * Subscribes `fn` to `name` for the lifetime of `entity`: when the entity
+   * is destroyed (`Scene.destroy`, pooled or not) the listener is removed,
+   * so a dead entity's handlers never leak or fire on a pooled reuse. Returns
+   * an early unsubscribe. Throws on a destroyed entity.
+   */
+  onEntity<T = unknown>(
+    entity: Entity,
+    name: string,
+    fn: SignalListener<T>,
+  ): Unsubscribe {
+    if (!entity.isAlive) {
+      throw new Error("SignalBus.onEntity() called on a destroyed entity.");
+    }
+    let byEid = _entityGroups.get(entity.world);
+    if (byEid === undefined) {
+      byEid = new Map();
+      _entityGroups.set(entity.world, byEid);
+    }
+    let group = byEid.get(entity.eid);
+    if (group === undefined) {
+      group = new SignalGroup(this);
+      byEid.set(entity.eid, group);
+    }
+    return group.on(name, fn);
+  }
+
   /** A scope whose subscriptions are all removed by one `dispose()`. */
   group(): SignalGroup {
     return new SignalGroup(this);
   }
+}
+
+/** World -> eid -> group of listeners registered with `SignalBus.onEntity`. */
+const _entityGroups = new WeakMap<World, Map<number, SignalGroup>>();
+
+/**
+ * Removes every `onEntity` listener of `(world, eid)`. Called from
+ * `Scene.destroy` alongside the other per-entity side-table clears, so
+ * pooled ids (never released to bitECS) do not inherit listeners.
+ *
+ * @internal
+ */
+export function clearEntitySignals(world: World, eid: number): void {
+  const byEid = _entityGroups.get(world);
+  const group = byEid?.get(eid);
+  if (group === undefined) return;
+  group.dispose();
+  byEid?.delete(eid);
 }
 
 export class SignalGroup {

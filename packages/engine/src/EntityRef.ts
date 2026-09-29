@@ -58,6 +58,11 @@ export class EntityIdTable {
     return e !== undefined && e.isAlive ? e : undefined;
   }
 
+  /** Existing id for `eid` without assigning one (0 if none). */
+  peek(eid: number): EntityId {
+    return this._byEid.get(eid) ?? 0;
+  }
+
   /** Forget the entity's id (called from `Scene.destroy`). */
   drop(eid: number): void {
     const id = this._byEid.get(eid);

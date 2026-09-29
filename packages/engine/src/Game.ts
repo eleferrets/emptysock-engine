@@ -403,6 +403,22 @@ export class Game {
   }
 
   /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  /**
+   * Forwards a scene's built-in entity events onto the game's `SignalBus`:
+   * `entity:destroyed` `{ ref }` and `entity:parented` `{ child, parent }`.
+   * Payloads carry scene-local `EntityRef`s (safe to queue), so listeners on
+   * a shared bus should only interpret them for the scene they care about.
+   */
+  private forwardSceneSignals(scene: Scene): void {
+    const bus = this.services.get(SignalBus);
+    scene.onDestroyed((ref) => {
+      bus.emit("entity:destroyed", { ref });
+    });
+    scene.onParented((child, parent) => {
+      bus.emit("entity:parented", { child, parent });
+    });
+  }
+
   get signals(): SignalBus {
     return this.services.get(SignalBus);
   }
@@ -442,6 +458,7 @@ export class Game {
 
     const manageLifecycle = options.manageLifecycle ?? true;
     const scene = new Scene();
+    this.forwardSceneSignals(scene);
     const actors = new ActorSystem();
     const physics = new PhysicsSystem();
     if (manageLifecycle) {
@@ -528,6 +545,7 @@ export class Game {
   ): Promise<SceneLifecycle> {
     const manageLifecycle = options.manageLifecycle ?? true;
     const scene = new Scene();
+    this.forwardSceneSignals(scene);
     const actors = new ActorSystem();
     const physics = new PhysicsSystem();
     const physicsEnabled = manageLifecycle && options.physics !== undefined;

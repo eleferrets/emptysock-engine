@@ -27,6 +27,7 @@ import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
 import { clearVisualScriptScope } from "./components/VisualScript.js";
 import { clearCoroutines } from "./Coroutines.js";
+import { clearEntitySignals } from "./systems/SignalBus.js";
 import { clearGmlActionState } from "./compat/gmlActions.js";
 import { clearGmlInstanceVars } from "./compat/gmlInstanceVars.js";
 
@@ -82,6 +83,10 @@ export class Scene {
   private readonly _pooledOrigin = new Map<number, PrefabDef>();
 
   private readonly _relations: RelationStore;
+  private readonly _destroyedHooks = new Set<(ref: EntityRef) => void>();
+  private readonly _parentedHooks = new Set<
+    (child: EntityRef, parent: EntityRef) => void
+  >();
 
   constructor() {
     // §23: versioned entity IDs, enabled by default, not configurable off.
@@ -185,6 +190,13 @@ export class Scene {
    */
   destroy(entity: Entity): void {
     if (!entity.isAlive) return;
+    // Notify while the entity is still alive; the ref is NO_REF when nothing
+    // ever asked for this entity's id (ids are assigned lazily).
+    if (this._destroyedHooks.size > 0) {
+      const ref = { $ref: entityIdTable(this.world).peek(entity.eid) };
+      for (const cb of [...this._destroyedHooks]) cb(ref);
+    }
+    clearEntitySignals(this.world, entity.eid);
     // Cascade/unlink relations first: "destroy"-policy subjects go through
     // this same method, and pooled entities never reach bitECS removal.
     if (this._relations.active) this._relations.onDestroyed(entity);
@@ -265,6 +277,22 @@ export class Scene {
     return entityIdTable(this.world).get(ref.$ref);
   }
 
+  /**
+   * Observe destruction of any entity in this scene (fires before teardown,
+   * once per entity, children of a cascade included). `Game` forwards this to
+   * the `entity:destroyed` signal. Returns an unsubscribe.
+   */
+  onDestroyed(cb: (ref: EntityRef) => void): () => void {
+    this._destroyedHooks.add(cb);
+    return () => this._destroyedHooks.delete(cb);
+  }
+
+  /** Observe `setParent` calls (`parent` is `NO_REF` when cleared). Returns an unsubscribe. */
+  onParented(cb: (child: EntityRef, parent: EntityRef) => void): () => void {
+    this._parentedHooks.add(cb);
+    return () => this._parentedHooks.delete(cb);
+  }
+
   /** Add the edge `subject --relation--> target` (see `RelationDef`). */
   relate(subject: Entity, relation: RelationDef, target: Entity): void {
     this._relations.relate(subject, relation, target);
@@ -302,6 +330,11 @@ export class Scene {
   setParent(child: Entity, parent: Entity | undefined): void {
     if (parent === undefined) this._relations.unrelate(child, ChildOf);
     else this._relations.relate(child, ChildOf, parent);
+    if (this._parentedHooks.size > 0) {
+      const c = this.refTo(child);
+      const p = parent === undefined ? NO_REF : this.refTo(parent);
+      for (const cb of [...this._parentedHooks]) cb(c, p);
+    }
   }
 
   /** Number of entities currently alive in this scene. */

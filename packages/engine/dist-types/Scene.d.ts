@@ -53,6 +53,8 @@ export declare class Scene {
   /** eid -> the prefab it was spawned from, only tracked for pooled spawns. */
   private readonly _pooledOrigin;
   private readonly _relations;
+  private readonly _destroyedHooks;
+  private readonly _parentedHooks;
   constructor();
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
   spawn(name?: string): Entity;
@@ -104,6 +106,14 @@ export declare class Scene {
    * entity's next occupant.
    */
   resolve(ref: EntityRef | null | undefined): Entity | undefined;
+  /**
+   * Observe destruction of any entity in this scene (fires before teardown,
+   * once per entity, children of a cascade included). `Game` forwards this to
+   * the `entity:destroyed` signal. Returns an unsubscribe.
+   */
+  onDestroyed(cb: (ref: EntityRef) => void): () => void;
+  /** Observe `setParent` calls (`parent` is `NO_REF` when cleared). Returns an unsubscribe. */
+  onParented(cb: (child: EntityRef, parent: EntityRef) => void): () => void;
   /** Add the edge `subject --relation--> target` (see `RelationDef`). */
   relate(subject: Entity, relation: RelationDef, target: Entity): void;
   /** Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted. */

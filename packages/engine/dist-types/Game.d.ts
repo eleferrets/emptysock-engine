@@ -304,6 +304,13 @@ export declare class Game {
   /** The `Game`'s single `AudioSystem` (§18 — Howler-backed). */
   get audio(): AudioSystem;
   /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  /**
+   * Forwards a scene's built-in entity events onto the game's `SignalBus`:
+   * `entity:destroyed` `{ ref }` and `entity:parented` `{ child, parent }`.
+   * Payloads carry scene-local `EntityRef`s (safe to queue), so listeners on
+   * a shared bus should only interpret them for the scene they care about.
+   */
+  private forwardSceneSignals;
   get signals(): SignalBus;
   get globals(): GlobalStore;
   /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
