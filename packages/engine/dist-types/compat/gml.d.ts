@@ -1,3 +1,4 @@
+import type { GmlActionContext } from "./gmlActions.js";
 export declare function setRoomSize(w: number, h: number): void;
 export declare function room_width(): number;
 export declare function room_height(): number;
@@ -523,10 +524,26 @@ export declare function draw_sprite_part_ext(
 export declare function show_message(msg: string): void;
 /** GML game_end — no-op in EmptySock; close/stop your scene manually */
 export declare function game_end(): void;
-/** GML object_exists — checks whether an object asset name/index is valid. */
-export declare function object_exists(_objectName: string): boolean;
-/** GML asset_get_index — resolves an asset name to an index. No-op stub: EmptySock references assets by name/path directly. */
-export declare function asset_get_index(name: string): string;
+/**
+ * GML object_exists — true iff the loaded `AssetRegistry` has an object of
+ * that name. Called as `(ctx, name)` by transpiled code. With no loaded index
+ * (or the legacy one-argument form) it keeps the old warn-and-`true` answer
+ * so existing behaviour is unchanged.
+ */
+export declare function object_exists(
+  ctx: GmlActionContext | string,
+  name?: unknown,
+): boolean;
+/**
+ * GML asset_get_index — with a loaded `AssetRegistry`, the asset's runtime id
+ * (sprite: texture path; others: name), or `-1` when no such asset exists
+ * (GameMaker's real "missing" value). With no loaded index (or the legacy
+ * one-argument form) the name is returned unchanged, as before.
+ */
+export declare function asset_get_index(
+  ctx: GmlActionContext | string,
+  name?: unknown,
+): string | number;
 /** GML array_length_1d — length of a 1D array (JS arrays are always 1D). */
 export declare function array_length_1d(arr: unknown[]): number;
 /** GML string_char_at — 1-based index. */
@@ -621,17 +638,16 @@ export declare function base64_encode(str: string): string;
 /** GML base64_decode(str) — decodes a base64 string back to plain text. See `base64_encode`'s own doc comment for why this is a dependency-free implementation. */
 export declare function base64_decode(str: string): string;
 /**
- * GML font_get_size(fontId) — GameMaker's real per-font pixel size lookup.
- * Honestly unmodelled, the same class of gap `sprite_get_width`/
- * `sprite_get_height` already document above: this compat layer has no
- * general font-asset registry reachable from `compat/` at all (a GMS2
- * font's metadata is only ever baked onto this importer's own generated
- * `.font.ts` descriptor at import time, never stored anywhere addressable
- * by name/reference from here) — building one is a genuinely new import-
- * time feature, not a same-file fix. Returns `0` rather than a fabricated
- * plausible-looking size.
+ * GML font_get_size(fontId) — the font's point size. Looks in the loaded
+ * `AssetRegistry` first, then falls back to a hand-registered
+ * `FontRegistry` descriptor (`ctx.game.fonts`), so fonts registered without
+ * the importer work too. `0` when neither knows the font, or in the legacy
+ * one-argument form (no ctx to look through).
  */
-export declare function font_get_size(_fontId: string): number;
+export declare function font_get_size(
+  ctx: GmlActionContext | string,
+  fontId?: unknown,
+): number;
 /**
  * GML get_timer() — real GameMaker returns microseconds since the game
  * started. `Date.now()` (plain JS, available in Node/browser/Tauri alike —
@@ -712,6 +728,16 @@ export declare function window_get_cursor(): number;
  * real filesystem to report), so there is no real path this file could
  * honestly return. `""` — an empty, honestly-empty path, rather than a
  * fabricated one — matching this file's other "no reachable resource"
- * defaults (`font_get_size`'s `0`, `sprite_get_width`'s `0`).
+ * defaults (`sprite_get_width`'s `0` when no index is loaded).
  */
 export declare const working_directory = "";
+/** `chr(code)` — the character for a numeric code point (GML's inverse of `ord`). */
+export declare function chr(code: number): string;
+/** GML's `pi` constant. */
+export declare const pi: number;
+/**
+ * GML's `current_time` built-in: milliseconds since the game started. Rewritten
+ * from a bare `current_time` read; measured against the same start marker
+ * `get_timer` uses.
+ */
+export declare function get_current_time(): number;

@@ -3,6 +3,8 @@
 // equivalents so GMS2-migrated code can compile with minimal changes.
 // No DOM, Tauri, or apps/ide imports.
 
+import type { GmlActionContext } from "./gmlActions.js";
+import { assetRegistryOf } from "../systems/AssetRegistry.js";
 // ---------------------------------------------------------------------------
 // Room size (configurable)
 // ---------------------------------------------------------------------------
@@ -873,17 +875,40 @@ export function game_end(): void {
 // that were missing from the original ~50-function map.
 // ---------------------------------------------------------------------------
 
-/** GML object_exists — checks whether an object asset name/index is valid. */
-export function object_exists(_objectName: string): boolean {
+/**
+ * GML object_exists — true iff the loaded `AssetRegistry` has an object of
+ * that name. Called as `(ctx, name)` by transpiled code. With no loaded index
+ * (or the legacy one-argument form) it keeps the old warn-and-`true` answer
+ * so existing behaviour is unchanged.
+ */
+export function object_exists(
+  ctx: GmlActionContext | string,
+  name?: unknown,
+): boolean {
+  if (typeof ctx !== "string") {
+    const reg = assetRegistryOf(ctx);
+    if (reg !== undefined) return reg.exists("object", name);
+  }
   console.warn(
-    "object_exists() is a no-op stub — resolve object existence via your own registry.",
+    "object_exists() has no loaded asset index — load asset-index.json into game.assets.",
   );
   return true;
 }
 
-/** GML asset_get_index — resolves an asset name to an index. No-op stub: EmptySock references assets by name/path directly. */
-export function asset_get_index(name: string): string {
-  return name;
+/**
+ * GML asset_get_index — with a loaded `AssetRegistry`, the asset's runtime id
+ * (sprite: texture path; others: name), or `-1` when no such asset exists
+ * (GameMaker's real "missing" value). With no loaded index (or the legacy
+ * one-argument form) the name is returned unchanged, as before.
+ */
+export function asset_get_index(
+  ctx: GmlActionContext | string,
+  name?: unknown,
+): string | number {
+  if (typeof ctx === "string") return ctx;
+  const reg = assetRegistryOf(ctx);
+  if (reg === undefined) return typeof name === "string" ? name : -1;
+  return reg.resolve(name)[0]?.id ?? -1;
 }
 
 /** GML array_length_1d — length of a 1D array (JS arrays are always 1D). */
@@ -1180,18 +1205,20 @@ export function base64_decode(str: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * GML font_get_size(fontId) — GameMaker's real per-font pixel size lookup.
- * Honestly unmodelled, the same class of gap `sprite_get_width`/
- * `sprite_get_height` already document above: this compat layer has no
- * general font-asset registry reachable from `compat/` at all (a GMS2
- * font's metadata is only ever baked onto this importer's own generated
- * `.font.ts` descriptor at import time, never stored anywhere addressable
- * by name/reference from here) — building one is a genuinely new import-
- * time feature, not a same-file fix. Returns `0` rather than a fabricated
- * plausible-looking size.
+ * GML font_get_size(fontId) — the font's point size. Looks in the loaded
+ * `AssetRegistry` first, then falls back to a hand-registered
+ * `FontRegistry` descriptor (`ctx.game.fonts`), so fonts registered without
+ * the importer work too. `0` when neither knows the font, or in the legacy
+ * one-argument form (no ctx to look through).
  */
-export function font_get_size(_fontId: string): number {
-  return 0;
+export function font_get_size(
+  ctx: GmlActionContext | string,
+  fontId?: unknown,
+): number {
+  if (typeof ctx === "string" || typeof fontId !== "string") return 0;
+  const fromIndex = assetRegistryOf(ctx)?.get("font", fontId)?.size;
+  if (fromIndex !== undefined) return fromIndex;
+  return ctx.game?.fonts.get(fontId)?.size ?? 0;
 }
 
 const _gmlStart = Date.now();
@@ -1306,7 +1333,7 @@ export function window_get_cursor(): number {
  * real filesystem to report), so there is no real path this file could
  * honestly return. `""` — an empty, honestly-empty path, rather than a
  * fabricated one — matching this file's other "no reachable resource"
- * defaults (`font_get_size`'s `0`, `sprite_get_width`'s `0`).
+ * defaults (`sprite_get_width`'s `0` when no index is loaded).
  */
 export const working_directory = "";
 

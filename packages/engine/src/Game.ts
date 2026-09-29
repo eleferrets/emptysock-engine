@@ -7,6 +7,7 @@ import { GlobalStore } from "./systems/GlobalStore.js";
 import { SignalBus } from "./systems/SignalBus.js";
 import { GmlFileSystem } from "./systems/GmlFileSystem.js";
 import { FontRegistry } from "./systems/FontRegistry.js";
+import { AssetRegistry } from "./systems/AssetRegistry.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
@@ -77,6 +78,8 @@ export interface SceneLifecycle {
   readonly files: GmlFileSystem;
   /** Game-owned, same reasoning as `globals`/`files` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
   readonly fonts: FontRegistry;
+  /** Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded from the importer's `asset-index.json`. See `systems/AssetRegistry.ts`. */
+  readonly assets: AssetRegistry;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `PluginSystem` for the lifetime of this `Game`. Equivalent to
@@ -353,6 +356,7 @@ export class Game {
     this.services.register(SignalBus);
     this.services.register(GmlFileSystem);
     this.services.register(FontRegistry);
+    this.services.register(AssetRegistry);
     this.services.register(LocalisationSystem);
     this.services.register(ViewportSystem);
     this.services.register(WindowSystem);
@@ -411,6 +415,11 @@ export class Game {
     return this.services.get(GmlFileSystem);
   }
 
+  /** The `Game`'s single `AssetRegistry` — see that class's own doc comment. */
+  get assets(): AssetRegistry {
+    return this.services.get(AssetRegistry);
+  }
+
   /** The `Game`'s single `FontRegistry` — see that class's own doc comment. */
   get fonts(): FontRegistry {
     return this.services.get(FontRegistry);
@@ -453,6 +462,7 @@ export class Game {
       signals: this.services.get(SignalBus),
       files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
+      assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
@@ -536,6 +546,7 @@ export class Game {
       signals: this.services.get(SignalBus),
       files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
+      assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),

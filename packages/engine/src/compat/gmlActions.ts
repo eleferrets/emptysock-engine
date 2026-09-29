@@ -32,6 +32,10 @@ import type { GmlDrawTarget } from "./gml.js";
 import { resolveGmlObjectType } from "../systems/GmlCollision.js";
 import { stampPrefabNameOntoMeta } from "../SceneFile.js";
 import type { LayerSystem } from "../systems/LayerSystem.js";
+import {
+  assetRegistryOf,
+  type AssetRegistry,
+} from "../systems/AssetRegistry.js";
 
 // ---------------------------------------------------------------------------
 // Context — the one thing every generated action call needs threaded to it
@@ -75,6 +79,8 @@ export interface GmlActionContext {
   readonly prefabs?: Readonly<Record<string, PrefabDef>>;
   /** Optional sound-asset-id lookup for `action_sound` (GameMaker sound name -> an id playable via `ctx.game.audio.play(id)`). See `action_sound`'s doc comment for the current limits of this. */
   readonly sounds?: Readonly<Record<string, string>>;
+  /** Typed asset lookup for `sprite_get_width`/`sprite_exists`/`font_get_size`/`object_exists`/`asset_get_index`. Falls back to `ctx.game.assets`; when neither holds a loaded index those functions keep their documented no-registry answers. */
+  readonly assets?: AssetRegistry;
   /**
    * The live drawing surface a `draw_*` call (`compat/gml.ts`) targets while
    * inside a generated `onDraw`/`onDrawGui` call. `GmlBehaviorSystem` is the
@@ -1366,43 +1372,32 @@ export function get_gml_image_number(entity: Entity): number {
 /**
  * `sprite_get_width`/`sprite_get_height`/`sprite_exists` — GameMaker's real
  * functions look up an *arbitrary* sprite asset's raw dimensions/existence
- * by reference, not necessarily the calling instance's own sprite (real,
- * confirmed usage: `oTextbox`'s `sprite_get_width(_image)`, where `_image`
- * is a runtime variable that could hold any sprite). This compat layer has
- * no general sprite-asset registry reachable from `compat/` at all — a
- * sprite's real pixel dimensions are only ever known once baked as
- * overrides onto one specific entity's own `Sprite` component at import
- * time (`gms2-codegen.ts`'s `buildObjectPrefabJSON`), not stored anywhere
- * addressable by sprite name/reference alone. Building a real registry
- * would need a genuinely new import-time asset-manifest feature, not a
- * same-file compat function — an honest, named, deeper gap, not a same-
- * shape fix like `sprite_width`/`sprite_height` above. These three
- * therefore honestly return `0`/`0`/`false` (never throw) rather than
- * fabricating a plausible-looking number, matching this codebase's
- * established "no live registry to even ask" convention
- * (`layer_sprite_get_id`'s identical honest-gap doc comment).
+ * by reference (a bare name, or the texture path a bare sprite identifier is
+ * transpiled to, single- or multi-frame). Answered from the import-time
+ * `AssetRegistry` (`ctx.assets ?? ctx.game.assets`, loaded from the
+ * importer's `asset-index.json`). With no loaded index there is nothing to
+ * ask, so these keep the honest `0`/`0`/`false` defaults (never throw). A
+ * loaded index answers `sprite_exists` truthfully, and a sprite that exists
+ * with width 0 is distinguished from a missing one by `sprite_exists`.
  */
 export function sprite_get_width(
-  _ctx: GmlActionContext,
-  _sprite: unknown,
+  ctx: GmlActionContext,
+  sprite: unknown,
 ): number {
-  return 0;
+  return assetRegistryOf(ctx)?.spriteSize(sprite)?.width ?? 0;
 }
 
 /** See `sprite_get_width`'s doc comment. */
 export function sprite_get_height(
-  _ctx: GmlActionContext,
-  _sprite: unknown,
+  ctx: GmlActionContext,
+  sprite: unknown,
 ): number {
-  return 0;
+  return assetRegistryOf(ctx)?.spriteSize(sprite)?.height ?? 0;
 }
 
 /** See `sprite_get_width`'s doc comment. */
-export function sprite_exists(
-  _ctx: GmlActionContext,
-  _sprite: unknown,
-): boolean {
-  return false;
+export function sprite_exists(ctx: GmlActionContext, sprite: unknown): boolean {
+  return assetRegistryOf(ctx)?.exists("sprite", sprite) ?? false;
 }
 
 /** GM8.1 "Check Grid" — true if the entity's position is aligned to the given grid size. */
