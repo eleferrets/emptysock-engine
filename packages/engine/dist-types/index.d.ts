@@ -538,6 +538,9 @@ export {
   getGmlEntityField,
   setGmlEntityField,
   setGmlRefVar,
+  gmlInstanceId,
+  gmlInstanceFromId,
+  GML_INSTANCE_ID_BASE,
 } from "./compat/gmlCrossInstance.js";
 /**
  * GameMaker's "hypothetical position" collision-query family
@@ -561,6 +564,9 @@ export {
   collision_point,
   instance_exists,
   instance_number,
+  instance_find,
+  instance_nearest,
+  instance_furthest,
 } from "./compat/gmlCollisionQueries.js";
 export {
   file_exists,

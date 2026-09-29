@@ -248,6 +248,70 @@ export function instance_number(
   return count;
 }
 
+/** Every `Transform`-bearing instance matching `obj`, in entity-id order (GameMaker documents instance order as arbitrary). */
+function instancesOfType(
+  ctx: GmlActionContext,
+  obj: GmlObjectRef,
+): Array<{ e: Entity; x: number; y: number }> {
+  const out: Array<{ e: Entity; x: number; y: number }> = [];
+  if (obj === "noone") return out;
+  ctx.scene.each(Transform, (t, e) => {
+    if (objectRefMatches(e, obj)) out.push({ e, x: t.x, y: t.y });
+  });
+  return out;
+}
+
+/** GML `instance_find(obj, n)` - the n-th instance of `obj` (or `all`), or `"noone"`. Order is arbitrary but stable while the set is unchanged. */
+export function instance_find(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  obj: GmlObjectRef,
+  n: number,
+): Entity | "noone" {
+  return instancesOfType(ctx, obj)[Math.trunc(n)]?.e ?? "noone";
+}
+
+function pickByDistance(
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  obj: GmlObjectRef,
+  furthest: boolean,
+): Entity | "noone" {
+  let best: Entity | undefined;
+  let bestD = furthest ? -1 : Infinity;
+  for (const c of instancesOfType(ctx, obj)) {
+    const d = (c.x - x) ** 2 + (c.y - y) ** 2;
+    if (furthest ? d > bestD : d < bestD) {
+      bestD = d;
+      best = c.e;
+    }
+  }
+  return best ?? "noone";
+}
+
+/** GML `instance_nearest(x, y, obj)` by origin distance; ties go to the lowest entity id. */
+export function instance_nearest(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  obj: GmlObjectRef,
+): Entity | "noone" {
+  return pickByDistance(ctx, x, y, obj, false);
+}
+
+/** GML `instance_furthest(x, y, obj)` by origin distance. */
+export function instance_furthest(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  obj: GmlObjectRef,
+): Entity | "noone" {
+  return pickByDistance(ctx, x, y, obj, true);
+}
+
 // ---------------------------------------------------------------------------
 // place_meeting / place_free / place_snapped
 // ---------------------------------------------------------------------------

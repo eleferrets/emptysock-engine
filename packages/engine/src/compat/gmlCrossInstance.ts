@@ -1,4 +1,5 @@
 import type { Entity } from "../Entity.js";
+import { isEntityRef } from "../EntityRef.js";
 import { Meta } from "../components/Meta.js";
 import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
@@ -199,6 +200,30 @@ function findFirstInstanceOfType(
 }
 
 /**
+ * Offset added to the scene's `EntityId` to form a numeric GML instance id.
+ * The GameMaker manual (`id` instance variable page, `instance_find` page)
+ * only says an id is a unique handle, and gives no numeric floor: the value
+ * 100000 is this engine's own convention, chosen so instance ids never
+ * collide with small asset/object indices in the same numeric space. It is
+ * not a GameMaker guarantee, and GML must not depend on the number itself.
+ */
+export const GML_INSTANCE_ID_BASE = 100000;
+
+/** Numeric GML instance id for `entity`: `GML_INSTANCE_ID_BASE + scene id`, stable for the entity's life, never reused in its scene. */
+export function gmlInstanceId(entity: Entity): number {
+  return GML_INSTANCE_ID_BASE + entity.ref().$ref;
+}
+
+/** Live instance for a numeric id from `gmlInstanceId`, else `undefined` (unknown, destroyed, or below the base, i.e. an object index). */
+export function gmlInstanceFromId(
+  ctx: GmlActionContext,
+  id: number,
+): Entity | undefined {
+  if (!Number.isInteger(id) || id <= GML_INSTANCE_ID_BASE) return undefined;
+  return ctx.scene.resolve({ $ref: id - GML_INSTANCE_ID_BASE });
+}
+
+/**
  * Real runtime resolution for GML's *other* dotted-reference shape: a
  * local instance variable that holds a specific `Entity` reference (e.g.
  * `my_gun = instance_create_layer(...)`, then later `my_gun.x`), as
@@ -237,7 +262,7 @@ export function getGmlRefVar(
   // A variable holding an object *index* (`follow = obj_player;`) refers to
   // the first live instance of that object, as in GameMaker.
   if (typeof ref === "string") return getGmlObjectVar(entity, ctx, ref, field);
-  const target = asLiveEntity(ref);
+  const target = asLiveEntity(ref, ctx);
   if (target === undefined) return undefined;
   return readInstanceField(target, ctx, field);
 }
@@ -253,7 +278,7 @@ export function setGmlRefVar(
   const ref = getGmlVar(entity, ctx, varName);
   if (typeof ref === "string")
     return setGmlObjectVar(entity, ctx, ref, field, value);
-  const target = asLiveEntity(ref);
+  const target = asLiveEntity(ref, ctx);
   if (target === undefined) {
     console.warn(
       `[GmlCrossInstance] setGmlRefVar: local variable "${varName}" does not hold a live instance reference — write to "${field}" dropped.`,
@@ -274,7 +299,16 @@ export function setGmlRefVar(
  * approach `NetworkEntityMap`'s own `entity.rawId` reliance already takes
  * elsewhere in this codebase for a similar reason.
  */
-function asLiveEntity(value: unknown): Entity | undefined {
+function asLiveEntity(
+  value: unknown,
+  ctx?: GmlActionContext,
+): Entity | undefined {
+  // Numeric instance id (`gmlInstanceId`) or `EntityRef`: resolved through
+  // the scene's id table, so a destroyed or pooled-away instance is dead.
+  if (ctx !== undefined) {
+    if (typeof value === "number") return gmlInstanceFromId(ctx, value);
+    if (isEntityRef(value)) return ctx.scene.resolve(value);
+  }
   if (
     typeof value !== "object" ||
     value === null ||
@@ -293,7 +327,7 @@ export function getGmlEntityField(
   target: unknown,
   field: string,
 ): unknown {
-  const e = asLiveEntity(target);
+  const e = asLiveEntity(target, ctx);
   return e === undefined ? undefined : readInstanceField(e, ctx, field);
 }
 
@@ -304,7 +338,7 @@ export function setGmlEntityField(
   field: string,
   value: unknown,
 ): unknown {
-  const e = asLiveEntity(target);
+  const e = asLiveEntity(target, ctx);
   if (e !== undefined) writeInstanceField(e, ctx, field, value);
   return value;
 }

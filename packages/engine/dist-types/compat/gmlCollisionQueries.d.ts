@@ -23,6 +23,29 @@ export declare function instance_number(
   ctx: GmlActionContext,
   obj: GmlObjectRef,
 ): number;
+/** GML `instance_find(obj, n)` - the n-th instance of `obj` (or `all`), or `"noone"`. Order is arbitrary but stable while the set is unchanged. */
+export declare function instance_find(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  obj: GmlObjectRef,
+  n: number,
+): Entity | "noone";
+/** GML `instance_nearest(x, y, obj)` by origin distance; ties go to the lowest entity id. */
+export declare function instance_nearest(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  obj: GmlObjectRef,
+): Entity | "noone";
+/** GML `instance_furthest(x, y, obj)` by origin distance. */
+export declare function instance_furthest(
+  _entity: Entity,
+  ctx: GmlActionContext,
+  x: number,
+  y: number,
+  obj: GmlObjectRef,
+): Entity | "noone";
 /**
  * GameMaker's `place_meeting(x, y, obj)` — true if `entity`'s own collision
  * mask, hypothetically positioned at `(x, y)`, would overlap any instance of

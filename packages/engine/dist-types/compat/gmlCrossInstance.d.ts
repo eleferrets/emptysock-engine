@@ -1,5 +1,5 @@
 import type { Entity } from "../Entity.js";
-import type { GmlActionContext } from "./gmlActions.js";
+import { type GmlActionContext } from "./gmlActions.js";
 /**
  * Real runtime resolution for a GML cross-instance dotted reference —
  * `obj_x.field` where `obj_x` is a real object-*type* name (not a local
@@ -42,6 +42,24 @@ export declare function getGmlObjectVar(
   objectName: string,
   field: string,
 ): unknown;
+/**
+ * A GameMaker built-in instance variable (position, image_*, motion) lives on
+ * a component or in the motion side-table, not in the generic instance-variable
+ * store, so a dotted read/write of it on another instance must route the same
+ * way a same-instance bare `image_angle` does.
+ */
+export declare function readInstanceField(
+  target: Entity,
+  ctx: GmlActionContext,
+  field: string,
+): unknown;
+/** See `readInstanceField`. */
+export declare function writeInstanceField(
+  target: Entity,
+  ctx: GmlActionContext,
+  field: string,
+  value: unknown,
+): void;
 export declare function setGmlObjectVar(
   entity: Entity,
   ctx: GmlActionContext,
@@ -49,6 +67,22 @@ export declare function setGmlObjectVar(
   field: string,
   value: unknown,
 ): unknown;
+/**
+ * Offset added to the scene's `EntityId` to form a numeric GML instance id.
+ * The GameMaker manual (`id` instance variable page, `instance_find` page)
+ * only says an id is a unique handle, and gives no numeric floor: the value
+ * 100000 is this engine's own convention, chosen so instance ids never
+ * collide with small asset/object indices in the same numeric space. It is
+ * not a GameMaker guarantee, and GML must not depend on the number itself.
+ */
+export declare const GML_INSTANCE_ID_BASE = 100000;
+/** Numeric GML instance id for `entity`: `GML_INSTANCE_ID_BASE + scene id`, stable for the entity's life, never reused in its scene. */
+export declare function gmlInstanceId(entity: Entity): number;
+/** Live instance for a numeric id from `gmlInstanceId`, else `undefined` (unknown, destroyed, or below the base, i.e. an object index). */
+export declare function gmlInstanceFromId(
+  ctx: GmlActionContext,
+  id: number,
+): Entity | undefined;
 /**
  * Real runtime resolution for GML's *other* dotted-reference shape: a
  * local instance variable that holds a specific `Entity` reference (e.g.
@@ -89,6 +123,19 @@ export declare function setGmlRefVar(
   entity: Entity,
   ctx: GmlActionContext,
   varName: string,
+  field: string,
+  value: unknown,
+): unknown;
+/** Reads `field` off a known instance (`_other` in a collision event or `with` body). */
+export declare function getGmlEntityField(
+  ctx: GmlActionContext,
+  target: unknown,
+  field: string,
+): unknown;
+/** Writes `field` on a known instance. */
+export declare function setGmlEntityField(
+  ctx: GmlActionContext,
+  target: unknown,
   field: string,
   value: unknown,
 ): unknown;
