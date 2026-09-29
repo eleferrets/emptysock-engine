@@ -170,6 +170,9 @@ ${resourceEntries}
     expect(scene.entities.map(({ prefab }) => ({ prefab }))).toEqual(
       expectedFlat,
     );
+    // The engine's own reader accepts the importer's output as-is.
+    const { parseSceneDocument } = await import("@emptysock/engine");
+    expect(parseSceneDocument(JSON.parse(raw)).entities).toHaveLength(20);
     // Every entity carries a unique stable id.
     expect(new Set(scene.entities.map((e) => e.id)).size).toBe(20);
 
