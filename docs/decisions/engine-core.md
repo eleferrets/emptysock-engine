@@ -1,6 +1,12 @@
 ### Engine environment boundary
 
-The engine package must not import anything from the DOM, from Tauri APIs, or from `apps/ide`. The reason is that the same compiled engine bundle runs in three contexts: Node.js (Vitest), the browser preview iframe (IDE), and the Tauri WebView (desktop). An import of a DOM-only API causes silent runtime failures in Node, not a compile error. Enforce this by reviewing any new engine import against the allowed list: the TypeScript standard library and other `@emptysock/*` packages only.
+The engine package must not import anything from the DOM, from Tauri APIs, or from `apps/ide`. The reason is that the same compiled engine bundle runs in three contexts: Node.js (Vitest), the browser preview iframe (IDE), and the Tauri WebView (desktop). An import of a DOM-only API causes silent runtime failures in Node, not a compile error. Enforce this by reviewing any new engine import: no DOM, no Tauri, nothing from `apps/ide`. Third-party libraries are allowed only when justified by a one-line entry here, so a new dependency means a new line in this list (reviewed for Node/browser/WebView safety). Current dependencies of `packages/engine`:
+
+- `pixi.js`: the 2D renderer (sprites, filters, text); runs headless under mocks and on WebGL/WebGPU in the browser and WebView.
+- `pixi-filters`: maintained stock filters (`ColorOverlayFilter`, `OutlineFilter`, `SimpleLightmapFilter`) instead of hand-written shaders.
+- `yoga-layout`: flexbox layout for the UI system, a spec-accurate engine we should not reimplement.
+- `bitecs`: the ECS storage core behind `Scene`/`Entity`/`Component`.
+- Also present, outside the four above: `@dimforge/rapier2d-compat` and `rapier3d-compat` (physics), `howler` (audio playback), `zod` (schema validation for scene, save and asset-index files). Each is a maintained library that beats a hand-rolled version.
 
 ### Actor mailbox ordering
 

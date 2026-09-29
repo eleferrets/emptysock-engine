@@ -12,11 +12,20 @@ Port a large real GameMaker game to this engine so it "just works": full asset c
 - Runtime: `GmsProjectRuntime` (Create, Step x3, Collision, Draw, Alarm, Key, persistent instances, camera follow, multi-view compositing), surfaces and blend modes, layer elements, room walk test over all rooms of one large project (0 handler errors).
 - Engine systems: `SignalBus`, typed `GlobalStore`, merged `InputManager` bindings, `TextureStore`, `RainGlassFilter` (needs a rewrite), rain particle preset, `BitmapFontDef`.
 - IDE: room editor (drag/resize instances, entities, views; pan/zoom; port overlay), game globals panel with persistence.
-- Test status when last run: engine 730/730. Toolchain and ide suites were not re-run at the end. Multi-project walk test and GPU playthrough scripts are committed but never run.
+- Housekeeping done: project names purged, decision record split into `docs/decisions/`, research reports in `docs/research/` (01-12).
+- Sweeps done: rain rewrite, pixi leak fixes, asset index (importer `asset-index.json`, `game.assets`, `GmsProjectData.assetIndex`), keyboard layouts, unified scene shape (`SceneDocument`), entity refs, persistence (scene transfer, persistent rooms, save v2), gml parser (partial), `SpriteFlash` hit-flash (pooled `ColorOverlayFilter`; importer `sh_white` mapping skipped).
+- Test status when last run: engine 910, toolchain 606 (+1 skipped), types 52. GPU playthrough and multi-project walk scripts are committed but never run.
 
 ## Next session tasks
 
-Full list in `gpu_followup_real_browser.md` under "Research pass to do next". Housekeeping is done (project names purged, decision record split into `docs/decisions/`). Order: read-only research agents, sweeps, then the user's `AskUserQuestion` round, then the user's architecture-skills review, then the docs pass (docs, skills and mcp repos are being redone by the user; do not touch them).
+Still open (details in `gpu_followup_real_browser.md`):
+
+- WebGPU/naga shader converter (GLSL to WGSL for imported shaders).
+- Prefab migration onto the unified scene shape.
+- Real-GPU pass: rain, SpriteFlash pixels, flash cost benchmark, playthrough scripts.
+- Rust/Tauri code is uncompiled; build it before trusting it.
+- GML pipeline redesign (the parser is only partly done).
+- Then the user's `AskUserQuestion` round and architecture-skills review, then the docs pass (docs, skills and mcp repos are being redone by the user; do not touch them).
 
 ## Orchestration method that worked
 

@@ -11,7 +11,7 @@ Read before working:
 
 Hard rules:
 
-- The engine package imports no DOM, no Tauri, nothing from `apps/ide`; only the standard library and other `@emptysock/*` packages.
+- The engine package imports no DOM, no Tauri, nothing from `apps/ide`; third-party libraries only with a one-line justification in `docs/decisions/engine-core.md`.
 - `onUpdate` must not be async.
 - Never name reference projects used during development in engine code, comments, tests or notes.
 - New engine exports go through `packages/engine/src/index.ts` and `dist-types` must not drift from it.
