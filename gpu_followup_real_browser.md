@@ -13,7 +13,7 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 - Multi-camera compositing (N render textures + composite): never profiled.
 - Anything in `docs/gpu-verify/` and `packages/engine/scripts/gpu-*.mjs` (last commits: run with a generic fixture-dir env var; the harness and multi-project walk test were committed but never run).
 
-- WebGPU renderer (measured on a real Mac browser): `RenderSystem` prefers `["webgpu", "webgl"]`, and under WebGPU the GL-only `RainGlassFilter` silently renders nothing (no error, frame unchanged; `rendererFilterProbe` in `gpu-verify.harness.ts`). Every `CustomShaderFilter` (imported GML shaders) is GL-only too, so they are assumed to do the same. Fix in progress: GLSL-to-WGSL conversion (`docs/research/11-glsl-to-wgsl.md`); fallback is `preference: ["webgl"]`.
+- WebGPU renderer (measured on a real Mac browser): `RenderSystem` prefers `["webgpu", "webgl"]`, and under WebGPU the GL-only `RainGlassFilter` silently renders nothing (no error, frame unchanged; `rendererFilterProbe` in `gpu-verify.harness.ts`). Every `CustomShaderFilter` (imported GML shaders) is GL-only too, so they are assumed to do the same. Fix landed but UNVERIFIED on a GPU: GLSL-to-WGSL conversion (`docs/research/11-glsl-to-wgsl.md`; see the WGSL section below); fallback is `preference: ["webgl"]`.
 
 ## Open (not built)
 
@@ -42,7 +42,6 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 11. Purge every reference to the reference projects used during development from code, comments, tests, scripts, env var names and notes; keep only the learnings. Use a generic fixture-dir env var.
 12. Stop touching docs, skills and mcp repos; they will be redone. Ask whether to revert the skills-repo commit `d3a04dd` and the engine doc edits from this session.
 
-
 ## Unverified (keyboard layout pass)
 
 - Rust is NOT installed in the authoring environment: `apps/ide/src-tauri/src/keyboard_layout.rs`, the `lib.rs` registration and the new Cargo target dependencies (`core-foundation-sys` on macOS, `xkbcommon` 0.7 on Linux) are UNCOMPILED, and `Cargo.lock` was not regenerated. Run `cargo check` and `cargo test` in `apps/ide/src-tauri` on macOS and Linux (Linux needs libxkbcommon dev headers). Risks: exact `xkbcommon` 0.7 API signatures, the Carbon FFI declarations, and that TIS calls really run on the main thread for a sync Tauri command.
@@ -53,3 +52,17 @@ This file holds everything that is unverified on a real GPU or browser, everythi
 ## SpriteFlash pixel check (needs a real GPU)
 
 `SpriteFlash` attaches a pooled pixi-filters `ColorOverlayFilter` only while `amount > 0`. Headless tests cover timing, pooling and attach/detach; they do not prove pixels. Needs a real GPU (or at least the swiftshader `gpu-verify.mjs` extended): white at amount 1, original texels at 0, alpha edge preserved (no halo on soft edges), stacking with a `shader_set` filter. Also the 50/200/1000 concurrent-flash cost benchmark (filter vs additive clone vs mesh, research 12 step 4).
+
+## WGSL (WebGPU) programs: naga-validated only, never run on a GPU
+
+Landed headlessly: importer emits `wgslFragmentSrc` next to `fragmentSrc` (build-time GLSL ES 1.00 to GLSL 450 rewrite, then `naga-wasm`, `packages/toolchain/src/glsl-es-to-wgsl.ts`); `CustomShaderFilter` builds a `GpuProgram` when given `wgslFragment` (vertex from `toFilterWgslVertexSource`); `RainGlassFilter` has a hand-ported WGSL fragment (`RainGlassWgsl.ts`); `RenderSystem` warns once when a filter with no WebGPU-compatible program is attached under WebGPU. Proven headless: naga parses and validates the generated and hand-written WGSL; `wgsl_reflect` reads the expected entry points and bind groups; pixi's own `GpuProgram` reflection shows the resources land in group 1 by name (nothing in the fallback group 99); the WGSL uniform struct order equals the JS `UniformGroup` order.
+
+NOT verified (needs a real WebGPU browser, e.g. Chrome with `preference: ["webgpu"]`):
+
+- Any actual WebGPU render of an imported shader or of the rain filter. Compare pixels against the WebGL path.
+- That pixi's pipeline creation accepts the split vertex/fragment sources (separate modules, fragment declares only bindings it needs, vertex declares `gfu`), and that no bind-group-layout mismatch appears in the console.
+- Uniform values reach the shader in the right slots (UBO layout is derived from the JS group order; a mismatch shows as wrong colours, not an error). Check `uTime`, a `vec3`, an `int`, `uResolution`/`uTint` in the rain filter.
+- Rain: drop-map orientation and texel filtering under WebGPU (`textureSampleLevel` at level 0), the `@builtin(position)` noise (y is flipped relative to GL, only affects the fog dither), `uChroma` swizzled writes.
+- Importer edge cases in real GameMaker shaders: shaders that fall back to GL-only (extra samplers, matrices, arrays, `gl_FragCoord`) get a warning at import and one runtime warning under WebGPU; check what fraction of a real project converts.
+- naga's handling of `texture2D` inside non-uniform control flow (WGSL is strict about implicit-derivative `textureSample`); the converter emits `textureSample`, so a shader sampling inside an `if` on a per-pixel value may fail on the device compiler even though naga validated it.
+- Blend-required filters (`uBackTexture`) are not supported by the WGSL path.
