@@ -33,7 +33,7 @@ export function room_height(): number {
 // fillStyle, draw_set_colour's GmlDrawTarget — wants a plain 0xRRGGBB
 // value, so these are declared directly as their real RGB integer rather
 // than round-tripping through GameMaker's own BGR storage order. Confirmed
-// a real, common gap: Freedom Backup alone uses c_white/c_black/c_gray
+// a real, common gap: a real project alone uses c_white/c_black/c_gray
 // roughly 48 times across 20 files, previously left as bare, undeclared
 // identifiers (a hard ReferenceError at runtime) since nothing in this
 // engine or its transpiler recognised GML's colour-constant family at all.
@@ -77,7 +77,7 @@ export function sign(val: number): number {
 
 /**
  * `max`/`min`/`abs` — GameMaker's own variadic math built-ins, real,
- * confirmed common (Freedom Backup's `scr_get_input.gml` alone uses
+ * confirmed common (a real project's `scr_get_input.gml` alone uses
  * `max(gamepad_axis_value(...), 0)`, `min(...)`, `abs(...)`), never wired
  * into this transpiler's `THREADED_PURE_FUNCTIONS` list before despite
  * being trivial thin wrappers over `Math.max`/`Math.min`/`Math.abs` — every
@@ -123,7 +123,7 @@ export function frac(val: number): number {
 
 /**
  * `sin`/`cos`/`tan`/`sqrt`/`power` — GameMaker's own bare trig/power
- * built-ins, real, confirmed usage (Freedom Backup's own `obj_gun_pickup`
+ * built-ins, real, confirmed usage (a real project's own `obj_gun_pickup`
  * float-bob effect: `ystart + sin(get_timer()/500000)*5`). Unlike
  * `lengthdir_x`/`lengthdir_y` above (which take a *degrees* argument, per
  * GameMaker's own documented convention for that function family), GML's
@@ -311,7 +311,7 @@ export function string_delete(
  * starting at the 1-based `index`, matching `string_delete`'s own 1-based
  * convention above (both are GameMaker's own real signature/indexing,
  * confirmed against manual.gamemaker.io's `string_insert` reference page).
- * Real, confirmed usage: Freedom Backup's own `obj_menu` menu-cursor
+ * Real, confirmed usage: a real project's own `obj_menu` menu-cursor
  * rendering (`string_insert("> ", txt, 0)` — GameMaker treats an
  * out-of-range low index as "insert at the very start", which this
  * implementation matches via `Math.max(0, index - 1)`).
@@ -561,7 +561,7 @@ export function draw_set_colour(target: GmlDrawTarget, hex: number): void {
   target.setColor(hex);
 }
 
-/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (Freedom Backup's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
+/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (a real project's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
 export const draw_set_color = draw_set_colour;
 
 export function draw_rectangle(
@@ -588,7 +588,7 @@ export function draw_circle(
 // `text` is typed `string | number`, not just `string` — GameMaker's real
 // `draw_text` accepts a bare number and implicitly stringifies it (a real,
 // extremely common idiom: `draw_text(x, y, score);`/`draw_text(x, y,
-// hp);`, confirmed real, common usage across Freedom Backup's own
+// hp);`, confirmed real, common usage across a real project's own
 // `obj_menu`/`obj_pause_menu`/`obj_ending`/`obj_display_manager`/
 // `obj_camera`). `String(text)` matches that same implicit conversion.
 export function draw_text(
@@ -1076,7 +1076,7 @@ export function array_reduce(
 // ---------------------------------------------------------------------------
 // JSON / base64 — GameMaker's real, common save-data encoding pair
 // (manual.gamemaker.io's `json_encode`/`json_decode`/`base64_encode`/
-// `base64_decode` reference pages), confirmed real, common usage: Freedom
+// `base64_decode` reference pages), confirmed real, common usage: a real project
 // Backup's own `scr_save_game.gml`/`scr_load_game.gml` chain exactly
 // `json_encode(...)` into `base64_encode(...)` to write a save file, and
 // the reverse to read one back. Real GameMaker's `json_encode`/`_decode`
@@ -1176,7 +1176,7 @@ export function base64_decode(str: string): string {
 
 // ---------------------------------------------------------------------------
 // Misc built-ins — a second real triage pass, each individually low-
-// frequency in Freedom Backup but real, confirmed usage.
+// frequency in a real project but real, confirmed usage.
 // ---------------------------------------------------------------------------
 
 /**

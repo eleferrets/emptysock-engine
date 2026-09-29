@@ -6,7 +6,7 @@
 // shape, game code wires the live pieces" pattern. Real, confirmed a
 // high-value gap: `keyboard_check`/`keyboard_check_pressed`/
 // `keyboard_check_released` are GameMaker's single most common input-polling
-// idiom (confirmed against Freedom Backup's own `scr_get_input.gml`, which
+// idiom (confirmed against a real project's own `scr_get_input.gml`, which
 // reads every one of the player's controls through them), and none of them,
 // nor the `vk_*` constant family, nor `gamepad_*`/`gp_*`/`mouse_check_
 // button_pressed`/`mb_*` had any compat wiring anywhere in this codebase —
@@ -218,7 +218,7 @@ export function gamepad_axis_value(
  * a project calling this expects the *engine* to start clamping small axis
  * values to `0` on its own, which nothing here does. Real GML source calls
  * this purely for its side effect and never inspects a return value
- * (confirmed against Freedom Backup's own `scr_get_input.gml`, which calls
+ * (confirmed against a real project's own `scr_get_input.gml`, which calls
  * it then immediately does its own manual `abs(...) > 0.2` deadzone check
  * in the very next line regardless) — a caller that wants an actual
  * deadzone should keep doing that manual check itself, the same honest
@@ -318,7 +318,7 @@ export function surface_get_height(
  * authored logical resolution (`ViewportSystem.config.designWidth`/
  * `designHeight`, the same value `display_get_gui_width`/`_height` already
  * read) — real GML code that calls this purely to log/derive an aspect
- * ratio (Freedom Backup's own `display_write_specs.gml`: `"Display: " +
+ * ratio (a real project's own `display_write_specs.gml`: `"Display: " +
  * String(display_get_width()) + " x " + String(display_get_height())`)
  * gets a real, self-consistent number rather than a crash, at the honest
  * cost of it being the game's design resolution, not the user's actual
@@ -378,7 +378,7 @@ export function window_get_height(ctx: GmlInputContext): number {
  * has no general implementation for (see `application_surface`'s own doc
  * comment), *except* the same one honestly-supported case
  * `surface_get_width`/`_height` already carve out: called with
- * `application_surface`, which is what Freedom Backup's own zoom/scaling
+ * `application_surface`, which is what a real project's own zoom/scaling
  * code (`obj_display_manager`) actually does — `surface_resize(
  * application_surface, ideal_width * zoom, ideal_height * zoom)`, a classic
  * GameMaker integer-zoom technique. The real, honest engine-side equivalent
@@ -402,7 +402,7 @@ export function surface_resize(
 /**
  * `mouse_x`/`mouse_y` — the real, extremely common GameMaker built-ins for
  * the mouse's current position, confirmed real and used unwired
- * (`ReferenceError: mouse_x is not defined`) against real Freedom Backup
+ * (`ReferenceError: mouse_x is not defined`) against real project
  * gameplay (`obj_gun`/`obj_pna`'s own aiming code). GameMaker's own real
  * semantic is *room-space* (world) coordinates, already adjusted for the
  * active view/camera — this engine's `PointerState.x`/`.y` are screen-space

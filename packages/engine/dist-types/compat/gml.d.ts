@@ -25,7 +25,7 @@ export declare function clamp(val: number, min: number, max: number): number;
 export declare function sign(val: number): number;
 /**
  * `max`/`min`/`abs` — GameMaker's own variadic math built-ins, real,
- * confirmed common (Freedom Backup's `scr_get_input.gml` alone uses
+ * confirmed common (a real project's `scr_get_input.gml` alone uses
  * `max(gamepad_axis_value(...), 0)`, `min(...)`, `abs(...)`), never wired
  * into this transpiler's `THREADED_PURE_FUNCTIONS` list before despite
  * being trivial thin wrappers over `Math.max`/`Math.min`/`Math.abs` — every
@@ -44,7 +44,7 @@ export declare function ord(str: string): number;
 export declare function frac(val: number): number;
 /**
  * `sin`/`cos`/`tan`/`sqrt`/`power` — GameMaker's own bare trig/power
- * built-ins, real, confirmed usage (Freedom Backup's own `obj_gun_pickup`
+ * built-ins, real, confirmed usage (a real project's own `obj_gun_pickup`
  * float-bob effect: `ystart + sin(get_timer()/500000)*5`). Unlike
  * `lengthdir_x`/`lengthdir_y` above (which take a *degrees* argument, per
  * GameMaker's own documented convention for that function family), GML's
@@ -117,7 +117,7 @@ export declare function string_delete(
  * starting at the 1-based `index`, matching `string_delete`'s own 1-based
  * convention above (both are GameMaker's own real signature/indexing,
  * confirmed against manual.gamemaker.io's `string_insert` reference page).
- * Real, confirmed usage: Freedom Backup's own `obj_menu` menu-cursor
+ * Real, confirmed usage: a real project's own `obj_menu` menu-cursor
  * rendering (`string_insert("> ", txt, 0)` — GameMaker treats an
  * out-of-range low index as "insert at the very start", which this
  * implementation matches via `Math.max(0, index - 1)`).
@@ -303,7 +303,7 @@ export declare function draw_set_colour(
   target: GmlDrawTarget,
   hex: number,
 ): void;
-/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (Freedom Backup's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
+/** `draw_set_color` — GameMaker accepts both the British `draw_set_colour` and this American-spelling alias for the exact same function (confirmed against GameMaker's own manual, which lists both names on the same reference page); real GML source uses either spelling interchangeably (a real project's own source uses `draw_set_color`). A plain re-export, not a second implementation, so the two spellings can never drift apart. */
 export declare const draw_set_color: typeof draw_set_colour;
 export declare function draw_rectangle(
   target: GmlDrawTarget,

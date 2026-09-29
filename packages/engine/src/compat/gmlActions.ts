@@ -165,7 +165,7 @@ function ensureMotion(world: World, eid: number): GmlMotionState {
  * makes it move automatically every step from then on, with no further
  * code required — precisely what `gmlActionsStep`'s existing `vx`/`vy`
  * integration already does. Confirmed against a real, full GameMaker
- * project (Freedom Backup's `obj_Egun`/`obj_bullet_par`: `direction =
+ * project (a real project's `obj_Egun`/`obj_bullet_par`: `direction =
  * other.image_angle + random_range(...);` inside a `with` block targeting a
  * freshly `instance_create_layer`-ed bullet, read back nowhere else — the
  * bullet moves purely from this one assignment, GameMaker's own automatic
@@ -520,7 +520,7 @@ export function room(ctx: GmlActionContext): string {
  * treat as "every room this project actually has". A project that never
  * wired `ctx.rooms` at all honestly answers `false` for everything (no
  * fabricated "yes" for a room this context can't actually load), matching
- * Freedom Backup's own real use (`obj_display_manager`'s `if
+ * a real project's own real use (`obj_display_manager`'s `if
  * (room_exists(i)) ...` display-mode scan, and `obj_player`'s `if
  * (room_exists(_other.new_room))` before a door transition) — both are
  * real existence checks before acting, not performance-sensitive hot loops.
@@ -684,7 +684,7 @@ export function room_speed(_ctx: GmlActionContext): number {
 // manual.gamemaker.io's own `xstart`/`ystart` reference pages: "the initial
 // x/y position of the instance ... set when the instance is created," and
 // explicitly *not* read-only (a real GML script may reassign either). Real,
-// confirmed usage: Freedom Backup's own `obj_camera` (`xTo = xstart;`)/
+// confirmed usage: a real project's own `obj_camera` (`xTo = xstart;`)/
 // `obj_gun_pickup` (`y = ystart + sin(...) * 5;`, a real float-bob effect
 // anchored to the pickup's own spawn position).
 //
@@ -829,7 +829,7 @@ export function instance_create_layer(
 
 /**
  * GML's `with (target) { ... }` — genuinely common in real GameMaker
- * source (confirmed against Freedom Backup: dozens of real call sites,
+ * source (confirmed against a real project: dozens of real call sites,
  * `with (mywall) instance_destroy();`, `with (obj_player) { ... }`,
  * `with (instance_create_layer(...)) { ... }`, `with (other)
  * instance_destroy();`) and, until now, always left as dead code (an
@@ -1118,7 +1118,7 @@ export function audio_play_sound(
  * speed/an octave down, `2` = double speed/an octave up — matching Howler's
  * own `rate()` convention exactly, see `AudioSystem.setPitch`'s own doc
  * comment). A real, common GameMaker idiom for cheap sound variety — real,
- * confirmed usage: Freedom Backup's own `audio_sound_pitch(snd_Shot,
+ * confirmed usage: a real project's own `audio_sound_pitch(snd_Shot,
  * choose(0.8, 1.0, 1.2))`, a slightly different pitch every shot rather
  * than needing several near-identical gunshot samples. `soundName` is
  * resolved through `ctx.sounds` the same way `action_sound`'s own sound-id
@@ -1211,11 +1211,11 @@ export function action_if_collision(
  * when present. Falls back to a fixed 16px half-extent (32px square) only
  * when both are `0` (genuinely absent — a hand-authored entity with no
  * imported sprite data). A real headless playability smoke test against the
- * real Freedom Backup project found the old fixed-32x32-always fallback
+ * real project found the old fixed-32x32-always fallback
  * permanently colliding against real wall geometry sized differently, which
  * silently blocked all horizontal movement — this real-dimensions path is
  * the fix. GameMaker's own sprites can in principle use a non-bbox
- * precise/mask collision shape, but every real sprite in Freedom Backup
+ * precise/mask collision shape, but every real sprite in a real project
  * uses a plain rectangular mask, so a real-dimensions bounding box is the
  * correctly-scoped fix here — a full per-pixel mask system would be
  * over-engineering for what this project actually needs. A project that
@@ -1277,7 +1277,7 @@ export function spriteHalfExtents(entity: Entity): {
  * `bbox_left`/`bbox_right`/`bbox_top`/`bbox_bottom` — real, extremely
  * common GameMaker built-ins for the calling instance's own current
  * collision-mask bounding box, confirmed real and unwired (a hard
- * `ReferenceError` the moment real transpiled code read one — Freedom
+ * `ReferenceError` the moment real transpiled code read one — a real project
  * Backup's own `obj_player/Step_0.gml` reads `bbox_bottom` every Step for
  * its ground/wall probe) while running the playability smoke test against
  * real gameplay. Derived from the exact same `spriteHalfExtents()` fallback

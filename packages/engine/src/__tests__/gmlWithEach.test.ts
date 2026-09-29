@@ -19,7 +19,7 @@ function spawnAt(scene: Scene, x: number, y: number, objectName?: string) {
 
 // ---------------------------------------------------------------------------
 // GML's `with (target) { ... }` — genuinely common real GameMaker source
-// (Freedom Backup: `with (mywall) instance_destroy();`, `with (obj_player)
+// (a real project: `with (mywall) instance_destroy();`, `with (obj_player)
 // { ... }`, `with (other) instance_destroy();`, `with
 // (instance_create_layer(...)) { ... }`) — previously always dead code.
 // ---------------------------------------------------------------------------

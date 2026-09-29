@@ -18,7 +18,7 @@ function makeCtx(scene: Scene): GmlActionContext {
 // view_camera[0];` in a Create event, read back by name in Step — must
 // persist for the whole entity lifetime, the same way a real GameMaker
 // instance variable does. This is what compat/gmlInstanceVars.ts provides;
-// see its own doc comment for the real, confirmed regression (Freedom
+// see its own doc comment for the real, confirmed regression (a real project
 // Backup's obj_camera) this fixes.
 // ---------------------------------------------------------------------------
 

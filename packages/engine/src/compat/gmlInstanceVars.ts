@@ -15,7 +15,7 @@ import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
  * (`gms2-codegen.ts`), the value was silently lost the instant the Create
  * event's function returned, and the Step event's read of the same name saw
  * a fresh, undeclared identifier instead of the value Create actually set.
- * Confirmed against a real, full GameMaker project (Freedom Backup's
+ * Confirmed against a real, full GameMaker project (its
  * `obj_camera`: `cam`/`follow`/`view_w_half`/`view_h_half`/`shake_remain`
  * are all set once in Create and read every frame in Step — the exact
  * "instance state that must survive across events" shape this was silently
@@ -87,7 +87,7 @@ export function hasGmlVar(
  * assignment can be an indexed one (`endtext[0] = "...";`), which implicitly
  * creates a real, per-instance array the same way a bare `name = expr;`
  * implicitly creates a scalar field (see this module's own doc comment) —
- * confirmed against a real, full GameMaker project (Freedom Backup's
+ * confirmed against a real, full GameMaker project (its
  * `obj_ending`/`obj_pause_menu`/`obj_menu` all build a dialogue/menu-option
  * list this way, with no `var`/array-literal declaration anywhere). This
  * getter is the array equivalent of `getGmlVar`: it returns the entity's
@@ -181,7 +181,7 @@ export function gmlNum(value: unknown): number {
 /**
  * `gmlNum`'s exact sibling for `ds_list_size`/`ds_list_clear`'s real
  * `.length`/`.length = 0` rewrite: a bare GML `ds_list` variable
- * (`messages = ds_list_create();`, real, confirmed usage — Freedom
+ * (`messages = ds_list_create();`, real, confirmed usage — a real project
  * Backup's own `oTextbox`) is a plain scalar instance variable as far as
  * `getGmlVar`/`setGmlVar`'s side-table is concerned (it holds a real JS
  * `Array`, `ds_list_create()`'s own real rewrite target, but nothing marks

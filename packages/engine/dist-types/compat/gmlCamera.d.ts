@@ -135,7 +135,7 @@ export declare function camera_set_view_speed(
  * `camera_get_view_border_x`/`_y` and `camera_set_view_border(camid, x, y)` —
  * real GameMaker functions twin to the `hborder`/`vborder` fields
  * `GmlCameraHandle`/`camera_create_view` already store. Added for the
- * `__view_get`/`__view_set_internal` legacy-compat bridge (Freedom Backup's
+ * `__view_get`/`__view_set_internal` legacy-compat bridge (a real project's
  * own GameMaker-generated `e__VW.HBorder`/`e__VW.VBorder` cases) — confirmed
  * a real, previously-missing gap: `borderX`/`borderY` were written by
  * `camera_create_view`/`configureGmlViewsFromRoom` and read by
@@ -354,7 +354,7 @@ export declare function view_set_surface_id(
 /**
  * The legacy pre-2.3 `room_get_camera`/`room_set_camera`/`room_set_viewport`/
  * `room_set_view_enabled` family — GameMaker's real per-*room* view-array
- * accessors, confirmed real and still called by Freedom Backup's own
+ * accessors, confirmed real and still called by a real project's own
  * `scripts/room_set_view/room_set_view.gml` (the same real GameMaker-
  * auto-generated view-compatibility script family `__view_get`/
  * `__view_set_internal` above already document, but this one was never
@@ -373,7 +373,7 @@ export declare function view_set_surface_id(
  * `ensureRegistry(ctx.scene)`, the exact same one every `view_get_camera`/
  * `view_set_camera`/`view_set_visible` call above already reads/writes —
  * and silently ignore the `room` argument. This matches real usage: every
- * confirmed real call site in Freedom Backup passes the *current* room's
+ * confirmed real call site in a real project passes the *current* room's
  * own numeric index (obtained via `room`, itself just an alias in this
  * importer — see `room()`'s own doc comment), so honestly aliasing to
  * "the current room" produces the correct real behaviour for every actual

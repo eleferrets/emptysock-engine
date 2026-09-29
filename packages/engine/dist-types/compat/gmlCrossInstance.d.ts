@@ -57,7 +57,7 @@ export declare function setGmlObjectVar(
  * (`obj_player.x`). See `gms2-transpile.ts`'s narrow, same-function
  * pre-scan (the "GML local-variable-held instance references" section)
  * for exactly which assignments this covers and — just as importantly —
- * which real, confirmed Freedom Backup occurrence it deliberately does
+ * which real, confirmed occurrence in a real project it deliberately does
  * *not* cover.
  *
  * `varName`'s own current value is read through the *same* `getGmlVar`

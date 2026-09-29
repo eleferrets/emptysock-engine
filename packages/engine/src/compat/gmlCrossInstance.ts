@@ -64,7 +64,7 @@ export function getGmlObjectVar(
   // position variables" section for why a same-instance bare `x`/`y`
   // already routes to `Transform.x`/`.y` rather than the generic
   // `getGmlVar`/`setGmlVar` side-table. A cross-instance `obj_x.x`/`.y`
-  // reference (real, confirmed usage — Freedom Backup's own
+  // reference (real, confirmed usage — a real project's own
   // `obj_player.x`/`obj_player.y`, 11+12 occurrences) must resolve
   // consistently with that, not silently read `undefined` from a
   // side-table `x`/`y` never actually populates.
@@ -206,7 +206,7 @@ function findFirstInstanceOfType(
  * (`obj_player.x`). See `gms2-transpile.ts`'s narrow, same-function
  * pre-scan (the "GML local-variable-held instance references" section)
  * for exactly which assignments this covers and — just as importantly —
- * which real, confirmed Freedom Backup occurrence it deliberately does
+ * which real, confirmed occurrence in a real project it deliberately does
  * *not* cover.
  *
  * `varName`'s own current value is read through the *same* `getGmlVar`
