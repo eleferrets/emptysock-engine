@@ -114,7 +114,7 @@ describe("GMS2 room-layer sprite and sequence elements", () => {
       scaleX: 2,
       scaleY: 1,
     });
-    expect(comp(gun, "Transform")?.["rotation"]).toBeCloseTo(Math.PI / 2);
+    expect(comp(gun, "Transform")?.["rotation"]).toBeCloseTo(-Math.PI / 2); // GM CCW -> clockwise
     expect(comp(gun, "Sprite")).toMatchObject({
       texturePath: "./assets/sprites/spr_gun/frame_{n}.png",
       depth: -100,

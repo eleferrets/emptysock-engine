@@ -180,10 +180,12 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
   it("rewrites image_angle writes/reads onto Transform.rotation with a degrees<->radians conversion", () => {
     const out = transpileGML("image_angle = 45;\ny = image_angle;");
     expect(out).toContain(
-      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = (45) * Math.PI / 180;",
+      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation = -(45) * Math.PI / 180;",
     );
+    // GameMaker angles are counter-clockwise; Transform.rotation is
+    // clockwise (y-down), so both directions negate.
     expect(out).toContain(
-      "((_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)",
+      "(-(_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)",
     );
   });
 
@@ -308,7 +310,7 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     it("image_angle += converts the degree delta to radians with the same operator", () => {
       const out = transpileGML("image_angle += 5;");
       expect(out).toContain(
-        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation += (5) * Math.PI / 180;",
+        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation -= (5) * Math.PI / 180;",
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -580,7 +582,7 @@ describe("transpileGML", () => {
       "movement += value;\n\nif movement >= pi*2\nmovement = 0;\n\nx += 1;",
     );
     expect(out).toContain(
-      'if (GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "movement")) >= pi*2)',
+      'if (GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "movement")) >= GmlActions.pi*2)',
     );
     expect(out).toContain(
       'GmlActions.setGmlVar(_entity, _ctx, "movement", 0);',
@@ -686,7 +688,7 @@ describe("transpileGML", () => {
     // rather than a function-scoped `var` — see "GML built-in instance
     // variables" below for the full rationale.
     expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "argument4", current_time);',
+      'GmlActions.setGmlVar(_entity, _ctx, "argument4", GmlActions.get_current_time());',
     );
     expect(out).not.toContain("if ()");
   });
@@ -752,7 +754,7 @@ describe("transpileGML", () => {
     // early and corrupted the output into invalid syntax.
     const out = transpileGML('l_s2c[?chr(92)/* "\\" */] = 220;');
     expect(out).toContain(
-      "l_s2c.set(chr(92)/* GML comment/dead code omitted */, 220)",
+      "l_s2c.set(GmlActions.chr(92)/* GML comment/dead code omitted */, 220)",
     );
   });
 
@@ -2324,14 +2326,14 @@ describe("transpileGML — GML local-variable-held instance references", () => {
   it("rewrites a dotted read on _other inside a collision handler", () => {
     const out = transpileGML("hp -= other.damage;", [], new Set(), true);
     expect(out).toContain(
-      'GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, "_other", "damage"))',
+      'GmlActions.gmlNum(GmlActions.getGmlEntityField(_ctx, _other, "damage"))',
     );
   });
 
   it("rewrites a dotted assignment on _other inside a with-block", () => {
     const out = transpileGML("with (obj_enemy) { other.hp = 5; }");
     expect(out).toContain(
-      'GmlActions.setGmlRefVar(_entity, _ctx, "_other", "hp", 5);',
+      'GmlActions.setGmlEntityField(_ctx, _other, "hp", 5);',
     );
   });
 });
