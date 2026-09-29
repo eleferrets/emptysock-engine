@@ -1,0 +1,10 @@
+### NavMesh data is offline
+
+`NavMeshSystem.load()` accepts a pre-built polygon graph. There is no API to generate the navmesh from a tilemap at runtime. Building a polygon graph from raw tile data requires Delaunay triangulation and polygon merging, which is O(n log n) and would block the main thread for hundreds of milliseconds on a large level. Build the navmesh in the level editor (or a preprocessing step) and ship the polygon data as a JSON asset.
+
+### Deterministic Rapier build is imported via a non-literal specifier
+
+`PhysicsSystem.init()`/`PhysicsSystem3D.init()` choose between `@dimforge/rapier{2,3}d-compat` and the `-deterministic-compat` build with `await import(moduleName)` where `moduleName` is a runtime string, not a literal. A literal `import("@dimforge/rapier2d-deterministic-compat")` would make TypeScript (and any bundler resolving imports at build time) treat the deterministic build as a hard dependency of `@emptysock/engine`, which defeats the point of it being an `optionalDependency` (most games never install it and shouldn't pay for it, including at install/bundle time). Keep this non-literal if the deterministic swap logic ever moves.
+
+A real, separate, still-open gap: once `apps/ide`'s runtime bundler externalizes `@dimforge/rapier2d-compat` (necessarily — it's a real optional native/WASM dependency, not something to actually bundle into the IIFE), `PhysicsSystem.init()`'s `await import(moduleName)` becomes a genuine bare-specifier dynamic `import()` at runtime with no import map to resolve it. This is a browser platform limitation, not a bundler configuration mistake — physics has likely never worked in the IDE's browser preview, full stop. Not fixed; needs an import-map entry mapping the bare specifier to a real ESM build of rapier's WASM wrapper, or a small runtime shim `apps/ide` registers before the game module loads, in a dedicated future pass. The default new-project boilerplate sidesteps this by passing `manageLifecycle: false` to `loadScene()` (a sprite-only starter has no physics bodies to justify eating this cost anyway).
+
