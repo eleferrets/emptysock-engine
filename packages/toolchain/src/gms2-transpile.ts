@@ -439,6 +439,55 @@ function escapeRegExpTranspile(str: string): string {
 }
 
 /**
+ * Single left-to-right scans for `name.field = expr;` / `name.field` where
+ * `name` is any member of a project-wide name set. They replace the former
+ * one-`RegExp`-per-name loops (O(names x text)) with one generic candidate
+ * scan and a set lookup (O(text)), keeping the exact per-name semantics: the
+ * same `(?<!\.[ \t]*)` dotted guard, the same `[^;\n]+;` expression capture,
+ * and a non-member head consumes only itself so an overlapping candidate
+ * (`a.b = obj_x.c = 1;`) is still found. Assignments must run over the whole
+ * text before reads, exactly as each per-name iteration ran them.
+ */
+function rewriteDottedAssignments(
+  text: string,
+  isTarget: (head: string) => boolean,
+  build: (head: string, field: string, expr: string) => string,
+): string {
+  const re =
+    /(?<!\.[ \t]*)\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*=(?!=)\s*([^;\n]+);/g;
+  let result = "";
+  let last = 0;
+  for (;;) {
+    const m = re.exec(text);
+    if (m === null) break;
+    const head = m[1] as string;
+    if (isTarget(head)) {
+      // A chained assignment (`a.x = b.y = 3;`) rewrites the inner target
+      // first, exactly as the former per-name loop nested them.
+      const inner = rewriteDottedAssignments(`${m[3] as string};`, isTarget, build);
+      const expr = inner.endsWith(";") ? inner.slice(0, -1) : inner;
+      result += text.slice(last, m.index) + build(head, m[2] as string, expr);
+      last = m.index + m[0].length;
+    } else {
+      re.lastIndex = m.index + head.length;
+    }
+  }
+  return result + text.slice(last);
+}
+
+function rewriteDottedReads(
+  text: string,
+  isTarget: (head: string) => boolean,
+  build: (head: string, field: string) => string,
+): string {
+  return text.replace(
+    /(?<!\.[ \t]*)\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\b/g,
+    (m: string, head: string, field: string) =>
+      isTarget(head) ? build(head, field) : m,
+  );
+}
+
+/**
  * Masks every real string literal in `text` behind a `\u0000<prefix><N>
  * \u0000` placeholder, so a later identifier-rewrite regex can't fire
  * *inside* one (the `sprite_index`/implicit-var passes' own precedent — see
@@ -5050,37 +5099,32 @@ export function transpileGML(
       "GMLSTR3",
     );
     let coOut = coMasked;
-    for (const objName of _objectNames) {
-      const esc = escapeRegExpTranspile(objName);
-      // Assignment form first (`obj_x.field = expr;`) — must run before the
-      // bare-read pass below, or the bare-read pass would consume the LHS
-      // of the assignment too and produce an invalid assignment target
-      // (the exact ordering every other assignment-then-bare-read pass in
-      // this file already follows).
-      coOut = coOut.replace(
-        new RegExp(
-          `(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
-          "g",
-        ),
-        (_m: string, field: string, expr: string) =>
-          `GmlActions.setGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
-      );
-      // Bare read (`obj_x.field`, anywhere — a sub-expression, a condition,
-      // …). The `(?<!\.[ \t]*)` guard excludes a *further* nested dotted
-      // access (`a.obj_x.field`, not real GML but defensive regardless) so
-      // this can't double-fire on its own rewritten output on a second
-      // transpile pass.
-      // Same `as number` cast, same reasoning, as the bare same-instance
-      // read above — a cross-instance field read overwhelmingly feeds
-      // arithmetic/comparison position in real usage (`obj_input.key_left`
-      // summed into movement, `obj_player.hp` compared) and this is a pure
-      // type-level assertion with no runtime effect.
-      coOut = coOut.replace(
-        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
-        (_m: string, field: string) =>
-          `GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}))`,
-      );
-    }
+    // Assignment form first (`obj_x.field = expr;`) — must run before the
+    // bare-read pass below, or the bare-read pass would consume the LHS of
+    // the assignment too and produce an invalid assignment target (the exact
+    // ordering every other assignment-then-bare-read pass in this file
+    // already follows).
+    coOut = rewriteDottedAssignments(
+      coOut,
+      (head) => _objectNames.has(head),
+      (objName, field, expr) =>
+        `GmlActions.setGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
+    );
+    // Bare read (`obj_x.field`, anywhere — a sub-expression, a condition,
+    // …). The dotted guard excludes a *further* nested dotted access
+    // (`a.obj_x.field`, not real GML but defensive regardless) so this can't
+    // double-fire on its own rewritten output on a second transpile pass.
+    // Same `as number` cast, same reasoning, as the bare same-instance read
+    // above — a cross-instance field read overwhelmingly feeds
+    // arithmetic/comparison position in real usage (`obj_input.key_left`
+    // summed into movement, `obj_player.hp` compared) and this is a pure
+    // type-level assertion with no runtime effect.
+    coOut = rewriteDottedReads(
+      coOut,
+      (head) => _objectNames.has(head),
+      (objName, field) =>
+        `GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, ${JSON.stringify(objName)}, ${JSON.stringify(field)}))`,
+    );
     out = unmaskGmlStringLiterals(coOut, "GMLSTR3", coStrings);
   }
 
@@ -5199,28 +5243,24 @@ export function transpileGML(
       "GMLSTR4",
     );
     let refOut = refMasked;
-    for (const varName of localRefNames) {
-      const esc = escapeRegExpTranspile(varName);
-      // Assignment form first, same ordering-before-bare-read reason the
-      // `_objectNames` pass above documents.
-      refOut = refOut.replace(
-        new RegExp(
-          `(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\s*=(?!=)\\s*([^;\\n]+);`,
-          "g",
-        ),
-        (_m: string, field: string, expr: string) =>
-          varName === "_other"
-            ? `GmlActions.setGmlEntityField(_ctx, _other, ${JSON.stringify(field)}, ${expr.trim()});`
-            : `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
-      );
-      refOut = refOut.replace(
-        new RegExp(`(?<!\\.[ \\t]*)\\b${esc}\\.([A-Za-z_]\\w*)\\b`, "g"),
-        (_m: string, field: string) =>
-          varName === "_other"
-            ? `GmlActions.gmlNum(GmlActions.getGmlEntityField(_ctx, _other, ${JSON.stringify(field)}))`
-            : `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
-      );
-    }
+    // Assignment form first, same ordering-before-bare-read reason the
+    // `_objectNames` pass above documents.
+    refOut = rewriteDottedAssignments(
+      refOut,
+      (head) => localRefNames.has(head),
+      (varName, field, expr) =>
+        varName === "_other"
+          ? `GmlActions.setGmlEntityField(_ctx, _other, ${JSON.stringify(field)}, ${expr.trim()});`
+          : `GmlActions.setGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}, ${expr.trim()});`,
+    );
+    refOut = rewriteDottedReads(
+      refOut,
+      (head) => localRefNames.has(head),
+      (varName, field) =>
+        varName === "_other"
+          ? `GmlActions.gmlNum(GmlActions.getGmlEntityField(_ctx, _other, ${JSON.stringify(field)}))`
+          : `GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, ${JSON.stringify(varName)}, ${JSON.stringify(field)}))`,
+    );
     out = unmaskGmlStringLiterals(refOut, "GMLSTR4", refStrings);
   }
 
@@ -5312,38 +5352,38 @@ export function transpileGML(
         "GMLSTR5",
       );
       let avOut = avMasked;
+      // Sprites resolve to this importer's own real texture-path convention
+      // (`resolveSpriteAssetExpr`'s own single-frame `frame_0.png`
+      // convention, above — kept in lockstep with it rather than
+      // re-derived). Every other kind resolves to the bare name string,
+      // matching that kind's own already-established real convention
+      // (`action_sound`/`ctx.sounds`, `room_exists`/`room`,
+      // `place_meeting`/`resolveGmlObjectType`, and `FontRegistry`'s plain
+      // string-id API).
+      const resolvedByName = new Map<string, string>();
       for (const [name, kind] of kindByName) {
-        const esc = escapeRegExpTranspile(name);
-        // Sprites resolve to this importer's own real texture-path
-        // convention (`resolveSpriteAssetExpr`'s own single-frame
-        // `frame_0.png` convention, above — kept in lockstep with it
-        // rather than re-derived). Every other kind resolves to the bare
-        // name string, matching that kind's own already-established real
-        // convention (`action_sound`/`ctx.sounds`, `room_exists`/`room`,
-        // `place_meeting`/`resolveGmlObjectType`, and `FontRegistry`'s
-        // plain string-id API).
-        const resolved =
+        resolvedByName.set(
+          name,
           kind === "sprite"
             ? `"./assets/sprites/${name}/frame_0.png"`
             : kind === "missingSprite"
               ? `"./assets/sprites/__missing_sprite__/frame_0.png"`
-              : JSON.stringify(name);
-        // Never rewrite the name as an assignment *target*
-        // (`spr_foo = ...;`, vanishingly rare given GameMaker's own
-        // asset-prefix naming convention but defensive regardless), never
-        // a dotted access on either side (already-handled — cross-instance
-        // dotted refs — or deliberately-unresolved elsewhere, so a dotted
-        // occurrence has nothing bare left for this pass to find anyway),
-        // and never immediately followed by a call `(` (not a real GML
-        // shape for a bare asset-name value, but defensive regardless).
-        avOut = avOut.replace(
-          new RegExp(
-            `(?<!\\.[ \\t]*)\\b${esc}\\b(?!\\s*\\.)(?!\\s*\\()(?!\\s*=(?!=))`,
-            "g",
-          ),
-          resolved,
+              : JSON.stringify(name),
         );
       }
+      // One scan over every identifier candidate, looked up in the map (was
+      // one `RegExp` per asset name). Never rewrite the name as an
+      // assignment *target* (`spr_foo = ...;`, vanishingly rare given
+      // GameMaker's own asset-prefix naming convention but defensive
+      // regardless), never a dotted access on either side (already-handled —
+      // cross-instance dotted refs — or deliberately-unresolved elsewhere, so
+      // a dotted occurrence has nothing bare left for this pass to find
+      // anyway), and never immediately followed by a call `(` (not a real GML
+      // shape for a bare asset-name value, but defensive regardless).
+      avOut = avOut.replace(
+        /(?<!\.[ \t]*)\b([A-Za-z_]\w*)\b(?!\s*\.)(?!\s*\()(?!\s*=(?!=))/g,
+        (m: string, word: string) => resolvedByName.get(word) ?? m,
+      );
       out = unmaskGmlStringLiterals(avOut, "GMLSTR5", avStrings);
     }
   }

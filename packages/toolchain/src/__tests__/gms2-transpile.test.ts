@@ -2645,3 +2645,44 @@ describe("transpileGML — GMS2 cutout lighting (surfaces, blend modes, legacy v
     expect(out).not.toMatch(/\bview_xview\b/);
   });
 });
+
+describe("transpileGML — single-scan name-set rewrites (cross-instance dotted + asset values)", () => {
+  it("nests a chained cross-instance assignment and rewrites reads on the right-hand side", () => {
+    setGmlObjectNames(new Set(["obj_a", "obj_b"]));
+    try {
+      const out = transpileGML("obj_a.hp = obj_b.hp = 3;\nz = obj_a.x + obj_b.y;");
+      expect(out).toContain(
+        'GmlActions.setGmlObjectVar(_entity, _ctx, "obj_a", "hp", GmlActions.setGmlObjectVar(_entity, _ctx, "obj_b", "hp", 3));',
+      );
+      expect(out).toContain('"obj_a", "x"');
+      expect(out).toContain('"obj_b", "y"');
+    } finally {
+      setGmlObjectNames(new Set());
+    }
+  });
+
+  it("a non-object head never hides an object reference in its right-hand side, and a dotted head is never rewritten", () => {
+    setGmlObjectNames(new Set(["obj_a"]));
+    try {
+      const out = transpileGML("foo.bar = obj_a.x;\nq = foo.obj_a.y;");
+      expect(out).toContain('foo.bar = GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, "obj_a", "x"));');
+      expect(out).toContain("foo.obj_a.y");
+    } finally {
+      setGmlObjectNames(new Set());
+    }
+  });
+
+  it("rewrites every asset kind in one scan without touching a dotted occurrence", () => {
+    setGmlSpriteNames(new Set(["spr_a"]));
+    setGmlSoundNames(new Set(["snd_a"]));
+    try {
+      const out = transpileGML("v = spr_a;\nw = snd_a;\nu = s.spr_a;");
+      expect(out).toContain('"./assets/sprites/spr_a/frame_0.png"');
+      expect(out).toContain('"snd_a"');
+      expect(out).toContain("s.spr_a");
+    } finally {
+      setGmlSpriteNames(new Set());
+      setGmlSoundNames(new Set());
+    }
+  });
+});
