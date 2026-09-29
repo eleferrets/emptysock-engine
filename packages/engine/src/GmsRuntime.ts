@@ -15,7 +15,7 @@ import { gmlActionsStep } from "./compat/gmlActions.js";
 import { setRoomSize } from "./compat/gml.js";
 import { setGmlVar } from "./compat/gmlInstanceVars.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
-import { KNOWN_VK_CODES, vkToDomCode } from "./compat/gmlKeys.js";
+import { KNOWN_VK_CODES, resolveVk } from "./compat/gmlKeys.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
 import {
   configureGmlViewsFromRoom,
@@ -502,10 +502,11 @@ export class GmsProjectRuntime {
    */
   private dispatchKeyTransitions(scene: Scene, ctx: GmsRuntimeContext): void {
     const keyboard = this.game.input.keyboard;
+    const layout = this.game.input.layout;
     const pressed: number[] = [];
     const released: number[] = [];
     for (const vkCode of KNOWN_VK_CODES) {
-      const domCode = vkToDomCode(vkCode);
+      const domCode = resolveVk(vkCode, layout);
       if (domCode === undefined) continue;
       const isDown = keyboard.isDown(domCode);
       const wasDown = this._prevKeyDown.get(vkCode) === true;

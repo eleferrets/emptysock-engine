@@ -153,3 +153,106 @@ describe("compat/gmlInput.ts — window_set_size/surface_resize", () => {
     expect(game.services.get(ViewportSystem).config.designWidth).toBe(320);
   });
 });
+
+describe("compat/gmlInput.ts — layout-aware letters", () => {
+  const ord = (c: string): number => c.charCodeAt(0);
+  const provider = (t: Record<string, string>) => ({
+    charForCode: (c: string) => t[c],
+  });
+
+  it("AZERTY: physical KeyQ answers ord('A'), not ord('Q')", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.layout.setProvider(
+      provider({ KeyQ: "a", KeyA: "q", Semicolon: "m" }),
+    );
+    game.input.simulateKeyDown("KeyQ");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("A"))).toBe(true);
+    expect(keyboard_check(ctx, ord("Q"))).toBe(false);
+    game.input.simulateKeyUp("KeyQ");
+    game.input.simulateKeyDown("Semicolon");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("M"))).toBe(true);
+  });
+
+  it("QWERTZ swaps Y and Z", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.layout.setProvider(provider({ KeyY: "z", KeyZ: "y" }));
+    game.input.simulateKeyDown("KeyY");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("Z"))).toBe(true);
+    expect(keyboard_check(ctx, ord("Y"))).toBe(false);
+  });
+
+  it("Dvorak: letters follow the produced char", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.layout.setProvider(provider({ KeyS: "o", Quote: "q" }));
+    game.input.simulateKeyDown("Quote");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("Q"))).toBe(true);
+  });
+
+  it("Cyrillic with no Latin: ord('A') falls back to physical KeyA", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.layout.setProvider(provider({ KeyA: "ф", KeyQ: "й" }));
+    game.input.simulateKeyDown("KeyA");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("A"))).toBe(true);
+  });
+
+  it("learned layout works with no provider", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.simulateKeyDown("KeyQ", "a");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("A"))).toBe(true);
+  });
+
+  it("digits and named keys stay physical even on AZERTY", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.layout.setProvider(provider({ Digit1: "&", KeyQ: "a" }));
+    game.input.simulateKeyDown("Digit1");
+    game.input.simulateKeyDown("ArrowUp");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("1"))).toBe(true);
+    expect(keyboard_check(ctx, vk_up)).toBe(true);
+  });
+
+  it("no provider: current physical behaviour (regression guard)", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.simulateKeyDown("KeyA");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, ord("A"))).toBe(true);
+    expect(keyboard_check(ctx, ord("Q"))).toBe(false);
+  });
+
+  it("pressed edge is correct across a layout change", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    let table: Record<string, string> = {};
+    const cbs: Array<() => void> = [];
+    game.input.layout.setProvider({
+      charForCode: (c) => table[c],
+      onChange: (cb) => (cbs.push(cb), () => {}),
+    });
+    game.input.simulateKeyDown("KeyA");
+    game.input.snapshot();
+    expect(keyboard_check_pressed(ctx, ord("A"))).toBe(true);
+    game.input.snapshot();
+    expect(keyboard_check_pressed(ctx, ord("A"))).toBe(false);
+    // Switch to AZERTY while KeyA stays held: ord("A") now maps to KeyQ (up).
+    table = { KeyQ: "a", KeyA: "q" };
+    cbs.forEach((f) => f());
+    game.input.snapshot();
+    expect(keyboard_check_pressed(ctx, ord("A"))).toBe(false);
+    expect(keyboard_check(ctx, ord("A"))).toBe(false);
+    expect(keyboard_check(ctx, ord("Q"))).toBe(true);
+    expect(keyboard_check_released(ctx, ord("A"))).toBe(false);
+  });
+});

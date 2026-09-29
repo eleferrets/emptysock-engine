@@ -15,6 +15,7 @@
  * already raises for object-type resolution being shared between two call
  * sites.
  */
+import type { KeyboardLayout } from "../systems/KeyboardLayout.js";
 export declare const VK_NAMES: Readonly<Record<number, string>>;
 /**
  * Mirrors `gms2-codegen.ts`'s `vkMethodName(prefix, code)` exactly —
@@ -25,6 +26,18 @@ export declare const VK_NAMES: Readonly<Record<number, string>>;
 export declare function vkMethodName(prefix: string, code: number): string;
 /** Translates a GameMaker `vk_*`-numbered code to the DOM `KeyboardEvent.code` string `InputSystem` tracks, or `undefined` if this code has no known translation (see this module's doc comment). */
 export declare function vkToDomCode(code: number): string | undefined;
+/**
+ * Layout-aware `vk` -> DOM `code`. Letters (vk 65-90) resolve by produced
+ * character first (`ord("A")` follows the key that types "a" on the active
+ * layout, e.g. `KeyQ` on AZERTY), falling back to the physical QWERTY-position
+ * code when the layout has no such character (Cyrillic, Greek, unlearned).
+ * Digits, symbols and named keys stay physical, exactly as `vkToDomCode`.
+ * `layout` may be omitted or empty, which reproduces `vkToDomCode`.
+ */
+export declare function resolveVk(
+  vk: number,
+  layout?: Pick<KeyboardLayout, "codeForChar">,
+): string | undefined;
 /**
  * Every vk code `GmsProjectRuntime` polls for a per-frame up/down
  * transition — the named table above, plus the digit row, plus A-Z, plus

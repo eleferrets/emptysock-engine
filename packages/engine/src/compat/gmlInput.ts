@@ -28,7 +28,7 @@
 
 import type { GmlSurfaceBackend } from "./gmlSurfaces.js";
 import type { Game } from "../Game.js";
-import { vkToDomCode } from "./gmlKeys.js";
+import { resolveVk } from "./gmlKeys.js";
 import { ViewportSystem } from "../systems/ViewportSystem.js";
 import { WindowSystem } from "../systems/WindowSystem.js";
 
@@ -135,9 +135,9 @@ function prevMapFor<K>(
   return m;
 }
 
-/** `keyboard_check(vk)` — true while the key is held, in the current frozen input snapshot. A `vk` code with no known DOM-`code` translation (`vkToDomCode`) honestly reads as not-down, never guessed. */
+/** `keyboard_check(vk)` — true while the key is held, in the current frozen input snapshot. A `vk` code with no known DOM-`code` translation (`resolveVk`) honestly reads as not-down, never guessed. */
 export function keyboard_check(ctx: GmlInputContext, vk: number): boolean {
-  const code = vkToDomCode(vk);
+  const code = resolveVk(vk, ctx.game?.input.layout);
   if (code === undefined || ctx.game === undefined) return false;
   return ctx.game.input.keyboard.isDown(code);
 }
@@ -147,7 +147,7 @@ export function keyboard_check_pressed(
   ctx: GmlInputContext,
   vk: number,
 ): boolean {
-  const code = vkToDomCode(vk);
+  const code = resolveVk(vk, ctx.game?.input.layout);
   if (code === undefined || ctx.game === undefined) return false;
   const down = ctx.game.input.keyboard.isDown(code);
   const prev = prevMapFor(prevKeyDownByGame, ctx.game);
@@ -161,7 +161,7 @@ export function keyboard_check_released(
   ctx: GmlInputContext,
   vk: number,
 ): boolean {
-  const code = vkToDomCode(vk);
+  const code = resolveVk(vk, ctx.game?.input.layout);
   if (code === undefined || ctx.game === undefined) return false;
   const down = ctx.game.input.keyboard.isDown(code);
   const prev = prevMapFor(prevKeyDownByGame, ctx.game);

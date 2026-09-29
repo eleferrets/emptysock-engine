@@ -15,6 +15,8 @@
  * already raises for object-type resolution being shared between two call
  * sites.
  */
+
+import type { KeyboardLayout } from "../systems/KeyboardLayout.js";
 export const VK_NAMES: Readonly<Record<number, string>> = {
   8: "Backspace",
   13: "Enter",
@@ -92,6 +94,29 @@ export function vkToDomCode(code: number): string | undefined {
   if (code >= 65 && code <= 90) return `Key${String.fromCharCode(code)}`;
   if (code >= 112 && code <= 123) return `F${code - 111}`;
   return undefined;
+}
+
+const LETTER_CHARS: readonly string[] = Array.from({ length: 26 }, (_, i) =>
+  String.fromCharCode(97 + i),
+);
+
+/**
+ * Layout-aware `vk` -> DOM `code`. Letters (vk 65-90) resolve by produced
+ * character first (`ord("A")` follows the key that types "a" on the active
+ * layout, e.g. `KeyQ` on AZERTY), falling back to the physical QWERTY-position
+ * code when the layout has no such character (Cyrillic, Greek, unlearned).
+ * Digits, symbols and named keys stay physical, exactly as `vkToDomCode`.
+ * `layout` may be omitted or empty, which reproduces `vkToDomCode`.
+ */
+export function resolveVk(
+  vk: number,
+  layout?: Pick<KeyboardLayout, "codeForChar">,
+): string | undefined {
+  if (layout !== undefined && vk >= 65 && vk <= 90) {
+    const produced = layout.codeForChar(LETTER_CHARS[vk - 65] as string);
+    if (produced !== undefined) return produced;
+  }
+  return vkToDomCode(vk);
 }
 
 /**
