@@ -31,7 +31,6 @@ export class SpriteAnimationSystem {
 
       let next = sprite.currentFrame + sprite.frameSpeed;
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- `Sprite.loop`'s declared default (`true`) narrows its inferred type to the literal `true`, but this is a live, mutable component field a game can set `false` at runtime.
       if (sprite.loop) {
         // Real modulo (never negative), so a negative frameSpeed (playing
         // backwards) wraps correctly too, not just forward playback.
