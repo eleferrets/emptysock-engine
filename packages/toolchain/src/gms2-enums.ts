@@ -70,7 +70,7 @@ export async function scanGmlEnums(
  * Emits every scanned enum as a real, valid, plain JS `const` object —
  * `const Name = { A: 0, B: 1 } as const;` — into one shared generated
  * module every `.behavior.ts` file imports as `GmlEnums` (see
- * `gms2-transpile.ts`'s enum rewrite pass). A shared module rather than
+ * the AST emitter's enum lowering). A shared module rather than
  * per-file inlining, because an enum is genuinely project-wide data (the
  * same object identity/values everywhere), and the codebase's own
  * established precedent for project-wide generated lookups is a shared

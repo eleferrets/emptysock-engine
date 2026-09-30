@@ -1,7 +1,7 @@
 /**
  * GML built-in table: the single source of truth for "is this name a language
  * or runtime built-in, and what does it mean positionally" that used to be
- * scattered across name lists in gms2-transpile.ts and gms2-source-bugs.ts.
+ * scattered across name lists in the former regex transpiler and gms2-source-bugs.ts.
  *
  * Standard library only. Data lives in builtins-data.ts.
  */

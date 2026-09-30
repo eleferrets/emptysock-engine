@@ -10,7 +10,6 @@ import {
   spriteIndexEntry,
 } from "../gms2-asset-index.js";
 import { importGMS2Project } from "../gms2-import.js";
-import { transpileGML, setGmlSpriteNames } from "../gms2-transpile.js";
 
 describe("buildAssetIndex", () => {
   it("sorts by kind then name and is schema-valid", () => {
@@ -139,19 +138,5 @@ describe("importGMS2Project — asset-index.json", () => {
     });
     expect(find("font", "fnt_main")).toMatchObject({ size: 14, bold: true });
     expect(find("object", "obj_hero")).toBeDefined();
-  });
-});
-
-describe("transpile — registry-backed getters are ctx-threaded", () => {
-  it("threads _ctx into font_get_size, object_exists, asset_get_index, sprite_exists", () => {
-    setGmlSpriteNames(new Set(["spr_a"]));
-    const out = transpileGML(
-      'a = font_get_size(fnt_x); b = object_exists(obj_y); c = asset_get_index("spr_a"); d = sprite_exists(spr_a);',
-    );
-    expect(out).toContain("GmlActions.font_get_size(_ctx,");
-    expect(out).toContain("GmlActions.object_exists(_ctx,");
-    expect(out).toContain("GmlActions.asset_get_index(_ctx,");
-    expect(out).toContain("GmlActions.sprite_exists(_ctx,");
-    setGmlSpriteNames(new Set());
   });
 });

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as engine from "@emptysock/engine";
@@ -7,7 +7,6 @@ import {
   BUILTINS,
   RUNTIME_HELPERS,
   builtinConstant,
-  entityReturningCalls,
   isKnownBuiltinName,
   isSpriteArg0,
   lookupBuiltin,
@@ -16,10 +15,6 @@ import {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const srcDir = path.join(here, "..", "..");
-const transpileSrc = readFileSync(
-  path.join(srcDir, "gms2-transpile.ts"),
-  "utf8",
-);
 const bugsSrc = readFileSync(path.join(srcDir, "gms2-source-bugs.ts"), "utf8");
 
 const stringsIn = (src: string, re: RegExp): string[] => {
@@ -57,51 +52,7 @@ describe("gml builtins table", () => {
     expect(isKnownBuiltinName("argument_count")).toBe(true);
   });
 
-  // ---- drift guards: the transpiler's own lists must all be in the table ----
-  it("every threaded/constant list in gms2-transpile.ts is in the table with the same threading", () => {
-    const groups: Array<[string, string, string | "constant"]> = [
-      ["THREADED_ACTIONS", "entity+ctx", "function"],
-      ["THREADED_CTX_ONLY", "ctx", "function"],
-      ["PARTICLE_CTX_FIRST", "ctx", "function"],
-      ["THREADED_ENTITY_ONLY", "entity", "function"],
-      ["THREADED_PURE_FUNCTIONS", "pure", "function"],
-      ["PARTICLE_PURE", "pure", "function"],
-    ];
-    for (const [list, threading] of groups) {
-      const names = stringsIn(
-        transpileSrc,
-        new RegExp(`const ${list} = \\[([\\s\\S]*?)\\];`),
-      );
-      expect(names.length).toBeGreaterThan(0);
-      for (const n of names) {
-        expect(BUILTINS.get(n)?.threading, `${list}:${n}`).toBe(threading);
-      }
-    }
-    for (const list of [
-      "GML_COLOUR_CONSTANTS",
-      "GML_MISC_CONSTANTS",
-      "GML_INPUT_CONSTANTS",
-      "GML_DRAW_CONSTANTS",
-    ]) {
-      for (const n of stringsIn(
-        transpileSrc,
-        new RegExp(`const ${list} = \\[([\\s\\S]*?)\\];`),
-      )) {
-        expect(BUILTINS.get(n)?.kind, `${list}:${n}`).toBe("constant");
-      }
-    }
-  });
-
-  it("entity-returning calls match the transpiler's list", () => {
-    const names = stringsIn(
-      transpileSrc,
-      /const ENTITY_RETURNING_CALLS_NAMES = \[([\s\S]*?)\];/,
-    );
-    // The table may know more (instance_find/nearest/furthest have compat
-    // implementations the regex transpiler never wired); it must not know less.
-    expect(entityReturningCalls()).toEqual(expect.arrayContaining(names));
-  });
-
+  // ---- drift guards: the lists still kept in source files must all be in the table ----
   it("source-bug builtin values, sprite-arg and object-arg lists are covered", () => {
     for (const n of stringsIn(
       bugsSrc,
@@ -130,25 +81,27 @@ describe("gml builtins table", () => {
     }
   });
 
-  it("every 'GmlActions.<name>' the transpiler and codegen emit is a table entry or runtime helper", () => {
+  it("every 'GmlActions.<name>' the emitter and codegen emit is a table entry or runtime helper", () => {
     const emitted = new Set<string>();
-    for (const f of ["gms2-transpile.ts", "gms2-codegen.ts"]) {
+    const files = ["gms2-codegen.ts", "gms2-behavior-codegen.ts"];
+    for (const dir of ["gml/emit", "gml/lower"])
+      for (const f of readdirSync(path.join(srcDir, dir)))
+        if (f.endsWith(".ts")) files.push(`${dir}/${f}`);
+    for (const f of files) {
       const src = readFileSync(path.join(srcDir, f), "utf8");
       for (const m of src.matchAll(/GmlActions\.([A-Za-z_][A-Za-z0-9_]*)/g))
         emitted.add(m[1]!);
     }
     // Interpolated/partial names captured by the regex (e.g. `GmlActions.${fn}` yields nothing; `get_gml_` prefixes remain).
     const ignore = (n: string) => n.endsWith("_") || /^[A-Z]/.test(n);
-    for (const n of emitted) {
-      if (ignore(n)) continue;
-      const known =
-        BUILTINS.has(n) ||
-        RUNTIME_HELPERS.includes(n) ||
-        KNOWN_EMITTED_BUILTINS.has(n);
-      expect(known, `GmlActions.${n} emitted but not in builtins table`).toBe(
-        true,
-      );
-    }
+    const unknown = [...emitted].filter(
+      (n) =>
+        !ignore(n) &&
+        !BUILTINS.has(n) &&
+        !RUNTIME_HELPERS.includes(n) &&
+        !KNOWN_EMITTED_BUILTINS.has(n),
+    );
+    expect(unknown.sort(), "emitted but not in builtins table").toEqual([]);
   });
 
   it("every runtime export named by the table exists on the engine", () => {
@@ -173,6 +126,14 @@ const KNOWN_EMITTED_BUILTINS = new Set<string>([
   "draw_text_color",
   "draw_text_ext",
   "gmlActionsStep",
+  "getGml",
+  "get_gml_instance_alarm",
+  "gmlUnknown",
+  "gml_animation_ended",
+  "registerGmlScript",
+  "script_execute",
+  "set_gml_instance_alarm",
+  "set_gml_sprite_index",
   "gml_current_layer",
   "instance_change",
   "instance_create_layer",

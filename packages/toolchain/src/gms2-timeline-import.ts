@@ -64,7 +64,7 @@ function isYyTimeline(val: unknown): val is YyTimeline {
 /**
  * Builds the `.timeline.ts` contents for a GMS2 timeline: one plain function
  * per moment (transpiled from its `moment_<step>.gml` companion file, same
- * `transpileGML()` pipeline object events/scripts use), collected into a
+ * AST emitter object events/scripts use), collected into a
  * `TimelineModule`-shaped `moments` array sorted ascending by step (the order
  * `@emptysock/engine`'s `TimelineSystem` expects, so it never has to re-sort
  * at runtime).

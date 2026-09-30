@@ -4,6 +4,7 @@ import {
   analyzeFile,
   buildProjectSymbols,
   evaluateEnumDecl,
+  scanEntityRefFieldsInText,
 } from "../project-symbols.js";
 import { scanEnums } from "../scan.js";
 
@@ -351,5 +352,48 @@ describe("purity", () => {
       ],
     });
     expect(p.references("spr_hero")).toHaveLength(2);
+  });
+});
+
+describe("scanEntityRefFieldsInText", () => {
+  const fields = (t: string): string[] =>
+    [...scanEntityRefFieldsInText(t)].sort();
+
+  it("finds a with-body back-reference assignment, braced or brace-less", () => {
+    expect(
+      fields(
+        "if (has_weapon) {\n  my_gun = instance_create_layer(x, y, 'Gun', obj_g);\n  with (my_gun) {\n    // owner\n    owner = other.id;\n  }\n}",
+      ),
+    ).toEqual(["owner"]);
+    expect(fields("with (target) creator = other.id;")).toEqual(["creator"]);
+  });
+
+  it("ignores other assignments inside a with body and files with no pattern", () => {
+    expect(fields('with (target) {\n  hp = 10;\n  name = "foo";\n}')).toEqual(
+      [],
+    );
+    expect(fields("x = 1; y = 2;")).toEqual([]);
+  });
+
+  it("finds the assignment at any depth, with a call as target, without a trailing semicolon", () => {
+    expect(
+      fields(
+        "with (instance_place(x, y, obj_t)) { if (ready) { boss = other.id; } }\nwith (t) mate = other.id\nz = 1;\nwith (t) { var kept = other.id; s.link = other.id; }",
+      ),
+    ).toEqual(["boss", "kept", "link", "mate"]);
+  });
+
+  it("ignores comments, strings, and other.idx", () => {
+    expect(
+      fields(
+        '// with (t) { c = other.id; }\ns = "with (t) { d = other.id; }";\nwith (t) { e = other.idx; }',
+      ),
+    ).toEqual([]);
+  });
+
+  it("still finds the pattern after a syntax error earlier in the file", () => {
+    expect(
+      fields("x = = = ;\nwhile ((\nwith (t) { late = other.id; }"),
+    ).toEqual(["late"]);
   });
 });

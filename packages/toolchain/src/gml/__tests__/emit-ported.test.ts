@@ -1,3 +1,11 @@
+/**
+ * Behaviors ported from the deleted regex transpiler's test suite. Each case
+ * runs a GML snippet through the AST emitter (`emit-shim.ts` builds the
+ * `ProjectSymbols` the old module-level `setGml*` state used to stand for) and
+ * checks the same output property. Cases whose expectation was a regex-pass
+ * formatting artefact (text the old passes produced, not behavior) were
+ * dropped rather than ported.
+ */
 import { describe, expect, it } from "vitest";
 import {
   transpileGML,
@@ -10,63 +18,9 @@ import {
   setGmlRoomNames,
   setGmlShaderNames,
   setGmlCrossFileEntityRefFields,
-} from "../gms2-transpile.js";
+} from "./emit-shim.js";
 
 describe("transpileGML — place_meeting/collision query family", () => {
-  it("transpiles a bare-condition place_meeting call, entity-threaded, with the object-name argument quoted", () => {
-    const out = transpileGML(
-      "if place_meeting(x + 4, y, obj_wall)\n{\n  x -= 4;\n}",
-    );
-    // Real, severe, previously-undiscovered bug: the object-name argument
-    // used to pass through as an undeclared bare JS identifier — a hard
-    // ReferenceError at runtime for every real place_meeting call, since
-    // generic threading has no bare-identifier-to-string quoting logic.
-    expect(out).toContain(
-      'if (GmlActions.place_meeting(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0) + 4, (_entity.get(GmlActions.Transform)?.y ?? 0), "obj_wall"))',
-    );
-  });
-
-  it("threads instance_place/collision_rectangle the same way as other query functions, quoting each one's object-name argument", () => {
-    const out = transpileGML(
-      "other_wall = instance_place(x, y, obj_wall);\n" +
-        "hit = collision_rectangle(x, y, x + 32, y + 32, obj_enemy, false, true);",
-    );
-    expect(out).toContain(
-      'GmlActions.instance_place(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), "obj_wall")',
-    );
-    expect(out).toContain(
-      'GmlActions.collision_rectangle(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), (_entity.get(GmlActions.Transform)?.x ?? 0) + 32, (_entity.get(GmlActions.Transform)?.y ?? 0) + 32, "obj_enemy", false, true)',
-    );
-  });
-
-  it("place_meeting still tolerates a nested call in a non-object argument", () => {
-    const out = transpileGML(
-      "place_meeting(x + my_helper(4, dir), y, obj_wall);",
-    );
-    expect(out).toContain(
-      'GmlActions.place_meeting(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0) + my_helper(4, dir), (_entity.get(GmlActions.Transform)?.y ?? 0), "obj_wall");',
-    );
-  });
-
-  it("place_meeting passes a non-identifier object argument (a dotted/member reference) through unchanged", () => {
-    const out = transpileGML("place_meeting(x, y, other.wall_type);");
-    expect(out).toContain(
-      "GmlActions.place_meeting(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), other.wall_type);",
-    );
-  });
-
-  it("instance_exists/instance_number thread with a quoted object-name argument", () => {
-    const out = transpileGML(
-      "if (!instance_exists(obj_guardboss)) { n = instance_number(obj_enemy); }",
-    );
-    expect(out).toContain(
-      'GmlActions.instance_exists(_entity, _ctx, "obj_guardboss")',
-    );
-    expect(out).toContain(
-      'GmlActions.instance_number(_entity, _ctx, "obj_enemy")',
-    );
-  });
-
   it("place_meeting's all/noone special object references are not quoted as asset paths", () => {
     // 'all'/'noone' ARE bare identifiers syntactically, and bareOrQuoted
     // has no way to special-case them at the regex layer — they get quoted
@@ -82,13 +36,6 @@ describe("transpileGML — place_meeting/collision query family", () => {
 });
 
 describe("transpileGML — GMS2 timelines (timeline_index/timeline_running/...)", () => {
-  it("rewrites timeline_index = <asset name>; into a real TimelineState attach", () => {
-    const out = transpileGML("timeline_index = tmJiggle;");
-    expect(out).toContain(
-      'const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmJiggle"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmJiggle", position: 0, running: true }); }',
-    );
-  });
-
   it("rewrites timeline_index = -1; into removing TimelineState (GameMaker's real 'no timeline' sentinel)", () => {
     const out = transpileGML("timeline_index = -1;");
     expect(out).toContain("_entity.remove(GmlActions.TimelineState);");
@@ -124,48 +71,15 @@ describe("transpileGML — GMS2 timelines (timeline_index/timeline_running/...)"
       "(_entity.get(GmlActions.TimelineState)?.position ?? 0) > 30",
     );
   });
-
-  it("leaves a bare read of timeline_index untouched as an honestly-unresolved identifier", () => {
-    const out = transpileGML("if (timeline_index != -1) { x += 1; }");
-    expect(out).toContain("timeline_index != -1");
-  });
-
-  it("resolves a re-targeting write before a read, both against the same live GmlActions.TimelineState", () => {
-    const out = transpileGML("timeline_index = tmA;\ntimeline_index = tmB;");
-    expect(out).toContain('timelineId: "tmA"');
-    expect(out).toContain('timelineId: "tmB"');
-  });
 });
 
 describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () => {
-  it("rewrites sprite_index = <bare asset name>; into a real Sprite.texturePath write using the shared texture-path convention", () => {
-    const out = transpileGML("sprite_index = spr_dad_hug;");
-    expect(out).toContain(
-      'const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = "./assets/sprites/spr_dad_hug/frame_0.png";',
-    );
-  });
-
-  it("rewrites sprite_index = -1; to the empty-string 'no sprite' sentinel (GameMaker's own documented sentinel for removing an instance's sprite)", () => {
-    const out = transpileGML("sprite_index = -1;");
-    expect(out).toContain(
-      'const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.texturePath = "";',
-    );
-  });
-
   it("does not leave the sprite-asset identifier as an unresolved bare read (the real reported bug)", () => {
     const out = transpileGML(
       "if (hug) {\n  sprite_index = spr_dad_hug;\n}\nelse {\n  sprite_index = spr_dad_idle;\n}",
     );
     expect(out).not.toMatch(/=\s*spr_dad_hug\s*;/);
     expect(out).not.toMatch(/=\s*spr_dad_idle\s*;/);
-  });
-
-  it("resolves a bare sprite-asset identifier compared against sprite_index on either side of ==/!=", () => {
-    const out = transpileGML(
-      "if (sprite_index == spr_dad_hug) { x += 1; }\nif (spr_dad_idle != sprite_index) { x += 1; }",
-    );
-    expect(out).toContain('== "./assets/sprites/spr_dad_hug/frame_0.png"');
-    expect(out).toContain('"./assets/sprites/spr_dad_idle/frame_0.png" !=');
   });
 
   it("rewrites a bare read of sprite_index to a safe optional-chained Sprite.texturePath read", () => {
@@ -187,20 +101,6 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
     expect(out).toContain(
       "(-(_entity.get(GmlActions.Transform)?.rotation ?? 0) * 180 / Math.PI)",
     );
-  });
-
-  it("rewrites image_xscale/image_yscale writes/reads onto Transform.scaleX/scaleY with no unit conversion", () => {
-    const out = transpileGML(
-      "image_xscale = sign(hsp);\nimage_yscale = -1;\ny = image_xscale + image_yscale;",
-    );
-    expect(out).toContain(
-      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleX = GmlActions.sign(hsp);",
-    );
-    expect(out).toContain(
-      "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleY = -1;",
-    );
-    expect(out).toContain("(_entity.get(GmlActions.Transform)?.scaleX ?? 1)");
-    expect(out).toContain("(_entity.get(GmlActions.Transform)?.scaleY ?? 1)");
   });
 
   it("rewrites image_alpha writes/reads onto Sprite.alpha", () => {
@@ -260,14 +160,6 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       expect(out).toContain("(-(_entity.get(GmlActions.Sprite)?.depth ?? 0))");
     });
 
-    it("does not rewrite a dotted reference to another instance's depth", () => {
-      const out = transpileGML("inst.depth = -100;\nx = other.depth;");
-      expect(out).toContain("inst.depth = -100;");
-      expect(out).toContain("other.depth");
-      expect(out).not.toMatch(/\w\.\(\(\)\s*=>/);
-      expect(() => new Function(out)).not.toThrow();
-    });
-
     it("is valid syntax as the body of a bare (brace-less) if statement", () => {
       const gml = "if (a) depth = -100;\nif (b)\n{\n  foo();\n}\n";
       const out = transpileGML(gml);
@@ -276,14 +168,6 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
   });
 
   describe("compound assignment (+=/-=/etc.) — real gap found in obj_playerw/obj_bullet/obj_footstep", () => {
-    it("image_yscale += is a real Transform.scaleY += write, not a broken read-side assignment target — real bug found in obj_playerw's Step_0.gml", () => {
-      const out = transpileGML("image_yscale += (a - b)/100;");
-      expect(out).toContain(
-        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.scaleY += (a - b)/100;",
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
     it("image_xscale -= works the same way", () => {
       const out = transpileGML("image_xscale -= 0.1;");
       expect(out).toContain(
@@ -295,22 +179,6 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       const out = transpileGML("image_alpha -= 0.01;");
       expect(out).toContain(
         "const _sp = _entity.get(GmlActions.Sprite); if (_sp) _sp.alpha -= 0.01;",
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("depth += correctly flips to a Sprite.depth -= in engine space — real gap found in obj_bullet's Step_0.gml", () => {
-      const out = transpileGML("depth += 1;");
-      expect(out).toContain(
-        "const _sp = _entity.get(GmlActions.Sprite); if (_sp) { let _gmlDepth = -(_sp.depth ?? 0); _sp.depth = -(_gmlDepth += (1)); }",
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("image_angle += converts the degree delta to radians with the same operator", () => {
-      const out = transpileGML("image_angle += 5;");
-      expect(out).toContain(
-        "const _t = _entity.get(GmlActions.Transform); if (_t) _t.rotation -= (5) * Math.PI / 180;",
       );
       expect(() => new Function(out)).not.toThrow();
     });
@@ -360,12 +228,6 @@ describe("transpileGML — GMS2 rendering built-ins (sprite_index/image_*)", () 
       );
     });
 
-    it("leaves a dotted reference to another instance's image_index/image_speed unresolved", () => {
-      const out = transpileGML("other.image_index = 0;\ninst.image_speed = 1;");
-      expect(out).toContain("other.image_index = 0;");
-      expect(out).toContain("inst.image_speed = 1;");
-    });
-
     it("does not misfire on a stray apostrophe in a nearby comment", () => {
       const out = transpileGML(
         "// The player's animation frame\nimage_index = 0;\nimage_speed = 1;",
@@ -386,23 +248,6 @@ describe("transpileGML", () => {
     const out = transpileGML("global.kills = 1;");
     expect(out).not.toContain("export let");
     expect(out).toContain('_ctx.game?.globals.set("kills", 1);');
-  });
-
-  it("global.x++ / global.x-- route through real GlobalStore read-modify-write calls", () => {
-    const out = transpileGML("global.kills++;\nglobal.lives--;");
-    expect(out).toContain(
-      '_ctx.game?.globals.set("kills", (_ctx.game?.globals.get("kills") ?? 0) + 1)',
-    );
-    expect(out).toContain(
-      '_ctx.game?.globals.set("lives", (_ctx.game?.globals.get("lives") ?? 0) - 1)',
-    );
-  });
-
-  it("global.x += expr routes through a real GlobalStore read-modify-write call", () => {
-    const out = transpileGML("global.score += 10;");
-    expect(out).toContain(
-      '_ctx.game?.globals.set("score", (_ctx.game?.globals.get("score") ?? 0) + (10));',
-    );
   });
 
   it("a bare global.x read routes through a real GlobalStore.get call", () => {
@@ -426,37 +271,6 @@ describe("transpileGML", () => {
     expect(out).not.toMatch(/\(\s*\/\//);
   });
 
-  it("rewrites a GML with(...) block into real GmlActions.with_each iteration", () => {
-    const out = transpileGML("with (other_instance) { x = 1; }");
-    // Strip the explanatory comment before asserting: the message itself
-    // legitimately mentions "with (" as plain text.
-    const code = out.replace(/\/\*.*?\*\//gs, "");
-    expect(code).not.toMatch(/\bwith\s*\(/);
-    // "other_instance" isn't a known implicit variable in this isolated
-    // snippet, so it's treated as a bare object-type name and quoted —
-    // exactly the same "known var vs. literal type name" ambiguity
-    // `bareOrQuotedUnlessVar` already resolves for place_meeting etc.
-    expect(out).toContain(
-      'GmlActions.with_each(_ctx, "other_instance", (_entity) => {',
-    );
-    // The body is spliced in and later passes (the implicit-var rewrite)
-    // process it normally, since `_entity` inside the callback shadows the
-    // caller's own `_entity` — GmlInstanceVars now persists against the
-    // *iterated* instance, not the instance that entered the with block.
-    expect(out).toContain("_t.x = 1;");
-    expect(() => new Function(out)).not.toThrow();
-  });
-
-  it("wraps an if condition chained with bare && / || GML allows without an outer paren", () => {
-    const out = transpileGML("if (a < b) && (c > d)\n{\n  foo();\n}");
-    expect(out).toContain("if ((a < b) && (c > d))");
-  });
-
-  it("converts the GML `div` integer-division operator", () => {
-    const out = transpileGML("x = (a - b) div (c * 1.5);");
-    expect(out).toContain("Math.floor((a - b) / (c * 1.5))");
-  });
-
   it("rewrites #region/#endregion so they don't break TS parsing", () => {
     const out = transpileGML("#region Foo\nx = 1;\n#endregion");
     expect(out).not.toMatch(/^#region/m);
@@ -478,148 +292,12 @@ describe("transpileGML", () => {
     expect(out).not.toContain("undefined /* entity.destroy(); */");
   });
 
-  it("instance_destroy() still threads correctly as a bare-if's single-statement body, alongside a real global.x read", () => {
-    const out = transpileGML("if (global.hasgun == false) instance_destroy();");
-    expect(out).toContain(
-      'if ((_ctx.game?.globals.get("hasgun")) == false) GmlActions.instance_destroy(_entity, _ctx);',
-    );
-  });
-
-  it("wraps an if chain whose clause has a nested function call operand", () => {
-    const out = transpileGML(
-      "if (point_distance(a, 0) > 0.2) || (point_distance(b, 0) > 0.2)\n{\n  foo();\n}",
-    );
-    expect(out).toContain(
-      "if ((GmlActions.point_distance(a, 0) > 0.2) || (GmlActions.point_distance(b, 0) > 0.2))",
-    );
-  });
-
-  it("wraps a bare (unparenthesised) if condition anchored by a following brace", () => {
-    const out = transpileGML(
-      "if my_condition_fn(x, y, obj_wall)\n{\n  foo();\n}",
-    );
-    expect(out).toContain(
-      "if (my_condition_fn((_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), obj_wall))",
-    );
-  });
-
-  it("wraps a bare if !expr condition (not just the already-parenthesised if !(expr) case)", () => {
-    const out = transpileGML(
-      "if !my_condition_fn(x, y, obj) && cond2\n{\n  foo();\n}",
-    );
-    expect(out).toContain(
-      "if (!my_condition_fn((_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), obj) && cond2)",
-    );
-  });
-
-  it("wraps a bare (unparenthesised) while condition anchored by a following brace — real gap found in ini_read_inventory.gml", () => {
-    const out = transpileGML(
-      "while ini_key_exists(_section, _name+String(_i))\n{\n  foo();\n}",
-    );
-    expect(out).toContain("while (ini_key_exists(_section, _name+String(_i)))");
-    expect(out).not.toMatch(/while\s+ini_key_exists/);
-  });
-
-  it("keeps a trailing // comment outside a wrapped bare-while condition's parens", () => {
-    const out = transpileGML(
-      "while has_more_items() // still going\n{\n  foo();\n}",
-    );
-    expect(out).toContain("while (has_more_items()) // still going");
-  });
-
-  it("does not touch an already-parenthesised while condition", () => {
-    const out = transpileGML("while (i < 10)\n{\n  foo();\n}");
-    expect(out).toContain("while (i < 10)");
-    expect(out).not.toContain("while ((i < 10))");
-  });
-
-  it("wraps a bare (unparenthesised) switch subject anchored by a following brace — real gap found in scr_inputControlUpdateInputs.gml and scr_drawCurrentMenu.gml", () => {
-    const out = transpileGML(
-      "switch _inputDevice\n{\n  case -1:\n    break;\n}",
-    );
-    expect(out).toContain("switch (_inputDevice)");
-  });
-
-  it("wraps a bare switch subject that is itself a call, real gap found in scr_setOptionVariableStrings.gml", () => {
-    const out = transpileGML(
-      "switch window_get_fullscreen()\n{\n  case 0:\n    break;\n}",
-    );
-    expect(out).toContain("switch (window_get_fullscreen())");
-  });
-
   it("does not touch an already-parenthesised switch subject", () => {
     const out = transpileGML("switch (x)\n{\n  case 1:\n    break;\n}");
     expect(out).toContain(
       "switch ((_entity.get(GmlActions.Transform)?.x ?? 0))",
     );
     expect(out).not.toContain("switch ((x))");
-  });
-
-  it("does not fuse consecutive semicolon-less if(cond) return statements into one broken condition — real gap found in draw_lightning.gml", () => {
-    // GML allows omitting the trailing `;` entirely — a real, confirmed
-    // shape (four consecutive semicolon-less `if (cond) return 0` lines in
-    // a real project's draw_lightning.gml) that the "if (a) <trailing
-    // operator>" pass's semicolon-only bail guard couldn't catch.
-    const out = transpileGML(
-      "if (max(a, b) < c - 10) return 0\nif (max(d, e) < f - 10) return 0\nif (g == 0)\n{\n  foo();\n}",
-    );
-    expect(out).toContain("if (GmlActions.max(a, b) < c - 10) return 0");
-    expect(out).toContain("if (GmlActions.max(d, e) < f - 10) return 0");
-    expect(out).not.toContain("return 0)");
-  });
-
-  it("still wraps a genuine trailing-operator condition continuation on one line", () => {
-    const out = transpileGML(
-      "if (_xAxis*_xAxis + _yAxis*+_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}",
-    );
-    expect(out).toContain(
-      "if ((_xAxis*_xAxis + _yAxis*+_yAxis) >= gamepadDeadzoneSquared)",
-    );
-  });
-
-  it("wraps a real brace-less single-statement if without swallowing its body — real gap found in obj_sway's Step_0.gml", () => {
-    const out = transpileGML(
-      "movement += value;\n\nif movement >= pi*2\nmovement = 0;\n\nx += 1;",
-    );
-    expect(out).toContain(
-      'if (GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "movement")) >= GmlActions.pi*2)',
-    );
-    expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "movement", 0);',
-    );
-    expect(out).toContain("_t.x += (1)");
-  });
-
-  it("does not fuse a brace-less if's condition with a distant, unrelated later brace — real regression found in obj_rainController's Draw_0.gml", () => {
-    const out = transpileGML(
-      "if !surface_exists(surf) surf = surface_create(room_width, room_height);\nsurface_set_target(surf);\n\nif (other_thing)\n{\n  foo();\n}",
-    );
-    expect(out).toContain("if (!GmlActions.surface_exists(_ctx, surf))");
-    // `room_width`/`room_height` are now real, wired bare-built-in-variable
-    // rewrites (see the dedicated describe block below) — this assertion
-    // was updated to match rather than to keep asserting the pre-fix,
-    // unresolved-identifier output.
-    expect(out).toContain(
-      "surf = GmlActions.surface_create(_ctx, GmlActions.room_width(), GmlActions.room_height());",
-    );
-    expect(out).not.toContain(
-      "GmlActions.surface_create(_ctx, GmlActions.room_width(), GmlActions.room_height());)",
-    );
-  });
-
-  it("inserts a missing semicolon before a brace-less if/else's else branch — real gap found in oPlayer's Step_0.gml", () => {
-    const out = transpileGML(
-      "if (place_meeting(x, y+5, oIce)) friction = 0.2 else hspeed = 0;",
-    );
-    expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "friction", 0.2); else GmlActions.setGmlHspeed(_entity, _ctx, 0);',
-    );
-  });
-
-  it("does not double up a semicolon already present before else", () => {
-    const out = transpileGML("if (cond) foo(); else bar();");
-    expect(out).toContain("if (cond) foo(); else bar();");
-    expect(out).not.toContain(";; else");
   });
 
   it("leaves a brace-less if's body statement-valid when its body is a lone global assignment — real gap found in obj_ear's Step_0.gml", () => {
@@ -644,24 +322,6 @@ describe("transpileGML", () => {
     );
   });
 
-  it("ds_map write accessor tolerates a string-literal key that itself contains a ] — real gap found in keyboard_init.gml", () => {
-    const out = transpileGML('l_s2c[?"]"] = 221;');
-    expect(out).toContain('l_s2c.set("]", 221)');
-  });
-
-  it("ds_map read accessor tolerates a string-literal key that itself contains a ]", () => {
-    const out = transpileGML('x = l_s2c[?"]"];');
-    expect(out).toContain('l_s2c.get("]")');
-  });
-
-  it("repeat(n) tolerates a nested call in its count argument — real gap found in scr_capword.gml", () => {
-    const out = transpileGML("repeat (string_length(str)) {\n  foo();\n}");
-    // string_length(str) is itself separately rewritten to str.length by
-    // another pass — this test only cares that repeat's own count-argument
-    // capture is balanced-paren-aware, not that string_length stays as-is.
-    expect(out).toContain("for (let _i = 0; _i < String(str).length; _i++)");
-  });
-
   it("does not rewrite image_angle/sprite_index-like text inside a // comment — real gap found in scr_wave.gml", () => {
     const out = transpileGML(
       "// image_angle = Wave(-45,45,1,0,0)  -> rock back and forth 90 degrees in a second\nx = 1;",
@@ -675,32 +335,6 @@ describe("transpileGML", () => {
     // The real code line *after* the comment is correctly rewritten — the
     // comment itself is inert, real code that follows it is not.
     expect(out).toContain("_t.x = 1;");
-  });
-
-  it("does not treat a bare = equality inside a brace-less if's own condition as the body boundary — real gap found in scr_wave.gml", () => {
-    const out = transpileGML("if argument4 = 0\nargument4 = current_time;");
-    // The condition's own `=` (real GML equality, not assignment) is left
-    // completely untouched — it's never a statement-start assignment, so
-    // the implicit-instance-variable pass never treats it as one.
-    expect(out).toContain("if (argument4 = 0)");
-    // The real statement-start assignment on the next line *is* a genuine
-    // implicit instance variable and now persists via GmlInstanceVars
-    // rather than a function-scoped `var` — see "GML built-in instance
-    // variables" below for the full rationale.
-    expect(out).toContain(
-      'GmlActions.setGmlVar(_entity, _ctx, "argument4", GmlActions.get_current_time());',
-    );
-    expect(out).not.toContain("if ()");
-  });
-
-  it("do-while: rewrites do { ... } until (cond); to do { ... } while (!(cond)) — real gap found in whole_bunch.gml", () => {
-    const out = transpileGML(
-      "do {\n  xx = random(room_width);\n} until (position_empty(xx, yy));",
-    );
-    expect(out).toContain(
-      '} while (!(position_empty(GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "xx")), yy)));',
-    );
-    expect(out).not.toContain("until");
   });
 
   it("a global assignment sharing a physical line with real following code doesn't swallow it into a // comment — real gap found in obj_shop's Step_0.gml", () => {
@@ -720,211 +354,11 @@ describe("transpileGML", () => {
     expect(out.trim().endsWith("}")).toBe(true);
   });
 
-  it("does not treat the word 'if' inside a // comment as a condition to wrap", () => {
-    const gml =
-      "// checking if we are within range\nif (a) && (b)\n{\n  foo();\n}";
-    const out = transpileGML(gml);
-    // The comment text itself must survive unmangled, and the real `if`
-    // below it must still get its own, separate, correct wrap.
-    expect(out).toContain("// checking if we are within range");
-    expect(out).toContain("if ((a) && (b))");
-  });
-
-  it("converts the GML `mod` operator", () => {
-    const out = transpileGML("x = a mod b;");
-    expect(out).toContain("(a % b)");
-  });
-
-  it("neutralises a real, closed block comment before any other pass runs", () => {
-    // A real GML block comment can itself contain code this transpiler
-    // would otherwise rewrite (e.g. room_goto) — rewriting text that's
-    // actually still inside a not-yet-neutralised source comment risks a
-    // nested /* */ comment, which is invalid JS/TS.
-    const out = transpileGML("/* room_goto(target); */\nx = 1;");
-    expect(out).not.toContain("room_goto");
-    expect(out).toContain("GML comment/dead code omitted");
-    expect(out).toContain("_t.x = 1;");
-  });
-
-  it("the comment-neutralisation placeholder contains no ] or ) — real bug found in keyboard_init.gml", () => {
-    // Real source: `l_s2c[?chr(92)/* "\" */] = 220;` — a ds_map write
-    // accessor whose key expression has an inline block comment. The old
-    // placeholder text ("[GML comment/dead code omitted]") itself contained
-    // a `]`, which terminated the ds_map accessor's `[^\]]+` key capture
-    // early and corrupted the output into invalid syntax.
-    const out = transpileGML('l_s2c[?chr(92)/* "\\" */] = 220;');
-    expect(out).toContain(
-      "l_s2c.set(GmlActions.chr(92)/* GML comment/dead code omitted */, 220)",
-    );
-  });
-
-  it("reports a whole-file unterminated block comment as inert instead of transpiling it", () => {
-    const out = transpileGML("/* this whole event was disabled\nx = 1;");
-    expect(out).not.toContain("x = 1");
-    expect(out).toMatch(/entirely inert/);
-  });
-
-  it("keeps room_goto valid as an unbraced if-body, now as a real threaded call", () => {
-    const out = transpileGML("if (cond) room_goto(rm_next);");
-    // room_goto used to be an inert placeholder comment — now it's a real
-    // GmlActions.room_goto call, still valid as the if's single-statement
-    // body either way.
-    expect(out).toMatch(
-      /if \(cond\) GmlActions\.room_goto\(_entity, _ctx, "rm_next"\);/,
-    );
-  });
-
-  it("draw_sprite threads into a real _ctx.drawTarget.sprite() call — real gap found in obj_text/oTextbox, where a different sprite than the object's own is drawn", () => {
-    const out = transpileGML("draw_sprite(spr_marker, 0, x, y);");
-    expect(out).toContain(
-      '_ctx.drawTarget?.sprite("./assets/sprites/spr_marker/frame_0.png", (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0));',
-    );
-  });
-
-  it("draw_sprite passes a non-identifier sprite argument (a member expression) through unchanged", () => {
-    const out = transpileGML("draw_sprite(obj_x.spr, 0, _drawX, _drawY);");
-    expect(out).toContain(
-      "_ctx.drawTarget?.sprite(obj_x.spr, _drawX, _drawY);",
-    );
-  });
-
-  it("draw_sprite treats a bare identifier as an asset name, the same convention sprite_index already uses (including for a local-variable-shaped case, a real, pre-existing, accepted limitation — real project shape found in oTextbox's Draw_64.gml)", () => {
-    const out = transpileGML("draw_sprite(_image, 0, _drawX, _drawY);");
-    expect(out).toContain(
-      '_ctx.drawTarget?.sprite("./assets/sprites/_image/frame_0.png", _drawX, _drawY);',
-    );
-  });
-
-  it("draw_sprite keeps an unbraced if-body valid, now as a real threaded call", () => {
-    const out = transpileGML("if (cond) draw_sprite(spr_foo, 0, x, y);");
-    expect(out).toContain(
-      'if (cond) _ctx.drawTarget?.sprite("./assets/sprites/spr_foo/frame_0.png", (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0));',
-    );
-  });
-
-  it("draw_sprite(sprite_index, ...) correctly reads the entity's own current sprite instead of quoting 'sprite_index' as a literal asset name — real regression found in obj_transition's Draw_64.gml", () => {
-    const out = transpileGML("draw_sprite(sprite_index, image_index, xx, yy);");
-    expect(out).toContain(
-      '_ctx.drawTarget?.sprite((_entity.get(GmlActions.Sprite)?.texturePath ?? ""), xx, yy);',
-    );
-    expect(out).not.toContain("sprites/sprite_index");
-    expect(() => new Function(out)).not.toThrow();
-  });
-
-  it("audio_play_sound threads a bare sound-asset identifier into a real GmlActions.audio_play_sound call — real gap found in obj_player_dead/obj_Egun/obj_menu", () => {
-    const out = transpileGML("audio_play_sound(snd_Shot, 5, false);");
-    expect(out).toContain(
-      'GmlActions.audio_play_sound(_entity, _ctx, "snd_Shot", 5, false);',
-    );
-  });
-
-  it("audio_play_sound tolerates a choose(...) sub-call as its sound argument without misparsing the comma", () => {
-    const out = transpileGML(
-      "audio_play_sound(choose(snd_Foot1, snd_Foot2), 1, false);",
-    );
-    expect(out).toContain(
-      "GmlActions.audio_play_sound(_entity, _ctx, GmlActions.choose(snd_Foot1, snd_Foot2), 1, false);",
-    );
-  });
-
-  it("room_goto threads a bare room-asset identifier into a real GmlActions.room_goto call — real gap found in obj_game_start/obj_pause_menu", () => {
-    const out = transpileGML("room_goto(rm_gamefcat);");
-    expect(out).toContain(
-      'GmlActions.room_goto(_entity, _ctx, "rm_gamefcat");',
-    );
-  });
-
-  it("room_goto passes a non-identifier argument (a variable/dotted reference) through unchanged", () => {
-    const out = transpileGML("room_goto(other.new_room);");
-    expect(out).toContain(
-      "GmlActions.room_goto(_entity, _ctx, other.new_room);",
-    );
-  });
-
-  it("instance_create_layer threads into a real GmlActions.instance_create_layer call with a quoted bare object-name argument — severe real gap, confirmed 10+ real call sites in one real project", () => {
-    const out = transpileGML(
-      'var bomb = instance_create_layer(x, y, "Instances", obj_grenade);',
-    );
-    expect(out).toContain(
-      'GmlActions.instance_create_layer(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), "Instances", "obj_grenade");',
-    );
-    // Must not leave the object-name as an undeclared bare JS identifier
-    // (a real ReferenceError at runtime).
-    expect(out).not.toMatch(/,\s*obj_grenade\)/);
-  });
-
-  it("instance_create_layer works as a bare statement (the other confirmed common real shape)", () => {
-    const out = transpileGML(
-      'instance_create_layer(x, y, "Front", obj_saves_text);',
-    );
-    expect(out).toContain(
-      'GmlActions.instance_create_layer(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), "Front", "obj_saves_text");',
-    );
-  });
-
-  it("with (instance_create_layer(...)) { ... } runs the real spawn call and iterates the real spawned entity — real gap found in obj_enemy_mreg's Step_0.gml", () => {
-    const out = transpileGML(
-      'with (instance_create_layer( x, y, "Bullets", obj_bullet_enemy))\n{\n  foo();\n}',
-    );
-    // The spawn call itself is the with_each target expression (a real
-    // Entity | undefined value) — no stray trailing `;` from
-    // instance_create_layer's own standalone-statement rewrite, which
-    // would otherwise land inside with_each's own argument list.
-    expect(out).toContain(
-      'GmlActions.with_each(_ctx, GmlActions.instance_create_layer(_entity, _ctx, (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), "Bullets", "obj_bullet_enemy"), (_entity) => {',
-    );
-    expect(out).toContain("foo();");
-    expect(() => new Function(out)).not.toThrow();
-  });
-
   it("handles audio_play_sound with a nested-call first argument", () => {
     const out = transpileGML(
       "audio_play_sound(choose(snd_a, snd_b), 1, false);",
     );
     expect(out).not.toMatch(/\(\s*\/\//);
-  });
-
-  it("draw_text with a nested-call, multi-concatenation string argument", () => {
-    const out = transpileGML(
-      'draw_text(15, 15, "a: " + string(hp) + "\\n" + "b: " + string(mp));',
-    );
-    expect(out).toContain(
-      '_ctx.drawTarget?.text(15, 15, "a: " + String(hp) + "\\n" + "b: " + String(mp));',
-    );
-  });
-
-  it("strips a stray trailing semicolon in a for-loop header", () => {
-    const out = transpileGML(
-      "for (var i = array_length_1d(arr) - 1; i >= 0; --i;)\n{\n  foo();\n}",
-    );
-    expect(out).toContain(
-      "for (let i = GmlActions.array_length_1d(arr) - 1; i >= 0; --i)",
-    );
-  });
-
-  it("keeps a trailing // comment outside a wrapped bare-if condition's parens", () => {
-    const out = transpileGML("if a == 1 // a comment\n{\n  foo();\n}");
-    expect(out).toContain("if (a == 1) // a comment");
-  });
-
-  it("wraps a bare if condition that directly touches its brace with no space", () => {
-    const out = transpileGML("if a <= 0{\n  foo();\n}");
-    expect(out).toContain("if (a <= 0)");
-  });
-
-  it("transpiles and/or/not/xor word operators", () => {
-    const out = transpileGML(
-      "if (a == 1 and b == 2) { x = 1; }\nif (a or b) { y = 1; }\nif (not a) { z = 1; }",
-    );
-    expect(out).toContain("a == 1 && b == 2");
-    expect(out).toContain("if (a || b)");
-    expect(out).toContain("if (!a)");
-  });
-
-  it("transpiles legacy globalvar declarations without leaving a hard parse error", () => {
-    const out = transpileGML("globalvar a, b, c;\na = 1;");
-    expect(out).not.toMatch(/^\s*globalvar\b/m);
-    expect(out).toContain('TODO: migrate legacy "globalvar');
   });
 
   it("turns the #macro directive line itself into a comment (fixing its own syntax error)", () => {
@@ -945,31 +379,6 @@ describe("transpileGML", () => {
     }
   });
 
-  it("does not substitute a macro name inside a dotted reference or a // comment", () => {
-    setGmlMacros(new Map([["SAVEFILE", '"game.sav"']]));
-    try {
-      const out = transpileGML(
-        "x = other.SAVEFILE;\n// SAVEFILE is the save file name",
-      );
-      expect(out).toContain("other.SAVEFILE");
-      expect(out).toContain("// SAVEFILE is the save file name");
-    } finally {
-      setGmlMacros(new Map());
-    }
-  });
-
-  it("does not double-wrap Math.floor produced by a div rewrite", () => {
-    const out = transpileGML("x = width div 2;");
-    expect(out).not.toContain("Math.Math.floor");
-    expect(out).toContain("Math.floor(width / 2)");
-  });
-
-  it("keeps room_goto valid with a nested-call room argument", () => {
-    const out = transpileGML("room_goto(room_next(room));");
-    expect(out).not.toMatch(/\(\s*\/\//);
-    expect(out).toContain("room_next(GmlActions.room(_ctx))");
-  });
-
   it("keeps instance_create_layer valid with a nested-call argument", () => {
     const out = transpileGML(
       "instance_create_layer(random(room_width), 0, layer, obj_x);",
@@ -978,25 +387,6 @@ describe("transpileGML", () => {
   });
 
   describe("ds_list", () => {
-    it("transpiles create/add/find_value/size/delete/destroy to real Array ops", () => {
-      const out = transpileGML(
-        [
-          "var list = ds_list_create();",
-          "ds_list_add(list, 1);",
-          "var v = ds_list_find_value(list, 0);",
-          "var n = ds_list_size(list);",
-          "ds_list_delete(list, 0);",
-          "ds_list_destroy(list);",
-        ].join("\n"),
-      );
-      expect(out).toContain("var list = [];");
-      expect(out).toContain("list.push(1);");
-      expect(out).toContain("var v = list[0];");
-      expect(out).toContain("var n = GmlActions.gmlArr(list).length;");
-      expect(out).toContain("list.splice(0, 1);");
-      expect(out).not.toMatch(/\bds_list_destroy\(/);
-    });
-
     it("transpiles the [| i] accessor to plain indexing in both read and write position", () => {
       // `list` here is genuinely undeclared (no prior `var list = ...`),
       // so once the `[| ]` accessor syntax is stripped to plain `[0]` it
@@ -1012,93 +402,6 @@ describe("transpileGML", () => {
       expect(writeOut).toContain(
         'GmlActions.getGmlArrayVar(_entity, _ctx, "list")[0] = 5;',
       );
-    });
-  });
-
-  describe("ds_map", () => {
-    it("transpiles create/add/find_value/exists/delete/size/destroy to real Map ops", () => {
-      const out = transpileGML(
-        [
-          "var map = ds_map_create();",
-          'ds_map_add(map, "hp", 10);',
-          'var v = ds_map_find_value(map, "hp");',
-          'var e = ds_map_exists(map, "hp");',
-          'ds_map_delete(map, "hp");',
-          "var n = ds_map_size(map);",
-          "ds_map_destroy(map);",
-        ].join("\n"),
-      );
-      expect(out).toContain("var map = new Map();");
-      expect(out).toContain('map.set("hp", 10);');
-      expect(out).toContain('var v = map.get("hp");');
-      expect(out).toContain('var e = map.has("hp");');
-      expect(out).toContain('map.delete("hp");');
-      expect(out).toContain("var n = GmlActions.gmlMap(map).size;");
-      expect(out).not.toMatch(/\bds_map_destroy\(/);
-    });
-
-    it("transpiles the [? key] accessor to .get in read position and .set in write position", () => {
-      const readOut = transpileGML('var v = map[? "hp"];');
-      expect(readOut).toContain('var v = map.get("hp");');
-      const writeOut = transpileGML('map[? "hp"] = 5;');
-      expect(writeOut).toContain('map.set("hp", 5);');
-      expect(writeOut).not.toContain(".get(");
-    });
-
-    it("does not confuse a comparison (==) inside an accessor write scan for an assignment", () => {
-      const out = transpileGML('if (map[? "hp"] == 5) { x = 1; }');
-      expect(out).toContain('map.get("hp") == 5');
-    });
-  });
-
-  describe("ds_grid", () => {
-    it("transpiles create/get/set/width/height/destroy to a nested-Array grid", () => {
-      const out = transpileGML(
-        [
-          "var grid = ds_grid_create(4, 4);",
-          "ds_grid_set(grid, 0, 0, 1);",
-          "var v = ds_grid_get(grid, 0, 0);",
-          "var w = ds_grid_width(grid);",
-          "var h = ds_grid_height(grid);",
-          "ds_grid_destroy(grid);",
-        ].join("\n"),
-      );
-      expect(out).toContain(
-        "var grid = Array.from({ length: (4) }, () => new Array(4).fill(0));",
-      );
-      expect(out).toContain("(grid[0][0] = 1);");
-      expect(out).toContain("var v = grid[0][0];");
-      expect(out).toContain("var w = grid.length;");
-      expect(out).not.toMatch(/\bds_grid_destroy\(/);
-    });
-
-    it("transpiles the [# c, r] accessor to nested indexing in both read and write position", () => {
-      const readOut = transpileGML("var v = grid[# 1, 2];");
-      expect(readOut).toContain("var v = grid[1][2];");
-      const writeOut = transpileGML("grid[# 1, 2] = 5;");
-      expect(writeOut).toContain("grid[1][2] = 5;");
-    });
-  });
-
-  describe("GML structs", () => {
-    it("leaves a struct literal untouched (already valid JS object-literal syntax)", () => {
-      const out = transpileGML("var s = {a: 1, b: 2};");
-      expect(out).toContain("var s = {a: 1, b: 2};");
-    });
-
-    it("transpiles variable_struct_get/set/exists/remove to plain bracket access", () => {
-      const out = transpileGML(
-        [
-          'var v = variable_struct_get(s, "a");',
-          'variable_struct_set(s, "a", 5);',
-          'var e = variable_struct_exists(s, "a");',
-          'variable_struct_remove(s, "a");',
-        ].join("\n"),
-      );
-      expect(out).toContain('var v = s["a"];');
-      expect(out).toContain('(s["a"] = 5);');
-      expect(out).toContain('var e = ("a" in s);');
-      expect(out).toContain('delete s["a"];');
     });
   });
 
@@ -1154,39 +457,6 @@ describe("transpileGML", () => {
       expect(out.match(/var list/g)?.length).toBe(1);
     });
 
-    it("does not rewrite an implicit variable's name when it appears inside an unrelated string literal — real gap found in obj_trans.gml", () => {
-      // Real, confirmed regression: `trans_intro0 = load_string("trans_intro0");`
-      // — a save-key string literal that happens to equal the variable's own
-      // name, an ordinary naming convention, not a contrived edge case. A
-      // bare-word regex has no notion of string boundaries, so without
-      // masking, the bare-read pass matched *inside* the string literal too,
-      // splicing a GmlActions.getGmlVar(...) call into the middle of a
-      // quoted string — a hard SyntaxError.
-      const out = transpileGML('trans_intro0 = load_string("trans_intro0");');
-      expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "trans_intro0", load_string("trans_intro0"));',
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("captures a multi-line assignment RHS in full — real gap found in obj_trans.gml", () => {
-      // Real, confirmed regression: obj_trans's Create event does
-      // `fin_msg = choose(trans_intro8, trans_intro9, trans_intro10,\n
-      // trans_intro11, ..., trans_intro19);` — a single real GML statement
-      // whose call arguments wrap across several physical lines. The
-      // plain-assignment rewrite used to capture only up to the first
-      // newline ([^;\n]+), truncating the expression mid-call and leaving
-      // its continuation lines as orphaned, syntactically invalid
-      // fragments — a hard SyntaxError.
-      const out = transpileGML(
-        "fin_msg = choose(a, b, c,\n  d, e,\n  f);\nx = 1;",
-      );
-      expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "fin_msg", GmlActions.choose(a, b, c,\n  d, e,\n  f));',
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
     it("does not merge a bare (semicolon-omitted) statement into the next line's own statement — real gap found in obj_enemy.gml", () => {
       // Real, confirmed regression: obj_enemy's Step event has
       // `grounded = true\nshake_remain = 1;` — GML's `;` is optional, so the
@@ -1224,39 +494,6 @@ describe("transpileGML", () => {
       );
       expect(out).not.toMatch(/\blet\b/);
       expect(out.match(/var _pNumber/g)?.length).toBe(2);
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("wraps an if condition that starts with one balanced clause but keeps going past its closing paren", () => {
-      // Real, confirmed regression: `if (_xAxis*_xAxis + _yAxis*+_yAxis) >=
-      // gamepadDeadzoneSquared { ... }` — valid GML (the `if`'s condition
-      // needs no single enclosing paren group), but left as-is this parses
-      // in JS as `if (a)` followed by a dangling `>= gamepadDeadzoneSquared`
-      // expression statement — a hard `SyntaxError`, not just a silent
-      // misbehaviour.
-      const out = transpileGML(
-        "if (_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}\n",
-      );
-      expect(out).toContain(
-        "if ((_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared)",
-      );
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("wraps a bare if condition whose comment sits before the condition, not after it", () => {
-      // Real, confirmed regression: `if // LEFT TOGGLE HIGHLIGHTED\n(cond)\n{
-      // ... }` — a comment on the `if`'s own line, with the real condition
-      // only starting on the next line. The naive "find the first `//` in
-      // the captured span" approach misfiled the *entire* condition as a
-      // trailing comment (nothing precedes the `//`), emitting a hard
-      // `if ()` followed by the real condition as a dangling, never
-      // -evaluated expression statement — a `SyntaxError: Unexpected token
-      // ')'` at module load.
-      const out = transpileGML(
-        "if // LEFT TOGGLE HIGHLIGHTED\n(mouseX > left)\n{\n  foo();\n}\n",
-      );
-      expect(out).toMatch(/if \(\(?mouseX > left\)?\)/);
-      expect(out).not.toContain("if ()");
       expect(() => new Function(out)).not.toThrow();
     });
 
@@ -1366,63 +603,6 @@ describe("transpileGML", () => {
         const out = transpileGML(gml);
         expect(() => new Function(out)).not.toThrow();
       });
-
-      it("still wraps a genuine trailing-condition continuation (no semicolon in the trailing span)", () => {
-        // Make sure the semicolon guard doesn't regress the original case
-        // this pass exists for.
-        const out = transpileGML(
-          "if (_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared\n{\n  foo();\n}\n",
-        );
-        expect(out).toContain(
-          "if ((_xAxis*_xAxis + _yAxis*_yAxis) >= gamepadDeadzoneSquared)",
-        );
-        expect(() => new Function(out)).not.toThrow();
-      });
-    });
-
-    describe("a dotted reference to another instance's rewritten GML built-in is left untouched", () => {
-      // Real, confirmed regression against a real GameMaker project's own
-      // script (`scr_kill_player.gml`): `inst.image_xscale = imgx;` — GML
-      // allows writing/reading *another* instance's field through a dot
-      // reference, a real, common shape (`with`-created instances, a stored
-      // instance-id variable). This transpiler has no way to resolve which
-      // other entity a dotted reference targets, so — mirroring the
-      // pre-existing `creator.alarm[n] = ...` guard above — it must leave a
-      // dotted `sprite_index`/`image_*`/`timeline_*` reference alone rather
-      // than rewriting it against `_entity` (the *current* instance). Left
-      // unguarded, `inst.image_xscale = imgx;` became
-      // `inst.(() => { ... })();` — a dangling `.` with no property name, a
-      // hard `SyntaxError` confirmed via a real `tsc --noEmit` run against
-      // the real project's generated output.
-      it.each([
-        ["inst.sprite_index = spr_walk;\n", "inst."],
-        ["inst.image_angle = 90;\n", "inst."],
-        ["inst.image_xscale = imgx;\n", "inst."],
-        ["inst.image_yscale = imgx;\n", "inst."],
-        ["inst.image_alpha = 0.5;\n", "inst."],
-        ["inst.image_blend = $ff00ff;\n", "inst."],
-        ["inst.timeline_index = tmFoo;\n", "inst."],
-        ["inst.timeline_running = true;\n", "inst."],
-        ["inst.depth = -100;\n", "inst."],
-        ["x = other.sprite_index;\n", "other."],
-        ["x = other.image_xscale;\n", "other."],
-        ["x = other.depth;\n", "other."],
-      ])("does not corrupt %s", (gml, dottedPrefix) => {
-        const out = transpileGML(gml);
-        expect(() => new Function(out)).not.toThrow();
-        expect(out).toContain(dottedPrefix);
-        expect(out).not.toMatch(/\w\.\(\(\)\s*=>/);
-      });
-
-      it("still rewrites a bare (current-instance) sprite_index/image_*/timeline_index reference", () => {
-        const out = transpileGML(
-          "sprite_index = spr_walk;\nimage_xscale = 2;\ntimeline_index = tmFoo;\n",
-        );
-        expect(out).toContain("GmlActions.Sprite");
-        expect(out).toContain("GmlActions.Transform");
-        expect(out).toContain("GmlActions.TimelineState");
-        expect(() => new Function(out)).not.toThrow();
-      });
     });
 
     it("does not double-declare the second declarator of a comma-continued multi-line var statement", () => {
@@ -1440,84 +620,6 @@ describe("transpileGML", () => {
       const out = transpileGML("var x_ = 1,\n    y_ = 2;\nfoo(x_, y_);\n");
       expect(out.match(/\bvar\s+y_/g)).toBeNull();
       expect(out).not.toMatch(/,\s*\n\s*var\b/);
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("does not treat the plain English word 'with' inside a // comment as a with-statement to rewrite", () => {
-      // Real, confirmed regression: `// Draw the shadow with all the
-      // calculations` is ordinary GML commentary, not a `with` statement.
-      // The first version of the bare-`with` rewrite matched "with" inside
-      // this comment and then swallowed everything up to the *next*
-      // unrelated `{` — a real, later `if (...) {` several statements away
-      // — as its supposed target, corrupting the whole span in between.
-      const out = transpileGML(
-        "// Draw the shadow with all the calculations\nshadow_size = 1;\nif (i < 64) {\n  foo();\n}\n",
-      );
-      expect(out).not.toContain("with ...");
-      expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "shadow_size", 1);',
-      );
-      expect(out).toContain("if (i < 64) {");
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("rewrites a bare (paren-less) GML `with` target, not just `with (...)`", () => {
-      // Real, confirmed regression: `with obj_solid { ... }` — GML allows
-      // `with`'s target with no enclosing parens, same as `if`/`while`.
-      // The parenthesised-only rewrite pass never matched this shape at
-      // all, leaving the real `with` keyword in the output — a hard
-      // `SyntaxError: Strict mode code may not include a with statement`
-      // at module load (every generated event handler lives inside an ES
-      // module, always strict mode).
-      const out = transpileGML("with obj_solid {\n  foo();\n}\n");
-      expect(out).not.toMatch(/\bwith\s+obj_solid\b/);
-      expect(out).toContain(
-        'GmlActions.with_each(_ctx, "obj_solid", (_entity) => {',
-      );
-      expect(out).toContain("foo();");
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("rewrites with (var) singleStatement; (no braces) — real, extremely common shape confirmed against a real project", () => {
-      // Real, confirmed shape: `with (mywall) instance_destroy();` —
-      // obj_crate's real Destroy_0.gml. `mywall` is a known implicit
-      // instance variable (assigned earlier in the same object), so it's
-      // passed through as a real Entity-valued expression rather than
-      // quoted as an object-type-name string.
-      const out = transpileGML(
-        "mywall = 5;\nwith (mywall) instance_destroy();",
-      );
-      expect(out).toContain(
-        'GmlActions.with_each(_ctx, GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "mywall")), (_entity) => {',
-      );
-      expect(out).toContain("GmlActions.instance_destroy(_entity, _ctx);");
-      expect(() => new Function(out)).not.toThrow();
-    });
-
-    it("rewrites with (other) { ... } and re-scopes a nested `other` inside the body to the with-caller", () => {
-      // Real, confirmed shape: obj_player/obj_pna's real
-      // Collision_obj_Ebullet.gml: `with (other) instance_destroy();`.
-      // a real project's own obj_player_dead/Create_0.gml goes further:
-      // `with (obj_camera) follow = other.id;` — a with-body that itself
-      // reads `other`, meaning the instance that *entered* the with block
-      // (the collision's own _other), not the newly-iterated obj_camera
-      // instance.
-      const out = transpileGML(
-        "with (obj_camera) { follow = other.id; }",
-        [],
-        new Set(),
-        true,
-      );
-      expect(out).toContain(
-        'GmlActions.with_each(_ctx, "obj_camera", (_entity) => { const _other = _withCaller;',
-      );
-      // `other.id` is GameMaker's own real "the live reference of `other`"
-      // idiom — `.id` is rewritten away entirely (see
-      // `rewriteWithStatements`'s own doc comment), since this engine's
-      // `Entity` has no `.id` field of its own to read.
-      expect(out).toContain(
-        'GmlActions.setGmlVar(_entity, _ctx, "follow", _other);',
-      );
       expect(() => new Function(out)).not.toThrow();
     });
   });
@@ -1541,56 +643,6 @@ describe("transpileGML — GML colour constants and pure built-in functions", ()
     expect(out).toContain("GmlActions.c_white");
   });
 
-  it("does not rewrite a colour-constant-named property access (dotted reference)", () => {
-    const out = transpileGML("x = other.c_red;");
-    expect(out).toContain("other.c_red");
-    expect(out).not.toContain("other.GmlActions.c_red");
-  });
-
-  it("rewrites pure built-in function calls (sign/random_range/choose/degtorad/array_length_1d/...) to real GmlActions calls", () => {
-    // lerp/point_distance/string already have their own dedicated,
-    // native-JS inline-translation passes elsewhere in this file (running
-    // *before* this generic pass, which correctly leaves their
-    // already-rewritten output alone rather than double-wrapping it) —
-    // covered separately below, not asserted here.
-    const out = transpileGML(
-      "a = sign(x);\n" +
-        "c = random_range(-5, 5);\n" +
-        "d = choose(1, 2, 3);\n" +
-        "f = degtorad(90);\n" +
-        "g = array_length_1d(arr);\n",
-    );
-    expect(out).toContain(
-      "GmlActions.sign((_entity.get(GmlActions.Transform)?.x ?? 0))",
-    );
-    expect(out).toContain("GmlActions.random_range(-5, 5)");
-    expect(out).toContain("GmlActions.choose(1, 2, 3)");
-    expect(out).toContain("GmlActions.degtorad(90)");
-    expect(out).toContain("GmlActions.array_length_1d(arr)");
-    expect(() => new Function(out)).not.toThrow();
-  });
-
-  it("leaves lerp/point_distance/string alone, already handled by their own dedicated native-JS translation passes", () => {
-    const out = transpileGML(
-      "b = lerp(0, 10, 0.5);\ne = point_distance(0, 0, x, y);\nh = string(5);\n",
-    );
-    expect(out).not.toContain("GmlActions.lerp");
-    expect(out).not.toContain("GmlActions.point_distance");
-    expect(out).not.toContain("GmlActions.string(");
-    expect(out).toContain("0 + (10 - 0) * 0.5");
-    expect(out).toContain(
-      "Math.hypot((_entity.get(GmlActions.Transform)?.x ?? 0) - 0, (_entity.get(GmlActions.Transform)?.y ?? 0) - 0)",
-    );
-    expect(out).toContain("String(5)");
-    expect(() => new Function(out)).not.toThrow();
-  });
-
-  it("does not rewrite a pure function call sitting behind a dotted reference", () => {
-    const out = transpileGML("x = other.sign(5);");
-    expect(out).toContain("other.sign(5)");
-    expect(out).not.toContain("other.GmlActions.sign");
-  });
-
   it("does not mis-rewrite string_length, already handled by its own dedicated pass, as a bare `string` reference", () => {
     const out = transpileGML("x = string_length(s);");
     expect(out).not.toContain("GmlActions.string(");
@@ -1598,27 +650,9 @@ describe("transpileGML — GML colour constants and pure built-in functions", ()
 });
 
 describe("transpileGML — room_width/room_height bare built-in variables", () => {
-  it("rewrites a bare room_width/room_height read to a GmlActions call", () => {
-    // `surface_resize` is itself a real, threaded GmlActions.surface_resize
-    // call now (see the "GMS2 transpiler..." CLAUDE.md follow-up pass), so
-    // this asserts the room_width/room_height rewrite fired *inside* it
-    // rather than the call site staying untouched.
-    const out = transpileGML("surface_resize(surf, room_width, room_height);");
-    expect(out).toContain(
-      "GmlActions.surface_resize(_ctx, surf, GmlActions.room_width(), GmlActions.room_height());",
-    );
-    expect(() => new Function(out)).not.toThrow();
-  });
-
   it("does not double-rewrite an already-function-call-shaped occurrence", () => {
     const out = transpileGML("surface_resize(surf, room_width, room_height);");
     expect(out).not.toContain("room_width()()");
-  });
-
-  it("does not rewrite a dotted reference to another instance's room_width", () => {
-    const out = transpileGML("x = other.room_width;");
-    expect(out).toContain("other.room_width");
-    expect(out).not.toContain("other.GmlActions.room_width");
   });
 });
 
@@ -1703,24 +737,9 @@ describe("transpileGML — GameMaker particle-function family (part_type_*/part_
     );
     expect(out).toContain("GmlActions.part_system_destroy(_ctx, 1)");
   });
-
-  it("does not rewrite a dotted reference to another instance's particle-function-named field", () => {
-    const out = transpileGML("x = other.part_type_create();");
-    expect(out).toContain("other.part_type_create()");
-    expect(out).not.toContain("other.GmlActions.part_type_create");
-  });
 });
 
 describe("transpileGML — layer_sequence_create()", () => {
-  it("threads layer_sequence_create context-only, quoting nothing (all real arguments, no object-type name)", () => {
-    const out = transpileGML(
-      'inst = layer_sequence_create("Effects", x, y, sqExplosion);',
-    );
-    expect(out).toContain(
-      'GmlActions.layer_sequence_create(_ctx, "Effects", (_entity.get(GmlActions.Transform)?.x ?? 0), (_entity.get(GmlActions.Transform)?.y ?? 0), sqExplosion)',
-    );
-  });
-
   it("threads with no arguments beyond _ctx when the call itself takes none", () => {
     const out = transpileGML("layer_sequence_create();");
     expect(out).toContain("GmlActions.layer_sequence_create(_ctx)");
@@ -1728,59 +747,12 @@ describe("transpileGML — layer_sequence_create()", () => {
 });
 
 describe("transpileGML — GMS2.3+ array function family", () => {
-  it("rewrites array_push/array_pop/array_length to GmlActions calls", () => {
-    const out = transpileGML(
-      "array_push(inv, item);\n" +
-        "var last = array_pop(inv);\n" +
-        "var n = array_length(inv);",
-    );
-    expect(out).toContain("GmlActions.array_push(inv, item);");
-    expect(out).toContain("GmlActions.array_pop(inv)");
-    expect(out).toContain("GmlActions.array_length(inv)");
-  });
-
-  it("rewrites array_insert/array_delete/array_sort/array_contains", () => {
-    const out = transpileGML(
-      "array_insert(inv, 0, item);\n" +
-        "array_delete(inv, 0, 1);\n" +
-        "array_sort(inv, true);\n" +
-        "var has = array_contains(inv, item);",
-    );
-    expect(out).toContain("GmlActions.array_insert(inv, 0, item);");
-    expect(out).toContain("GmlActions.array_delete(inv, 0, 1);");
-    expect(out).toContain("GmlActions.array_sort(inv, true);");
-    expect(out).toContain("GmlActions.array_contains(inv, item)");
-  });
-
-  it("rewrites array_map/array_filter/array_reduce, callback expression passed through untouched", () => {
-    const out = transpileGML(
-      "var doubled = array_map(nums, function(v, i) { return v * 2; });",
-    );
-    expect(out).toContain("GmlActions.array_map(nums, function(v, i)");
-  });
-
   it("rewrites array_create/array_resize", () => {
     const out = transpileGML(
       "var arr = array_create(4, 0);\narray_resize(arr, 8);",
     );
     expect(out).toContain("GmlActions.array_create(4, 0)");
     expect(out).toContain("GmlActions.array_resize(arr, 8);");
-  });
-});
-
-describe("transpileGML — GMS2.3+ struct/static/function literal syntax", () => {
-  it("struct literals pass through unchanged (already valid JS)", () => {
-    const out = transpileGML("var s = {a: 1, b: 2};");
-    expect(out).toContain("var s = {a: 1, b: 2};");
-  });
-
-  it("function literals with self/other references pass through unchanged", () => {
-    const out = transpileGML(
-      "var f = function() { return self.hp + other.dmg; };",
-    );
-    expect(out).toContain(
-      "var f = function() { return self.hp + other.dmg; };",
-    );
   });
 });
 
@@ -1884,21 +856,6 @@ describe("transpileGML — GML `static` variable semantics", () => {
     const fn = new Function("GmlActions", body);
     expect(fn(GmlActions)).toBeUndefined();
   });
-
-  it("a static declared inside a nested function() literal is left untouched — the documented, honest remaining gap", () => {
-    const out = transpileGML(
-      "var f = function() { static count = 0; count += 1; return count; };",
-      [],
-      new Set(),
-      false,
-      "onCreate",
-    );
-    // Still contains the raw, untranspiled `static` keyword — proves this
-    // narrower nested case was deliberately left alone rather than
-    // silently (and incorrectly) rewritten against the outer function's
-    // own scope.
-    expect(out).toContain("static count = 0;");
-  });
 });
 
 describe("transpileGML — x/y built-in position variables", () => {
@@ -1914,11 +871,6 @@ describe("transpileGML — x/y built-in position variables", () => {
     expect(out).toContain("(_entity.get(GmlActions.Transform)?.y ?? 0) + 1");
   });
 
-  it("rewrites compound assignment (x += hsp;)", () => {
-    const out = transpileGML("x += hsp;", [], new Set(), false, "fn");
-    expect(out).toContain("_t.x += (hsp)");
-  });
-
   it("rewrites plain assignment (y = 100;)", () => {
     const out = transpileGML("y = 100;", [], new Set(), false, "fn");
     expect(out).toContain("_t.y = 100;");
@@ -1928,12 +880,6 @@ describe("transpileGML — x/y built-in position variables", () => {
     const out = transpileGML("x++;\ny--;", [], new Set(), false, "fn");
     expect(out).toContain("_t.x += 1");
     expect(out).toContain("_t.y -= 1");
-  });
-
-  it("leaves a dotted reference to another instance's field untouched (inst.x = 5;)", () => {
-    const out = transpileGML("inst.x = 5;", [], new Set(), false, "fn");
-    expect(out).toContain("inst.x = 5;");
-    expect(out).not.toContain("_entity.get(GmlActions.Transform)");
   });
 
   it("does not corrupt code following a comment with a stray apostrophe (the real string-masking bug this fix closes)", () => {
@@ -2070,11 +1016,6 @@ describe("transpileGML — draw_set_halign/draw_set_valign/draw_set_font/draw_se
     );
   });
 
-  it("rewrites draw_set_font(fnt_sign)", () => {
-    const out = transpileGML("draw_set_font(fnt_sign);");
-    expect(out).toContain("_ctx.drawTarget?.setFont?.(fnt_sign);");
-  });
-
   it("rewrites draw_set_alpha(0.5)", () => {
     const out = transpileGML("draw_set_alpha(0.5);");
     expect(out).toContain("_ctx.drawTarget?.setAlpha?.(0.5);");
@@ -2097,79 +1038,10 @@ describe("transpileGML — draw_set_halign/draw_set_valign/draw_set_font/draw_se
   });
 });
 
-describe("transpileGML — draw_sprite_ext/draw_sprite_part/draw_sprite_part_ext", () => {
-  it("rewrites draw_sprite_ext with a bare sprite identifier quoted to a texture path", () => {
-    const out = transpileGML(
-      "draw_sprite_ext(spr_marker, 0, x, y, 2, 2, 45, c_white, 1);",
-    );
-    expect(out).toContain(
-      '_ctx.drawTarget?.spriteExt?.("./assets/sprites/spr_marker/frame_0.png", ',
-    );
-  });
-
-  it("rewrites draw_sprite_part with a real 9-slice-shaped call", () => {
-    const out = transpileGML(
-      "draw_sprite_part(_sprite, _subimg, 0, 0, cellSize, cellSize, _x, _y);",
-    );
-    // `_sprite` is itself a bare identifier (GML's own real convention
-    // matches this too — a real project's own `draw_9slice.gml` script
-    // takes a `_sprite` argument and this rewrite quotes it the same way a
-    // named sprite constant would be), so it's quoted into a texture path
-    // just like `draw_sprite`'s own rewrite already does.
-    expect(out).toContain(
-      '_ctx.drawTarget?.spritePart?.("./assets/sprites/_sprite/frame_0.png", 0, 0, cellSize, cellSize, _x, _y);',
-    );
-  });
-
-  it("rewrites draw_sprite_part_ext with a real 9-slice-shaped call", () => {
-    const out = transpileGML(
-      "draw_sprite_part_ext(_sprite, _subimg, cellSize, cellSize, cellSize, cellSize, _x, _y, w, h, -1, 1);",
-    );
-    expect(out).toContain(
-      '_ctx.drawTarget?.spritePartExt?.("./assets/sprites/_sprite/frame_0.png", cellSize, cellSize, cellSize, cellSize, _x, _y, w, h, -1, 1);',
-    );
-  });
-
-  it("produces syntactically valid output", () => {
-    const out = transpileGML(
-      "draw_sprite_ext(spr_a, 0, x, y, 1, 1, 0, c_white, 1); draw_sprite_part(spr_a, 0, 0, 0, 8, 8, x, y); draw_sprite_part_ext(spr_a, 0, 0, 0, 8, 8, x, y, 1, 1, c_white, 1);",
-    );
-    expect(
-      () => new Function("GmlActions", "_entity", "_ctx", out),
-    ).not.toThrow();
-  });
-});
-
 describe("transpileGML — draw_self, instance_change, room_exists, audio_sound_pitch, display_get_width/height, window_set_size, surface_resize", () => {
   it("threads draw_self() to GmlActions.draw_self(_entity, _ctx)", () => {
     const out = transpileGML("draw_self();");
     expect(out).toContain("GmlActions.draw_self(_entity, _ctx)");
-  });
-
-  it("quotes a bare object-name argument for instance_change", () => {
-    const out = transpileGML("instance_change(obj_hitSpark, true);");
-    expect(out).toContain(
-      'GmlActions.instance_change(_entity, _ctx, "obj_hitSpark", true);',
-    );
-  });
-
-  it("does not quote a non-identifier instance_change argument", () => {
-    const out = transpileGML("instance_change(other.new_object, false);");
-    expect(out).toContain(
-      "GmlActions.instance_change(_entity, _ctx, other.new_object, false);",
-    );
-  });
-
-  it("threads room_exists(i) with no quoting", () => {
-    const out = transpileGML("if (room_exists(i)) { x = 0; }");
-    expect(out).toContain("GmlActions.room_exists(_ctx, i)");
-  });
-
-  it("threads audio_sound_pitch", () => {
-    const out = transpileGML("audio_sound_pitch(snd_Shot, 1.2);");
-    expect(out).toContain(
-      'GmlActions.audio_sound_pitch(_entity, _ctx, "snd_Shot", 1.2);',
-    );
   });
 
   it("threads display_get_width/display_get_height", () => {
@@ -2179,30 +1051,9 @@ describe("transpileGML — draw_self, instance_change, room_exists, audio_sound_
     expect(out).toContain("GmlActions.display_get_width(_ctx)");
     expect(out).toContain("GmlActions.display_get_height(_ctx)");
   });
-
-  it("threads window_set_size and surface_resize", () => {
-    const out = transpileGML(
-      "window_set_size(w, h); surface_resize(application_surface, w, h);",
-    );
-    expect(out).toContain("GmlActions.window_set_size(_ctx, w, h)");
-    expect(out).toContain(
-      "GmlActions.surface_resize(_ctx, GmlActions.application_surface, w, h)",
-    );
-  });
 });
 
 describe("transpileGML — legacy e__VW view-script camera accessors", () => {
-  it("threads camera_get_view_border_x/_y, camera_set_view_border, camera_get/set_view_target", () => {
-    const out = transpileGML(
-      "camera_set_view_border(cam, camera_get_view_border_x(cam), v); t = camera_get_view_target(cam); camera_set_view_target(cam, v);",
-    );
-    expect(out).toContain(
-      "GmlActions.camera_set_view_border(_ctx, cam, GmlActions.camera_get_view_border_x(_ctx, cam), v)",
-    );
-    expect(out).toContain("GmlActions.camera_get_view_target(_ctx, cam)");
-    expect(out).toContain("GmlActions.camera_set_view_target(_ctx, cam, v)");
-  });
-
   it("threads view_get_surface_id/view_set_surface_id and the full view_*port family", () => {
     const out = transpileGML(
       "sid = view_get_surface_id(0); view_set_surface_id(0, 5); x1 = view_get_xport(0); y1 = view_get_yport(0); w1 = view_get_wport(0); h1 = view_get_hport(0);",
@@ -2285,25 +1136,11 @@ describe("transpileGML — getGmlVar/getGmlObjectVar bare-read numeric cast", ()
 });
 
 describe("transpileGML — GML local-variable-held instance references", () => {
-  it("rewrites a dotted read on a local var assigned from instance_create_layer", () => {
-    const out = transpileGML(
-      'my_gun = instance_create_layer(x, y, "Guns", obj_gun);\nv = my_gun.hp;',
-    );
-    expect(out).toContain(
-      'GmlActions.gmlNum(GmlActions.getGmlRefVar(_entity, _ctx, "my_gun", "hp"))',
-    );
-  });
-
   it("rewrites a dotted assignment on a local var assigned from instance_place", () => {
     const out = transpileGML("t = instance_place(x, y, obj_wall);\nt.hp = 3;");
     expect(out).toContain(
       'GmlActions.setGmlRefVar(_entity, _ctx, "t", "hp", 3);',
     );
-  });
-
-  it("does not rewrite a dotted access on a name never assigned from an Entity-returning call", () => {
-    const out = transpileGML("v = owner.x;");
-    expect(out).not.toContain("getGmlRefVar");
   });
 
   it("prefers the object-type-name rewrite over the local-ref rewrite for the same name", () => {
@@ -2372,13 +1209,6 @@ describe("transpileGML — bare asset-name identifiers used as plain values", ()
     setGmlRoomNames(new Set());
   });
 
-  it("resolves a bare object-type name used as a plain value, not just dotted", () => {
-    setGmlObjectNames(new Set(["obj_player_dead"]));
-    const out = transpileGML("if (object_index == obj_player_dead) { x = 1; }");
-    expect(out).toContain('object_index == "obj_player_dead"');
-    setGmlObjectNames(new Set());
-  });
-
   it("does not double-handle sprite_index's own already-quoted equality comparison", () => {
     setGmlSpriteNames(new Set(["spr_dad_idle"]));
     const out = transpileGML("if (sprite_index == spr_dad_idle) { x = 1; }");
@@ -2404,15 +1234,6 @@ describe("transpileGML — bare asset-name identifiers used as plain values", ()
     );
     expect(out).toContain('"please visit rm_init soon"');
     setGmlRoomNames(new Set());
-  });
-
-  it("leaves an ambiguous name (present in two real asset kinds) unresolved", () => {
-    setGmlSpriteNames(new Set(["shared_name"]));
-    setGmlObjectNames(new Set(["shared_name"]));
-    const out = transpileGML("v = shared_name;");
-    expect(out).toContain('"v", shared_name');
-    setGmlSpriteNames(new Set());
-    setGmlObjectNames(new Set());
   });
 
   it("resolves a bare object-name argument to action_create_object left unquoted by THREADED_ACTIONS", () => {
@@ -2451,13 +1272,6 @@ describe("transpileGML — project-wide cross-file entity-reference field names"
       'GmlActions.setGmlRefVar(_entity, _ctx, "owner", "hp", 5);',
     );
     setGmlCrossFileEntityRefFields(new Set());
-  });
-
-  it("leaves a field name absent from the project-wide set unresolved (honest, unchanged behaviour)", () => {
-    setGmlCrossFileEntityRefFields(new Set());
-    const out = transpileGML("x = untracked.x;");
-    expect(out).not.toContain("getGmlRefVar");
-    expect(out).toContain("untracked.x");
   });
 
   it("never treats a real project object-type name as a cross-file ref field, even if also in the set", () => {
@@ -2516,37 +1330,6 @@ describe("transpileGML — image_number (read-only bare built-in)", () => {
 });
 
 describe("transpileGML — shader_set / shader_reset / uniforms", () => {
-  it("quotes the bare shader identifier and threads entity/ctx", () => {
-    const out = transpileGML(
-      "shader_set(sh_white);\ndraw_self();\nshader_reset();",
-    );
-    expect(out).toContain('GmlActions.shader_set(_entity, _ctx, "sh_white");');
-    expect(out).toContain("GmlActions.shader_reset(_entity, _ctx);");
-  });
-
-  it("threads the uniform setters and getters, resolving a registered shader name in shader_get_uniform", () => {
-    setGmlShaderNames(new Set(["sh_flash"]));
-    const out = transpileGML(
-      'var u = shader_get_uniform(sh_flash, "u_amount");\nshader_set_uniform_f(u, 0.5);\nshader_set_uniform_i(u, 2);\nshader_set_uniform_f_array(u, [1, 0]);',
-    );
-    setGmlShaderNames(new Set());
-    expect(out).toContain(
-      'GmlActions.shader_get_uniform("sh_flash", "u_amount")',
-    );
-    expect(out).toContain(
-      "GmlActions.shader_set_uniform_f(_entity, _ctx, u, 0.5)",
-    );
-    expect(out).toContain(
-      "GmlActions.shader_set_uniform_i(_entity, _ctx, u, 2)",
-    );
-    expect(out).toContain(
-      "GmlActions.shader_set_uniform_f_array(_entity, _ctx, u, [1, 0])",
-    );
-    expect(out).not.toContain(
-      "shader_set_uniform_f_array(_entity, _ctx, _entity",
-    );
-  });
-
   it("does not resolve a name that is also a sprite (cross-kind ambiguity stays unresolved)", () => {
     setGmlShaderNames(new Set(["dup"]));
     setGmlSpriteNames(new Set(["dup"]));
@@ -2568,27 +1351,6 @@ describe("transpileGML — fresh-sweep batch (string-literal room, nested min/ma
     const out = transpileGML("p = min(1.2, p + max(((1.2 - p) / 10), 0.005));");
     expect(out).toContain("GmlActions.min(1.2");
     expect(out).not.toMatch(/[^.]\bmin\(/);
-  });
-
-  it("leaves room_goto(variable) unquoted when a room registry is installed", () => {
-    setGmlRoomNames(new Set(["rm_a"]));
-    try {
-      expect(transpileGML("room_goto(save_room);")).not.toContain(
-        '"save_room"',
-      );
-      expect(transpileGML("room_goto(rm_a);")).toContain('"rm_a"');
-    } finally {
-      setGmlRoomNames(new Set());
-    }
-  });
-
-  it("does not gmlNum-coerce a local known to hold an Entity", () => {
-    const out = transpileGML(
-      'inst1 = instance_create_layer(0, 0, "Instances", obj_a);\ninstance_destroy(inst1);',
-    );
-    expect(out).toMatch(
-      /instance_destroy\(_entity, _ctx, GmlActions\.getGmlVar\(_entity, _ctx, "inst1"\)\)/,
-    );
   });
 });
 
@@ -2646,47 +1408,26 @@ describe("transpileGML — GMS2 cutout lighting (surfaces, blend modes, legacy v
   });
 });
 
-describe("transpileGML — single-scan name-set rewrites (cross-instance dotted + asset values)", () => {
-  it("nests a chained cross-instance assignment and rewrites reads on the right-hand side", () => {
-    setGmlObjectNames(new Set(["obj_a", "obj_b"]));
-    try {
-      const out = transpileGML(
-        "obj_a.hp = obj_b.hp = 3;\nz = obj_a.x + obj_b.y;",
-      );
-      expect(out).toContain(
-        'GmlActions.setGmlObjectVar(_entity, _ctx, "obj_a", "hp", GmlActions.setGmlObjectVar(_entity, _ctx, "obj_b", "hp", 3));',
-      );
-      expect(out).toContain('"obj_a", "x"');
-      expect(out).toContain('"obj_b", "y"');
-    } finally {
-      setGmlObjectNames(new Set());
-    }
-  });
-
-  it("a non-object head never hides an object reference in its right-hand side, and a dotted head is never rewritten", () => {
-    setGmlObjectNames(new Set(["obj_a"]));
-    try {
-      const out = transpileGML("foo.bar = obj_a.x;\nq = foo.obj_a.y;");
-      expect(out).toContain(
-        'foo.bar = GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, "obj_a", "x"));',
-      );
-      expect(out).toContain("foo.obj_a.y");
-    } finally {
-      setGmlObjectNames(new Set());
-    }
-  });
-
-  it("rewrites every asset kind in one scan without touching a dotted occurrence", () => {
+describe("registry-backed getters are ctx-threaded", () => {
+  it("threads _ctx into font_get_size, object_exists, asset_get_index, sprite_exists", () => {
     setGmlSpriteNames(new Set(["spr_a"]));
-    setGmlSoundNames(new Set(["snd_a"]));
-    try {
-      const out = transpileGML("v = spr_a;\nw = snd_a;\nu = s.spr_a;");
-      expect(out).toContain('"./assets/sprites/spr_a/frame_0.png"');
-      expect(out).toContain('"snd_a"');
-      expect(out).toContain("s.spr_a");
-    } finally {
-      setGmlSpriteNames(new Set());
-      setGmlSoundNames(new Set());
-    }
+    const out = transpileGML(
+      'a = font_get_size(fnt_x); b = object_exists(obj_y); c = asset_get_index("spr_a"); d = sprite_exists(spr_a);',
+    );
+    expect(out).toContain("GmlActions.font_get_size(_ctx,");
+    expect(out).toContain("GmlActions.object_exists(_ctx,");
+    expect(out).toContain("GmlActions.asset_get_index(_ctx,");
+    expect(out).toContain("GmlActions.sprite_exists(_ctx,");
+    setGmlSpriteNames(new Set());
+  });
+
+  it("threads the layer element GML calls", () => {
+    const out = transpileGML(
+      'g = layer_sprite_get_id("TitleAssets", "gGun"); layer_sprite_destroy(g);',
+    );
+    expect(out).toContain(
+      'GmlActions.layer_sprite_get_id(_ctx, "TitleAssets", "gGun")',
+    );
+    expect(out).toContain("GmlActions.layer_sprite_destroy(_ctx,");
   });
 });

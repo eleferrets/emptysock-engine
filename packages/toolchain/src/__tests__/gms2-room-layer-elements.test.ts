@@ -4,7 +4,6 @@ import os from "os";
 import path from "path";
 import { convertGms2Room } from "../gms2-room-import.js";
 import { importGMS2Project } from "../gms2-import.js";
-import { transpileGML } from "../gms2-transpile.js";
 
 const tmpDirs: string[] = [];
 async function mkTemp(prefix: string): Promise<string> {
@@ -137,15 +136,5 @@ describe("GMS2 room-layer sprite and sequence elements", () => {
     });
     expect(byName("gGone")).toBeUndefined();
     expect(result.warnings.join("\n")).toContain('sprite element "gGone"');
-  });
-
-  it("threads the new layer element GML calls", () => {
-    const out = transpileGML(
-      'g = layer_sprite_get_id("TitleAssets", "gGun"); layer_sprite_destroy(g);',
-    );
-    expect(out).toContain(
-      'GmlActions.layer_sprite_get_id(_ctx, "TitleAssets", "gGun")',
-    );
-    expect(out).toContain("GmlActions.layer_sprite_destroy(_ctx,");
   });
 });

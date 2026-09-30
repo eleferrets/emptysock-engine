@@ -44,8 +44,8 @@ import { buildProjectSymbols } from "./gml/project-symbols.js";
 // what this importer keys off of, not the numeric `kind` field.
 //
 // What converts:
-// - A `.gml`-backed file: transpiled through the exact same `transpileGML()`
-//   pipeline `gms2-codegen.ts`'s scripts/object events use, emitting one
+// - A `.gml`-backed file: emitted through the same AST emitter
+//   (`emitScript`) that `gms2-behavior-codegen.ts` uses for scripts, emitting one
 //   real exported TS function per declared `GMExtensionFunction`.
 //   Decision (W6-6): the body is emitted by `emitScript` (AST emitter), but the
 //   exported signature keeps the extension's own parameters and gains no

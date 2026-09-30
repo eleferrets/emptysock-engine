@@ -8,7 +8,7 @@ import { loadGmlProject } from "../gms2-project.js";
 // ---------------------------------------------------------------------------
 // End-to-end proof that a real object's Create event assigning
 // `timeline_index` produces a real, working `.behavior.ts` — not just that
-// `transpileGML()` in isolation rewrites the right regex. See
+// the emitter in isolation rewrites the right construct. See
 // `packages/engine/src/__tests__/GmsRuntime.test.ts`'s
 // "timeline_index assignment" describe block for the companion proof that
 // the exact emitted call shape actually attaches/re-targets/removes a real

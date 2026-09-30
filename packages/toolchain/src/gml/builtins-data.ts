@@ -1,7 +1,7 @@
 /**
  * Static data for the GML built-in table (see builtins.ts). The transpile-pass lists
- * (THREADED_*, *_CONSTANTS) were lifted verbatim from gms2-transpile.ts; a test asserts
- * that the source lists there and these stay identical until the passes are migrated.
+ * (THREADED_*, *_CONSTANTS) were lifted verbatim from the former regex transpiler; a test asserts
+ * that the lists still kept in source files stay in this table.
  */
 
 export const THREADED_ENTITY_CTX: readonly string[] = [
@@ -627,7 +627,7 @@ export const ENTITY_RETURNING_CALLS: readonly string[] = [
   "instance_furthest",
 ];
 
-/** Mixed GML/JS words gms2-transpile.ts never treats as implicit instance variables. */
+/** Mixed GML/JS words the former regex transpiler never treated as implicit instance variables. */
 export const TRANSPILER_RESERVED_IDENTIFIERS: readonly string[] = [
   "if",
   "else",
