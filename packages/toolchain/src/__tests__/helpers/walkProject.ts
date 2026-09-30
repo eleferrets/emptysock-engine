@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { importGMS2Project } from "../../gms2-import.js";
-import { parseGmsJson } from "../../gms2-parse.js";
+import { normalizeYypResources, parseGmsJson } from "../../gms2-parse.js";
 import type {
   ComponentDef,
   Entity,
@@ -25,6 +25,12 @@ export interface RoomResult {
 export interface ProjectWalk {
   yyp: string;
   importWarnings: string[];
+  /**
+   * Generated behavior/script modules that did not load (parse or
+   * evaluation error). A module that does not load silently drops that
+   * object's or script's whole logic, so every walk treats these as failures.
+   */
+  loadFailures: string[];
   skipped: number;
   importError: string | null;
   roomOrder: string[];
@@ -59,6 +65,7 @@ export async function walkProject(
   const walk: ProjectWalk = {
     yyp: yypPath,
     importWarnings: [],
+    loadFailures: [],
     skipped: 0,
     importError: null,
     roomOrder: [],
@@ -76,6 +83,7 @@ export async function walkProject(
 
   const yyp = parseGmsJson(await fs.readFile(yypPath, "utf8")) as {
     RoomOrderNodes?: { roomId?: { name?: string } }[];
+    resources?: unknown[];
   };
   walk.roomOrder = (yyp.RoomOrderNodes ?? [])
     .map((n) => n.roomId?.name)
@@ -132,21 +140,27 @@ export async function walkProject(
   const registeredIds: string[] = [];
   for (const objName of convertedObjects) {
     const p = path.join(outDir, `${objName}.behavior.ts`);
-    if (
-      !(await fs
-        .access(p)
-        .then(() => true)
-        .catch(() => false))
-    )
-      continue;
+    if (!(await fileExists(p))) continue;
     try {
       const mod: unknown = await import(p);
       registerGmlBehavior(objName, mod as never);
       registeredIds.push(objName);
     } catch (err) {
-      walk.importWarnings.push(
-        `behavior module ${objName} failed to load: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      walk.loadFailures.push(`behavior ${objName}: ${firstLine(err)}`);
+    }
+  }
+  // Scripts are imported by the behaviors that call them, but a script no
+  // behavior calls would otherwise never be loaded at all.
+  const scripts = normalizeYypResources(yyp.resources ?? [])
+    .filter((r) => r.id.path.startsWith("scripts/"))
+    .map((r) => r.id.name);
+  for (const script of scripts) {
+    const p = path.join(outDir, `${script}.ts`);
+    if (!(await fileExists(p))) continue;
+    try {
+      await import(p);
+    } catch (err) {
+      walk.loadFailures.push(`script ${script}: ${firstLine(err)}`);
     }
   }
 
@@ -271,12 +285,57 @@ export async function walkProject(
   return walk;
 }
 
+function fileExists(p: string): Promise<boolean> {
+  return fs
+    .access(p)
+    .then(() => true)
+    .catch(() => false);
+}
+
+/** One-line summary of a load error (transform errors are multi-line, coloured). */
+function firstLine(err: unknown): string {
+  const msg = (err instanceof Error ? err.message : String(err)).replace(
+    /\u001b\[[0-9;]*m/g,
+    "",
+  );
+  const lines = msg
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l !== "");
+  const diag = lines.find((l) => /ERROR|\[[A-Z_]+\]/.test(l));
+  const where = lines.find((l) => /\.ts:\d+:\d+/.test(l));
+  const loc = where ? /([^/\s]+\.ts:\d+:\d+)/.exec(where)?.[1] : undefined;
+  return [diag ?? lines[0] ?? "", loc]
+    .filter(Boolean)
+    .join(" @ ")
+    .slice(0, 300);
+}
+
+/** Per-project failure counts the walks compare against the committed baseline. */
+export function walkCounts(w: ProjectWalk): {
+  loadFailures: number;
+  handlerErrors: number;
+  thrown: number;
+} {
+  return {
+    loadFailures: w.loadFailures.length,
+    handlerErrors: w.results.reduce(
+      (n, r) => n + Object.keys(r.handlerErrors).length,
+      0,
+    ),
+    thrown: w.results.filter((r) => r.thrown !== null).length,
+  };
+}
+
 /** One-line-per-room text table for a project walk. */
 export function formatWalk(w: ProjectWalk): string {
-  const lines = w.results.map((r) => {
-    const errs = Object.keys(r.handlerErrors).length;
-    return `${r.room.padEnd(14)} loaded=${r.loaded} frames=${r.frames} entities=${r.entitiesStart}->${r.entitiesMax} playerDx=${r.playerMoved === null ? "n/a" : Math.round(r.playerMoved)} changes=[${r.roomChangedTo.join(",")}] handlerErrors=${errs} thrown=${r.thrown === null ? "no" : "YES"}`;
-  });
+  const lines = w.loadFailures.map((f) => `  load failure: ${f}`);
+  lines.push(
+    ...w.results.map((r) => {
+      const errs = Object.keys(r.handlerErrors).length;
+      return `${r.room.padEnd(14)} loaded=${r.loaded} frames=${r.frames} entities=${r.entitiesStart}->${r.entitiesMax} playerDx=${r.playerMoved === null ? "n/a" : Math.round(r.playerMoved)} changes=[${r.roomChangedTo.join(",")}] handlerErrors=${errs} thrown=${r.thrown === null ? "no" : "YES"}`;
+    }),
+  );
   for (const r of w.results)
     for (const [k, n] of Object.entries(r.handlerErrors))
       lines.push(`  ${r.room}: ${k} (x${n})`);

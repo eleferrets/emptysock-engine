@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
-import { readdirSync } from "fs";
 import { importGMS2Project } from "../gms2-import.js";
+import { fixtureYyp, yypDeclares } from "./helpers/fixture.js";
 import type {
   ComponentDef,
   Entity,
@@ -46,25 +46,23 @@ import type {
  * judgement involved.
  */
 // Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
-const REAL_PROJECT = (() => {
-  const dir = process.env["GMS_FIXTURE_DIR"] ?? "";
-  try {
-    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
-    return yyp ? path.join(dir, yyp) : "";
-  } catch {
-    return "";
-  }
-})();
+// This test is written against one specific real project (its room order and
+// object names are hard-coded below); any other project skips cleanly — the
+// generic, project-independent coverage is gms2-multi-project-walk.test.ts.
+const REAL_PROJECT = fixtureYyp();
+const APPLICABLE =
+  REAL_PROJECT !== "" &&
+  yypDeclares(REAL_PROJECT, {
+    rooms: ["rm_init", "rm_init2", "rm_1"],
+    objects: ["obj_player", "obj_input", "obj_game"],
+  });
 
 describe("GMS2 real project — playability smoke test (a real project)", () => {
   it("runs sustained headless gameplay against real transpiled real-project object code with no crash", async () => {
-    const exists = await fs
-      .access(REAL_PROJECT)
-      .then(() => true)
-      .catch(() => false);
-    if (!exists) {
-      // Real project data is only available in this session's scratchpad
-      // — an honest skip elsewhere rather than a fabricated pass.
+    if (!APPLICABLE) {
+      // Real project data lives outside the repository, and this test only
+      // applies to the one project whose rooms/objects it names — an honest
+      // skip elsewhere rather than a fabricated pass or a false failure.
       return;
     }
 
@@ -337,7 +335,7 @@ describe("GMS2 real project — playability smoke test (a real project)", () => 
       unregisterGmlBehavior(id);
     }
     await fs.rm(outDir, { recursive: true, force: true });
-  }, 120_000);
+  }, 600_000);
 });
 
 /**

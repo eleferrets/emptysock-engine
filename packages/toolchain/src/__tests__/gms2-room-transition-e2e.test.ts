@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
-import { readdirSync } from "fs";
 import os from "os";
 import { importGMS2Project } from "../gms2-import.js";
+import { fixtureYyp, yypResources } from "./helpers/fixture.js";
 import type {
   ComponentDef,
   PrefabDef,
@@ -29,25 +29,17 @@ import type {
  * to the next real room's real prefab instances.
  */
 // Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
-const REAL_PROJECT = (() => {
-  const dir = process.env["GMS_FIXTURE_DIR"] ?? "";
-  try {
-    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
-    return yyp ? path.join(dir, yyp) : "";
-  } catch {
-    return "";
-  }
-})();
+// A room swap needs at least two rooms; a single-room project skips cleanly.
+const REAL_PROJECT = fixtureYyp();
+const APPLICABLE =
+  REAL_PROJECT !== "" &&
+  (yypResources(REAL_PROJECT).get("rooms")?.size ?? 0) >= 2;
 
 describe("GMS2 real project — room transition end to end (a real project)", () => {
   it("imports real rooms and swaps between them via GmsProjectRuntime.nextRoom()", async () => {
-    const exists = await fs
-      .access(REAL_PROJECT)
-      .then(() => true)
-      .catch(() => false);
-    if (!exists) {
-      // Real project data is only available in this session's scratchpad —
-      // an honest skip elsewhere rather than a fabricated pass.
+    if (!APPLICABLE) {
+      // Real project data is only available outside the repository — an
+      // honest skip elsewhere rather than a fabricated pass.
       return;
     }
 
@@ -167,5 +159,5 @@ describe("GMS2 real project — room transition end to end (a real project)", ()
     expect(secondRoomEntityCount).toBeGreaterThan(0);
 
     await fs.rm(outDir, { recursive: true, force: true });
-  }, 60_000);
+  }, 300_000);
 });

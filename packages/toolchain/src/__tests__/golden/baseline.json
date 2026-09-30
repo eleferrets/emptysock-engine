@@ -1,0 +1,39 @@
+{
+  "projects": {
+    "8eef9e2ca2e0": {
+      "label": "A",
+      "loadFailures": 0,
+      "handlerErrors": 0
+    },
+    "5614dfe50bc3": {
+      "label": "B",
+      "loadFailures": 0,
+      "handlerErrors": 0
+    },
+    "28646858224c": {
+      "label": "C",
+      "loadFailures": 0,
+      "handlerErrors": 2
+    },
+    "046a26796b58": {
+      "label": "D",
+      "loadFailures": 2,
+      "handlerErrors": 0
+    },
+    "c4abaff33fd5": {
+      "label": "E",
+      "loadFailures": 29,
+      "handlerErrors": 0
+    },
+    "c9a37075ab33": {
+      "label": "F",
+      "loadFailures": 1,
+      "handlerErrors": 0
+    },
+    "67b434e2529d": {
+      "label": "G",
+      "loadFailures": 2,
+      "handlerErrors": 0
+    }
+  }
+}

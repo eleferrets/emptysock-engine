@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import path from "path";
-import { walkProject, formatWalk } from "./helpers/walkProject.js";
+import { walkProject, formatWalk, walkCounts } from "./helpers/walkProject.js";
+import { baselineFor } from "./helpers/baseline.js";
 
 /**
  * Data-driven walk over every real GameMaker project found on disk.
@@ -11,6 +12,10 @@ import { walkProject, formatWalk } from "./helpers/walkProject.js";
  * `GMS2_WALK_OUT` is a directory that receives one report per project
  * (plus the kept importer output when `GMS2_WALK_KEEP=1`, for a tsc sweep).
  * Skips honestly when no roots are configured or present.
+ *
+ * Fails when a project has more module load failures, handler errors or
+ * room throws than its committed baseline (`golden/baseline.json`, target
+ * zero); an unknown project must be clean. Per-project counts are printed.
  */
 async function findYyps(root: string, depth = 0): Promise<string[]> {
   const out: string[] = [];
@@ -27,7 +32,7 @@ async function findYyps(root: string, depth = 0): Promise<string[]> {
 }
 
 describe("GMS2 real projects: multi-project room walk", () => {
-  it("imports every project and runs every room without uncaught throws", async () => {
+  it("imports every project, loads every module and runs every room within its baseline", async () => {
     const roots = (process.env["GMS2_WALK_ROOTS"] ?? "")
       .split(path.delimiter)
       .filter(Boolean);
@@ -41,19 +46,26 @@ describe("GMS2 real projects: multi-project room walk", () => {
     if (outRoot) await fs.mkdir(outRoot, { recursive: true });
 
     const failures: string[] = [];
+    const summary: string[] = [];
     for (const yyp of chosen) {
       const w = await walkProject(yyp, {
         frames,
         keepOutDir: process.env["GMS2_WALK_KEEP"] === "1" && !!outRoot,
       });
-      const label = path.relative(path.dirname(path.dirname(yyp)), yyp);
+      const base = baselineFor(yyp);
+      const counts = walkCounts(w);
+      const label = base.label;
+      summary.push(
+        `${label}: rooms=${w.results.length} loadFailures=${counts.loadFailures}/${base.loadFailures} handlerErrors=${counts.handlerErrors}/${base.handlerErrors} thrown=${counts.thrown} importError=${w.importError === null ? "no" : "YES"}`,
+      );
       const report = `# ${yyp}\nimportError=${w.importError ?? "none"} warnings=${w.importWarnings.length} skipped=${w.skipped} rooms=${w.results.length}\n${w.importWarnings.map((x) => `  warn: ${x}`).join("\n")}\n${formatWalk(w)}\n`;
       if (outRoot) {
-        const tag = label.replace(/[^\w.-]+/g, "_");
-        await fs.writeFile(path.join(outRoot, `${tag}.txt`), report, "utf8");
+        const tag = path.relative(path.dirname(path.dirname(yyp)), yyp);
+        const file = tag.replace(/[^\w.-]+/g, "_");
+        await fs.writeFile(path.join(outRoot, `${file}.txt`), report, "utf8");
         if (process.env["GMS2_WALK_KEEP"] === "1")
           await fs
-            .rename(w.outDir, path.join(outRoot, `${tag}.out`))
+            .rename(w.outDir, path.join(outRoot, `${file}.out`))
             .catch(() => undefined);
       }
       if (w.importError !== null)
@@ -61,10 +73,19 @@ describe("GMS2 real projects: multi-project room walk", () => {
       for (const r of w.results) {
         if (r.thrown !== null)
           failures.push(`${label}/${r.room}: ${r.thrown.split("\n")[0]}`);
-        for (const k of Object.keys(r.handlerErrors))
-          failures.push(`${label}/${r.room}: ${k}`);
       }
+      if (counts.loadFailures > base.loadFailures)
+        failures.push(
+          `${label}: ${counts.loadFailures} module load failures (baseline ${base.loadFailures}): ${w.loadFailures.join(" | ")}`,
+        );
+      if (counts.handlerErrors > base.handlerErrors)
+        failures.push(
+          `${label}: ${counts.handlerErrors} handler errors (baseline ${base.handlerErrors}): ${w.results
+            .flatMap((r) => Object.keys(r.handlerErrors))
+            .join(" | ")}`,
+        );
     }
+    console.info(`multi-project walk:\n${summary.join("\n")}`);
     expect(failures).toEqual([]);
   }, 3_600_000);
 });

@@ -1,285 +1,67 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
-import path from "path";
-import { readdirSync } from "fs";
-import { importGMS2Project } from "../gms2-import.js";
-import { parseGmsJson } from "../gms2-parse.js";
-import type {
-  ComponentDef,
-  Entity,
-  PrefabDef,
-  SceneDocument,
-  GmsProjectData,
-} from "@emptysock/engine";
+import { walkProject, formatWalk, walkCounts } from "./helpers/walkProject.js";
+import { fixtureYyp, yypDeclares } from "./helpers/fixture.js";
+import { baselineFor } from "./helpers/baseline.js";
 
 /**
- * Walks every room of the real project in its real `.yyp`
- * `RoomOrderNodes` order through a real headless `GmsProjectRuntime`, running
- * 600 frames in each with `vk_right` held, and reports per room: that it
- * loaded, entity counts, whether a live `obj_player` moved, every room change
- * the game itself made, and every handler exception `GmlBehaviorSystem`
- * caught (its `safeCall` isolates a throwing handler and logs it, so
- * "`update()` did not throw" alone proves nothing about the transpiled code).
- * Skipped honestly when the real project is not on disk.
+ * Walks every room of one specific real project in its real `.yyp`
+ * `RoomOrderNodes` order through a real headless `GmsProjectRuntime`,
+ * running `GMS2_WALK_FRAMES` (default 600) frames in each with `vk_right`
+ * held, and reports per room: that it loaded, entity counts, whether a live
+ * `obj_player` moved, every room change the game itself made, and every
+ * handler exception `GmlBehaviorSystem` caught (its `safeCall` isolates a
+ * throwing handler and logs it, so "`update()` did not throw" alone proves
+ * nothing about the transpiled code).
+ *
+ * The assertions name that project's rooms (`rm_init` first, `rm_1` the
+ * first gameplay room), so any other project skips cleanly; the generic
+ * walk over every project is gms2-multi-project-walk.test.ts. Both share
+ * `helpers/walkProject.ts`. Skipped honestly when the project is not on disk.
  */
-// Real project fixture: set GMS_FIXTURE_DIR to a directory containing a GMS2 `.yyp`.
-const REAL_PROJECT = (() => {
-  const dir = process.env["GMS_FIXTURE_DIR"] ?? "";
-  try {
-    const yyp = readdirSync(dir).find((n) => n.endsWith(".yyp"));
-    return yyp ? path.join(dir, yyp) : "";
-  } catch {
-    return "";
-  }
-})();
-
-interface RoomResult {
-  room: string;
-  loaded: boolean;
-  frames: number;
-  entitiesStart: number;
-  entitiesMax: number;
-  playerMoved: number | null;
-  roomChangedTo: string[];
-  handlerErrors: Record<string, number>;
-  thrown: string | null;
-}
+const REAL_PROJECT = fixtureYyp();
+const APPLICABLE =
+  REAL_PROJECT !== "" &&
+  yypDeclares(REAL_PROJECT, {
+    rooms: ["rm_init", "rm_1"],
+    objects: ["obj_player"],
+  });
 
 describe("GMS2 real project: room walk (a real project)", () => {
-  it("loads and runs every room in roomOrder for 600 frames with no uncaught throws and no handler exceptions", async () => {
-    const exists = await fs
-      .access(REAL_PROJECT)
-      .then(() => true)
-      .catch(() => false);
-    if (!exists) return;
+  it("loads and runs every room in roomOrder with no uncaught throws, no module load failures and no handler exceptions", async () => {
+    if (!APPLICABLE) return;
+    const frames = Number(process.env["GMS2_WALK_FRAMES"] ?? "600");
+    const walk = await walkProject(REAL_PROJECT, { frames });
+    expect(walk.importError).toBeNull();
+    expect(walk.roomOrder.length).toBeGreaterThan(5);
+    expect(walk.roomOrder[0]).toBe("rm_init");
 
-    const scratchRoot = path.join(__dirname, "..", "..", ".gms2-smoke-tmp");
-    await fs.mkdir(scratchRoot, { recursive: true });
-    const outDir = await fs.mkdtemp(path.join(scratchRoot, "gms2-walk-"));
-    await importGMS2Project(REAL_PROJECT, outDir);
-
-    const yyp = parseGmsJson(await fs.readFile(REAL_PROJECT, "utf8")) as {
-      RoomOrderNodes?: { roomId?: { name?: string } }[];
-    };
-    const roomOrder = (yyp.RoomOrderNodes ?? [])
-      .map((n) => n.roomId?.name)
-      .filter((n): n is string => typeof n === "string");
-    expect(roomOrder.length).toBeGreaterThan(5);
-    expect(roomOrder[0]).toBe("rm_init");
-
-    const manifest = JSON.parse(
-      await fs.readFile(path.join(outDir, "project-manifest.json"), "utf8"),
-    ) as { prefabs: string[]; scenes: string[] };
-    const convertedObjects = manifest.prefabs.map((f) =>
-      f.replace(/\.prefab\.json$/, ""),
-    );
-
-    const eng = await import("@emptysock/engine");
-    const {
-      parsePrefabFile,
-      GmsProjectRuntime,
-      Game,
-      registerGmlBehavior,
-      unregisterGmlBehavior,
-      Transform,
-      Meta,
-      Sprite,
-      PhysicsBody,
-      GmlBehaviorState,
-      LayerElement,
-      GmlSequenceState,
-    } = eng;
-    const lookupMap: Record<string, ComponentDef> = {
-      Transform,
-      Meta,
-      Sprite,
-      PhysicsBody,
-      GmlBehaviorState,
-      LayerElement,
-      GmlSequenceState,
-    };
-
-    const prefabs: Record<string, PrefabDef> = {};
-    for (const objName of convertedObjects) {
-      const raw = await fs
-        .readFile(path.join(outDir, `${objName}.prefab.json`), "utf8")
-        .catch(() => undefined);
-      if (raw === undefined) continue;
-      try {
-        prefabs[objName] = parsePrefabFile(
-          JSON.parse(raw),
-          (name) => lookupMap[name],
-        );
-      } catch {
-        /* a prefab needing an unwired component is skipped, not faked */
-      }
-    }
-
-    const registeredIds: string[] = [];
-    for (const objName of convertedObjects) {
-      const p = path.join(outDir, `${objName}.behavior.ts`);
-      if (
-        !(await fs
-          .access(p)
-          .then(() => true)
-          .catch(() => false))
-      )
-        continue;
-      const mod: unknown = await import(p);
-      registerGmlBehavior(objName, mod as never);
-      registeredIds.push(objName);
-    }
-
-    const rooms: Record<string, SceneDocument> = {};
-    for (const f of manifest.scenes) {
-      const name = f.replace(/^rooms\//, "").replace(/\.scene\.json$/, "");
-      rooms[name] = JSON.parse(
-        await fs.readFile(
-          path.join(outDir, "rooms", `${name}.scene.json`),
-          "utf8",
-        ),
-      ) as SceneDocument;
-    }
-    for (const r of roomOrder) expect(rooms[r]).toBeDefined();
-
-    const data: GmsProjectData = {
-      rooms,
-      roomOrder,
-      prefabs,
-      lookup: (name) => lookupMap[name],
-    };
-    const game = new Game();
-    // The importer copies datafiles to `included/`; a real host mounts them
-    // into the game's file system (a real project's `obj_game` reads `lang.txt`).
-    const includedDir = path.join(outDir, "included");
-    for (const f of await fs.readdir(includedDir).catch(() => [] as string[])) {
-      game.files.preload(
-        f,
-        await fs.readFile(path.join(includedDir, f), "utf8"),
+    if (process.env["GMS2_WALK_REPORT"]) {
+      await fs.writeFile(
+        process.env["GMS2_WALK_REPORT"],
+        formatWalk(walk) + "\n",
+        "utf8",
       );
     }
-    const runtime = new GmsProjectRuntime(game, data, {});
 
-    // Capture the handler exceptions GmlBehaviorSystem catches and logs.
-    const caught: string[] = [];
-    const origError = console.error;
-    console.error = (...args: unknown[]): void => {
-      const msg = args.map((a) => String(a)).join(" ");
-      if (msg.startsWith("GmlBehaviorSystem:")) caught.push(msg);
-      else origError(...args);
-    };
-
-    const VK_RIGHT = "ArrowRight";
-    const FRAMES = 600;
-    const DT = 1 / 60;
-    const results: RoomResult[] = [];
-    try {
-      for (const roomName of roomOrder) {
-        const before = caught.length;
-        const result: RoomResult = {
-          room: roomName,
-          loaded: false,
-          frames: 0,
-          entitiesStart: 0,
-          entitiesMax: 0,
-          playerMoved: null,
-          roomChangedTo: [],
-          handlerErrors: {},
-          thrown: null,
-        };
-        results.push(result);
-        try {
-          await runtime.loadRoom(roomName);
-          result.loaded = runtime.currentRoom === roomName;
-          game.input.simulateKeyDown(VK_RIGHT);
-          const count = (): number => {
-            let n = 0;
-            runtime.scene?.each(Transform, () => {
-              n += 1;
-            });
-            return n;
-          };
-          const findPlayer = (): Entity | undefined => {
-            let found: Entity | undefined;
-            runtime.scene?.each(Meta, (m, e) => {
-              if (m.name === "obj_player" && found === undefined) found = e;
-            });
-            return found;
-          };
-          result.entitiesStart = count();
-          result.entitiesMax = result.entitiesStart;
-          let player = findPlayer();
-          const startX = player?.get(Transform)?.x ?? 0;
-          let lastRoom = runtime.currentRoom;
-          for (let f = 0; f < FRAMES; f += 1) {
-            runtime.update(DT);
-            result.frames += 1;
-            result.entitiesMax = Math.max(result.entitiesMax, count());
-            if (runtime.currentRoom !== lastRoom) {
-              // The game itself changed room (room_goto and friends). The
-              // async load needs a macrotask turn before the scene swaps.
-              lastRoom = runtime.currentRoom;
-              if (lastRoom !== undefined) result.roomChangedTo.push(lastRoom);
-              player = undefined;
-            }
-            // eslint-disable-next-line no-restricted-globals -- a real async loadScene may be pending
-            if (f % 100 === 99) await new Promise((r) => setTimeout(r, 1));
-            player ??= findPlayer();
-          }
-          if (player !== undefined && runtime.currentRoom === roomName) {
-            result.playerMoved = (player.get(Transform)?.x ?? startX) - startX;
-          }
-        } catch (err) {
-          result.thrown =
-            err instanceof Error ? (err.stack ?? err.message) : String(err);
-        } finally {
-          game.input.simulateKeyUp(VK_RIGHT);
-        }
-        for (const line of caught.slice(before)) {
-          const m =
-            /^GmlBehaviorSystem: "([^"]+)"\.(\w+) threw[^.]*\. ([^\n]*)/.exec(
-              line,
-            );
-          const key = m ? `${m[1]}.${m[2]}: ${m[3]}` : line.slice(0, 160);
-          result.handlerErrors[key] = (result.handlerErrors[key] ?? 0) + 1;
-        }
-      }
-    } finally {
-      console.error = origError;
-    }
-
-    const table = results.map((r) => {
-      const errs = Object.entries(r.handlerErrors);
-      return `${r.room.padEnd(12)} loaded=${r.loaded} frames=${r.frames} entities=${r.entitiesStart}->${r.entitiesMax} playerDx=${r.playerMoved === null ? "n/a" : Math.round(r.playerMoved)} roomChanges=[${r.roomChangedTo.join(",")}] handlerErrors=${errs.length} thrown=${r.thrown === null ? "no" : "YES"}`;
-    });
-    const report = `${table.join("\n")}\n${results
-      .flatMap((r) =>
-        Object.entries(r.handlerErrors).map(
-          ([k, n]) => `  ${r.room}: ${k} (x${n})`,
-        ),
-      )
-      .join("\n")}\n`;
-    if (process.env["GMS2_WALK_REPORT"]) {
-      await fs.writeFile(process.env["GMS2_WALK_REPORT"], report, "utf8");
-    }
-
-    for (const id of registeredIds) unregisterGmlBehavior(id);
-    await fs.rm(outDir, { recursive: true, force: true });
-
-    // Every room loads and runs 600 frames without an uncaught throw.
+    // Every room loads and runs every frame without an uncaught throw.
     expect(
-      results
+      walk.results
         .filter((r) => r.thrown !== null)
         .map((r) => `${r.room}: ${r.thrown}`),
     ).toEqual([]);
-    expect(results.every((r) => r.frames === FRAMES)).toBe(true);
+    expect(walk.results.every((r) => r.frames === frames)).toBe(true);
+    // Every generated behavior/script module loads (baseline ceiling, target 0).
+    expect(walkCounts(walk).loadFailures).toBeLessThanOrEqual(
+      baselineFor(REAL_PROJECT).loadFailures,
+    );
     // The real player walks in the first gameplay room.
-    const rm1 = results.find((r) => r.room === "rm_1");
+    const rm1 = walk.results.find((r) => r.room === "rm_1");
     expect(rm1?.playerMoved ?? 0).toBeGreaterThan(50);
     // No transpiled handler throws.
-    const errorsByRoom = results
+    const errorsByRoom = walk.results
       .filter((r) => Object.keys(r.handlerErrors).length > 0)
       .map((r) => `${r.room}: ${Object.keys(r.handlerErrors).join(" | ")}`);
     expect(errorsByRoom).toEqual([]);
-  }, 300_000);
+  }, 3_600_000);
 });
