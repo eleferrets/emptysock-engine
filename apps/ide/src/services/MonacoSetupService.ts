@@ -83,10 +83,13 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
   if (_setupDone) return;
   _setupDone = true;
 
-  // Runtime object is unchanged by the 0.56 restructuring — only its type
-  // position moved. Cast once, here, to the real subpath types instead of
-  // scattering `as any`/`@ts-expect-error` at every call site.
-  const ts = monaco.languages.typescript as unknown as typeof MonacoTS;
+  // monaco-editor@0.56 moved the TypeScript language service to a top-level
+  // `typescript` namespace; `languages.typescript` is only a deprecated stub
+  // (at runtime it is not the service). Read the real one, cast once here to
+  // the subpath types instead of scattering `as any` at every call site.
+  const ts = (monaco as unknown as { typescript?: typeof MonacoTS }).typescript;
+  if (ts === undefined)
+    throw new Error("monaco-editor has no top-level typescript namespace");
 
   // --- TypeScript / JavaScript compiler options for game developers ----------
   // Strict but not overwhelming — no noUncheckedIndexedAccess etc.
