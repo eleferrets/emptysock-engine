@@ -1,9 +1,6 @@
 import {
-  captureEntities,
   persistentTransferPolicy,
-  restoreEntities,
   type EntityExtra,
-  type SceneSnapshot,
   type TransferPolicy,
 } from "./SceneTransfer.js";
 import { defineScene } from "./Game.js";
@@ -212,8 +209,6 @@ export class GmsProjectRuntime {
    * field is the right shape here, not a `(World, eid)`-keyed side-table.
    */
   private readonly _prevKeyDown = new Map<number, boolean>();
-  /** Persistent entities snapshotted by the outgoing room's `onUnload`, restored by the next room's `onLoad`. */
-  private _carried: SceneSnapshot | undefined;
 
   constructor(
     private readonly game: Game,
@@ -312,6 +307,7 @@ export class GmsProjectRuntime {
     return defineScene({
       ...(file.persistent === true ? { persistentKey: name } : {}),
       transfer: GML_CARRY_POLICY,
+      carryOnLeave: true,
       onLoad: (scene, life) => {
         // GameMaker's real `previous_room` built-in — the room loaded
         // immediately before this one, real usage: `scr_save_game.gml`'s
@@ -339,10 +335,7 @@ export class GmsProjectRuntime {
         // this room also places the same object, a second instance is
         // created (the well-known duplicate-controller pitfall), so neither
         // do we.
-        const carried = this._carried;
-        this._carried = undefined;
-        if (carried !== undefined)
-          restoreEntities(scene, carried, GML_CARRY_POLICY);
+        life.restoreCarried();
         // Room-level persistent (manual: Room Properties, "Persistent"): a
         // revisited persistent room comes back exactly as it was left, and
         // its Creation Code / instance Create events do not run again.
@@ -363,11 +356,6 @@ export class GmsProjectRuntime {
       },
       onUpdate: (dt) => {
         this.runGmlPasses(dt);
-      },
-      onUnload: (scene) => {
-        const snap = captureEntities(scene, GML_CARRY_POLICY);
-        // game_restart removes persistent objects (manual: game_restart).
-        this._carried = this.game.restarting ? undefined : snap;
       },
     });
   }

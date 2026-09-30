@@ -174,4 +174,18 @@ describe("Game persistent rooms", () => {
     expect(game.restarting).toBe(false);
     expect(game.roomCache.keys()).toEqual([]);
   });
+
+  it("carryOnLeave carries without a carry option, except on a game restart", async () => {
+    const game = createHeadlessGame();
+    const leaving = defineScene({ ...first, carryOnLeave: true });
+    await game.loadScene(leaving);
+    await game.loadScene(second([]));
+    expect(scores(game)).toEqual([7, 100]);
+    await game.loadScene(leaving);
+    await game.loadScene(second([]), { restart: "game" });
+    expect(scores(game)).toEqual([100]);
+    await game.loadScene(leaving);
+    await game.loadScene(second([]), { carry: false });
+    expect(scores(game)).toEqual([100]);
+  });
 });

@@ -57,6 +57,13 @@ export interface SceneDefinition {
    * restored with the room. Default: `persistentTransferPolicy`, no extras.
    */
   transfer?: TransferPolicy;
+  /**
+   * When `true`, leaving this scene carries the entities `transfer.select`
+   * picks into whatever scene loads next, without the caller passing
+   * `loadScene(.., { carry })` (runtimes that swap rooms from game code).
+   * An explicit `carry` option wins; `restart: "game"` carries nothing.
+   */
+  carryOnLeave?: boolean;
 }
 
 /** What a loaded scene gets handed for the lifetime of that load. */
@@ -551,7 +558,14 @@ export class Game {
     this._restarting = options.restart === "game";
     try {
       if (this._current !== null) {
-        await this._unload(options.carry || undefined, options.restart);
+        const cur = this._current.definition;
+        const carry =
+          options.carry !== undefined
+            ? options.carry || undefined
+            : cur.carryOnLeave === true && options.restart !== "game"
+              ? (cur.transfer ?? persistentTransferPolicy)
+              : undefined;
+        await this._unload(carry, options.restart);
       }
       if (options.restart === "game") this._roomCache.clear();
       else if (options.restart === "room" && definition.persistentKey) {
