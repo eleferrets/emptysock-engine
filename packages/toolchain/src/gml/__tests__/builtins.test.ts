@@ -97,7 +97,9 @@ describe("gml builtins table", () => {
       transpileSrc,
       /const ENTITY_RETURNING_CALLS_NAMES = \[([\s\S]*?)\];/,
     );
-    expect(entityReturningCalls().sort()).toEqual([...names].sort());
+    // The table may know more (instance_find/nearest/furthest have compat
+    // implementations the regex transpiler never wired); it must not know less.
+    expect(entityReturningCalls()).toEqual(expect.arrayContaining(names));
   });
 
   it("source-bug builtin values, sprite-arg and object-arg lists are covered", () => {

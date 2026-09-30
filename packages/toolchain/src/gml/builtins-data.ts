@@ -47,9 +47,34 @@ export const THREADED_ENTITY_CTX: readonly string[] = [
   "file_text_write_real",
   "file_text_writeln",
   "file_text_close",
+  // Object/asset-taking calls (their asset argument positions are below).
+  "instance_create_layer",
+  "instance_change",
+  "shader_set",
+  "audio_play_sound",
+  "audio_sound_pitch",
+  "room_goto",
+  "place_meeting",
+  "position_meeting",
+  "instance_place",
+  "instance_position",
+  "collision_rectangle",
+  "collision_circle",
+  "collision_line",
+  "collision_point",
+  "instance_exists",
+  "instance_number",
+  "instance_find",
+  "instance_nearest",
+  "instance_furthest",
+  "action_if_collision",
+  "action_if_aligned",
+  "action_if_empty",
 ];
 
 export const THREADED_CTX_ONLY: readonly string[] = [
+  "sprite_get_number",
+  "window_center",
   "camera_create",
   "camera_create_view",
   "camera_destroy",
@@ -170,6 +195,7 @@ export const THREADED_ENTITY_ONLY: readonly string[] = [
 ];
 
 export const PURE_FUNCTIONS: readonly string[] = [
+  "irandom_range",
   "shader_get_uniform",
   "shader_is_compiled",
   "sign",
@@ -596,6 +622,9 @@ export const ENTITY_RETURNING_CALLS: readonly string[] = [
   "instance_create",
   "instance_place",
   "instance_position",
+  "instance_find",
+  "instance_nearest",
+  "instance_furthest",
 ];
 
 /** Mixed GML/JS words gms2-transpile.ts never treats as implicit instance variables. */
@@ -655,4 +684,36 @@ export const OBJECT_ARG_FUNCTIONS: Readonly<Record<string, number>> = {
   position_meeting: 2,
   instance_place: 2,
   instance_position: 2,
+  collision_rectangle: 4,
+  collision_circle: 3,
+  collision_line: 4,
+  collision_point: 2,
+  instance_find: 0,
+  instance_nearest: 2,
+  instance_furthest: 2,
 };
+
+/** Argument 0 of these calls names an asset of the given kind (the engine addresses it by name). */
+export const NAMED_ASSET_ARG0: Readonly<
+  Record<string, "sound" | "room" | "shader" | "font">
+> = {
+  audio_play_sound: "sound",
+  audio_sound_pitch: "sound",
+  room_goto: "room",
+  shader_set: "shader",
+  draw_set_font: "font",
+};
+
+/** No-op audio emitter family (positional audio is not modelled); each returns a handle or nothing. */
+export const AUDIO_EMITTER_FUNCTIONS: readonly string[] = [
+  "audio_emitter_create",
+  "audio_emitter_free",
+  "audio_emitter_exists",
+  "audio_emitter_position",
+  "audio_emitter_velocity",
+  "audio_emitter_gain",
+  "audio_emitter_pitch",
+  "audio_emitter_falloff",
+  "audio_emitter_get_gain",
+  "audio_emitter_get_pitch",
+];

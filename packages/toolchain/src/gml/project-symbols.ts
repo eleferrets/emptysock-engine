@@ -106,6 +106,8 @@ export interface FileFacts {
   }>;
   /** `global.name` assignments. */
   globalWrites: ReadonlySet<string>;
+  /** Names declared with `globalvar`. */
+  globalVars: ReadonlySet<string>;
   /** Names assigned exactly `other.id` (variable, field or `var` initialiser) inside any `with` body, at any nesting depth. */
   entityFieldsFromWith: ReadonlySet<string>;
   /**
@@ -142,6 +144,8 @@ export interface ProjectSymbols {
   crossFileEntityRefFields(): ReadonlySet<string>;
   /** Instance variables assigned by script files' own bodies. */
   scriptInstanceVars(): ReadonlySet<string>;
+  /** Names any file declares with `globalvar` (bare references to them are globals everywhere). */
+  globalVars(): ReadonlySet<string>;
   references(
     name: string,
   ): ReadonlyArray<{ file: string; start: number; end: number }>;
@@ -324,6 +328,7 @@ class FileWalker {
     holdsEntity: boolean;
   }> = [];
   readonly globalWrites = new Set<string>();
+  readonly globalVars = new Set<string>();
   readonly entityFieldsFromWith = new Set<string>();
   readonly implicitScalars = new Set<string>();
   readonly implicitArrays = new Set<string>();
@@ -384,6 +389,7 @@ class FileWalker {
           if (d.init && this.withDepth > 0 && isOtherId(d.init))
             this.entityFieldsFromWith.add(d.name);
           this.locals.add(d.name);
+          if (s.declKind === "globalvar") this.globalVars.add(d.name);
           const holds = d.init ? this.isEntityExpr(d.init) : false;
           const sym: Symbol = {
             name: d.name,
@@ -763,6 +769,7 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
   private objectMap = new Map<string, ObjectInfo>();
   private crossFile = new Set<string>();
   private scriptVars = new Set<string>();
+  private globalVarNames = new Set<string>();
   private readonly analyses = new Map<string, FileAnalysis>();
   private readonly refIndex = new Map<
     string,
@@ -891,9 +898,11 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
       };
       const crossFile = new Set<string>();
       const scriptVars = new Set<string>();
+      const globalVarNames = new Set<string>();
       for (const f of files) {
         const a = this.analyze(f);
         this.analyses.set(f.path, a);
+        for (const g of a.facts.globalVars) globalVarNames.add(g);
         for (const c of a.facts.entityFieldsFromWith) crossFile.add(c);
         if (f.kind === "script") {
           for (const n of a.facts.selfWrites.keys()) scriptVars.add(n);
@@ -926,6 +935,7 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
       this.objectMap = nextObjects;
       this.crossFile = crossFile;
       this.scriptVars = scriptVars;
+      this.globalVarNames = globalVarNames;
       this.entityFields = nextEntity;
       if (settled) break;
     }
@@ -984,6 +994,9 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
   }
   scriptInstanceVars(): ReadonlySet<string> {
     return this.scriptVars;
+  }
+  globalVars(): ReadonlySet<string> {
+    return this.globalVarNames;
   }
   references(
     name: string,
@@ -1063,6 +1076,7 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
         selfWrites: second.selfWrites,
         externalWrites: second.externalWrites,
         globalWrites: second.globalWrites,
+        globalVars: second.globalVars,
         entityFieldsFromWith: second.entityFieldsFromWith,
         implicitScalars: second.implicitScalars,
         implicitArrays: second.implicitArrays,

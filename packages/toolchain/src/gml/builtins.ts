@@ -13,7 +13,13 @@ export type BuiltinKind =
   "function" | "variable" | "constant" | "keyword" | "special";
 
 /** What an argument position means to the transpiler. */
-export type ParamKind = "asset:object" | "asset:sprite";
+export type ParamKind =
+  | "asset:object"
+  | "asset:sprite"
+  | "asset:sound"
+  | "asset:room"
+  | "asset:shader"
+  | "asset:font";
 
 /** How the transpiler threads the calling context into a compat call. */
 export type Threading =
@@ -62,6 +68,7 @@ const threaded: Array<[readonly string[], Threading]> = [
   [D.THREADED_ENTITY_ONLY, "entity"],
   [D.PURE_FUNCTIONS, "pure"],
   [D.PURE_FUNCTIONS_PARTICLE, "pure"],
+  [D.AUDIO_EMITTER_FUNCTIONS, "pure"],
 ];
 for (const [names, threading] of threaded) {
   for (const n of names)
@@ -84,6 +91,9 @@ put({
 });
 for (const [n, idx] of Object.entries(D.OBJECT_ARG_FUNCTIONS)) {
   put({ name: n, kind: "function", params: { [idx]: "asset:object" } });
+}
+for (const [n, kind] of Object.entries(D.NAMED_ASSET_ARG0)) {
+  put({ name: n, kind: "function", params: { 0: `asset:${kind}` } });
 }
 for (const n of D.ENTITY_RETURNING_CALLS)
   put({ name: n, kind: "function", returns: "instance" });
