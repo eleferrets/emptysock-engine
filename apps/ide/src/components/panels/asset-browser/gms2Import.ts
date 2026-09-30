@@ -61,7 +61,7 @@ export async function importGMS2FromHandle(
   dirHandle: FileSystemDirectoryHandle,
   addItems: (items: AssetItem[]) => void,
 ): Promise<void> {
-  const { openFile, addLog } = useIDEStore.getState();
+  const { addLog } = useIDEStore.getState();
 
   let yypHandle: FileSystemFileHandle | null = null;
   const iterable = dirHandle as DirHandleIterable;
@@ -98,6 +98,10 @@ export async function importGMS2FromHandle(
     return;
   }
 
+  // GML cannot be converted here: the transpiler lives in @emptysock/toolchain
+  // (Node-only), which the IDE deliberately does not bundle. Scripts and
+  // objects are counted and pointed at the CLI rather than written out as
+  // empty "TODO" stubs that look like imported code.
   let scriptCount = 0;
   let spriteCount = 0;
   let objectCount = 0;
@@ -111,12 +115,8 @@ export async function importGMS2FromHandle(
     if (typeof name !== "string" || name.length === 0) continue;
 
     if (resPath.startsWith("scripts/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
       scriptCount += 1;
     } else if (resPath.startsWith("objects/")) {
-      const stub = `// GMS2 import: ${name}\n// TODO: migrate from GML to TypeScript\n`;
-      openFile(`gms2/${name}.ts`, stub);
       objectCount += 1;
     } else if (resPath.startsWith("sprites/")) {
       // GMS2 stores each sprite as a directory containing a .yy file plus
@@ -156,9 +156,16 @@ export async function importGMS2FromHandle(
   }
   if (newAssets.length > 0) addItems(newAssets);
 
+  if (scriptCount > 0 || objectCount > 0) {
+    addLog(
+      "warn",
+      `GMS2 import: ${scriptCount} scripts and ${objectCount} objects were not converted (GML needs the toolchain). Run: emptysock-toolchain import --from gms2 --project <path/to/game.yyp>`,
+      "GMS2",
+    );
+  }
   addLog(
     "info",
-    `GMS2 import complete: ${scriptCount} scripts, ${spriteCount} sprites, ${objectCount} objects` +
+    `GMS2 import complete: ${spriteCount} sprites imported` +
       (spriteFailCount > 0
         ? ` (${spriteFailCount} sprites need manual import)`
         : ""),
