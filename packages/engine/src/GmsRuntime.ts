@@ -198,6 +198,8 @@ export type GmsRuntimeContext = GmlActionContext &
  */
 export class GmsProjectRuntime {
   private readonly _behaviors = new GmlBehaviorSystem();
+  /** Entities whose Destroy event is running, so a handler destroying its own instance does not recurse. */
+  private readonly _destroying = new Set<number>();
   private readonly _timelines = new TimelineSystem();
   private readonly _sequences = new GmlSequenceSystem();
   private _currentRoom: string | undefined;
@@ -263,6 +265,7 @@ export class GmsProjectRuntime {
       rooms,
       roomOrder: this.data.roomOrder,
       prefabs: this.data.prefabs,
+      destroyInstance: (entity) => this.destroyEntity(entity),
       ...(this._currentRoom !== undefined
         ? { currentRoom: this._currentRoom }
         : {}),
@@ -496,7 +499,14 @@ export class GmsProjectRuntime {
   destroyEntity(entity: Entity): void {
     const scene = this.scene;
     if (scene === undefined) return;
-    this._behaviors.destroy(scene, entity, this.buildContext());
+    // An onDestroy handler may itself call instance_destroy() on its own instance.
+    if (!entity.isAlive || this._destroying.has(entity.eid)) return;
+    this._destroying.add(entity.eid);
+    try {
+      this._behaviors.destroy(scene, entity, this.buildContext());
+    } finally {
+      this._destroying.delete(entity.eid);
+    }
   }
 
   /**

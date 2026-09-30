@@ -159,6 +159,39 @@ describe("GmsProjectRuntime", () => {
     expect(remaining).toBe(0);
   });
 
+  it("instance_destroy() from a handler runs the Destroy event once, even when the handler destroys itself", async () => {
+    const { instance_destroy } = await import("../compat/gmlActions.js");
+    const runtime = new GmsProjectRuntime(game, buildFixture());
+    await runtime.loadRoom("room0");
+    const scene = runtime.scene;
+    let target: Entity | undefined;
+    scene?.each(GmlBehaviorState, (_state, entity) => {
+      target = entity;
+    });
+    if (target === undefined) throw new Error("no behavior entity");
+
+    let runs = 0;
+    unregisterGmlBehavior("objPlayer");
+    registerGmlBehavior("objPlayer", {
+      onDestroy: (entity, ctx) => {
+        runs += 1;
+        instance_destroy(entity, ctx);
+      },
+    } satisfies GmlBehaviorModule);
+
+    const self = target;
+    // Driven the way generated code does it: through the action, not destroyEntity.
+    const ctxFromRuntime = (
+      runtime as unknown as {
+        buildContext(): Parameters<typeof instance_destroy>[1];
+      }
+    ).buildContext();
+    instance_destroy(self, ctxFromRuntime);
+
+    expect(runs).toBe(1);
+    expect(self.isAlive).toBe(false);
+  });
+
   it("runs headless (no renderer attached) without throwing", async () => {
     const runtime = new GmsProjectRuntime(game, buildFixture());
     await runtime.loadRoom("room0");

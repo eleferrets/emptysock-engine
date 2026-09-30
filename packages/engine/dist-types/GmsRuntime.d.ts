@@ -130,6 +130,8 @@ export declare class GmsProjectRuntime {
   private readonly data;
   private readonly options;
   private readonly _behaviors;
+  /** Entities whose Destroy event is running, so a handler destroying its own instance does not recurse. */
+  private readonly _destroying;
   private readonly _timelines;
   private readonly _sequences;
   private _currentRoom;

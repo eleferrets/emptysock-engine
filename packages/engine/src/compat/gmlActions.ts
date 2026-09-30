@@ -92,6 +92,12 @@ export interface GmlActionContext {
    * handlers never draw), so a `draw_*` call made outside a draw dispatch is
    * a safe, honest no-op rather than throwing.
    */
+  /**
+   * Destroys an instance the way GameMaker does: runs its Destroy event, then
+   * removes it. `GmsRuntime` supplies this; without it (bare tests, other
+   * hosts) an instance is removed with no event.
+   */
+  readonly destroyInstance?: (entity: Entity) => void;
   readonly drawTarget?: GmlDrawTarget;
   /**
    * The live `LayerSystem` this scene renders through, for GameMaker's
@@ -902,7 +908,8 @@ export function action_kill_object(
   entity: Entity,
   ctx: GmlActionContext,
 ): void {
-  ctx.scene.destroy(entity);
+  if (ctx.destroyInstance !== undefined) ctx.destroyInstance(entity);
+  else ctx.scene.destroy(entity);
 }
 
 /**
