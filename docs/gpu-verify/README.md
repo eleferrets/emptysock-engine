@@ -37,3 +37,29 @@ Still one pass, no loops. Measured at 640x360 on swiftshader (CPU rasteriser, so
 little about real GPUs): scene 12.6 ms, plus an empty filter pass 20.3 ms, plus rain 22.2 ms; the rain
 shader adds roughly 2-3 ms over an empty filter pass even on the CPU rasteriser. Real device profiling is
 still outstanding.
+
+## Real hardware (Apple M4 Pro, Metal, 2026-09-30)
+
+Run in the Claude integrated browser (Chromium 152, ANGLE Metal, WebGPU on) against the same harness bundle,
+and with Chrome headless through `GPU_ANGLE=metal` (`GPU_RENDERER=webgl|webgpu` forces a backend,
+`GPU_EXTRA_ARGS` adds Chrome flags). The numbers match software rendering on the pixels that were checked.
+
+| Check                                                                        | WebGL | WebGPU                                                      |
+| ---------------------------------------------------------------------------- | ----- | ----------------------------------------------------------- |
+| Rain visible, scene preserved (changed pixels 4.7%, opaque 99.6%)            | pass  | pass (4.70%, same row and column bands)                     |
+| `bm_subtract` cutout (centre 255, outside 159)                               | pass  | pass (same values)                                          |
+| `sh_white` imported shader (white silhouette, alpha kept, control untouched) | pass  | pass, once the imported WGSL program is given to the filter |
+| `fnt_menu` bitmap text (1092 lit pixels, 8 glyph groups)                     | pass  | pass                                                        |
+| Shader compile/link errors                                                   | 0     | n/a                                                         |
+
+Rain frame cost at 640x360: scene 0.08 ms, passthrough filter +0.04 ms, rain +0.015 ms over the passthrough
+(CPU submit time, GL-finished). The earlier WebGPU divergence (1.2% changed pixels, upper frame only) no longer
+reproduces: the rewritten rain renders the same under both backends.
+
+A WebGPU renderer renders a GL-only shader filter as nothing; the engine logs one warning naming the filter.
+Imported shaders carry a WGSL program, so they work under both. `sh_white` was the first real check of that.
+
+Harness fixes found on the way: readbacks are in device pixels (the harness now samples logical pixels, so it
+holds at a device pixel ratio of 2); the old "trails elongate" check compared wet-mark run lengths and failed
+identically on software and on the real GPU, so it is now a same-seed frame difference with the ratios logged
+for information. Whether trails read as vertical streaks is a visual call.
