@@ -254,6 +254,8 @@ function withTransform(
 
 export function RoomEditor(): React.ReactElement {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  // The canvas bitmap follows its pane, so the drawing is never stretched to a different aspect.
+  const [canvasSize, setCanvasSize] = React.useState({ w: 960, h: 640 });
   const openFiles = useIDEStore((s) => s.openFiles);
   const setFileContent = useIDEStore((s) => s.setFileContent);
   const gridSize = useIDEStore((s) => s.editorGridSize);
@@ -742,6 +744,7 @@ export function RoomEditor(): React.ReactElement {
     gridSize,
     prefabSprites,
     imageTick,
+    canvasSize,
   ]);
 
   React.useEffect(() => {
@@ -1163,6 +1166,25 @@ export function RoomEditor(): React.ReactElement {
       getEntities(liveExtra).length === 0
     );
 
+  React.useEffect(() => {
+    const host = canvasRef.current?.parentElement;
+    if (
+      host === null ||
+      host === undefined ||
+      typeof ResizeObserver === "undefined"
+    )
+      return;
+    const fit = (): void => {
+      const w = Math.max(1, Math.round(host.clientWidth));
+      const h = Math.max(1, Math.round(host.clientHeight));
+      setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [showCanvas]);
+
   // Wheel zoom about the cursor. A native, non-passive listener: React's
   // onWheel is passive, so it could not stop the page from scrolling.
   React.useEffect(() => {
@@ -1333,8 +1355,18 @@ export function RoomEditor(): React.ReactElement {
         </button>
       </div>
 
-      <div style={{ flex: 1, position: "relative", display: "flex" }}>
-        <div style={{ flex: 1, position: "relative" }}>
+      {/* minHeight 0: without it the row grows to its tallest side panel and stretches the canvas with it. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          position: "relative",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative" }}
+        >
           {scenePaths.length === 0 ? (
             <div
               style={{
@@ -1377,8 +1409,8 @@ export function RoomEditor(): React.ReactElement {
           ) : (
             <canvas
               ref={canvasRef}
-              width={960}
-              height={640}
+              width={canvasSize.w}
+              height={canvasSize.h}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -1471,6 +1503,7 @@ export function RoomEditor(): React.ReactElement {
               borderLeft: "1px solid var(--es-border)",
               padding: 10,
               fontSize: 12,
+              overflowY: "auto",
               display: "flex",
               flexDirection: "column",
               gap: 8,
