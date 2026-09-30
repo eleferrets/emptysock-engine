@@ -272,6 +272,12 @@ function validateSceneDocument(doc: Json): SceneDocument {
   if (typeof name !== "string" || name === "") {
     throw new Error('Scene: "name" must be a non-empty string.');
   }
+  const bg = doc["backgroundColor"];
+  if (
+    bg !== undefined &&
+    (typeof bg !== "string" || !/^#[0-9a-fA-F]{6}$/.test(bg))
+  )
+    fail(name, '"backgroundColor" must be a #rrggbb string.');
   if (!Array.isArray(doc["entities"]))
     fail(name, '"entities" must be an array.');
   const ids = new Set<string>();
@@ -295,6 +301,12 @@ function validateSceneDocument(doc: Json): SceneDocument {
       for (const [cn, c] of Object.entries(comps)) {
         if (!isObject(c) || !isObject(c["data"]))
           fail(name, `entity "${id}" component "${cn}" needs a data object.`);
+        const v = c["v"];
+        if (v !== undefined && !(Number.isInteger(v) && (v as number) > 0))
+          fail(
+            name,
+            `entity "${id}" component "${cn}" has an invalid version.`,
+          );
       }
     }
     const prefab = e["prefab"];
@@ -321,6 +333,20 @@ function validateSceneDocument(doc: Json): SceneDocument {
   const room = doc["room"];
   if (room !== undefined) {
     if (!isObject(room)) fail(name, '"room" must be an object.');
+    const layers = room["layers"];
+    if (layers !== undefined) {
+      if (!Array.isArray(layers)) fail(name, '"room.layers" must be an array.');
+      for (const l of layers as unknown[]) {
+        if (
+          !isObject(l) ||
+          typeof l["id"] !== "string" ||
+          l["id"] === "" ||
+          typeof l["name"] !== "string" ||
+          typeof l["depth"] !== "number"
+        )
+          fail(name, "a room layer needs an id, a name and a numeric depth.");
+      }
+    }
     const views = room["views"];
     if (views !== undefined) {
       if (!Array.isArray(views)) fail(name, '"room.views" must be an array.');
