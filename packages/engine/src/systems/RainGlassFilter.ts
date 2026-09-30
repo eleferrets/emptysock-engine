@@ -99,7 +99,10 @@ export const RAIN_GLASS_FRAGMENT = /* glsl */ `#version 300 es
     vec2 n = (m.rg * 255.0 - 128.0) / 127.0;
     float h = m.b;
     float wet = m.a;
-    vec2 off = n * uRefract * h;
+    float body = smoothstep(0.2, 0.5, h);
+    float film = smoothstep(0.02, 0.2, h) * (1.0 - body);
+    float rim = smoothstep(0.3, 0.9, length(n)) * body;
+    vec2 off = n * uRefract * (0.25 + body) + n * film * uRefract * 0.5;
     vec2 uv = clamp(vUV - off, 0.0, 1.0);
     vec4 base = textureLod(uTexture, uv, 0.0);
     vec3 col = base.rgb;
@@ -113,9 +116,11 @@ export const RAIN_GLASS_FRAGMENT = /* glsl */ `#version 300 es
       col = mix(col, b, smoothstep(0.0, 0.2, fogHere));
     }
     col = mix(col, uTint, fogHere * 0.25);
-    float spec = pow(max(dot(normalize(vec3(n, 0.6)), normalize(vec3(uLightDir, 0.7))), 0.0), 24.0);
-    col += spec * h * 0.6;
-    col *= 1.0 - 0.25 * smoothstep(0.7, 1.0, length(n)) * h;
+    vec3 nn = normalize(vec3(n, 0.6));
+    float spec = pow(max(dot(nn, normalize(vec3(uLightDir, 0.7))), 0.0), 20.0);
+    float glint = pow(max(dot(nn, normalize(vec3(-uLightDir, 0.5))), 0.0), 40.0);
+    col *= 1.0 - 0.5 * rim - 0.08 * film;
+    col += (spec * 1.1 + glint * 0.35) * body + rim * 0.10 * uTint + body * 0.025 * uTint;
     finalColor = vec4(col, base.a);
   }
 `;
@@ -210,7 +215,7 @@ export class RainGlassFilter extends Filter {
       uResolution: { value: [1, 1], type: "vec2<f32>" },
       uFog: { value: options.fog ?? 0, type: "f32" },
       uBlur: { value: options.blur ?? 6, type: "f32" },
-      uRefract: { value: 0.1, type: "f32" },
+      uRefract: { value: 0.3, type: "f32" },
       uTaps: { value: tier.blurTaps, type: "f32" },
       uChroma: { value: tier.chromatic ? 1 : 0, type: "f32" },
       uTint: { value: [tint[0], tint[1], tint[2]], type: "vec3<f32>" },

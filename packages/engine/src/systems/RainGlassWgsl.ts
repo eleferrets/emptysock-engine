@@ -98,7 +98,10 @@ fn mainFragment(
   let n = (m.rg * 255.0 - 128.0) / 127.0;
   let h = m.b;
   let wet = m.a;
-  let off = n * uniforms.uRefract * h;
+  let body = smoothstep(0.2, 0.5, h);
+  let film = smoothstep(0.02, 0.2, h) * (1.0 - body);
+  let rim = smoothstep(0.3, 0.9, length(n)) * body;
+  let off = n * uniforms.uRefract * (0.25 + body) + n * film * uniforms.uRefract * 0.5;
   let uv = clamp(vUV - off, zero2, one2);
   let base = textureSampleLevel(uTexture, uSampler, uv, 0.0);
   var col = base.rgb;
@@ -112,9 +115,11 @@ fn mainFragment(
     col = mix(col, b, smoothstep(0.0, 0.2, fogHere));
   }
   col = mix(col, uniforms.uTint, fogHere * 0.25);
-  let spec = pow(max(dot(normalize(vec3<f32>(n, 0.6)), normalize(vec3<f32>(uniforms.uLightDir, 0.7))), 0.0), 24.0);
-  col = col + vec3<f32>(spec * h * 0.6);
-  col = col * (1.0 - 0.25 * smoothstep(0.7, 1.0, length(n)) * h);
+  let nn = normalize(vec3<f32>(n, 0.6));
+  let spec = pow(max(dot(nn, normalize(vec3<f32>(uniforms.uLightDir, 0.7))), 0.0), 20.0);
+  let glint = pow(max(dot(nn, normalize(vec3<f32>(-uniforms.uLightDir, 0.5))), 0.0), 40.0);
+  col = col * (1.0 - 0.5 * rim - 0.08 * film);
+  col = col + (spec * 1.1 + glint * 0.35) * body + rim * 0.10 * uniforms.uTint + body * 0.025 * uniforms.uTint;
   return vec4<f32>(col, base.a);
 }
 `;
