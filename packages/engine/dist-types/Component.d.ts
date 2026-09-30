@@ -83,6 +83,16 @@ export interface ComponentDef<
   readonly transfer?: (
     data: Record<string, unknown>,
   ) => Record<string, unknown>;
+  /**
+   * Optional hook run when a scene file entry was written at a different
+   * `version` than this def's: receives the stored overrides and that older
+   * version, returns the overrides in the current shape. Without it, the data
+   * is applied as written and a warning is logged.
+   */
+  readonly migrate?: (
+    data: Record<string, unknown>,
+    fromVersion: number,
+  ) => Record<string, unknown>;
 }
 /** Optional extra config for `defineComponent`. */
 export interface DefineComponentOptions<
@@ -95,6 +105,11 @@ export interface DefineComponentOptions<
   /** See `ComponentDef.transfer`. */
   readonly transfer?: (
     data: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  /** See `ComponentDef.migrate`. */
+  readonly migrate?: (
+    data: Record<string, unknown>,
+    fromVersion: number,
   ) => Record<string, unknown>;
 }
 /**

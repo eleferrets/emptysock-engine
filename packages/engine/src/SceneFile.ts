@@ -246,10 +246,20 @@ export function loadSceneFile(
           `Scene "${doc.name}" entity "${sceneEntity.id}": unknown component "${componentName}" — it must be registered (via defineComponent + a lookup table) before loading this file.`,
         );
       }
+      let data: Record<string, unknown> = entry.data;
+      if (entry.v !== undefined && entry.v !== def.version) {
+        if (def.migrate !== undefined) {
+          data = def.migrate(data, entry.v);
+        } else {
+          console.warn(
+            `Scene "${doc.name}" entity "${sceneEntity.id}": component "${componentName}" was written at version ${entry.v} but is version ${def.version}; applying its data as written.`,
+          );
+        }
+      }
       if (entity.has(def)) {
-        Object.assign(entity.get(def) as object, entry.data);
+        Object.assign(entity.get(def) as object, data);
       } else {
-        entity.add(def, entry.data as never);
+        entity.add(def, data as never);
       }
     }
 

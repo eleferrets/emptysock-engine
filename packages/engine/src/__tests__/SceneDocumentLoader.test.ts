@@ -4,7 +4,7 @@ import { Meta } from "../components/Meta.js";
 import { definePrefab } from "../Prefab.js";
 import { Scene } from "../Scene.js";
 import { loadSceneFile } from "../SceneFile.js";
-import type { SceneDocument } from "../SceneDocument.js";
+import type { SceneComponentEntry, SceneDocument } from "../SceneDocument.js";
 
 const Transform = defineComponent("Transform", () => ({ x: 0, y: 0 }));
 const Health = defineComponent("Health", () => ({ current: 10, max: 10 }));
@@ -143,5 +143,48 @@ describe("loadSceneFile ids, refs and parent", () => {
     warn.mockRestore();
     scene.destroy(dad!);
     expect(kid!.isAlive).toBe(false);
+  });
+});
+
+describe("loadSceneFile component versions", () => {
+  const Stats = defineComponent("Stats", () => ({ hp: 1, maxHp: 1 }), {
+    version: 2,
+    migrate: (data, from) =>
+      from === 1 ? { maxHp: data["max"], hp: data["max"] } : data,
+  });
+  const Plain = defineComponent("Plain", () => ({ n: 0 }));
+  const vlookup = (n: string) =>
+    [Stats, Plain, Meta].find((d) => d.componentName === n);
+  const load = (components: Record<string, SceneComponentEntry>) => {
+    const scene = new Scene();
+    const out = loadSceneFile(
+      scene,
+      {
+        formatVersion: 2,
+        name: "V",
+        entities: [{ id: "a", components }],
+      },
+      vlookup,
+      new Map(),
+    );
+    return out[0];
+  };
+
+  it("runs the component's migrate hook on older data", () => {
+    const e = load({ Stats: { v: 1, data: { max: 7 } } });
+    expect(e?.get(Stats)).toEqual({ hp: 7, maxHp: 7 });
+  });
+
+  it("leaves current-version and unversioned data alone", () => {
+    expect(load({ Stats: { v: 2, data: { hp: 3 } } })?.get(Stats)?.hp).toBe(3);
+    expect(load({ Stats: { data: { hp: 4 } } })?.get(Stats)?.hp).toBe(4);
+  });
+
+  it("applies mismatched data as written, with a warning, when there is no hook", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const e = load({ Plain: { v: 3, data: { n: 9 } } });
+    expect(e?.get(Plain)?.n).toBe(9);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
