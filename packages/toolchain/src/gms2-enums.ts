@@ -23,7 +23,7 @@ import { scanEnums } from "./gml/scan.js";
  * either (a forward reference to a not-yet-declared member is not valid
  * GameMaker GML).
  *
- * This is the enum twin of `gms2-transpile.ts`'s existing `scanGmlMacros`
+ * This is the enum twin of `gms2-macros.ts`s `scanGmlMacros`
  * — same "walk every `.gml` file once, project-wide, before any per-file
  * transpile" shape, since an enum declared in one object's Create event
  * (GameMaker enums are function-scoped syntactically but, per GameMaker's

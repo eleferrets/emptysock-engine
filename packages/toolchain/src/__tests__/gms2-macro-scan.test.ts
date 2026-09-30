@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { scanGmlMacros } from "../gms2-transpile.js";
+import { scanGmlMacros } from "../gms2-macros.js";
 
 async function makeProject(files: Record<string, string>): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "gms2-macros-"));

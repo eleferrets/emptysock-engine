@@ -20,7 +20,7 @@ import {
 } from "./gms2-behavior-codegen.js";
 import { loadGmlProject, type GmlProject } from "./gms2-project.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
-import { scanGmlMacros } from "./gms2-transpile.js";
+import { scanGmlMacros } from "./gms2-macros.js";
 import {
   scanGmlSourceBugs,
   buildMissingSpritePng,
