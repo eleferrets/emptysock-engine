@@ -1,7 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
 import { parseGmsJson } from "./gms2-parse.js";
-import { readAndTranspileGML, indent } from "./gms2-transpile.js";
+import { emitEvent } from "./gml/emit/index.js";
+import { indent } from "./gms2-behavior-codegen.js";
+import { loadGmlProject, type GmlProject } from "./gms2-project.js";
 import { toPascalCase } from "./gms2-codegen.js";
 
 // ---------------------------------------------------------------------------
@@ -70,6 +72,7 @@ function isYyTimeline(val: unknown): val is YyTimeline {
 export async function buildTimelineModule(
   name: string,
   projectRoot: string,
+  loaded?: GmlProject,
 ): Promise<string> {
   const yyPath = path.join(projectRoot, "timelines", name, `${name}.yy`);
   const timelineDir = path.join(projectRoot, "timelines", name);
@@ -102,26 +105,53 @@ export const ${toPascalCase(name)}Timeline: TimelineModule = { moments: [] };
   }
   steps.sort((a, b) => a - b);
 
+  const project = loaded ?? (await loadGmlProject(projectRoot));
+  const functions = new Map<string, string>();
+  let usesEnums = false;
   const fnNames: string[] = [];
   const fnBlocks: string[] = [];
   for (const step of steps) {
     const gmlPath = path.join(timelineDir, `moment_${step}.gml`);
     const fnName = `moment_${step}`;
-    let transpiled: string | null = null;
-    try {
-      transpiled = await readAndTranspileGML(gmlPath);
-    } catch {
-      transpiled = null;
+    const text = await fs.readFile(gmlPath, "utf-8").catch(() => undefined);
+    let body = `  // TODO: migrate moment ${step} (moment_${step}.gml not found)`;
+    if (text !== undefined) {
+      const r = emitEvent(
+        {
+          path: `timelines/${name}/moment_${step}.gml`,
+          text,
+          kind: "object",
+        },
+        {
+          project: project.symbols,
+          kind: "event",
+          functionId: `${name}_${fnName}`,
+          callables: project.callables,
+          spriteFrames: project.spriteFrames,
+          path: gmlPath,
+        },
+      );
+      for (const [fn, module] of r.imports) functions.set(fn, module);
+      usesEnums ||= r.usesEnums;
+      body = indent(r.code.trimEnd(), 2);
     }
-    const body =
-      transpiled !== null
-        ? indent(transpiled.trimEnd(), 2)
-        : `  // TODO: migrate moment ${step} (moment_${step}.gml not found)`;
     fnNames.push(fnName);
     fnBlocks.push(
       `function ${fnName}(_entity: Entity, _ctx: GmlActionContext): void {\n  // [GML auto-transpiled from moment_${step}.gml — review carefully]\n${body}\n}`,
     );
   }
+  const byModule = new Map<string, string[]>();
+  for (const [fn, module] of functions)
+    byModule.set(module, [...(byModule.get(module) ?? []), fn]);
+  const extraImports = [
+    ...(usesEnums
+      ? [`import * as GmlEnums from "./assets/gml-enums.generated.js";`]
+      : []),
+    ...[...byModule].map(
+      ([module, fns]) =>
+        `import { ${fns.sort().join(", ")} } from "./${module}.js";`,
+    ),
+  ];
 
   const momentsList = steps
     .map((step, i) => `    { step: ${step}, run: ${fnNames[i]} },`)
@@ -138,7 +168,7 @@ export const ${toPascalCase(name)}Timeline: TimelineModule = { moments: [] };
 //   entity.add(TimelineState, { timelineId: ${JSON.stringify(name)}, running: true });
 import type { Entity, GmlActionContext, TimelineModule } from "@emptysock/engine";
 import * as GmlActions from "@emptysock/engine";
-
+${extraImports.length > 0 ? extraImports.join("\n") + "\n" : ""}
 ${fnsBlock}export const ${toPascalCase(name)}Timeline: TimelineModule = {
   moments: [
 ${momentsList}

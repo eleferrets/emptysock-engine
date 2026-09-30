@@ -743,7 +743,7 @@ export async function importGMS2Project(
   for (const name of timelines) {
     if (verbose) console.log(`  [timeline] ${name}`);
     try {
-      const content = await buildTimelineModule(name, projectRoot);
+      const content = await buildTimelineModule(name, projectRoot, gmlProject);
       filesToWrite.push({ rel: `${name}.timeline.ts`, content });
       reportEntries.push({ kind: "timeline", name, status: "converted" });
     } catch (err) {
