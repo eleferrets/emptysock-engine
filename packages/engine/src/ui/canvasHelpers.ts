@@ -59,3 +59,46 @@ export function widgetRoundRect(
     ctx.closePath();
   }
 }
+
+/**
+ * Adds `drawImageRegion` to a Canvas2D context so `UISystem` can draw bitmap
+ * fonts: a region blit is the nine-argument form of `drawImage`, which every
+ * `CanvasRenderingContext2D` already has. The engine imports no DOM types, so
+ * this only forwards the call; pass a real 2D context (or one with the same
+ * nine-argument `drawImage`). Every other member is forwarded to `ctx`.
+ */
+export function withImageRegion<T extends IUIRenderer>(ctx: T): T {
+  const drawImageRegion = (
+    image: object,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void => {
+    (ctx as unknown as { drawImage(...args: unknown[]): void }).drawImage(
+      image,
+      sx,
+      sy,
+      sw,
+      sh,
+      dx,
+      dy,
+      dw,
+      dh,
+    );
+  };
+  return new Proxy(ctx, {
+    get(target, prop) {
+      if (prop === "drawImageRegion") return drawImageRegion;
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+    set(target, prop, value) {
+      return Reflect.set(target, prop, value, target);
+    },
+  });
+}

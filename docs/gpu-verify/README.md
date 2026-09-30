@@ -87,3 +87,11 @@ It found that `draw_sprite` of a multi-frame sprite requested the literal `frame
 placeholder); the draw path now loads frame 0 (`draw_sprite`'s subimage is not modelled). After the fix the only
 missing request is the page's `favicon.ico`, and the screenshots in `playthrough/` show the terrain, sprites,
 particles and bullet trails as expected.
+
+### UI bitmap text on a real canvas
+
+`UISystem` draws bitmap fonts through an optional `drawImageRegion`, which a plain `CanvasRenderingContext2D`
+does not have, so on a real canvas the text silently fell back to `fillText`. `withImageRegion(ctx)` (new engine
+export) adds it over the nine-argument `drawImage`. Checked on the real canvas with the real `fnt_menu` atlas: the
+glyph run is drawn from the atlas (1473 lit pixels against 388 for `fillText`), vertically centred, with the same
+box in CSS pixels at device scale 1 and 2. At 2x the raster atlas is upscaled, so edges are softer than at 1x.

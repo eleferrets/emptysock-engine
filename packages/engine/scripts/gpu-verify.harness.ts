@@ -17,6 +17,11 @@ import {
   Transform,
   Sprite,
   SpriteFlash,
+  UISystem,
+  WidgetTree,
+  LayoutStyle,
+  Label,
+  withImageRegion,
   FontRegistry,
   RainGlassFilter,
   createCustomShaderFilter,
@@ -488,6 +493,7 @@ export async function probe(): Promise<unknown> {
   rendererFilterProbe,
   mapUploadProbe,
   flashBench,
+  uiBitmap,
 };
 void PixiSprite;
 
@@ -734,4 +740,73 @@ export async function flashBench(
     half: await probe(0.5),
     plain: await probe(0),
   };
+}
+
+// UISystem bitmap-font text on a real Canvas2D surface: glyph blits through
+// withImageRegion, at device pixel ratio 1 and 2, against the fillText fallback.
+export async function uiBitmap(cfg: Cfg): Promise<Record<string, unknown>> {
+  if (!cfg.fntMenu) return { skipped: true };
+  const fonts = new FontRegistry();
+  fonts.registerBitmap("fnt_menu", cfg.fntMenu);
+  const tree = new WidgetTree();
+  await tree.init();
+  const scene = new Scene();
+  const label = tree.createWidget(scene);
+  label.add(Label, { text: "HELLO 123", fontId: "fnt_menu", align: 0 });
+  const style = label.get(LayoutStyle)!;
+  style.width = 200;
+  style.height = 40;
+  tree.layout(scene, 200, 40);
+  const ui = new UISystem(tree, { fonts });
+  const out: Record<string, unknown> = {};
+  const paint = async (scale: number, bitmap: boolean) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 200 * scale;
+    canvas.height = 40 * scale;
+    const g = canvas.getContext("2d", { willReadFrequently: true })!;
+    g.scale(scale, scale);
+    const ctx = bitmap ? withImageRegion(g as never) : (g as never);
+    (ctx as { fillStyle: string }).fillStyle = "#000";
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 200, 40);
+    // The atlas loads on first use: draw once to start it, wait, then draw the frame to measure.
+    ui.render(scene, ctx);
+    await new Promise((r) => setTimeout(r, bitmap ? 400 : 50));
+    g.save();
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 200, 40);
+    ui.render(scene, ctx);
+    g.restore();
+    const d = g.getImageData(0, 0, canvas.width, canvas.height).data;
+    let lit = 0,
+      partial = 0,
+      minX = 1e9,
+      maxX = -1,
+      minY = 1e9,
+      maxY = -1;
+    for (let y = 0; y < canvas.height; y++)
+      for (let x = 0; x < canvas.width; x++) {
+        const v = d[(y * canvas.width + x) * 4]!;
+        if (v > 40) {
+          lit++;
+          if (v < 215) partial++;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    return {
+      lit,
+      partialFrac: lit ? +(partial / lit).toFixed(3) : 0,
+      bboxCss: lit
+        ? [minX / scale, minY / scale, maxX / scale, maxY / scale]
+        : null,
+      png: canvas.toDataURL("image/png"),
+    };
+  };
+  out.bitmap1 = await paint(1, true);
+  out.bitmap2 = await paint(2, true);
+  out.fallback1 = await paint(1, false);
+  return out;
 }

@@ -210,6 +210,18 @@ else {
     `lit=${b.lit} glyphGroups=${b.glyphGroups} bboxY=${b.bboxY}`,
   );
 }
+const ub = await run("uiBitmap", cfg);
+if (ub.skipped) console.log("SKIP  ui bitmap text (set GMS_FIXTURE_ASSETS)");
+else {
+  const same = (a, b) => a.every((v, k) => Math.abs(v - b[k]) <= 1);
+  check(
+    "ui bitmap text: atlas glyph blits on a real canvas, same box at 1x and 2x",
+    ub.bitmap1.lit > ub.fallback1.lit * 2 &&
+      same(ub.bitmap1.bboxCss, ub.bitmap2.bboxCss),
+    `lit=${ub.bitmap1.lit} (fillText ${ub.fallback1.lit}) bbox1x=${ub.bitmap1.bboxCss} bbox2x=${ub.bitmap2.bboxCss}`,
+  );
+  save("ui-bitmap.png", ub.bitmap1.png);
+}
 const fl = await run("flashBench", [50, 1000]);
 const near = (a, b) => a.every((v, k) => Math.abs(v - b[k]) <= 2);
 check(
