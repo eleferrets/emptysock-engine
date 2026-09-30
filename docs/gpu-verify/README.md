@@ -109,3 +109,8 @@ texels stay transparent), a sprite on another layer is untouched. Same result un
 - Blend-required filters (`uBackTexture`, C3) keep the documented WebGL-only fallback; nothing checked needs them.
 - Sprite `shader_set` stays a per-sprite Filter (D23): it works, and its cost (about 0.2 ms per filtered sprite on
   the M4 Pro) matches the old flash filter. Only the flash, which can fire on many sprites at once, moved off it.
+
+### Nine-slice and tiled sprites
+
+`Sprite.sliceMode` 1 keeps 8 px guide corners unscaled and stretches edges and centre to the 96x64 box; mode 2
+repeats the texture across the box. Pixel-identical under WebGL and WebGPU (`nine-slice.png`, `tiled.png`).

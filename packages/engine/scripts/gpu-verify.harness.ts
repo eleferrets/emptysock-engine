@@ -495,6 +495,7 @@ export async function probe(): Promise<unknown> {
   flashBench,
   uiBitmap,
   layerShader,
+  sliced,
 };
 void PixiSprite;
 
@@ -854,4 +855,104 @@ export async function layerShader(cfg: Cfg): Promise<Record<string, unknown>> {
     plainBlue: at(112, 64),
     png: toPng(img),
   };
+}
+
+// Nine-slice and tiled sprites (Sprite.sliceMode 1 / 2) through the real pipeline.
+export async function sliced(): Promise<Record<string, unknown>> {
+  W = 128;
+  H = 128;
+  const tex = (draw: (g: CanvasRenderingContext2D) => void, size: number) => {
+    const cv = document.createElement("canvas");
+    cv.width = size;
+    cv.height = size;
+    draw(cv.getContext("2d")!);
+    return Texture.from(cv);
+  };
+  // 32x32: red 8px corners, green edges, blue centre.
+  const nine = tex((g) => {
+    g.fillStyle = "#00ff00";
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle = "#0000ff";
+    g.fillRect(8, 8, 16, 16);
+    g.fillStyle = "#ff0000";
+    for (const [x, y] of [
+      [0, 0],
+      [24, 0],
+      [0, 24],
+      [24, 24],
+    ] as const)
+      g.fillRect(x, y, 8, 8);
+  }, 32);
+  // 16x16: left half yellow, right half cyan, so a repeat shows alternating stripes.
+  const tile = tex((g) => {
+    g.fillStyle = "#ffff00";
+    g.fillRect(0, 0, 8, 16);
+    g.fillStyle = "#00ffff";
+    g.fillRect(8, 0, 8, 16);
+  }, 16);
+  const out: Record<string, unknown> = {};
+  for (const mode of [1, 2] as const) {
+    const p = await mkPipeline(128, 128, {
+      textureLoader: () => Promise.resolve(mode === 1 ? nine : tile),
+    });
+    const s = new Scene();
+    const e = s.spawn();
+    e.add(Transform, { x: 64, y: 64 });
+    e.add(Sprite, {
+      texturePath: "t.png",
+      width: 96,
+      height: 64,
+      sliceMode: mode,
+      sliceLeft: 8,
+      sliceRight: 8,
+      sliceTop: 8,
+      sliceBottom: 8,
+    });
+    p.syncEntities(s);
+    await new Promise((r) => setTimeout(r, 100));
+    p.syncEntities(s);
+    p.renderFrame(s);
+    const img = px(p, p.renderer.lastObjectRendered as Container);
+    const k = img.width / 128;
+    const at = (x: number, y: number): number[] => {
+      const i = (Math.floor(y * k) * img.width + Math.floor(x * k)) * 4;
+      return [
+        img.data[i]!,
+        img.data[i + 1]!,
+        img.data[i + 2]!,
+        img.data[i + 3]!,
+      ];
+    };
+    let minX = 1e9,
+      minY = 1e9,
+      maxX = -1,
+      maxY = -1;
+    for (let y = 0; y < 128; y++)
+      for (let x = 0; x < 128; x++)
+        if (at(x, y)[3]! > 10) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+    const r = { bbox: [minX, minY, maxX, maxY], png: toPng(img) } as Record<
+      string,
+      unknown
+    >;
+    if (mode === 1) {
+      Object.assign(r, {
+        corner: at(minX + 4, minY + 4),
+        cornerEdge: at(minX + 12, minY + 4),
+        edge: at(minX + 40, minY + 4),
+        centre: at(minX + 48, minY + 32),
+        cornerBR: at(maxX - 4, maxY - 4),
+      });
+    } else {
+      r.stripes = [0, 4, 8, 12, 16, 20, 24, 28].map((dx) =>
+        at(minX + dx, minY + 20),
+      );
+    }
+    out[mode === 1 ? "nine" : "tiled"] = r;
+  }
+  return out;
 }

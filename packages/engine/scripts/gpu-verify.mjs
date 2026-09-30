@@ -210,6 +210,28 @@ else {
     `lit=${b.lit} glyphGroups=${b.glyphGroups} bboxY=${b.bboxY}`,
   );
 }
+const sl = await run("sliced");
+const isC = (a, c) => a.slice(0, 3).every((v, k) => Math.abs(v - c[k]) <= 2);
+check(
+  "nine-slice: fixed corners, stretched edges and centre, box = requested size",
+  sl.nine.bbox[2] - sl.nine.bbox[0] === 95 &&
+    sl.nine.bbox[3] - sl.nine.bbox[1] === 63 &&
+    isC(sl.nine.corner, [255, 0, 0]) &&
+    isC(sl.nine.cornerBR, [255, 0, 0]) &&
+    isC(sl.nine.edge, [0, 255, 0]) &&
+    isC(sl.nine.centre, [0, 0, 255]),
+  `corner=${sl.nine.corner} edge=${sl.nine.edge} centre=${sl.nine.centre} bbox=${sl.nine.bbox}`,
+);
+check(
+  "tiled sprite: the texture repeats across the requested box",
+  sl.tiled.bbox[2] - sl.tiled.bbox[0] === 95 &&
+    isC(sl.tiled.stripes[1], [255, 255, 0]) &&
+    isC(sl.tiled.stripes[3], [0, 255, 255]) &&
+    isC(sl.tiled.stripes[5], [255, 255, 0]),
+  `bbox=${sl.tiled.bbox}`,
+);
+save("nine-slice.png", sl.nine.png);
+save("tiled.png", sl.tiled.png);
 const ls = await run("layerShader", cfg);
 if (ls.skipped) console.log("SKIP  layer shader (set GMS_FIXTURE_ASSETS)");
 else
