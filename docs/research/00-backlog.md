@@ -218,3 +218,10 @@ Common: one committer at a time; commit by explicit path, Conventional Commit lo
 - `packages/toolchain` tests import built `packages/engine/dist`: rebuild engine after engine changes before running toolchain tests.
 - Engine stays stdlib-only, no DOM, no Tauri; every new export goes through `index.ts` + `index-exports.test.ts`.
 - Agents misdiagnosed "source bugs" before: trace, do not trust reports; spot-run tests after each agent.
+
+## 7. Status (2026-09-30 sweep)
+
+Done: A1-A5 (triage in 00b), B-1..B-6, B-9, B-11, B-10 on macOS (3 cargo tests pass; Linux `xkbcommon` path unverified), D3, D4, D8, D12, D14, D22, D20 (either-side modifiers; provider and binding guards already existed), wave 6 W6-1..W6-7 (emitter, project symbols, regex transpiler and cross-file scan deleted, source-bug scan on the AST).
+Stale (already in code): D1 (bitmap fonts in Label/Button/Checkbox), D5, D6, D11, D19, D21 (covered by tests).
+Real projects: multi-project walk 0 load failures, 0 handler errors, 0 room throws on all 7; golden tsc error lines per project A 18, B 101, C 20, D 1, E 81, F 2, G 21 (was 67/278/70/35/105/2/167).
+Open: D2 (prefab map), D7, D9, D10 (in progress), D13/W6-8 (emitter handles `event_inherited` and `gml_pragma`; no dedicated golden case), W6-9, F1, F2, F3, F5, D17, D18, D23-D26, B-7, B-8, B-12, B-13; everything needing a real GPU or browser (C1-C16, E1-E8, D24).
