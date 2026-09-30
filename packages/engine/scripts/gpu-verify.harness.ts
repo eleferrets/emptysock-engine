@@ -36,9 +36,19 @@ import type { GmlActionContext, BitmapFontDef } from "../dist/index.js";
 
 type Pixels = { data: Uint8ClampedArray; width: number; height: number };
 type Cfg = {
-  shWhite?: { vertexSrc: string; fragmentSrc: string };
+  shWhite?: {
+    vertexSrc: string;
+    fragmentSrc: string;
+    wgslFragmentSrc?: string;
+  };
   fntMenu?: BitmapFontDef;
 };
+
+// `?renderer=webgl|webgpu` on the harness URL forces one backend (default: the engine's own order).
+const PREFERENCE = (() => {
+  const r = new URLSearchParams(location.search).get("renderer");
+  return r === "webgl" || r === "webgpu" ? [r] : undefined;
+})();
 
 async function mkPipeline(
   w: number,
@@ -53,8 +63,23 @@ async function mkPipeline(
     backgroundColor: 0x000000,
     ...extra,
   });
-  await p.init();
+  await p.init(PREFERENCE ? { preference: PREFERENCE } : {});
   return p;
+}
+
+/** The pixels as a PNG data URL, for saving or showing the render. */
+function toPng(img: Pixels): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  canvas
+    .getContext("2d")!
+    .putImageData(
+      new ImageData(new Uint8ClampedArray(img.data), img.width, img.height),
+      0,
+      0,
+    );
+  return canvas.toDataURL("image/png");
 }
 
 let W = 640,
@@ -193,6 +218,10 @@ export async function rain(
   const out = px(p, rtF);
   // frame cost: N renders of filtered vs unfiltered, GL-finished
   const gl = (r as unknown as { gl: WebGL2RenderingContext }).gl;
+  if (!gl)
+    throw new Error(
+      `rain needs a WebGL renderer, got "${String((r as { name?: string }).name)}" (set GPU_RENDERER=webgl)`,
+    );
   const glVersion = gl.getParameter(gl.VERSION) as string;
   // gl.finish() does not sync across Chromium's GPU process; a 1px readback does.
   const sync = (): void => {
@@ -278,8 +307,10 @@ export async function shWhite(cfg: Cfg): Promise<Record<string, unknown>> {
   await new Promise((r) => setTimeout(r, 50));
   p.renderFrame(s);
   const img = px(p, p.renderer.lastObjectRendered as Container);
+  // The readback is in device pixels; sample in the 128x128 logical frame.
+  const k = img.width / 128;
   const at = (x: number, y: number): number[] => {
-    const i = (y * img.width + x) * 4;
+    const i = (Math.floor(y * k) * img.width + Math.floor(x * k)) * 4;
     return [img.data[i]!, img.data[i + 1]!, img.data[i + 2]!, img.data[i + 3]!];
   };
   // filtered sprite: centred x=32 -> covers 0..64; red half 0..32(+blue 32..48) ; control at 64..128
@@ -308,6 +339,7 @@ export async function shWhite(cfg: Cfg): Promise<Record<string, unknown>> {
     control: at(80, 64),
     controlBlue: at(112, 64),
     filteredEmpty: at(60, 64),
+    png: toPng(img),
   };
 }
 

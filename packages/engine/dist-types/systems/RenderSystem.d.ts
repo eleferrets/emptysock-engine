@@ -43,6 +43,11 @@ export interface RenderSystemOptions {
    * gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
    */
   gpuTier?: GPUTier;
+  /**
+   * Renderer backends to try, in order. Default `["webgpu", "webgl"]`; pass
+   * `["webgl"]` to skip WebGPU (several filters only have a GLSL program).
+   */
+  preference?: readonly ("webgpu" | "webgl")[];
 }
 export declare class RenderSystem {
   private _renderer;

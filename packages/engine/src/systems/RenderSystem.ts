@@ -138,6 +138,11 @@ export interface RenderSystemOptions {
    * gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
    */
   gpuTier?: GPUTier;
+  /**
+   * Renderer backends to try, in order. Default `["webgpu", "webgl"]`; pass
+   * `["webgl"]` to skip WebGPU (several filters only have a GLSL program).
+   */
+  preference?: readonly ("webgpu" | "webgl")[];
 }
 
 export class RenderSystem {
@@ -209,7 +214,7 @@ export class RenderSystem {
       antialias: options.antialias ?? tierDefaults.antialias,
       resolution: options.resolution ?? tierDefaults.resolution,
       powerPreference: "high-performance",
-      preference: ["webgpu", "webgl"],
+      preference: [...(options.preference ?? ["webgpu", "webgl"])],
       // WebGL needs a back buffer for pixi's advanced blend modes (GML
       // bm_subtract etc.); pixi only pays for it on frames that use one.
       useBackBuffer: true,

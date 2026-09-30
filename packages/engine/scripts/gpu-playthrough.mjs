@@ -139,8 +139,11 @@ const browser = await chromium.launch({
   headless: true,
   args: [
     "--use-gl=angle",
-    "--use-angle=swiftshader",
-    "--enable-unsafe-swiftshader",
+    `--use-angle=${process.env.GPU_ANGLE ?? "swiftshader"}`,
+    ...((process.env.GPU_ANGLE ?? "swiftshader") === "swiftshader"
+      ? ["--enable-unsafe-swiftshader"]
+      : []),
+    ...(process.env.GPU_EXTRA_ARGS?.split(" ").filter(Boolean) ?? []),
     "--ignore-gpu-blocklist",
     "--no-sandbox",
   ],
