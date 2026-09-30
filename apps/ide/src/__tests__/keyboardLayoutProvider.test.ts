@@ -27,7 +27,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 describe("createKeyboardLayoutProvider", () => {
   it("uses getLayoutMap and follows layoutchange", async () => {
     let map: Record<string, string> = { KeyQ: "a" };
-    const kb = { ...fakeTarget(), getLayoutMap: async () => layoutMap(map) };
+    const kb = {
+      ...fakeTarget(),
+      getLayoutMap: () => Promise.resolve(layoutMap(map)),
+    };
     const r = await createKeyboardLayoutProvider({ nav: { keyboard: kb } });
     expect(r?.source).toBe("getLayoutMap");
     expect(r?.provider.charForCode("KeyQ")).toBe("a");
@@ -48,11 +51,9 @@ describe("createKeyboardLayoutProvider", () => {
       supported: true,
       chars: { KeyQ: "a" },
     };
-    const invoke = vi.fn(async () => native) as never;
+    const invoke = vi.fn(() => Promise.resolve(native)) as never;
     const rejecting = {
-      getLayoutMap: async () => {
-        throw new Error("SecurityError");
-      },
+      getLayoutMap: () => Promise.reject(new Error("SecurityError")),
     };
     for (const nav of [undefined, { keyboard: {} }, { keyboard: rejecting }]) {
       const r = await createKeyboardLayoutProvider({ nav, invoke });
@@ -63,7 +64,7 @@ describe("createKeyboardLayoutProvider", () => {
 
   it("native path refreshes on focus and only notifies on a real change", async () => {
     let chars: Record<string, string> = { KeyQ: "a" };
-    const invoke = (async () => ({ supported: true, chars })) as never;
+    const invoke = (() => Promise.resolve({ supported: true, chars })) as never;
     const win = fakeTarget();
     const doc = fakeTarget();
     const r = await createKeyboardLayoutProvider({ invoke, win, doc });
@@ -82,11 +83,10 @@ describe("createKeyboardLayoutProvider", () => {
 
   it("returns null when nothing answers (unsupported native, no keyboard API)", async () => {
     expect(await createKeyboardLayoutProvider({})).toBeNull();
-    const invoke = (async () => ({ supported: false, chars: {} })) as never;
+    const invoke = (() =>
+      Promise.resolve({ supported: false, chars: {} })) as never;
     expect(await createKeyboardLayoutProvider({ invoke })).toBeNull();
-    const boom = (async () => {
-      throw new Error("no command");
-    }) as never;
+    const boom = (() => Promise.reject(new Error("no command"))) as never;
     expect(await createKeyboardLayoutProvider({ invoke: boom })).toBeNull();
   });
 });
@@ -101,11 +101,12 @@ describe("bindKeyboardLayoutToIframe", () => {
       contentWindow: { EmptySockEngine: { Game: { instances } } },
     };
     const provider = { charForCode: () => undefined };
-    const getProvider = async () => ({
-      provider,
-      source: "native" as const,
-      dispose() {},
-    });
+    const getProvider = () =>
+      Promise.resolve({
+        provider,
+        source: "native" as const,
+        dispose() {},
+      });
     const stop = bindKeyboardLayoutToIframe(iframe, getProvider, 50);
     vi.advanceTimersByTime(100);
     expect(setProvider).not.toHaveBeenCalled();

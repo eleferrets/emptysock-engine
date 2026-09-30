@@ -7,6 +7,8 @@ export default [
       "**/dist/**",
       "**/dist-types/**",
       "**/node_modules/**",
+      // Scratch output of the toolchain smoke tests (gitignored).
+      "**/.gms2-smoke-tmp/**",
       "**/*.js",
       "**/*.mjs",
       // Checked-in fallback stub for a build-generated file (the real
@@ -67,6 +69,11 @@ export default [
       "packages/engine/src/systems/PhysicsSystem3D.ts",
       "packages/engine/src/systems/CameraSystem.ts",
       "packages/engine/src/types/aliases.ts",
+      // Rebind-capture timeout is real wall-clock UI time, not game time, so a
+      // TweenManager (which ticks with the game loop) would never fire while paused.
+      "packages/engine/src/Input.ts",
+      // Mocks pixi.js like the other Render* tests above.
+      "packages/engine/src/__tests__/RenderPipelineGmlDrawLifecycle.test.ts",
       "packages/engine/src/ui/UISystem.ts",
       "packages/engine/src/__tests__/RenderPipeline.test.ts",
       "packages/engine/src/__tests__/RenderSystem.test.ts",
@@ -160,6 +167,14 @@ export default [
         { checksVoidReturn: true },
       ],
       "@typescript-eslint/require-await": "error",
+    },
+  },
+  // Tests index arrays/matches they just constructed; under noUncheckedIndexedAccess
+  // `x[0]!` is the idiomatic assertion (a wrong index fails the test loudly anyway).
+  {
+    files: ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx", "**/*.test.ts"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
 ];

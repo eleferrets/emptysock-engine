@@ -24,7 +24,7 @@ export function rasterizeRainDropMap(
   const h = sim.height;
   const wet = sim.wet;
   for (let k = 0, o = 0; k < w * h; k++, o += 4) {
-    const v = wet[k]!;
+    const v = wet[k] ?? 0;
     out[o] = 128;
     out[o + 1] = 128;
     out[o + 2] = v >> 2; // trail film height, at most 63
@@ -33,9 +33,9 @@ export function rasterizeRainDropMap(
   const p = sim.pool;
   for (let i = 0; i < p.capacity; i++) {
     if (p.alive[i] === 0) continue;
-    const cx = p.x[i]!;
-    const cy = p.y[i]!;
-    const r = p.r[i]!;
+    const cx = p.x[i] ?? 0;
+    const cy = p.y[i] ?? 0;
+    const r = p.r[i] ?? 0;
     if (r <= 0) continue;
     const x0 = Math.max(0, Math.floor(cx - r));
     const x1 = Math.min(w - 1, Math.ceil(cx + r));
@@ -50,7 +50,7 @@ export function rasterizeRainDropMap(
         const height = Math.sqrt(1 - d2);
         const hb = Math.round(height * 255);
         const o = (y * w + x) * 4;
-        if (hb >= out[o + 2]!) {
+        if (hb >= (out[o + 2] ?? 0)) {
           const f = 1 - height;
           out[o] = enc(dx * f);
           out[o + 1] = enc(dy * f);

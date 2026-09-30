@@ -13,7 +13,6 @@ import type {
   FunctionDecl,
   FunctionExpr,
   Identifier,
-  MacroDecl,
   Program,
   Stmt,
 } from "./ast.js";
@@ -143,7 +142,9 @@ export interface ProjectSymbols {
   crossFileEntityRefFields(): ReadonlySet<string>;
   /** Instance variables assigned by script files' own bodies. */
   scriptInstanceVars(): ReadonlySet<string>;
-  references(name: string): ReadonlyArray<{ file: string; start: number; end: number }>;
+  references(
+    name: string,
+  ): ReadonlyArray<{ file: string; start: number; end: number }>;
   diagnostics: readonly Diagnostic[];
   /** Analysis of an input file (as of the final build pass). */
   file(path: string): FileAnalysis | undefined;
@@ -169,7 +170,9 @@ export function evaluateConstExpr(
     case "Identifier":
       return lookup(e.name);
     case "Member":
-      return e.object.type === "Identifier" ? lookup(e.object.name, e.property) : undefined;
+      return e.object.type === "Identifier"
+        ? lookup(e.object.name, e.property)
+        : undefined;
     case "Unary": {
       const v = evaluateConstExpr(e.arg, lookup);
       if (v === undefined) return undefined;
@@ -243,7 +246,10 @@ export function evaluateEnumDecl(
 // ---------------------------------------------------------------------------
 
 /** Every statement of `stmts`, depth-first (descends into function declaration bodies too). */
-export function walkStatements(stmts: readonly Stmt[], visit: (s: Stmt) => void): void {
+export function walkStatements(
+  stmts: readonly Stmt[],
+  visit: (s: Stmt) => void,
+): void {
   for (const s of stmts) walkStmt(s, visit);
 }
 
@@ -292,7 +298,10 @@ function walkStmt(s: Stmt, visit: (s: Stmt) => void): void {
 function isOtherId(e: Expr): boolean {
   while (e.type === "Paren") e = e.expr;
   return (
-    e.type === "Member" && e.property === "id" && e.object.type === "Identifier" && e.object.name === "other"
+    e.type === "Member" &&
+    e.property === "id" &&
+    e.object.type === "Identifier" &&
+    e.object.name === "other"
   );
 }
 
@@ -304,7 +313,10 @@ type Owner =
 
 class FileWalker {
   readonly locals = new Set<string>();
-  readonly selfWrites = new Map<string, { isArray: boolean; holdsEntity: boolean }>();
+  readonly selfWrites = new Map<
+    string,
+    { isArray: boolean; holdsEntity: boolean }
+  >();
   readonly externalWrites: Array<{
     target: string | undefined;
     field: string;
@@ -327,7 +339,9 @@ class FileWalker {
   ) {}
 
   run(ast: Program): void {
-    const objInfo = this.file.object ? this.project.objectFieldSource(this.file.object) : undefined;
+    const objInfo = this.file.object
+      ? this.project.objectFieldSource(this.file.object)
+      : undefined;
     const own = this.ownFields;
     const fields: FieldSource = {
       has: (n) => own.has(n) || (objInfo?.has(n) ?? false),
@@ -338,16 +352,23 @@ class FileWalker {
       },
     };
     this.scope = new Scope("event", undefined, fields, this.project);
-    if (this.file.params) for (const p of this.file.params) this.scope.declare({ name: p, kind: "parameter" });
+    if (this.file.params)
+      for (const p of this.file.params)
+        this.scope.declare({ name: p, kind: "parameter" });
     this.stmts(ast.body);
   }
 
   // ---- scopes ----
-  private push(kind: "block" | "function" | "with" | "struct", fields?: FieldSource): void {
+  private push(
+    kind: "block" | "function" | "with" | "struct",
+    fields?: FieldSource,
+  ): void {
     this.scope = new Scope(kind, this.scope, fields);
   }
   private pop(): void {
-    this.scope = this.scope.parent!;
+    const parent = this.scope.parent;
+    if (!parent) throw new Error("scope underflow: pop without matching push");
+    this.scope = parent;
   }
 
   // ---- statements ----
@@ -360,14 +381,22 @@ class FileWalker {
       case "VarDecl": {
         for (const d of s.decls) {
           if (d.init) this.expr(d.init);
-          if (d.init && this.withDepth > 0 && isOtherId(d.init)) this.entityFieldsFromWith.add(d.name);
+          if (d.init && this.withDepth > 0 && isOtherId(d.init))
+            this.entityFieldsFromWith.add(d.name);
           this.locals.add(d.name);
           const holds = d.init ? this.isEntityExpr(d.init) : false;
           const sym: Symbol = {
             name: d.name,
-            kind: s.declKind === "globalvar" ? "global" : s.declKind === "static" ? "static" : "local",
+            kind:
+              s.declKind === "globalvar"
+                ? "global"
+                : s.declKind === "static"
+                  ? "static"
+                  : "local",
             ...(holds ? { holdsEntity: true, type: "instance" as const } : {}),
-            ...(d.init?.type === "ArrayLiteral" ? { type: "array" as const } : {}),
+            ...(d.init?.type === "ArrayLiteral"
+              ? { type: "array" as const }
+              : {}),
             decl: { file: this.file.path, range: [d.start, d.end] },
           };
           this.scope.functionScope().declare(sym);
@@ -459,12 +488,18 @@ class FileWalker {
         return;
       }
       const r = this.scope.resolve(t.name);
-      if (r.via === "project" && r.symbol?.kind === "asset" && r.symbol.assetKind === "object") {
+      if (
+        r.via === "project" &&
+        r.symbol?.kind === "asset" &&
+        r.symbol.assetKind === "object"
+      ) {
         target = t.name;
         fields = this.project.objectFieldSource(t.name);
       }
     }
-    this.owner = target ? { kind: "object", name: target } : { kind: "unknown" };
+    this.owner = target
+      ? { kind: "object", name: target }
+      : { kind: "unknown" };
     this.withDepth++;
     this.push("with", fields);
     this.stmt(s.body);
@@ -500,9 +535,16 @@ class FileWalker {
       case "Paren":
         return this.isEntityExpr(e.expr);
       case "Call":
-        return e.callee.type === "Identifier" && lookupBuiltin(e.callee.name)?.returns === "instance";
+        return (
+          e.callee.type === "Identifier" &&
+          lookupBuiltin(e.callee.name)?.returns === "instance"
+        );
       case "Member":
-        return e.object.type === "Identifier" && e.object.name === "other" && e.property === "id";
+        return (
+          e.object.type === "Identifier" &&
+          e.object.name === "other" &&
+          e.property === "id"
+        );
       case "Identifier": {
         if (e.name === "self") return true;
         if (e.name === "id") return this.withDepth > 0;
@@ -514,10 +556,14 @@ class FileWalker {
     }
   }
 
-  private recordWrite(name: string, isArray: boolean, holdsEntity: boolean, viaSelf: boolean): void {
+  private recordWrite(
+    name: string,
+    isArray: boolean,
+    holdsEntity: boolean,
+  ): void {
     const o = this.owner;
     if (o.kind === "struct") return;
-    if (o.kind === "self" || (viaSelf && o.kind !== "object" && o.kind !== "unknown")) {
+    if (o.kind === "self") {
       const prev = this.selfWrites.get(name);
       this.selfWrites.set(name, {
         isArray: (prev?.isArray ?? false) || isArray,
@@ -542,7 +588,8 @@ class FileWalker {
       if (t.type === "Identifier") this.entityFieldsFromWith.add(t.name);
       else if (t.type === "Member") this.entityFieldsFromWith.add(t.property);
     }
-    const holds = e.op === "=" || e.op === "??=" ? this.isEntityExpr(right) : false;
+    const holds =
+      e.op === "=" || e.op === "??=" ? this.isEntityExpr(right) : false;
     const isArr = right.type === "ArrayLiteral";
     let l = e.left;
     while (l.type === "Paren") l = l.expr;
@@ -550,11 +597,18 @@ class FileWalker {
       const r = this.scope.resolve(l.name);
       this.references.push({ node: l, resolved: r });
       const plain = e.op === "=" || e.op === "??=";
-      if (e.op === "=" && r.via !== "lexical" && !TRANSPILER_RESERVED_IDENTIFIERS.has(l.name)) {
+      if (
+        e.op === "=" &&
+        r.via !== "lexical" &&
+        !TRANSPILER_RESERVED_IDENTIFIERS.has(l.name)
+      ) {
         this.implicitScalars.add(l.name);
       }
-      if (plain && (r.via === "none" || r.via === "instance" || r.via === "with")) {
-        this.recordWrite(l.name, isArr, holds, false);
+      if (
+        plain &&
+        (r.via === "none" || r.via === "instance" || r.via === "with")
+      ) {
+        this.recordWrite(l.name, isArr, holds);
         if (holds && r.symbol) r.symbol.holdsEntity = true;
       } else if (plain && r.via === "lexical" && r.symbol) {
         if (holds) r.symbol.holdsEntity = true;
@@ -563,18 +617,27 @@ class FileWalker {
     }
     if (l.type === "Index") {
       let base: Expr = l.object;
-      while (base.type === "Paren" || base.type === "Index") base = base.type === "Paren" ? base.expr : base.object;
+      while (base.type === "Paren" || base.type === "Index")
+        base = base.type === "Paren" ? base.expr : base.object;
       if (base.type === "Identifier") {
         const r = this.scope.resolve(base.name);
         this.references.push({ node: base, resolved: r });
         // `[| [?` write into an existing ds_list/ds_map; every other accessor (`[`, `[@`, and, as the
         // historical regex did, `[# [$`) marks the variable array-like
         const arrayAccess = l.accessor !== "|" && l.accessor !== "?";
-        if (e.op === "=" && arrayAccess && r.via !== "lexical" && !TRANSPILER_RESERVED_IDENTIFIERS.has(base.name)) {
+        if (
+          e.op === "=" &&
+          arrayAccess &&
+          r.via !== "lexical" &&
+          !TRANSPILER_RESERVED_IDENTIFIERS.has(base.name)
+        ) {
           this.implicitArrays.add(base.name);
         }
-        if (arrayAccess && (r.via === "none" || r.via === "instance" || r.via === "with")) {
-          this.recordWrite(base.name, true, false, false);
+        if (
+          arrayAccess &&
+          (r.via === "none" || r.via === "instance" || r.via === "with")
+        ) {
+          this.recordWrite(base.name, true, false);
         } else if (r.symbol && r.via === "lexical") {
           r.symbol.type = r.symbol.type ?? "array";
         }
@@ -588,19 +651,31 @@ class FileWalker {
       const o = l.object;
       if (o.type === "Identifier" && o.name === "global") {
         this.globalWrites.add(l.property);
-        this.references.push({ node: o, resolved: this.scope.resolve("global") });
+        this.references.push({
+          node: o,
+          resolved: this.scope.resolve("global"),
+        });
         return;
       }
       if (o.type === "Identifier" && o.name === "self") {
         this.references.push({ node: o, resolved: this.scope.resolve("self") });
-        this.recordWrite(l.property, isArr, holds, true);
+        this.recordWrite(l.property, isArr, holds);
         return;
       }
       if (o.type === "Identifier") {
         const r = this.scope.resolve(o.name);
         this.references.push({ node: o, resolved: r });
-        if (r.via === "project" && r.symbol?.kind === "asset" && r.symbol.assetKind === "object") {
-          this.externalWrites.push({ target: o.name, field: l.property, isArray: isArr, holdsEntity: holds });
+        if (
+          r.via === "project" &&
+          r.symbol?.kind === "asset" &&
+          r.symbol.assetKind === "object"
+        ) {
+          this.externalWrites.push({
+            target: o.name,
+            field: l.property,
+            isArray: isArr,
+            holdsEntity: holds,
+          });
         }
         return;
       }
@@ -665,7 +740,8 @@ class FileWalker {
         this.expr(e.expr);
         return;
       case "TemplateString":
-        for (const p of e.parts) if (p.kind === "expr" && p.expr) this.expr(p.expr);
+        for (const p of e.parts)
+          if (p.kind === "expr" && p.expr) this.expr(p.expr);
         return;
       case "Literal":
         return;
@@ -688,7 +764,10 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
   private crossFile = new Set<string>();
   private scriptVars = new Set<string>();
   private readonly analyses = new Map<string, FileAnalysis>();
-  private readonly refIndex = new Map<string, Array<{ file: string; start: number; end: number }>>();
+  private readonly refIndex = new Map<
+    string,
+    Array<{ file: string; start: number; end: number }>
+  >();
   private readonly macroSyms = new Map<string, Symbol>();
   private readonly enumSyms = new Map<string, Symbol>();
   private entityFields = new Map<string, Set<string>>();
@@ -717,7 +796,7 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
     }
     for (const [k, names] of Object.entries(input.missing ?? {})) {
       const kind = k as AssetKind;
-      for (const n of names ?? []) {
+      for (const n of names) {
         const m = this.assetMaps.get(kind) ?? new Map<string, Symbol>();
         const existing = m.get(n);
         if (existing) existing.missing = true;
@@ -739,7 +818,12 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
     for (const f of files) {
       const r = parse(f.text);
       for (const d of r.diagnostics) {
-        this.diagnostics.push({ kind: "parse", message: d.message, file: f.path, range: [d.start, d.end] });
+        this.diagnostics.push({
+          kind: "parse",
+          message: d.message,
+          file: f.path,
+          range: [d.start, d.end],
+        });
       }
       for (const m of scanMacros(f.text)) {
         if (m.valueText === "") continue;
@@ -764,7 +848,10 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
         if (this.enumMap.has(en.name)) continue; // first declaration wins
         const known = new Map<string, ReadonlyMap<string, number>>();
         for (const [k, v] of this.enumMap) known.set(k, v.members);
-        this.enumMap.set(en.name, { name: en.name, members: evaluateEnumDecl(en, known) });
+        this.enumMap.set(en.name, {
+          name: en.name,
+          members: evaluateEnumDecl(en, known),
+        });
         this.enumSyms.set(en.name, {
           name: en.name,
           kind: "enum",
@@ -788,7 +875,11 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
       this.analyses.clear();
       const perObject = new Map<
         string,
-        { own: Map<string, FieldInfo>; ext: Map<string, FieldInfo>; files: string[] }
+        {
+          own: Map<string, FieldInfo>;
+          ext: Map<string, FieldInfo>;
+          files: string[];
+        }
       >();
       const objectSlot = (n: string) => {
         let o = perObject.get(n);
@@ -820,9 +911,15 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
       const nextObjects = new Map<string, ObjectInfo>();
       const nextEntity = new Map<string, Set<string>>();
       for (const [name, o] of perObject) {
-        nextObjects.set(name, { name, instanceFields: o.own, externalFields: o.ext, files: o.files });
+        nextObjects.set(name, {
+          name,
+          instanceFields: o.own,
+          externalFields: o.ext,
+          files: o.files,
+        });
         const ent = new Set<string>();
-        for (const m of [o.own, o.ext]) for (const [n, fi] of m) if (fi.holdsEntity) ent.add(n);
+        for (const m of [o.own, o.ext])
+          for (const [n, fi] of m) if (fi.holdsEntity) ent.add(n);
         nextEntity.set(name, ent);
       }
       const settled = sameEntitySets(this.entityFields, nextEntity);
@@ -836,7 +933,10 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
     this.refIndex.clear();
     for (const [path, a] of this.analyses) {
       for (const r of a.references) {
-        if (r.resolved.symbol && (r.resolved.via === "project" || r.resolved.via === "lexical")) {
+        if (
+          r.resolved.symbol &&
+          (r.resolved.via === "project" || r.resolved.via === "lexical")
+        ) {
           const k = r.resolved.symbol.name;
           const list = this.refIndex.get(k) ?? [];
           list.push({ file: path, start: r.node.start, end: r.node.end });
@@ -851,14 +951,18 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
   assets(kind?: AssetKind): ReadonlyMap<string, Symbol> {
     if (kind) return this.assetMaps.get(kind) ?? new Map();
     const all = new Map<string, Symbol>();
-    for (const m of this.assetMaps.values()) for (const [n, s] of m) if (!all.has(n)) all.set(n, s);
+    for (const m of this.assetMaps.values())
+      for (const [n, s] of m) if (!all.has(n)) all.set(n, s);
     return all;
   }
   lookupAsset(name: string): { symbol?: Symbol; collisions: AssetKind[] } {
     const kinds = this.assetByName.get(name) ?? [];
     const first = kinds[0];
     const symbol = first ? this.assetMaps.get(first)?.get(name) : undefined;
-    return { ...(symbol ? { symbol } : {}), collisions: kinds.length > 1 ? [...kinds] : [] };
+    return {
+      ...(symbol ? { symbol } : {}),
+      collisions: kinds.length > 1 ? [...kinds] : [],
+    };
   }
   object(name: string): ObjectInfo | undefined {
     return this.objectMap.get(name);
@@ -881,7 +985,9 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
   scriptInstanceVars(): ReadonlySet<string> {
     return this.scriptVars;
   }
-  references(name: string): ReadonlyArray<{ file: string; start: number; end: number }> {
+  references(
+    name: string,
+  ): ReadonlyArray<{ file: string; start: number; end: number }> {
     return this.refIndex.get(name) ?? [];
   }
   file(path: string): FileAnalysis | undefined {
@@ -918,7 +1024,11 @@ class ProjectImpl implements ProjectSymbols, OuterResolver {
     if (en) return { symbol: en, via: "project" };
     const mac = this.macroSyms.get(name);
     if (mac) return { symbol: mac, via: "project" };
-    if (lookupBuiltin(name) || isKnownBuiltinName(name) || builtinConstant(name)) {
+    if (
+      lookupBuiltin(name) ||
+      isKnownBuiltinName(name) ||
+      builtinConstant(name)
+    ) {
       return { symbol: { name, kind: "builtin" }, via: "builtin" };
     }
     return { via: "none" };
@@ -972,7 +1082,12 @@ function merge(
 ): void {
   const prev = into.get(name);
   if (!prev) {
-    into.set(name, { name, isArray: w.isArray, holdsEntity: w.holdsEntity, writers: [path] });
+    into.set(name, {
+      name,
+      isArray: w.isArray,
+      holdsEntity: w.holdsEntity,
+      writers: [path],
+    });
     return;
   }
   prev.isArray = prev.isArray || w.isArray;
@@ -980,7 +1095,10 @@ function merge(
   if (!prev.writers.includes(path)) prev.writers.push(path);
 }
 
-function sameEntitySets(a: Map<string, Set<string>>, b: Map<string, Set<string>>): boolean {
+function sameEntitySets(
+  a: Map<string, Set<string>>,
+  b: Map<string, Set<string>>,
+): boolean {
   if (a.size !== b.size) return false;
   for (const [k, v] of a) {
     const w = b.get(k);
@@ -998,7 +1116,10 @@ export function buildProjectSymbols(input: ProjectInput): ProjectSymbols {
 }
 
 /** Analyze one file of source text against an existing project table. */
-export function analyzeFile(project: ProjectSymbols, file: SourceFile): FileAnalysis {
+export function analyzeFile(
+  project: ProjectSymbols,
+  file: SourceFile,
+): FileAnalysis {
   return project.analyze(file);
 }
 
@@ -1018,18 +1139,21 @@ export function scanEntityRefFieldsInText(text: string): Set<string> {
     // sequence `name = other.id` after a `with` keyword still counts.
     walkStatements(analysis.ast.body, (s) => {
       if (s.type !== "ErrorStmt") return;
-      const toks = tokenize(text.slice(s.start, s.end)).filter((t) => !isTrivia(t));
+      const toks = tokenize(text.slice(s.start, s.end)).filter(
+        (t) => !isTrivia(t),
+      );
       let seenWith = false;
       for (let i = 0; i + 4 < toks.length; i++) {
-        const t = toks[i]!;
+        const t = toks[i];
+        if (!t) continue;
         if (t.kind === "keyword" && t.text === "with") seenWith = true;
         if (
           seenWith &&
           t.kind === "ident" &&
-          toks[i + 1]!.text === "=" &&
-          toks[i + 2]!.text === "other" &&
-          toks[i + 3]!.text === "." &&
-          toks[i + 4]!.text === "id"
+          toks[i + 1]?.text === "=" &&
+          toks[i + 2]?.text === "other" &&
+          toks[i + 3]?.text === "." &&
+          toks[i + 4]?.text === "id"
         ) {
           fields.add(t.text);
         }
@@ -1046,7 +1170,10 @@ export function scanEntityRefFieldsInText(text: string): Set<string> {
  * boundaries come from the parser (so `then`, `for` headers, comments and
  * multi-line `var` lists are handled exactly).
  */
-export function scanImplicitVarsInText(text: string): { scalars: Set<string>; arrays: Set<string> } {
+export function scanImplicitVarsInText(text: string): {
+  scalars: Set<string>;
+  arrays: Set<string>;
+} {
   const analysis = buildProjectSymbols({}).analyze({ path: "", text });
   const scalars = new Set(analysis.facts.implicitScalars);
   const arrays = new Set(analysis.facts.implicitArrays);
@@ -1057,18 +1184,32 @@ export function scanImplicitVarsInText(text: string): { scalars: Set<string>; ar
     const locals = analysis.facts.locals;
     walkStatements(analysis.ast.body, (s) => {
       if (s.type !== "ErrorStmt") return;
-      const toks = tokenize(text.slice(s.start, s.end)).filter((t) => !isTrivia(t) && t.kind !== "eof");
+      const toks = tokenize(text.slice(s.start, s.end)).filter(
+        (t) => !isTrivia(t) && t.kind !== "eof",
+      );
       for (let i = 0; i + 1 < toks.length; i++) {
-        const t = toks[i]!;
-        const n = toks[i + 1]!;
-        if (t.kind !== "ident" || n.kind !== "punct" || n.text !== "=") continue;
+        const t = toks[i];
+        const n = toks[i + 1];
+        if (!t || !n) continue;
+        if (t.kind !== "ident" || n.kind !== "punct" || n.text !== "=")
+          continue;
         const prev = toks[i - 1];
         const boundary =
           !prev ||
           !!t.nlBefore ||
-          (prev.kind === "punct" && (prev.text === ";" || prev.text === "{" || prev.text === "}" || prev.text === ")" || prev.text === ":")) ||
+          (prev.kind === "punct" &&
+            (prev.text === ";" ||
+              prev.text === "{" ||
+              prev.text === "}" ||
+              prev.text === ")" ||
+              prev.text === ":")) ||
           (prev.kind === "keyword" && prev.text === "else");
-        if (boundary && !locals.has(t.text) && !TRANSPILER_RESERVED_IDENTIFIERS.has(t.text)) scalars.add(t.text);
+        if (
+          boundary &&
+          !locals.has(t.text) &&
+          !TRANSPILER_RESERVED_IDENTIFIERS.has(t.text)
+        )
+          scalars.add(t.text);
       }
     });
   }

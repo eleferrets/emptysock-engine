@@ -166,31 +166,36 @@ const STMT_START_KW = new Set([
 ]);
 
 function decodeString(body: string): string {
-  return body.replace(/\\(x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|[\s\S])/g, (_m, e: string) => {
-    switch (e[0]) {
-      case "n":
-        return "\n";
-      case "t":
-        return "\t";
-      case "r":
-        return "\r";
-      case "0":
-        return "\0";
-      case "b":
-        return "\b";
-      case "f":
-        return "\f";
-      case "v":
-        return "\v";
-      case "a":
-        return "\x07";
-      case "x":
-      case "u":
-        return e.length > 1 ? String.fromCharCode(parseInt(e.slice(1), 16)) : e;
-      default:
-        return e;
-    }
-  });
+  return body.replace(
+    /\\(x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|[\s\S])/g,
+    (_m, e: string) => {
+      switch (e[0]) {
+        case "n":
+          return "\n";
+        case "t":
+          return "\t";
+        case "r":
+          return "\r";
+        case "0":
+          return "\0";
+        case "b":
+          return "\b";
+        case "f":
+          return "\f";
+        case "v":
+          return "\v";
+        case "a":
+          return "\x07";
+        case "x":
+        case "u":
+          return e.length > 1
+            ? String.fromCharCode(parseInt(e.slice(1), 16))
+            : e;
+        default:
+          return e;
+      }
+    },
+  );
 }
 
 function numberValue(raw: string): number {
@@ -219,10 +224,16 @@ class Parser {
 
   // ---- token helpers ----
   private peek(k = 0): Token {
-    return this.toks[Math.min(this.pos + k, this.toks.length - 1)]!;
+    return this.tokenAt(Math.min(this.pos + k, this.toks.length - 1));
+  }
+  /** The token stream always ends in `eof`, so an in-range index is never empty. */
+  private tokenAt(i: number): Token {
+    const t = this.toks[i];
+    if (!t) throw new Error("parser: token stream has no eof token");
+    return t;
   }
   private next(): Token {
-    const t = this.toks[this.pos]!;
+    const t = this.tokenAt(this.pos);
     if (t.kind !== "eof") this.pos++;
     this.prevEnd = t.end + this.offset;
     return t;
@@ -276,7 +287,12 @@ class Parser {
   parseProgram(): Program {
     const body: Stmt[] = [];
     while (!this.atEof()) body.push(this.parseStmt());
-    return { type: "Program", start: this.offset, end: this.offset + this.src.length, body };
+    return {
+      type: "Program",
+      start: this.offset,
+      end: this.offset + this.src.length,
+      body,
+    };
   }
 
   /** Statement with recovery: never throws. */
@@ -293,7 +309,12 @@ class Parser {
       if (this.pos === startPos) this.next(); // guarantee progress
       this.recovered++;
       const start = this.startOf(startTok);
-      return { type: "ErrorStmt", start, end: Math.max(this.prevEnd, start), message: e.message };
+      return {
+        type: "ErrorStmt",
+        start,
+        end: Math.max(this.prevEnd, start),
+        message: e.message,
+      };
     }
   }
 
@@ -320,12 +341,22 @@ class Parser {
           return;
         }
       } else if (t.kind === "keyword" && braces === 0) {
-        if (t.text === "end" || t.text === "else" || t.text === "until" || t.text === "catch" || t.text === "finally" || t.text === "then" || t.text === "case" || t.text === "default") {
+        if (
+          t.text === "end" ||
+          t.text === "else" ||
+          t.text === "until" ||
+          t.text === "catch" ||
+          t.text === "finally" ||
+          t.text === "then" ||
+          t.text === "case" ||
+          t.text === "default"
+        ) {
           if (!atStart) return;
           this.next(); // stray token: consume only it
           return;
         }
-        if (!atStart && t.nlBefore && round === 0 && STMT_START_KW.has(t.text)) return;
+        if (!atStart && t.nlBefore && round === 0 && STMT_START_KW.has(t.text))
+          return;
       } else if (t.kind === "macro" && !atStart && braces === 0) {
         return;
       }
@@ -370,7 +401,14 @@ class Parser {
             this.next();
             alt = this.parseStmt();
           }
-          return { type: "If", start, end: this.prevEnd, test, cons, ...(alt ? { alt } : {}) };
+          return {
+            type: "If",
+            start,
+            end: this.prevEnd,
+            test,
+            cons,
+            ...(alt ? { alt } : {}),
+          };
         }
         case "while": {
           this.next();
@@ -407,18 +445,37 @@ class Parser {
           this.next();
           let arg: Expr | undefined;
           const n = this.peek();
-          if (!(n.kind === "eof" || (n.kind === "punct" && (n.text === ";" || n.text === "}")) || (n.kind === "keyword" && (n.text === "end" || n.text === "else" || n.text === "case" || n.text === "default")) || n.nlBefore)) {
+          if (!(
+            n.kind === "eof" ||
+            (n.kind === "punct" && (n.text === ";" || n.text === "}")) ||
+            (n.kind === "keyword" &&
+              (n.text === "end" ||
+                n.text === "else" ||
+                n.text === "case" ||
+                n.text === "default")) ||
+            n.nlBefore
+          )) {
             arg = this.withEq(true, () => this.parseTernary());
           }
           this.consumeSemi();
-          return { type: "Return", start, end: this.prevEnd, ...(arg ? { arg } : {}) };
+          return {
+            type: "Return",
+            start,
+            end: this.prevEnd,
+            ...(arg ? { arg } : {}),
+          };
         }
         case "exit":
         case "break":
         case "continue": {
           this.next();
           this.consumeSemi();
-          const type = t.text === "exit" ? "Exit" : t.text === "break" ? "Break" : "Continue";
+          const type =
+            t.text === "exit"
+              ? "Exit"
+              : t.text === "break"
+                ? "Break"
+                : "Continue";
           return { type, start, end: this.prevEnd } as Stmt;
         }
         case "throw": {
@@ -443,7 +500,6 @@ class Parser {
         case "case":
         case "default":
           this.fail(`unexpected '${t.text}'`);
-        // eslint-disable-next-line no-fallthrough
         default:
           break;
       }
@@ -460,11 +516,18 @@ class Parser {
     const body: Stmt[] = [];
     for (;;) {
       if (this.atEof()) {
-        this.diagnostics.push({ message: `unterminated block, expected '${closer}'`, start, end: this.prevEnd });
+        this.diagnostics.push({
+          message: `unterminated block, expected '${closer}'`,
+          start,
+          end: this.prevEnd,
+        });
         break;
       }
       const t = this.peek();
-      if ((closer === "}" && t.kind === "punct" && t.text === "}") || (closer === "end" && t.kind === "keyword" && t.text === "end")) {
+      if (
+        (closer === "}" && t.kind === "punct" && t.text === "}") ||
+        (closer === "end" && t.kind === "keyword" && t.text === "end")
+      ) {
         this.next();
         break;
       }
@@ -488,7 +551,11 @@ class Parser {
       const id = this.peek();
       if (id.kind !== "ident") this.fail("expected identifier");
       this.next();
-      const d: Declarator = { name: id.text, start: this.startOf(id), end: id.end + this.offset };
+      const d: Declarator = {
+        name: id.text,
+        start: this.startOf(id),
+        end: id.end + this.offset,
+      };
       if (this.isP("=") || this.isP(":=")) {
         this.next();
         d.init = this.withEq(true, () => this.parseTernary());
@@ -534,7 +601,10 @@ class Parser {
   /** var-decl or expression, without consuming the trailing `;`. */
   private parseSimpleStmt(): Stmt {
     const t = this.peek();
-    if (t.kind === "keyword" && (t.text === "var" || t.text === "globalvar" || t.text === "static")) {
+    if (
+      t.kind === "keyword" &&
+      (t.text === "var" || t.text === "globalvar" || t.text === "static")
+    ) {
       return this.parseVarDecl();
     }
     const start = this.startOf(t);
@@ -553,11 +623,18 @@ class Parser {
     let cur: SwitchCase | undefined;
     for (;;) {
       if (this.atEof()) {
-        this.diagnostics.push({ message: "unterminated switch", start, end: this.prevEnd });
+        this.diagnostics.push({
+          message: "unterminated switch",
+          start,
+          end: this.prevEnd,
+        });
         break;
       }
       const t = this.peek();
-      if ((closer === "}" && t.kind === "punct" && t.text === "}") || (closer === "end" && t.kind === "keyword" && t.text === "end")) {
+      if (
+        (closer === "}" && t.kind === "punct" && t.text === "}") ||
+        (closer === "end" && t.kind === "keyword" && t.text === "end")
+      ) {
         this.next();
         break;
       }
@@ -574,12 +651,22 @@ class Parser {
             c.test = this.withEq(true, () => this.parseTernary());
           } catch (e) {
             if (!(e instanceof ParseError)) throw e;
-            this.diagnostics.push({ message: e.message, start: e.start, end: e.end });
+            this.diagnostics.push({
+              message: e.message,
+              start: e.start,
+              end: e.end,
+            });
             this.recovered++;
-            while (!this.atEof() && !this.isP(":") && !this.isP("}")) this.next();
+            while (!this.atEof() && !this.isP(":") && !this.isP("}"))
+              this.next();
           }
         }
-        if (!this.eatP(":")) this.diagnostics.push({ message: "expected ':' after case", start: cs, end: this.prevEnd });
+        if (!this.eatP(":"))
+          this.diagnostics.push({
+            message: "expected ':' after case",
+            start: cs,
+            end: this.prevEnd,
+          });
         cur = c;
         continue;
       }
@@ -635,15 +722,27 @@ class Parser {
     if (!(this.isP("{") || this.isK("begin"))) this.fail("expected '{'");
     const open = this.next();
     const closer = open.text === "{" ? "}" : "end";
-    const members: Array<{ name: string; start: number; end: number; value?: Expr }> = [];
+    const members: Array<{
+      name: string;
+      start: number;
+      end: number;
+      value?: Expr;
+    }> = [];
     let closed = false;
     for (;;) {
       if (this.atEof()) {
-        this.diagnostics.push({ message: "unterminated enum", start, end: this.prevEnd });
+        this.diagnostics.push({
+          message: "unterminated enum",
+          start,
+          end: this.prevEnd,
+        });
         break;
       }
       const t = this.peek();
-      if ((closer === "}" && t.kind === "punct" && t.text === "}") || (closer === "end" && t.kind === "keyword" && t.text === "end")) {
+      if (
+        (closer === "}" && t.kind === "punct" && t.text === "}") ||
+        (closer === "end" && t.kind === "keyword" && t.text === "end")
+      ) {
         this.next();
         closed = true;
         break;
@@ -667,27 +766,46 @@ class Parser {
           m.value = this.withEq(true, () => this.parseTernary());
           m.end = this.prevEnd;
         }
-        if (!(this.isP(",") || this.isP("}") || this.isK("end") || this.atEof())) this.fail("expected ',' after enum member");
+        if (!(
+          this.isP(",") ||
+          this.isP("}") ||
+          this.isK("end") ||
+          this.atEof()
+        ))
+          this.fail("expected ',' after enum member");
         members.push(m);
       } catch (e) {
         if (!(e instanceof ParseError)) throw e;
-        this.diagnostics.push({ message: e.message, start: e.start, end: e.end });
+        this.diagnostics.push({
+          message: e.message,
+          start: e.start,
+          end: e.end,
+        });
         this.pos = memberPos;
         let depth = 0;
         while (!this.atEof()) {
           const k = this.peek();
           if (k.kind === "punct") {
-            if (k.text === "(" || k.text === "[" || k.text.startsWith("[")) depth++;
+            if (k.text === "(" || k.text === "[" || k.text.startsWith("["))
+              depth++;
             else if ((k.text === ")" || k.text === "]") && depth > 0) depth--;
             else if (depth === 0 && (k.text === "," || k.text === "}")) break;
-          } else if (depth === 0 && k.kind === "keyword" && k.text === "end") break;
+          } else if (depth === 0 && k.kind === "keyword" && k.text === "end")
+            break;
           this.next();
         }
         if (this.pos === memberPos) this.next();
       }
     }
     this.consumeSemi();
-    return { type: "EnumDecl", start, end: this.prevEnd, name: id.text, members, closed };
+    return {
+      type: "EnumDecl",
+      start,
+      end: this.prevEnd,
+      name: id.text,
+      members,
+      closed,
+    };
   }
 
   private parseParams(): Param[] {
@@ -697,7 +815,11 @@ class Parser {
       const id = this.peek();
       if (id.kind !== "ident") this.fail("expected parameter name");
       this.next();
-      const p: Param = { name: id.text, start: this.startOf(id), end: id.end + this.offset };
+      const p: Param = {
+        name: id.text,
+        start: this.startOf(id),
+        end: id.end + this.offset,
+      };
       if (this.isP("=")) {
         this.next();
         p.default = this.withEq(true, () => this.parseTernary());
@@ -794,7 +916,12 @@ class Parser {
         this.next();
         const inner = this.parseTernary();
         this.expectP(")");
-        const paren: Expr = { type: "Paren", start, end: this.prevEnd, expr: inner };
+        const paren: Expr = {
+          type: "Paren",
+          start,
+          end: this.prevEnd,
+          expr: inner,
+        };
         const n = this.peek();
         if (
           !n.nlBefore &&
@@ -833,7 +960,11 @@ class Parser {
     return this.parseBinaryFrom(left, minPrec, start);
   }
 
-  private parseBinaryFrom(left: Expr, minPrec: number, start = left.start): Expr {
+  private parseBinaryFrom(
+    left: Expr,
+    minPrec: number,
+    start = left.start,
+  ): Expr {
     for (;;) {
       const t = this.peek();
       const info = binaryInfo(t, this.eqCompare);
@@ -857,7 +988,12 @@ class Parser {
     const t = this.peek();
     const start = this.startOf(t);
     if (t.kind === "punct") {
-      if (t.text === "!" || t.text === "-" || t.text === "+" || t.text === "~") {
+      if (
+        t.text === "!" ||
+        t.text === "-" ||
+        t.text === "+" ||
+        t.text === "~"
+      ) {
         this.next();
         const arg = this.parseUnary();
         return { type: "Unary", start, end: this.prevEnd, op: t.text, arg };
@@ -865,7 +1001,14 @@ class Parser {
       if (t.text === "++" || t.text === "--") {
         this.next();
         const arg = this.parseUnary();
-        return { type: "Update", start, end: this.prevEnd, op: t.text, prefix: true, arg };
+        return {
+          type: "Update",
+          start,
+          end: this.prevEnd,
+          op: t.text,
+          prefix: true,
+          arg,
+        };
       }
     }
     if (t.kind === "keyword") {
@@ -913,7 +1056,14 @@ class Parser {
           if (n.kind === "ident" || n.kind === "keyword") {
             this.next();
             this.next();
-            e = { type: "Member", start, end: this.prevEnd, object: e, property: n.text, propertyStart: this.startOf(n) };
+            e = {
+              type: "Member",
+              start,
+              end: this.prevEnd,
+              object: e,
+              property: n.text,
+              propertyStart: this.startOf(n),
+            };
             continue;
           }
           this.fail("expected property name after '.'", n);
@@ -923,7 +1073,14 @@ class Parser {
           e = { type: "Call", start, end: this.prevEnd, callee: e, args };
           continue;
         }
-        if (t.text === "[" || t.text === "[|" || t.text === "[?" || t.text === "[#" || t.text === "[@" || t.text === "[$") {
+        if (
+          t.text === "[" ||
+          t.text === "[|" ||
+          t.text === "[?" ||
+          t.text === "[#" ||
+          t.text === "[@" ||
+          t.text === "[$"
+        ) {
           this.next();
           const accessor = (t.text === "[" ? "[" : t.text[1]) as AccessorKind;
           const indices: Expr[] = [];
@@ -935,12 +1092,26 @@ class Parser {
             }
           });
           this.expectP("]");
-          e = { type: "Index", start, end: this.prevEnd, object: e, accessor, indices };
+          e = {
+            type: "Index",
+            start,
+            end: this.prevEnd,
+            object: e,
+            accessor,
+            indices,
+          };
           continue;
         }
         if ((t.text === "++" || t.text === "--") && !t.nlBefore) {
           this.next();
-          e = { type: "Update", start, end: this.prevEnd, op: t.text, prefix: false, arg: e };
+          e = {
+            type: "Update",
+            start,
+            end: this.prevEnd,
+            op: t.text,
+            prefix: false,
+            arg: e,
+          };
           continue;
         }
       }
@@ -954,17 +1125,38 @@ class Parser {
     switch (t.kind) {
       case "number": {
         this.next();
-        return { type: "Literal", start, end: this.prevEnd, litKind: "number", raw: t.text, value: numberValue(t.text) };
+        return {
+          type: "Literal",
+          start,
+          end: this.prevEnd,
+          litKind: "number",
+          raw: t.text,
+          value: numberValue(t.text),
+        };
       }
       case "string": {
         this.next();
         const body = t.text.slice(1, t.terminated === false ? undefined : -1);
-        return { type: "Literal", start, end: this.prevEnd, litKind: "string", raw: t.text, value: decodeString(body) };
+        return {
+          type: "Literal",
+          start,
+          end: this.prevEnd,
+          litKind: "string",
+          raw: t.text,
+          value: decodeString(body),
+        };
       }
       case "verbatim": {
         this.next();
         const body = t.text.slice(2, t.terminated === false ? undefined : -1);
-        return { type: "Literal", start, end: this.prevEnd, litKind: "verbatim", raw: t.text, value: body };
+        return {
+          type: "Literal",
+          start,
+          end: this.prevEnd,
+          litKind: "verbatim",
+          raw: t.text,
+          value: body,
+        };
       }
       case "template": {
         this.next();
@@ -972,16 +1164,35 @@ class Parser {
       }
       case "ident": {
         this.next();
-        return { type: "Identifier", start, end: this.prevEnd, name: t.text } satisfies Identifier;
+        return {
+          type: "Identifier",
+          start,
+          end: this.prevEnd,
+          name: t.text,
+        } satisfies Identifier;
       }
       case "keyword": {
         if (t.text === "true" || t.text === "false") {
           this.next();
-          return { type: "Literal", start, end: this.prevEnd, litKind: "boolean", raw: t.text, value: t.text === "true" };
+          return {
+            type: "Literal",
+            start,
+            end: this.prevEnd,
+            litKind: "boolean",
+            raw: t.text,
+            value: t.text === "true",
+          };
         }
         if (t.text === "undefined") {
           this.next();
-          return { type: "Literal", start, end: this.prevEnd, litKind: "undefined", raw: t.text, value: undefined };
+          return {
+            type: "Literal",
+            start,
+            end: this.prevEnd,
+            litKind: "undefined",
+            raw: t.text,
+            value: undefined,
+          };
         }
         if (t.text === "new") {
           this.next();
@@ -989,11 +1200,23 @@ class Parser {
           let callee: Expr;
           if (id.kind === "ident") {
             this.next();
-            callee = { type: "Identifier", start: this.startOf(id), end: this.prevEnd, name: id.text };
+            callee = {
+              type: "Identifier",
+              start: this.startOf(id),
+              end: this.prevEnd,
+              name: id.text,
+            };
             while (this.isP(".") && this.peek(1).kind === "ident") {
               this.next();
               const p = this.next();
-              callee = { type: "Member", start: callee.start, end: this.prevEnd, object: callee, property: p.text, propertyStart: this.startOf(p) };
+              callee = {
+                type: "Member",
+                start: callee.start,
+                end: this.prevEnd,
+                object: callee,
+                property: p.text,
+                propertyStart: this.startOf(p),
+              };
             }
           } else if (this.isK("function")) {
             callee = this.parsePrimary();
@@ -1008,7 +1231,13 @@ class Parser {
           let name: string | undefined;
           if (this.peek().kind === "ident") name = this.next().text;
           const tail = this.parseFunctionTail();
-          return { type: "FunctionExpr", start, end: this.prevEnd, ...(name ? { name } : {}), ...tail };
+          return {
+            type: "FunctionExpr",
+            start,
+            end: this.prevEnd,
+            ...(name ? { name } : {}),
+            ...tail,
+          };
         }
         break;
       }
@@ -1038,7 +1267,9 @@ class Parser {
       default:
         break;
     }
-    this.fail(`unexpected ${t.kind === "eof" ? "end of input" : `'${t.text}'`}`);
+    this.fail(
+      `unexpected ${t.kind === "eof" ? "end of input" : `'${t.text}'`}`,
+    );
   }
 
   private parseStructLiteral(): Expr {
@@ -1049,12 +1280,28 @@ class Parser {
       while (!this.isP("}")) {
         if (this.atEof()) this.fail("unterminated struct literal");
         const k = this.peek();
-        if (!(k.kind === "ident" || k.kind === "keyword" || k.kind === "string" || k.kind === "number")) this.fail("expected struct key");
+        if (!(
+          k.kind === "ident" ||
+          k.kind === "keyword" ||
+          k.kind === "string" ||
+          k.kind === "number"
+        ))
+          this.fail("expected struct key");
         this.next();
-        const keyText = k.kind === "string" ? decodeString(k.text.slice(1, k.terminated === false ? undefined : -1)) : k.text;
+        const keyText =
+          k.kind === "string"
+            ? decodeString(
+                k.text.slice(1, k.terminated === false ? undefined : -1),
+              )
+            : k.text;
         this.expectP(":");
         const value = this.parseTernary();
-        props.push({ key: keyText, keyStart: this.startOf(k), keyEnd: k.end + this.offset, value });
+        props.push({
+          key: keyText,
+          keyStart: this.startOf(k),
+          keyEnd: k.end + this.offset,
+          value,
+        });
         if (!this.eatP(",")) break;
       }
     });
@@ -1076,15 +1323,29 @@ class Parser {
         let expr: Expr | undefined;
         try {
           expr = sub.parseExprAll();
-          if (!expr) this.diagnostics.push({ message: "invalid template expression", start: s, end: e });
+          if (!expr)
+            this.diagnostics.push({
+              message: "invalid template expression",
+              start: s,
+              end: e,
+            });
         } catch (err) {
           if (!(err instanceof ParseError)) throw err;
-          this.diagnostics.push({ message: err.message, start: err.start, end: err.end });
+          this.diagnostics.push({
+            message: err.message,
+            start: err.start,
+            end: err.end,
+          });
         }
         parts.push({ kind: "expr", expr, start: s, end: e });
       }
     }
-    return { type: "TemplateString", start: this.startOf(t), end: t.end + this.offset, parts };
+    return {
+      type: "TemplateString",
+      start: this.startOf(t),
+      end: t.end + this.offset,
+      parts,
+    };
   }
 }
 
@@ -1109,13 +1370,21 @@ export function parseExpression(src: string): Expr | undefined {
  * `start` is the directive's absolute offset. Value expression offsets are relative to `valueText`.
  * Returns undefined for a malformed directive.
  */
-export function parseMacroDirective(tokenText: string, start: number): MacroDecl | undefined {
+export function parseMacroDirective(
+  tokenText: string,
+  start: number,
+): MacroDecl | undefined {
   // strip directive word and continuations
-  const stripped = tokenText.replace(/^#macro/, "").replace(/\\\r?\n|\\\r/g, " ");
-  const m = /^\s*(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)([\s\S]*)$/.exec(stripped);
+  const stripped = tokenText
+    .replace(/^#macro/, "")
+    .replace(/\\\r?\n|\\\r/g, " ");
+  const m = /^\s*(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)([\s\S]*)$/.exec(
+    stripped,
+  );
   if (!m) return undefined;
   const config = m[1];
-  const name = m[2]!;
+  const name = m[2];
+  if (name === undefined) return undefined;
   // drop comments from the value (string-aware via the lexer)
   const text = tokenize(m[3] ?? "")
     .filter((x) => x.kind !== "comment" && x.kind !== "eof")

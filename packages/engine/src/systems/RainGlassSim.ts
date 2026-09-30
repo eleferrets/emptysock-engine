@@ -14,7 +14,7 @@ export class Rng {
 
   /** Float in [0, 1). */
   next(): number {
-    const s = (this._s[0]! + 0x6d2b79f5) >>> 0;
+    const s = ((this._s[0] ?? 0) + 0x6d2b79f5) >>> 0;
     this._s[0] = s;
     let t = Math.imul(s ^ (s >>> 15), s | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -22,7 +22,7 @@ export class Rng {
   }
 
   getState(): number {
-    return this._s[0]!;
+    return this._s[0] ?? 0;
   }
 
   setState(state: number): void {
@@ -70,7 +70,7 @@ export class DropPool {
   /** Returns a slot index or -1 when full. */
   alloc(): number {
     if (this.freeTop === 0) return -1;
-    const i = this.free[--this.freeTop]!;
+    const i = this.free[--this.freeTop] ?? 0;
     this.alive[i] = 1;
     this.bead[i] = 0;
     this.vx[i] = 0;
@@ -250,7 +250,9 @@ export class RainGlassSim {
     const p = this.pool;
     let v = 0;
     for (let i = 0; i < p.capacity; i++) {
-      if (p.alive[i] === 1) v += p.r[i]! * p.r[i]! * p.r[i]!;
+      if (p.alive[i] !== 1) continue;
+      const r = p.r[i] ?? 0;
+      v += r * r * r;
     }
     return v;
   }
@@ -371,12 +373,12 @@ export class RainGlassSim {
     const p = this.pool;
     for (let i = 0; i < p.capacity; i++) {
       if (p.alive[i] === 0) continue;
-      const vx = p.x[i]! - px;
-      const vy = p.y[i]! - py;
+      const vx = (p.x[i] ?? 0) - px;
+      const vy = (p.y[i] ?? 0) - py;
       const t = Math.min(len, Math.max(0, vx * sx + vy * sy));
       const dx = vx - sx * t;
       const dy = vy - sy * t;
-      const reach = half + p.r[i]!;
+      const reach = half + (p.r[i] ?? 0);
       if (dx * dx + dy * dy <= reach * reach) this._free(i);
     }
     const wet = this.wet;
@@ -413,28 +415,33 @@ export class RainGlassSim {
     const lerp = Math.min(1, dt * 4);
     for (let i = 0; i < p.capacity; i++) {
       if (p.alive[i] === 0) continue;
-      if (p.stick[i]! > 0) p.stick[i] = p.stick[i]! - dt;
-      const r = p.r[i]!;
-      if (p.bead[i] === 0 && r >= this.rSlide && p.stick[i]! <= 0) {
+      if ((p.stick[i] ?? 0) > 0) p.stick[i] = (p.stick[i] ?? 0) - dt;
+      const r = p.r[i] ?? 0;
+      if (p.bead[i] === 0 && r >= this.rSlide && (p.stick[i] ?? 0) <= 0) {
         const rr = r / u;
         const norm = Math.min(1, Math.max(0, (rr * rr - rs2) / (rm2 - rs2)));
         const target = vMax * (0.15 + 0.85 * norm);
-        p.vy[i] = p.vy[i]! + (target - p.vy[i]!) * lerp;
+        p.vy[i] = (p.vy[i] ?? 0) + (target - (p.vy[i] ?? 0)) * lerp;
         p.vx[i] =
           this.wind * u + Math.sin(i * 12.9898 + this.simTime * 3) * 3 * u;
-        const dx = p.vx[i]! * dt;
-        const dy = p.vy[i]! * dt;
-        p.x[i] = Math.min(this.width, Math.max(0, p.x[i]! + dx));
-        p.y[i] = p.y[i]! + dy;
-        p.trailAcc[i] = p.trailAcc[i]! + Math.sqrt(dx * dx + dy * dy);
+        const dx = (p.vx[i] ?? 0) * dt;
+        const dy = (p.vy[i] ?? 0) * dt;
+        p.x[i] = Math.min(this.width, Math.max(0, (p.x[i] ?? 0) + dx));
+        p.y[i] = (p.y[i] ?? 0) + dy;
+        p.trailAcc[i] = (p.trailAcc[i] ?? 0) + Math.sqrt(dx * dx + dy * dy);
         if (trailsOn) {
-          this._stampWet(p.x[i]!, p.y[i]!, Math.max(0.8 * u, 0.3 * r), wetVal);
-          if (p.trailAcc[i]! >= trailStep) {
-            p.trailAcc[i] = p.trailAcc[i]! - trailStep;
+          this._stampWet(
+            p.x[i] ?? 0,
+            p.y[i] ?? 0,
+            Math.max(0.8 * u, 0.3 * r),
+            wetVal,
+          );
+          if ((p.trailAcc[i] ?? 0) >= trailStep) {
+            p.trailAcc[i] = (p.trailAcc[i] ?? 0) - trailStep;
             this._shed(i, r);
           }
         }
-        if (p.r[i]! < this.rSlide) {
+        if ((p.r[i] ?? 0) < this.rSlide) {
           p.vy[i] = 0;
           p.vx[i] = 0;
         }
@@ -462,8 +469,8 @@ export class RainGlassSim {
     ) {
       const k = p.alloc();
       if (k >= 0) {
-        p.x[k] = p.x[i]!;
-        p.y[k] = p.y[i]! - (rNew + b);
+        p.x[k] = p.x[i] ?? 0;
+        p.y[k] = (p.y[i] ?? 0) - (rNew + b);
         p.r[k] = b;
         p.stick[k] = 1e6;
         p.bead[k] = 1;
@@ -486,7 +493,7 @@ export class RainGlassSim {
         const dy = y + 0.5 - cy;
         if (dx * dx + dy * dy <= r2) {
           const k = y * w + x;
-          if (this.wet[k]! < val) this.wet[k] = val;
+          if ((this.wet[k] ?? 0) < val) this.wet[k] = val;
         }
       }
     }
@@ -495,7 +502,7 @@ export class RainGlassSim {
   protected _decayWet(amount: number): void {
     const wet = this.wet;
     for (let k = 0; k < wet.length; k++) {
-      const v = wet[k]!;
+      const v = wet[k] ?? 0;
       if (v > 0) wet[k] = v > amount ? v - amount : 0;
     }
   }
@@ -508,7 +515,7 @@ export class RainGlassSim {
     for (let pass = 0; pass < 8; pass++) {
       let maxR = 0;
       for (let i = 0; i < p.capacity; i++) {
-        if (p.alive[i] === 1 && p.r[i]! > maxR) maxR = p.r[i]!;
+        if (p.alive[i] === 1 && (p.r[i] ?? 0) > maxR) maxR = p.r[i] ?? 0;
       }
       const cell = Math.max(1.6 * maxR, this.height / 12);
       const cols = Math.ceil(this.width / cell) + 1;
@@ -518,15 +525,21 @@ export class RainGlassSim {
       heads.fill(-1, 0, cells);
       for (let i = p.capacity - 1; i >= 0; i--) {
         if (p.alive[i] === 0) continue;
-        const c = this._cellOf(p.x[i]!, p.y[i]!, cell, cols, rows);
-        next[i] = heads[c]!;
+        const c = this._cellOf(p.x[i] ?? 0, p.y[i] ?? 0, cell, cols, rows);
+        next[i] = heads[c] ?? -1;
         heads[c] = i;
       }
       let merged = false;
       for (let i = 0; i < p.capacity; i++) {
         if (p.alive[i] === 0) continue;
-        const cx = Math.min(cols - 1, Math.max(0, Math.floor(p.x[i]! / cell)));
-        const cy = Math.min(rows - 1, Math.max(0, Math.floor(p.y[i]! / cell)));
+        const cx = Math.min(
+          cols - 1,
+          Math.max(0, Math.floor((p.x[i] ?? 0) / cell)),
+        );
+        const cy = Math.min(
+          rows - 1,
+          Math.max(0, Math.floor((p.y[i] ?? 0) / cell)),
+        );
         let done = false;
         for (let oy = -1; oy <= 1 && !done; oy++) {
           const gy = cy + oy;
@@ -534,11 +547,15 @@ export class RainGlassSim {
           for (let ox = -1; ox <= 1 && !done; ox++) {
             const gx = cx + ox;
             if (gx < 0 || gx >= cols) continue;
-            for (let j = heads[gy * cols + gx]!; j >= 0; j = next[j]!) {
+            for (
+              let j = heads[gy * cols + gx] ?? -1;
+              j >= 0;
+              j = next[j] ?? -1
+            ) {
               if (j <= i || p.alive[j] === 0) continue;
-              const dx = p.x[i]! - p.x[j]!;
-              const dy = p.y[i]! - p.y[j]!;
-              const lim = 0.8 * (p.r[i]! + p.r[j]!);
+              const dx = (p.x[i] ?? 0) - (p.x[j] ?? 0);
+              const dy = (p.y[i] ?? 0) - (p.y[j] ?? 0);
+              const lim = 0.8 * ((p.r[i] ?? 0) + (p.r[j] ?? 0));
               if (dx * dx + dy * dy < lim * lim) {
                 this._mergePair(i, j);
                 merged = true;
@@ -567,18 +584,20 @@ export class RainGlassSim {
 
   protected _mergePair(i: number, j: number): void {
     const p = this.pool;
-    const vi = p.r[i]! * p.r[i]! * p.r[i]!;
-    const vj = p.r[j]! * p.r[j]! * p.r[j]!;
-    const keep = p.r[i]! >= p.r[j]! ? i : j;
+    const ri = p.r[i] ?? 0;
+    const rj = p.r[j] ?? 0;
+    const vi = ri * ri * ri;
+    const vj = rj * rj * rj;
+    const keep = ri >= rj ? i : j;
     const other = keep === i ? j : i;
     const v = vi + vj;
     const wi = vi / v;
     const wj = vj / v;
     const bothBeads = p.bead[i] === 1 && p.bead[j] === 1;
-    p.x[keep] = p.x[i]! * wi + p.x[j]! * wj;
-    p.y[keep] = p.y[i]! * wi + p.y[j]! * wj;
-    p.vy[keep] = p.vy[i]! * wi + p.vy[j]! * wj;
-    p.vx[keep] = p.vx[i]! * wi + p.vx[j]! * wj;
+    p.x[keep] = (p.x[i] ?? 0) * wi + (p.x[j] ?? 0) * wj;
+    p.y[keep] = (p.y[i] ?? 0) * wi + (p.y[j] ?? 0) * wj;
+    p.vy[keep] = (p.vy[i] ?? 0) * wi + (p.vy[j] ?? 0) * wj;
+    p.vx[keep] = (p.vx[i] ?? 0) * wi + (p.vx[j] ?? 0) * wj;
     p.r[keep] = Math.cbrt(v);
     p.stick[keep] = 0;
     p.trailAcc[keep] = 0;
@@ -593,7 +612,10 @@ export class RainGlassSim {
     const p = this.pool;
     for (let i = 0; i < p.capacity; i++) {
       if (p.alive[i] === 0) continue;
-      if (p.r[i]! < 0.4 * this.unit || p.y[i]! - p.r[i]! > this.height) {
+      if (
+        (p.r[i] ?? 0) < 0.4 * this.unit ||
+        (p.y[i] ?? 0) - (p.r[i] ?? 0) > this.height
+      ) {
         this._free(i);
       }
     }

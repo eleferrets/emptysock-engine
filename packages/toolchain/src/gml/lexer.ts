@@ -166,7 +166,7 @@ function scanQuoted(
 ): { end: number; terminated: boolean } {
   let i = from;
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src.charAt(i);
     if (escapes && c === "\\" && i + 1 < src.length) {
       i += 2;
       continue;
@@ -182,29 +182,27 @@ function scanTemplate(
   src: string,
   quoteAt: number,
 ): { end: number; terminated: boolean; parts: TemplatePart[] } {
-  const quote = src[quoteAt]!;
+  const quote = src.charAt(quoteAt);
   const parts: TemplatePart[] = [];
   let i = quoteAt + 1;
   let textStart = i;
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src.charAt(i);
     if (c === "\\" && i + 1 < src.length) {
       i += 2;
       continue;
     }
     if (c === quote) {
-      if (i > textStart)
-        parts.push({ kind: "text", start: textStart, end: i });
+      if (i > textStart) parts.push({ kind: "text", start: textStart, end: i });
       return { end: i + 1, terminated: true, parts };
     }
     if (c === "{") {
-      if (i > textStart)
-        parts.push({ kind: "text", start: textStart, end: i });
+      if (i > textStart) parts.push({ kind: "text", start: textStart, end: i });
       // find the matching brace, skipping nested strings
       let depth = 1;
       let j = i + 1;
       while (j < src.length && depth > 0) {
-        const d = src[j]!;
+        const d = src.charAt(j);
         if (d === '"' || d === "'") {
           j = scanQuoted(src, j + 1, d, true).end;
           continue;
@@ -241,20 +239,30 @@ export function tokenize(src: string): Token[] {
   };
 
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src.charAt(i);
     const start = i;
 
     // newline
     if (c === "\n" || c === "\r") {
       if (c === "\r" && src[i + 1] === "\n") i += 2;
       else i++;
-      push({ kind: "newline", text: src.slice(start, i), start, end: i }, false);
+      push(
+        { kind: "newline", text: src.slice(start, i), start, end: i },
+        false,
+      );
       lineStart = true;
       sawNewline = true;
       continue;
     }
     // whitespace
-    if (c === " " || c === "\t" || c === "\f" || c === "\v" || c === " " || c === "﻿") {
+    if (
+      c === " " ||
+      c === "\t" ||
+      c === "\f" ||
+      c === "\v" ||
+      c === " " ||
+      c === "﻿"
+    ) {
       while (
         i < src.length &&
         (src[i] === " " ||
@@ -265,13 +273,19 @@ export function tokenize(src: string): Token[] {
           src[i] === "﻿")
       )
         i++;
-      push({ kind: "whitespace", text: src.slice(start, i), start, end: i }, false);
+      push(
+        { kind: "whitespace", text: src.slice(start, i), start, end: i },
+        false,
+      );
       continue;
     }
     // comments
     if (c === "/" && src[i + 1] === "/") {
       while (i < src.length && src[i] !== "\n" && src[i] !== "\r") i++;
-      push({ kind: "comment", text: src.slice(start, i), start, end: i }, false);
+      push(
+        { kind: "comment", text: src.slice(start, i), start, end: i },
+        false,
+      );
       continue;
     }
     if (c === "/" && src[i + 1] === "*") {
@@ -289,11 +303,15 @@ export function tokenize(src: string): Token[] {
     if (c === "#" && lineStart) {
       const m = /^#([A-Za-z_]+)/.exec(src.slice(i, i + 32));
       if (m) {
-        const word = m[1]!;
+        const word = m[1] ?? "";
         if (word === "macro") {
           // logical line with `\` continuations
           while (i < src.length) {
-            if (src[i] === "\\" && (src[i + 1] === "\n" || (src[i + 1] === "\r" && src[i + 2] === "\n"))) {
+            if (
+              src[i] === "\\" &&
+              (src[i + 1] === "\n" ||
+                (src[i + 1] === "\r" && src[i + 2] === "\n"))
+            ) {
               i += src[i + 1] === "\r" ? 3 : 2;
               continue;
             }
@@ -304,13 +322,19 @@ export function tokenize(src: string): Token[] {
             if (src[i] === "\n" || src[i] === "\r") break;
             i++;
           }
-          push({ kind: "macro", text: src.slice(start, i), start, end: i }, true);
+          push(
+            { kind: "macro", text: src.slice(start, i), start, end: i },
+            true,
+          );
           lineStart = false;
           continue;
         }
         // #region, #endregion, #define, ... : rest of line, trivia
         while (i < src.length && src[i] !== "\n" && src[i] !== "\r") i++;
-        push({ kind: "region", text: src.slice(start, i), start, end: i }, false);
+        push(
+          { kind: "region", text: src.slice(start, i), start, end: i },
+          false,
+        );
         continue;
       }
     }
@@ -321,17 +345,29 @@ export function tokenize(src: string): Token[] {
       const r = scanQuoted(src, i + 1, c, true);
       i = r.end;
       push(
-        { kind: "string", text: src.slice(start, i), start, end: i, terminated: r.terminated },
+        {
+          kind: "string",
+          text: src.slice(start, i),
+          start,
+          end: i,
+          terminated: r.terminated,
+        },
         true,
       );
       if (/[\r\n]/.test(src.slice(start, i))) sawNewline = false;
       continue;
     }
     if (c === "@" && (src[i + 1] === '"' || src[i + 1] === "'")) {
-      const r = scanQuoted(src, i + 2, src[i + 1]!, false);
+      const r = scanQuoted(src, i + 2, src.charAt(i + 1), false);
       i = r.end;
       push(
-        { kind: "verbatim", text: src.slice(start, i), start, end: i, terminated: r.terminated },
+        {
+          kind: "verbatim",
+          text: src.slice(start, i),
+          start,
+          end: i,
+          terminated: r.terminated,
+        },
         true,
       );
       continue;
@@ -353,32 +389,54 @@ export function tokenize(src: string): Token[] {
       continue;
     }
     // hex with $ (but `[$` accessor is handled below via punct check first)
-    if (c === "$" && i + 1 < src.length && isHex(src[i + 1]!)) {
+    if (c === "$" && i + 1 < src.length && isHex(src.charAt(i + 1))) {
       i++;
-      while (i < src.length && isHex(src[i]!)) i++;
+      while (i < src.length && isHex(src.charAt(i))) i++;
       push({ kind: "number", text: src.slice(start, i), start, end: i }, true);
       continue;
     }
     // numbers
-    if (isDigit(c) || (c === "." && i + 1 < src.length && isDigit(src[i + 1]!))) {
-      if (c === "0" && (src[i + 1] === "x" || src[i + 1] === "X") && i + 2 < src.length && isHex(src[i + 2]!)) {
+    if (
+      isDigit(c) ||
+      (c === "." && i + 1 < src.length && isDigit(src.charAt(i + 1)))
+    ) {
+      if (
+        c === "0" &&
+        (src[i + 1] === "x" || src[i + 1] === "X") &&
+        i + 2 < src.length &&
+        isHex(src.charAt(i + 2))
+      ) {
         i += 2;
-        while (i < src.length && isHex(src[i]!)) i++;
-      } else if (c === "0" && (src[i + 1] === "b" || src[i + 1] === "B") && /[01]/.test(src[i + 2] ?? "")) {
+        while (i < src.length && isHex(src.charAt(i))) i++;
+      } else if (
+        c === "0" &&
+        (src[i + 1] === "b" || src[i + 1] === "B") &&
+        /[01]/.test(src[i + 2] ?? "")
+      ) {
         i += 2;
-        while (i < src.length && /[01_]/.test(src[i]!)) i++;
+        while (i < src.length && /[01_]/.test(src.charAt(i))) i++;
       } else {
-        while (i < src.length && (isDigit(src[i]!) || src[i] === "_")) i++;
+        while (i < src.length && (isDigit(src.charAt(i)) || src[i] === "_"))
+          i++;
         if (src[i] === "." && isDigit(src[i + 1] ?? "")) {
           i++;
-          while (i < src.length && isDigit(src[i]!)) i++;
-        } else if (src[i] === "." && !isIdentStart(src[i + 1] ?? "") && src[i + 1] !== ".") {
+          while (i < src.length && isDigit(src.charAt(i))) i++;
+        } else if (
+          src[i] === "." &&
+          !isIdentStart(src[i + 1] ?? "") &&
+          src[i + 1] !== "."
+        ) {
           // `1.` trailing dot
           i++;
         }
-        if ((src[i] === "e" || src[i] === "E") && (isDigit(src[i + 1] ?? "") || ((src[i + 1] === "+" || src[i + 1] === "-") && isDigit(src[i + 2] ?? "")))) {
+        if (
+          (src[i] === "e" || src[i] === "E") &&
+          (isDigit(src[i + 1] ?? "") ||
+            ((src[i + 1] === "+" || src[i + 1] === "-") &&
+              isDigit(src[i + 2] ?? "")))
+        ) {
           i += 2;
-          while (i < src.length && isDigit(src[i]!)) i++;
+          while (i < src.length && isDigit(src.charAt(i))) i++;
         }
       }
       push({ kind: "number", text: src.slice(start, i), start, end: i }, true);
@@ -386,9 +444,17 @@ export function tokenize(src: string): Token[] {
     }
     // identifiers / keywords
     if (isIdentStart(c)) {
-      while (i < src.length && isIdentPart(src[i]!)) i++;
+      while (i < src.length && isIdentPart(src.charAt(i))) i++;
       const text = src.slice(start, i);
-      push({ kind: GML_KEYWORDS.has(text) ? "keyword" : "ident", text, start, end: i }, true);
+      push(
+        {
+          kind: GML_KEYWORDS.has(text) ? "keyword" : "ident",
+          text,
+          start,
+          end: i,
+        },
+        true,
+      );
       continue;
     }
     // `[$` struct accessor (vs array literal starting with a `$` hex number)
@@ -417,7 +483,13 @@ export function tokenize(src: string): Token[] {
     i++;
     push({ kind: "error", text: src.slice(start, i), start, end: i }, true);
   }
-  tokens.push({ kind: "eof", text: "", start: src.length, end: src.length, ...(sawNewline ? { nlBefore: true } : {}) });
+  tokens.push({
+    kind: "eof",
+    text: "",
+    start: src.length,
+    end: src.length,
+    ...(sawNewline ? { nlBefore: true } : {}),
+  });
   return tokens;
 }
 

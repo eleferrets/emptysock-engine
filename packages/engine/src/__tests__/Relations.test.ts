@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { Scene, defineRelation, ChildOf, defineComponent } from "../index.js";
+import {
+  Scene,
+  defineRelation,
+  ChildOf,
+  defineComponent,
+  type Entity,
+} from "../index.js";
 
 const Tag = defineComponent("RelTestTag", () => ({ n: 0 }));
 
@@ -89,7 +95,7 @@ describe("Relations", () => {
       c.add(Tag);
       s.setParent(c, p);
     }
-    const doomed: import("../index.js").Entity[] = [];
+    const doomed: Entity[] = [];
     s.each(Tag, (_t, e) => {
       if (s.parentOf(e) === undefined) doomed.push(e);
     });

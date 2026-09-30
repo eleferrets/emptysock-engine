@@ -25,12 +25,17 @@ export function scanEnums(text: string): EnumDecl[] {
   const out: EnumDecl[] = [];
   const toks = tokenize(text).filter((t) => !isTrivia(t));
   for (let i = 0; i + 2 < toks.length; i++) {
-    const t = toks[i]!;
+    const t = toks[i];
+    const name = toks[i + 1];
+    const open = toks[i + 2];
+    if (!t || !name || !open) continue;
     if (t.kind !== "keyword" || t.text !== "enum") continue;
-    const name = toks[i + 1]!;
-    const open = toks[i + 2]!;
     if (name.kind !== "ident") continue;
-    if (!((open.kind === "punct" && open.text === "{") || (open.kind === "keyword" && open.text === "begin"))) continue;
+    if (!(
+      (open.kind === "punct" && open.text === "{") ||
+      (open.kind === "keyword" && open.text === "begin")
+    ))
+      continue;
     const s = parseStatementAt(text, t.start);
     // an unterminated declaration is not a declaration (the regex scan it replaces also required the closing brace)
     if (s.type === "EnumDecl" && s.closed) out.push(s);

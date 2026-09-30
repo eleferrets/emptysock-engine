@@ -440,7 +440,7 @@ describe("UISystem — bitmap font text (drawImageRegion)", () => {
       bold: false,
       italic: false,
     });
-    const loader = vi.fn(async () => fakeTexture);
+    const loader = vi.fn(() => Promise.resolve(fakeTexture));
     const bmpUi = new UISystem(tree, { fonts, imageLoader: loader });
     const w = tree.createWidget(scene);
     const kind = opts.kind ?? "label";

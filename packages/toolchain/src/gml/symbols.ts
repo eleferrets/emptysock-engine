@@ -43,7 +43,8 @@ export interface Symbol {
   enumValue?: number;
 }
 
-export type ResolvedVia = "lexical" | "instance" | "with" | "project" | "builtin" | "none";
+export type ResolvedVia =
+  "lexical" | "instance" | "with" | "project" | "builtin" | "none";
 
 export interface Resolved {
   symbol?: Symbol;
@@ -52,7 +53,8 @@ export interface Resolved {
   shadowed?: Symbol[];
 }
 
-export type ScopeKind = "file" | "function" | "event" | "with" | "block" | "struct";
+export type ScopeKind =
+  "file" | "function" | "event" | "with" | "block" | "struct";
 
 /** Instance-field lookup supplied by the owner of an `event`/`with`/`struct` scope. */
 export interface FieldSource {
@@ -110,13 +112,19 @@ export class Scope {
       const sym = s.symbols.get(name);
       if (sym) {
         const outer = this.rootOuter(root)?.(name);
-        const shadowed = outer?.symbol && outer.via === "project" ? [outer.symbol] : undefined;
-        return { symbol: sym, via: s.kind === "with" ? "with" : "lexical", ...(shadowed ? { shadowed } : {}) };
+        const shadowed =
+          outer?.symbol && outer.via === "project" ? [outer.symbol] : undefined;
+        return {
+          symbol: sym,
+          via: s.kind === "with" ? "with" : "lexical",
+          ...(shadowed ? { shadowed } : {}),
+        };
       }
       if (s.fields?.has(name)) {
         const fsym = s.fields.get(name);
         const outer = this.rootOuter(root)?.(name);
-        const shadowed = outer?.symbol && outer.via === "project" ? [outer.symbol] : undefined;
+        const shadowed =
+          outer?.symbol && outer.via === "project" ? [outer.symbol] : undefined;
         return {
           ...(fsym ? { symbol: fsym } : {}),
           via: s.kind === "with" ? "with" : "instance",
@@ -129,9 +137,9 @@ export class Scope {
   }
 
   private rootOuter(root: Scope): ((n: string) => Resolved) | undefined {
-    let r: Scope | undefined = root;
-    while (r?.parent) r = r.parent;
-    const o = (r ?? root).outer;
+    let r: Scope = root;
+    while (r.parent) r = r.parent;
+    const o = r.outer;
     return o ? (n) => o.resolveOuter(n) : undefined;
   }
 }

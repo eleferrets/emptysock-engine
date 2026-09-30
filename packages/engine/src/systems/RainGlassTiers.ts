@@ -116,7 +116,7 @@ export function resolveRainQuality(
   if (quality === undefined || quality === "auto") {
     return RAIN_TIERS[resolveRainTier(gpuTier)];
   }
-  return RAIN_TIERS[quality] ?? RAIN_TIERS.medium;
+  return RAIN_TIERS[quality];
 }
 
 /** Map size for a tier at a given view aspect (width / height). */
