@@ -1741,8 +1741,11 @@ export class RenderPipeline implements SceneRenderer {
    * placeholder, not a blank hole" fallback `_applyTexture` already uses
    * for an empty path.
    */
-  private _resolveTextureForDraw(path: string): Texture {
-    if (path === "") return Texture.WHITE;
+  private _resolveTextureForDraw(templatePath: string): Texture {
+    if (templatePath === "") return Texture.WHITE;
+    // A multi-frame sprite's path is a `frame_{n}.png` template; `draw_sprite`'s
+    // subimage is not modelled, so it draws frame 0.
+    const path = templatePath.replace("{n}", "0");
     const cached = this._textures.get(path);
     if (cached !== undefined) return cached;
     this._textures

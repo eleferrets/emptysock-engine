@@ -95,3 +95,19 @@ describe("RenderPipeline gml draw target child lifecycle", () => {
     expect(label?.destroyed).toBe(true);
   });
 });
+
+describe("RenderPipeline draw_sprite texture paths", () => {
+  it("loads frame 0 of a multi-frame sprite instead of the literal frame_{n} template", async () => {
+    const loader = vi.fn(() => Promise.resolve(Texture.WHITE));
+    const pipeline = new RenderPipeline({ textureLoader: loader });
+    await pipeline.init();
+    (
+      pipeline as unknown as { _resolveTextureForDraw(path: string): unknown }
+    )._resolveTextureForDraw("./assets/sprites/spr_a/frame_{n}.png");
+    await Promise.resolve();
+    expect(loader).toHaveBeenCalledWith("./assets/sprites/spr_a/frame_0.png");
+    expect(loader).not.toHaveBeenCalledWith(
+      "./assets/sprites/spr_a/frame_{n}.png",
+    );
+  });
+});

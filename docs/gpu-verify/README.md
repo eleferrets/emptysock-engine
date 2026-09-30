@@ -79,3 +79,11 @@ A flash is now a second, batched sprite over the original, using a white silhoue
 texture and tinted the flash colour at `amount` alpha. The pixels are the same blend the filter produced:
 white at 1, (227, 142, 142) for a (200, 30, 30) pixel at 0.5, the original at 0, transparent texels stay transparent.
 The filter stays as the fallback while a silhouette cannot be built (no renderer yet, texture still loading).
+
+### Playthrough on the real GPU
+
+`gpu-playthrough.mjs` (Chrome, Metal, same env switches) renders the importer output of a real project room by room.
+It found that `draw_sprite` of a multi-frame sprite requested the literal `frame_{n}.png` template (404, white
+placeholder); the draw path now loads frame 0 (`draw_sprite`'s subimage is not modelled). After the fix the only
+missing request is the page's `favicon.ico`, and the screenshots in `playthrough/` show the terrain, sprites,
+particles and bullet trails as expected.
