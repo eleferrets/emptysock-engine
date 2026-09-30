@@ -1,10 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   detectToolchain,
   formatToolchainReport,
 } from "../ToolchainDetector.js";
 import { ToolchainSettingsSchema } from "../ToolchainSettings.js";
 import { imageExists } from "../VMRunner.js";
+
+// Detection probes the host (`which`, `<tool> --version`, `docker image
+// inspect`) through synchronous child processes. On a loaded machine those
+// pile up past the test timeout, so no test here may touch the real host:
+// every probe reports "not installed".
+vi.mock("node:child_process", () => ({
+  spawnSync: () => ({ status: 1, stdout: "", stderr: "" }),
+  execSync: () => {
+    throw new Error("probe disabled in tests");
+  },
+}));
 
 describe("ToolchainSettings", () => {
   it("parses empty object with defaults", () => {
