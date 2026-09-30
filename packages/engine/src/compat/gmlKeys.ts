@@ -59,11 +59,10 @@ export function vkMethodName(prefix: string, code: number): string {
  * outside this table has no known `code` translation and is honestly
  * skipped (never guessed), the same "surface as unresolved, don't fake it"
  * rule this codebase's GML compat layer applies elsewhere. `Shift`/
- * `Control` deliberately resolve to the left-hand variant only
- * (`"ShiftLeft"`/`"ControlLeft"`) — GameMaker's own `vk_shift`/`vk_control`
- * don't distinguish left/right either, but a real keyboard fires distinct
- * `"ShiftLeft"`/`"ShiftRight"` DOM codes, so a right-hand press is a real,
- * documented gap here, not a silent misfire.
+ * `Control`/`Alt` resolve to the left-hand variant (`"ShiftLeft"`, ...) for
+ * identity, e.g. as a previous-state key; `isVkDown` is what reads them, and
+ * it accepts either side, as GameMaker's own `vk_shift`/`vk_control`/`vk_alt`
+ * do not distinguish left from right.
  */
 const NAMED_VK_DOM_CODES: Readonly<Record<number, string>> = {
   8: "Backspace",
@@ -94,6 +93,24 @@ export function vkToDomCode(code: number): string | undefined {
   if (code >= 65 && code <= 90) return `Key${String.fromCharCode(code)}`;
   if (code >= 112 && code <= 123) return `F${code - 111}`;
   return undefined;
+}
+
+const MODIFIER_SIDES: Readonly<Record<number, readonly [string, string]>> = {
+  16: ["ShiftLeft", "ShiftRight"],
+  17: ["ControlLeft", "ControlRight"],
+  18: ["AltLeft", "AltRight"],
+};
+
+/** `true` while the key for `vk` is held; `vk_shift`/`vk_control`/`vk_alt` accept either side. */
+export function isVkDown(
+  keyboard: { isDown(code: string): boolean },
+  vk: number,
+  layout?: Pick<KeyboardLayout, "codeForChar">,
+): boolean {
+  const sides = MODIFIER_SIDES[vk];
+  if (sides !== undefined) return sides.some((code) => keyboard.isDown(code));
+  const code = resolveVk(vk, layout);
+  return code !== undefined && keyboard.isDown(code);
 }
 
 const LETTER_CHARS: readonly string[] = Array.from({ length: 26 }, (_, i) =>

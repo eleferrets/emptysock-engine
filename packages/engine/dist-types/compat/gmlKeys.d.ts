@@ -26,6 +26,14 @@ export declare const VK_NAMES: Readonly<Record<number, string>>;
 export declare function vkMethodName(prefix: string, code: number): string;
 /** Translates a GameMaker `vk_*`-numbered code to the DOM `KeyboardEvent.code` string `InputSystem` tracks, or `undefined` if this code has no known translation (see this module's doc comment). */
 export declare function vkToDomCode(code: number): string | undefined;
+/** `true` while the key for `vk` is held; `vk_shift`/`vk_control`/`vk_alt` accept either side. */
+export declare function isVkDown(
+  keyboard: {
+    isDown(code: string): boolean;
+  },
+  vk: number,
+  layout?: Pick<KeyboardLayout, "codeForChar">,
+): boolean;
 /**
  * Layout-aware `vk` -> DOM `code`. Letters (vk 65-90) resolve by produced
  * character first (`ord("A")` follows the key that types "a" on the active

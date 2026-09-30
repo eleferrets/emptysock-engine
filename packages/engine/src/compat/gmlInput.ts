@@ -28,7 +28,7 @@
 
 import type { GmlSurfaceBackend } from "./gmlSurfaces.js";
 import type { Game } from "../Game.js";
-import { resolveVk } from "./gmlKeys.js";
+import { isVkDown, resolveVk } from "./gmlKeys.js";
 import { ViewportSystem } from "../systems/ViewportSystem.js";
 import { WindowSystem } from "../systems/WindowSystem.js";
 
@@ -137,9 +137,8 @@ function prevMapFor<K>(
 
 /** `keyboard_check(vk)` — true while the key is held, in the current frozen input snapshot. A `vk` code with no known DOM-`code` translation (`resolveVk`) honestly reads as not-down, never guessed. */
 export function keyboard_check(ctx: GmlInputContext, vk: number): boolean {
-  const code = resolveVk(vk, ctx.game?.input.layout);
-  if (code === undefined || ctx.game === undefined) return false;
-  return ctx.game.input.keyboard.isDown(code);
+  if (ctx.game === undefined) return false;
+  return isVkDown(ctx.game.input.keyboard, vk, ctx.game.input.layout);
 }
 
 /** `keyboard_check_pressed(vk)` — true only on the frame the key transitions from up to down. Tracks the previous frame's state per `Game`, the same up/down-transition technique `GmsProjectRuntime`'s own Key dispatch pass uses. */
@@ -149,7 +148,7 @@ export function keyboard_check_pressed(
 ): boolean {
   const code = resolveVk(vk, ctx.game?.input.layout);
   if (code === undefined || ctx.game === undefined) return false;
-  const down = ctx.game.input.keyboard.isDown(code);
+  const down = isVkDown(ctx.game.input.keyboard, vk, ctx.game.input.layout);
   const prev = prevMapFor(prevKeyDownByGame, ctx.game);
   const wasDown = prev.get(code) ?? false;
   prev.set(code, down);
@@ -163,7 +162,7 @@ export function keyboard_check_released(
 ): boolean {
   const code = resolveVk(vk, ctx.game?.input.layout);
   if (code === undefined || ctx.game === undefined) return false;
-  const down = ctx.game.input.keyboard.isDown(code);
+  const down = isVkDown(ctx.game.input.keyboard, vk, ctx.game.input.layout);
   const prev = prevMapFor(prevKeyDownByGame, ctx.game);
   const wasDown = prev.get(code) ?? false;
   prev.set(code, down);

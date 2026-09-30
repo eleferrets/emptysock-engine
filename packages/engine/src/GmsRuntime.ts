@@ -21,7 +21,7 @@ import { gmlActionsStep } from "./compat/gmlActions.js";
 import { setRoomSize } from "./compat/gml.js";
 import { setGmlVar } from "./compat/gmlInstanceVars.js";
 import type { GmlActionContext } from "./compat/gmlActions.js";
-import { KNOWN_VK_CODES, resolveVk } from "./compat/gmlKeys.js";
+import { KNOWN_VK_CODES, isVkDown, resolveVk } from "./compat/gmlKeys.js";
 import type { GmlCameraContext } from "./compat/gmlCamera.js";
 import {
   configureGmlViewsFromRoom,
@@ -470,7 +470,7 @@ export class GmsProjectRuntime {
     for (const vkCode of KNOWN_VK_CODES) {
       const domCode = resolveVk(vkCode, layout);
       if (domCode === undefined) continue;
-      const isDown = keyboard.isDown(domCode);
+      const isDown = isVkDown(keyboard, vkCode, layout);
       const wasDown = this._prevKeyDown.get(vkCode) === true;
       if (isDown && !wasDown) pressed.push(vkCode);
       else if (!isDown && wasDown) released.push(vkCode);

@@ -21,6 +21,7 @@ import {
   surface_resize,
   vk_right,
   vk_up,
+  vk_shift,
   type GmlInputContext,
 } from "../compat/gmlInput.js";
 
@@ -38,6 +39,21 @@ describe("compat/gmlInput.ts — keyboard_check family", () => {
     game.input.simulateKeyDown("ArrowRight");
     game.input.snapshot();
     expect(keyboard_check(ctx, vk_right)).toBe(true);
+  });
+
+  it("vk_shift and vk_control read either side of the keyboard", () => {
+    const game = new Game();
+    const ctx = ctxFor(game);
+    game.input.simulateKeyDown("ShiftRight");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, vk_shift)).toBe(true);
+    expect(keyboard_check_pressed(ctx, vk_shift)).toBe(true);
+    game.input.simulateKeyUp("ShiftRight");
+    game.input.simulateKeyDown("ControlRight");
+    game.input.snapshot();
+    expect(keyboard_check(ctx, vk_shift)).toBe(false);
+    expect(keyboard_check_released(ctx, vk_shift)).toBe(true);
+    expect(keyboard_check(ctx, 17)).toBe(true);
   });
 
   it("keyboard_check_pressed fires only on the down-transition frame", () => {
