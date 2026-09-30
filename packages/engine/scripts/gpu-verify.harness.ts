@@ -9,6 +9,7 @@ import {
   Sprite as PixiSprite,
   Texture,
   RenderTexture,
+  BufferImageSource,
 } from "pixi.js";
 import {
   RenderPipeline,
@@ -452,12 +453,75 @@ export async function probe(): Promise<unknown> {
   bitmapText,
   darkness,
   rendererFilterProbe,
+  mapUploadProbe,
 };
 void PixiSprite;
 
+// Round-trips a known RGBA gradient through a BufferImageSource texture under the
+// active renderer and reports where the readback first differs (upload stride bugs).
+export async function mapUploadProbe(): Promise<Record<string, unknown>> {
+  const p = await mkPipeline(64, 64);
+  const out: Record<string, unknown> = {
+    renderer: (p.renderer as unknown as { gl?: unknown }).gl
+      ? "webgl"
+      : "webgpu",
+  };
+  for (const [w, h] of [
+    [320, 180],
+    [250, 141],
+    [256, 128],
+  ] as const) {
+    const buf = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        buf[i] = x & 255;
+        buf[i + 1] = y & 255;
+        buf[i + 2] = 7;
+        buf[i + 3] = 255;
+      }
+    const source = new BufferImageSource({
+      resource: buf,
+      width: w,
+      height: h,
+      format: "rgba8unorm",
+      scaleMode: "linear",
+    });
+    const tex = new Texture({ source });
+    const sp = new PixiSprite(tex);
+    const rt = RenderTexture.create({ width: w, height: h });
+    p.renderer.render({ container: sp, target: rt });
+    const px2 = p.renderer.extract.pixels({
+      target: rt,
+      frame: new Rectangle(0, 0, w, h),
+    });
+    const got = px2.pixels as unknown as Uint8ClampedArray;
+    let bad = 0;
+    let firstBad = -1;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (got[i] !== buf[i] || got[i + 1] !== buf[i + 1]) {
+          bad++;
+          if (firstBad < 0) firstBad = y * w + x;
+        }
+      }
+    out[`${w}x${h}`] = {
+      bad,
+      firstBadXY:
+        firstBad < 0 ? null : [firstBad % w, Math.floor(firstBad / w)],
+      sampleTL: [got[0], got[1], got[2], got[3]],
+      sampleBR: Array.from(got.slice((w * h - 1) * 4, (w * h - 1) * 4 + 4)),
+    };
+  }
+  return out;
+}
+
 // Real-browser only: reports which renderer pixi picked and whether the GL-only
 // rain filter changes the frame under it (it cannot under WebGPU).
-export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
+export async function rendererFilterProbe(
+  poke: Record<string, number> = {},
+): Promise<Record<string, unknown>> {
   const p = await mkPipeline(640, 360);
   const r = p.renderer as unknown as {
     gl?: unknown;
@@ -473,6 +537,8 @@ export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
   const f = new RainGlassFilter({});
   f.setResolution(640, 360);
   for (let i = 0; i < 360; i++) f.tick(1 / 30);
+  for (const [k, v] of Object.entries(poke))
+    (f as unknown as { _set(k: string, v: number): void })._set(k, v);
   c.filters = [f];
   const errors: string[] = [];
   let out: Pixels | undefined;
@@ -496,10 +562,38 @@ export async function rendererFilterProbe(): Promise<Record<string, unknown>> {
       );
     png = canvas.toDataURL("image/png");
   }
+  const bands = (axis: "row" | "col"): number[] => {
+    if (!out) return [];
+    const n = 8;
+    const changed = new Array<number>(n).fill(0);
+    const total = new Array<number>(n).fill(0);
+    for (let y = 0; y < out.height; y++) {
+      for (let x = 0; x < out.width; x++) {
+        const i = (y * out.width + x) * 4;
+        const d =
+          Math.abs(out.data[i]! - base.data[i]!) +
+          Math.abs(out.data[i + 1]! - base.data[i + 1]!) +
+          Math.abs(out.data[i + 2]! - base.data[i + 2]!);
+        const b = Math.min(
+          n - 1,
+          Math.floor(
+            ((axis === "row" ? y : x) /
+              (axis === "row" ? out.height : out.width)) *
+              n,
+          ),
+        );
+        total[b]!++;
+        if (d > 12) changed[b]!++;
+      }
+    }
+    return changed.map((c, k) => +(c / total[k]!).toFixed(3));
+  };
   return {
     renderer: r.gl ? "webgl" : (r.name ?? "not-webgl"),
     errors,
     png,
+    rowBands: bands("row"),
+    colBands: bands("col"),
     ...(out ? rainStats(base, out) : {}),
   };
 }

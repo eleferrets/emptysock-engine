@@ -188,6 +188,8 @@ export class RainGlassFilter extends Filter {
       height: size.height,
       format: "rgba8unorm",
       scaleMode: "linear",
+      // The alpha channel is a data mask, not opacity: never premultiply it into rgb.
+      alphaMode: "no-premultiply-alpha",
     });
     const tint = options.tint ?? [0.8, 0.85, 0.9];
     const group = new UniformGroup({
