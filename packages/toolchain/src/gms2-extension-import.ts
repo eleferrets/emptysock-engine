@@ -1,7 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import { parseGmsJson } from "./gms2-parse.js";
-import { transpileGML } from "./gms2-transpile.js";
+import { emitScript } from "./gml/emit/index.js";
+import { buildProjectSymbols } from "./gml/project-symbols.js";
 
 // ---------------------------------------------------------------------------
 // GMS2 Extension (`resourceType: "GMExtension"`) import.
@@ -45,7 +46,14 @@ import { transpileGML } from "./gms2-transpile.js";
 // What converts:
 // - A `.gml`-backed file: transpiled through the exact same `transpileGML()`
 //   pipeline `gms2-codegen.ts`'s scripts/object events use, emitting one
-//   real exported TS function per declared `GMExtensionFunction`. GameMaker
+//   real exported TS function per declared `GMExtensionFunction`.
+//   Decision (W6-6): the body is emitted by `emitScript` (AST emitter), but the
+//   exported signature keeps the extension's own parameters and gains no
+//   `_entity`/`_ctx`: extension functions are free functions called from
+//   outside any instance, and this importer has never threaded a calling
+//   instance into them. A body that needs instance state therefore still
+//   references the unbound `_entity`/`_ctx`, exactly as before; it is listed
+//   for manual review like the rest of this output. GameMaker
 //   extension `.gml` source is written as free functions (`function foo(a,
 //   b) { ... }` in 2.3+, or a legacy bare-body-plus-`argumentN` script in
 //   older exports) — the same two shapes `buildScriptModule` already
@@ -227,7 +235,7 @@ export async function convertGms2Extension(
         if (found === undefined) {
           return `export function ${declaredName}(...args: unknown[]): unknown {\n  // TODO: could not locate this function's body in ${filename}\n  return undefined;\n}`;
         }
-        const transpiled = transpileGML(found.body);
+        const transpiled = emitExtensionBody(declaredName, found);
         const paramStr =
           found.params.length > 0
             ? found.params.map((p) => `${p}: unknown`).join(", ")
@@ -296,6 +304,33 @@ export async function convertGms2Extension(
   }
 
   return { modules, nativeFunctions };
+}
+
+/**
+ * Emits one extension function body through the AST emitter. The body is
+ * wrapped back into `function name(params) { ... }` so its parameters resolve
+ * as lexical locals (not instance variables), then only the emitted body text
+ * is kept: the extension module declares its own signature, which has no
+ * `_entity`/`_ctx` parameters (see the header note on calling convention). An
+ * empty project is used because an extension is self-contained GML.
+ */
+function emitExtensionBody(
+  name: string,
+  found: { params: string[]; body: string },
+): string {
+  const text = `function ${name}(${found.params.join(", ")}) {\n${found.body}\n}\n`;
+  const project = buildProjectSymbols({});
+  const out = emitScript(
+    name,
+    { path: `extensions/${name}.gml`, text, kind: "script" },
+    {
+      project,
+      kind: "script",
+      functionId: `ext_${name}`,
+      callables: new Map(),
+    },
+  );
+  return out.functions[0]?.body ?? "";
 }
 
 function moduleBaseName(filename: string): string {
