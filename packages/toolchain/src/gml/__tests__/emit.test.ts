@@ -12,6 +12,7 @@ interface Ctx {
   kind?: EmitOptions["kind"];
   callables?: Record<string, string>;
   spriteFrames?: Record<string, number>;
+  missing?: ProjectInput["missing"];
 }
 
 const OBJECT_FILE = "objects/obj_self/Step_0.gml";
@@ -31,6 +32,7 @@ function emit(text: string, ctx: Ctx = {}): EmitResult {
   }));
   const project = buildProjectSymbols({
     assets: { object: ["obj_self"], ...ctx.assets },
+    ...(ctx.missing ? { missing: ctx.missing } : {}),
     files: [file, ...others],
   });
   return emitEvent(file, {
@@ -489,5 +491,17 @@ describe("emitter: lowering coverage", () => {
       const r = emit(`${name}(1, 2);`);
       expect(r.code, name).not.toContain("gmlUnknown");
     }
+  });
+});
+
+describe("emitter: assets the original project is missing", () => {
+  it("a missing font id resolves to a string and a missing sprite to the placeholder path", () => {
+    const out = code(
+      "draw_set_font(fnt_gone);\ndraw_sprite(spr_gone, 0, x, y);\n",
+      { missing: { font: ["fnt_gone"], sprite: ["spr_gone"] } },
+    );
+    expect(out).toContain('"fnt_gone"');
+    expect(out).toContain("./assets/sprites/__missing_sprite__/frame_0.png");
+    expect(out).not.toMatch(/\bspr_gone\b(?!")/);
   });
 });

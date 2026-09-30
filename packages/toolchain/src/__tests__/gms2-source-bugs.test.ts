@@ -6,17 +6,8 @@ import {
   scanGmlSourceBugs,
   stripGmlCommentsAndStrings,
   buildMissingSpritePng,
-  getGmlUnsetVars,
-  setGmlUnsetVarsByObject,
   type SourceBugContext,
 } from "../gms2-source-bugs.js";
-import {
-  transpileGML,
-  setGmlMissingAssetNames,
-  setGmlObjectFieldNames,
-  setGmlFontNames,
-  setGmlSpriteNames,
-} from "../gms2-transpile.js";
 import { migrationReport } from "../gms2-report.js";
 
 async function project(
@@ -187,50 +178,7 @@ describe("gms2 source bug scan", () => {
   });
 });
 
-describe("source bug emission", () => {
-  it("a missing font id resolves to a string and a missing sprite to the placeholder path", () => {
-    setGmlFontNames(new Set());
-    setGmlSpriteNames(new Set());
-    setGmlMissingAssetNames({
-      fonts: new Set(["fnt_gone"]),
-      sprites: new Set(["spr_gone"]),
-    });
-    try {
-      const out = transpileGML(
-        "draw_set_font(fnt_gone);\ndraw_sprite(spr_gone, 0, x, y);\n",
-      );
-      expect(out).toContain('"fnt_gone"');
-      expect(out).toContain("./assets/sprites/__missing_sprite__/frame_0.png");
-      expect(out).not.toMatch(/\bspr_gone\b(?!")/);
-    } finally {
-      setGmlMissingAssetNames({ fonts: new Set(), sprites: new Set() });
-    }
-  });
-
-  it("an unset variable registered for an object reads through getGmlVar/gmlNum", () => {
-    const out = transpileGML("zm = zoom;\n", [], new Set(["zoom"]));
-    expect(out).toContain(
-      'GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "zoom"))',
-    );
-    setGmlUnsetVarsByObject(new Map([["obj_x", new Set(["zoom"])]]));
-    expect([...getGmlUnsetVars("obj_x")]).toEqual(["zoom"]);
-    expect(getGmlUnsetVars("obj_none").size).toBe(0);
-    setGmlUnsetVarsByObject(new Map());
-  });
-
-  it("a with body that reads and writes another object's variable resolves through the side-table", () => {
-    setGmlObjectFieldNames(new Map([["obj_pShootable", new Set(["hp"])]]));
-    try {
-      const out = transpileGML(
-        "with (instance_place(x, y, obj_pShootable)) {\n  hp--;\n}\n",
-      );
-      expect(out).toContain('"hp"');
-      expect(out).not.toMatch(/^\s*hp--;/m);
-    } finally {
-      setGmlObjectFieldNames(new Map());
-    }
-  });
-
+describe("source bug report", () => {
   it("the migration report names each source bug with its location and what was emitted", () => {
     const md = migrationReport({
       projectName: "P",
@@ -255,7 +203,7 @@ describe("source bug emission", () => {
     });
     expect(md).toContain("## Source bugs (defects in the original project)");
     expect(md).toContain(
-      "**Variable read but never set**: `zoom` at `objects/obj_a/Create_0.gml:11`",
+      "**Variable read, no assignment found**: `zoom` at `objects/obj_a/Create_0.gml:11`",
     );
     expect(md).toContain("**Font not in the project**: `font0`");
     expect(

@@ -1,18 +1,22 @@
 /**
- * Detects real defects in the *original* GameMaker source — reads of names
- * that nothing in the project ever defines — so the importer can name them in
- * `migration-report.md` and emit a defined-safe default instead of code that
- * throws the first time it runs.
+ * Finds names the *original* GameMaker source uses that a text scan of the
+ * project cannot find defined, so the importer can name them in
+ * `migration-report.md` as candidate defects and emit a defined-safe default
+ * instead of code that throws the first time it runs.
  *
- * Three kinds, each proven from the project's own files rather than guessed:
+ * Four kinds (the missing-asset ones are checked against the project's asset
+ * lists; `unset-variable` is a heuristic, see below):
  *
  * - `unset-variable`: an object's own event code reads a bare instance
  *   variable (`hp--`, `random_range(-bullet_tolerance, ...)`, `zm = zoom`)
- *   that nothing in that object's inheritance chain assigns (no event-file
- *   assignment, no Variable Definition) and that is not a known GML built-in,
- *   macro, enum, global or asset. Real GameMaker throws "variable not set
- *   before reading it" when such a line runs; the importer emits reads through
- *   `getGmlVar`/`gmlNum`, so the value is a defined `0`.
+ *   that no scanned file in that object's inheritance chain assigns (no
+ *   event-file assignment, no Variable Definition) and that is not a known GML
+ *   built-in, macro, enum, global or asset. "Read but no assignment found" is
+ *   not proof of a bug: an assignment from another file (a `with` target, an
+ *   instance reference) or at runtime is invisible to a text scan. If it truly
+ *   is never set, GameMaker throws "variable not set before reading it"; the
+ *   importer emits reads through `getGmlVar`/`gmlNum`, so the value is a
+ *   defined `0`.
  * - `missing-font`: `draw_set_font(name)` naming a font that is not in the
  *   project. Emitted as the bare font id string; the engine falls back to its
  *   default font for an unregistered id.
@@ -24,17 +28,15 @@
  * stripped, `with` bodies skipped because their names belong to another
  * object). A GML built-in missing from `GML_BUILTIN_VALUES` would be reported
  * as an unset variable and read as `0`, which is what it would have been
- * (a `ReferenceError`) without this pass; the report says "not defined
- * anywhere in the project", never that the built-in is wrong.
+ * (a `ReferenceError`) without this pass; the report says "no assignment
+ * found", never that the built-in is wrong.
  */
 import fs from "fs/promises";
 import zlib from "zlib";
 import path from "path";
-import {
-  extractGmlWithBodies,
-  scanGmlImplicitArrayVars,
-  scanGmlImplicitVars,
-} from "./gms2-transpile.js";
+import { parse } from "./gml/parser.js";
+import { scanImplicitVarsInText } from "./gml/project-symbols.js";
+import { walk } from "./gml/walk.js";
 import type { SourceBugFinding } from "./gms2-report.js";
 
 /** Path of the generated placeholder sprite (relative to the import output root, forward slashes). */
@@ -299,65 +301,20 @@ export interface SourceBugScan {
   missingObjects: Set<string>;
 }
 
-// Module-level result, installed once per import run (same shape as the other project-wide prescans).
-let _unsetVarsByObject: ReadonlyMap<string, ReadonlySet<string>> = new Map();
-
-export function setGmlUnsetVarsByObject(
-  map: ReadonlyMap<string, ReadonlySet<string>>,
-): void {
-  _unsetVarsByObject = map;
+/** Source text of the body of every `with (...)` statement in `src` (nested ones included). */
+function withBodyTexts(src: string): string[] {
+  const bodies: string[] = [];
+  for (const stmt of parse(src).ast.body)
+    walk(stmt, (n) => {
+      if (n.type === "With") bodies.push(src.slice(n.body.start, n.body.end));
+    });
+  return bodies;
 }
 
-// Instance variables a script assigns (`playerInputDevice[0] = -1;` in an init
-// script). A script runs in its caller's instance scope, so any object may read them.
-let _scriptInstanceVars: {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-} = {
-  scalars: new Set(),
-  arrays: new Set(),
-};
-
-export function setGmlScriptInstanceVars(v: {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-}): void {
-  _scriptInstanceVars = v;
-}
-
-// Every instance variable any object or script assigns: what a script may read.
-let _projectInstanceVars: {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-} = {
-  scalars: new Set(),
-  arrays: new Set(),
-};
-
-export function setGmlProjectInstanceVars(v: {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-}): void {
-  _projectInstanceVars = v;
-}
-
-export function getGmlProjectInstanceVars(): {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-} {
-  return _projectInstanceVars;
-}
-
-export function getGmlScriptInstanceVars(): {
-  scalars: ReadonlySet<string>;
-  arrays: ReadonlySet<string>;
-} {
-  return _scriptInstanceVars;
-}
-
-/** Names `objectName`'s events read without any definition (see the file header). Empty when none. */
-export function getGmlUnsetVars(objectName: string): ReadonlySet<string> {
-  return _unsetVarsByObject.get(objectName) ?? new Set();
+/** Every bare-assignment target (scalar or indexed) in `text`. */
+function implicitNames(text: string): Set<string> {
+  const { scalars, arrays } = scanImplicitVarsInText(text);
+  return new Set([...scalars, ...arrays]);
 }
 
 /** Replaces comments and string/char literals with spaces (newlines kept so line numbers survive). */
@@ -649,12 +606,8 @@ export async function scanGmlSourceBugs(
   // reading it elsewhere is not a defect.
   const withAssigned = new Set<string>();
   for (const f of allFiles) {
-    for (const body of extractGmlWithBodies(
-      stripGmlCommentsAndStrings(f.src),
-    )) {
-      for (const v of scanGmlImplicitVars(body)) withAssigned.add(v);
-      for (const v of scanGmlImplicitArrayVars(body)) withAssigned.add(v);
-    }
+    for (const body of withBodyTexts(f.src))
+      for (const v of implicitNames(body)) withAssigned.add(v);
   }
 
   // Per-object "assigned" sets (own event files), unioned over the chain below.
@@ -666,8 +619,7 @@ export async function scanGmlSourceBugs(
       set = new Set();
       ownAssigned.set(f.owner, set);
     }
-    for (const v of scanGmlImplicitVars(f.src)) set.add(v);
-    for (const v of scanGmlImplicitArrayVars(f.src)) set.add(v);
+    for (const v of implicitNames(f.src)) set.add(v);
   }
 
   const scriptScalars = new Set<string>();
@@ -679,21 +631,10 @@ export async function scanGmlSourceBugs(
       for (const p of (m[1] as string).split(","))
         params.add(p.trim().split("=")[0]?.trim() ?? "");
     }
-    for (const v of scanGmlImplicitVars(f.src))
+    const implicit = scanImplicitVarsInText(f.src);
+    for (const v of implicit.scalars)
       if (!params.has(v) && !/^argument\d*$/.test(v)) scriptScalars.add(v);
-    for (const v of scanGmlImplicitArrayVars(f.src))
-      if (!params.has(v)) scriptArrays.add(v);
-  }
-  setGmlScriptInstanceVars({ scalars: scriptScalars, arrays: scriptArrays });
-  {
-    const pScalars = new Set(scriptScalars);
-    const pArrays = new Set(scriptArrays);
-    for (const f of allFiles) {
-      if (f.isScript) continue;
-      for (const v of scanGmlImplicitVars(f.src)) pScalars.add(v);
-      for (const v of scanGmlImplicitArrayVars(f.src)) pArrays.add(v);
-    }
-    setGmlProjectInstanceVars({ scalars: pScalars, arrays: pArrays });
+    for (const v of implicit.arrays) if (!params.has(v)) scriptArrays.add(v);
   }
 
   const chainAssigned = new Map<string, Set<string>>();
@@ -837,7 +778,7 @@ export async function scanGmlSourceBugs(
         kind: "unset-variable",
         name,
         location: `${file.rel}:${lineOf(file.src, r.offset)}`,
-        detail: `\`${file.owner}\` reads \`${name}\` but neither it nor any parent object ever assigns it (and it is not a Variable Definition, macro, enum, global or known built-in). GameMaker would stop with "variable not set before reading it" if this line ran.`,
+        detail: `\`${file.owner}\` reads \`${name}\`, but no assignment to it was found in that object's events, its parent objects' events, scripts or Variable Definitions (and it is not a macro, enum, global or known built-in). A text scan cannot see an assignment made from another file or at runtime, so it may still be set; if it is not, GameMaker would stop with "variable not set before reading it" when this line ran.`,
         emitted: "a read through getGmlVar/gmlNum, so it is a defined 0",
       });
     }

@@ -180,14 +180,14 @@ export function migrationReport(opts: MigrationReportOptions): string {
       : "";
 
   const bugKindLabel: Record<SourceBugFinding["kind"], string> = {
-    "unset-variable": "Variable read but never set",
+    "unset-variable": "Variable read, no assignment found",
     "missing-font": "Font not in the project",
     "missing-sprite": "Sprite not in the project",
     "missing-object": "Object not in the project",
   };
   const sourceBugSection =
     sourceBugs.length > 0
-      ? `\n## Source bugs (defects in the original project)\n\nThese are problems in the GameMaker source itself, not conversion failures: a name is used that nothing in the project defines. GameMaker would fail (or draw nothing) if the line ran. The import emits a defined-safe default so the converted game does not throw; decide whether each should be fixed in the game.\n\n${sourceBugs
+      ? `\n## Source bugs (defects in the original project)\n\nThese are names the original source uses that the importer's text scan could not find defined anywhere in the project. They are candidates for defects in the GameMaker source, not proven bugs and not conversion failures: an assignment made from another file or at runtime (for example through a with target or a struct or instance reference) can be invisible to a text scan. The import emits a defined-safe default so the converted game does not throw; check each against the original project.\n\n${sourceBugs
           .map(
             (b) =>
               `- **${bugKindLabel[b.kind]}**: \`${b.name}\` at \`${b.location}\`. ${b.detail} Emitted: ${b.emitted}.`,
