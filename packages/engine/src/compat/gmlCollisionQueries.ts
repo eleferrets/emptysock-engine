@@ -65,9 +65,13 @@ import { spriteHalfExtents, type GmlActionContext } from "./gmlActions.js";
  * `undefined` (the closest real value a `Entity | undefined` return type has
  * — see each function's own doc comment).
  */
-export type GmlObjectRef = string;
+export type GmlObjectRef = string | Entity;
 
 function objectRefMatches(other: Entity, obj: GmlObjectRef): boolean {
+  // A specific instance (`id`, `self`, a stored instance reference) matches only itself.
+  // GML can pass an unset variable here, so the reference may be undefined at runtime.
+  if (typeof obj !== "string")
+    return other.eid === (obj as Entity | undefined)?.eid;
   if (obj === "noone") return false;
   if (obj === "all") return true;
   return resolveGmlObjectType(other) === obj;
@@ -190,7 +194,8 @@ function eachOtherMatching(
   visit: (other: Entity, transform: { x: number; y: number }) => void,
 ): void {
   ctx.scene.each(Transform, (t, other) => {
-    if (other.eid === exclude.eid) return;
+    // Naming the calling instance itself (`position_meeting(x, y, id)`) tests that instance.
+    if (other.eid === exclude.eid && typeof obj === "string") return;
     if (!objectRefMatches(other, obj)) return;
     visit(other, t);
   });

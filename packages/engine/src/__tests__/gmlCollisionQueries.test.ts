@@ -81,6 +81,16 @@ describe("gmlCollisionQueries — GameMaker's hypothetical-position query family
     expect(instance_place(player, ctx, 500, 500, "obj_wall")).toBeUndefined();
   });
 
+  it("position_meeting with a specific instance tests that instance, including the caller itself", () => {
+    const scene = new Scene();
+    const ctx = makeCtx(scene);
+    const button = spawnAt(scene, 0, 0);
+    const other = spawnAt(scene, 100, 0, "obj_wall");
+    expect(position_meeting(button, ctx, 4, 0, button)).toBe(true);
+    expect(position_meeting(button, ctx, 100, 0, button)).toBe(false);
+    expect(position_meeting(button, ctx, 100, 0, other)).toBe(true);
+  });
+
   it("position_meeting checks a single point, distinct from place_meeting's whole-mask check", () => {
     const scene = new Scene();
     const ctx = makeCtx(scene);

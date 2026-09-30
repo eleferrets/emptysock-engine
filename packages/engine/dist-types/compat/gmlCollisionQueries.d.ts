@@ -10,7 +10,7 @@ import { type GmlActionContext } from "./gmlActions.js";
  * `undefined` (the closest real value a `Entity | undefined` return type has
  * — see each function's own doc comment).
  */
-export type GmlObjectRef = string;
+export type GmlObjectRef = string | Entity;
 /** GML `instance_exists(obj)` — real, honest scene-wide existence check. `all` always returns `true` if the scene has at least one `Transform`-bearing entity; `noone` always returns `false`. */
 export declare function instance_exists(
   entity: Entity,

@@ -338,7 +338,7 @@ describe("gmlParticles — part_particles_clear / part_system_destroy teardown",
     part_particles_create(ctx, systemId, 0, 0, typeId, 2);
     const emitter = _getParticleSystemEmitters(systemId)?.get(typeId);
 
-    part_system_destroy(systemId, ctx);
+    part_system_destroy(ctx, systemId);
     expect(mount.unmountParticles).toHaveBeenCalledWith(emitter);
     expect(part_system_exists(systemId)).toBe(false);
     expect(_getParticleSystemEmitters(systemId)).toBeUndefined();
@@ -347,7 +347,7 @@ describe("gmlParticles — part_particles_clear / part_system_destroy teardown",
   it("part_system_destroy on an unknown id is an honest no-op with a warning", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctx = makeCtx();
-    expect(() => part_system_destroy(999999, ctx)).not.toThrow();
+    expect(() => part_system_destroy(ctx, 999999)).not.toThrow();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });

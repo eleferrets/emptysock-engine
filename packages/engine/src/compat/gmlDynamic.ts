@@ -64,7 +64,9 @@ const warned = new Set<string>();
  * the rest of the event keeps running (GameMaker would refuse to compile;
  * the import report lists every such name).
  */
-export function gmlUnknown(name: string): (...args: unknown[]) => undefined {
+// The call does nothing and yields `undefined`, but is typed `any`: generated code uses the result as a number, string or instance.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function gmlUnknown(name: string): (...args: unknown[]) => any {
   return () => {
     if (!warned.has(name)) {
       warned.add(name);

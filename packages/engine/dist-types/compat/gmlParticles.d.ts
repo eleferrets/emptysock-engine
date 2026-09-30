@@ -202,14 +202,14 @@ export declare function part_system_create(): number;
 /** GMS2 `part_system_exists(ind)`. */
 export declare function part_system_exists(ind: number): boolean;
 /**
- * GMS2 `part_system_destroy(ind)` — unmounts (via `ctx.particles`, if given)
+ * GMS2 `part_system_destroy(ind)` (`ctx` first like every threaded `part_*`) — unmounts (via `ctx.particles`, if given)
  * and clears every emitter this system ever spawned, then frees the handle.
  * Unknown id: honest no-op + warning, matching every other `part_*` function
  * here.
  */
 export declare function part_system_destroy(
-  ind: number,
   ctx: GmlParticleContext,
+  ind: number,
 ): void;
 /**
  * GMS2 `part_system_position(ind, x, y)` — sets the system's own origin

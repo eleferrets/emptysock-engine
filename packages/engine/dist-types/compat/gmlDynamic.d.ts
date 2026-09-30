@@ -36,6 +36,4 @@ export declare function script_execute(
  * the rest of the event keeps running (GameMaker would refuse to compile;
  * the import report lists every such name).
  */
-export declare function gmlUnknown(
-  name: string,
-): (...args: unknown[]) => undefined;
+export declare function gmlUnknown(name: string): (...args: unknown[]) => any;
