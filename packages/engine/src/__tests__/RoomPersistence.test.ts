@@ -148,8 +148,16 @@ describe("room-level persistence", () => {
     await runtime.loadRoom("b");
     expect(game.roomCache.keys()).toEqual(["a"]);
     game.globals.set("score", 3);
+    actions.gmlStatics["fn:0"] = 5;
+    let moduleStateReset = false;
+    const unregister = actions.registerGmlGameStateReset(() => {
+      moduleStateReset = true;
+    });
     actions.game_restart(dummy, { ...ctx, currentRoom: "b" } as never);
+    unregister();
     await settle();
+    expect(actions.gmlStatics["fn:0"]).toBeUndefined();
+    expect(moduleStateReset).toBe(true);
     expect(game.roomCache.keys()).toEqual([]);
     // GameMaker: globals are not re-initialised by game_restart.
     expect(game.globals.get("score")).toBe(3);

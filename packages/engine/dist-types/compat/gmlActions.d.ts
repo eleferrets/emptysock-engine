@@ -194,6 +194,16 @@ export declare function importGmlActionState(
  */
 export declare const gmlStatics: Record<string, unknown>;
 /**
+ * Registers module-level game state to clear when the game restarts
+ * (`game_restart()`); returns the unregister function. `gmlStatics` is always
+ * cleared; a game's own module-level variables opt in through this.
+ */
+export declare function registerGmlGameStateReset(
+  reset: () => void,
+): () => void;
+/** Clears every `static` slot and runs the registered resetters; what `game_restart()` does to process-global state. */
+export declare function resetGmlGameState(): void;
+/**
  * GM8.1 "Move Fixed" — set this entity's velocity from a 9-bit compass
  * bitmask (see `MOVE_DIRECTION_BITS`) and a speed, in pixels/step. Applied
  * every step by `gmlActionsStep` (codegen calls this once per generated
@@ -349,9 +359,9 @@ export declare function room_restart(
  * documents ("persistent room ... only being reset to the start state when the
  * game is restarted"; "all persistent objects will be removed"). Global
  * variables are deliberately NOT reset: the manual states they "will not be
- * re-initialised unless explicitly coded as such". Remaining gap: process-
- * global state such as `gmlStatics` and a game's own module-level variables is
- * not reset.
+ * re-initialised unless explicitly coded as such". `static` slots are cleared
+ * (`resetGmlGameState`), along with anything registered through
+ * `registerGmlGameStateReset`.
  */
 export declare function game_restart(
   entity: Entity,

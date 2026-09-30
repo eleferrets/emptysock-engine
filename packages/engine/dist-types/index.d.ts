@@ -517,6 +517,8 @@ export {
   gmlActionsStep,
   clearGmlActionState,
   gmlStatics,
+  registerGmlGameStateReset,
+  resetGmlGameState,
   getGmlSpeed,
   setGmlSpeed,
   getGmlDirection,

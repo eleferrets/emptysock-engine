@@ -27,6 +27,7 @@ import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { Meta } from "../components/Meta.js";
 import { getPhysicsBody } from "../components/PhysicsBody.js";
+import { GmlBehaviorState } from "../components/GmlBehavior.js";
 import { getOrCreate, getOrCreateMapEntry } from "../internal/scoped.js";
 import type { GmlDrawTarget } from "./gml.js";
 import { resolveGmlObjectType } from "../systems/GmlCollision.js";
@@ -350,6 +351,24 @@ export function importGmlActionState(
  */
 export const gmlStatics: Record<string, unknown> = {};
 
+const gameStateResetters = new Set<() => void>();
+
+/**
+ * Registers module-level game state to clear when the game restarts
+ * (`game_restart()`); returns the unregister function. `gmlStatics` is always
+ * cleared; a game's own module-level variables opt in through this.
+ */
+export function registerGmlGameStateReset(reset: () => void): () => void {
+  gameStateResetters.add(reset);
+  return () => gameStateResetters.delete(reset);
+}
+
+/** Clears every `static` slot and runs the registered resetters; what `game_restart()` does to process-global state. */
+export function resetGmlGameState(): void {
+  for (const key of Object.keys(gmlStatics)) delete gmlStatics[key];
+  for (const reset of gameStateResetters) reset();
+}
+
 /**
  * GM8.1 "Move Fixed" — set this entity's velocity from a 9-bit compass
  * bitmask (see `MOVE_DIRECTION_BITS`) and a speed, in pixels/step. Applied
@@ -636,9 +655,9 @@ export function room_restart(entity: Entity, ctx: GmlActionContext): void {
  * documents ("persistent room ... only being reset to the start state when the
  * game is restarted"; "all persistent objects will be removed"). Global
  * variables are deliberately NOT reset: the manual states they "will not be
- * re-initialised unless explicitly coded as such". Remaining gap: process-
- * global state such as `gmlStatics` and a game's own module-level variables is
- * not reset.
+ * re-initialised unless explicitly coded as such". `static` slots are cleared
+ * (`resetGmlGameState`), along with anything registered through
+ * `registerGmlGameStateReset`.
  */
 export function game_restart(entity: Entity, ctx: GmlActionContext): void {
   const order = ctx.roomOrder;
@@ -646,6 +665,7 @@ export function game_restart(entity: Entity, ctx: GmlActionContext): void {
     warnMissingRoomWiring("game_restart");
     return;
   }
+  resetGmlGameState();
   action_another_room(entity, ctx, order[0] ?? "", "game");
 }
 
@@ -971,6 +991,19 @@ export function instance_change(
   if (typeof newTexturePath === "string") {
     const sprite = entity.get(Sprite);
     if (sprite !== undefined) sprite.texturePath = newTexturePath;
+  }
+  // Future events dispatch through the new object's compiled module; an
+  // object with no behavior of its own leaves the instance without one.
+  if (prefab !== undefined) {
+    const behaviorId = prefab.components.find((c) => c.def === GmlBehaviorState)
+      ?.overrides?.["behaviorId"];
+    const state = entity.get(GmlBehaviorState);
+    if (typeof behaviorId === "string" && behaviorId !== "") {
+      if (state !== undefined) state.behaviorId = behaviorId;
+      else entity.add(GmlBehaviorState, { behaviorId });
+    } else if (state !== undefined) {
+      entity.remove(GmlBehaviorState);
+    }
   }
 }
 

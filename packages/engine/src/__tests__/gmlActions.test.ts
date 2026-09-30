@@ -4,6 +4,7 @@ import { Game, defineScene } from "../Game.js";
 import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { Meta } from "../components/Meta.js";
+import { GmlBehaviorState } from "../components/GmlBehavior.js";
 import { definePrefab } from "../Prefab.js";
 import {
   action_move,
@@ -252,6 +253,25 @@ describe("gmlActions — GM8.1 DnD action compat", () => {
     expect(defined(entity.get(Sprite)).texturePath).toBe(
       "./assets/sprites/obj_hitSpark/frame_0.png",
     );
+  });
+
+  it("instance_change() re-points the behavior module at the target object's, or drops it when the target has none", () => {
+    const scene = new Scene();
+    const entity = scene.spawn();
+    entity.add(GmlBehaviorState, { behaviorId: "obj_old" });
+    const ctx: GmlActionContext = {
+      scene,
+      prefabs: {
+        obj_new: definePrefab("obj_new", [
+          { def: GmlBehaviorState, overrides: { behaviorId: "obj_new" } },
+        ]),
+        obj_inert: definePrefab("obj_inert", [{ def: Sprite }]),
+      },
+    };
+    instance_change(entity, ctx, "obj_new", false);
+    expect(defined(entity.get(GmlBehaviorState)).behaviorId).toBe("obj_new");
+    instance_change(entity, ctx, "obj_inert", false);
+    expect(entity.get(GmlBehaviorState)).toBeUndefined();
   });
 
   it("instance_change() with no matching prefab still stamps identity, leaves Sprite alone", () => {
