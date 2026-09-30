@@ -170,6 +170,7 @@ export const COMPAT_PARAM_KINDS: Readonly<Record<string, string>> = {
   instance_position: "number,number,other",
   irandom: "number",
   irandom_range: "number,number",
+  isVkDown: "other,number,other",
   json_decode: "string",
   keyboard_check: "number",
   keyboard_check_pressed: "number",
