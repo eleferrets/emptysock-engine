@@ -303,6 +303,8 @@ export declare class RenderSystem {
    * simultaneous cameras — this method does not attempt that profiling.
    */
   renderMultiCamera(viewports: readonly CameraViewport[]): void;
+  /** `true` once `init()` has built the pixi renderer. */
+  get hasRenderer(): boolean;
   get renderer(): Renderer;
   get stage(): Container;
   get canvas(): HTMLCanvasElement;

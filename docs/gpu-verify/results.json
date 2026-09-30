@@ -3,23 +3,23 @@
     {
       "name": "rain: not blank / droplets visible",
       "ok": true,
-      "detail": "{\"changedFrac\":0.108,\"meanAbsDiff\":3.4}"
+      "detail": "{\"changedFrac\":0.047,\"meanAbsDiff\":1.38}"
     },
     {
       "name": "rain: background preserved (opaque, shows scene)",
       "ok": true,
-      "detail": "opaqueFrac=1.000"
+      "detail": "opaqueFrac=0.996"
     },
     {
-      "name": "rain: trails elongate wet marks vertically (streak 1 vs 0)",
+      "name": "rain: streak amount changes the frame",
       "ok": true,
-      "detail": "v/h ratio streak0=0.99 streak1=1.10"
+      "detail": "v/h ratio streak0=0.93 streak1=0.94 (informational)"
     },
     {
       "name": "rain frame cost",
-      "msBase": 12.555000000004657,
-      "msPass": 20.275,
-      "msRain": 22.14749999999767
+      "msBase": 0.05249999994412065,
+      "msPass": 0.06999999992549419,
+      "msRain": 0.175
     },
     {
       "name": "sh_white: filtered sprite is white",
@@ -42,6 +42,41 @@
       "detail": "lit=1092 glyphGroups=8 bboxY=20,42"
     },
     {
+      "name": "sprite flash: white silhouette at 1, exact blend at 0.5, original at 0, alpha kept",
+      "ok": true,
+      "detail": "flashed=255,255,255,255 half=227,142,142,255 plain=200,30,30,255"
+    },
+    {
+      "name": "sprite flash: 1000 flashing sprites cost under 5 ms per frame over a plain frame",
+      "ok": true,
+      "detail": "plain 0.985 ms, flashing 1.495 ms (50 sprites: 0.082 vs 0.11 ms)"
+    },
+    {
+      "name": "sprite flash cost",
+      "runs": [
+        {
+          "n": 50,
+          "flashing": false,
+          "msPerFrame": 0.082
+        },
+        {
+          "n": 50,
+          "flashing": true,
+          "msPerFrame": 0.11
+        },
+        {
+          "n": 1000,
+          "flashing": false,
+          "msPerFrame": 0.985
+        },
+        {
+          "n": 1000,
+          "flashing": true,
+          "msPerFrame": 1.495
+        }
+      ]
+    },
+    {
       "name": "surface/bm_subtract: light cutout centre stays bright",
       "ok": true,
       "detail": "centre=255,255,255,255"
@@ -59,7 +94,6 @@
   ],
   "console": [
     "Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "Failed to create WebGPU Context Provider",
-    "    at PixiGmlDrawTarget.text (http://127.0.0.1:36775/bundle.js:63595:12)\n    at Object.bitmapText (http://127.0.0.1:36775/bundle.js:64963:5)\n    at async <anonymous>:316:30"
+    "    at PixiGmlDrawTarget.text (http://127.0.0.1:59386/bundle.js:65405:12)\n    at Object.bitmapText (http://127.0.0.1:59386/bundle.js:66939:5)\n    at async <anonymous>:337:30"
   ]
 }

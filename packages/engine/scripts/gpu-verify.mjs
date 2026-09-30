@@ -210,6 +210,25 @@ else {
     `lit=${b.lit} glyphGroups=${b.glyphGroups} bboxY=${b.bboxY}`,
   );
 }
+const fl = await run("flashBench", [50, 1000]);
+const near = (a, b) => a.every((v, k) => Math.abs(v - b[k]) <= 2);
+check(
+  "sprite flash: white silhouette at 1, exact blend at 0.5, original at 0, alpha kept",
+  near(fl.flashed.slice(0, 4), [255, 255, 255, 255]) &&
+    near(fl.half.slice(0, 4), [227, 142, 142, 255]) &&
+    near(fl.plain.slice(0, 4), [200, 30, 30, 255]) &&
+    fl.flashed[11] === 0 &&
+    fl.half[11] === 0,
+  `flashed=${fl.flashed.slice(0, 4)} half=${fl.half.slice(0, 4)} plain=${fl.plain.slice(0, 4)}`,
+);
+const cost = (n, f) =>
+  fl.runs.find((x) => x.n === n && x.flashing === f).msPerFrame;
+check(
+  "sprite flash: 1000 flashing sprites cost under 5 ms per frame over a plain frame",
+  cost(1000, true) - cost(1000, false) < 5,
+  `plain ${cost(1000, false)} ms, flashing ${cost(1000, true)} ms (50 sprites: ${cost(50, false)} vs ${cost(50, true)} ms)`,
+);
+results.push({ name: "sprite flash cost", runs: fl.runs });
 const d = await run("darkness");
 save("surface-darkness.png", d.png);
 check(

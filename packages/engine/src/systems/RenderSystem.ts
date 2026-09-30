@@ -927,6 +927,11 @@ export class RenderSystem {
     this._renderer.render(this._multiCameraCompositor);
   }
 
+  /** `true` once `init()` has built the pixi renderer. */
+  get hasRenderer(): boolean {
+    return this._renderer !== null;
+  }
+
   get renderer(): Renderer {
     if (this._renderer === null)
       throw new Error("RenderSystem not initialized");

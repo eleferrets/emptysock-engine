@@ -63,3 +63,19 @@ Harness fixes found on the way: readbacks are in device pixels (the harness now 
 holds at a device pixel ratio of 2); the old "trails elongate" check compared wet-mark run lengths and failed
 identically on software and on the real GPU, so it is now a same-seed frame difference with the ratios logged
 for information. Whether trails read as vertical streaks is a visual call.
+
+### Sprite flash cost (fixed)
+
+`SpriteFlash` was a pooled `ColorOverlayFilter` per flashing sprite, one extra render pass each. Measured on the
+M4 Pro at 640x360, GPU-finished, per frame:
+
+| Flashing sprites | Filter, WebGL | Filter, WebGPU | Silhouette overlay, WebGL | Silhouette overlay, WebGPU |
+| ---------------- | ------------- | -------------- | ------------------------- | -------------------------- |
+| 50               | 3.7 ms        | 9.5 ms         | 0.11 ms                   | 0.19 ms                    |
+| 200              | 59.6 ms       | 36.9 ms        | 0.29 ms                   | 0.50 ms                    |
+| 1000             | 323 ms        | 184 ms         | 1.2 ms                    | 1.8 ms                     |
+
+A flash is now a second, batched sprite over the original, using a white silhouette texture built once per source
+texture and tinted the flash colour at `amount` alpha. The pixels are the same blend the filter produced:
+white at 1, (227, 142, 142) for a (200, 30, 30) pixel at 0.5, the original at 0, transparent texels stay transparent.
+The filter stays as the fallback while a silhouette cannot be built (no renderer yet, texture still loading).

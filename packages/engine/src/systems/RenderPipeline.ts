@@ -40,7 +40,7 @@ import type { SceneRenderer } from "../Game.js";
 import { Sprite, resolveSpriteFramePath } from "../components/Sprite.js";
 import { SpriteFlash } from "../components/SpriteFlash.js";
 import { FlashFilterPool } from "./SpriteFlashSystem.js";
-import type { ColorOverlayFilter } from "pixi-filters";
+import { ColorOverlayFilter } from "pixi-filters";
 import { Transform } from "../components/Transform.js";
 import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
@@ -1375,9 +1375,64 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   /**
-   * Check a pooled `ColorOverlayFilter` out while the entity's `SpriteFlash.amount`
-   * is above 0, return it to the pool otherwise. `_applySpriteShader` (called
-   * right after) attaches/detaches it, after any shader filter.
+   * One white silhouette texture per source texture, built on first flash.
+   * A flash is then a second, batched sprite over the original (tinted the
+   * flash colour at `amount` alpha), which costs a quad instead of the extra
+   * render pass a filter needs per sprite.
+   */
+  private readonly _silhouettes = new WeakMap<Texture, Texture>();
+  private readonly _flashOverlays = new WeakMap<PixiSprite, PixiSprite>();
+  private readonly _overlayPool: PixiSprite[] = [];
+  private _liveOverlays = 0;
+
+  /** Flash overlays currently attached. */
+  get activeFlashOverlayCount(): number {
+    return this._liveOverlays;
+  }
+
+  /** The white silhouette of `texture` (alpha kept), or `undefined` while it cannot be built. */
+  private _silhouetteOf(texture: Texture): Texture | undefined {
+    const cached = this._silhouettes.get(texture);
+    if (cached !== undefined) return cached;
+    if (
+      !this._render.hasRenderer ||
+      texture === Texture.EMPTY ||
+      texture === Texture.WHITE ||
+      texture.orig.width <= 0 ||
+      texture.orig.height <= 0
+    )
+      return undefined;
+    const target = RenderTexture.create({
+      width: texture.orig.width,
+      height: texture.orig.height,
+      resolution: texture.source.resolution,
+    });
+    const source = new PixiSprite(texture);
+    const filter = new ColorOverlayFilter();
+    filter.color = 0xffffff;
+    filter.alpha = 1;
+    source.filters = [filter];
+    this._render.renderer.render({ container: source, target, clear: true });
+    source.destroy();
+    filter.destroy();
+    this._silhouettes.set(texture, target);
+    return target;
+  }
+
+  private _releaseFlashOverlay(pixiSprite: PixiSprite): void {
+    const overlay = this._flashOverlays.get(pixiSprite);
+    if (overlay === undefined) return;
+    this._flashOverlays.delete(pixiSprite);
+    pixiSprite.removeChild(overlay);
+    this._liveOverlays--;
+    this._overlayPool.push(overlay);
+  }
+
+  /**
+   * While the entity's `SpriteFlash.amount` is above 0 the sprite shows a
+   * silhouette overlay; the pooled `ColorOverlayFilter` remains the fallback
+   * for a texture whose silhouette cannot be built (no renderer yet, a
+   * texture still loading). `_applySpriteShader` attaches/detaches the filter.
    */
   private _resolveSpriteFlash(
     pixiSprite: PixiSprite,
@@ -1388,12 +1443,33 @@ export class RenderPipeline implements SceneRenderer {
       : undefined;
     const held = this._flashFilters.get(pixiSprite);
     if (flash === undefined || !(flash.amount > 0)) {
+      this._releaseFlashOverlay(pixiSprite);
       if (held !== undefined) {
         this._flashFilters.delete(pixiSprite);
         this._flashPool.release(held);
       }
       return;
     }
+    const silhouette = this._silhouetteOf(pixiSprite.texture);
+    if (silhouette !== undefined) {
+      if (held !== undefined) {
+        this._flashFilters.delete(pixiSprite);
+        this._flashPool.release(held);
+      }
+      let overlay = this._flashOverlays.get(pixiSprite);
+      if (overlay === undefined) {
+        overlay = this._overlayPool.pop() ?? new PixiSprite(silhouette);
+        this._flashOverlays.set(pixiSprite, overlay);
+        pixiSprite.addChild(overlay);
+        this._liveOverlays++;
+      }
+      if (overlay.texture !== silhouette) overlay.texture = silhouette;
+      overlay.anchor.copyFrom(pixiSprite.anchor);
+      overlay.tint = flash.color;
+      overlay.alpha = flash.amount;
+      return;
+    }
+    this._releaseFlashOverlay(pixiSprite);
     if (held !== undefined) {
       this._flashPool.configure(held, flash.color, flash.amount);
       return;
@@ -1815,6 +1891,7 @@ export class RenderPipeline implements SceneRenderer {
   private _removeSprite(tracking: SceneTracking, eid: number): void {
     const pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) return;
+    this._releaseFlashOverlay(pixiSprite);
     const held = this._flashFilters.get(pixiSprite);
     if (held !== undefined) {
       this._flashFilters.delete(pixiSprite);

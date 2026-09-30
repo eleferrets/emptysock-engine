@@ -16,6 +16,7 @@ import {
   Scene,
   Transform,
   Sprite,
+  SpriteFlash,
   FontRegistry,
   RainGlassFilter,
   createCustomShaderFilter,
@@ -486,6 +487,7 @@ export async function probe(): Promise<unknown> {
   darkness,
   rendererFilterProbe,
   mapUploadProbe,
+  flashBench,
 };
 void PixiSprite;
 
@@ -627,5 +629,109 @@ export async function rendererFilterProbe(
     rowBands: bands("row"),
     colBands: bands("col"),
     ...(out ? rainStats(base, out) : {}),
+  };
+}
+
+// Waits for the GPU to finish the submitted work (WebGL finish / WebGPU queue drain).
+async function gpuDone(p: RenderPipeline): Promise<void> {
+  const r = p.renderer as unknown as {
+    gl?: WebGL2RenderingContext;
+    gpu?: { device: { queue: { onSubmittedWorkDone(): Promise<void> } } };
+  };
+  if (r.gl) r.gl.finish();
+  else if (r.gpu) await r.gpu.device.queue.onSubmittedWorkDone();
+}
+
+// SpriteFlash cost and correctness: N sprites, all flashing vs none, GPU-finished
+// frame time, plus a pixel check (white silhouette at amount 1, original at 0).
+export async function flashBench(
+  counts: number[] = [50, 200, 1000],
+): Promise<Record<string, unknown>> {
+  W = 640;
+  H = 360;
+  const runs: Record<string, unknown>[] = [];
+  let renderer = "";
+  for (const n of counts) {
+    for (const flashing of [false, true]) {
+      const p = await mkPipeline(640, 360, {
+        textureLoader: () => Promise.resolve(solidTexture()),
+      });
+      renderer = (p.renderer as unknown as { gl?: unknown }).gl
+        ? "webgl"
+        : "webgpu";
+      const s = new Scene();
+      for (let i = 0; i < n; i++) {
+        const e = s.spawn();
+        e.add(Transform, {
+          x: 20 + ((i * 37) % 600),
+          y: 20 + ((i * 53) % 320),
+        });
+        e.add(Sprite, { texturePath: "t.png" });
+        if (flashing)
+          e.add(SpriteFlash, {
+            color: 0xffffff,
+            amount: 1,
+            peak: 1,
+            active: true,
+          });
+      }
+      p.syncEntities(s);
+      await new Promise((r) => setTimeout(r, 100));
+      for (let i = 0; i < 10; i++) p.renderFrame(s);
+      await gpuDone(p);
+      const frames = 60;
+      const t0 = performance.now();
+      for (let i = 0; i < frames; i++) {
+        p.syncEntities(s);
+        p.renderFrame(s);
+      }
+      await gpuDone(p);
+      runs.push({
+        n,
+        flashing,
+        msPerFrame: +((performance.now() - t0) / frames).toFixed(3),
+      });
+    }
+  }
+  // Pixel check: one sprite, amount 1 vs 0.
+  const probe = async (amount: number): Promise<number[]> => {
+    W = 128;
+    H = 128;
+    const p = await mkPipeline(128, 128, {
+      textureLoader: () => Promise.resolve(solidTexture()),
+    });
+    const s = new Scene();
+    const e = s.spawn();
+    e.add(Transform, { x: 64, y: 64 });
+    e.add(Sprite, { texturePath: "t.png" });
+    e.add(SpriteFlash, {
+      color: 0xffffff,
+      amount,
+      peak: 1,
+      active: amount > 0,
+    });
+    p.syncEntities(s);
+    await new Promise((r) => setTimeout(r, 100));
+    p.renderFrame(s);
+    const img = px(p, p.renderer.lastObjectRendered as Container);
+    const k = img.width / 128;
+    const at = (x: number, y: number): number[] => {
+      const i = (Math.floor(y * k) * img.width + Math.floor(x * k)) * 4;
+      return [
+        img.data[i]!,
+        img.data[i + 1]!,
+        img.data[i + 2]!,
+        img.data[i + 3]!,
+      ];
+    };
+    // Sprite 64x64 centred: red half left of x=64, transparent right of the blue strip.
+    return [...at(50, 64), ...at(72, 64), ...at(120, 64)];
+  };
+  return {
+    renderer,
+    runs,
+    flashed: await probe(1),
+    half: await probe(0.5),
+    plain: await probe(0),
   };
 }

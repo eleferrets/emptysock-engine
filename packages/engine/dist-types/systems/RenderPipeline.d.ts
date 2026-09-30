@@ -516,9 +516,25 @@ export declare class RenderPipeline implements SceneRenderer {
   /** Flash filters currently attached (pool checked out). */
   get activeFlashFilterCount(): number;
   /**
-   * Check a pooled `ColorOverlayFilter` out while the entity's `SpriteFlash.amount`
-   * is above 0, return it to the pool otherwise. `_applySpriteShader` (called
-   * right after) attaches/detaches it, after any shader filter.
+   * One white silhouette texture per source texture, built on first flash.
+   * A flash is then a second, batched sprite over the original (tinted the
+   * flash colour at `amount` alpha), which costs a quad instead of the extra
+   * render pass a filter needs per sprite.
+   */
+  private readonly _silhouettes;
+  private readonly _flashOverlays;
+  private readonly _overlayPool;
+  private _liveOverlays;
+  /** Flash overlays currently attached. */
+  get activeFlashOverlayCount(): number;
+  /** The white silhouette of `texture` (alpha kept), or `undefined` while it cannot be built. */
+  private _silhouetteOf;
+  private _releaseFlashOverlay;
+  /**
+   * While the entity's `SpriteFlash.amount` is above 0 the sprite shows a
+   * silhouette overlay; the pooled `ColorOverlayFilter` remains the fallback
+   * for a texture whose silhouette cannot be built (no renderer yet, a
+   * texture still loading). `_applySpriteShader` attaches/detaches the filter.
    */
   private _resolveSpriteFlash;
   /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
