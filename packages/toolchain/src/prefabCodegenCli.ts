@@ -5,6 +5,7 @@ import type {
   ComponentDef,
   ComponentLookup,
   PrefabFile,
+  PrefabFileV1,
 } from "@emptysock/engine";
 import * as EngineComponents from "@emptysock/engine";
 import { generatePrefabTypes } from "./prefabCodegen.js";
@@ -107,8 +108,8 @@ export async function runCodegenPrefabs(
     };
   }
 
-  const files: PrefabFile[] = prefabPaths.map(
-    (p) => JSON.parse(fs.readFileSync(p, "utf8")) as PrefabFile,
+  const files: (PrefabFile | PrefabFileV1)[] = prefabPaths.map(
+    (p) => JSON.parse(fs.readFileSync(p, "utf8")) as PrefabFile | PrefabFileV1,
   );
 
   const registry = await buildComponentRegistry(options.componentModules);

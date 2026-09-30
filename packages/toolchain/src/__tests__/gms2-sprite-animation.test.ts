@@ -144,10 +144,10 @@ describe("buildObjectPrefabJSON — seeds frameCount/frameSpeed for a multi-fram
 
     const raw = await buildObjectPrefabJSON("obj_dad", dir);
     const prefab = JSON.parse(raw) as {
-      components: { component: string; overrides?: Record<string, unknown> }[];
+      components: Record<string, { data?: Record<string, unknown> }>;
     };
-    const spriteComp = prefab.components.find((c) => c.component === "Sprite");
-    expect(spriteComp?.overrides).toEqual({
+    const spriteComp = prefab.components["Sprite"];
+    expect(spriteComp?.data).toEqual({
       texturePath: "./assets/sprites/spr_dad_walk/frame_{n}.png",
       frameCount: 5,
       frameSpeed: 10,
@@ -168,10 +168,10 @@ describe("buildObjectPrefabJSON — seeds frameCount/frameSpeed for a multi-fram
     );
     const raw = await buildObjectPrefabJSON("obj_crate", dir);
     const prefab = JSON.parse(raw) as {
-      components: { component: string; overrides?: Record<string, unknown> }[];
+      components: Record<string, { data?: Record<string, unknown> }>;
     };
-    const spriteComp = prefab.components.find((c) => c.component === "Sprite");
-    expect(spriteComp?.overrides).toEqual({
+    const spriteComp = prefab.components["Sprite"];
+    expect(spriteComp?.data).toEqual({
       texturePath: "./assets/sprites/spr_crate/frame_0.png",
       width: 16,
       height: 16,
@@ -212,9 +212,9 @@ describe("importGMS2Project — end-to-end multi-frame sprite import", () => {
       "utf-8",
     );
     const prefab = JSON.parse(prefabRaw) as {
-      components: { component: string; overrides?: Record<string, unknown> }[];
+      components: Record<string, { data?: Record<string, unknown> }>;
     };
-    const spriteComp = prefab.components.find((c) => c.component === "Sprite");
-    expect(spriteComp?.overrides?.["frameCount"]).toBe(4);
+    const spriteComp = prefab.components["Sprite"];
+    expect(spriteComp?.data?.["frameCount"]).toBe(4);
   });
 });

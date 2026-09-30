@@ -2,6 +2,7 @@ import type {
   ComponentDef,
   ComponentLookup,
   PrefabFile,
+  PrefabFileV1,
 } from "@emptysock/engine";
 import { parsePrefabFiles, prefabComponentDefs } from "@emptysock/engine";
 
@@ -84,7 +85,7 @@ export interface PrefabCodegenOptions {
  * for the exact shape asserted.
  */
 export function generatePrefabTypes(
-  files: readonly PrefabFile[],
+  files: readonly (PrefabFile | PrefabFileV1)[],
   lookup: ComponentLookup,
   options: PrefabCodegenOptions = {},
 ): string {

@@ -67,11 +67,9 @@ describe("GMS2 nineSlice metadata", () => {
     const prefab = JSON.parse(
       await buildObjectPrefabJSON("obj_panel", root),
     ) as {
-      components: { component: string; overrides?: Record<string, unknown> }[];
+      components: Record<string, { data?: Record<string, unknown> }>;
     };
-    const o = prefab.components.find(
-      (c) => c.component === "Sprite",
-    )?.overrides;
+    const o = prefab.components["Sprite"]?.data;
     expect(o).toMatchObject({
       sliceMode: 1,
       sliceLeft: 16,

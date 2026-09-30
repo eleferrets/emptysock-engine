@@ -119,14 +119,21 @@ function collectPrefabSprites(
     try {
       const f = JSON.parse(raw) as {
         prefabName?: string;
-        components?: {
-          component: string;
-          overrides?: Record<string, unknown>;
-        }[];
+        components?:
+          | Record<string, { data?: Record<string, unknown> }>
+          | { component: string; overrides?: Record<string, unknown> }[];
       };
-      const sp = f.components?.find((c) => c.component === "Sprite");
-      if (typeof f.prefabName === "string" && sp !== undefined) {
-        out.set(f.prefabName, sp.overrides ?? {});
+      // Current shape: name-keyed map of `{ v?, data }`. Legacy: array of
+      // `{ component, overrides }`.
+      const comps = f.components;
+      const sp = Array.isArray(comps)
+        ? comps.find((c) => c.component === "Sprite")?.overrides
+        : comps?.["Sprite"]?.data;
+      if (typeof f.prefabName === "string" && comps !== undefined) {
+        const has = Array.isArray(comps)
+          ? comps.some((c) => c.component === "Sprite")
+          : comps["Sprite"] !== undefined;
+        if (has) out.set(f.prefabName, sp ?? {});
       }
     } catch {
       /* unparseable prefab: treated as absent */

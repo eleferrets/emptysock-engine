@@ -141,16 +141,17 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
     );
     const prefab = JSON.parse(raw) as {
       prefabName: string;
-      components: { component: string }[];
+      components: Record<string, unknown>;
     };
     expect(prefab.prefabName).toBe("obj_hero");
-    expect(prefab.components).toEqual([
-      { component: "Transform" },
-      {
-        component: "GmlBehaviorState",
-        overrides: { behaviorId: "obj_hero" },
-      },
+    expect(Object.keys(prefab.components)).toEqual([
+      "Transform",
+      "GmlBehaviorState",
     ]);
+    expect(prefab.components).toEqual({
+      Transform: { data: {} },
+      GmlBehaviorState: { data: { behaviorId: "obj_hero" } },
+    });
   });
 
   it("does not warn about defaultScriptType: 1 alone (it is not a reliable GML Visual signal)", async () => {
@@ -417,26 +418,22 @@ describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only
         "utf-8",
       );
       const prefab = JSON.parse(raw) as {
-        components: {
-          component: string;
-          overrides?: Record<string, unknown>;
-        }[];
+        components: Record<string, unknown>;
       };
-      expect(prefab.components).toEqual([
-        { component: "Transform" },
-        {
-          component: "GmlBehaviorState",
-          overrides: { behaviorId: "obj_crate" },
-        },
-        {
-          component: "Sprite",
-          overrides: { texturePath: "./assets/sprites/spr_crate/frame_0.png" },
-        },
+      expect(Object.keys(prefab.components)).toEqual([
+        "Transform",
+        "GmlBehaviorState",
+        "Sprite",
       ]);
+      expect(prefab.components).toEqual({
+        Transform: { data: {} },
+        GmlBehaviorState: { data: { behaviorId: "obj_crate" } },
+        Sprite: {
+          data: { texturePath: "./assets/sprites/spr_crate/frame_0.png" },
+        },
+      });
       // No physicsObject set — no fabricated PhysicsBody component.
-      expect(prefab.components.some((c) => c.component === "PhysicsBody")).toBe(
-        false,
-      );
+      expect("PhysicsBody" in prefab.components).toBe(false);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
@@ -484,15 +481,10 @@ describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only
         "utf-8",
       );
       const prefab = JSON.parse(raw) as {
-        components: {
-          component: string;
-          overrides?: Record<string, unknown>;
-        }[];
+        components: Record<string, { data?: Record<string, unknown> }>;
       };
-      const physics = prefab.components.find(
-        (c) => c.component === "PhysicsBody",
-      );
-      expect(physics?.overrides).toEqual({
+      const physics = prefab.components["PhysicsBody"];
+      expect(physics?.data).toEqual({
         type: "dynamic",
         isSensor: true,
         density: 0.5,
@@ -500,9 +492,7 @@ describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only
         restitution: 0.1,
       });
       // No spriteId set — no fabricated Sprite component.
-      expect(prefab.components.some((c) => c.component === "Sprite")).toBe(
-        false,
-      );
+      expect("Sprite" in prefab.components).toBe(false);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
       await fs.rm(out, { recursive: true, force: true });
@@ -603,11 +593,9 @@ describe("buildObjectPrefabJSON reads real .yy data (regression: it used to only
         "utf-8",
       );
       const prefab = JSON.parse(prefabRaw) as {
-        components: { component: string }[];
+        components: Record<string, unknown>;
       };
-      expect(prefab.components.some((c) => c.component === "Sprite")).toBe(
-        true,
-      );
+      expect("Sprite" in prefab.components).toBe(true);
 
       const behavior = await fs.readFile(
         path.join(out, "obj_prop.behavior.ts"),

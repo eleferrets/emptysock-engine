@@ -358,9 +358,17 @@ export async function buildObjectPrefabJSON(
     }
   }
 
+  // Name-keyed `components` map (order = application order); one entry per
+  // component name, so a repeated name merges over the earlier one.
+  const componentMap: Record<string, { data: Record<string, unknown> }> = {};
+  for (const c of components) {
+    componentMap[c.component] = {
+      data: { ...componentMap[c.component]?.data, ...c.overrides },
+    };
+  }
   const prefab = {
     prefabName: name,
-    components,
+    components: componentMap,
   };
   return JSON.stringify(prefab, null, 2) + "\n";
 }
