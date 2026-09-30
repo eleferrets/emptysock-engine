@@ -17,20 +17,37 @@ import type { Entity } from "@emptysock/engine";
  */
 export class NetworkEntityMap {
   private readonly _byNetworkId = new Map<string, Entity>();
-  private readonly _byEid = new Map<number, string>();
+  /** Keyed by `Entity.ref().$ref`, which is never reused; `rawId` is recycled when an entity slot is. */
+  private readonly _byId = new Map<number, string>();
+
+  /** The entity's never-reused id, or `undefined` once it is destroyed. */
+  private static idOf(entity: Entity): number | undefined {
+    return entity.isAlive ? entity.ref().$ref : undefined;
+  }
+
+  /** The network id of a destroyed entity, found by matching the stored handle. */
+  private networkIdOfDead(entity: Entity): string | undefined {
+    for (const [networkId, mapped] of this._byNetworkId)
+      if (mapped.rawId === entity.rawId && !mapped.isAlive) return networkId;
+    return undefined;
+  }
 
   /** Register `entity` as the local mirror of `networkId`. Replaces any prior mapping for either side. */
   set(networkId: string, entity: Entity): void {
-    const previousNetworkId = this._byEid.get(entity.rawId);
+    const id = NetworkEntityMap.idOf(entity);
+    if (id === undefined)
+      throw new Error("NetworkEntityMap.set(): entity is destroyed.");
+    const previousNetworkId = this._byId.get(id);
     if (previousNetworkId !== undefined) {
       this._byNetworkId.delete(previousNetworkId);
     }
     const previousEntity = this._byNetworkId.get(networkId);
     if (previousEntity !== undefined) {
-      this._byEid.delete(previousEntity.rawId);
+      const previousId = NetworkEntityMap.idOf(previousEntity);
+      if (previousId !== undefined) this._byId.delete(previousId);
     }
     this._byNetworkId.set(networkId, entity);
-    this._byEid.set(entity.rawId, networkId);
+    this._byId.set(id, networkId);
   }
 
   /** The local `Entity` mirroring `networkId`, if one has been registered. */
@@ -40,7 +57,8 @@ export class NetworkEntityMap {
 
   /** The network id `entity` was registered under, if any. */
   getNetworkId(entity: Entity): string | undefined {
-    return this._byEid.get(entity.rawId);
+    const id = NetworkEntityMap.idOf(entity);
+    return id === undefined ? undefined : this._byId.get(id);
   }
 
   /** Drop the mapping for `networkId` (the remote entity left/despawned). No-op if unmapped. */
@@ -48,15 +66,19 @@ export class NetworkEntityMap {
     const entity = this._byNetworkId.get(networkId);
     if (entity === undefined) return;
     this._byNetworkId.delete(networkId);
-    this._byEid.delete(entity.rawId);
+    const id = NetworkEntityMap.idOf(entity);
+    if (id !== undefined) this._byId.delete(id);
   }
 
   /** Drop the mapping for `entity` (it was destroyed locally). No-op if unmapped. */
   deleteByEntity(entity: Entity): void {
-    const networkId = this._byEid.get(entity.rawId);
+    const id = NetworkEntityMap.idOf(entity);
+    const networkId =
+      id !== undefined ? this._byId.get(id) : this.networkIdOfDead(entity);
     if (networkId === undefined) return;
-    this._byEid.delete(entity.rawId);
     this._byNetworkId.delete(networkId);
+    for (const [key, value] of this._byId)
+      if (value === networkId) this._byId.delete(key);
   }
 
   /** All currently-mapped `[networkId, Entity]` pairs. */
