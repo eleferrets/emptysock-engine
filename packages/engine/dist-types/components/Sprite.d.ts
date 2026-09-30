@@ -118,6 +118,15 @@ export declare const Sprite: import("../Component.js").ComponentDef<{
    * `shader_set`/`shader_reset` write it outside a Draw event.
    */
   shader: string;
+  /**
+   * Collision-mask box as offsets from the sprite origin (GMS2 `bbox_*`,
+   * right/bottom exclusive). All `0` means "no mask data": collision then
+   * uses the whole `width` x `height` image positioned by the anchor.
+   */
+  bboxLeft: number;
+  bboxTop: number;
+  bboxRight: number;
+  bboxBottom: number;
 }>;
 /**
  * Resolves `Sprite.texturePath`/`currentFrame`/`frameCount` into the actual

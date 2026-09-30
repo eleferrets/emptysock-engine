@@ -48,7 +48,7 @@ export declare const mb_right = 1;
 export declare const mb_middle = 2;
 export declare const mb_none = -1;
 export declare const mb_any = -2;
-/** `keyboard_check(vk)` — true while the key is held, in the current frozen input snapshot. A `vk` code with no known DOM-`code` translation (`vkToDomCode`) honestly reads as not-down, never guessed. */
+/** `keyboard_check(vk)` — true while the key is held, in the current frozen input snapshot. A `vk` code with no known DOM-`code` translation (`resolveVk`) honestly reads as not-down, never guessed. */
 export declare function keyboard_check(
   ctx: GmlInputContext,
   vk: number,
