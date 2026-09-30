@@ -566,6 +566,31 @@ export {
  * spawned from.
  */
 export { layer_sequence_create } from "./compat/gmlSequences.js";
+/** GameMaker sprite-asset semantics: `sprite_index` assignment, frame counts, Animation End. */
+export {
+  set_gml_sprite_index,
+  sprite_get_number,
+  gml_animation_ended,
+} from "./compat/gmlSprites.js";
+/** Calls the transpiler cannot bind statically: `script_execute`, script registration, unknown built-ins. */
+export {
+  registerGmlScript,
+  script_execute,
+  gmlUnknown,
+} from "./compat/gmlDynamic.js";
+/** GameMaker audio emitters (handles only; positional audio is not modelled). */
+export {
+  audio_emitter_create,
+  audio_emitter_free,
+  audio_emitter_exists,
+  audio_emitter_position,
+  audio_emitter_velocity,
+  audio_emitter_gain,
+  audio_emitter_pitch,
+  audio_emitter_falloff,
+  audio_emitter_get_gain,
+  audio_emitter_get_pitch,
+} from "./compat/gmlAudioEmitters.js";
 export type { GmlDrawTarget } from "./compat/gml.js";
 export {
   getGmlVar,
@@ -584,6 +609,8 @@ export {
   getGmlRefVar,
   getGmlEntityField,
   setGmlEntityField,
+  get_gml_instance_alarm,
+  set_gml_instance_alarm,
   setGmlRefVar,
   gmlInstanceId,
   gmlInstanceFromId,
@@ -862,6 +889,7 @@ export {
   surface_get_width,
   surface_get_height,
   window_set_size,
+  window_center,
   window_get_width,
   window_get_height,
   surface_resize,

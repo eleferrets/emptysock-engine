@@ -12,6 +12,8 @@ import {
   setGmlHspeed,
   getGmlVspeed,
   setGmlVspeed,
+  get_gml_alarm,
+  action_set_alarm,
   type GmlActionContext,
 } from "./gmlActions.js";
 import { getGmlVar, setGmlVar } from "./gmlInstanceVars.js";
@@ -258,13 +260,10 @@ export function getGmlRefVar(
   varName: string,
   field: string,
 ): unknown {
-  const ref = getGmlVar(entity, ctx, varName);
   // A variable holding an object *index* (`follow = obj_player;`) refers to
-  // the first live instance of that object, as in GameMaker.
-  if (typeof ref === "string") return getGmlObjectVar(entity, ctx, ref, field);
-  const target = asLiveEntity(ref, ctx);
-  if (target === undefined) return undefined;
-  return readInstanceField(target, ctx, field);
+  // the first live instance of that object, as in GameMaker; one holding a
+  // struct reads the struct's field.
+  return getGmlEntityField(ctx, getGmlVar(entity, ctx, varName), field);
 }
 
 /** See `getGmlRefVar`'s own doc comment. */
@@ -276,17 +275,13 @@ export function setGmlRefVar(
   value: unknown,
 ): unknown {
   const ref = getGmlVar(entity, ctx, varName);
-  if (typeof ref === "string")
-    return setGmlObjectVar(entity, ctx, ref, field, value);
-  const target = asLiveEntity(ref, ctx);
-  if (target === undefined) {
+  if (fieldOwner(ctx, ref).kind === "none") {
     console.warn(
-      `[GmlCrossInstance] setGmlRefVar: local variable "${varName}" does not hold a live instance reference — write to "${field}" dropped.`,
+      `[GmlCrossInstance] setGmlRefVar: variable "${varName}" holds neither a live instance nor a struct — write to "${field}" dropped.`,
     );
     return value;
   }
-  writeInstanceField(target, ctx, field, value);
-  return value;
+  return setGmlEntityField(ctx, ref, field, value);
 }
 
 /**
@@ -321,24 +316,84 @@ function asLiveEntity(
   return candidate.isAlive ? candidate : undefined;
 }
 
-/** Reads `field` off a known instance (`_other` in a collision event or `with` body). */
+/**
+ * What a dynamically typed GML value addresses when a field is read or
+ * written through it: a live instance (an `Entity`, instance id or
+ * `EntityRef`), the first live instance of an object named by a string
+ * (`follow = obj_player; follow.x`), or a struct.
+ */
+type FieldOwner =
+  | { kind: "instance"; entity: Entity }
+  | { kind: "struct"; struct: Record<string, unknown> }
+  | { kind: "none" };
+
+function fieldOwner(ctx: GmlActionContext, target: unknown): FieldOwner {
+  const e =
+    typeof target === "string"
+      ? findFirstInstanceOfType(ctx, target)
+      : asLiveEntity(target, ctx);
+  if (e !== undefined) return { kind: "instance", entity: e };
+  if (
+    typeof target === "object" &&
+    target !== null &&
+    !Array.isArray(target) &&
+    !(target instanceof Map) &&
+    typeof (target as { get?: unknown }).get !== "function"
+  )
+    return { kind: "struct", struct: target as Record<string, unknown> };
+  return { kind: "none" };
+}
+
+/**
+ * Reads `field` through any GML value: `other`, a variable holding an
+ * instance or an object name, a struct. `undefined` when the value
+ * addresses nothing (a destroyed instance, `noone`, a number).
+ */
 export function getGmlEntityField(
   ctx: GmlActionContext,
   target: unknown,
   field: string,
 ): unknown {
-  const e = asLiveEntity(target, ctx);
-  return e === undefined ? undefined : readInstanceField(e, ctx, field);
+  const o = fieldOwner(ctx, target);
+  if (o.kind === "instance") return readInstanceField(o.entity, ctx, field);
+  if (o.kind === "struct") return o.struct[field];
+  return undefined;
 }
 
-/** Writes `field` on a known instance. */
+/** Writes `field` through any GML value; see `getGmlEntityField`. */
 export function setGmlEntityField(
   ctx: GmlActionContext,
   target: unknown,
   field: string,
   value: unknown,
 ): unknown {
-  const e = asLiveEntity(target, ctx);
-  if (e !== undefined) writeInstanceField(e, ctx, field, value);
+  const o = fieldOwner(ctx, target);
+  if (o.kind === "instance") writeInstanceField(o.entity, ctx, field, value);
+  else if (o.kind === "struct") o.struct[field] = value;
   return value;
+}
+
+/**
+ * `target.alarm[index]`: the alarm of another instance (`other`, a variable
+ * holding an instance) or of the first live instance of a named object.
+ * `-1` (GameMaker's "not set") when the target addresses no instance.
+ */
+export function get_gml_instance_alarm(
+  ctx: GmlActionContext,
+  target: unknown,
+  index: number,
+): number {
+  const o = fieldOwner(ctx, target);
+  return o.kind === "instance" ? get_gml_alarm(o.entity, ctx, index) : -1;
+}
+
+/** `target.alarm[index] = steps`; see `get_gml_instance_alarm`. A target that is no instance is a no-op. */
+export function set_gml_instance_alarm(
+  ctx: GmlActionContext,
+  target: unknown,
+  index: number,
+  steps: number,
+): void {
+  const o = fieldOwner(ctx, target);
+  if (o.kind === "instance") action_set_alarm(o.entity, ctx, index, steps);
 }

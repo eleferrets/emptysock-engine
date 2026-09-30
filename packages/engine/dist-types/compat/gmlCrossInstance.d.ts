@@ -126,16 +126,37 @@ export declare function setGmlRefVar(
   field: string,
   value: unknown,
 ): unknown;
-/** Reads `field` off a known instance (`_other` in a collision event or `with` body). */
+/**
+ * Reads `field` through any GML value: `other`, a variable holding an
+ * instance or an object name, a struct. `undefined` when the value
+ * addresses nothing (a destroyed instance, `noone`, a number).
+ */
 export declare function getGmlEntityField(
   ctx: GmlActionContext,
   target: unknown,
   field: string,
 ): unknown;
-/** Writes `field` on a known instance. */
+/** Writes `field` through any GML value; see `getGmlEntityField`. */
 export declare function setGmlEntityField(
   ctx: GmlActionContext,
   target: unknown,
   field: string,
   value: unknown,
 ): unknown;
+/**
+ * `target.alarm[index]`: the alarm of another instance (`other`, a variable
+ * holding an instance) or of the first live instance of a named object.
+ * `-1` (GameMaker's "not set") when the target addresses no instance.
+ */
+export declare function get_gml_instance_alarm(
+  ctx: GmlActionContext,
+  target: unknown,
+  index: number,
+): number;
+/** `target.alarm[index] = steps`; see `get_gml_instance_alarm`. A target that is no instance is a no-op. */
+export declare function set_gml_instance_alarm(
+  ctx: GmlActionContext,
+  target: unknown,
+  index: number,
+  steps: number,
+): void;

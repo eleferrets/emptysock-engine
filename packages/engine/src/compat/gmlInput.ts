@@ -355,6 +355,15 @@ export function window_set_size(
 }
 
 /**
+ * `window_center()` — centres the desktop window on its screen through
+ * `WindowSystem.center()` (a no-op in the browser, where the page owns
+ * placement). Fire-and-forget, like `window_set_size`.
+ */
+export function window_center(ctx: GmlInputContext): void {
+  void ctx.game?.services.get(WindowSystem).center();
+}
+
+/**
  * `window_get_width()`/`window_get_height()` — the real OS window's (or the
  * browser viewport's backing element's) current size, read back from
  * `WindowSystem.getSize()`. Unlike `display_get_width`/`_height` (which
