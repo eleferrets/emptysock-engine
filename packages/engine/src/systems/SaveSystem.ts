@@ -2,6 +2,12 @@ import type { ComponentDef } from "../Component.js";
 import type { Entity } from "../Entity.js";
 import { ChildOf, type RelationDef } from "../Relations.js";
 import { remapRefs } from "../RefRemap.js";
+import type { RoomStateCache } from "../RoomStateCache.js";
+import type {
+  EntityExtra,
+  EntitySnapshot,
+  SceneSnapshot,
+} from "../SceneTransfer.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { MemoryStorageAdapter, type StorageAdapter } from "./StorageAdapter.js";
@@ -49,6 +55,23 @@ interface SavedComponent {
   readonly data: SerializableRecord;
 }
 
+/** One entity of a saved `SceneSnapshot`. */
+interface SavedSnapshotEntity {
+  readonly oldId: number;
+  readonly oldEid: number;
+  readonly components: Record<string, SavedComponent>;
+  readonly extras: Record<
+    string,
+    { readonly version: number; readonly data: unknown }
+  >;
+}
+
+/** A `SceneSnapshot` reduced to its JSON-safe parts. `version` is the snapshot shape's own version. */
+interface SavedSnapshot {
+  readonly version: 1;
+  readonly entities: readonly SavedSnapshotEntity[];
+}
+
 /** One saved entity: every save-aware component it carried, keyed by componentName. */
 interface SavedEntity {
   /** The entity's scene `EntityId` at save time (absent in v1 blobs). */
@@ -69,6 +92,10 @@ interface SaveBlob {
   /** v2: `VariableStore.snapshot()`. */
   readonly variables?: VariableStoreData;
   readonly entities: readonly SavedEntity[];
+  /** v2, optional: `Game.roomCache` (persistent rooms), JSON-safe parts only, by room key. */
+  readonly rooms?: Record<string, SavedSnapshot>;
+  /** v2, optional: in-flight carry (`SaveSystemOptions.carried`), JSON-safe parts only. */
+  readonly carried?: SavedSnapshot;
   /** v2: relation edges between saved entities, by saved `id` and relation name. */
   readonly relations?: readonly SavedRelation[];
 }
@@ -91,6 +118,12 @@ export type MigrateFn = (
   oldVersion: number,
 ) => SerializableRecord;
 
+/** Access to an in-flight carry snapshot (the entities between `loadScene({ carry })` and `restoreCarried()`). */
+export interface CarriedSlot {
+  get(): SceneSnapshot | undefined;
+  set(snapshot: SceneSnapshot): void;
+}
+
 export interface SaveSystemOptions {
   /**
    * Storage backend. Defaults to an in-memory adapter (safe under Node/
@@ -109,6 +142,24 @@ export interface SaveSystemOptions {
   /** Game services whose state is saved beside the entities: omit either to leave it out. */
   readonly globals?: GlobalStore;
   readonly variables?: VariableStore;
+  /**
+   * Persistent-room cache (`Game.roomCache`) to save and restore. Only the
+   * JSON-safe parts are written: components whose data, and extras whose
+   * exported value, are not plain JSON are dropped with a warning.
+   */
+  readonly rooms?: RoomStateCache;
+  /** In-flight carry to save and restore, with the same JSON-safe rule as `rooms`. */
+  readonly carried?: CarriedSlot;
+  /**
+   * The `EntityExtra`s whose data is saved with `rooms`/`carried` (the same
+   * ones the scene's transfer policies use). Extras not listed are dropped.
+   */
+  readonly extras?: readonly EntityExtra[];
+  /**
+   * Component defs of entities in `rooms`/`carried` beyond the save-aware
+   * ones. Saved components with no known def are dropped with a warning.
+   */
+  readonly transferComponents?: readonly ComponentDef[];
   /** Supplies the current room/scene key stored in the save (see `SaveHeader.room`). */
   readonly room?: () => string | undefined;
   /** Stamped into `meta` so a later build can tell what wrote a save. */
@@ -229,40 +280,9 @@ export class SaveSystem {
       for (const [componentName, saved] of Object.entries(
         savedEntity.components,
       )) {
-        const def = this._components.get(componentName);
-        if (def === undefined) {
-          console.warn(
-            `[SaveSystem] Save slot "${slotId}" has an unrecognized component "${componentName}" — dropped.`,
-          );
-          continue;
-        }
-
-        let data = saved.data;
-        if (saved.version !== def.version) {
-          const migrate = this._migrations.get(componentName);
-          if (migrate !== undefined) {
-            data = migrate(saved.data, saved.version);
-          } else {
-            console.warn(
-              `[SaveSystem] Component "${componentName}" saved at version ${saved.version} but the current def is version ${def.version}, and no migrate() is registered — dropping this component's saved data for one entity.`,
-            );
-            continue;
-          }
-        }
-
-        const knownFields = new Set(Object.keys(def.createDefaults()));
-        const unknownFields = Object.keys(data).filter(
-          (field) => !knownFields.has(field),
-        );
-        if (unknownFields.length > 0) {
-          console.warn(
-            `[SaveSystem] Component "${componentName}" saved data has unrecognized field(s) [${unknownFields.join(", ")}] not in the current def's shape — dropped, rest of the component loaded.`,
-          );
-          data = Object.fromEntries(
-            Object.entries(data).filter(([field]) => knownFields.has(field)),
-          ) as SerializableRecord;
-        }
-
+        const resolved = this._migrateComponent(slotId, componentName, saved);
+        if (resolved === undefined) continue;
+        const { def, data } = resolved;
         entity.add(def, data);
       }
     }
@@ -288,6 +308,7 @@ export class SaveSystem {
       }
     }
 
+    this._loadRoomsAndCarry(slotId, blob);
     if (blob.globals !== undefined)
       this._options.globals?.restore(blob.globals);
     if (blob.variables !== undefined) {
@@ -332,6 +353,168 @@ export class SaveSystem {
       throw new SaveFormatError(slotId, found, SAVE_FORMAT_VERSION);
     }
     return { ...blob, formatVersion: version };
+  }
+
+  /** Def lookup for saved components: save-aware ones first, then `transferComponents`. */
+  private _defFor(name: string): ComponentDef | undefined {
+    const own = this._components.get(name);
+    if (own !== undefined) return own;
+    return this._options.transferComponents?.find(
+      (d) => d.componentName === name,
+    );
+  }
+
+  /**
+   * Resolves one saved component to its def and current-shape data: runs the
+   * registered migration on a version mismatch (or warns and drops when there
+   * is none) and strips fields the current def no longer has. `undefined`
+   * means "drop this component".
+   */
+  private _migrateComponent(
+    slotId: string,
+    componentName: string,
+    saved: SavedComponent,
+  ): { def: ComponentDef; data: SerializableRecord } | undefined {
+    const def = this._defFor(componentName);
+    if (def === undefined) {
+      console.warn(
+        `[SaveSystem] Save slot "${slotId}" has an unrecognized component "${componentName}" — dropped.`,
+      );
+      return undefined;
+    }
+    let data = saved.data;
+    if (saved.version !== def.version) {
+      const migrate = this._migrations.get(componentName);
+      if (migrate === undefined) {
+        console.warn(
+          `[SaveSystem] Component "${componentName}" saved at version ${saved.version} but the current def is version ${def.version}, and no migrate() is registered — dropping this component's saved data for one entity.`,
+        );
+        return undefined;
+      }
+      data = migrate(saved.data, saved.version);
+    }
+    const knownFields = new Set(Object.keys(def.createDefaults()));
+    const unknownFields = Object.keys(data).filter(
+      (field) => !knownFields.has(field),
+    );
+    if (unknownFields.length > 0) {
+      console.warn(
+        `[SaveSystem] Component "${componentName}" saved data has unrecognized field(s) [${unknownFields.join(", ")}] not in the current def's shape — dropped, rest of the component loaded.`,
+      );
+      data = Object.fromEntries(
+        Object.entries(data).filter(([field]) => knownFields.has(field)),
+      ) as SerializableRecord;
+    }
+    return { def, data };
+  }
+
+  /** Reduces `snapshot` to its JSON-safe parts; everything else is warned about and dropped. */
+  private _serializeSnapshot(
+    what: string,
+    snapshot: SceneSnapshot,
+  ): SavedSnapshot {
+    const extras = new Map(
+      (this._options.extras ?? []).map((x) => [x.name, x]),
+    );
+    const entities: SavedSnapshotEntity[] = [];
+    for (const snap of snapshot.entities) {
+      const components: Record<string, SavedComponent> = {};
+      for (const { def, data } of snap.components) {
+        if (!isJsonSafe(data)) {
+          console.warn(
+            `[SaveSystem] ${what}: component "${def.componentName}" of entity ${snap.oldId} is not JSON-safe - not saved.`,
+          );
+          continue;
+        }
+        components[def.componentName] = {
+          version: def.version,
+          data: data as SerializableRecord,
+        };
+      }
+      const savedExtras: SavedSnapshotEntity["extras"] = {};
+      for (const [name, value] of Object.entries(snap.extras)) {
+        const extra = extras.get(name);
+        if (extra === undefined) {
+          console.warn(
+            `[SaveSystem] ${what}: extra "${name}" of entity ${snap.oldId} is not listed in SaveSystemOptions.extras - not saved.`,
+          );
+        } else if (!isJsonSafe(value)) {
+          console.warn(
+            `[SaveSystem] ${what}: extra "${name}" of entity ${snap.oldId} is not JSON-safe - not saved.`,
+          );
+        } else {
+          savedExtras[name] = { version: extra.version ?? 1, data: value };
+        }
+      }
+      entities.push({
+        oldId: snap.oldId,
+        oldEid: snap.oldEid,
+        components,
+        extras: savedExtras,
+      });
+    }
+    return { version: 1, entities };
+  }
+
+  /** Inverse of `_serializeSnapshot`: migrates components and extras, drops what cannot be read. */
+  private _deserializeSnapshot(
+    slotId: string,
+    saved: SavedSnapshot,
+  ): SceneSnapshot {
+    const extras = new Map(
+      (this._options.extras ?? []).map((x) => [x.name, x]),
+    );
+    const entities: EntitySnapshot[] = [];
+    for (const se of saved.entities) {
+      const components: Array<EntitySnapshot["components"][number]> = [];
+      for (const [name, sc] of Object.entries(se.components)) {
+        const resolved = this._migrateComponent(slotId, name, sc);
+        if (resolved !== undefined) {
+          components.push({ def: resolved.def, data: { ...resolved.data } });
+        }
+      }
+      const restored: Record<string, unknown> = {};
+      for (const [name, se2] of Object.entries(se.extras)) {
+        const extra = extras.get(name);
+        if (extra === undefined) {
+          console.warn(
+            `[SaveSystem] Save slot "${slotId}" has extra "${name}" that is not registered - dropped.`,
+          );
+          continue;
+        }
+        const current = extra.version ?? 1;
+        if (se2.version === current) {
+          restored[name] = se2.data;
+        } else if (extra.migrate !== undefined) {
+          const migrated = extra.migrate(se2.data, se2.version);
+          if (migrated !== undefined) restored[name] = migrated;
+        } else {
+          console.warn(
+            `[SaveSystem] Extra "${name}" saved at version ${se2.version} but the current version is ${current}, and it has no migrate() - dropping its saved data for one entity.`,
+          );
+        }
+      }
+      entities.push({
+        oldId: se.oldId,
+        oldEid: se.oldEid,
+        components,
+        extras: restored,
+      });
+    }
+    return { version: 1, world: this._scene.world, entities };
+  }
+
+  private _loadRoomsAndCarry(slotId: string, blob: SaveBlob): void {
+    const { rooms, carried } = this._options;
+    if (rooms !== undefined && blob.rooms !== undefined) {
+      rooms.clear();
+      for (const [key, saved] of Object.entries(blob.rooms)) {
+        rooms.store(key, this._deserializeSnapshot(slotId, saved));
+      }
+    }
+    if (carried !== undefined && blob.carried !== undefined) {
+      carried.set(this._deserializeSnapshot(slotId, blob.carried));
+    }
   }
 
   /** Destroy every live entity that carries a save-aware component. */
@@ -395,6 +578,8 @@ export class SaveSystem {
         ? { gameVersion: opts.gameVersion }
         : {}),
     };
+    const rooms = this._serializeRooms();
+    const carriedSnap = opts.carried?.get();
     return {
       formatVersion: SAVE_FORMAT_VERSION,
       meta,
@@ -407,6 +592,44 @@ export class SaveSystem {
         : {}),
       entities,
       relations,
+      ...(rooms !== undefined ? { rooms } : {}),
+      ...(carriedSnap !== undefined
+        ? { carried: this._serializeSnapshot("in-flight carry", carriedSnap) }
+        : {}),
     };
+  }
+
+  private _serializeRooms(): Record<string, SavedSnapshot> | undefined {
+    const cache = this._options.rooms;
+    if (cache === undefined) return undefined;
+    const out: Record<string, SavedSnapshot> = {};
+    for (const key of cache.keys()) {
+      const snap = cache.peek(key);
+      if (snap !== undefined) {
+        out[key] = this._serializeSnapshot(`room "${key}"`, snap);
+      }
+    }
+    return out;
+  }
+}
+
+/** `true` when `v` survives a JSON round trip unchanged: primitives, arrays and plain objects of the same. */
+function isJsonSafe(v: unknown, depth = 32): boolean {
+  if (depth <= 0) return false;
+  if (v === null) return true;
+  switch (typeof v) {
+    case "string":
+    case "boolean":
+      return true;
+    case "number":
+      return Number.isFinite(v);
+    case "object": {
+      if (Array.isArray(v)) return v.every((x) => isJsonSafe(x, depth - 1));
+      const proto = Object.getPrototypeOf(v) as unknown;
+      if (proto !== Object.prototype && proto !== null) return false;
+      return Object.values(v).every((x) => isJsonSafe(x, depth - 1));
+    }
+    default:
+      return false;
   }
 }

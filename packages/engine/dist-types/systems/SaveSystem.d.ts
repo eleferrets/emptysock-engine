@@ -1,5 +1,7 @@
 import type { ComponentDef } from "../Component.js";
 import { type RelationDef } from "../Relations.js";
+import type { RoomStateCache } from "../RoomStateCache.js";
+import type { EntityExtra, SceneSnapshot } from "../SceneTransfer.js";
 import type { Scene } from "../Scene.js";
 import type { SerializableRecord } from "../Serializable.js";
 import { type StorageAdapter } from "./StorageAdapter.js";
@@ -41,6 +43,11 @@ export type MigrateFn = (
   oldData: SerializableRecord,
   oldVersion: number,
 ) => SerializableRecord;
+/** Access to an in-flight carry snapshot (the entities between `loadScene({ carry })` and `restoreCarried()`). */
+export interface CarriedSlot {
+  get(): SceneSnapshot | undefined;
+  set(snapshot: SceneSnapshot): void;
+}
 export interface SaveSystemOptions {
   /**
    * Storage backend. Defaults to an in-memory adapter (safe under Node/
@@ -59,6 +66,24 @@ export interface SaveSystemOptions {
   /** Game services whose state is saved beside the entities: omit either to leave it out. */
   readonly globals?: GlobalStore;
   readonly variables?: VariableStore;
+  /**
+   * Persistent-room cache (`Game.roomCache`) to save and restore. Only the
+   * JSON-safe parts are written: components whose data, and extras whose
+   * exported value, are not plain JSON are dropped with a warning.
+   */
+  readonly rooms?: RoomStateCache;
+  /** In-flight carry to save and restore, with the same JSON-safe rule as `rooms`. */
+  readonly carried?: CarriedSlot;
+  /**
+   * The `EntityExtra`s whose data is saved with `rooms`/`carried` (the same
+   * ones the scene's transfer policies use). Extras not listed are dropped.
+   */
+  readonly extras?: readonly EntityExtra[];
+  /**
+   * Component defs of entities in `rooms`/`carried` beyond the save-aware
+   * ones. Saved components with no known def are dropped with a warning.
+   */
+  readonly transferComponents?: readonly ComponentDef[];
   /** Supplies the current room/scene key stored in the save (see `SaveHeader.room`). */
   readonly room?: () => string | undefined;
   /** Stamped into `meta` so a later build can tell what wrote a save. */
@@ -142,7 +167,22 @@ export declare class SaveSystem {
    * differs from v2 only by fields v2 makes optional, so no rewrite is needed.
    */
   private _read;
+  /** Def lookup for saved components: save-aware ones first, then `transferComponents`. */
+  private _defFor;
+  /**
+   * Resolves one saved component to its def and current-shape data: runs the
+   * registered migration on a version mismatch (or warns and drops when there
+   * is none) and strips fields the current def no longer has. `undefined`
+   * means "drop this component".
+   */
+  private _migrateComponent;
+  /** Reduces `snapshot` to its JSON-safe parts; everything else is warned about and dropped. */
+  private _serializeSnapshot;
+  /** Inverse of `_serializeSnapshot`: migrates components and extras, drops what cannot be read. */
+  private _deserializeSnapshot;
+  private _loadRoomsAndCarry;
   /** Destroy every live entity that carries a save-aware component. */
   private _clearSaved;
   private _snapshot;
+  private _serializeRooms;
 }

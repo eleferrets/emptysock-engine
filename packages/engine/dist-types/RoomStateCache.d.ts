@@ -9,6 +9,8 @@ export declare class RoomStateCache {
   private readonly _rooms;
   store(key: string, snapshot: SceneSnapshot): void;
   has(key: string): boolean;
+  /** The snapshot for `key` without removing it. */
+  peek(key: string): SceneSnapshot | undefined;
   /** Remove and return the snapshot for `key`. */
   take(key: string): SceneSnapshot | undefined;
   /** Forget `key`, or every room when omitted. */

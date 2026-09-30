@@ -364,6 +364,7 @@ export {
 export type {
   MigrateFn,
   SaveSystemOptions,
+  CarriedSlot,
   LoadOptions,
   SaveMeta,
   SaveHeader,

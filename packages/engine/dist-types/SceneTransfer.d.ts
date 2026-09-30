@@ -15,6 +15,17 @@ import type { Scene } from "./Scene.js";
 /** State one entity keeps outside its components (a per-`(World, eid)` side table). */
 export interface EntityExtra<T = unknown> {
   readonly name: string;
+  /**
+   * Schema version of the data `export` produces (default `1`). Stamped into
+   * saved room caches; a save written under another version runs `migrate`
+   * on load, or the extra's data for that entity is dropped with a warning.
+   */
+  readonly version?: number;
+  /**
+   * Brings `data` saved under `fromVersion` up to the current `version`.
+   * Only JSON-safe extras are ever saved, so `data` is plain JSON.
+   */
+  migrate?(data: unknown, fromVersion: number): unknown;
   /** Copy the entity's state, or `undefined` when it has none. */
   export(entity: Entity): T | undefined;
   /** Re-apply `data` to the respawned `entity`. Runs after every entity of the snapshot exists. */

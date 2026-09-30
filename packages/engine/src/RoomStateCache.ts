@@ -17,6 +17,11 @@ export class RoomStateCache {
     return this._rooms.has(key);
   }
 
+  /** The snapshot for `key` without removing it. */
+  peek(key: string): SceneSnapshot | undefined {
+    return this._rooms.get(key);
+  }
+
   /** Remove and return the snapshot for `key`. */
   take(key: string): SceneSnapshot | undefined {
     const snap = this._rooms.get(key);
