@@ -441,7 +441,9 @@ function readIndex(em: GmlEmitter, e: Index, mode: ValueMode): Piece {
   }
   let code = `${arrayOf(em, e.object)}[${idx[0] ?? "0"}]`;
   for (const i of idx.slice(1)) code = `GmlActions.gmlArr(${code})[${i}]`;
-  return call(code);
+  // An element of an instance array has no static type; a numeric position reads it as a number.
+  const local = obj.type === "Identifier" && em.bind(obj).kind === "local";
+  return local ? call(code) : num(code, mode);
 }
 
 // ---- operators -----------------------------------------------------------

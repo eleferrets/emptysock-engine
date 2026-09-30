@@ -32,6 +32,8 @@ interface Target {
   lvalue?: string;
   /** A dedicated compound store (component fields take `op=` in place). */
   compound?: (op: string, value: Piece) => string;
+  /** The stored value is a number (a typed component field), so a dynamic right side is coerced. */
+  numeric?: boolean;
 }
 
 /** Operator of a compound assignment (`+=` -> `+`); undefined for `=`. */
@@ -103,7 +105,7 @@ function identifierTarget(
         return {
           read: () => v.read,
           write: (x) => write(x),
-          ...(v.compound ? { compound: v.compound } : {}),
+          ...(v.compound ? { compound: v.compound, numeric: true } : {}),
         };
       }
       break;
@@ -242,7 +244,7 @@ function store(
   em: GmlEmitter,
   target: Expr,
   op: string,
-  value: () => Piece,
+  value: (mode?: "num" | "raw") => Piece,
 ): string {
   const t = targetOf(em, target);
   if (!t) {
@@ -254,7 +256,8 @@ function store(
     return `/* not assignable */ ${value().code}`;
   }
   const bin = binaryOf(op);
-  if (bin === undefined) return t.write(value().code);
+  if (bin === undefined)
+    return t.write(value(t.numeric ? "num" : undefined).code);
   if (t.lvalue !== undefined) return `${t.lvalue} ${op} ${value().code}`;
   if (t.compound && bin !== "??") return t.compound(bin, value());
   if (bin === "??")
@@ -264,7 +267,7 @@ function store(
 
 export function emitAssign(em: GmlEmitter, a: Assign): string {
   const mode = a.op === "=" ? "raw" : "num";
-  return store(em, a.left, a.op, () => emitExpr(em, a.right, mode));
+  return store(em, a.left, a.op, (m) => emitExpr(em, a.right, m ?? mode));
 }
 
 const ONE: Piece = { code: "1", prec: PREC.atom };

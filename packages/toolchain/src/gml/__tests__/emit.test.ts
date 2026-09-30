@@ -223,7 +223,9 @@ describe("emitter: built-in variables and assets", () => {
     const r = emit("var tempsprite = 1;\ndraw_sprite(tempsprite, 0, 0, 0);", {
       assets: { sprite: ["tempsprite"] },
     });
-    expect(r.code).toContain("_ctx.drawTarget?.sprite(tempsprite, 0, 0);");
+    expect(r.code).toContain(
+      "_ctx.drawTarget?.sprite((tempsprite as unknown as string), 0, 0);",
+    );
     expect(r.diagnostics.map((d) => d.kind)).toContain("shadow");
   });
 });
@@ -298,7 +300,7 @@ describe("emitter: calls", () => {
   it("gates the statement after a DnD if-action", () => {
     const out = code('action_if_empty(0, 0, 0);\naction_move("000010000", 4);');
     expect(out).toBe(
-      'if (GmlActions.action_if_empty(_entity, _ctx, 0, 0, 0)) {\n  GmlActions.action_move(_entity, _ctx, "000010000", 4);\n}',
+      'if (GmlActions.action_if_empty(_entity, _ctx, 0, 0, false)) {\n  GmlActions.action_move(_entity, _ctx, "000010000", 4);\n}',
     );
     expect(emit('action_move("000010000", 4);').usesMotion).toBe(true);
   });

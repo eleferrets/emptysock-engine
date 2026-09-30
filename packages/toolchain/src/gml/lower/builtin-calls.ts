@@ -33,10 +33,34 @@ export type CallLowering = (c: CallSite) => Piece;
 const call = (code: string): Piece => ({ code, prec: PREC.call });
 const atom = (code: string): Piece => ({ code, prec: PREC.atom });
 
-function drawTarget(method: string, argc: number): CallLowering {
+/** An argument code read as a boolean (GML draws pass `0`/`1` for an outline flag). */
+function asBoolean(code: string): string {
+  if (code === "0" || code === "false") return "false";
+  if (code === "1" || code === "true") return "true";
+  return `!!(${code})`;
+}
+
+/** An argument code read as text (`draw_text` shows a number as its digits). */
+function asText(code: string): string {
+  return /^["'`]/.test(code) ? code : `String(${code})`;
+}
+
+/**
+ * A `_ctx.drawTarget` call. `kinds` has one letter per argument: `n` number,
+ * `b` boolean, `s` string.
+ */
+function drawTarget(method: string, kinds: string): CallLowering {
   return (c) =>
     call(
-      `_ctx.drawTarget?.${method}(${Array.from({ length: argc }, (_, i) => c.arg(i)).join(", ")})`,
+      `_ctx.drawTarget?.${method}(${[...kinds]
+        .map((k, i) =>
+          k === "b"
+            ? asBoolean(c.arg(i))
+            : k === "s"
+              ? asText(c.arg(i))
+              : c.arg(i),
+        )
+        .join(", ")})`,
     );
 }
 
@@ -73,11 +97,50 @@ const mathCall =
   (c) =>
     call(`Math.${fn}(${c.rest(0).join(", ")})`);
 
+const RAD = "Math.PI / 180";
+const DEG = "180 / Math.PI";
+
+/** `f(x)` of a one-argument Math function on an angle in degrees. */
+const degIn =
+  (fn: string): CallLowering =>
+  (c) =>
+    call(`Math.${fn}(${c.arg(0, PREC.multiplicative)} * ${RAD})`);
+
+/** `f(x)` of a one-argument Math function returning an angle in degrees. */
+const degOut =
+  (fn: string): CallLowering =>
+  (c) => ({
+    code: `Math.${fn}(${c.arg(0)}) * ${DEG}`,
+    prec: PREC.multiplicative,
+  });
+
 const gc = "undefined /* GML data structures are garbage collected */";
 
 const TABLE: ReadonlyMap<string, CallLowering> = new Map<string, CallLowering>([
   // -- math and strings ---------------------------------------------------
   ["abs", mathCall("abs")],
+  ["arcsin", mathCall("asin")],
+  ["arccos", mathCall("acos")],
+  ["arctan", mathCall("atan")],
+  ["arctan2", mathCall("atan2")],
+  ["dsin", degIn("sin")],
+  ["dcos", degIn("cos")],
+  ["dtan", degIn("tan")],
+  ["darcsin", degOut("asin")],
+  ["darccos", degOut("acos")],
+  ["darctan", degOut("atan")],
+  [
+    "darctan2",
+    (c) => ({
+      code: `Math.atan2(${c.arg(0)}, ${c.arg(1)}) * ${DEG}`,
+      prec: PREC.multiplicative,
+    }),
+  ],
+  ["log2", mathCall("log2")],
+  ["log10", mathCall("log10")],
+  ["ln", mathCall("log")],
+  ["exp", mathCall("exp")],
+  ["sqr", (c) => call(`Math.pow(${c.arg(0)}, 2)`)],
   ["floor", mathCall("floor")],
   ["ceil", mathCall("ceil")],
   ["round", mathCall("round")],
@@ -214,12 +277,12 @@ const TABLE: ReadonlyMap<string, CallLowering> = new Map<string, CallLowering>([
       ),
   ],
   // -- drawing into the current draw target ---------------------------------
-  ["draw_set_colour", drawTarget("setColor", 1)],
-  ["draw_set_color", drawTarget("setColor", 1)],
-  ["draw_rectangle", drawTarget("rect", 5)],
-  ["draw_circle", drawTarget("circle", 4)],
-  ["draw_text", drawTarget("text", 3)],
-  ["draw_line", drawTarget("line", 4)],
+  ["draw_set_colour", drawTarget("setColor", "n")],
+  ["draw_set_color", drawTarget("setColor", "n")],
+  ["draw_rectangle", drawTarget("rect", "nnnnb")],
+  ["draw_circle", drawTarget("circle", "nnnb")],
+  ["draw_text", drawTarget("text", "nns")],
+  ["draw_line", drawTarget("line", "nnnn")],
   ["draw_set_halign", drawTargetOptional("setHalign")],
   ["draw_set_valign", drawTargetOptional("setValign")],
   ["draw_set_alpha", drawTargetOptional("setAlpha")],

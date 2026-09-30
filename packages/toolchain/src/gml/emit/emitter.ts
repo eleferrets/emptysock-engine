@@ -16,6 +16,7 @@ import type {
   VarDecl,
   With,
 } from "../ast.js";
+import { lookupBuiltin } from "../builtins.js";
 import { tokenize, type Token } from "../lexer.js";
 import type { FileAnalysis, MacroInfo } from "../project-symbols.js";
 import type { Resolved } from "../symbols.js";
@@ -412,11 +413,18 @@ export class GmlEmitter implements BindingEnv {
 
   declarators(s: VarDecl): string {
     return s.decls
-      .map((d) =>
-        d.init
-          ? `${jsLocalName(d.name)} = ${emitExpr(this, d.init, "num").code}`
-          : jsLocalName(d.name),
-      )
+      .map((d) => {
+        if (!d.init) return jsLocalName(d.name);
+        const init = emitExpr(this, d.init, "num").code;
+        // A dynamic instance read has no static type; the local stays usable as any value.
+        const makesInstance =
+          d.init.type === "Call" &&
+          d.init.callee.type === "Identifier" &&
+          lookupBuiltin(d.init.callee.name)?.returns === "instance";
+        const type =
+          init.startsWith("GmlActions.getGml") || makesInstance ? ": any" : "";
+        return `${jsLocalName(d.name)}${type} = ${init}`;
+      })
       .join(", ");
   }
 

@@ -3,7 +3,7 @@
  * emit. Pure functions of their inputs; no module-level state.
  */
 
-import type { FunctionDecl, Stmt } from "../ast.js";
+import type { Expr, FunctionDecl, Stmt } from "../ast.js";
 import { someNode, walk } from "../walk.js";
 import type { SourceFile } from "../project-symbols.js";
 import { GmlEmitter } from "./emitter.js";
@@ -19,7 +19,7 @@ export function emitEvent(file: SourceFile, opts: EmitOptions): EmitResult {
 }
 
 /** Declared type of a script parameter in the generated signature. */
-export type ParamType = "number" | "string" | "string | number";
+export type ParamType = "number" | "string" | "string | number" | "any[]";
 
 export interface ScriptFunction {
   name: string;
@@ -59,6 +59,28 @@ function paramTypes(decl: FunctionDecl): Map<string, ParamType> {
       for (const d of n.decls)
         if (d.init?.type === "Identifier" && types.has(d.init.name))
           aliases.set(d.name, d.init.name);
+  });
+  const paramOf = (e: Expr): string | undefined =>
+    e.type === "Identifier"
+      ? types.has(e.name)
+        ? e.name
+        : aliases.get(e.name)
+      : undefined;
+  walk(decl.body, (n) => {
+    // A parameter indexed with `[i]`, or handed to an array_* function, is an array.
+    if (n.type === "Index" && n.accessor === "[") {
+      const p = paramOf(n.object);
+      if (p !== undefined) types.set(p, "any[]");
+    }
+    if (
+      n.type === "Call" &&
+      n.callee.type === "Identifier" &&
+      n.callee.name.startsWith("array_") &&
+      n.args[0]
+    ) {
+      const p = paramOf(n.args[0]);
+      if (p !== undefined) types.set(p, "any[]");
+    }
   });
   walk(decl.body, (n) => {
     if (n.type !== "Call" || n.callee.type !== "Identifier") return;

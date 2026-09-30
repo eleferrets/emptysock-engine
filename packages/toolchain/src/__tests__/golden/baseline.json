@@ -4,43 +4,43 @@
       "label": "A",
       "loadFailures": 0,
       "handlerErrors": 0,
-      "tscErrorLines": 67
+      "tscErrorLines": 18
     },
     "5614dfe50bc3": {
       "label": "B",
       "loadFailures": 0,
       "handlerErrors": 0,
-      "tscErrorLines": 278
+      "tscErrorLines": 101
     },
     "28646858224c": {
       "label": "C",
       "loadFailures": 0,
-      "handlerErrors": 2,
-      "tscErrorLines": 70
+      "handlerErrors": 0,
+      "tscErrorLines": 20
     },
     "046a26796b58": {
       "label": "D",
-      "loadFailures": 2,
+      "loadFailures": 0,
       "handlerErrors": 0,
-      "tscErrorLines": 35
+      "tscErrorLines": 1
     },
     "c4abaff33fd5": {
       "label": "E",
-      "loadFailures": 29,
+      "loadFailures": 0,
       "handlerErrors": 0,
-      "tscErrorLines": 105
+      "tscErrorLines": 81
     },
     "c9a37075ab33": {
       "label": "F",
-      "loadFailures": 1,
+      "loadFailures": 0,
       "handlerErrors": 0,
       "tscErrorLines": 2
     },
     "67b434e2529d": {
       "label": "G",
-      "loadFailures": 2,
+      "loadFailures": 0,
       "handlerErrors": 0,
-      "tscErrorLines": 167
+      "tscErrorLines": 21
     }
   }
 }

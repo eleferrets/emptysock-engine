@@ -11,6 +11,7 @@ import type { Call, Expr } from "../ast.js";
 import { lookupBuiltin, type ParamKind } from "../builtins.js";
 import { builtinCallLowering, type CallSite } from "../lower/builtin-calls.js";
 import { assetLiteral } from "../lower/assets.js";
+import { COMPAT_PARAM_KINDS } from "../lower/compat-signatures.js";
 import type { AssetKind } from "../symbols.js";
 import type { GmlEmitter } from "./emitter.js";
 import { arrayOf, emitExpr, mapOf, memberBase, sub, unparen } from "./expr.js";
@@ -77,7 +78,43 @@ function assetArg(em: GmlEmitter, a: Expr, kind: AssetKind): string {
     if (kind === "object" && (b.kind === "all" || b.kind === "noone"))
       return JSON.stringify(b.kind);
   }
-  return sub(em, a, PREC.assign, kind === "object" ? "raw" : "num");
+  // Not a literal asset name: a runtime value. Every asset kind but objects is
+  // addressed by string (sprites by texture path), so it is read as one.
+  if (kind === "object") return sub(em, a, PREC.assign, "raw");
+  return `(${sub(em, a, PREC.assign, "raw")} as unknown as string)`;
+}
+
+const COMPARISON = new Set(["==", "!=", "<", ">", "<=", ">="]);
+
+/**
+ * An argument read as the kind the compat function declares: GML passes a
+ * number where a boolean is meant (`0`/`1`, or any truthy value) and a runtime
+ * value where a string is meant, which TypeScript would otherwise reject.
+ */
+function coerceArg(
+  em: GmlEmitter,
+  a: Expr,
+  declared: string | undefined,
+): string {
+  const x = unparen(a);
+  if (declared === "boolean") {
+    if (x.type === "Literal" && x.litKind === "boolean") return x.raw;
+    if (x.type === "Literal" && x.litKind === "number")
+      return x.value !== 0 ? "true" : "false";
+    if (
+      (x.type === "Binary" && COMPARISON.has(x.op)) ||
+      (x.type === "Unary" && x.op === "!")
+    )
+      return sub(em, a, PREC.assign);
+    return `!!(${sub(em, a, PREC.assign)})`;
+  }
+  if (declared === "array") return arrayOf(em, a);
+  if (declared === "string") {
+    if (x.type === "Literal" && x.litKind === "string")
+      return sub(em, a, PREC.assign);
+    return `(${sub(em, a, PREC.assign, "raw")} as unknown as string)`;
+  }
+  return sub(em, a, PREC.assign);
 }
 
 function paramAsset(p: ParamKind | undefined): AssetKind | undefined {
@@ -101,9 +138,10 @@ function threadedCall(
         : info.threading === "entity"
           ? ["_entity"]
           : [];
+  const declared = COMPAT_PARAM_KINDS[name]?.split(",");
   const emitted = args.map((a, i) => {
     const kind = paramAsset(info.params?.[i]);
-    return kind ? assetArg(em, a, kind) : sub(em, a, PREC.assign);
+    return kind ? assetArg(em, a, kind) : coerceArg(em, a, declared?.[i]);
   });
   return call(`GmlActions.${name}(${[...prefix, ...emitted].join(", ")})`);
 }
@@ -144,11 +182,11 @@ function contextualCall(
       return fn ? emitExpr(em, fn, "raw") : call("undefined");
     }
     case "instance_create_depth": {
-      // The engine has no depth-ordered creation; the depth takes the layer
-      // argument's place, which instance_create_layer ignores.
+      // The engine has no depth-ordered creation: the depth is not applied and
+      // a placeholder layer name stands in (instance_create_layer ignores it).
       const site = makeSite(em, e.args);
       return call(
-        `GmlActions.instance_create_layer(_entity, _ctx, ${site.arg(0)}, ${site.arg(1)}, ${site.arg(2)}, ${site.asset(3, "object")})`,
+        `GmlActions.instance_create_layer(_entity, _ctx, ${site.arg(0)}, ${site.arg(1)}, "Instances", ${site.asset(3, "object")})`,
       );
     }
     default:
