@@ -186,7 +186,10 @@ export function Profiler(): React.ReactElement {
       </div>
 
       {/* Chart */}
-      <div ref={containerRef} style={{ flex: 1, padding: 8 }}>
+      <div
+        ref={containerRef}
+        style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: 8 }}
+      >
         <canvas
           ref={canvasRef}
           style={{ display: "block", width: "100%", height: "100%" }}
