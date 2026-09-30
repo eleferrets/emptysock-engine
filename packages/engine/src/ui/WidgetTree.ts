@@ -57,12 +57,11 @@ export const WidgetParent: Relation<unknown> = createRelation(
  *
  * `yoga-layout@3.2.1` does the actual measure/arrange math (RELEASE_PASS.md
  * Track 3's library-first decision) — this class never reimplements flexbox
- * itself. It mirrors the bitECS relation tree into a fresh set of yoga
- * `Node`s on every `layout()` call (no cross-frame node reuse yet — a real
- * production version would diff and reuse nodes instead of rebuilding from
- * scratch every pass, but that optimization is out of scope for this
- * prototype, whose job per RELEASE_PASS.md is confirming the query-ordering
- * approach and yoga's async init compose correctly, not final perf tuning).
+ * itself. It mirrors the bitECS relation tree into yoga `Node`s, one per widget
+ * id, reused across `layout()` calls (styles updated, children re-linked,
+ * nodes freed when a widget leaves the tree).
+ * Scroll containers (`LayoutStyle.overflow === 2`) shift their children's
+ * absolute positions by the clamped `scrollX`/`scrollY`.
  */
 export class WidgetTree {
   private _yoga: Yoga | null = null;
@@ -189,19 +188,32 @@ export class WidgetTree {
     }
     const yoga = this._yoga;
 
-    // Rebuild every yoga node fresh this pass (see class doc comment).
-    for (const node of this._yogaNodes.values()) node.free();
-    this._yogaNodes.clear();
-
     const order = this.orderedWidgets(scene);
+    const live = new Set<number>();
+    for (const entity of order) live.add(entity.eid);
+
+    // Detach all children first so stale nodes can be freed safely and the
+    // structure re-linked in current order.
+    for (const node of this._yogaNodes.values()) {
+      while (node.getChildCount() > 0) node.removeChild(node.getChild(0));
+    }
+    for (const [eid, node] of this._yogaNodes) {
+      if (live.has(eid)) continue;
+      node.free();
+      this._yogaNodes.delete(eid);
+    }
+
     const childCounts = new Map<number, number>();
 
     for (const entity of order) {
       const style = entity.get(LayoutStyle);
       if (style === undefined) continue;
 
-      const node = yoga.Node.create();
-      this._yogaNodes.set(entity.eid, node);
+      let node = this._yogaNodes.get(entity.eid);
+      if (node === undefined) {
+        node = yoga.Node.create();
+        this._yogaNodes.set(entity.eid, node);
+      }
       node.setFlexDirection(
         style.flexDirection === 1 ? FlexDirection.Row : FlexDirection.Column,
       );
@@ -217,6 +229,10 @@ export class WidgetTree {
         node.setPositionType(PositionType.Absolute);
         node.setPosition(Edge.Left, style.left);
         node.setPosition(Edge.Top, style.top);
+      } else {
+        node.setPositionType(PositionType.Relative);
+        node.setPosition(Edge.Left, undefined);
+        node.setPosition(Edge.Top, undefined);
       }
 
       const targets = getRelationTargets(scene.world, entity.eid, WidgetParent);
@@ -253,11 +269,28 @@ export class WidgetTree {
           : undefined;
       const layout = entity.get(Layout);
       if (layout === undefined) continue;
-      layout.x = (parentLayout?.x ?? 0) + box.left;
-      layout.y = (parentLayout?.y ?? 0) + box.top;
+      let offX = 0;
+      let offY = 0;
+      const parentEntity =
+        parentEid !== undefined ? this._entities.get(parentEid) : undefined;
+      const parentStyle = parentEntity?.get(LayoutStyle);
+      const parentNode =
+        parentEid !== undefined ? this._yogaNodes.get(parentEid) : undefined;
+      if (parentStyle?.overflow === 2 && parentNode !== undefined) {
+        const [maxX, maxY] = scrollExtent(parentNode, parentStyle.padding);
+        offX = Math.min(Math.max(0, parentStyle.scrollX), maxX);
+        offY = Math.min(Math.max(0, parentStyle.scrollY), maxY);
+      }
+      layout.x = (parentLayout?.x ?? 0) + box.left - offX;
+      layout.y = (parentLayout?.y ?? 0) + box.top - offY;
       layout.width = box.width;
       layout.height = box.height;
     }
+  }
+
+  /** Number of live yoga nodes this tree owns (for leak checks). */
+  get yogaNodeCount(): number {
+    return this._yogaNodes.size;
   }
 
   /** Frees every yoga node this tree currently owns. Call from `Scene.onUnload`/`Game`'s scene teardown. */
@@ -267,6 +300,22 @@ export class WidgetTree {
     this._entities.clear();
     this._yoga = null;
   }
+}
+
+/** Max scroll offsets for a container: content extent minus its own box. */
+function scrollExtent(node: YogaNode, padding: number): [number, number] {
+  const own = node.getComputedLayout();
+  let right = 0;
+  let bottom = 0;
+  for (let i = 0; i < node.getChildCount(); i++) {
+    const c = node.getChild(i).getComputedLayout();
+    right = Math.max(right, c.left + c.width);
+    bottom = Math.max(bottom, c.top + c.height);
+  }
+  return [
+    Math.max(0, right + padding - own.width),
+    Math.max(0, bottom + padding - own.height),
+  ];
 }
 
 // Kept for the (rare) caller that needs to detach a widget from its parent

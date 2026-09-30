@@ -3,7 +3,7 @@ import type { Texture } from "pixi.js";
 import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
-import { Layout } from "../components/Layout.js";
+import { Layout, LayoutStyle } from "../components/Layout.js";
 import {
   ButtonState,
   Checkbox,
@@ -193,6 +193,41 @@ export class UISystem {
     return appearance === undefined || appearance.visible;
   }
 
+  /**
+   * Intersection of the boxes of every ancestor with `overflow` hidden or
+   * scroll, or `undefined` when no ancestor clips.
+   */
+  private _clipRect(
+    scene: Scene,
+    entity: Entity,
+  ): { x: number; y: number; width: number; height: number } | undefined {
+    let rect:
+      { x: number; y: number; width: number; height: number } | undefined;
+    let cur = this._tree.parentOf(scene, entity);
+    while (cur !== undefined) {
+      const style = cur.get(LayoutStyle);
+      const box = cur.get(Layout);
+      if (style !== undefined && style.overflow > 0 && box !== undefined) {
+        if (rect === undefined) {
+          rect = { x: box.x, y: box.y, width: box.width, height: box.height };
+        } else {
+          const x = Math.max(rect.x, box.x);
+          const y = Math.max(rect.y, box.y);
+          const r = Math.min(rect.x + rect.width, box.x + box.width);
+          const b = Math.min(rect.y + rect.height, box.y + box.height);
+          rect = {
+            x,
+            y,
+            width: Math.max(0, r - x),
+            height: Math.max(0, b - y),
+          };
+        }
+      }
+      cur = this._tree.parentOf(scene, cur);
+    }
+    return rect;
+  }
+
   private _contains(entity: Entity, x: number, y: number): boolean {
     const box = entity.get(Layout);
     if (box === undefined) return false;
@@ -217,7 +252,17 @@ export class UISystem {
       const entity = order[i];
       if (entity === undefined) continue;
       if (!this._isVisible(entity)) continue;
-      if (this._contains(entity, x, y)) return entity;
+      if (!this._contains(entity, x, y)) continue;
+      const clip = this._clipRect(scene, entity);
+      if (
+        clip !== undefined &&
+        (x < clip.x ||
+          x > clip.x + clip.width ||
+          y < clip.y ||
+          y > clip.y + clip.height)
+      )
+        continue;
+      return entity;
     }
     return undefined;
   }
@@ -314,6 +359,12 @@ export class UISystem {
       if (box === undefined) continue;
       const appearance = entity.get(WidgetAppearance);
       ctx.save();
+      const clip = this._clipRect(scene, entity);
+      if (clip !== undefined) {
+        ctx.beginPath();
+        ctx.rect(clip.x, clip.y, clip.width, clip.height);
+        ctx.clip();
+      }
       ctx.globalAlpha = appearance?.alpha ?? 1;
 
       const panel = entity.get(PanelStyle);

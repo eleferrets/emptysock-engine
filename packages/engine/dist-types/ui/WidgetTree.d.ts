@@ -33,12 +33,11 @@ export declare const WidgetParent: Relation<unknown>;
  *
  * `yoga-layout@3.2.1` does the actual measure/arrange math (RELEASE_PASS.md
  * Track 3's library-first decision) — this class never reimplements flexbox
- * itself. It mirrors the bitECS relation tree into a fresh set of yoga
- * `Node`s on every `layout()` call (no cross-frame node reuse yet — a real
- * production version would diff and reuse nodes instead of rebuilding from
- * scratch every pass, but that optimization is out of scope for this
- * prototype, whose job per RELEASE_PASS.md is confirming the query-ordering
- * approach and yoga's async init compose correctly, not final perf tuning).
+ * itself. It mirrors the bitECS relation tree into yoga `Node`s, one per widget
+ * id, reused across `layout()` calls (styles updated, children re-linked,
+ * nodes freed when a widget leaves the tree).
+ * Scroll containers (`LayoutStyle.overflow === 2`) shift their children's
+ * absolute positions by the clamped `scrollX`/`scrollY`.
  */
 export declare class WidgetTree {
   private _yoga;
@@ -112,6 +111,8 @@ export declare class WidgetTree {
    * as a top-level `Scene`/viewport would).
    */
   layout(scene: Scene, rootWidth: number, rootHeight: number): void;
+  /** Number of live yoga nodes this tree owns (for leak checks). */
+  get yogaNodeCount(): number;
   /** Frees every yoga node this tree currently owns. Call from `Scene.onUnload`/`Game`'s scene teardown. */
   destroy(): void;
 }

@@ -43,6 +43,14 @@ export const LayoutStyle = defineComponent(
     positionType: 0,
     left: 0,
     top: 0,
+    /**
+     * 0 = visible (default), 1 = hidden (children clipped to this widget's
+     * box), 2 = scroll (clipped, and children are shifted by
+     * `scrollX`/`scrollY`, clamped to the content extent).
+     */
+    overflow: 0,
+    scrollX: 0,
+    scrollY: 0,
   }),
   {
     schema: {
@@ -56,6 +64,9 @@ export const LayoutStyle = defineComponent(
       positionType: { kind: "enum", options: ["relative", "absolute"] },
       left: { kind: "number" },
       top: { kind: "number" },
+      overflow: { kind: "enum", options: ["visible", "hidden", "scroll"] },
+      scrollX: { kind: "number" },
+      scrollY: { kind: "number" },
     },
   },
 );

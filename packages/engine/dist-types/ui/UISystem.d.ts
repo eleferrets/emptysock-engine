@@ -57,6 +57,11 @@ export declare class UISystem {
   private _drawText;
   private _drawBitmapText;
   private _isVisible;
+  /**
+   * Intersection of the boxes of every ancestor with `overflow` hidden or
+   * scroll, or `undefined` when no ancestor clips.
+   */
+  private _clipRect;
   private _contains;
   /**
    * Topmost widget under `(x, y)`, or `undefined`. `WidgetTree.orderedWidgets()`
