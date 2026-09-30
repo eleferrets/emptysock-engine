@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildObjectBehavior } from "../gms2-codegen.js";
+import { buildObjectBehavior } from "../gms2-behavior-codegen.js";
+import { loadGmlProject } from "../gms2-project.js";
 
 // ---------------------------------------------------------------------------
 // End-to-end proof that a real object's Create event assigning
@@ -26,7 +27,11 @@ describe("buildObjectBehavior — GMS2 timeline_index wiring", () => {
         "utf-8",
       );
 
-      const content = await buildObjectBehavior("objJiggler", dir);
+      const content = await buildObjectBehavior(
+        "objJiggler",
+        dir,
+        await loadGmlProject(dir, { assets: { timeline: ["tmJiggle"] } }),
+      );
 
       // Uses the module's already-unconditional `import * as GmlActions
       // from '@emptysock/engine'` — no new import bookkeeping needed.
@@ -34,10 +39,10 @@ describe("buildObjectBehavior — GMS2 timeline_index wiring", () => {
         "import * as GmlActions from '@emptysock/engine';",
       );
       expect(content).toContain(
-        'const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmJiggle"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmJiggle", position: 0, running: true }); }',
+        '(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) { _tl.timelineId = "tmJiggle"; _tl.position = 0; _tl.running = true; } else { _entity.add(GmlActions.TimelineState, { timelineId: "tmJiggle", position: 0, running: true }); } })();',
       );
       expect(content).toContain(
-        "const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.loop = true;",
+        "(() => { const _tl = _entity.get(GmlActions.TimelineState); if (_tl) _tl.loop = true; })();",
       );
     } finally {
       await fs.rm(dir, { recursive: true, force: true });

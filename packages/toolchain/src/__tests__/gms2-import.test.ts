@@ -220,7 +220,11 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
       expect(content).toContain(
         "GmlActions.action_move(_entity, _ctx, GmlActions.getGmlDirection(_entity, _ctx), 4);",
       );
-      expect(content).toContain("gml_pragma('forceinline');");
+      // The emitter keeps the directive visible as a comment; it is not run.
+      expect(content).toContain(
+        "// gml_pragma('forceinline') — compile-time directive, nothing to run",
+      );
+      expect(content).not.toMatch(/^\s*gml_pragma\(/m);
       expect(content).toContain(
         "import * as GmlActions from '@emptysock/engine';",
       );
@@ -316,7 +320,7 @@ describe("importGMS2Project (synthetic fabricated project)", () => {
         "utf-8",
       );
       expect(content).toContain(
-        "if (GmlActions.action_if_collision(_entity, _ctx, other)) {",
+        "if (GmlActions.action_if_collision(_entity, _ctx, undefined)) {", // `other` has no value in a Step event,
       );
       expect(content).toContain(
         "GmlActions.action_kill_object(_entity, _ctx);",

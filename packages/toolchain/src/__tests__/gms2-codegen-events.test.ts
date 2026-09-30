@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-import { buildObjectBehavior } from "../gms2-codegen.js";
+import { buildObjectBehavior } from "../gms2-behavior-codegen.js";
 
 /**
  * Regression coverage for gms2-codegen.ts's Step/Draw sub-event mapping —
@@ -212,13 +212,19 @@ describe("gms2-codegen buildObjectBehavior — draw_* calls thread through _ctx.
       const behavior = await buildObjectBehavior(objectName, dir);
 
       expect(behavior).toContain("export function onAlarm0(");
-      expect(behavior).toContain("hp -= 1;");
+      expect(behavior).toContain(
+        'GmlActions.setGmlVar(_entity, _ctx, "hp", GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "hp")) - 1);',
+      );
       expect(behavior).toContain("export function onOther7(");
-      expect(behavior).toContain("play_footstep_sound();");
+      expect(behavior).toContain(
+        'GmlActions.gmlUnknown("play_footstep_sound")();',
+      );
       expect(behavior).toContain("export function onCleanUp0(");
-      expect(behavior).toContain("cleanup_resources();");
+      expect(behavior).toContain(
+        'GmlActions.gmlUnknown("cleanup_resources")();',
+      );
       expect(behavior).toContain("export function onDraw72(");
-      expect(behavior).toContain("pre_draw_setup();");
+      expect(behavior).toContain('GmlActions.gmlUnknown("pre_draw_setup")();');
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

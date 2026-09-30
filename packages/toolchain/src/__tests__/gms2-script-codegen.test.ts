@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildScriptModule, buildObjectBehavior } from "../gms2-codegen.js";
+import {
+  buildScriptModule,
+  buildObjectBehavior,
+} from "../gms2-behavior-codegen.js";
+import { loadGmlProject } from "../gms2-project.js";
 import { importGMS2Project } from "../gms2-import.js";
 
 // ---------------------------------------------------------------------------
@@ -26,7 +30,11 @@ describe("buildScriptModule", () => {
         "utf-8",
       );
 
-      const content = await buildScriptModule("scr_add", dir, ["scr_add"]);
+      const content = await buildScriptModule(
+        "scr_add",
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_add"] } }),
+      );
 
       expect(content).toContain(
         "export function scr_add(_entity: Entity, _ctx: GmlActionContext, a: number, b: number): unknown {",
@@ -49,9 +57,11 @@ describe("buildScriptModule", () => {
         "utf-8",
       );
 
-      const content = await buildScriptModule("scr_legacy_sum", dir, [
+      const content = await buildScriptModule(
         "scr_legacy_sum",
-      ]);
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_legacy_sum"] } }),
+      );
 
       expect(content).toContain(
         "export function scr_legacy_sum(_entity: Entity, _ctx: GmlActionContext, ...args: unknown[]): unknown {",
@@ -75,7 +85,11 @@ describe("buildScriptModule", () => {
         "utf-8",
       );
 
-      const content = await buildScriptModule("scr_log", dir, ["scr_log"]);
+      const content = await buildScriptModule(
+        "scr_log",
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_log"] } }),
+      );
       expect(content).toContain(
         "export function scr_log(_entity: Entity, _ctx: GmlActionContext, msg: number): void {",
       );
@@ -99,15 +113,27 @@ describe("buildScriptModule", () => {
       }
       const known = Object.keys(scripts);
 
-      const aContent = await buildScriptModule("scr_a", dir, known);
+      const aContent = await buildScriptModule(
+        "scr_a",
+        dir,
+        await loadGmlProject(dir, { assets: { script: known } }),
+      );
       expect(aContent).toContain('import { scr_b } from "./scr_b.js";');
       expect(aContent).not.toContain("scr_c");
 
-      const bContent = await buildScriptModule("scr_b", dir, known);
+      const bContent = await buildScriptModule(
+        "scr_b",
+        dir,
+        await loadGmlProject(dir, { assets: { script: known } }),
+      );
       expect(bContent).toContain('import { scr_c } from "./scr_c.js";');
       expect(bContent).not.toContain("scr_a");
 
-      const cContent = await buildScriptModule("scr_c", dir, known);
+      const cContent = await buildScriptModule(
+        "scr_c",
+        dir,
+        await loadGmlProject(dir, { assets: { script: known } }),
+      );
       expect(cContent).not.toContain("import {");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -119,7 +145,11 @@ describe("buildScriptModule", () => {
       path.join(os.tmpdir(), "gms2-script-missing-"),
     );
     try {
-      const content = await buildScriptModule("scr_ghost", dir, ["scr_ghost"]);
+      const content = await buildScriptModule(
+        "scr_ghost",
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_ghost"] } }),
+      );
       expect(content).toContain("TODO: migrate GML script body");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -147,9 +177,11 @@ describe("buildObjectBehavior imports scripts it calls", () => {
         "utf-8",
       );
 
-      const behavior = await buildObjectBehavior("obj_thing", dir, [
-        "scr_double",
-      ]);
+      const behavior = await buildObjectBehavior(
+        "obj_thing",
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_double"] } }),
+      );
       // `${name}.behavior.ts` and `${script}.ts` are both written at the
       // import output directory's root by `importGMS2Project` — a sibling
       // import, not a parent-directory one (a real bug this regression
@@ -170,9 +202,11 @@ describe("buildObjectBehavior imports scripts it calls", () => {
       await fs.mkdir(objDir, { recursive: true });
       await fs.writeFile(path.join(objDir, "Create_0.gml"), `x = 1;`, "utf-8");
 
-      const behavior = await buildObjectBehavior("obj_plain", dir, [
-        "scr_double",
-      ]);
+      const behavior = await buildObjectBehavior(
+        "obj_plain",
+        dir,
+        await loadGmlProject(dir, { assets: { script: ["scr_double"] } }),
+      );
       expect(behavior).not.toContain("scr_double");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -205,7 +239,11 @@ describe("buildObjectBehavior: cross-event implicit instance variable persistenc
         "utf-8",
       );
 
-      const behavior = await buildObjectBehavior("obj_camera", dir, []);
+      const behavior = await buildObjectBehavior(
+        "obj_camera",
+        dir,
+        await loadGmlProject(dir, { assets: { script: [] } }),
+      );
       expect(behavior).toContain(
         'GmlActions.setGmlVar(_entity, _ctx, "cam", GmlActions.view_get_camera(_ctx, 0));',
       );
@@ -243,9 +281,13 @@ describe("buildObjectBehavior: cross-event implicit instance variable persistenc
         "utf-8",
       );
 
-      const behavior = await buildObjectBehavior("obj_camera2", dir, []);
+      const behavior = await buildObjectBehavior(
+        "obj_camera2",
+        dir,
+        await loadGmlProject(dir, { assets: { script: [] } }),
+      );
       expect(behavior).toContain(
-        'GmlActions.instance_exists(_entity, _ctx, GmlActions.gmlNum(GmlActions.getGmlVar(_entity, _ctx, "follow")))',
+        'GmlActions.instance_exists(_entity, _ctx, GmlActions.getGmlVar(_entity, _ctx, "follow"))',
       );
       expect(behavior).not.toContain(
         'instance_exists(_entity, _ctx, "follow")',
@@ -273,7 +315,11 @@ describe("buildObjectBehavior: cross-event implicit instance variable persistenc
         "utf-8",
       );
 
-      const behavior = await buildObjectBehavior("obj_enemy", dir, []);
+      const behavior = await buildObjectBehavior(
+        "obj_enemy",
+        dir,
+        await loadGmlProject(dir, { assets: { script: [] } }),
+      );
       expect(behavior).toContain(
         "export function onCollideWithObjBullet(_entity: Entity, _other: Entity, _ctx: GmlActionContext): void {",
       );

@@ -7,40 +7,25 @@ import {
   type YYProject,
 } from "./gms2-parse.js";
 import {
-  buildObjectBehavior,
   buildObjectPrefabJSON,
   buildRoomSceneJSON,
   buildSpriteAsset,
-  buildScriptModule,
   resolveGmlObjectChain,
   resolveGmlObjectProperties,
   projectManifestJSON,
 } from "./gms2-codegen.js";
 import {
-  scanGmlMacros,
-  setGmlMacros,
-  setGmlEnumNames,
-  setGmlObjectNames,
-  setGmlSpriteNames,
-  setGmlSoundNames,
-  setGmlFontNames,
-  setGmlShaderNames,
-  setGmlMissingAssetNames,
-  setGmlRoomNames,
-  setGmlCrossFileEntityRefFields,
-  setGmlObjectFieldNames,
-} from "./gms2-transpile.js";
+  buildObjectBehavior,
+  buildScriptModule,
+} from "./gms2-behavior-codegen.js";
+import { loadGmlProject, type GmlProject } from "./gms2-project.js";
 import { scanGmlEnums, buildEnumsModule } from "./gms2-enums.js";
+import { scanGmlMacros } from "./gms2-transpile.js";
 import {
   scanGmlSourceBugs,
-  setGmlUnsetVarsByObject,
   buildMissingSpritePng,
   MISSING_SPRITE_REL,
 } from "./gms2-source-bugs.js";
-import {
-  scanGmlCrossFileEntityRefFields,
-  scanGmlObjectFieldNames,
-} from "./gms2-crossfile-refs.js";
 import { migrationReport, type MigrationReportEntry } from "./gms2-report.js";
 import {
   convertGms2Room,
@@ -134,43 +119,6 @@ export async function importGMS2Project(
   // Root of the GMS2 project — where objects/, scripts/ etc. live.
   const projectRoot = path.dirname(yypPath);
 
-  // Real, project-wide #macro resolution must happen before any file is
-  // transpiled — a macro defined in one script is routinely used in a
-  // dozen unrelated object/script files (see `scanGmlMacros`'s own doc
-  // comment in gms2-transpile.ts).
-  const gmlMacros = await scanGmlMacros(projectRoot);
-  setGmlMacros(gmlMacros);
-
-  // Real, project-wide `enum Name { ... }` resolution — same "must happen
-  // before any file is transpiled" reasoning as #macro above (see
-  // `scanGmlEnums`'s own doc comment in gms2-enums.ts and CLAUDE.md's "Real
-  // project-defined GML enums" section). The shared generated module is
-  // written once, up front, so every object/script's own generated file
-  // can import from it regardless of import order.
-  const gmlEnums = await scanGmlEnums(projectRoot);
-  setGmlEnumNames(new Set(gmlEnums.keys()));
-
-  // Real, project-wide cross-file Entity-reference field-name resolution —
-  // same "must happen before any file is transpiled" reasoning as #macro/
-  // enum above (see `scanGmlCrossFileEntityRefFields`'s own doc comment in
-  // gms2-crossfile-refs.ts and CLAUDE.md's "real cross-file dataflow
-  // analysis" entry). A field one object's `with (target) { field =
-  // other.id; }` assignment populates is routinely read from a wholly
-  // different object's own event files, so this has to be known before any
-  // single file's dotted-reference rewrite pass runs.
-  setGmlCrossFileEntityRefFields(
-    await scanGmlCrossFileEntityRefFields(projectRoot),
-  );
-
-  // Real, project-wide per-object implicit-instance-variable field names —
-  // same "must happen before any file is transpiled" reasoning as above.
-  // Closes a real, confirmed gap distinct from the Entity-reference scan:
-  // a script's `with (objName) { field = ...; }` reading a plain instance
-  // field `objName`'s own event files assign via ordinary assignment (not
-  // the `other.id` back-reference idiom) — see
-  // `scanGmlObjectFieldNames`'s own doc comment.
-  setGmlObjectFieldNames(await scanGmlObjectFieldNames(projectRoot));
-
   // NOTE: `defaultScriptType` in real .yyp files does NOT reliably indicate
   // "this project uses GML Visual (drag-and-drop)" — a real, fully
   // text-GML project (verified against the J3 Adventure fixture) can carry
@@ -257,6 +205,12 @@ export async function importGMS2Project(
   const filesToWrite: { rel: string; content: string }[] = [];
   const reportEntries: MigrationReportEntry[] = [];
 
+  // Project-wide #macro and enum values, resolved before any file is
+  // transpiled: a macro or enum declared in one file is used across the
+  // project. The source-bug scan and the shared enums module both need them.
+  const gmlMacros = await scanGmlMacros(projectRoot);
+  const gmlEnums = await scanGmlEnums(projectRoot);
+
   // Always written, even when the project declares zero enums — every
   // generated object/script file that (conditionally) imports
   // `assets/gml-enums.generated.js` must find a real file there.
@@ -272,30 +226,6 @@ export async function importGMS2Project(
       note: `${gmlEnums.size} real GML enum(s) resolved project-wide (${[...gmlEnums.keys()].join(", ")}) — see assets/gml-enums.generated.ts.`,
     });
   }
-
-  // Real, project-wide object-type names for the cross-instance dotted-
-  // reference rewrite pass (`obj_x.field` — see gms2-transpile.ts's
-  // `setGmlObjectNames`/CLAUDE.md's "Cross-file symbol table..." section).
-  // Every object listed in the project, not just ones that end up
-  // successfully converted — a dotted reference to an object that itself
-  // fails to import still deserves the real runtime-lookup rewrite (it
-  // will simply find no live instance at runtime, the same honest
-  // "no-live-instance" no-op `getGmlObjectVar`/`setGmlObjectVar` already
-  // give any object type with zero active instances).
-  setGmlObjectNames(new Set(objects));
-  // Real, project-wide sprite/sound/font/room name registries for the
-  // "bare asset-name identifier used as a plain value" rewrite pass (see
-  // gms2-transpile.ts's own doc comment right above that pass, and
-  // CLAUDE.md's "GMS2 transpiler: project-wide asset-name registry"
-  // entry). Every listed resource of each kind, not just ones that end up
-  // successfully converted — the same "still worth resolving even if the
-  // underlying asset itself failed to import" reasoning `setGmlObjectNames`
-  // above already documents for objects.
-  setGmlSpriteNames(new Set(sprites));
-  setGmlSoundNames(new Set(sounds));
-  setGmlFontNames(new Set(fonts));
-  setGmlRoomNames(new Set(rooms));
-  setGmlShaderNames(new Set(shaders));
 
   // Real defects in the original source: names used but never defined
   // anywhere in the project (see gms2-source-bugs.ts). Named in
@@ -328,11 +258,23 @@ export async function importGMS2Project(
     resolveProperties: async (n) =>
       (await resolveGmlObjectProperties(n, projectRoot)).keys(),
   });
-  setGmlUnsetVarsByObject(sourceBugScan.unsetVarsByObject);
-  setGmlMissingAssetNames({
-    fonts: sourceBugScan.missingFonts,
-    sprites: sourceBugScan.missingSprites,
-    objects: sourceBugScan.missingObjects,
+  // One immutable analysis of the whole project, passed to every generator.
+  const gmlProject: GmlProject = await loadGmlProject(projectRoot, {
+    assets: {
+      object: objects,
+      script: scripts,
+      sprite: sprites,
+      sound: sounds,
+      font: fonts,
+      room: rooms,
+      shader: shaders,
+    },
+    missing: {
+      font: sourceBugScan.missingFonts,
+      sprite: sourceBugScan.missingSprites,
+      object: sourceBugScan.missingObjects,
+    },
+    unsetVarsByObject: sourceBugScan.unsetVarsByObject,
   });
 
   const convertedObjects: string[] = [];
@@ -372,7 +314,7 @@ export async function importGMS2Project(
     }
 
     const prefabJSON = await buildObjectPrefabJSON(name, projectRoot);
-    const behavior = await buildObjectBehavior(name, projectRoot, scripts);
+    const behavior = await buildObjectBehavior(name, projectRoot, gmlProject);
     filesToWrite.push({ rel: `${name}.prefab.json`, content: prefabJSON });
     filesToWrite.push({ rel: `${name}.behavior.ts`, content: behavior });
     convertedObjects.push(name);
@@ -381,7 +323,7 @@ export async function importGMS2Project(
 
   for (const name of scripts) {
     if (verbose) console.log(`  [script] ${name}`);
-    const content = await buildScriptModule(name, projectRoot, scripts);
+    const content = await buildScriptModule(name, projectRoot, gmlProject);
     filesToWrite.push({ rel: `${name}.ts`, content });
     reportEntries.push({ kind: "script", name, status: "converted" });
   }
