@@ -4,6 +4,7 @@ import { Meta } from "./components/Meta.js";
 import { Entity as EntityClass } from "./Entity.js";
 import type { Entity } from "./Entity.js";
 import {
+  entityRefFields,
   entityRefLeaf,
   remapRefs,
   remapValue,
@@ -210,4 +211,79 @@ export function restoreEntities(
     }
   }
   return map;
+}
+
+const SCAN_DEPTH = 8;
+
+/** Reads every old entity id / old eid a value refers to (handles of `world`, `{ $ref }`). */
+function scanRefs(
+  value: unknown,
+  world: Scene["world"],
+  out: { ids: Set<number>; eids: Set<number> },
+  depth: number,
+  seen: Set<object>,
+): void {
+  if (typeof value !== "object" || value === null) return;
+  if (value instanceof EntityClass) {
+    if (value.world === world) out.eids.add(value.eid);
+    return;
+  }
+  if (depth <= 0 || seen.has(value)) return;
+  seen.add(value);
+  const ref = (value as { $ref?: unknown }).$ref;
+  if (typeof ref === "number" && ref !== 0) out.ids.add(ref);
+  if (value instanceof Map) {
+    for (const v of value.values()) scanRefs(v, world, out, depth - 1, seen);
+  } else if (Array.isArray(value)) {
+    for (const v of value) scanRefs(v, world, out, depth - 1, seen);
+  } else {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return;
+    for (const v of Object.values(value))
+      scanRefs(v, world, out, depth - 1, seen);
+  }
+}
+
+/**
+ * References held by entities of `from` that point at entities of `to`.
+ * Both snapshots must come from the same source scene (same old ids), as when
+ * `Game` captures the carried entities and the persistent-room cache entry at
+ * one unload. Such references dangle after restore, since each side respawns
+ * at a different time and the remap only knows its own entities. Returns one
+ * human-readable line per reference (declared `entityRef` fields, plus
+ * handles and `{ $ref }` values inside extras).
+ */
+export function findCrossReferences(
+  from: SceneSnapshot,
+  to: SceneSnapshot,
+): string[] {
+  if (from.world !== to.world) return [];
+  const targetIds = new Set(to.entities.map((e) => e.oldId));
+  const targetEids = new Set(to.entities.map((e) => e.oldEid));
+  const found: string[] = [];
+  for (const snap of from.entities) {
+    for (const { def, data } of snap.components) {
+      for (const field of entityRefFields(def)) {
+        const id = (data[field] as { $ref?: unknown } | undefined)?.$ref;
+        if (typeof id === "number" && targetIds.has(id)) {
+          found.push(
+            `entity ${snap.oldId} ${def.componentName}.${field} -> entity ${id}`,
+          );
+        }
+      }
+    }
+    for (const [name, value] of Object.entries(snap.extras)) {
+      const hit = { ids: new Set<number>(), eids: new Set<number>() };
+      scanRefs(value, from.world, hit, SCAN_DEPTH, new Set());
+      for (const id of hit.ids) {
+        if (targetIds.has(id))
+          found.push(`entity ${snap.oldId} extra "${name}" -> entity ${id}`);
+      }
+      for (const eid of hit.eids) {
+        if (targetEids.has(eid))
+          found.push(`entity ${snap.oldId} extra "${name}" -> eid ${eid}`);
+      }
+    }
+  }
+  return found;
 }

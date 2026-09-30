@@ -87,4 +87,8 @@ describe("@emptysock/engine export surface", () => {
     expect(typeof ECS.lerp).toBe("function");
     expect(ECS.lerp(0, 10, 0.5)).toBe(5);
   });
+
+  it("exports the scene-transfer cross-reference check", () => {
+    expect(typeof ECS.findCrossReferences).toBe("function");
+  });
 });

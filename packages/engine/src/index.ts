@@ -30,6 +30,7 @@ export { RoomStateCache } from "./RoomStateCache.js";
 export {
   captureEntities,
   restoreEntities,
+  findCrossReferences,
   persistentTransferPolicy,
 } from "./SceneTransfer.js";
 export type {

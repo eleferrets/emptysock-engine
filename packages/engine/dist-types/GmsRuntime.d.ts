@@ -144,8 +144,6 @@ export declare class GmsProjectRuntime {
    * field is the right shape here, not a `(World, eid)`-keyed side-table.
    */
   private readonly _prevKeyDown;
-  /** Persistent entities snapshotted by the outgoing room's `onUnload`, restored by the next room's `onLoad`. */
-  private _carried;
   constructor(
     game: Game,
     data: GmsProjectData,

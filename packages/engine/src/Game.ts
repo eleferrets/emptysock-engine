@@ -19,6 +19,7 @@ import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
 import {
   captureEntities,
+  findCrossReferences,
   persistentTransferPolicy,
   restoreEntities,
   type SceneSnapshot,
@@ -650,6 +651,24 @@ export class Game {
     await this._unload(undefined, undefined);
   }
 
+  /**
+   * Carried entities and the cached room are restored at different times, so
+   * references between the two cannot be remapped: they become `NO_REF`/
+   * `undefined`. Warn once per unload so the gap is visible.
+   */
+  private warnCrossRefs(key: string, room: SceneSnapshot): void {
+    const carried = this._transfer?.snapshot;
+    if (carried === undefined) return;
+    const lines = [
+      ...findCrossReferences(room, carried).map((l) => `room -> carried: ${l}`),
+      ...findCrossReferences(carried, room).map((l) => `carried -> room: ${l}`),
+    ];
+    if (lines.length === 0) return;
+    console.warn(
+      `[Game] Persistent room "${key}": ${lines.length} reference(s) between carried and cached entities will dangle after restore (${lines.slice(0, 3).join("; ")}${lines.length > 3 ? "; ..." : ""}).`,
+    );
+  }
+
   private async _unload(
     carry: TransferPolicy | undefined,
     restart: "room" | "game" | undefined,
@@ -671,13 +690,12 @@ export class Game {
       }
       const key = current.definition.persistentKey;
       if (key !== undefined && restart !== "game") {
-        this._roomCache.store(
-          key,
-          captureEntities(
-            current.lifecycle.scene,
-            roomPolicy(current.definition, carry),
-          ),
+        const room = captureEntities(
+          current.lifecycle.scene,
+          roomPolicy(current.definition, carry),
         );
+        this._roomCache.store(key, room);
+        if (this._transfer !== null) this.warnCrossRefs(key, room);
       }
     } finally {
       if (current.manageLifecycle) {

@@ -46,6 +46,13 @@ export interface SceneDefinition {
    * restored with the room. Default: `persistentTransferPolicy`, no extras.
    */
   transfer?: TransferPolicy;
+  /**
+   * When `true`, leaving this scene carries the entities `transfer.select`
+   * picks into whatever scene loads next, without the caller passing
+   * `loadScene(.., { carry })` (runtimes that swap rooms from game code).
+   * An explicit `carry` option wins; `restart: "game"` carries nothing.
+   */
+  carryOnLeave?: boolean;
 }
 /** What a loaded scene gets handed for the lifetime of that load. */
 export interface SceneLifecycle {
@@ -396,6 +403,12 @@ export declare class Game {
    * those systems and is responsible for destroying them itself.
    */
   unloadScene(): Promise<void>;
+  /**
+   * Carried entities and the cached room are restored at different times, so
+   * references between the two cannot be remapped: they become `NO_REF`/
+   * `undefined`. Warn once per unload so the gap is visible.
+   */
+  private warnCrossRefs;
   private _unload;
   /**
    * ENGINE_DESIGN.md §12.3 — stack an additional, independently-lifecycled
