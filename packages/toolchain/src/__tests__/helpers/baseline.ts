@@ -8,7 +8,7 @@ import { projectKey } from "./fixture.js";
  * `projectKey` and labelled A..G; no project name or content is stored.
  *
  * Counts are ceilings: a run may report fewer (a fix) but never more. The
- * target for every count is zero.
+ * target for every count except `tscErrorLines` is zero.
  */
 export interface ProjectBaseline {
   label: string;
@@ -16,6 +16,8 @@ export interface ProjectBaseline {
   loadFailures: number;
   /** Distinct `GmlBehaviorSystem` handler errors over a full 600-frame walk. */
   handlerErrors: number;
+  /** `tsc --noEmit` error lines over the generated output. */
+  tscErrorLines: number;
 }
 
 export interface Baseline {
@@ -44,6 +46,7 @@ export function baselineFor(yyp: string): ProjectBaseline {
       label: "?",
       loadFailures: 0,
       handlerErrors: 0,
+      tscErrorLines: 0,
     }
   );
 }
