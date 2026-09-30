@@ -494,6 +494,7 @@ export async function probe(): Promise<unknown> {
   mapUploadProbe,
   flashBench,
   uiBitmap,
+  layerShader,
 };
 void PixiSprite;
 
@@ -809,4 +810,48 @@ export async function uiBitmap(cfg: Cfg): Promise<Record<string, unknown>> {
   out.bitmap2 = await paint(2, true);
   out.fallback1 = await paint(1, false);
   return out;
+}
+
+// A registered importer shader attached to a whole layer (RenderSystem.addLayerGmlShader):
+// the sprite on that layer turns white, the one on the default layer is untouched.
+export async function layerShader(cfg: Cfg): Promise<Record<string, unknown>> {
+  if (!cfg.shWhite) return { skipped: true };
+  registerGmlShader("sh_white", cfg.shWhite);
+  W = 128;
+  H = 128;
+  const p = await mkPipeline(128, 128, {
+    textureLoader: () => Promise.resolve(solidTexture()),
+  });
+  p.layers.defineLayer("fx", 5);
+  const s = new Scene();
+  const mk = (x: number, layer: string) => {
+    const e = s.spawn();
+    e.add(Transform, { x, y: 64 });
+    e.add(Sprite, { texturePath: "t.png", layer });
+  };
+  mk(32, "fx");
+  mk(96, "default");
+  const added = (
+    p as unknown as {
+      _render: { addLayerGmlShader(layer: string, id: string): unknown };
+    }
+  )._render.addLayerGmlShader("fx", "sh_white");
+  p.syncEntities(s);
+  await new Promise((r) => setTimeout(r, 100));
+  p.renderFrame(s);
+  const img = px(p, p.renderer.lastObjectRendered as Container);
+  const k = img.width / 128;
+  const at = (x: number, y: number): number[] => {
+    const i = (Math.floor(y * k) * img.width + Math.floor(x * k)) * 4;
+    return [img.data[i]!, img.data[i + 1]!, img.data[i + 2]!, img.data[i + 3]!];
+  };
+  return {
+    attached: added !== undefined,
+    layered: at(16, 64),
+    layeredBlue: at(40, 64),
+    layeredEmpty: at(60, 64),
+    plain: at(80, 64),
+    plainBlue: at(112, 64),
+    png: toPng(img),
+  };
 }

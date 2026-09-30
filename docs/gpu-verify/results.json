@@ -17,9 +17,9 @@
     },
     {
       "name": "rain frame cost",
-      "msBase": 0.07999999988824129,
-      "msPass": 0.0925000000745058,
-      "msRain": 0.1300000000745058
+      "msBase": 0.044999999925494194,
+      "msPass": 0.06749999988824129,
+      "msRain": 0.1274999998509884
     },
     {
       "name": "sh_white: filtered sprite is white",
@@ -42,6 +42,11 @@
       "detail": "lit=1092 glyphGroups=8 bboxY=20,42"
     },
     {
+      "name": "layer shader: importer shader on a layer whitens its sprite, other layers untouched",
+      "ok": true,
+      "detail": "layered=255,255,255,255 empty=255,255,255,0 plain=200,30,30,255"
+    },
+    {
       "name": "ui bitmap text: atlas glyph blits on a real canvas, same box at 1x and 2x",
       "ok": true,
       "detail": "lit=1473 (fillText 388) bbox1x=2,6,166,29 bbox2x=2,6,166.5,29.5"
@@ -54,7 +59,7 @@
     {
       "name": "sprite flash: 1000 flashing sprites cost under 5 ms per frame over a plain frame",
       "ok": true,
-      "detail": "plain 0.843 ms, flashing 1.258 ms (50 sprites: 0.087 vs 0.102 ms)"
+      "detail": "plain 0.818 ms, flashing 1.207 ms (50 sprites: 0.083 vs 0.108 ms)"
     },
     {
       "name": "sprite flash cost",
@@ -62,22 +67,22 @@
         {
           "n": 50,
           "flashing": false,
-          "msPerFrame": 0.087
+          "msPerFrame": 0.083
         },
         {
           "n": 50,
           "flashing": true,
-          "msPerFrame": 0.102
+          "msPerFrame": 0.108
         },
         {
           "n": 1000,
           "flashing": false,
-          "msPerFrame": 0.843
+          "msPerFrame": 0.818
         },
         {
           "n": 1000,
           "flashing": true,
-          "msPerFrame": 1.258
+          "msPerFrame": 1.207
         }
       ]
     },
@@ -99,6 +104,6 @@
   ],
   "console": [
     "Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "    at PixiGmlDrawTarget.text (http://127.0.0.1:60210/bundle.js:66329:12)\n    at Object.bitmapText (http://127.0.0.1:60210/bundle.js:67864:5)\n    at async <anonymous>:337:30"
+    "    at PixiGmlDrawTarget.text (http://127.0.0.1:60267/bundle.js:66329:12)\n    at Object.bitmapText (http://127.0.0.1:60267/bundle.js:67864:5)\n    at async <anonymous>:337:30"
   ]
 }

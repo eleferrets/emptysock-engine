@@ -210,6 +210,18 @@ else {
     `lit=${b.lit} glyphGroups=${b.glyphGroups} bboxY=${b.bboxY}`,
   );
 }
+const ls = await run("layerShader", cfg);
+if (ls.skipped) console.log("SKIP  layer shader (set GMS_FIXTURE_ASSETS)");
+else
+  check(
+    "layer shader: importer shader on a layer whitens its sprite, other layers untouched",
+    ls.attached &&
+      ls.layered.slice(0, 3).every((v) => v > 245) &&
+      ls.layeredEmpty[3] < 10 &&
+      ls.plain[0] > 150 &&
+      ls.plain[1] < 80,
+    `layered=${ls.layered} empty=${ls.layeredEmpty} plain=${ls.plain}`,
+  );
 const ub = await run("uiBitmap", cfg);
 if (ub.skipped) console.log("SKIP  ui bitmap text (set GMS_FIXTURE_ASSETS)");
 else {

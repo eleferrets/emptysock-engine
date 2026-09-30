@@ -95,3 +95,17 @@ does not have, so on a real canvas the text silently fell back to `fillText`. `w
 export) adds it over the nine-argument `drawImage`. Checked on the real canvas with the real `fnt_menu` atlas: the
 glyph run is drawn from the atlas (1473 lit pixels against 388 for `fillText`), vertically centred, with the same
 box in CSS pixels at device scale 1 and 2. At 2x the raster atlas is upscaled, so edges are softer than at 1x.
+
+### Per-layer importer shader
+
+`RenderSystem.addLayerGmlShader("fx", "sh_white")` on a layer: its sprite becomes the white silhouette (transparent
+texels stay transparent), a sprite on another layer is untouched. Same result under WebGL and WebGPU.
+
+### Decisions this run supports
+
+- Renderer default stays `["webgpu", "webgl"]` (backlog C4): every path checked here renders the same under both
+  backends on the real GPU, imported shaders carry a WGSL program, and `RenderSystemOptions.preference` lets a game
+  force WebGL. A GL-only filter still renders nothing under WebGPU and logs one warning naming it.
+- Blend-required filters (`uBackTexture`, C3) keep the documented WebGL-only fallback; nothing checked needs them.
+- Sprite `shader_set` stays a per-sprite Filter (D23): it works, and its cost (about 0.2 ms per filtered sprite on
+  the M4 Pro) matches the old flash filter. Only the flash, which can fire on many sprites at once, moved off it.
