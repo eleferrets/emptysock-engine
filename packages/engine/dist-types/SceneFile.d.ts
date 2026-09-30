@@ -2,7 +2,11 @@ import type { ComponentDef } from "./Component.js";
 import { type PrefabDef } from "./Prefab.js";
 import type { Scene } from "./Scene.js";
 import type { SerializableRecord } from "./Serializable.js";
-import type { SceneDocument, SceneEntity } from "./SceneDocument.js";
+import type {
+  SceneComponentEntry,
+  SceneDocument,
+  SceneEntity,
+} from "./SceneDocument.js";
 import { type SceneFileV1 } from "./SceneMigrations.js";
 /**
  * ENGINE_DESIGN.md §13.4 — "scene/prefab files: JSON with generated `.d.ts`
@@ -17,7 +21,7 @@ import { type SceneFileV1 } from "./SceneMigrations.js";
  * Scene files are `SceneDocument`s (`SceneDocument.ts`, `formatVersion: 2`);
  * older files (no `formatVersion`) are migrated on read by
  * `parseSceneDocument` (`SceneMigrations.ts`). Prefab files are still the
- * original `PrefabFile` shape (prefab unification is a follow-up).
+ * name-keyed `components` map (`PrefabFile`); the legacy array shape is migrated on read (`migratePrefabFile`).
  *
  * File naming convention (not enforced by the loader, just what the IDE and
  * toolchain agree on): a prefab template lives at `<Name>.prefab.json` next
@@ -26,20 +30,40 @@ import { type SceneFileV1 } from "./SceneMigrations.js";
  * importer's `.yy` quirk-handling, these are files *this* engine writes,
  * so there's no legacy format to tolerate).
  */
-/** On-disk shape of one component entry inside a `.prefab.json` file. */
-export interface PrefabFileComponentEntry {
-  /** Must match a `ComponentDef.componentName` registered before loading. */
+/**
+ * On-disk shape of one component entry inside a `.prefab.json` file: the
+ * same `{ v?, data }` entry a `SceneDocument` entity uses.
+ */
+export type PrefabFileComponentEntry = SceneComponentEntry;
+/** Legacy (array-shaped) component entry; read-only, migrated on read. */
+export interface PrefabFileV1ComponentEntry {
   readonly component: string;
-  /** Field overrides layered over that component's own defaults. */
   readonly overrides?: SerializableRecord;
 }
-/** On-disk shape of a `.prefab.json` file. */
+/**
+ * On-disk shape of a `.prefab.json` file. `components` is a name-keyed map
+ * (key = registered component name); application order is JSON key order.
+ */
 export interface PrefabFile {
   readonly prefabName: string;
-  readonly components: readonly PrefabFileComponentEntry[];
+  readonly components: Readonly<Record<string, PrefabFileComponentEntry>>;
   /** Names of other prefab files this one extends (§11.2 — prefabs-in-prefabs). */
   readonly extends?: readonly string[];
 }
+/** Legacy array-shaped prefab file (`[{ component, overrides }]`). */
+export interface PrefabFileV1 {
+  readonly prefabName: string;
+  readonly components: readonly PrefabFileV1ComponentEntry[];
+  readonly extends?: readonly string[];
+}
+/**
+ * Migrates a prefab file to the current shape. A name-keyed `components`
+ * map is returned as is; the legacy array is converted in order (a
+ * duplicated component name: last entry wins, at its first position).
+ */
+export declare function migratePrefabFile(
+  file: PrefabFile | PrefabFileV1,
+): PrefabFile;
 /** Looks up a registered `ComponentDef` by name, throwing with a useful message if missing. */
 export type ComponentLookup = (name: string) => ComponentDef | undefined;
 /**
@@ -51,7 +75,7 @@ export type ComponentLookup = (name: string) => ComponentDef | undefined;
  * parsed once).
  */
 export declare function parsePrefabFile(
-  file: PrefabFile,
+  rawFile: PrefabFile | PrefabFileV1,
   lookup: ComponentLookup,
   resolvePrefab?: (name: string) => PrefabDef,
 ): PrefabDef;
@@ -63,7 +87,7 @@ export declare function parsePrefabFile(
  * load/codegen time, never per-frame).
  */
 export declare function parsePrefabFiles(
-  files: readonly PrefabFile[],
+  files: readonly (PrefabFile | PrefabFileV1)[],
   lookup: ComponentLookup,
 ): Map<string, PrefabDef>;
 /**

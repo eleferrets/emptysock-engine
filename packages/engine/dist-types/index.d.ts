@@ -51,12 +51,15 @@ export type { PrefabDef, PrefabComponentEntry } from "./Prefab.js";
 export {
   parsePrefabFile,
   parsePrefabFiles,
+  migratePrefabFile,
   loadSceneFile,
   stampPrefabNameOntoMeta,
 } from "./SceneFile.js";
 export type {
   PrefabFile,
   PrefabFileComponentEntry,
+  PrefabFileV1,
+  PrefabFileV1ComponentEntry,
   ComponentLookup,
   LoadSceneFileOptions,
 } from "./SceneFile.js";

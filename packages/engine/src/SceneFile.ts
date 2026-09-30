@@ -5,7 +5,11 @@ import type { SerializableRecord } from "./Serializable.js";
 import { componentRegistry } from "./ComponentRegistry.js";
 import { remapRefs } from "./RefRemap.js";
 import { Meta } from "./components/Meta.js";
-import type { SceneDocument, SceneEntity } from "./SceneDocument.js";
+import type {
+  SceneComponentEntry,
+  SceneDocument,
+  SceneEntity,
+} from "./SceneDocument.js";
 import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
 
 /**
@@ -21,7 +25,7 @@ import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
  * Scene files are `SceneDocument`s (`SceneDocument.ts`, `formatVersion: 2`);
  * older files (no `formatVersion`) are migrated on read by
  * `parseSceneDocument` (`SceneMigrations.ts`). Prefab files are still the
- * original `PrefabFile` shape (prefab unification is a follow-up).
+ * name-keyed `components` map (`PrefabFile`); the legacy array shape is migrated on read (`migratePrefabFile`).
  *
  * File naming convention (not enforced by the loader, just what the IDE and
  * toolchain agree on): a prefab template lives at `<Name>.prefab.json` next
@@ -31,40 +35,71 @@ import { parseSceneDocument, type SceneFileV1 } from "./SceneMigrations.js";
  * so there's no legacy format to tolerate).
  */
 
-/** On-disk shape of one component entry inside a `.prefab.json` file. */
-export interface PrefabFileComponentEntry {
-  /** Must match a `ComponentDef.componentName` registered before loading. */
+/**
+ * On-disk shape of one component entry inside a `.prefab.json` file: the
+ * same `{ v?, data }` entry a `SceneDocument` entity uses.
+ */
+export type PrefabFileComponentEntry = SceneComponentEntry;
+
+/** Legacy (array-shaped) component entry; read-only, migrated on read. */
+export interface PrefabFileV1ComponentEntry {
   readonly component: string;
-  /** Field overrides layered over that component's own defaults. */
   readonly overrides?: SerializableRecord;
 }
 
-/** On-disk shape of a `.prefab.json` file. */
+/**
+ * On-disk shape of a `.prefab.json` file. `components` is a name-keyed map
+ * (key = registered component name); application order is JSON key order.
+ */
 export interface PrefabFile {
   readonly prefabName: string;
-  readonly components: readonly PrefabFileComponentEntry[];
+  readonly components: Readonly<Record<string, PrefabFileComponentEntry>>;
   /** Names of other prefab files this one extends (§11.2 — prefabs-in-prefabs). */
   readonly extends?: readonly string[];
+}
+
+/** Legacy array-shaped prefab file (`[{ component, overrides }]`). */
+export interface PrefabFileV1 {
+  readonly prefabName: string;
+  readonly components: readonly PrefabFileV1ComponentEntry[];
+  readonly extends?: readonly string[];
+}
+
+/**
+ * Migrates a prefab file to the current shape. A name-keyed `components`
+ * map is returned as is; the legacy array is converted in order (a
+ * duplicated component name: last entry wins, at its first position).
+ */
+export function migratePrefabFile(file: PrefabFile | PrefabFileV1): PrefabFile {
+  if (!Array.isArray(file.components)) return file as PrefabFile;
+  const components: Record<string, PrefabFileComponentEntry> = {};
+  for (const entry of file.components as readonly PrefabFileV1ComponentEntry[]) {
+    components[entry.component] = { data: { ...(entry.overrides ?? {}) } };
+  }
+  return file.extends === undefined
+    ? { prefabName: file.prefabName, components }
+    : { prefabName: file.prefabName, components, extends: file.extends };
 }
 
 /** Looks up a registered `ComponentDef` by name, throwing with a useful message if missing. */
 export type ComponentLookup = (name: string) => ComponentDef | undefined;
 
 function resolveComponentEntries(
-  entries: readonly PrefabFileComponentEntry[],
+  entries: Readonly<Record<string, PrefabFileComponentEntry>>,
   lookup: ComponentLookup,
   context: string,
 ): { def: ComponentDef; overrides?: SerializableRecord }[] {
-  return entries.map((entry) => {
-    const def = lookup(entry.component);
+  return Object.entries(entries).map(([name, entry]) => {
+    const def = lookup(name);
     if (def === undefined) {
       throw new Error(
-        `${context}: unknown component "${entry.component}" — it must be registered (via defineComponent + a lookup table) before loading this file.`,
+        `${context}: unknown component "${name}" — it must be registered (via defineComponent + a lookup table) before loading this file.`,
       );
     }
-    return entry.overrides === undefined
+    const data = entry.data as SerializableRecord | undefined;
+    return data === undefined || Object.keys(data).length === 0
       ? { def }
-      : { def, overrides: entry.overrides };
+      : { def, overrides: data };
   });
 }
 
@@ -77,10 +112,11 @@ function resolveComponentEntries(
  * parsed once).
  */
 export function parsePrefabFile(
-  file: PrefabFile,
+  rawFile: PrefabFile | PrefabFileV1,
   lookup: ComponentLookup,
   resolvePrefab?: (name: string) => PrefabDef,
 ): PrefabDef {
+  const file = migratePrefabFile(rawFile);
   const components = resolveComponentEntries(
     file.components,
     lookup,
@@ -105,11 +141,14 @@ export function parsePrefabFile(
  * load/codegen time, never per-frame).
  */
 export function parsePrefabFiles(
-  files: readonly PrefabFile[],
+  files: readonly (PrefabFile | PrefabFileV1)[],
   lookup: ComponentLookup,
 ): Map<string, PrefabDef> {
   const byName = new Map<string, PrefabFile>();
-  for (const file of files) byName.set(file.prefabName, file);
+  for (const raw of files) {
+    const file = migratePrefabFile(raw);
+    byName.set(file.prefabName, file);
+  }
 
   const resolved = new Map<string, PrefabDef>();
   const resolving = new Set<string>();
