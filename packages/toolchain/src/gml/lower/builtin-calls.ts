@@ -114,6 +114,15 @@ const degOut =
     prec: PREC.multiplicative,
   });
 
+function makeColourRgb(c: CallSite): Piece {
+  const ch = (i: number, shift: number): string =>
+    `((${c.arg(i, PREC.bitAnd + 1)} & 255) << ${shift})`;
+  return {
+    code: `${ch(0, 16)} | ${ch(1, 8)} | (${c.arg(2, PREC.bitAnd + 1)} & 255)`,
+    prec: PREC.bitOr,
+  };
+}
+
 const gc = "undefined /* GML data structures are garbage collected */";
 
 const TABLE: ReadonlyMap<string, CallLowering> = new Map<string, CallLowering>([
@@ -182,6 +191,26 @@ const TABLE: ReadonlyMap<string, CallLowering> = new Map<string, CallLowering>([
       call(
         `Math.hypot(${c.arg(2, PREC.additive)} - ${c.arg(0, PREC.additive + 1)}, ${c.arg(3, PREC.additive)} - ${c.arg(1, PREC.additive + 1)})`,
       ),
+  ],
+  [
+    "angle_difference",
+    (c) => ({
+      code: `((${c.arg(0, PREC.additive)} - ${c.arg(1, PREC.additive + 1)}) % 360 + 540) % 360 - 180`,
+      prec: PREC.additive,
+    }),
+  ],
+  ["real", (c) => call(`Number(${c.arg(0, PREC.assign, "raw")})`)],
+  // Colours are `0xRRGGBB` in this engine (see `c_red`), not GameMaker's BGR.
+  ["make_color_rgb", makeColourRgb],
+  ["make_colour_rgb", makeColourRgb],
+  // Days since 1899-12-30, GameMaker's date epoch.
+  [
+    "date_current_datetime",
+    () => ({ code: "Date.now() / 86400000 + 25569", prec: PREC.additive }),
+  ],
+  [
+    "keyboard_check_direct",
+    (c) => call(`GmlActions.keyboard_check(_ctx, ${c.arg(0)})`),
   ],
   ["string", (c) => call(`String(${c.arg(0, PREC.assign, "raw")})`)],
   [
@@ -299,6 +328,10 @@ const TABLE: ReadonlyMap<string, CallLowering> = new Map<string, CallLowering>([
   ],
   ["draw_ellipse", guardedDraw("draw_ellipse")],
   ["draw_ellipse_color", guardedDraw("draw_ellipse_color")],
+  ["draw_circle_color", guardedDraw("draw_circle_color")],
+  ["draw_circle_colour", guardedDraw("draw_circle_color")],
+  ["draw_rectangle_color", guardedDraw("draw_rectangle_color")],
+  ["draw_rectangle_colour", guardedDraw("draw_rectangle_color")],
   ["draw_triangle", guardedDraw("draw_triangle")],
   ["draw_triangle_color", guardedDraw("draw_triangle_color")],
   ["draw_text_ext", targetDraw("draw_text_ext")],

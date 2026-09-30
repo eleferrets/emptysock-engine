@@ -427,6 +427,29 @@ export declare function draw_ellipse(
   y2: number,
   outline: boolean | number,
 ): void;
+/** `draw_circle_color(x, y, r, c1, c2, outline)` — a flat fill in `c1` (no centre-to-edge gradient is modelled, like `draw_ellipse_color`). */
+export declare function draw_circle_color(
+  target: GmlDrawTarget,
+  x: number,
+  y: number,
+  r: number,
+  c1: number,
+  _c2: number,
+  outline: boolean | number,
+): void;
+/** `draw_rectangle_color(x1, y1, x2, y2, c1, c2, c3, c4, outline)` — a flat fill in `c1` (no per-corner gradient is modelled). */
+export declare function draw_rectangle_color(
+  target: GmlDrawTarget,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  c1: number,
+  _c2: number,
+  _c3: number,
+  _c4: number,
+  outline: boolean | number,
+): void;
 /** `draw_ellipse_color(x1, y1, x2, y2, c1, c2, outline)` — a flat fill in `c1` (no centre-to-edge gradient is modelled, the same approximation `draw_text_color` documents). */
 export declare function draw_ellipse_color(
   target: GmlDrawTarget,

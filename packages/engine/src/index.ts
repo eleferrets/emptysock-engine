@@ -1011,6 +1011,8 @@ export {
   draw_rectangle,
   draw_circle,
   draw_ellipse,
+  draw_circle_color,
+  draw_rectangle_color,
   draw_ellipse_color,
   draw_triangle,
   draw_triangle_color,
