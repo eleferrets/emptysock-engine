@@ -225,7 +225,10 @@ export async function scanGmlMacros(
         const content = await fs.readFile(full, "utf-8").catch(() => "");
         for (const m of scanMacros(content)) {
           if (m.valueText !== "") {
-            macros.set(m.config ? `${m.config}:${m.name}` : m.name, m.valueText);
+            macros.set(
+              m.config ? `${m.config}:${m.name}` : m.name,
+              m.valueText,
+            );
           }
         }
       }
@@ -464,7 +467,11 @@ function rewriteDottedAssignments(
     if (isTarget(head)) {
       // A chained assignment (`a.x = b.y = 3;`) rewrites the inner target
       // first, exactly as the former per-name loop nested them.
-      const inner = rewriteDottedAssignments(`${m[3] as string};`, isTarget, build);
+      const inner = rewriteDottedAssignments(
+        `${m[3] as string};`,
+        isTarget,
+        build,
+      );
       const expr = inner.endsWith(";") ? inner.slice(0, -1) : inner;
       result += text.slice(last, m.index) + build(head, m[2] as string, expr);
       last = m.index + m[0].length;
@@ -612,7 +619,8 @@ function buildFunctionDepthProbe(source: string): (offset: number) => number {
 
 // Shared with the gml/ symbol table (gml/builtins-data.ts) so the in-pipeline
 // regex passes and the AST-backed scans can never disagree on what is reserved.
-const GML_RESERVED_IDENTIFIERS: ReadonlySet<string> = TRANSPILER_RESERVED_IDENTIFIERS;
+const GML_RESERVED_IDENTIFIERS: ReadonlySet<string> =
+  TRANSPILER_RESERVED_IDENTIFIERS;
 
 /**
  * Every name declared by a `var`/`let`/`const` statement in `text`, including

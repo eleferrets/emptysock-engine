@@ -39,17 +39,10 @@ export interface Combatant {
 }
 
 export type SkillTargetType =
-  | "single-enemy"
-  | "all-enemies"
-  | "single-ally"
-  | "all-allies"
-  | "self";
+  "single-enemy" | "all-enemies" | "single-ally" | "all-allies" | "self";
 
 export type DamageFormulaId =
-  | "physical"
-  | "magical"
-  | "fixed"
-  | "percent-max-hp";
+  "physical" | "magical" | "fixed" | "percent-max-hp";
 
 export interface SkillDef {
   id: string;

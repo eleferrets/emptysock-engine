@@ -29,14 +29,7 @@ export const INCLUDED_FILES_MANIFEST_NAME = "build-included-files.json";
 
 /** Mirrors the platform vocabulary `cli.ts`'s `export --platform` and `desktopBuild.ts`'s `DesktopPlatform` already use, plus "all" as an explicit wildcard. */
 export type IncludedFilePlatform =
-  | "all"
-  | "windows"
-  | "mac"
-  | "linux"
-  | "web"
-  | "android"
-  | "ios"
-  | "raspi";
+  "all" | "windows" | "mac" | "linux" | "web" | "android" | "ios" | "raspi";
 
 export interface IncludedFileEntry {
   /** File or directory path, relative to the manifest's own directory (a directory copies recursively). */

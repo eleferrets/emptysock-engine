@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Identifier } from "../ast.js";
-import { analyzeFile, buildProjectSymbols, evaluateEnumDecl } from "../project-symbols.js";
+import {
+  analyzeFile,
+  buildProjectSymbols,
+  evaluateEnumDecl,
+} from "../project-symbols.js";
 import { scanEnums } from "../scan.js";
 
 const assets = {
@@ -11,7 +15,11 @@ const assets = {
   font: ["fnt_menu"],
 };
 
-function idNamed(a: ReturnType<typeof analyzeFile>, name: string, nth = 0): Identifier {
+function idNamed(
+  a: ReturnType<typeof analyzeFile>,
+  name: string,
+  nth = 0,
+): Identifier {
   const hits = a.references.filter((r) => r.node.name === name);
   const h = hits[nth];
   if (!h) throw new Error(`identifier ${name}#${nth} not found`);
@@ -22,14 +30,24 @@ describe("project symbols: assets", () => {
   it("indexes assets by kind and reports cross-kind collisions instead of dropping them", () => {
     const p = buildProjectSymbols({ assets });
     expect(p.assets("sprite").has("spr_hero")).toBe(true);
-    expect(p.lookupAsset("spr_shared").collisions.sort()).toEqual(["object", "sprite"]);
+    expect(p.lookupAsset("spr_shared").collisions.sort()).toEqual([
+      "object",
+      "sprite",
+    ]);
     expect(p.lookupAsset("spr_hero").collisions).toEqual([]);
     expect(p.lookupAsset("nope").symbol).toBeUndefined();
-    expect(p.diagnostics.some((d) => d.kind === "asset-collision" && d.message.includes("spr_shared"))).toBe(true);
+    expect(
+      p.diagnostics.some(
+        (d) => d.kind === "asset-collision" && d.message.includes("spr_shared"),
+      ),
+    ).toBe(true);
   });
 
   it("flags missing assets", () => {
-    const p = buildProjectSymbols({ assets, missing: { sprite: ["spr_gone"], object: ["obj_player"] } });
+    const p = buildProjectSymbols({
+      assets,
+      missing: { sprite: ["spr_gone"], object: ["obj_player"] },
+    });
     expect(p.lookupAsset("spr_gone").symbol?.missing).toBe(true);
     expect(p.assets("object").get("obj_player")?.missing).toBe(true);
     expect(p.assets("sprite").get("spr_hero")?.missing).toBeUndefined();
@@ -79,7 +97,10 @@ describe("project symbols: enums and macros", () => {
   it("macros: last wins, config macros keyed with prefix, continuation and comment handled", () => {
     const p = buildProjectSymbols({
       files: [
-        { path: "a.gml", text: "#macro SPEED 4 // fast\n#macro SPEED 5\n#macro Debug:LOG 1\n#macro SUM (1 + \\\n 2)" },
+        {
+          path: "a.gml",
+          text: "#macro SPEED 4 // fast\n#macro SPEED 5\n#macro Debug:LOG 1\n#macro SUM (1 + \\\n 2)",
+        },
       ],
     });
     expect(p.macros().get("SPEED")?.valueText).toBe("5");
@@ -93,12 +114,19 @@ describe("scope resolution", () => {
   const p = buildProjectSymbols({
     assets,
     files: [
-      { path: "obj_player/Create_0.gml", text: "hp = 10; inv = []; target = noone;", object: "obj_player", kind: "object" },
+      {
+        path: "obj_player/Create_0.gml",
+        text: "hp = 10; inv = []; target = noone;",
+        object: "obj_player",
+        kind: "object",
+      },
     ],
   });
 
-  const an = (text: string, extra: { object?: string; params?: string[] } = {}) =>
-    analyzeFile(p, { path: "t.gml", text, kind: "object", ...extra });
+  const an = (
+    text: string,
+    extra: { object?: string; params?: string[] } = {},
+  ) => analyzeFile(p, { path: "t.gml", text, kind: "object", ...extra });
 
   it("local shadows a sprite asset; unshadowed sprite resolves through project", () => {
     const a = an("var spr_hero = 1; x = spr_hero; y = spr_shared;");
@@ -114,8 +142,17 @@ describe("scope resolution", () => {
     const q = buildProjectSymbols({
       assets,
       files: [
-        { path: "s.gml", text: "function helper() {}\nenum Mode { A }\n#macro LIMIT 3", kind: "script" },
-        { path: "obj_player/Create_0.gml", text: "hp = 1;", object: "obj_player", kind: "object" },
+        {
+          path: "s.gml",
+          text: "function helper() {}\nenum Mode { A }\n#macro LIMIT 3",
+          kind: "script",
+        },
+        {
+          path: "obj_player/Create_0.gml",
+          text: "hp = 1;",
+          object: "obj_player",
+          kind: "object",
+        },
       ],
     });
     const a = analyzeFile(q, {
@@ -138,7 +175,9 @@ describe("scope resolution", () => {
   });
 
   it("member names are never identifier references (dotted-guard class)", () => {
-    const a = an("var v = other.spr_hero; s = { id: 1, spr_hero: 2 }; q = obj_player.hp;");
+    const a = an(
+      "var v = other.spr_hero; s = { id: 1, spr_hero: 2 }; q = obj_player.hp;",
+    );
     const names = a.references.map((r) => r.node.name);
     expect(names).not.toContain("id");
     // spr_hero appears only as a property/struct key, never as a reference
@@ -147,7 +186,9 @@ describe("scope resolution", () => {
   });
 
   it("block scoping: var is function scoped, catch param is block scoped", () => {
-    const a = an("if (1) { var inner = 1; } inner; try { } catch (e) { e; } e;");
+    const a = an(
+      "if (1) { var inner = 1; } inner; try { } catch (e) { e; } e;",
+    );
     expect(a.resolve(idNamed(a, "inner"))!.via).toBe("lexical");
     expect(a.resolve(idNamed(a, "e", 0))!.via).toBe("lexical");
     expect(a.resolve(idNamed(a, "e", 1))!.via).toBe("none");
@@ -171,7 +212,9 @@ describe("scope resolution", () => {
   it("with-target scoping: body resolves against the target object", () => {
     const a = an("with (obj_player) { hp -= 1; other_thing = 1; }");
     expect(a.resolve(idNamed(a, "hp"))!.via).toBe("with");
-    expect(a.facts.externalWrites.map((w) => [w.target, w.field])).toEqual([["obj_player", "other_thing"]]);
+    expect(a.facts.externalWrites.map((w) => [w.target, w.field])).toEqual([
+      ["obj_player", "other_thing"],
+    ]);
     expect(a.facts.selfWrites.size).toBe(0);
   });
 
@@ -191,7 +234,7 @@ describe("instance fields", () => {
           path: "obj_enemy/Create_0.gml",
           object: "obj_enemy",
           kind: "object",
-          text: "var tmp = 1;\nhp = 10;\nitems = [];\nx = 5;\ngrid[0] = 1;\nname_ = \"n\";\nspr_hero = 3;",
+          text: 'var tmp = 1;\nhp = 10;\nitems = [];\nx = 5;\ngrid[0] = 1;\nname_ = "n";\nspr_hero = 3;',
         },
         {
           path: "obj_enemy/Step_0.gml",
@@ -202,16 +245,26 @@ describe("instance fields", () => {
       ],
     });
     const info = p.object("obj_enemy")!;
-    expect([...info.instanceFields.keys()].sort()).toEqual(["cooldown", "grid", "hp", "items", "name_", "tmp"].sort());
+    expect([...info.instanceFields.keys()].sort()).toEqual(
+      ["cooldown", "grid", "hp", "items", "name_", "tmp"].sort(),
+    );
     expect(info.instanceFields.get("items")!.isArray).toBe(true);
     expect(info.instanceFields.get("grid")!.isArray).toBe(true);
     expect(info.instanceFields.get("hp")!.isArray).toBe(false);
-    expect(info.instanceFields.get("hp")!.writers).toEqual(["obj_enemy/Create_0.gml"]);
+    expect(info.instanceFields.get("hp")!.writers).toEqual([
+      "obj_enemy/Create_0.gml",
+    ]);
   });
 
   it("script bodies record instance vars separately", () => {
     const p = buildProjectSymbols({
-      files: [{ path: "scr.gml", kind: "script", text: "function f(a) { shared_state = a; }" }],
+      files: [
+        {
+          path: "scr.gml",
+          kind: "script",
+          text: "function f(a) { shared_state = a; }",
+        },
+      ],
     });
     // inside a plain script function a bare assignment writes the caller's instance
     expect(p.scriptInstanceVars().has("shared_state")).toBe(true);
@@ -227,7 +280,7 @@ describe("entity dataflow", () => {
           path: "obj_player/Create_0.gml",
           object: "obj_player",
           kind: "object",
-          text: "var e = instance_create_layer(0, 0, \"L\", obj_enemy);\nmy_gun = e;\ncount = 3;",
+          text: 'var e = instance_create_layer(0, 0, "L", obj_enemy);\nmy_gun = e;\ncount = 3;',
         },
       ],
     });
@@ -255,12 +308,21 @@ describe("entity dataflow", () => {
         },
       ],
     });
-    expect([...p.crossFileEntityRefFields()].sort()).toEqual(["boss", "mate", "owner"]);
+    expect([...p.crossFileEntityRefFields()].sort()).toEqual([
+      "boss",
+      "mate",
+      "owner",
+    ]);
   });
 
   it("comments and strings do not create entity refs (unlike regex scanning)", () => {
     const p = buildProjectSymbols({
-      files: [{ path: "a.gml", text: '// with (x) { f = other.id; }\ns = "with (x) { g = other.id; }";' }],
+      files: [
+        {
+          path: "a.gml",
+          text: '// with (x) { f = other.id; }\ns = "with (x) { g = other.id; }";',
+        },
+      ],
     });
     expect(p.crossFileEntityRefFields().size).toBe(0);
   });
@@ -268,7 +330,10 @@ describe("entity dataflow", () => {
 
 describe("purity", () => {
   it("two projects built in the same process do not share state", () => {
-    const a = buildProjectSymbols({ assets: { sprite: ["s1"] }, files: [{ path: "x", text: "enum Z { A }" }] });
+    const a = buildProjectSymbols({
+      assets: { sprite: ["s1"] },
+      files: [{ path: "x", text: "enum Z { A }" }],
+    });
     const b = buildProjectSymbols({ assets: { sprite: ["s2"] } });
     expect(a.assets("sprite").has("s1")).toBe(true);
     expect(b.assets("sprite").has("s1")).toBe(false);
@@ -278,7 +343,12 @@ describe("purity", () => {
   it("references() indexes usages of project symbols", () => {
     const p = buildProjectSymbols({
       assets,
-      files: [{ path: "a.gml", text: "draw_sprite(spr_hero, 0, 0, 0); y = spr_hero;" }],
+      files: [
+        {
+          path: "a.gml",
+          text: "draw_sprite(spr_hero, 0, 0, 0); y = spr_hero;",
+        },
+      ],
     });
     expect(p.references("spr_hero")).toHaveLength(2);
   });

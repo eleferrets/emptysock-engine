@@ -36,9 +36,9 @@ describe("collectReferencedAssetPaths", () => {
   });
 
   it("returns an empty array when nothing references an asset", () => {
-    expect(collectReferencedAssetPaths({ "game.ts": "console.log(1);" })).toEqual(
-      [],
-    );
+    expect(
+      collectReferencedAssetPaths({ "game.ts": "console.log(1);" }),
+    ).toEqual([]);
   });
 });
 
@@ -94,7 +94,12 @@ describe("collectProjectAssets", () => {
       "levels/level1.json": "{}",
     });
     const registry: AssetItem[] = [
-      { id: "1", name: "level1.json", type: "json", path: "levels/level1.json" },
+      {
+        id: "1",
+        name: "level1.json",
+        type: "json",
+        path: "levels/level1.json",
+      },
       { id: "2", name: "game.ts", type: "script", path: "game.ts" },
     ];
     const result = await collectProjectAssets(
@@ -109,8 +114,11 @@ describe("collectProjectAssets", () => {
   it("reports progress as it goes", async () => {
     const store = makeStore({ "a.png": "x", "b.png": "y" });
     const calls: Array<[number, number, number]> = [];
-    await collectProjectAssets(["a.png", "b.png"], [], store, (done, total, bytes) =>
-      calls.push([done, total, bytes]),
+    await collectProjectAssets(
+      ["a.png", "b.png"],
+      [],
+      store,
+      (done, total, bytes) => calls.push([done, total, bytes]),
     );
     expect(calls).toEqual([
       [1, 2, 1],

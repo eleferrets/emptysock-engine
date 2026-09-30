@@ -119,8 +119,7 @@ export function ContextMenu({
               background: "transparent",
               border: "none",
               cursor: item.disabled === true ? "default" : "pointer",
-              color:
-                item.danger === true ? "var(--es-red)" : "var(--es-text)",
+              color: item.danger === true ? "var(--es-red)" : "var(--es-text)",
               fontSize: 11,
               textAlign: "left",
               opacity: item.disabled === true ? 0.4 : 1,

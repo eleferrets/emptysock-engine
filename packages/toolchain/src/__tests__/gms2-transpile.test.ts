@@ -2650,7 +2650,9 @@ describe("transpileGML — single-scan name-set rewrites (cross-instance dotted 
   it("nests a chained cross-instance assignment and rewrites reads on the right-hand side", () => {
     setGmlObjectNames(new Set(["obj_a", "obj_b"]));
     try {
-      const out = transpileGML("obj_a.hp = obj_b.hp = 3;\nz = obj_a.x + obj_b.y;");
+      const out = transpileGML(
+        "obj_a.hp = obj_b.hp = 3;\nz = obj_a.x + obj_b.y;",
+      );
       expect(out).toContain(
         'GmlActions.setGmlObjectVar(_entity, _ctx, "obj_a", "hp", GmlActions.setGmlObjectVar(_entity, _ctx, "obj_b", "hp", 3));',
       );
@@ -2665,7 +2667,9 @@ describe("transpileGML — single-scan name-set rewrites (cross-instance dotted 
     setGmlObjectNames(new Set(["obj_a"]));
     try {
       const out = transpileGML("foo.bar = obj_a.x;\nq = foo.obj_a.y;");
-      expect(out).toContain('foo.bar = GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, "obj_a", "x"));');
+      expect(out).toContain(
+        'foo.bar = GmlActions.gmlNum(GmlActions.getGmlObjectVar(_entity, _ctx, "obj_a", "x"));',
+      );
       expect(out).toContain("foo.obj_a.y");
     } finally {
       setGmlObjectNames(new Set());

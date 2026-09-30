@@ -29,14 +29,19 @@ function collect(dir: string, out: string[] = []): string[] {
 const FILES = collect(process.env["GMS_FIXTURE_DIR"] ?? "");
 
 describe("gml corpus (set GMS_FIXTURE_DIR to a directory of a real project)", () => {
-  it.skipIf(FILES.length === 0)("lexes losslessly and parses every .gml without throwing", () => {
-    let recovered = 0;
-    for (const f of FILES) {
-      const src = readFileSync(f, "utf8");
-      expect(printTokens(tokenize(src)), f).toBe(src);
-      recovered += parse(src).recovered;
-    }
-    // Recovered statements are allowed (real projects contain invalid GML); reported, not asserted.
-    console.info(`gml corpus: ${FILES.length} files, ${recovered} recovered statements`);
-  });
+  it.skipIf(FILES.length === 0)(
+    "lexes losslessly and parses every .gml without throwing",
+    () => {
+      let recovered = 0;
+      for (const f of FILES) {
+        const src = readFileSync(f, "utf8");
+        expect(printTokens(tokenize(src)), f).toBe(src);
+        recovered += parse(src).recovered;
+      }
+      // Recovered statements are allowed (real projects contain invalid GML); reported, not asserted.
+      console.info(
+        `gml corpus: ${FILES.length} files, ${recovered} recovered statements`,
+      );
+    },
+  );
 });

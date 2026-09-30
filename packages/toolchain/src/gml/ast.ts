@@ -347,8 +347,4 @@ export interface ParseResult {
   recovered: number;
 }
 
-export type Node =
-  | Expr
-  | Stmt
-  | Program
-  | SwitchCase;
+export type Node = Expr | Stmt | Program | SwitchCase;

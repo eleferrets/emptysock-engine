@@ -48,12 +48,18 @@ describe("gml lexer", () => {
     const [t] = tokenize(src);
     expect(t!.kind).toBe("template");
     expect(t!.end).toBe(src.length);
-    const exprs = t!.parts!.filter((p) => p.kind === "expr").map((p) => src.slice(p.start, p.end));
+    const exprs = t!
+      .parts!.filter((p) => p.kind === "expr")
+      .map((p) => src.slice(p.start, p.end));
     expect(exprs).toEqual([`f("}")`, "x"]);
   });
 
   it("unterminated string and comment do not throw", () => {
-    expect(tokenize(`x = "abc`).some((t) => t.kind === "string" && t.terminated === false)).toBe(true);
+    expect(
+      tokenize(`x = "abc`).some(
+        (t) => t.kind === "string" && t.terminated === false,
+      ),
+    ).toBe(true);
     expect(printTokens(tokenize("/* open"))).toBe("/* open");
   });
 
@@ -72,24 +78,52 @@ describe("gml lexer", () => {
 
   it("operators: ??, ??=, <>, :=, shifts, compound", () => {
     expect(sig("a ?? b ??= c <> d := e << f >>= g").map((x) => x[1])).toEqual([
-      "a", "??", "b", "??=", "c", "<>", "d", ":=", "e", "<<", "f", ">>=", "g",
+      "a",
+      "??",
+      "b",
+      "??=",
+      "c",
+      "<>",
+      "d",
+      ":=",
+      "e",
+      "<<",
+      "f",
+      ">>=",
+      "g",
     ]);
   });
 
   it("accessor openers and [$ vs hex array", () => {
-    expect(sig("a[| 0] a[? k] a[# 1,2] a[@ 3] a[$ k]").filter((x) => x[0] === "punct" && x[1]!.startsWith("[")).map((x) => x[1])).toEqual([
-      "[|", "[?", "[#", "[@", "[$",
-    ]);
+    expect(
+      sig("a[| 0] a[? k] a[# 1,2] a[@ 3] a[$ k]")
+        .filter((x) => x[0] === "punct" && x[1]!.startsWith("["))
+        .map((x) => x[1]),
+    ).toEqual(["[|", "[?", "[#", "[@", "[$"]);
     // array literal starting with a hex number is a plain `[` + number
-    expect(sig("[$FF, 1]").slice(0, 2)).toEqual([["punct", "["], ["number", "$FF"]]);
+    expect(sig("[$FF, 1]").slice(0, 2)).toEqual([
+      ["punct", "["],
+      ["number", "$FF"],
+    ]);
   });
 
   it("keywords vs identifiers, special identifiers stay identifiers", () => {
-    const t = sig("begin end then repeat until self other all noone global constructor static");
+    const t = sig(
+      "begin end then repeat until self other all noone global constructor static",
+    );
     expect(t.map((x) => x[0])).toEqual([
-      "keyword", "keyword", "keyword", "keyword", "keyword",
-      "ident", "ident", "ident", "ident", "ident",
-      "keyword", "keyword",
+      "keyword",
+      "keyword",
+      "keyword",
+      "keyword",
+      "keyword",
+      "ident",
+      "ident",
+      "ident",
+      "ident",
+      "ident",
+      "keyword",
+      "keyword",
     ]);
   });
 

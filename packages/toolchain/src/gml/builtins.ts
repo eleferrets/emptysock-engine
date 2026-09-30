@@ -9,7 +9,8 @@
 import { GML_KEYWORDS, GML_SPECIAL_IDENTS } from "./lexer.js";
 import * as D from "./builtins-data.js";
 
-export type BuiltinKind = "function" | "variable" | "constant" | "keyword" | "special";
+export type BuiltinKind =
+  "function" | "variable" | "constant" | "keyword" | "special";
 
 /** What an argument position means to the transpiler. */
 export type ParamKind = "asset:object" | "asset:sprite";
@@ -41,12 +42,18 @@ const table = new Map<string, BuiltinInfo>();
 
 function put(info: BuiltinInfo): void {
   const prev = table.get(info.name);
-  table.set(info.name, prev ? { ...prev, ...info, params: { ...prev.params, ...info.params } } : info);
+  table.set(
+    info.name,
+    prev
+      ? { ...prev, ...info, params: { ...prev.params, ...info.params } }
+      : info,
+  );
 }
 
 for (const k of GML_KEYWORDS) put({ name: k, kind: "keyword" });
 for (const k of GML_SPECIAL_IDENTS) put({ name: k, kind: "special" });
-for (const n of D.BUILTIN_VARIABLES) if (!table.has(n)) put({ name: n, kind: "variable" });
+for (const n of D.BUILTIN_VARIABLES)
+  if (!table.has(n)) put({ name: n, kind: "variable" });
 
 const threaded: Array<[readonly string[], Threading]> = [
   [D.THREADED_ENTITY_CTX, "entity+ctx"],
@@ -57,17 +64,29 @@ const threaded: Array<[readonly string[], Threading]> = [
   [D.PURE_FUNCTIONS_PARTICLE, "pure"],
 ];
 for (const [names, threading] of threaded) {
-  for (const n of names) put({ name: n, kind: "function", threading, runtimeExport: true });
+  for (const n of names)
+    put({ name: n, kind: "function", threading, runtimeExport: true });
 }
-for (const list of [D.COLOUR_CONSTANTS, D.MISC_CONSTANTS, D.INPUT_CONSTANTS, D.DRAW_CONSTANTS]) {
+for (const list of [
+  D.COLOUR_CONSTANTS,
+  D.MISC_CONSTANTS,
+  D.INPUT_CONSTANTS,
+  D.DRAW_CONSTANTS,
+]) {
   for (const n of list) put({ name: n, kind: "constant", runtimeExport: true });
 }
-for (const n of D.SPRITE_ARG0_FUNCTIONS) put({ name: n, kind: "function", params: { 0: "asset:sprite" } });
-put({ name: "action_sprite_set", kind: "function", params: { 0: "asset:sprite" } });
+for (const n of D.SPRITE_ARG0_FUNCTIONS)
+  put({ name: n, kind: "function", params: { 0: "asset:sprite" } });
+put({
+  name: "action_sprite_set",
+  kind: "function",
+  params: { 0: "asset:sprite" },
+});
 for (const [n, idx] of Object.entries(D.OBJECT_ARG_FUNCTIONS)) {
   put({ name: n, kind: "function", params: { [idx]: "asset:object" } });
 }
-for (const n of D.ENTITY_RETURNING_CALLS) put({ name: n, kind: "function", returns: "instance" });
+for (const n of D.ENTITY_RETURNING_CALLS)
+  put({ name: n, kind: "function", returns: "instance" });
 for (const n of ["pi", "infinity", "NaN"]) put({ name: n, kind: "constant" });
 
 export const BUILTINS: ReadonlyMap<string, BuiltinInfo> = table;
@@ -98,7 +117,8 @@ export function isKnownBuiltinName(name: string): boolean {
 export function objectArgIndex(fn: string): number | undefined {
   const p = table.get(fn)?.params;
   if (!p) return undefined;
-  for (const [i, k] of Object.entries(p)) if (k === "asset:object") return Number(i);
+  for (const [i, k] of Object.entries(p))
+    if (k === "asset:object") return Number(i);
   return undefined;
 }
 
@@ -109,7 +129,9 @@ export function isSpriteArg0(fn: string): boolean {
 
 /** Names of calls that return a live Entity. */
 export function entityReturningCalls(): string[] {
-  return [...table.values()].filter((b) => b.returns === "instance").map((b) => b.name);
+  return [...table.values()]
+    .filter((b) => b.returns === "instance")
+    .map((b) => b.name);
 }
 
 /**
@@ -135,5 +157,9 @@ export const RUNTIME_HELPERS: readonly string[] = [
   "with_each",
 ];
 
-export const TRANSPILER_RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set(D.TRANSPILER_RESERVED_IDENTIFIERS);
-export const SOURCE_BUG_KEYWORDS: ReadonlySet<string> = new Set(D.SOURCE_BUG_KEYWORDS);
+export const TRANSPILER_RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set(
+  D.TRANSPILER_RESERVED_IDENTIFIERS,
+);
+export const SOURCE_BUG_KEYWORDS: ReadonlySet<string> = new Set(
+  D.SOURCE_BUG_KEYWORDS,
+);

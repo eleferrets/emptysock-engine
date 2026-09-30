@@ -288,8 +288,7 @@ export function CommandPalette({
   // Scroll selected item into view
   useEffect(() => {
     const el = listRef.current?.children[selectedIdx] as
-      | HTMLElement
-      | undefined;
+      HTMLElement | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIdx]);
 

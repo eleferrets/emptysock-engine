@@ -9,11 +9,7 @@ export type { EasingName };
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type LaneType =
-  | "keyframe"
-  | "dialogue"
-  | "expression"
-  | "audio"
-  | "wait";
+  "keyframe" | "dialogue" | "expression" | "audio" | "wait";
 
 export type TrackType = SequenceTrackType;
 

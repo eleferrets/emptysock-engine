@@ -174,15 +174,13 @@ export function AssetBrowser(): React.ReactElement {
       if (toImport.length > 0) {
         const store = getAssetStore();
         const writeAll = toImport.map((file) =>
-          store.write(file.name, file).catch(
-            (): AssetItem => ({
-              id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              name: file.name,
-              type: guessAssetType(file),
-              path: `${folder}${file.name}`,
-              size: file.size,
-            }),
-          ),
+          store.write(file.name, file).catch((): AssetItem => ({
+            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: guessAssetType(file),
+            path: `${folder}${file.name}`,
+            size: file.size,
+          })),
         );
         void Promise.all(writeAll).then((newItems) => {
           histSet((prev) => [...prev, ...newItems]);
@@ -208,15 +206,13 @@ export function AssetBrowser(): React.ReactElement {
     if (toImport.length > 0) {
       const store = getAssetStore();
       const writeAll = toImport.map((file) =>
-        store.write(file.name, file).catch(
-          (): AssetItem => ({
-            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            type: guessAssetType(file),
-            path: `assets/${file.name}`,
-            size: file.size,
-          }),
-        ),
+        store.write(file.name, file).catch((): AssetItem => ({
+          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: guessAssetType(file),
+          path: `assets/${file.name}`,
+          size: file.size,
+        })),
       );
       void Promise.all(writeAll).then((newItems) => {
         histSet((prev) => [...prev, ...newItems]);

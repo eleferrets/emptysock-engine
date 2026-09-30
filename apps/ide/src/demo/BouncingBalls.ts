@@ -1,4 +1,4 @@
-import { Application, Graphics, Container } from 'pixi.js';
+import { Application, Graphics, Container } from "pixi.js";
 
 interface Ball {
   graphics: Graphics;
@@ -29,7 +29,10 @@ export class BouncingBallsDemo {
   private fpsCallback: ((fps: number) => void) | null = null;
   private fpsBuffer: number[] = [];
 
-  async init(canvas: HTMLCanvasElement, onFps: (fps: number) => void): Promise<void> {
+  async init(
+    canvas: HTMLCanvasElement,
+    onFps: (fps: number) => void,
+  ): Promise<void> {
     this.fpsCallback = onFps;
 
     this.app = new Application();
@@ -40,8 +43,8 @@ export class BouncingBallsDemo {
       antialias: true,
       resolution: window.devicePixelRatio,
       autoDensity: true,
-      preference: ['webgpu', 'webgl'],
-      powerPreference: 'high-performance',
+      preference: ["webgpu", "webgl"],
+      powerPreference: "high-performance",
     });
 
     this.container = new Container();
@@ -95,7 +98,11 @@ export class BouncingBallsDemo {
     g.fill({ color: 0xffffff, alpha: 0.35 });
   }
 
-  private readonly update = (ticker: { deltaTime: number; deltaMS: number; FPS: number }): void => {
+  private readonly update = (ticker: {
+    deltaTime: number;
+    deltaMS: number;
+    FPS: number;
+  }): void => {
     if (this.app === null || this.container === null) return;
 
     const dt = ticker.deltaMS / 1000; // seconds
@@ -134,7 +141,8 @@ export class BouncingBallsDemo {
     this.fpsBuffer.push(ticker.FPS);
     if (this.fpsBuffer.length > 30) this.fpsBuffer.shift();
     if (this.fpsCallback !== null) {
-      const avg = this.fpsBuffer.reduce((a, b) => a + b, 0) / this.fpsBuffer.length;
+      const avg =
+        this.fpsBuffer.reduce((a, b) => a + b, 0) / this.fpsBuffer.length;
       this.fpsCallback(Math.round(avg));
     }
   };

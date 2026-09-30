@@ -14,45 +14,48 @@
  * Minification reduces iframe startup time at the cost of a longer build step.
  */
 
-import { build } from 'vite';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { writeFileSync, mkdirSync } from 'fs';
+import { build } from "vite";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { writeFileSync, mkdirSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const isProd = process.argv.includes('--minify') || process.env.NODE_ENV === 'production';
+const isProd =
+  process.argv.includes("--minify") || process.env.NODE_ENV === "production";
 
-const engineEntry = resolve(__dirname, '../../packages/engine/src/index.ts');
-const outDir = resolve(__dirname, 'src/runtime');
-const outFile = resolve(outDir, 'engineBundle.generated.ts');
+const engineEntry = resolve(__dirname, "../../packages/engine/src/index.ts");
+const outDir = resolve(__dirname, "src/runtime");
+const outFile = resolve(outDir, "engineBundle.generated.ts");
 
-console.log(`[engine-runtime] Bundling engine API as IIFE${isProd ? ' (minified)' : ''}...`);
+console.log(
+  `[engine-runtime] Bundling engine API as IIFE${isProd ? " (minified)" : ""}...`,
+);
 
 const result = await build({
   configFile: false,
-  logLevel: 'warn',
+  logLevel: "warn",
   esbuild: {
-    target: 'es2022',
-    tsconfigRaw: '{}',
+    target: "es2022",
+    tsconfigRaw: "{}",
   },
   resolve: {
     alias: {
-      '@emptysock/engine': engineEntry,
+      "@emptysock/engine": engineEntry,
     },
   },
   optimizeDeps: {
-    exclude: ['@dimforge/rapier2d-compat'],
+    exclude: ["@dimforge/rapier2d-compat"],
   },
   build: {
-    target: 'es2022',
+    target: "es2022",
     write: false,
     minify: isProd,
     lib: {
       entry: engineEntry,
-      name: 'EmptySockEngine',
-      formats: ['iife'],
-      fileName: () => 'engine.iife.js',
+      name: "EmptySockEngine",
+      formats: ["iife"],
+      fileName: () => "engine.iife.js",
     },
     rollupOptions: {
       // The deterministic-compat builds are optionalDependencies (most games
@@ -61,19 +64,19 @@ const result = await build({
       // externalizing them keeps the bundler from resolving both branches of
       // PhysicsSystem's runtime `moduleName` ternary at build time.
       external: [
-        '@dimforge/rapier2d-compat',
-        '@dimforge/rapier2d-deterministic-compat',
-        '@dimforge/rapier3d-compat',
-        '@dimforge/rapier3d-deterministic-compat',
+        "@dimforge/rapier2d-compat",
+        "@dimforge/rapier2d-deterministic-compat",
+        "@dimforge/rapier3d-compat",
+        "@dimforge/rapier3d-deterministic-compat",
         /^@tauri-apps\//,
       ],
       output: {
-        name: 'EmptySockEngine',
+        name: "EmptySockEngine",
         globals: {
-          '@dimforge/rapier2d-compat': 'RAPIER2D',
-          '@dimforge/rapier2d-deterministic-compat': 'RAPIER2D',
-          '@dimforge/rapier3d-compat': 'RAPIER3D',
-          '@dimforge/rapier3d-deterministic-compat': 'RAPIER3D',
+          "@dimforge/rapier2d-compat": "RAPIER2D",
+          "@dimforge/rapier2d-deterministic-compat": "RAPIER2D",
+          "@dimforge/rapier3d-compat": "RAPIER3D",
+          "@dimforge/rapier3d-deterministic-compat": "RAPIER3D",
         },
       },
     },
@@ -81,9 +84,9 @@ const result = await build({
 });
 
 const output = Array.isArray(result) ? result[0] : result;
-const chunk = output.output.find(c => c.type === 'chunk' && c.isEntry);
-if (!chunk || chunk.type !== 'chunk') {
-  console.error('[engine-runtime] No entry chunk found in build output');
+const chunk = output.output.find((c) => c.type === "chunk" && c.isEntry);
+if (!chunk || chunk.type !== "chunk") {
+  console.error("[engine-runtime] No entry chunk found in build output");
   process.exit(1);
 }
 
@@ -92,9 +95,11 @@ mkdirSync(outDir, { recursive: true });
 writeFileSync(
   outFile,
   `// AUTO-GENERATED — do not edit. Run \`pnpm engine-runtime\` to regenerate.\n` +
-  `// eslint-disable\n` +
-  `export const ENGINE_BUNDLE: string = ${JSON.stringify(chunk.code)};\n`,
-  'utf-8'
+    `// eslint-disable\n` +
+    `export const ENGINE_BUNDLE: string = ${JSON.stringify(chunk.code)};\n`,
+  "utf-8",
 );
 
-console.log(`[engine-runtime] Written to ${outFile} (${(chunk.code.length / 1024).toFixed(1)} KB)`);
+console.log(
+  `[engine-runtime] Written to ${outFile} (${(chunk.code.length / 1024).toFixed(1)} KB)`,
+);

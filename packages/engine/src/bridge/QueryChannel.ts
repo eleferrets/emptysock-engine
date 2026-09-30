@@ -236,8 +236,7 @@ export interface EngineQueryError {
 }
 
 export type EngineQueryResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: EngineQueryError };
+  { ok: true; data: T } | { ok: false; error: EngineQueryError };
 
 /** Envelope a transport sends back; `id` matches the originating `EngineQueryRequest.id`. */
 export interface EngineQueryResponse {

@@ -88,12 +88,7 @@ function ConditionFields({
             value={condition.op}
             onChange={(e) => {
               const op = e.target.value as
-                | "eq"
-                | "neq"
-                | "gt"
-                | "gte"
-                | "lt"
-                | "lte";
+                "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
               onChange({ ...condition, op });
             }}
             style={{ ...fieldInputStyle, flex: "0 0 auto" }}

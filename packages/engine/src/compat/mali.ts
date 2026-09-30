@@ -3,39 +3,41 @@
 export interface MaliInfo {
   isMali: boolean;
   renderer: string;
-  generation: 'old' | 'mid' | 'current' | 'unknown';
+  generation: "old" | "mid" | "current" | "unknown";
 }
 
 export function detectMali(): MaliInfo {
-  if (typeof document === 'undefined') return { isMali: false, renderer: '', generation: 'unknown' };
-  const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl') ?? canvas.getContext('webgl2');
+  if (typeof document === "undefined")
+    return { isMali: false, renderer: "", generation: "unknown" };
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl") ?? canvas.getContext("webgl2");
 
   if (gl === null) {
-    return { isMali: false, renderer: '', generation: 'unknown' };
+    return { isMali: false, renderer: "", generation: "unknown" };
   }
 
-  const ext = gl.getExtension('WEBGL_debug_renderer_info');
+  const ext = gl.getExtension("WEBGL_debug_renderer_info");
   if (ext === null) {
-    return { isMali: false, renderer: '', generation: 'unknown' };
+    return { isMali: false, renderer: "", generation: "unknown" };
   }
 
   const raw: unknown = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
-  if (typeof raw !== 'string') return { isMali: false, renderer: '', generation: 'unknown' };
+  if (typeof raw !== "string")
+    return { isMali: false, renderer: "", generation: "unknown" };
   const renderer = raw.toLowerCase();
 
-  if (!renderer.includes('mali')) {
-    return { isMali: false, renderer, generation: 'unknown' };
+  if (!renderer.includes("mali")) {
+    return { isMali: false, renderer, generation: "unknown" };
   }
 
-  let generation: MaliInfo['generation'] = 'unknown';
+  let generation: MaliInfo["generation"] = "unknown";
 
-  if (renderer.includes('mali-4') || renderer.includes('mali-t')) {
-    generation = 'old';
-  } else if (renderer.includes('mali-g5') || renderer.includes('mali-g7')) {
-    generation = 'mid';
-  } else if (renderer.includes('mali-g')) {
-    generation = 'current';
+  if (renderer.includes("mali-4") || renderer.includes("mali-t")) {
+    generation = "old";
+  } else if (renderer.includes("mali-g5") || renderer.includes("mali-g7")) {
+    generation = "mid";
+  } else if (renderer.includes("mali-g")) {
+    generation = "current";
   }
 
   return { isMali: true, renderer, generation };
@@ -58,7 +60,7 @@ export function getMaliFixes(info: MaliInfo): MaliFixes {
     };
   }
 
-  if (info.generation === 'old') {
+  if (info.generation === "old") {
     return {
       disableInstancedArrays: true,
       forcePOTTextures: true,
@@ -77,7 +79,7 @@ export function getMaliFixes(info: MaliInfo): MaliFixes {
 
 /** Apply Mali compatibility fixes to a canvas context */
 export function applyMaliFixes(fixes: MaliFixes): void {
-  if (typeof HTMLCanvasElement === 'undefined') return;
+  if (typeof HTMLCanvasElement === "undefined") return;
   if (fixes.disableInstancedArrays) {
     // Monkey-patch to disable instanced arrays extension
     const origGetContext = HTMLCanvasElement.prototype.getContext;
@@ -85,18 +87,28 @@ export function applyMaliFixes(fixes: MaliFixes): void {
     function patchedGetContext(
       this: HTMLCanvasElement,
       contextId: string,
-      options?: unknown
+      options?: unknown,
     ): unknown {
-      const ctx = (origGetContext as (ctx: string, opts?: unknown) => unknown).call(this, contextId, options) as WebGLRenderingContext | null;
-      if (ctx !== null && (contextId === 'webgl' || contextId === 'experimental-webgl')) {
-        const origGetExt = (ctx as { getExtension: (name: string) => unknown }).getExtension.bind(ctx);
-        (ctx as { getExtension: (name: string) => unknown }).getExtension = (name: string) => {
-          if (name === 'ANGLE_instanced_arrays') return null;
+      const ctx = (
+        origGetContext as (ctx: string, opts?: unknown) => unknown
+      ).call(this, contextId, options) as WebGLRenderingContext | null;
+      if (
+        ctx !== null &&
+        (contextId === "webgl" || contextId === "experimental-webgl")
+      ) {
+        const origGetExt = (
+          ctx as { getExtension: (name: string) => unknown }
+        ).getExtension.bind(ctx);
+        (ctx as { getExtension: (name: string) => unknown }).getExtension = (
+          name: string,
+        ) => {
+          if (name === "ANGLE_instanced_arrays") return null;
           return origGetExt(name);
         };
       }
       return ctx;
     }
-    HTMLCanvasElement.prototype.getContext = patchedGetContext as typeof HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext =
+      patchedGetContext as typeof HTMLCanvasElement.prototype.getContext;
   }
 }

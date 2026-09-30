@@ -218,8 +218,8 @@ export function AutoTileRulesModal(props: {
 
         <p style={{ opacity: 0.55, margin: 0, lineHeight: 1.5 }}>
           Each rule maps a neighbour bitmask (8-bit: NW N NE W E SW S SE) to a
-          tile variant index. The engine picks the matching variant automatically
-          when painting.
+          tile variant index. The engine picks the matching variant
+          automatically when painting.
         </p>
 
         {totalRules === 0 && !addState ? (
@@ -237,10 +237,18 @@ export function AutoTileRulesModal(props: {
                     borderBottom: "1px solid var(--es-border)",
                   }}
                 >
-                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>Base</th>
-                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>Mask</th>
-                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>Binary</th>
-                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>Variant</th>
+                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>
+                    Base
+                  </th>
+                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>
+                    Mask
+                  </th>
+                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>
+                    Binary
+                  </th>
+                  <th style={{ padding: "2px 10px 6px 0", fontWeight: 500 }}>
+                    Variant
+                  </th>
                   <th style={{ padding: "2px 0 6px 0", fontWeight: 500 }}></th>
                 </tr>
               </thead>
@@ -268,7 +276,10 @@ export function AutoTileRulesModal(props: {
                                 max={255}
                                 value={editState.mask}
                                 onChange={(e) =>
-                                  setEditState({ ...editState, mask: e.target.value })
+                                  setEditState({
+                                    ...editState,
+                                    mask: e.target.value,
+                                  })
                                 }
                                 style={{ ...inputStyle, width: 64 }}
                                 autoFocus
@@ -291,12 +302,17 @@ export function AutoTileRulesModal(props: {
                                 min={0}
                                 value={editState.tileIndex}
                                 onChange={(e) =>
-                                  setEditState({ ...editState, tileIndex: e.target.value })
+                                  setEditState({
+                                    ...editState,
+                                    tileIndex: e.target.value,
+                                  })
                                 }
                                 style={{ ...inputStyle, width: 64 }}
                               />
                             </td>
-                            <td style={{ padding: "5px 0", whiteSpace: "nowrap" }}>
+                            <td
+                              style={{ padding: "5px 0", whiteSpace: "nowrap" }}
+                            >
                               <span style={{ display: "inline-flex", gap: 4 }}>
                                 <button
                                   onClick={applyEdit}
@@ -324,8 +340,12 @@ export function AutoTileRulesModal(props: {
                           </>
                         ) : (
                           <>
-                            <td style={{ padding: "5px 10px 5px 0" }}>{base}</td>
-                            <td style={{ padding: "5px 10px 5px 0" }}>{r.mask}</td>
+                            <td style={{ padding: "5px 10px 5px 0" }}>
+                              {base}
+                            </td>
+                            <td style={{ padding: "5px 10px 5px 0" }}>
+                              {r.mask}
+                            </td>
                             <td
                               style={{
                                 padding: "5px 10px 5px 0",
@@ -335,10 +355,16 @@ export function AutoTileRulesModal(props: {
                             >
                               {`0b${r.mask.toString(2).padStart(8, "0")}`}
                             </td>
-                            <td style={{ padding: "5px 10px 5px 0" }}>{r.tileIndex}</td>
-                            <td style={{ padding: "5px 0", whiteSpace: "nowrap" }}>
+                            <td style={{ padding: "5px 10px 5px 0" }}>
+                              {r.tileIndex}
+                            </td>
+                            <td
+                              style={{ padding: "5px 0", whiteSpace: "nowrap" }}
+                            >
                               {isConfirming ? (
-                                <span style={{ display: "inline-flex", gap: 4 }}>
+                                <span
+                                  style={{ display: "inline-flex", gap: 4 }}
+                                >
                                   <button
                                     onClick={() => deleteRule(base, i)}
                                     style={{
@@ -362,7 +388,9 @@ export function AutoTileRulesModal(props: {
                                   </button>
                                 </span>
                               ) : (
-                                <span style={{ display: "inline-flex", gap: 4 }}>
+                                <span
+                                  style={{ display: "inline-flex", gap: 4 }}
+                                >
                                   <button
                                     onClick={() => {
                                       setEditState({
@@ -452,7 +480,10 @@ export function AutoTileRulesModal(props: {
                         placeholder="Variant #"
                         value={addState.tileIndex}
                         onChange={(e) =>
-                          setAddState({ ...addState, tileIndex: e.target.value })
+                          setAddState({
+                            ...addState,
+                            tileIndex: e.target.value,
+                          })
                         }
                         style={{ ...inputStyle, width: 70 }}
                       />

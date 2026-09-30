@@ -24,12 +24,7 @@ import {
 import { ENGINE_BUNDLE } from "../../runtime/engineBundle.generated";
 
 export type ExportPlatform =
-  | "web"
-  | "windows"
-  | "macos"
-  | "linux"
-  | "android"
-  | "ios";
+  "web" | "windows" | "macos" | "linux" | "android" | "ios";
 type WindowsFormat = "NSIS" | "MSI";
 type LinuxFormat = "AppImage" | "deb" | "rpm";
 type EngineMode = "separate" | "inline";

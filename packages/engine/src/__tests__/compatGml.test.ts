@@ -116,9 +116,8 @@ describe("gmlNum", () => {
 
 describe("gmlNum end-to-end with a stored sprite path", () => {
   it("does not break a stored sprite-path comparison", async () => {
-    const { gmlNum, setGmlVar, getGmlVar } = await import(
-      "../compat/gmlInstanceVars.js"
-    );
+    const { gmlNum, setGmlVar, getGmlVar } =
+      await import("../compat/gmlInstanceVars.js");
     const { Scene } = await import("../Scene.js");
     const { definePrefab } = await import("../Prefab.js");
     const path = "./assets/sprites/spr_x/frame_0.png";

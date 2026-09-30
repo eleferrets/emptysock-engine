@@ -211,8 +211,7 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
     expect(render.addLayerGmlShader("default", "sh_missing")).toBeUndefined();
     expect(
       (render.getLayerContainer("default").filters as
-        | readonly unknown[]
-        | undefined) ?? [],
+        readonly unknown[] | undefined) ?? [],
     ).toHaveLength(0);
   });
 

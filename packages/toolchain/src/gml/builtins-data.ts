@@ -359,7 +359,6 @@ export const DRAW_CONSTANTS: readonly string[] = [
   "fa_bottom",
 ];
 
-
 /** Words gms2-source-bugs.ts never reports as undefined identifiers (GML + JS keywords, pseudo-variables). */
 export const SOURCE_BUG_KEYWORDS: readonly string[] = [
   "if",

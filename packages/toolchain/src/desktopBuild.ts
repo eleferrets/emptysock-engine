@@ -133,8 +133,7 @@ export interface BundleGameEntryOptions {
 }
 
 export type BundleGameEntryResult =
-  | { success: true; code: string }
-  | { success: false; error: string };
+  { success: true; code: string } | { success: false; error: string };
 
 /**
  * Bundles a single game entry point into one IIFE string, in memory — the

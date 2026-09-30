@@ -25,9 +25,7 @@ export {
  * not something the scheduler forces on every yield.
  */
 export type CoroutineFactory =
-  | CoroutineGen
-  | (() => CoroutineGen)
-  | ((signal: AbortSignal) => CoroutineGen);
+  CoroutineGen | (() => CoroutineGen) | ((signal: AbortSignal) => CoroutineGen);
 
 /** A cancelable handle returned by `entity.startCoroutine()`. */
 export interface CoroutineHandle {

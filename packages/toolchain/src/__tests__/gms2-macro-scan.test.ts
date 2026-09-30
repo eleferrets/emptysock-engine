@@ -27,14 +27,18 @@ describe("scanGmlMacros (lexer-backed)", () => {
   });
 
   it("keys config macros as Config:NAME so a bare NAME is never substituted", async () => {
-    const root = await makeProject({ "scripts/a/a.gml": `#macro Debug:LOG 1\n` });
+    const root = await makeProject({
+      "scripts/a/a.gml": `#macro Debug:LOG 1\n`,
+    });
     const macros = await scanGmlMacros(root);
     expect(macros.get("Debug:LOG")).toBe("1");
     expect(macros.has("LOG")).toBe(false);
   });
 
   it("joins backslash continuation lines", async () => {
-    const root = await makeProject({ "scripts/a/a.gml": `#macro SUM (1 + \\\n 2)\n` });
+    const root = await makeProject({
+      "scripts/a/a.gml": `#macro SUM (1 + \\\n 2)\n`,
+    });
     const macros = await scanGmlMacros(root);
     expect(macros.get("SUM")).toMatch(/^\(1 \+\s+2\)$/);
   });

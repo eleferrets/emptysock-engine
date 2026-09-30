@@ -127,8 +127,7 @@ export class NetworkSystem {
         for (const field of networkedFields) {
           schemaProxy.listen(field, (value) => {
             const component = entity.get(def) as
-              | Record<string, unknown>
-              | undefined;
+              Record<string, unknown> | undefined;
             if (component !== undefined) component[field] = value;
           });
         }
