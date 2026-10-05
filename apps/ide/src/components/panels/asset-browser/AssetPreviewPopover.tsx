@@ -155,16 +155,27 @@ export function AssetPreviewPopover({
         const parsed: unknown = JSON.parse(fileContent);
         if (parsed !== null && typeof parsed === "object") {
           const obj = parsed as Record<string, unknown>;
-          const instances = Array.isArray(obj["prefabInstances"])
-            ? (obj["prefabInstances"] as unknown[])
-            : Array.isArray(obj["components"])
-              ? [obj]
-              : [];
+          // v2 scene documents list every entity in `entities`; v1 scenes list
+          // prefab instances in `prefabInstances`; a prefab file is one entry.
+          const instances =
+            obj["formatVersion"] === 2 && Array.isArray(obj["entities"])
+              ? (obj["entities"] as unknown[])
+              : Array.isArray(obj["prefabInstances"])
+                ? (obj["prefabInstances"] as unknown[])
+                : Array.isArray(obj["components"])
+                  ? [obj]
+                  : [];
           const componentTypes = new Set<string>();
           for (const inst of instances) {
             if (inst !== null && typeof inst === "object") {
               const comps = (inst as Record<string, unknown>)["components"];
-              if (Array.isArray(comps)) {
+              if (
+                comps !== null &&
+                typeof comps === "object" &&
+                !Array.isArray(comps)
+              ) {
+                for (const name of Object.keys(comps)) componentTypes.add(name);
+              } else if (Array.isArray(comps)) {
                 for (const c of comps) {
                   if (c !== null && typeof c === "object" && "type" in c) {
                     componentTypes.add(String((c as { type: unknown }).type));

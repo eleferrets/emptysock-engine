@@ -1,7 +1,7 @@
 /**
  * Not a runtime test — this file is only meant to be *type-checked*
  * (`npm run typecheck` / `tsc --noEmit`, which includes `src/**\/*`). It
- * exists to lock in ENGINE_DESIGN.md §4/§10.2's "onUpdate cannot be async —
+ * exists to lock in the engine design notes/§10.2's "onUpdate cannot be async —
  * that's a type error" claim as an actual, enforced compiler check rather
  * than prose that could silently stop being true.
  *
@@ -13,7 +13,7 @@
 import { defineScene } from "../Game.js";
 
 defineScene({
-  // @ts-expect-error — onUpdate must not be async (ENGINE_DESIGN.md §4).
+  // @ts-expect-error — onUpdate must not be async.
   async onUpdate(_dt: number) {
     await Promise.resolve();
   },

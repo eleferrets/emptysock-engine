@@ -6,7 +6,7 @@
 
 # Interface: VNBackgroundLayerOptions
 
-Defined in: [vn/src/VNBackgroundLayer.ts:1](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L1)
+Defined in: vn/src/VNBackgroundLayer.ts:1
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:1](https://github.com/eleferrets/emptys
 
 > **canvasHeight**: `number`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L3)
+Defined in: vn/src/VNBackgroundLayer.ts:3
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [vn/src/VNBackgroundLayer.ts:3](https://github.com/eleferrets/emptys
 
 > **canvasWidth**: `number`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:2](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L2)
+Defined in: vn/src/VNBackgroundLayer.ts:2
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [vn/src/VNBackgroundLayer.ts:2](https://github.com/eleferrets/emptys
 
 > `optional` **fadeDuration?**: `number`
 
-Defined in: [vn/src/VNBackgroundLayer.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNBackgroundLayer.ts#L4)
+Defined in: vn/src/VNBackgroundLayer.ts:4

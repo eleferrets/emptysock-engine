@@ -67,6 +67,9 @@ export default [
       "packages/engine/src/systems/PhysicsSystem3D.ts",
       "packages/engine/src/systems/CameraSystem.ts",
       "packages/engine/src/types/aliases.ts",
+      // Rebind-capture timeout is real wall-clock UI time, not game time, so a
+      // TweenManager (which ticks with the game loop) would never fire while paused.
+      "packages/engine/src/Input.ts",
       "packages/engine/src/ui/UISystem.ts",
       "packages/engine/src/__tests__/RenderPipeline.test.ts",
       "packages/engine/src/__tests__/RenderSystem.test.ts",
@@ -75,8 +78,8 @@ export default [
       "packages/engine/src/__tests__/RenderPipelineProjection3D.test.ts",
       "packages/engine/src/__tests__/RenderPipelineParticles.test.ts",
       "packages/engine/src/__tests__/RenderPipelineShaders.test.ts",
-      "packages/engine/src/__tests__/GmlBehaviorSystem.test.ts",
-      "packages/engine/src/__tests__/gmlSurfaces.test.ts",
+      "packages/engine/src/__tests__/RenderPipelineLighting.test.ts",
+      "packages/engine/src/__tests__/SpriteFlash.test.ts",
       "packages/engine/src/__tests__/ViewportSystem.test.ts",
       "packages/engine/src/__tests__/UISystem.test.ts",
     ],
@@ -159,6 +162,14 @@ export default [
         { checksVoidReturn: true },
       ],
       "@typescript-eslint/require-await": "error",
+    },
+  },
+  // Tests index arrays/matches they just constructed; under noUncheckedIndexedAccess
+  // `x[0]!` is the idiomatic assertion (a wrong index fails the test loudly anyway).
+  {
+    files: ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx", "**/*.test.ts"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
 ];

@@ -8,7 +8,7 @@
 
 > **exportAndroid**(`config`): `Promise`\<[`ExportResult`](../interfaces/ExportResult.md)\>
 
-Defined in: [export-utils/src/index.ts:533](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L533)
+Defined in: export-utils/src/index.ts:533
 
 ## Parameters
 

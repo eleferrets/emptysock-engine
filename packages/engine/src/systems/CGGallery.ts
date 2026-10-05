@@ -11,7 +11,7 @@ export interface CGGalleryOptions {
 }
 
 /**
- * RELEASE_PASS.md Track 3 — a real, confirmed-live IDE feature, not dead
+ * the release notes Track 3 — a real, confirmed-live IDE feature, not dead
  * code. Persists unlock flags through a `StorageAdapter`, the same
  * interface `InputManager.saveBindings()`/`loadBindings()` already use for
  * a `Game`-level settings blob, not `SaveSystem` — a CG gallery's unlock

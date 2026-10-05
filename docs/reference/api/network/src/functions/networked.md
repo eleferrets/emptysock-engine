@@ -8,7 +8,7 @@
 
 > **networked**\<`T`\>(`def`, `fields`): `ComponentDef`\<`T`\>
 
-Defined in: [network/src/NetworkedFields.ts:52](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkedFields.ts#L52)
+Defined in: network/src/NetworkedFields.ts:52
 
 Mark a subset of `def`'s fields as networked. Call this once per
 component, on both client and server, right next to (or instead of) the

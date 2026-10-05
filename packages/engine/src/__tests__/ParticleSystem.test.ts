@@ -132,7 +132,7 @@ describe("ParticleSystem", () => {
       e.emit(1);
       const speeds: number[] = [];
       // Wiggle perturbs the *current* velocity every step (a real
-      // step-to-step random walk, matching GameMaker's own semantic, not a
+      // step-to-step random walk, matching the semantic, not a
       // bounded jitter around the emitter's original spawn speed), so only
       // a single-step bound is meaningful — assert that, plus real
       // step-to-step variation over the run.

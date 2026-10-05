@@ -59,14 +59,14 @@ if (health.isDead) {
 
 These ship with `@emptysock/engine`:
 
-| Component               | Description                                   |
-| ----------------------- | --------------------------------------------- |
-| `Transform`             | Position, rotation, scale                     |
-| `Sprite`                | 2D texture rendering                          |
-| `Animator`              | Spritesheet clip playback — requires `Sprite` |
-| `PhysicsBody`           | 2D physics body                               |
-| `CharacterController`   | Slope/stair-aware character movement          |
-| `ParticleSystem`        | Component-based particle emitter              |
-| `VisualScriptComponent` | Runs a `.esvs` graph at runtime               |
+| Component             | Description                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `Transform`           | Position, rotation, scale                                                                  |
+| `Sprite`              | 2D texture rendering                                                                       |
+| `Animator`            | Spritesheet clip playback — requires `Sprite`                                              |
+| `PhysicsBody`         | 2D physics body                                                                            |
+| `CharacterController` | Slope/stair-aware character movement                                                       |
+| `ParticleSystem`      | Component-based particle emitter                                                           |
+| `VisualScriptState`   | Selects the registered visual-script graph an entity runs (driven by `VisualScriptSystem`) |
 
 For full API details on `PhysicsBody` and `CharacterController`, see [PhysicsSystem2D](./systems/physics-2d.md). For `Animator`, see [systems reference](./systems/physics-2d.md) and the Sequence Editor in the IDE.

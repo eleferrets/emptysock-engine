@@ -6,199 +6,107 @@
 
 # Class: LightingSystem
 
-Defined in: [engine/src/systems/LightingSystem.ts:186](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L186)
+Defined in: engine/src/systems/LightingSystem.ts:120
+
+Collects `LightSource` entities each frame and hands `RenderSystem` a
+plain list to render. No per-entity or per-World side-table is needed —
+unlike `PhysicsBody`'s callbacks or `VisualScriptState`'s evaluation scope,
+every field a light needs is plain serialisable data that already lives on
+the component itself, so `collectLights()` can read it straight off
+`scene.each()` with nothing extra to track or clear on destroy.
 
 ## Constructors
 
 ### Constructor
 
-> **new LightingSystem**(): `LightingSystem`
+> **new LightingSystem**(`options?`): `LightingSystem`
+
+Defined in: engine/src/systems/LightingSystem.ts:125
+
+#### Parameters
+
+##### options?
+
+[`LightingSystemOptions`](../interfaces/LightingSystemOptions.md) = `{}`
 
 #### Returns
 
 `LightingSystem`
 
-## Accessors
+## Properties
 
-### ambientColour
+### ambient
 
-#### Get Signature
+> **ambient**: [`AmbientLight`](../interfaces/AmbientLight.md)
 
-> **get** **ambientColour**(): `number`
-
-Defined in: [engine/src/systems/LightingSystem.ts:227](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L227)
-
-##### Returns
-
-`number`
+Defined in: engine/src/systems/LightingSystem.ts:121
 
 ***
 
-### ambientIntensity
+### maxLights
 
-#### Get Signature
+> **maxLights**: `number`
 
-> **get** **ambientIntensity**(): `number`
-
-Defined in: [engine/src/systems/LightingSystem.ts:230](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L230)
-
-##### Returns
-
-`number`
+Defined in: engine/src/systems/LightingSystem.ts:122
 
 ***
 
-### lights
+### raySamples
 
-#### Get Signature
+> **raySamples**: `number`
 
-> **get** **lights**(): `ReadonlyMap`\<`string`, [`Light`](../interfaces/Light.md)\>
-
-Defined in: [engine/src/systems/LightingSystem.ts:206](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L206)
-
-##### Returns
-
-`ReadonlyMap`\<`string`, [`Light`](../interfaces/Light.md)\>
+Defined in: engine/src/systems/LightingSystem.ts:123
 
 ## Methods
 
-### addLight()
+### collectLights()
 
-> **addLight**(`config`): `void`
+> **collectLights**(`scene`, `reference?`): [`LightSample`](../interfaces/LightSample.md)[]
 
-Defined in: [engine/src/systems/LightingSystem.ts:214](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L214)
+Defined in: engine/src/systems/LightingSystem.ts:157
 
-#### Parameters
+Every enabled `LightSource` (with a `Transform`) in `scene`, resolved to
+world position, capped at `maxLights`. When there are more live lights
+than the cap, this keeps the `maxLights` lights nearest `reference`
+(typically the camera/viewport centre) and drops the rest — the honest
+"degrade gracefully, never crash, never silently truncate an arbitrary
+subset" shape this codebase already uses elsewhere (see `QueryChannel`'s
+doc comment on partial-success reporting). A disabled light or a
+non-positive radius is skipped outright, the same way a light with zero
+practical effect would be.
 
-##### config
-
-[`Light`](../interfaces/Light.md)
-
-#### Returns
-
-`void`
-
-***
-
-### attachFilter()
-
-> **attachFilter**(`stage`, `useNormalMap?`, `canvasWidth?`, `canvasHeight?`): `void`
-
-Defined in: [engine/src/systems/LightingSystem.ts:242](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L242)
-
-Attach the GPU lighting filter to a PixiJS container (typically the scene stage).
-This replaces the previous registry-only placeholder with real GPU rendering.
-
-#### Parameters
-
-##### stage
-
-`Container`
-
-##### useNormalMap?
-
-`boolean` = `false`
-
-##### canvasWidth?
-
-`number` = `1280`
-
-##### canvasHeight?
-
-`number` = `720`
-
-#### Returns
-
-`void`
-
-***
-
-### detachFilter()
-
-> **detachFilter**(): `void`
-
-Defined in: [engine/src/systems/LightingSystem.ts:261](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L261)
-
-#### Returns
-
-`void`
-
-***
-
-### removeLight()
-
-> **removeLight**(`id`): `boolean`
-
-Defined in: [engine/src/systems/LightingSystem.ts:218](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L218)
+Each returned sample's `visibility` is real shadow-casting output, not
+a placeholder — see `LightOcclusion.ts`'s module doc comment for the
+algorithm. This method collects every enabled `LightOccluder` in
+`scene` once (not once per light), then for each light spatially culls
+that shared list down to only the occluders within the light's own
+radius (`boxWithinReach()` — an AABB-vs-circle distance test, O(1) per
+occluder) before doing any real ray work. Worst case is still
+`O(lights x occluders x rays)`, same shape `renderMultiCamera()`'s own
+doc comment names for its N-render-pass cost — for the "torch-lit
+dungeon, 5-10 lights, dozens of wall segments" scale CLAUDE.md's
+lighting entry documents as the target, this is a few thousand
+ray/segment tests per frame, comfortably cheap; a scene with hundreds
+of simultaneous occluded lights would need real profiling before
+shipping, the same honest caveat this codebase's other N-pass features
+already carry rather than pretending is free.
 
 #### Parameters
 
-##### id
+##### scene
 
-`string`
+[`Scene`](Scene.md)
 
-#### Returns
+##### reference?
 
-`boolean`
-
-***
-
-### setAmbient()
-
-> **setAmbient**(`colour`, `intensity`): `void`
-
-Defined in: [engine/src/systems/LightingSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L222)
-
-#### Parameters
-
-##### colour
+###### x
 
 `number`
 
-##### intensity
+###### y
 
 `number`
 
 #### Returns
 
-`void`
-
-***
-
-### setResolution()
-
-> **setResolution**(`width`, `height`): `void`
-
-Defined in: [engine/src/systems/LightingSystem.ts:256](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L256)
-
-#### Parameters
-
-##### width
-
-`number`
-
-##### height
-
-`number`
-
-#### Returns
-
-`void`
-
-***
-
-### update()
-
-> **update**(`_dt`): `void`
-
-Defined in: [engine/src/systems/LightingSystem.ts:275](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LightingSystem.ts#L275)
-
-#### Parameters
-
-##### \_dt
-
-`number`
-
-#### Returns
-
-`void`
+[`LightSample`](../interfaces/LightSample.md)[]

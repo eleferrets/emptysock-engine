@@ -6,7 +6,7 @@
  * The painter calls resolve() with the 8-bit mask for the target cell and
  * gets back the tile index to write.
  *
- * Lives in `@emptysock/tilemap`, not engine core (RELEASE_PASS.md Track 2):
+ * Lives in `@emptysock/tilemap`, not engine core:
  * it's pure tile-authoring/content logic with zero rendering or ECS
  * coupling (no pixi, no Scene/Entity, just plain data in and a tile index
  * out) — the same reasoning that already put `NavMeshSystem` here rather

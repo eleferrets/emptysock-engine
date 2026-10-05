@@ -6,7 +6,22 @@
 
 # Class: PhysicsSystem
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L21)
+Defined in: engine/src/systems/PhysicsSystem.ts:98
+
+`PhysicsSystem` (ECS core) — wraps Rapier2D behind `PhysicsBody` (the engine design notes
+§6). One instance per scene, created/destroyed by `Game.loadScene`/
+`unloadScene` (§4) unless `manageLifecycle: false` is passed.
+
+Fixed timestep + interpolation (§10.3): `update(scene, dt)` accumulates
+real frame time and steps Rapier at exactly `fixedTimestep` seconds per
+step, however many (zero or more) that frame's `dt` calls for. Between
+steps it keeps the previous and current post-step transform for every
+registered body, and exposes `interpolationAlpha` (0..1, how far into the
+*next* step the current render frame falls) plus `getInterpolatedTransform`
+so a renderer can lerp `previous -> current` by `alpha` instead of
+snapping bodies to whatever position the last physics step left them at —
+this is the API surface the Rendering track consumes; this track does not
+wire it into an actual renderer.
 
 ## Constructors
 
@@ -20,17 +35,19 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:21](https://github.com/eleferre
 
 ## Accessors
 
-### RAPIER
+### interpolationAlpha
 
 #### Get Signature
 
-> **get** **RAPIER**(): `__module`
+> **get** **interpolationAlpha**(): `number`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L50)
+Defined in: engine/src/systems/PhysicsSystem.ts:136
+
+How far (0..1) the current render frame sits between the last two physics steps.
 
 ##### Returns
 
-`__module`
+`number`
 
 ***
 
@@ -40,7 +57,7 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:50](https://github.com/eleferre
 
 > **get** **world**(): `World`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L45)
+Defined in: engine/src/systems/PhysicsSystem.ts:130
 
 ##### Returns
 
@@ -52,7 +69,12 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:45](https://github.com/eleferre
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:222](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L222)
+Defined in: engine/src/systems/PhysicsSystem.ts:419
+
+the engine design notes PhysicsSystem3D-must-be-destroyed decision (CLAUDE.md)
+applies here too: Rapier allocates its world/body buffers in WASM linear
+memory outside the JS heap, invisible to the GC. Always call this when a
+scene unloads.
 
 #### Returns
 
@@ -60,34 +82,17 @@ Defined in: [engine/src/systems/PhysicsSystem.ts:222](https://github.com/eleferr
 
 ***
 
-### init()
+### getBodyState()
 
-> **init**(`options?`): `Promise`\<`void`\>
+> **getBodyState**(`entity`): [`BodyState2D`](../interfaces/BodyState2D.md) \| `undefined`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L36)
+Defined in: engine/src/systems/PhysicsSystem.ts:396
 
-#### Parameters
-
-##### options?
-
-[`PhysicsWorldOptions`](../interfaces/PhysicsWorldOptions.md) = `{}`
-
-#### Returns
-
-`Promise`\<`void`\>
-
-***
-
-### registerEntity()
-
-> **registerEntity**(`entity`): `void`
-
-Defined in: [engine/src/systems/PhysicsSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L61)
-
-Register an entity's PhysicsBody component with the Rapier world.
-Reads position from a Transform component on the same entity.
-Body and collider handles are stored internally; they are not written back
-to PhysicsBody.
+Live Rapier state for a registered `PhysicsBody`, straight off the
+rigid body — the primitive `physics_body_state` in `emptysock-mcp`
+wraps. `undefined` means "this entity has no registered body" (not yet
+stepped, wrong entity, dead handle) — a real, meaningful absence, not
+the "no world at all" case `PhysicsNotInitializedError` covers.
 
 #### Parameters
 
@@ -97,48 +102,137 @@ to PhysicsBody.
 
 #### Returns
 
-`void`
+[`BodyState2D`](../interfaces/BodyState2D.md) \| `undefined`
 
 ***
 
-### step()
+### getInterpolatedTransform()
 
-> **step**(`fixedDt`): `void`
+> **getInterpolatedTransform**(`entity`, `alpha?`): `Snapshot`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L151)
+Defined in: engine/src/systems/PhysicsSystem.ts:141
 
-Advance the physics world by exactly one step of `fixedDt` seconds and
-fire collision/sensor callbacks. Accumulation is handled externally by
-`SceneManager` — call this from `onFixedUpdate(dt)` (which is already
-driven by the scene manager's accumulator loop) rather than from
-`onUpdate(dt)`.
+Linearly interpolated transform for a registered body, for rendering.
 
 #### Parameters
 
-##### fixedDt
+##### entity
+
+[`Entity`](Entity.md)
+
+##### alpha?
+
+`number` = `...`
+
+#### Returns
+
+`Snapshot`
+
+***
+
+### init()
+
+> **init**(`options?`): `Promise`\<`void`\>
+
+Defined in: engine/src/systems/PhysicsSystem.ts:109
+
+#### Parameters
+
+##### options?
+
+[`PhysicsSystemOptions`](../interfaces/PhysicsSystemOptions.md) = `{}`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+***
+
+### overlapCircle()
+
+> **overlapCircle**(`center`, `radius`): [`Entity`](Entity.md)[]
+
+Defined in: engine/src/systems/PhysicsSystem.ts:372
+
+All registered entities whose collider overlaps a circle at `center`
+with radius `radius` (the engine design notes's `overlapCircle2d` query
+primitive). Empty array is a real "nothing overlapping" result;
+`PhysicsNotInitializedError` is the "no world to query" case.
+
+#### Parameters
+
+##### center
+
+`Vec2`
+
+##### radius
 
 `number`
 
 #### Returns
 
-`void`
+[`Entity`](Entity.md)[]
 
 ***
 
-### syncToTransforms()
+### raycast()
 
-> **syncToTransforms**(`entities`): `void`
+> **raycast**(`origin`, `direction`, `maxToi?`, `solid?`): [`RaycastHit2D`](../interfaces/RaycastHit2D.md) \| `null`
 
-Defined in: [engine/src/systems/PhysicsSystem.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem.ts#L128)
+Defined in: engine/src/systems/PhysicsSystem.ts:340
 
-Sync Rapier body positions back to Transform components.
-Call after step() each frame.
+Cast a ray into the world and return the first collider it hits, mapped
+back to the registered `Entity` that owns it (the engine design notes — the
+primitive the MCP query bridge's `raycast2d` query wraps). `null` means
+a real "nothing along this ray" result, distinct from the
+`PhysicsNotInitializedError` thrown when there is no world to query at
+all — callers (the query bridge in particular) must not conflate the
+two into a single "empty" shape.
 
 #### Parameters
 
-##### entities
+##### origin
 
-`Iterable`\<[`Entity`](Entity.md)\>
+`Vec2`
+
+##### direction
+
+`Vec2`
+
+##### maxToi?
+
+`number` = `1000`
+
+##### solid?
+
+`boolean` = `true`
+
+#### Returns
+
+[`RaycastHit2D`](../interfaces/RaycastHit2D.md) \| `null`
+
+***
+
+### update()
+
+> **update**(`scene`, `dt`): `void`
+
+Defined in: engine/src/systems/PhysicsSystem.ts:165
+
+Advance the simulation by `dt` real seconds: registers any new
+`PhysicsBody`s found on `scene`, steps Rapier zero or more times at the
+fixed timestep, and dispatches collision/sensor callbacks after each
+step. Called from `Game.update()`.
+
+#### Parameters
+
+##### scene
+
+[`Scene`](Scene.md)
+
+##### dt
+
+`number`
 
 #### Returns
 

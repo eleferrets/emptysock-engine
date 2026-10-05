@@ -3,7 +3,7 @@ import { SceneTransitionManager } from "../systems/SceneTransition.js";
 import type { TransitionEffectSink } from "../systems/SceneTransition.js";
 
 /**
- * RELEASE_PASS.md Track 6's port of `core/SceneManager.ts`'s scene-
+ * the release notes Track 6's port of `core/SceneManager.ts`'s scene-
  * transition timing logic, scenarios drawn from `__tests__/SceneManager.test.ts`
  * (this class deliberately doesn't own scene registration or a pause/resume
  * stack — see its own class doc comment for why).

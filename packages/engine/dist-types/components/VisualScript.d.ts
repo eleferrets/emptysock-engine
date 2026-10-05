@@ -139,7 +139,7 @@ export declare class VisualScriptGraphBuilder {
   build(): VisualScriptGraph;
 }
 /**
- * `VisualScriptState` (RELEASE_PASS.md's "Visual Script Editor" gap) is
+ * `VisualScriptState` is
  * defined via `defineComponent`'s `SerializableRecord` constraint, which
  * rules out storing the graph itself (nodes/connections, functions and all)
  * directly on the component.

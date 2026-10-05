@@ -1,12 +1,14 @@
 import type { ComponentDef } from "./Component.js";
 import { Entity } from "./Entity.js";
+import { type EntityId, type EntityRef } from "./EntityRef.js";
 import { type PrefabDef } from "./Prefab.js";
+import { type RelationDef } from "./Relations.js";
 import type { SerializableRecord } from "./Serializable.js";
 /**
  * A `scene.each(...)` callback receives one live component object per
  * component argument, plus the `Entity` handle last. Unlike `entity.get()`,
  * these are read directly off bitECS's raw arrays for the frame's iteration
- * — no proxy allocation (ENGINE_DESIGN.md §21: "measurably faster because it
+ * — no proxy allocation (the engine design notes: "measurably faster because it
  * skips proxy overhead altogether"). Mutate them in place; the write lands
  * straight in the underlying array.
  */
@@ -19,7 +21,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
   ]
 ) => void;
 /**
- * ENGINE_DESIGN.md §3/§16.1/§21 — the ECS world for one running scene. A
+ * the engine design notes/§16.1/§21 — the ECS world for one running scene. A
  * `Scene` owns exactly one bitECS `World`, with versioned entity IDs enabled
  * by default (§23) so a stale `Entity` handle can never silently alias a
  * different, newly-spawned entity.
@@ -30,7 +32,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
  * headless testing harness in `testing/index.ts` possible without dragging
  * in a renderer.
  */
-/** Options for `scene.spawn(prefab, props, options)` — ENGINE_DESIGN.md §12.4. */
+/** Options for `scene.spawn(prefab, props, options)` — the engine design notes */
 export interface SpawnOptions {
   /**
    * Fold pooling into spawn/destroy (§12.4). When `true`, `scene.destroy()`
@@ -50,11 +52,14 @@ export declare class Scene {
   private readonly _pools;
   /** eid -> the prefab it was spawned from, only tracked for pooled spawns. */
   private readonly _pooledOrigin;
+  private readonly _relations;
+  private readonly _destroyedHooks;
+  private readonly _parentedHooks;
   constructor();
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
   spawn(name?: string): Entity;
   /**
-   * Spawn a `Prefab` (ENGINE_DESIGN.md §11.2) as a unit onto one new entity
+   * Spawn a `Prefab` as a unit onto one new entity
    * — every component the prefab declares, plus everything it `extends`
    * flattened in first. `props` is a flat, `Serializable` prop bag applied
    * on top of the prefab's own per-component defaults/overrides: a value
@@ -86,10 +91,50 @@ export declare class Scene {
    * the freed slot to (§23).
    */
   destroy(entity: Entity): void;
+  /**
+   * Stable per-scene id for `entity`, assigned on first call (monotonic,
+   * never reused within this scene). Throws for a destroyed entity or one
+   * from another scene.
+   */
+  idOf(entity: Entity): EntityId;
+  /** `EntityRef` for `entity` (see `idOf`). */
+  refTo(entity: Entity): EntityRef;
+  /**
+   * The live entity `ref` points at, or `undefined` when it is `NO_REF`,
+   * never existed, or was destroyed. A pooled-and-recycled entity counts as
+   * destroyed: pooled destroy drops its id, so the ref does not alias the
+   * entity's next occupant.
+   */
+  resolve(ref: EntityRef | null | undefined): Entity | undefined;
+  /**
+   * Observe destruction of any entity in this scene (fires before teardown,
+   * once per entity, children of a cascade included). `Game` forwards this to
+   * the `entity:destroyed` signal. Returns an unsubscribe.
+   */
+  onDestroyed(cb: (ref: EntityRef) => void): () => void;
+  /** Observe `setParent` calls (`parent` is `NO_REF` when cleared). Returns an unsubscribe. */
+  onParented(cb: (child: EntityRef, parent: EntityRef) => void): () => void;
+  /** Add the edge `subject --relation--> target` (see `RelationDef`). */
+  relate(subject: Entity, relation: RelationDef, target: Entity): void;
+  /** Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted. */
+  unrelate(subject: Entity, relation: RelationDef, target?: Entity): void;
+  /** Entities `subject` points at through `relation`, in insertion order. */
+  targetsOf(subject: Entity, relation: RelationDef): Entity[];
+  /** Entities pointing at `target` through `relation`, in insertion order. */
+  subjectsOf(target: Entity, relation: RelationDef): Entity[];
+  /** `ChildOf` parent of `e`, if any. */
+  parentOf(e: Entity): Entity | undefined;
+  /** `ChildOf` children of `e`, in the order they were parented. */
+  childrenOf(e: Entity): Entity[];
+  /**
+   * Set (or with `undefined`, clear) `child`'s parent. Opt-in hierarchy:
+   * destroying a parent destroys its children. Throws on a cycle.
+   */
+  setParent(child: Entity, parent: Entity | undefined): void;
   /** Number of entities currently alive in this scene. */
   get entityCount(): number;
   /**
-   * Bulk-iteration power path (ENGINE_DESIGN.md §11.3 — `each`, not
+   * Bulk-iteration power path (the engine design notes — `each`, not
    * `query`). Bypasses the `.get()` proxy layer entirely: components are
    * read straight off bitECS's arrays, and `entity` is only constructed
    * (cheaply — it's a handle, not an allocation of game state) for the

@@ -1,3 +1,4 @@
+import type { Entity } from "../Entity.js";
 /**
  * Game-wide signal/broadcast bus. Any code holding the `Game` (or a scene's
  * `ctx.signals`) can `emit` a named signal with a payload and every listener
@@ -36,6 +37,17 @@ export declare class SignalBus {
   broadcast<T = unknown>(payload?: T): number;
   listenerCount(name?: string): number;
   clear(): void;
+  /**
+   * Subscribes `fn` to `name` for the lifetime of `entity`: when the entity
+   * is destroyed (`Scene.destroy`, pooled or not) the listener is removed,
+   * so a dead entity's handlers never leak or fire on a pooled reuse. Returns
+   * an early unsubscribe. Throws on a destroyed entity.
+   */
+  onEntity<T = unknown>(
+    entity: Entity,
+    name: string,
+    fn: SignalListener<T>,
+  ): Unsubscribe;
   /** A scope whose subscriptions are all removed by one `dispose()`. */
   group(): SignalGroup;
 }

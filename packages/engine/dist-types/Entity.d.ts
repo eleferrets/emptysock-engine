@@ -1,4 +1,5 @@
 import type { ComponentDef } from "./Component.js";
+import { type EntityRef } from "./EntityRef.js";
 import { type CoroutineFactory, type CoroutineHandle } from "./Coroutines.js";
 import type { SerializableRecord } from "./Serializable.js";
 /** A plain `{x, y}` pair — used by `AStarSearch`/`NavMeshSystem` and any component needing a 2D point without pulling in a math library. */
@@ -9,7 +10,7 @@ export interface Vec2 {
 /** Per-scene proxy cache: full versioned eid -> componentName -> proxy. */
 export type ProxyCache = Map<number, Map<string, unknown>>;
 /**
- * A lightweight, cheap-to-copy handle onto a bitECS entity (ENGINE_DESIGN.md
+ * A lightweight, cheap-to-copy handle onto a bitECS entity (the engine design notes
  * §3). It carries no game state itself — state lives in the component
  * arrays `.get()` reaches into — only the bitECS world it belongs to and its
  * (already version-bit-encoded) entity id.
@@ -23,6 +24,11 @@ export type ProxyCache = Map<number, Map<string, unknown>>;
 export declare class Entity {
   /** Raw numeric id, version bits stripped — mainly useful for logging. */
   get rawId(): number;
+  /**
+   * Stable serialisable reference to this entity (assigns a per-scene id on
+   * first call). Throws on a destroyed entity. See `EntityRef`.
+   */
+  ref(): EntityRef;
   /**
    * `false` once this entity (or the slot it used to occupy) has been
    * destroyed and, for a stale handle, recycled — bitECS's versioned ids
@@ -43,7 +49,7 @@ export declare class Entity {
   /**
    * Returns the cached proxy for this (entity, component) pair, or
    * `undefined` if the entity is stale/destroyed or never had the
-   * component. Per ENGINE_DESIGN.md §21, the proxy is built once per pair
+   * component. Per the engine design notes, the proxy is built once per pair
    * and reused for every subsequent call — never reallocated.
    */
   get<T extends SerializableRecord>(def: ComponentDef<T>): T | undefined;

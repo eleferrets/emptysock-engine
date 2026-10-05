@@ -6,7 +6,7 @@
 
 # Class: PostProcessSystem
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:209](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L209)
+Defined in: engine/src/systems/PostProcessSystem.ts:235
 
 ## Constructors
 
@@ -24,15 +24,15 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:209](https://github.com/ele
 
 > **transitionColour**: `number` = `0x000000`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:276](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L276)
+Defined in: engine/src/systems/PostProcessSystem.ts:312
 
 ***
 
 ### transitionEffect
 
-> **transitionEffect**: `TransitionEffect` = `"none"`
+> **transitionEffect**: [`TransitionEffect`](../type-aliases/TransitionEffect.md) = `"none"`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:274](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L274)
+Defined in: engine/src/systems/PostProcessSystem.ts:310
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:274](https://github.com/ele
 
 > **transitionProgress**: `number` = `0`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:275](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L275)
+Defined in: engine/src/systems/PostProcessSystem.ts:311
 
 ## Accessors
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:275](https://github.com/ele
 
 > **get** **effects**(): readonly [`ActiveEffect`](../interfaces/ActiveEffect.md)[]
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:295](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L295)
+Defined in: engine/src/systems/PostProcessSystem.ts:331
 
 ##### Returns
 
@@ -64,7 +64,7 @@ readonly [`ActiveEffect`](../interfaces/ActiveEffect.md)[]
 
 > **get** **flashActive**(): `boolean`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:319](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L319)
+Defined in: engine/src/systems/PostProcessSystem.ts:355
 
 ##### Returns
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:319](https://github.com/ele
 
 > **get** **flashColour**(): `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:326](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L326)
+Defined in: engine/src/systems/PostProcessSystem.ts:362
 
 ##### Returns
 
@@ -92,7 +92,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:326](https://github.com/ele
 
 > **get** **flashIntensity**(): `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:322](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L322)
+Defined in: engine/src/systems/PostProcessSystem.ts:358
 
 ##### Returns
 
@@ -106,7 +106,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:322](https://github.com/ele
 
 > **get** **layerFilters**(): `ReadonlyMap`\<`string`, [`LayerFilterOptions`](../interfaces/LayerFilterOptions.md)\>
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:271](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L271)
+Defined in: engine/src/systems/PostProcessSystem.ts:307
 
 ##### Returns
 
@@ -120,7 +120,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:271](https://github.com/ele
 
 > **get** **transitionActive**(): `boolean`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:339](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L339)
+Defined in: engine/src/systems/PostProcessSystem.ts:375
 
 Whether a transition overlay should currently be rendered.
 
@@ -134,7 +134,7 @@ Whether a transition overlay should currently be rendered.
 
 > **add**(`type`, `options?`): `this`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:278](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L278)
+Defined in: engine/src/systems/PostProcessSystem.ts:314
 
 #### Parameters
 
@@ -156,13 +156,13 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:278](https://github.com/ele
 
 > **beginTransition**(`effect`, `colour?`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:332](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L332)
+Defined in: engine/src/systems/PostProcessSystem.ts:368
 
 #### Parameters
 
 ##### effect
 
-`TransitionEffect`
+[`TransitionEffect`](../type-aliases/TransitionEffect.md)
 
 ##### colour?
 
@@ -178,7 +178,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:332](https://github.com/ele
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:365](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L365)
+Defined in: engine/src/systems/PostProcessSystem.ts:401
 
 #### Returns
 
@@ -190,7 +190,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:365](https://github.com/ele
 
 > **clearLayerFilter**(`layerId`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:220](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L220)
+Defined in: engine/src/systems/PostProcessSystem.ts:246
 
 #### Parameters
 
@@ -208,7 +208,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:220](https://github.com/ele
 
 > **cssFilterForLayer**(`layerId`): `string`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:234](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L234)
+Defined in: engine/src/systems/PostProcessSystem.ts:260
 
 Returns a CSS filter string for a layer, or '' if disabled/not set
 
@@ -228,7 +228,7 @@ Returns a CSS filter string for a layer, or '' if disabled/not set
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:372](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L372)
+Defined in: engine/src/systems/PostProcessSystem.ts:408
 
 #### Returns
 
@@ -240,7 +240,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:372](https://github.com/ele
 
 > **endTransition**(): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:343](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L343)
+Defined in: engine/src/systems/PostProcessSystem.ts:379
 
 #### Returns
 
@@ -252,7 +252,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:343](https://github.com/ele
 
 > **flash**(`options?`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:301](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L301)
+Defined in: engine/src/systems/PostProcessSystem.ts:337
 
 #### Parameters
 
@@ -270,7 +270,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:301](https://github.com/ele
 
 > **get**(`type`): [`ActiveEffect`](../interfaces/ActiveEffect.md) \| `undefined`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:291](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L291)
+Defined in: engine/src/systems/PostProcessSystem.ts:327
 
 #### Parameters
 
@@ -288,7 +288,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:291](https://github.com/ele
 
 > **getLayerFilter**(`layerId`): [`LayerFilterOptions`](../interfaces/LayerFilterOptions.md) \| `undefined`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:229](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L229)
+Defined in: engine/src/systems/PostProcessSystem.ts:255
 
 #### Parameters
 
@@ -306,7 +306,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:229](https://github.com/ele
 
 > **has**(`type`): `boolean`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:287](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L287)
+Defined in: engine/src/systems/PostProcessSystem.ts:323
 
 #### Parameters
 
@@ -324,7 +324,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:287](https://github.com/ele
 
 > **remove**(`type`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:283](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L283)
+Defined in: engine/src/systems/PostProcessSystem.ts:319
 
 #### Parameters
 
@@ -342,7 +342,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:283](https://github.com/ele
 
 > **setLayerFilter**(`layerId`, `filter`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:216](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L216)
+Defined in: engine/src/systems/PostProcessSystem.ts:242
 
 #### Parameters
 
@@ -364,7 +364,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:216](https://github.com/ele
 
 > **toggleLayerFilter**(`layerId`, `enabled`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:224](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L224)
+Defined in: engine/src/systems/PostProcessSystem.ts:250
 
 #### Parameters
 
@@ -386,7 +386,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:224](https://github.com/ele
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:350](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L350)
+Defined in: engine/src/systems/PostProcessSystem.ts:386
 
 #### Parameters
 

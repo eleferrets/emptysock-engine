@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::Manager;
+
+mod keyboard_layout;
 
 // Force discrete GPU on NVIDIA Optimus and AMD PowerXpress laptops.
 #[no_mangle]
@@ -42,6 +43,17 @@ async fn open_file(app: tauri::AppHandle) -> FileResult {
         }
     };
 
+    let path = match path.into_path() {
+        Ok(p) => p,
+        Err(e) => {
+            return FileResult {
+                success: false,
+                content: None,
+                path: None,
+                error: Some(e.to_string()),
+            }
+        }
+    };
     let path_str = path.to_string_lossy().to_string();
     match std::fs::read_to_string(&path) {
         Ok(content) => FileResult {
@@ -73,7 +85,17 @@ async fn save_file(app: tauri::AppHandle, path: Option<String>, content: String)
                 .add_filter("TypeScript", &["ts"])
                 .blocking_save_file();
             match picked {
-                Some(p) => p.into(),
+                Some(p) => match p.into_path() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return FileResult {
+                            success: false,
+                            content: None,
+                            path: None,
+                            error: Some(e.to_string()),
+                        }
+                    }
+                },
                 None => {
                     return FileResult {
                         success: false,
@@ -469,7 +491,8 @@ pub fn run() {
             export_game,
             open_in_vscode,
             run_git,
-            log_error
+            log_error,
+            keyboard_layout::keyboard_layout_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

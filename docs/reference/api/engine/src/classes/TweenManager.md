@@ -6,7 +6,7 @@
 
 # Class: TweenManager
 
-Defined in: [engine/src/systems/TweenSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L37)
+Defined in: engine/src/systems/TweenSystem.ts:37
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/TweenSystem.ts:37](https://github.com/eleferrets
 
 > **after**(`seconds`, `fn`): [`TweenHandle`](../interfaces/TweenHandle.md)
 
-Defined in: [engine/src/systems/TweenSystem.ts:78](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L78)
+Defined in: engine/src/systems/TweenSystem.ts:78
 
 Call `fn` once after `seconds`. Returns a handle whose `cancel()` prevents
 the callback from firing.
@@ -49,7 +49,7 @@ the callback from firing.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/TweenSystem.ts:163](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L163)
+Defined in: engine/src/systems/TweenSystem.ts:163
 
 #### Returns
 
@@ -61,7 +61,7 @@ Defined in: [engine/src/systems/TweenSystem.ts:163](https://github.com/eleferret
 
 > **every**(`seconds`, `fn`): [`TweenHandle`](../interfaces/TweenHandle.md)
 
-Defined in: [engine/src/systems/TweenSystem.ts:99](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L99)
+Defined in: engine/src/systems/TweenSystem.ts:99
 
 Call `fn` repeatedly every `seconds`. Returns a handle whose `cancel()`
 stops further calls.
@@ -86,7 +86,7 @@ stops further calls.
 
 > **killAll**(): `void`
 
-Defined in: [engine/src/systems/TweenSystem.ts:158](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L158)
+Defined in: engine/src/systems/TweenSystem.ts:158
 
 #### Returns
 
@@ -98,7 +98,7 @@ Defined in: [engine/src/systems/TweenSystem.ts:158](https://github.com/eleferret
 
 > **to**(`target`, `props`, `options`): [`TweenHandle`](../interfaces/TweenHandle.md)
 
-Defined in: [engine/src/systems/TweenSystem.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L45)
+Defined in: engine/src/systems/TweenSystem.ts:45
 
 Animate numeric properties of `target` to the values in `props` over time.
 Returns a handle whose `cancel()` stops the tween immediately.
@@ -127,7 +127,7 @@ Returns a handle whose `cancel()` stops the tween immediately.
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/TweenSystem.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/TweenSystem.ts#L116)
+Defined in: engine/src/systems/TweenSystem.ts:116
 
 #### Parameters
 

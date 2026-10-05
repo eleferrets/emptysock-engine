@@ -8,7 +8,7 @@
 
 > `const` **LAYER**: `object`
 
-Defined in: [engine/src/systems/LayerSystem.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LayerSystem.ts#L11)
+Defined in: engine/src/systems/LayerSystem.ts:11
 
 Index constants for the built-in layers.
 

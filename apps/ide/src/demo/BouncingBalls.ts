@@ -1,4 +1,4 @@
-import { Application, Graphics, Container } from 'pixi.js';
+import { Application, Graphics, Container } from "pixi.js";
 
 interface Ball {
   graphics: Graphics;
@@ -28,28 +28,47 @@ export class BouncingBallsDemo {
   private container: Container | null = null;
   private fpsCallback: ((fps: number) => void) | null = null;
   private fpsBuffer: number[] = [];
+  /**
+   * Inits and teardowns of every demo run one after another. A strict-mode
+   * remount destroys the first demo while pixi is still initialising, and two
+   * renderers on one canvas (or a global release under a live one) leave the
+   * preview blank.
+   */
+  private static queue: Promise<unknown> = Promise.resolve();
+  private started: Promise<void> = Promise.resolve();
 
-  async init(canvas: HTMLCanvasElement, onFps: (fps: number) => void): Promise<void> {
+  init(canvas: HTMLCanvasElement, onFps: (fps: number) => void): Promise<void> {
+    const run = BouncingBallsDemo.queue.then(() => this.start(canvas, onFps));
+    this.started = run;
+    BouncingBallsDemo.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async start(
+    canvas: HTMLCanvasElement,
+    onFps: (fps: number) => void,
+  ): Promise<void> {
     this.fpsCallback = onFps;
 
-    this.app = new Application();
-    await this.app.init({
+    const app = new Application();
+    this.app = app;
+    await app.init({
       canvas,
       resizeTo: canvas.parentElement ?? canvas,
       backgroundColor: 0x0e0e10,
       antialias: true,
       resolution: window.devicePixelRatio,
       autoDensity: true,
-      preference: ['webgpu', 'webgl'],
-      powerPreference: 'high-performance',
+      preference: ["webgpu", "webgl"],
+      powerPreference: "high-performance",
     });
 
     this.container = new Container();
-    this.app.stage.addChild(this.container);
+    app.stage.addChild(this.container);
 
     this.spawnBalls(18);
 
-    this.app.ticker.add(this.update);
+    app.ticker.add(this.update);
   }
 
   private spawnBalls(count: number): void {
@@ -95,7 +114,11 @@ export class BouncingBallsDemo {
     g.fill({ color: 0xffffff, alpha: 0.35 });
   }
 
-  private readonly update = (ticker: { deltaTime: number; deltaMS: number; FPS: number }): void => {
+  private readonly update = (ticker: {
+    deltaTime: number;
+    deltaMS: number;
+    FPS: number;
+  }): void => {
     if (this.app === null || this.container === null) return;
 
     const dt = ticker.deltaMS / 1000; // seconds
@@ -134,7 +157,8 @@ export class BouncingBallsDemo {
     this.fpsBuffer.push(ticker.FPS);
     if (this.fpsBuffer.length > 30) this.fpsBuffer.shift();
     if (this.fpsCallback !== null) {
-      const avg = this.fpsBuffer.reduce((a, b) => a + b, 0) / this.fpsBuffer.length;
+      const avg =
+        this.fpsBuffer.reduce((a, b) => a + b, 0) / this.fpsBuffer.length;
       this.fpsCallback(Math.round(avg));
     }
   };
@@ -143,10 +167,19 @@ export class BouncingBallsDemo {
     // Handled by resizeTo
   }
 
+  /** Tears the demo down once its init (if still running) has finished. */
   destroy(): void {
-    this.app?.ticker.remove(this.update);
-    this.app?.destroy();
-    this.app = null;
-    this.balls = [];
+    const teardown = this.started
+      .catch(() => undefined)
+      .then(() => {
+        const app = this.app;
+        this.app = null;
+        this.balls = [];
+        if (app === null || this.container === null) return;
+        app.ticker.remove(this.update);
+        app.destroy({ releaseGlobalResources: true });
+        this.container = null;
+      });
+    BouncingBallsDemo.queue = BouncingBallsDemo.queue.then(() => teardown);
   }
 }

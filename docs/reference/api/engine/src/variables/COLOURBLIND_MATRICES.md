@@ -8,7 +8,7 @@
 
 > `const` **COLOURBLIND\_MATRICES**: `Record`\<[`ColourblindMode`](../type-aliases/ColourblindMode.md), readonly `number`[]\>
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L61)
+Defined in: engine/src/systems/PostProcessSystem.ts:87
 
 Standard colour-vision-deficiency *simulation* matrices (row-major 3x3,
 applied to linear-ish sRGB). Source: Viénot, Brettel & Mollon /

@@ -6,7 +6,7 @@
 
 # Interface: PluginContext
 
-Defined in: [engine/src/core/PluginSystem.ts:1](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L1)
+Defined in: engine/src/PluginSystem.ts:1
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/PluginSystem.ts:1](https://github.com/eleferrets/em
 
 > **inject**\<`T`\>(`key`): `T` \| `undefined`
 
-Defined in: [engine/src/core/PluginSystem.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L5)
+Defined in: engine/src/PluginSystem.ts:5
 
 Retrieve a service registered by another plugin.
 
@@ -40,7 +40,7 @@ Retrieve a service registered by another plugin.
 
 > **provide**\<`T`\>(`key`, `value`): `void`
 
-Defined in: [engine/src/core/PluginSystem.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L3)
+Defined in: engine/src/PluginSystem.ts:3
 
 Expose a named service so other plugins and game code can retrieve it.
 

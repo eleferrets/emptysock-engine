@@ -1,0 +1,11 @@
+[**emptysock-engine**](../../../README.md)
+
+***
+
+[emptysock-engine](../../../README.md) / [types/src](../README.md) / ViewDefSchema
+
+# Variable: ViewDefSchema
+
+> `const` **ViewDefSchema**: `ZodObject`\<\{ `border`: `ZodOptional`\<`ZodObject`\<\{ `x`: `ZodNumber`; `y`: `ZodNumber`; \}, `"strip"`, `ZodTypeAny`, \{ `x`: `number`; `y`: `number`; \}, \{ `x`: `number`; `y`: `number`; \}\>\>; `follow`: `ZodOptional`\<`ZodObject`\<\{ `entity`: `ZodOptional`\<`ZodObject`\<\{ `$ref`: `ZodString`; \}, `"strict"`, `ZodTypeAny`, \{ `$ref`: `string`; \}, \{ `$ref`: `string`; \}\>\>; `object`: `ZodOptional`\<`ZodString`\>; \}, `"strip"`, `ZodTypeAny`, \{ `entity?`: \{ `$ref`: `string`; \}; `object?`: `string`; \}, \{ `entity?`: \{ `$ref`: `string`; \}; `object?`: `string`; \}\>\>; `id`: `ZodString`; `screen`: `ZodObject`\<\{ `h`: `ZodNumber`; `w`: `ZodNumber`; `x`: `ZodNumber`; `y`: `ZodNumber`; \}, `"strip"`, `ZodTypeAny`, \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}, \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}\>; `speed`: `ZodOptional`\<`ZodObject`\<\{ `x`: `ZodNumber`; `y`: `ZodNumber`; \}, `"strip"`, `ZodTypeAny`, \{ `x`: `number`; `y`: `number`; \}, \{ `x`: `number`; `y`: `number`; \}\>\>; `visible`: `ZodBoolean`; `world`: `ZodObject`\<\{ `h`: `ZodNumber`; `w`: `ZodNumber`; `x`: `ZodNumber`; `y`: `ZodNumber`; \}, `"strip"`, `ZodTypeAny`, \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}, \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}\>; \}, `"strip"`, `ZodTypeAny`, \{ `border?`: \{ `x`: `number`; `y`: `number`; \}; `follow?`: \{ `entity?`: \{ `$ref`: `string`; \}; `object?`: `string`; \}; `id`: `string`; `screen`: \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}; `speed?`: \{ `x`: `number`; `y`: `number`; \}; `visible`: `boolean`; `world`: \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}; \}, \{ `border?`: \{ `x`: `number`; `y`: `number`; \}; `follow?`: \{ `entity?`: \{ `$ref`: `string`; \}; `object?`: `string`; \}; `id`: `string`; `screen`: \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}; `speed?`: \{ `x`: `number`; `y`: `number`; \}; `visible`: `boolean`; `world`: \{ `h`: `number`; `w`: `number`; `x`: `number`; `y`: `number`; \}; \}\>
+
+Defined in: types/src/scene.ts:68

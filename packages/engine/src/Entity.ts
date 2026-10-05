@@ -8,6 +8,7 @@ import {
 } from "bitecs";
 import type { World } from "bitecs";
 import type { ComponentDef } from "./Component.js";
+import { entityIdTable, type EntityRef } from "./EntityRef.js";
 import { componentRegistry } from "./ComponentRegistry.js";
 import {
   startCoroutine,
@@ -26,7 +27,7 @@ export interface Vec2 {
 
 /**
  * Builds the lazily-created, cached `Proxy` for one (entity, componentType)
- * pair (ENGINE_DESIGN.md §21). Every get/set on the returned proxy reads or
+ * pair. Every get/set on the returned proxy reads or
  * writes directly into the component's underlying per-field arrays at
  * `index` — no allocation happens on access, only once, here, when the
  * proxy itself is built.
@@ -67,7 +68,7 @@ function createComponentProxy<T extends SerializableRecord>(
 export type ProxyCache = Map<number, Map<string, unknown>>;
 
 /**
- * A lightweight, cheap-to-copy handle onto a bitECS entity (ENGINE_DESIGN.md
+ * A lightweight, cheap-to-copy handle onto a bitECS entity (the engine design notes
  * §3). It carries no game state itself — state lives in the component
  * arrays `.get()` reaches into — only the bitECS world it belongs to and its
  * (already version-bit-encoded) entity id.
@@ -102,6 +103,17 @@ export class Entity {
       >
     )[$internal];
     return getId(ctx.entityIndex, this.eid);
+  }
+
+  /**
+   * Stable serialisable reference to this entity (assigns a per-scene id on
+   * first call). Throws on a destroyed entity. See `EntityRef`.
+   */
+  ref(): EntityRef {
+    if (!this.isAlive) {
+      throw new Error("Entity.ref() called on a destroyed entity.");
+    }
+    return { $ref: entityIdTable(this.world).idOf(this) };
   }
 
   /**
@@ -150,7 +162,7 @@ export class Entity {
   /**
    * Returns the cached proxy for this (entity, component) pair, or
    * `undefined` if the entity is stale/destroyed or never had the
-   * component. Per ENGINE_DESIGN.md §21, the proxy is built once per pair
+   * component. Per the engine design notes, the proxy is built once per pair
    * and reused for every subsequent call — never reallocated.
    */
   get<T extends SerializableRecord>(def: ComponentDef<T>): T | undefined {

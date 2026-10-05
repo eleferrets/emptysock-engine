@@ -15,7 +15,7 @@ import type * as Monaco from "monaco-editor";
 // monaco-editor@0.56 restructured its package: the root `monaco.d.ts` no
 // longer carries the TypeScript-language-service namespace (`languages.typescript`
 // there is now a `{ deprecated: true }` stub). The real types live in this
-// subpath instead — see the "Monaco typings" note in RELEASE_PASS.md.
+// subpath instead — see the "Monaco typings" note in the release notes.
 import type * as MonacoTS from "monaco-editor/languages/features/typescript/register.js";
 
 // Property key → short description, shown in hover tooltips on resource files.
@@ -83,17 +83,20 @@ export async function setupMonaco(monaco: typeof Monaco): Promise<void> {
   if (_setupDone) return;
   _setupDone = true;
 
-  // Runtime object is unchanged by the 0.56 restructuring — only its type
-  // position moved. Cast once, here, to the real subpath types instead of
-  // scattering `as any`/`@ts-expect-error` at every call site.
-  const ts = monaco.languages.typescript as unknown as typeof MonacoTS;
+  // monaco-editor@0.56 moved the TypeScript language service to a top-level
+  // `typescript` namespace; `languages.typescript` is only a deprecated stub
+  // (at runtime it is not the service). Read the real one, cast once here to
+  // the subpath types instead of scattering `as any` at every call site.
+  const ts = (monaco as unknown as { typescript?: typeof MonacoTS }).typescript;
+  if (ts === undefined)
+    throw new Error("monaco-editor has no top-level typescript namespace");
 
   // --- TypeScript / JavaScript compiler options for game developers ----------
   // Strict but not overwhelming — no noUncheckedIndexedAccess etc.
   // Note: this register.d.ts's ScriptTarget enum tops out at ESNext (no ES2024
   // member exists here) — this only affects the editor's live diagnostics,
   // not the real build target, which stays ES2024 in GameBuildService per
-  // RELEASE_PASS.md's "ES target is es2024 everywhere" decision.
+  // the release notes "ES target is es2024 everywhere" decision.
   const tsOpts: MonacoTS.CompilerOptions = {
     strict: true,
     target: ts.ScriptTarget.ESNext,

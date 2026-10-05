@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "../Component.js";
 import { definePrefab, flattenPrefab } from "../Prefab.js";
-import { loadSceneFile, parsePrefabFiles } from "../SceneFile.js";
-import type { PrefabFile, SceneFile } from "../SceneFile.js";
+import {
+  loadSceneFile,
+  migratePrefabFile,
+  parsePrefabFile,
+  parsePrefabFiles,
+} from "../SceneFile.js";
+import type { PrefabFile, PrefabFileV1 } from "../SceneFile.js";
+import type { SceneFileV1 } from "../SceneMigrations.js";
 import { Scene } from "../Scene.js";
 
 const Transform = defineComponent("Transform", () => ({ x: 0, y: 0 }));
@@ -164,14 +170,14 @@ describe("ECS Prefab: JSON scene/prefab file format", () => {
   it("loads a scene file's prefab instances and direct entities", () => {
     const enemyPrefabFile: PrefabFile = {
       prefabName: "Enemy",
-      components: [
-        { component: "Transform", overrides: { x: 1 } },
-        { component: "Health", overrides: { max: 30 } },
-      ],
+      components: {
+        Transform: { data: { x: 1 } },
+        Health: { v: 1, data: { max: 30 } },
+      },
     };
     const prefabs = parsePrefabFiles([enemyPrefabFile], lookup);
 
-    const sceneFile: SceneFile = {
+    const sceneFile: SceneFileV1 = {
       sceneName: "Level1",
       prefabInstances: [{ prefab: "Enemy", props: { x: 50 } }],
       entities: [
@@ -191,12 +197,12 @@ describe("ECS Prefab: JSON scene/prefab file format", () => {
   it("resolves prefab-file `extends` references regardless of array order", () => {
     const enemyFile: PrefabFile = {
       prefabName: "Enemy",
-      components: [{ component: "Health" }],
+      components: { Health: { data: {} } },
       extends: ["Physical"],
     };
     const physicalFile: PrefabFile = {
       prefabName: "Physical",
-      components: [{ component: "Transform" }, { component: "PhysicsBody" }],
+      components: { Transform: { data: {} }, PhysicsBody: { data: {} } },
     };
 
     // Enemy listed before the Physical it extends — must still resolve.
@@ -213,8 +219,34 @@ describe("ECS Prefab: JSON scene/prefab file format", () => {
   it("throws a useful error for an unknown component name", () => {
     const badFile: PrefabFile = {
       prefabName: "Broken",
-      components: [{ component: "DoesNotExist" }],
+      components: { DoesNotExist: { data: {} } },
     };
     expect(() => parsePrefabFiles([badFile], lookup)).toThrow(/DoesNotExist/);
+  });
+
+  it("migrates the legacy array shape on read and keeps key order", () => {
+    const legacy: PrefabFileV1 = {
+      prefabName: "Old",
+      components: [
+        { component: "Health", overrides: { max: 7 } },
+        { component: "Transform" },
+      ],
+    };
+    const migrated = migratePrefabFile(legacy);
+    expect(migrated).toEqual({
+      prefabName: "Old",
+      components: {
+        Health: { data: { max: 7 } },
+        Transform: { data: {} },
+      },
+    });
+    expect(Object.keys(migrated.components)).toEqual(["Health", "Transform"]);
+    expect(migratePrefabFile(migrated)).toBe(migrated);
+    const def = parsePrefabFile(legacy, lookup);
+    expect(def.components.map((c) => c.def.componentName)).toEqual([
+      "Health",
+      "Transform",
+    ]);
+    expect(def.components[0]?.overrides).toEqual({ max: 7 });
   });
 });

@@ -6,7 +6,7 @@
 
 # Interface: OnEventNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L35)
+Defined in: engine/src/components/VisualScript.ts:33
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:35](https://github.c
 
 > **eventType**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L37)
+Defined in: engine/src/components/VisualScript.ts:35
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:37](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"onEvent"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L36)
+Defined in: engine/src/components/VisualScript.ts:34
 
 #### Overrides
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:36](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 

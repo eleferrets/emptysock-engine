@@ -5,19 +5,30 @@ import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
 import { GlobalStore } from "./systems/GlobalStore.js";
 import { SignalBus } from "./systems/SignalBus.js";
-import { GmlFileSystem } from "./systems/GmlFileSystem.js";
 import { FontRegistry } from "./systems/FontRegistry.js";
+import { AssetRegistry } from "./systems/AssetRegistry.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
 import { WindowSystem } from "./systems/WindowSystem.js";
 import { updateCoroutines } from "./Coroutines.js";
 import { PhysicsSystem } from "./systems/PhysicsSystem.js";
 import { SpriteAnimationSystem } from "./systems/SpriteAnimationSystem.js";
+import { SpriteFlashSystem } from "./systems/SpriteFlashSystem.js";
 import { InputManager } from "./Input.js";
 import { Scene } from "./Scene.js";
 import { ServiceRegistry } from "./Services.js";
+import {
+  captureEntities,
+  findCrossReferences,
+  persistentTransferPolicy,
+  restoreEntities,
+  type SceneSnapshot,
+  type TransferPolicy,
+} from "./SceneTransfer.js";
+import type { EntityIdMap } from "./RefRemap.js";
+import { RoomStateCache } from "./RoomStateCache.js";
 
 /**
- * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
+ * A game-defined update hook. TypeScript enforces the engine design notes's
  * "onUpdate cannot be async" at compile time by typing this as returning
  * `void`, not `Promise<void>` — a TS caller declaring `async onUpdate` gets
  * a type error, not a runtime footgun. JS callers get no compile-time check,
@@ -33,6 +44,26 @@ export interface SceneDefinition {
   onUnload?(scene: Scene, ctx: SceneLifecycle): void | Promise<void>;
   /** Called every frame, after physics/actors/collision, before render. */
   onUpdate?: UpdateFn;
+  /**
+   * Makes this a persistent room: when it is left, the state of its entities
+   * is cached under this key and `SceneLifecycle.restoreRoom()` brings it back
+   * on the next visit (room "Persistent" flag).
+   */
+  persistentKey?: string;
+  /**
+   * Transfer policy describing this scene's entities: `select` marks the ones
+   * that travel with the game (object-persistent) and are therefore excluded
+   * from the room cache; `extras` are the per-entity side tables cached and
+   * restored with the room. Default: `persistentTransferPolicy`, no extras.
+   */
+  transfer?: TransferPolicy;
+  /**
+   * When `true`, leaving this scene carries the entities `transfer.select`
+   * picks into whatever scene loads next, without the caller passing
+   * `loadScene(.., { carry })` (runtimes that swap rooms from game code).
+   * An explicit `carry` option wins; `restart: "game"` carries nothing.
+   */
+  carryOnLeave?: boolean;
 }
 
 /** What a loaded scene gets handed for the lifetime of that load. */
@@ -64,7 +95,7 @@ export interface SceneLifecycle {
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `GlobalStore` for the lifetime of this `Game`. This is the real target
-   * for GameMaker's `global.x = expr` semantic (arbitrary named,
+   * for `global.x = expr` semantic (arbitrary named,
    * arbitrary-typed values reachable from anywhere) — see
    * `systems/GlobalStore.ts`'s own doc comment for why it's a distinct
    * service from `variables` rather than reusing `VariableStore`'s
@@ -73,10 +104,10 @@ export interface SceneLifecycle {
   readonly globals: GlobalStore;
   /** Game-owned signal/broadcast bus — see `systems/SignalBus.ts`. */
   readonly signals: SignalBus;
-  /** Game-owned, same reasoning as `globals` — one `GmlFileSystem` for the lifetime of this `Game`, real handle-based file_text_* support. See `systems/GmlFileSystem.ts`'s own doc comment. */
-  readonly files: GmlFileSystem;
-  /** Game-owned, same reasoning as `globals`/`files` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
+  /** Game-owned, same reasoning as `globals` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
   readonly fonts: FontRegistry;
+  /** Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded from the asset pipeline's `asset-index.json`. See `systems/AssetRegistry.ts`. */
+  readonly assets: AssetRegistry;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `PluginSystem` for the lifetime of this `Game`. Equivalent to
@@ -107,11 +138,44 @@ export interface SceneLifecycle {
    * `WindowSystem`'s own runtime Tauri-detection guard).
    */
   readonly window: WindowSystem;
+  /**
+   * Respawns the entities `loadScene(def, { carry })` captured from the
+   * outgoing scene into this one and returns the old-id to new-entity map, or
+   * `undefined` when nothing was carried (or it was already restored). Call it
+   * first thing in `onLoad`, before spawning the scene's own entities:
+   * carried entities exist before the new scene's, and there is no automatic
+   * restore so the ordering stays visible to the scene author. Synchronous.
+   */
+  restoreCarried(): EntityIdMap | undefined;
+  /**
+   * For a scene with a `persistentKey`: if a cached state exists from a
+   * previous visit, respawns it (consuming the cache entry) and returns the
+   * old-id map; the scene should then skip its own initial population. Returns
+   * `undefined` on the first visit and after a restart, when the scene should
+   * populate itself normally. Call after `restoreCarried()`.
+   */
+  restoreRoom(): EntityIdMap | undefined;
 }
 
 export interface LoadSceneOptions {
   /**
-   * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
+   * Carry entities from the outgoing scene into this one. `false`/omitted
+   * carries nothing (today's behaviour). The policy's `select` picks the
+   * entities (see `persistentTransferPolicy`), captured after the outgoing
+   * `onUnload` and restored by `SceneLifecycle.restoreCarried()`.
+   */
+  carry?: TransferPolicy | false;
+  /**
+   * Marks this load as a restart. `"room"` discards the cached state of the
+   * room being loaded (room restart); `"game"` discards every
+   * cached room, skips caching the outgoing one and sets `Game.restarting`
+   * during the unload so runtimes drop their own carry-over (`game_restart`:
+   * persistent rooms are reset and persistent objects removed). Globals are
+   * untouched.
+   */
+  restart?: "room" | "game";
+  /**
+   * the engine design notes's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
    * destroy, share across scenes) instead of the engine doing it
    * automatically. Default `true`.
@@ -121,7 +185,7 @@ export interface LoadSceneOptions {
   physics?: Parameters<PhysicsSystem["init"]>[0];
   /**
    * Force step 7 (render) to stay a no-op for this scene regardless of
-   * whether a renderer is attached (ENGINE_DESIGN.md §15.1's headless
+   * whether a renderer is attached (the engine design notes's headless
    * testing harness uses this). Game code never sets this directly — see
    * `packages/engine/src/testing`. Belt-and-suspenders alongside "no
    * renderer attached": a headless game that somehow has a renderer
@@ -132,7 +196,7 @@ export interface LoadSceneOptions {
 }
 
 /**
- * ENGINE_DESIGN.md §12.3 — options for `Game.loadOverlay()`. Deliberately a
+ * the engine design notes — options for `Game.loadOverlay()`. Deliberately a
  * narrower surface than `LoadSceneOptions`: an overlay has no `physics` field
  * unless the caller opts in, because "no PhysicsSystem by default, since a
  * HUD doesn't need one" is the whole point of overlays being a separate call
@@ -158,7 +222,7 @@ export interface LoadOverlayOptions {
 }
 
 /**
- * ENGINE_DESIGN.md §4 step 7 / §12.3 — the minimal shape `Game.attachRenderer()`
+ * the engine design notes step 7 / §12.3 — the minimal shape `Game.attachRenderer()`
  * needs. Deliberately a plain structural interface, not an import of the
  * concrete Pixi-backed `ecs/systems/RenderPipeline` — `Game.ts` must stay
  * inside the engine environment boundary (CLAUDE.md: "the engine package
@@ -175,14 +239,14 @@ export interface SceneRenderer {
   /**
    * Render `main` (the currently loaded scene), then every entry of
    * `overlays` on top of it, in array order — array order is call order
-   * (ENGINE_DESIGN.md §12.3: overlays "stack in call order"), so the most
+   *, so the most
    * recently `loadOverlay()`-ed scene paints last/topmost.
    */
   renderFrame(main: Scene, overlays: readonly Scene[]): void;
 }
 
 /**
- * ENGINE_DESIGN.md §4/§10.2 — "`onUpdate` cannot be `async` — not
+ * the engine design notes/§10.2 — "`onUpdate` cannot be `async` — not
  * 'shouldn't,' _cannot_. The type it's assigned to is `(dt: number) =>
  * void`; returning a `Promise<void>` is a type error."
  *
@@ -255,6 +319,7 @@ interface LoadedScene {
  * works").
  */
 const spriteAnimation = new SpriteAnimationSystem();
+const spriteFlash = new SpriteFlashSystem();
 
 function runFrame(loaded: LoadedScene, dt: number): void {
   loaded.lifecycle.actors.update(dt);
@@ -263,10 +328,11 @@ function runFrame(loaded: LoadedScene, dt: number): void {
     loaded.lifecycle.physics.update(loaded.lifecycle.scene, dt);
   }
 
-  // General-purpose, not GML-specific (see `SpriteAnimationSystem`'s own
+  // General-purpose, not tied to any scripting layer (see `SpriteAnimationSystem`'s
   // doc comment) — every loaded scene (main + overlays) gets its `Sprite`
   // frames advanced every tick, the same reach `actors`/`physics` above get.
   spriteAnimation.update(loaded.lifecycle.scene);
+  spriteFlash.update(loaded.lifecycle.scene, dt);
 
   // After physics settles, before onUpdate — a coroutine resuming this
   // frame sees this frame's post-physics state, and onUpdate sees whatever
@@ -281,7 +347,7 @@ function runFrame(loaded: LoadedScene, dt: number): void {
 }
 
 /**
- * ENGINE_DESIGN.md §4 — "the engine owns everything it creates". `Game` is
+ * the engine design notes — "the engine owns everything it creates". `Game` is
  * the one place that constructs and tears down a scene's `ActorSystem`/
  * `PhysicsSystem`, and the one place that runs the fixed, one-phase-per-
  * frame update order. There is no code path where a developer constructs
@@ -291,7 +357,7 @@ function runFrame(loaded: LoadedScene, dt: number): void {
 /** Options passed to `new Game(options)` / `Game.create(options)`. */
 export interface GameOptions {
   /**
-   * ENGINE_DESIGN.md §15.2 — opt-in cross-platform bit-for-bit-deterministic
+   * the engine design notes — opt-in cross-platform bit-for-bit-deterministic
    * physics. Swaps `@dimforge/rapier{2,3}d-compat` for the
    * `-deterministic-compat` builds for every scene's `PhysicsSystem` this
    * `Game` creates, unless a call's own `options.physics.deterministic`
@@ -299,6 +365,29 @@ export interface GameOptions {
    * and shouldn't pay for it" — the deterministic build has no SIMD).
    */
   deterministic?: boolean;
+}
+
+/**
+ * Policy for caching a persistent room: everything except entities that
+ * travel with the game (selected by the scene's own `transfer` policy or the
+ * `carry` policy of the load leaving it), with the scene's extras.
+ */
+function roomPolicy(
+  def: SceneDefinition,
+  carry: TransferPolicy | undefined,
+): TransferPolicy {
+  const own = def.transfer ?? persistentTransferPolicy;
+  return {
+    select: (e, scene) =>
+      !own.select(e, scene) && !(carry?.select(e, scene) ?? false),
+    extras: own.extras ?? [],
+    ...(own.remap !== undefined ? { remap: own.remap } : {}),
+  };
+}
+
+interface PendingTransfer {
+  readonly snapshot: SceneSnapshot;
+  readonly policy: TransferPolicy;
 }
 
 export class Game {
@@ -319,8 +408,12 @@ export class Game {
 
   private readonly _deterministic: boolean;
   private _current: LoadedScene | null = null;
+  /** Entities captured from the outgoing scene by `loadScene({ carry })`, handed to the new scene's lifecycle. */
+  private _transfer: PendingTransfer | null = null;
+  private readonly _roomCache = new RoomStateCache();
+  private _restarting = false;
   /**
-   * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
+   * Overlay scenes, in call order (the engine design notes: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
    * `renderFrame()`'s `overlays` argument its topmost-last ordering for
    * free.
@@ -328,7 +421,7 @@ export class Game {
   private readonly _overlays: LoadedScene[] = [];
   private _renderer: SceneRenderer | null = null;
   /**
-   * ENGINE_DESIGN.md §5 — process-global for the lifetime of this `Game`
+   * the engine design notes — process-global for the lifetime of this `Game`
    * instance, constructed once here (not per-scene, unlike `actors`/
    * `physics` in `SceneLifecycle`) and never reset by `loadScene`/
    * `unloadScene`. `PluginSystem` and `VariableStore` are registered here in
@@ -336,7 +429,7 @@ export class Game {
    */
   readonly services = new ServiceRegistry();
   /**
-   * Game-owned, not per-scene (ENGINE_DESIGN.md §4 step 1 / §15.3) — one
+   * Game-owned, not per-scene — one
    * `InputManager` for the lifetime of this `Game`, snapshotted once per
    * `update()` call. Never recreated on `loadScene`/`loadOverlay`, since
    * raw device state has no relationship to which scene is loaded.
@@ -351,8 +444,8 @@ export class Game {
     this.services.register(VariableStore);
     this.services.register(GlobalStore);
     this.services.register(SignalBus);
-    this.services.register(GmlFileSystem);
     this.services.register(FontRegistry);
+    this.services.register(AssetRegistry);
     this.services.register(LocalisationSystem);
     this.services.register(ViewportSystem);
     this.services.register(WindowSystem);
@@ -383,7 +476,7 @@ export class Game {
   }
 
   /**
-   * The `Game`'s single `InputManager` (ENGINE_DESIGN.md §15.3). Call
+   * The `Game`'s single `InputManager`. Call
    * `game.input.attach()` from browser/Tauri bootstrap code to start
    * listening to real device events — `Game` itself never calls `attach()`,
    * so a headless/Node `Game` never touches `window` (CLAUDE.md's
@@ -399,6 +492,32 @@ export class Game {
   }
 
   /** The `Game`'s single `GlobalStore` — see that class's own doc comment. */
+  /**
+   * Forwards a scene's built-in entity events onto the game's `SignalBus`:
+   * `entity:destroyed` `{ ref }` and `entity:parented` `{ child, parent }`.
+   * Payloads carry scene-local `EntityRef`s (safe to queue), so listeners on
+   * a shared bus should only interpret them for the scene they care about.
+   */
+  private forwardSceneSignals(scene: Scene): void {
+    const bus = this.services.get(SignalBus);
+    scene.onDestroyed((ref) => {
+      bus.emit("entity:destroyed", { ref });
+    });
+    scene.onParented((child, parent) => {
+      bus.emit("entity:parented", { child, parent });
+    });
+  }
+
+  /** Cached state of persistent rooms (`SceneDefinition.persistentKey`). */
+  get roomCache(): RoomStateCache {
+    return this._roomCache;
+  }
+
+  /** `true` while a `loadScene({ restart: "game" })` is unloading the outgoing scene. */
+  get restarting(): boolean {
+    return this._restarting;
+  }
+
   get signals(): SignalBus {
     return this.services.get(SignalBus);
   }
@@ -406,9 +525,9 @@ export class Game {
     return this.services.get(GlobalStore);
   }
 
-  /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
-  get files(): GmlFileSystem {
-    return this.services.get(GmlFileSystem);
+  /** The `Game`'s single `AssetRegistry` — see that class's own doc comment. */
+  get assets(): AssetRegistry {
+    return this.services.get(AssetRegistry);
   }
 
   /** The `Game`'s single `FontRegistry` — see that class's own doc comment. */
@@ -427,12 +546,33 @@ export class Game {
     definition: SceneDefinition,
     options: LoadSceneOptions = {},
   ): Promise<SceneLifecycle> {
-    if (this._current !== null) {
-      await this.unloadScene();
+    this._transfer = null;
+    this._restarting = options.restart === "game";
+    try {
+      if (this._current !== null) {
+        const cur = this._current.definition;
+        const carry =
+          options.carry !== undefined
+            ? options.carry || undefined
+            : cur.carryOnLeave === true && options.restart !== "game"
+              ? (cur.transfer ?? persistentTransferPolicy)
+              : undefined;
+        await this._unload(carry, options.restart);
+      }
+      if (options.restart === "game") this._roomCache.clear();
+      else if (options.restart === "room" && definition.persistentKey) {
+        this._roomCache.clear(definition.persistentKey);
+      }
+    } finally {
+      this._restarting = false;
     }
+    // Ownership of the captured snapshot moves to the new scene's lifecycle.
+    let pending = this._transfer as PendingTransfer | null;
+    this._transfer = null;
 
     const manageLifecycle = options.manageLifecycle ?? true;
     const scene = new Scene();
+    this.forwardSceneSignals(scene);
     const actors = new ActorSystem();
     const physics = new PhysicsSystem();
     if (manageLifecycle) {
@@ -451,12 +591,31 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       signals: this.services.get(SignalBus),
-      files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
+      assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
       window: this.services.get(WindowSystem),
+      restoreCarried: () => {
+        const t = pending;
+        pending = null;
+        return t === null
+          ? undefined
+          : restoreEntities(scene, t.snapshot, t.policy);
+      },
+      restoreRoom: () => {
+        const key = definition.persistentKey;
+        if (key === undefined) return undefined;
+        const snap = this._roomCache.take(key);
+        return snap === undefined
+          ? undefined
+          : restoreEntities(
+              scene,
+              snap,
+              roomPolicy(definition, options.carry || undefined),
+            );
+      },
     };
     this._current = {
       definition,
@@ -479,6 +638,31 @@ export class Game {
    * those systems and is responsible for destroying them itself.
    */
   async unloadScene(): Promise<void> {
+    await this._unload(undefined, undefined);
+  }
+
+  /**
+   * Carried entities and the cached room are restored at different times, so
+   * references between the two cannot be remapped: they become `NO_REF`/
+   * `undefined`. Warn once per unload so the gap is visible.
+   */
+  private warnCrossRefs(key: string, room: SceneSnapshot): void {
+    const carried = this._transfer?.snapshot;
+    if (carried === undefined) return;
+    const lines = [
+      ...findCrossReferences(room, carried).map((l) => `room -> carried: ${l}`),
+      ...findCrossReferences(carried, room).map((l) => `carried -> room: ${l}`),
+    ];
+    if (lines.length === 0) return;
+    console.warn(
+      `[Game] Persistent room "${key}": ${lines.length} reference(s) between carried and cached entities will dangle after restore (${lines.slice(0, 3).join("; ")}${lines.length > 3 ? "; ..." : ""}).`,
+    );
+  }
+
+  private async _unload(
+    carry: TransferPolicy | undefined,
+    restart: "room" | "game" | undefined,
+  ): Promise<void> {
     const current = this._current;
     if (current === null) return;
     this._current = null;
@@ -488,6 +672,21 @@ export class Game {
         current.lifecycle.scene,
         current.lifecycle,
       );
+      if (carry !== undefined) {
+        this._transfer = {
+          snapshot: captureEntities(current.lifecycle.scene, carry),
+          policy: carry,
+        };
+      }
+      const key = current.definition.persistentKey;
+      if (key !== undefined && restart !== "game") {
+        const room = captureEntities(
+          current.lifecycle.scene,
+          roomPolicy(current.definition, carry),
+        );
+        this._roomCache.store(key, room);
+        if (this._transfer !== null) this.warnCrossRefs(key, room);
+      }
     } finally {
       if (current.manageLifecycle) {
         current.lifecycle.actors.destroy();
@@ -497,7 +696,7 @@ export class Game {
   }
 
   /**
-   * ENGINE_DESIGN.md §12.3 — stack an additional, independently-lifecycled
+   * the engine design notes — stack an additional, independently-lifecycled
    * scene on top of whatever `loadScene()` currently has loaded (a HUD,
    * pause menu, minimap). Unlike `loadScene`, this never tears anything
    * down first: multiple overlays stack, in call order, and an overlay
@@ -518,6 +717,7 @@ export class Game {
   ): Promise<SceneLifecycle> {
     const manageLifecycle = options.manageLifecycle ?? true;
     const scene = new Scene();
+    this.forwardSceneSignals(scene);
     const actors = new ActorSystem();
     const physics = new PhysicsSystem();
     const physicsEnabled = manageLifecycle && options.physics !== undefined;
@@ -534,12 +734,14 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       signals: this.services.get(SignalBus),
-      files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
+      assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),
       localisation: this.services.get(LocalisationSystem),
       viewport: this.services.get(ViewportSystem),
       window: this.services.get(WindowSystem),
+      restoreCarried: () => undefined,
+      restoreRoom: () => undefined,
     };
     const loaded: LoadedScene = {
       definition,
@@ -602,7 +804,7 @@ export class Game {
   }
 
   /**
-   * Runs the fixed, one-phase-per-frame update order from ENGINE_DESIGN.md
+   * Runs the fixed, one-phase-per-frame update order from the engine design notes
    * §4:
    *
    * 1. Input snapshot (§15.3) — `this._input.snapshot()`, unconditional and
@@ -619,13 +821,13 @@ export class Game {
    * 5. The scene definition's `onUpdate(dt)`.
    * 6. Camera/viewport resolve — Track 1/2 scope, no-op here.
    * 7. Render — the main scene, then any active overlays on top of it, in
-   *    call order (ENGINE_DESIGN.md §12.3). A no-op if no renderer is
+   *    call order. A no-op if no renderer is
    *    attached (`attachRenderer()`), or if the currently loaded scene was
    *    loaded with `headless: true` — the headless testing harness relies on
    *    this to never construct or touch a real Pixi renderer.
    *
    * Overlays run steps 2-5 too — their own `ActorSystem` mailbox flush, their
-   * own physics step (steps 3-4, only if `loadOverlay({ physics })` actually
+   * The physics step (steps 3-4, only if `loadOverlay({ physics })` actually
    * initialized one — the common HUD-only overlay's inert default
    * `PhysicsSystem` stays unstepped, §12.3: "no PhysicsSystem by default"),
    * and their own `onUpdate(dt)` — right after the main scene's, in call
@@ -667,7 +869,7 @@ export class Game {
 }
 
 /**
- * ENGINE_DESIGN.md §4/§10.2 — TypeScript rejects `async onUpdate` at compile
+ * the engine design notes/§10.2 — TypeScript rejects `async onUpdate` at compile
  * time (its declared type is `(dt: number) => void`). JS callers get no such
  * check, so this dev-mode runtime check catches the same mistake: an
  * `onUpdate` that returns a thenable is almost certainly `async function

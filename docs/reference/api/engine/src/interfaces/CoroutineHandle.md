@@ -6,7 +6,7 @@
 
 # Interface: CoroutineHandle
 
-Defined in: [engine/src/core/Entity.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L23)
+Defined in: engine/src/Coroutines.ts:31
 
 A cancelable handle returned by `entity.startCoroutine()`.
 
@@ -16,7 +16,7 @@ A cancelable handle returned by `entity.startCoroutine()`.
 
 > `readonly` **id**: `string`
 
-Defined in: [engine/src/core/Entity.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L24)
+Defined in: engine/src/Coroutines.ts:32
 
 ## Methods
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/core/Entity.ts:24](https://github.com/eleferrets/emptyso
 
 > **cancel**(): `void`
 
-Defined in: [engine/src/core/Entity.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L25)
+Defined in: engine/src/Coroutines.ts:33
 
 #### Returns
 

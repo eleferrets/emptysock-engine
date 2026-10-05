@@ -6,7 +6,7 @@
 
 # Class: InputSystem
 
-Defined in: [engine/src/systems/InputSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L20)
+Defined in: engine/src/systems/InputSystem.ts:5
 
 ## Constructors
 
@@ -18,109 +18,17 @@ Defined in: [engine/src/systems/InputSystem.ts:20](https://github.com/eleferrets
 
 `InputSystem`
 
-## Accessors
+## Properties
 
-### mouseDX
+### layout
 
-#### Get Signature
+> `readonly` **layout**: [`KeyboardLayout`](KeyboardLayout.md)
 
-> **get** **mouseDX**(): `number`
+Defined in: engine/src/systems/InputSystem.ts:16
 
-Defined in: [engine/src/systems/InputSystem.ts:144](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L144)
-
-##### Returns
-
-`number`
-
-***
-
-### mouseDY
-
-#### Get Signature
-
-> **get** **mouseDY**(): `number`
-
-Defined in: [engine/src/systems/InputSystem.ts:147](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L147)
-
-##### Returns
-
-`number`
-
-***
-
-### mouseX
-
-#### Get Signature
-
-> **get** **mouseX**(): `number`
-
-Defined in: [engine/src/systems/InputSystem.ts:138](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L138)
-
-##### Returns
-
-`number`
-
-***
-
-### mouseY
-
-#### Get Signature
-
-> **get** **mouseY**(): `number`
-
-Defined in: [engine/src/systems/InputSystem.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L141)
-
-##### Returns
-
-`number`
-
-***
-
-### primaryTouch
-
-#### Get Signature
-
-> **get** **primaryTouch**(): [`TouchPoint`](../interfaces/TouchPoint.md) \| `undefined`
-
-Defined in: [engine/src/systems/InputSystem.ts:185](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L185)
-
-Primary touch (lowest id, or undefined if no touches).
-
-##### Returns
-
-[`TouchPoint`](../interfaces/TouchPoint.md) \| `undefined`
-
-***
-
-### touchCount
-
-#### Get Signature
-
-> **get** **touchCount**(): `number`
-
-Defined in: [engine/src/systems/InputSystem.ts:170](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L170)
-
-Number of active touch points.
-
-##### Returns
-
-`number`
-
-***
-
-### touches
-
-#### Get Signature
-
-> **get** **touches**(): readonly [`TouchPoint`](../interfaces/TouchPoint.md)[]
-
-Defined in: [engine/src/systems/InputSystem.ts:175](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L175)
-
-All currently active touch points.
-
-##### Returns
-
-readonly [`TouchPoint`](../interfaces/TouchPoint.md)[]
+Layout translation layer (host-injected provider plus keydown learning).
+Key state itself stays keyed by physical `code`; this only answers
+"which code types this character".
 
 ## Methods
 
@@ -128,7 +36,14 @@ readonly [`TouchPoint`](../interfaces/TouchPoint.md)[]
 
 > **attach**(`target?`): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L43)
+Defined in: engine/src/systems/InputSystem.ts:28
+
+Keyboard-only. Mouse and touch used to be tracked here too, but had zero
+real consumers outside this file (confirmed by a real-usage audit) and
+duplicated what `PointerSystem` already does better — a real Pointer
+Events-based unification of mouse/touch/pen plus tap/longpress/swipe/
+pinch gesture recognition. `ecs/Input.ts`'s `InputManager` now wraps
+`PointerSystem` directly for all of that; this class stays keyboard-only.
 
 #### Parameters
 
@@ -146,7 +61,7 @@ Defined in: [engine/src/systems/InputSystem.ts:43](https://github.com/eleferrets
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:272](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L272)
+Defined in: engine/src/systems/InputSystem.ts:115
 
 Alias for `detach()` — compatible with SystemManager teardown.
 
@@ -160,7 +75,7 @@ Alias for `detach()` — compatible with SystemManager teardown.
 
 > **detach**(): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L60)
+Defined in: engine/src/systems/InputSystem.ts:34
 
 #### Returns
 
@@ -172,7 +87,7 @@ Defined in: [engine/src/systems/InputSystem.ts:60](https://github.com/eleferrets
 
 > **flush**(): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:76](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L76)
+Defined in: engine/src/systems/InputSystem.ts:43
 
 Call at end of each frame to flush pressed/released states.
 
@@ -182,31 +97,11 @@ Call at end of each frame to flush pressed/released states.
 
 ***
 
-### getTouch()
-
-> **getTouch**(`id`): [`TouchPoint`](../interfaces/TouchPoint.md) \| `undefined`
-
-Defined in: [engine/src/systems/InputSystem.ts:180](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L180)
-
-Returns the active touch with the given pointer id, or `undefined` if no touch with that id is currently down.
-
-#### Parameters
-
-##### id
-
-`number`
-
-#### Returns
-
-[`TouchPoint`](../interfaces/TouchPoint.md) \| `undefined`
-
-***
-
 ### isKeyDown()
 
 > **isKeyDown**(`code`): `boolean`
 
-Defined in: [engine/src/systems/InputSystem.ts:98](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L98)
+Defined in: engine/src/systems/InputSystem.ts:50
 
 #### Parameters
 
@@ -224,7 +119,7 @@ Defined in: [engine/src/systems/InputSystem.ts:98](https://github.com/eleferrets
 
 > **isKeyPressed**(`code`): `boolean`
 
-Defined in: [engine/src/systems/InputSystem.ts:101](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L101)
+Defined in: engine/src/systems/InputSystem.ts:53
 
 #### Parameters
 
@@ -242,7 +137,7 @@ Defined in: [engine/src/systems/InputSystem.ts:101](https://github.com/eleferret
 
 > **isKeyReleased**(`code`): `boolean`
 
-Defined in: [engine/src/systems/InputSystem.ts:104](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L104)
+Defined in: engine/src/systems/InputSystem.ts:56
 
 #### Parameters
 
@@ -256,105 +151,11 @@ Defined in: [engine/src/systems/InputSystem.ts:104](https://github.com/eleferret
 
 ***
 
-### isMouseDown()
-
-> **isMouseDown**(`button?`): `boolean`
-
-Defined in: [engine/src/systems/InputSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L151)
-
-#### Parameters
-
-##### button?
-
-`number` = `0`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isMousePressed()
-
-> **isMousePressed**(`button?`): `boolean`
-
-Defined in: [engine/src/systems/InputSystem.ts:154](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L154)
-
-#### Parameters
-
-##### button?
-
-`number` = `0`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isMouseReleased()
-
-> **isMouseReleased**(`button?`): `boolean`
-
-Defined in: [engine/src/systems/InputSystem.ts:160](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L160)
-
-#### Parameters
-
-##### button?
-
-`number` = `0`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isTouchEnded()
-
-> **isTouchEnded**(`id?`): `boolean`
-
-Defined in: [engine/src/systems/InputSystem.ts:201](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L201)
-
-True if a touch ended on this frame.
-
-#### Parameters
-
-##### id?
-
-`number`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isTouchStarted()
-
-> **isTouchStarted**(`id?`): `boolean`
-
-Defined in: [engine/src/systems/InputSystem.ts:194](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L194)
-
-True if a new touch started on this frame.
-
-#### Parameters
-
-##### id?
-
-`number`
-
-#### Returns
-
-`boolean`
-
-***
-
 ### simulateKeyDown()
 
-> **simulateKeyDown**(`code`): `void`
+> **simulateKeyDown**(`code`, `key?`): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L127)
+Defined in: engine/src/systems/InputSystem.ts:79
 
 Test-only, non-DOM input injection. Drives the same internal state a
 real `keydown`/`keyup` event would, without constructing a
@@ -368,6 +169,10 @@ rule: no DOM dependency on this path).
 
 `string`
 
+##### key?
+
+`string`
+
 #### Returns
 
 `void`
@@ -378,7 +183,7 @@ rule: no DOM dependency on this path).
 
 > **simulateKeyUp**(`code`): `void`
 
-Defined in: [engine/src/systems/InputSystem.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L132)
+Defined in: engine/src/systems/InputSystem.ts:87
 
 See `simulateKeyDown`.
 
@@ -398,11 +203,11 @@ See `simulateKeyDown`.
 
 > **snapshotKeys**(): `ReadonlyMap`\<`string`, `boolean`\>
 
-Defined in: [engine/src/systems/InputSystem.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/InputSystem.ts#L116)
+Defined in: engine/src/systems/InputSystem.ts:68
 
 A point-in-time copy of every key currently tracked. Used by
 `ecs/Input.ts`'s `InputManager.snapshot()` to freeze keyboard state for
-a frame (ENGINE_DESIGN.md §4 step 1) — reading this once and caching
+a frame — reading this once and caching
 the result, rather than reading `isKeyDown` live, is what makes
 "polled once, frozen for the frame" true even though this class itself
 updates `_keys` continuously as DOM events arrive.

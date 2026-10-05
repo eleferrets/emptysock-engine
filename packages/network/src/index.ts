@@ -1,6 +1,6 @@
 /**
  * `@emptysock/network` — the official Colyseus companion package
- * (ENGINE_DESIGN.md §11.4/§23.2). A single-player game that never imports
+ *. A single-player game that never imports
  * this package pays nothing for it: it is a separate workspace package
  * from `@emptysock/engine`, not a subpath of it, so nothing here can ever
  * end up in an engine bundle that doesn't ask for it (mirrors the engine's

@@ -1,5 +1,5 @@
 /**
- * ENGINE_DESIGN.md §14.1 — the plain-data constraint every component field
+ * the engine design notes — the plain-data constraint every component field
  * must satisfy. This is the type used to constrain `defineComponent`'s
  * defaults object: no functions, no class instances (unless they implement
  * `SerializableHooks` themselves via a custom field type — out of scope for
@@ -7,7 +7,7 @@
  *
  * A component that only ever holds `Serializable` fields can be saved/loaded
  * generically by a future `SaveSystem` with zero per-component code. The
- * `serialize`/`deserialize` escape hatch mentioned in ENGINE_DESIGN.md §12.1
+ * `serialize`/`deserialize` escape hatch mentioned in the engine design notes
  * belongs to that later system, not this type.
  */
 export type Serializable =

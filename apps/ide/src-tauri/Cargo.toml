@@ -25,3 +25,12 @@ tauri = { version = "2.11.3" }
 tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+
+# Native keyboard-layout query (src/keyboard_layout.rs). WKWebView and
+# WebKitGTK lack navigator.keyboard.getLayoutMap(); WebView2 has it, so
+# Windows needs nothing here.
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation-sys = "0.8"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+xkbcommon = "0.7"

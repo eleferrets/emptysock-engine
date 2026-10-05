@@ -143,6 +143,18 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
     // filters are tracked — the real assertion is "no error, no leak".
   });
 
+  it("destroy() releases pixi's global pooled resources with the renderer", async () => {
+    const { autoDetectRenderer } = await import("pixi.js");
+    const results = vi.mocked(autoDetectRenderer).mock.results;
+    const renderer = (await results[results.length - 1]?.value) as {
+      destroy: ReturnType<typeof vi.fn>;
+    };
+    render.destroy();
+    expect(renderer.destroy).toHaveBeenCalledWith({
+      releaseGlobalResources: true,
+    });
+  });
+
   describe("rain-glass", () => {
     it("attaches a real RainGlassFilter with default uniform values", () => {
       pp.setLayerFilter("fg", { type: "rain-glass" });
@@ -177,6 +189,27 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       expect(res["uDropletSize"]).toBe(0.2);
       expect(res["uDropletSpeed"]).toBe(0.7);
       expect(res["uStreakAmount"]).toBe(0.1);
+    });
+
+    it("applies quality, fog and wiper options and ticks the sim", () => {
+      pp.setLayerFilter("fg", {
+        type: "rain-glass",
+        quality: "low",
+        fog: 0.5,
+        wiperEnabled: true,
+        wiperPeriod: 2,
+        seed: 9,
+      });
+      render.syncPostProcessLayerFilters(pp);
+      const filter = render.getLayerContainer("fg").filters[0] as InstanceType<
+        typeof RainGlassFilter
+      >;
+      expect(filter.tier.name).toBe("low");
+      expect(filter.sim.fogTarget).toBe(0.5);
+      expect(filter.sim.wiper.enabled).toBe(true);
+      expect(filter.sim.wiper.periodSec).toBe(2);
+      render.syncPostProcessLayerFilters(pp); // idempotent, no rebuild
+      expect(render.getLayerContainer("fg").filters[0]).toBe(filter);
     });
 
     it("advances uTime across syncs (rain falls over real time, not frame count)", () => {
@@ -236,5 +269,46 @@ describe("RenderSystem.syncPostProcessLayerFilters", () => {
       ] as unknown as { uniforms: Record<string, unknown> };
       expect(res.uniforms["uIntensity"]).toBe(0.8);
     });
+  });
+});
+
+describe("RenderSystem GL-only filter warning under WebGPU", () => {
+  const WEBGPU = 0b10; // pixi RendererType.WEBGPU
+
+  async function setup(type: number) {
+    const { createCustomShaderFilter } =
+      await import("../systems/CustomShaderFilter.js");
+    const render = new RenderSystem();
+    await render.init();
+    (render as unknown as { _renderer: { type: number } })._renderer.type =
+      type;
+    const glOnly = () =>
+      createCustomShaderFilter({
+        fragmentSrc:
+          "in vec2 vUV; out vec4 finalColor; void main(){ finalColor = vec4(1.0); }",
+      });
+    return { render, glOnly, createCustomShaderFilter };
+  }
+
+  it("warns exactly once when a GL-only filter is attached under WebGPU", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { render, glOnly } = await setup(WEBGPU);
+    render.addLayerShaderFilter("fg", glOnly());
+    render.addLayerShaderFilter("fg", glOnly());
+    render.addLayerShaderFilter("bg", glOnly());
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/WebGPU.*GLSL/);
+    warn.mockRestore();
+  });
+
+  it("does not warn under WebGL, or for a filter that has a GpuProgram", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const gl = await setup(0b01);
+    gl.render.addLayerShaderFilter("fg", gl.glOnly());
+    const gpu = await setup(WEBGPU);
+    gpu.render.addLayerShaderFilter("fg", new BlurFilter());
+    gpu.render.addLayerShaderFilter("fg", new ColorMatrixFilter());
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

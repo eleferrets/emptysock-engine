@@ -4,12 +4,7 @@ import type { EasingName } from "@emptysock/engine";
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type SequenceTrackType =
-  | "Position X"
-  | "Position Y"
-  | "Rotation"
-  | "Scale"
-  | "Opacity"
-  | "Custom";
+  "Position X" | "Position Y" | "Rotation" | "Scale" | "Opacity" | "Custom";
 
 export interface SequenceKeyframe {
   id: string;

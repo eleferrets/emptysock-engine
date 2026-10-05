@@ -1,12 +1,12 @@
 /**
- * ECS-native widget-kind components (RELEASE_PASS.md Track 3), built on top
+ * ECS-native widget-kind components, built on top
  * of `LayoutStyle`/`Layout` (see `Layout.ts`) the same way `Transform`+
  * `Sprite` composes for a render entity — a widget entity carries
  * `LayoutStyle`+`Layout` for its box, plus exactly one of the kind
  * components below for what it actually draws/does. Deliberately a small
  * surface: no per-widget animation (fadeIn/slideIn/pop/shake), no anchor
  * resolution, and no event-emitter callbacks (`.on("click", cb)`) — those
- * are real, separately-tracked gaps (RELEASE_PASS.md Track 3), not
+ * are real, separately-tracked gaps, not
  * oversights. `ImageWidget.src` real bitmap loading/caching is done —
  * `ui/UISystem.ts`'s `_renderImage()` loads it through the same pixi
  * `Assets.load` pattern `RenderPipeline` uses, cached by path. State instead lives directly

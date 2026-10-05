@@ -6,7 +6,7 @@
 
 # Interface: IVNListener
 
-Defined in: [vn/src/VNSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L59)
+Defined in: vn/src/VNSystem.ts:58
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNSystem.ts:59](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **onCGNode?**: (`cgPath`) => `void`
 
-Defined in: [vn/src/VNSystem.ts:64](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L64)
+Defined in: vn/src/VNSystem.ts:63
 
 #### Parameters
 
@@ -32,7 +32,7 @@ Defined in: [vn/src/VNSystem.ts:64](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **onChoice?**: (`options`) => `void`
 
-Defined in: [vn/src/VNSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L61)
+Defined in: vn/src/VNSystem.ts:60
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [vn/src/VNSystem.ts:61](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **onEnd?**: () => `void`
 
-Defined in: [vn/src/VNSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L63)
+Defined in: vn/src/VNSystem.ts:62
 
 #### Returns
 
@@ -62,7 +62,7 @@ Defined in: [vn/src/VNSystem.ts:63](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **onEvent?**: (`eventName`, ...`args`) => `void`
 
-Defined in: [vn/src/VNSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L60)
+Defined in: vn/src/VNSystem.ts:59
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [vn/src/VNSystem.ts:60](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **onNode?**: (`node`) => `void`
 
-Defined in: [vn/src/VNSystem.ts:62](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L62)
+Defined in: vn/src/VNSystem.ts:61
 
 #### Parameters
 

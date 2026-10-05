@@ -6,7 +6,7 @@
 
 # Interface: FlashOptions
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:199](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L199)
+Defined in: engine/src/systems/PostProcessSystem.ts:225
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:199](https://github.com/ele
 
 > `optional` **colour?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:200](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L200)
+Defined in: engine/src/systems/PostProcessSystem.ts:226
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:200](https://github.com/ele
 
 > `optional` **duration?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:201](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L201)
+Defined in: engine/src/systems/PostProcessSystem.ts:227

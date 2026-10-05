@@ -6,25 +6,31 @@
 
 # Interface: Vec3
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L22)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:28
 
-PhysicsSystem3D — full 3D rigid-body physics via @dimforge/rapier3d-compat.
+`PhysicsSystem3D` — full 3D rigid-body physics via
+`@dimforge/rapier3d-compat` (or the deterministic-compat build, §15.2).
+
+It exposes a handle-returning `addBody()` API rather than a `PhysicsBody`
+component (there is no 3D component) — there is no plan to retrofit it
+onto `PhysicsBody`/bitECS, since `SceneLifecycle` (Game.ts) only has room
+for one physics system slot and 3D games are the minority case
+(the engine design notes round 1 item 3: "3D is not held to the same
+'hide everything' bar as 2D"). A 3D game constructs and owns this
+directly, the same way `{ manageLifecycle: false }` hands back raw
+systems for manual ownership — see `Game.ts`'s escape hatch. It adds
+fixed-timestep accumulation + interpolation alpha (matching the 2D
+`PhysicsSystem`) and the deterministic-build swap.
 
 Quick-start:
   const physics = new PhysicsSystem3D();
-  await physics.init({ x: 0, y: -9.81, z: 0 });
-
-  const box = physics.addBody({ shape: 'box', bodyType: 'dynamic', position: { x: 0, y: 5, z: 0 } });
-  box.setLinearDamping(0.2);
-
-  physics.onCollisionEnter((a, b) => console.log('hit', a, b));
-
+  await physics.init({ gravity: { x: 0, y: -9.81, z: 0 } });
+  const box = physics.addBody({ shape: "box", bodyType: "dynamic", position: { x: 0, y: 5, z: 0 } });
   // in game loop (onUpdate — must NOT be async):
   physics.update(dt);
-  const pos = box.getPosition();
-
-  // When the scene unloads, ALWAYS call destroy() — Rapier3D holds WASM
-  // memory the GC cannot see.  See CLAUDE.md § PhysicsSystem3D must be destroyed.
+  const alpha = physics.interpolationAlpha; // for a renderer to lerp with
+  // when the scene unloads, ALWAYS call destroy() — see CLAUDE.md
+  // "PhysicsSystem3D must be destroyed".
   physics.destroy();
 
 ## Properties
@@ -33,7 +39,7 @@ Quick-start:
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L23)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:29
 
 ***
 
@@ -41,7 +47,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:23](https://github.com/elefer
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L24)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:30
 
 ***
 
@@ -49,4 +55,4 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:24](https://github.com/elefer
 
 > **z**: `number`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L25)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:31

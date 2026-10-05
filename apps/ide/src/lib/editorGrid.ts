@@ -2,8 +2,7 @@
  * Shared grid, ruler, and alignment-guide utilities used by all editor panels.
  *
  * Coordinate system: X increases right, Y increases downward (screen coords),
- * matching GMS2 and standard canvas 2D. When importing GMS2 assets the
- * coordinates are already compatible — no flip is needed.
+ * matching standard canvas 2D.
  */
 
 export interface GridOptions {
@@ -172,7 +171,7 @@ export function drawRulers(
     }
   }
 
-  // Vertical ruler ticks (Y axis, down = positive — same as GMS2)
+  // Vertical ruler ticks (Y axis, down = positive — same as canvas 2D)
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   const worldStartY = sy;

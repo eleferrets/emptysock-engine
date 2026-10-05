@@ -11,7 +11,7 @@ import { Meta } from "../components/Meta.js";
 import { ActorSystem } from "../ActorSystem.js";
 import { Actor, type Message } from "../Actor.js";
 
-describe("ECS QueryChannel (ENGINE_DESIGN.md §8 — engine-side MCP live bridge)", () => {
+describe("ECS QueryChannel", () => {
   it("answers entity/component queries against a live scene", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}));

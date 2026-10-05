@@ -109,7 +109,7 @@ export function edgePath(
 /**
  * Derives each node's `next[]` from the connections list, and strips
  * editor-only x/y fields, producing exactly the VisualScriptGraph shape
- * VisualScriptComponent's constructor and VisualScriptGraphBuilder consume.
+ * registerVisualScriptGraph and VisualScriptGraphBuilder consume.
  */
 export function toVisualScriptGraph(state: LogicGraphState): VisualScriptGraph {
   const nodes: VSNode[] = state.nodes.map((n) => {

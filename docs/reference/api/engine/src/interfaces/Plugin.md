@@ -6,7 +6,7 @@
 
 # Interface: Plugin
 
-Defined in: [engine/src/core/PluginSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L8)
+Defined in: engine/src/PluginSystem.ts:8
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/core/PluginSystem.ts:8](https://github.com/eleferrets/em
 
 > `readonly` **name**: `string`
 
-Defined in: [engine/src/core/PluginSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L9)
+Defined in: engine/src/PluginSystem.ts:9
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/core/PluginSystem.ts:9](https://github.com/eleferrets/em
 
 > `readonly` `optional` **version?**: `string`
 
-Defined in: [engine/src/core/PluginSystem.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L10)
+Defined in: engine/src/PluginSystem.ts:10
 
 ## Methods
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/core/PluginSystem.ts:10](https://github.com/eleferrets/e
 
 > **install**(`ctx`): `void` \| `Promise`\<`void`\>
 
-Defined in: [engine/src/core/PluginSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L12)
+Defined in: engine/src/PluginSystem.ts:12
 
 Called when the plugin is registered. May be async.
 
@@ -50,7 +50,7 @@ Called when the plugin is registered. May be async.
 
 > `optional` **uninstall**(): `void` \| `Promise`\<`void`\>
 
-Defined in: [engine/src/core/PluginSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L14)
+Defined in: engine/src/PluginSystem.ts:14
 
 Optional teardown called by unregister().
 

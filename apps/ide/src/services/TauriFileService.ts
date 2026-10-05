@@ -11,11 +11,14 @@ export interface FileResult {
 }
 
 function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
+async function tauriInvoke<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }
 
@@ -26,15 +29,21 @@ export const TauriFileService = {
 
   async openFile(): Promise<FileResult> {
     if (!isTauri()) {
-      return { success: false, error: 'File system access requires the desktop app.' };
+      return {
+        success: false,
+        error: "File system access requires the desktop app.",
+      };
     }
-    return tauriInvoke<FileResult>('open_file');
+    return tauriInvoke<FileResult>("open_file");
   },
 
   async saveFile(path: string | null, content: string): Promise<FileResult> {
     if (!isTauri()) {
-      return { success: false, error: 'File system access requires the desktop app.' };
+      return {
+        success: false,
+        error: "File system access requires the desktop app.",
+      };
     }
-    return tauriInvoke<FileResult>('save_file', { path, content });
+    return tauriInvoke<FileResult>("save_file", { path, content });
   },
 };

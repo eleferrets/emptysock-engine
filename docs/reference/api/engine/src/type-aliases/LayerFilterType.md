@@ -6,6 +6,6 @@
 
 # Type Alias: LayerFilterType
 
-> **LayerFilterType** = `"blur"` \| `"colour-grade"` \| `"outline"` \| `"brightness"` \| `"contrast"` \| `"saturate"` \| `"hue-rotate"` \| `"invert"` \| `"colourblind"` \| `"none"`
+> **LayerFilterType** = `"blur"` \| `"colour-grade"` \| `"outline"` \| `"brightness"` \| `"contrast"` \| `"saturate"` \| `"hue-rotate"` \| `"invert"` \| `"colourblind"` \| `"rain-glass"` \| `"none"`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L8)
+Defined in: engine/src/systems/PostProcessSystem.ts:9

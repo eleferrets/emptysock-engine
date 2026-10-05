@@ -6,7 +6,7 @@
 
 # Interface: BattleSystemOptions
 
-Defined in: [battle/src/BattleSystem.ts:147](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L147)
+Defined in: battle/src/BattleSystem.ts:140
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:147](https://github.com/eleferrets/empty
 
 > `optional` **critChance?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:149](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L149)
+Defined in: battle/src/BattleSystem.ts:142
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [battle/src/BattleSystem.ts:149](https://github.com/eleferrets/empty
 
 > `optional` **critMultiplier?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:150](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L150)
+Defined in: battle/src/BattleSystem.ts:143
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [battle/src/BattleSystem.ts:150](https://github.com/eleferrets/empty
 
 > `optional` **db?**: [`BattleDatabase`](BattleDatabase.md)
 
-Defined in: [battle/src/BattleSystem.ts:148](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L148)
+Defined in: battle/src/BattleSystem.ts:141
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [battle/src/BattleSystem.ts:148](https://github.com/eleferrets/empty
 
 > `optional` **fleeChance?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L151)
+Defined in: battle/src/BattleSystem.ts:144
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [battle/src/BattleSystem.ts:151](https://github.com/eleferrets/empty
 
 > `optional` **statMap?**: [`BattleStatMap`](BattleStatMap.md)
 
-Defined in: [battle/src/BattleSystem.ts:157](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L157)
+Defined in: battle/src/BattleSystem.ts:150
 
 Map logical stat roles to the key names used in your BattleStats objects.
 Lets you use custom or abbreviated names without losing built-in turn

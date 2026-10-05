@@ -8,7 +8,7 @@
 
 > **generatePrefabTypes**(`files`, `lookup`, `options?`): `string`
 
-Defined in: [toolchain/src/prefabCodegen.ts:86](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/prefabCodegen.ts#L86)
+Defined in: toolchain/src/prefabCodegen.ts:87
 
 Reads a project's `.prefab.json` file contents plus its registered
 component lookup, and emits a `.d.ts` string declaring one
@@ -26,7 +26,7 @@ for the exact shape asserted.
 
 ### files
 
-readonly `PrefabFile`[]
+readonly (`PrefabFile` \| `PrefabFileV1`)[]
 
 ### lookup
 

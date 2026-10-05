@@ -17,7 +17,7 @@ const lookup: ComponentLookup = (name) => registry[name];
 describe("generatePrefabTypes", () => {
   const enemyFile: PrefabFile = {
     prefabName: "EnemyPrefab",
-    components: [{ component: "Transform" }, { component: "Health" }],
+    components: { Transform: { data: {} }, Health: { data: {} } },
   };
 
   it("emits syntactically valid TypeScript", () => {
@@ -47,11 +47,11 @@ describe("generatePrefabTypes", () => {
   it("merges an extended prefab's fields in too", () => {
     const physicalFile: PrefabFile = {
       prefabName: "Physical",
-      components: [{ component: "Transform" }],
+      components: { Transform: { data: {} } },
     };
     const enemyExtendsFile: PrefabFile = {
       prefabName: "Enemy",
-      components: [{ component: "Health" }],
+      components: { Health: { data: {} } },
       extends: ["Physical"],
     };
     const dts = generatePrefabTypes([physicalFile, enemyExtendsFile], lookup);
@@ -66,7 +66,7 @@ describe("generatePrefabTypes", () => {
   it("sanitizes a non-identifier prefab name into a valid declaration name", () => {
     const weirdFile: PrefabFile = {
       prefabName: "3-legged-dog",
-      components: [{ component: "Transform" }],
+      components: { Transform: { data: {} } },
     };
     const dts = generatePrefabTypes([weirdFile], lookup);
     expect(dts).toMatch(/export declare const _3_legged_dog: PrefabDef</);
@@ -75,7 +75,7 @@ describe("generatePrefabTypes", () => {
   it("throws a useful error for an unregistered component", () => {
     const badFile: PrefabFile = {
       prefabName: "Broken",
-      components: [{ component: "Nope" }],
+      components: { Nope: { data: {} } },
     };
     expect(() => generatePrefabTypes([badFile], lookup)).toThrow(/Nope/);
   });

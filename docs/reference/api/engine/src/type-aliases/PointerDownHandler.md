@@ -8,7 +8,7 @@
 
 > **PointerDownHandler** = (`p`) => `void`
 
-Defined in: [engine/src/systems/PointerSystem.ts:93](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L93)
+Defined in: engine/src/systems/PointerSystem.ts:90
 
 ## Parameters
 

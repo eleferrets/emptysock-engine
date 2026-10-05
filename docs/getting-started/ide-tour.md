@@ -135,7 +135,7 @@ Shows staged and unstaged files with status indicators. Click **+** to stage, **
 
 A node graph panel for wiring component logic without writing TypeScript. Open via **View → Panels → Visual Script Editor**.
 
-Saved as `.esvs` files. Referenced at runtime via `VisualScriptComponent`.
+Saved as `.esvs` files. Registered at runtime with `registerVisualScriptGraph` and driven through `VisualScriptState`.
 
 > **Note:** Visual scripts run through a graph interpreter, so expect roughly 10× slower execution than native TypeScript for heavy per-frame computation. Reach for TypeScript when performance actually matters.
 
@@ -169,4 +169,4 @@ Touch input in the preview iframe is handled natively by `InputSystem` — no co
 
 ---
 
-Next: [From GameMaker](./from-gamemaker.md) — migrating an existing GMS2 project.
+Next: [Engine Overview](./engine-overview.md) — the ECS core and module packages.

@@ -6,7 +6,7 @@
 
 # Class: AudioSystem
 
-Defined in: [engine/src/systems/AudioSystem.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L9)
+Defined in: engine/src/systems/AudioSystem.ts:9
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:9](https://github.com/eleferrets/
 
 > `readonly` **defaultBuses**: readonly \[`"master"`, `"music"`, `"sfx"`, `"voice"`, `"ambient"`\]
 
-Defined in: [engine/src/systems/AudioSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L49)
+Defined in: engine/src/systems/AudioSystem.ts:49
 
 ## Accessors
 
@@ -34,7 +34,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:49](https://github.com/eleferrets
 
 > **get** **activeSnapshotTransitioning**(): `boolean`
 
-Defined in: [engine/src/systems/AudioSystem.ts:172](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L172)
+Defined in: engine/src/systems/AudioSystem.ts:195
 
 ##### Returns
 
@@ -48,7 +48,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:172](https://github.com/eleferret
 
 > **get** **masterVolume**(): `number`
 
-Defined in: [engine/src/systems/AudioSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L14)
+Defined in: engine/src/systems/AudioSystem.ts:14
 
 ##### Returns
 
@@ -58,7 +58,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:14](https://github.com/eleferrets
 
 > **set** **masterVolume**(`v`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L18)
+Defined in: engine/src/systems/AudioSystem.ts:18
 
 ##### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:18](https://github.com/eleferrets
 
 > **defineSnapshot**(`name`, `busVolumes`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:149](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L149)
+Defined in: engine/src/systems/AudioSystem.ts:172
 
 Register a named volume preset across buses (missing buses are left unchanged).
 
@@ -100,7 +100,7 @@ Register a named volume preset across buses (missing buses are left unchanged).
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:202](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L202)
+Defined in: engine/src/systems/AudioSystem.ts:225
 
 #### Returns
 
@@ -112,7 +112,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:202](https://github.com/eleferret
 
 > **duck**(`bus`, `amount`, `fadeTime?`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L116)
+Defined in: engine/src/systems/AudioSystem.ts:139
 
 Temporarily lower `bus`'s volume to `bus base volume * (1 - amount)`,
 fading over `fadeTime` seconds, for as long as the duck is active.
@@ -143,7 +143,7 @@ that is already ducked replaces the previous duck.
 
 > **endDuck**(`bus`, `fadeTime?`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L128)
+Defined in: engine/src/systems/AudioSystem.ts:151
 
 Fade a ducked bus back to its pre-duck base volume.
 
@@ -167,7 +167,7 @@ Fade a ducked bus back to its pre-duck base volume.
 
 > **getBusVolume**(`busId`): `number`
 
-Defined in: [engine/src/systems/AudioSystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L42)
+Defined in: engine/src/systems/AudioSystem.ts:42
 
 #### Parameters
 
@@ -185,7 +185,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:42](https://github.com/eleferrets
 
 > **getGroupVolume**(`group`): `number`
 
-Defined in: [engine/src/systems/AudioSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L34)
+Defined in: engine/src/systems/AudioSystem.ts:34
 
 #### Parameters
 
@@ -203,7 +203,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:34](https://github.com/eleferrets
 
 > **isDucked**(`bus`): `boolean`
 
-Defined in: [engine/src/systems/AudioSystem.ts:139](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L139)
+Defined in: engine/src/systems/AudioSystem.ts:162
 
 #### Parameters
 
@@ -221,7 +221,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:139](https://github.com/eleferret
 
 > **load**(`id`, `src`, `options?`): `Howl`
 
-Defined in: [engine/src/systems/AudioSystem.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L57)
+Defined in: engine/src/systems/AudioSystem.ts:57
 
 #### Parameters
 
@@ -247,7 +247,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:57](https://github.com/eleferrets
 
 > **pause**(`id`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:84](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L84)
+Defined in: engine/src/systems/AudioSystem.ts:107
 
 #### Parameters
 
@@ -265,7 +265,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:84](https://github.com/eleferrets
 
 > **play**(`id`): `number` \| `null`
 
-Defined in: [engine/src/systems/AudioSystem.ts:71](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L71)
+Defined in: engine/src/systems/AudioSystem.ts:71
 
 #### Parameters
 
@@ -283,7 +283,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:71](https://github.com/eleferrets
 
 > **setBusVolume**(`busId`, `volume`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L38)
+Defined in: engine/src/systems/AudioSystem.ts:38
 
 #### Parameters
 
@@ -305,7 +305,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:38](https://github.com/eleferrets
 
 > **setGroupVolume**(`group`, `volume`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L23)
+Defined in: engine/src/systems/AudioSystem.ts:23
 
 #### Parameters
 
@@ -323,11 +323,46 @@ Defined in: [engine/src/systems/AudioSystem.ts:23](https://github.com/eleferrets
 
 ***
 
+### setPitch()
+
+> **setPitch**(`id`, `rate`): `void`
+
+Defined in: engine/src/systems/AudioSystem.ts:98
+
+Sets a loaded sound's playback rate (1 = unchanged, 0.5 = half speed/an
+octave down, 2 = double speed/an octave up) — Howler's own real,
+documented `Howl.rate()` API. This is the engine-side answer to
+`audio_sound_pitch(index, pitch)`, which is a real, common
+idiom for cheap sound variety (a slightly different pitch each time the
+same gunshot/footstep sample plays, rather than needing several
+near-identical audio files) — see the compat layer's
+`audio_sound_pitch`. Applies to every currently-playing (and future)
+instance of this loaded sound id, matching the per-sound
+(not per-play-instance) pitch semantic. A `id` that was never `load()`ed
+is a safe, honest no-op — the same "warn, don't throw" shape `play()`
+already uses for a missing sound.
+
+#### Parameters
+
+##### id
+
+`string`
+
+##### rate
+
+`number`
+
+#### Returns
+
+`void`
+
+***
+
 ### stop()
 
 > **stop**(`id`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L80)
+Defined in: engine/src/systems/AudioSystem.ts:80
 
 #### Parameters
 
@@ -345,7 +380,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:80](https://github.com/eleferrets
 
 > **transitionToSnapshot**(`name`, `duration?`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:154](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L154)
+Defined in: engine/src/systems/AudioSystem.ts:177
 
 Transition every bus in the snapshot to its stored volume over `duration` seconds.
 
@@ -369,7 +404,7 @@ Transition every bus in the snapshot to its stored volume over `duration` second
 
 > **unload**(`id`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L88)
+Defined in: engine/src/systems/AudioSystem.ts:111
 
 #### Parameters
 
@@ -387,7 +422,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:88](https://github.com/eleferrets
 
 > **unloadAll**(): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:96](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L96)
+Defined in: engine/src/systems/AudioSystem.ts:119
 
 #### Returns
 
@@ -399,7 +434,7 @@ Defined in: [engine/src/systems/AudioSystem.ts:96](https://github.com/eleferrets
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/systems/AudioSystem.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/AudioSystem.ts#L176)
+Defined in: engine/src/systems/AudioSystem.ts:199
 
 #### Parameters
 

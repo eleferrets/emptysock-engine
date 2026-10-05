@@ -1,4 +1,5 @@
 import { gameBuildService, GameBuildService } from "./GameBuildService.js";
+import { bindKeyboardLayoutToIframe } from "./keyboardLayoutProvider.js";
 import { ENGINE_BUNDLE } from "../runtime/engineBundle.generated.js";
 
 export interface RunnerMessage {
@@ -61,7 +62,7 @@ function buildRapierImportMap(vendorBaseUrl: string): string {
   return `<script type="importmap">${escapeForInlineScript(JSON.stringify(map))}</script>`;
 }
 
-function buildIframeHtml(
+export function buildIframeHtml(
   engineBundle: string,
   userModuleUrl: string,
   vendorBaseUrl: string,
@@ -98,7 +99,7 @@ ${buildRapierImportMap(vendorBaseUrl)}
     var modal = document.createElement('div');
     modal.id = 'es-error-modal';
     var safe = String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    modal.innerHTML = '<div class="box"><div class="title">Runtime Error</div><pre>' + safe + '</pre><button onclick="document.getElementById(\'es-error-modal\').remove()">Dismiss</button></div>';
+    modal.innerHTML = '<div class="box"><div class="title">Runtime Error</div><pre>' + safe + '</pre><button onclick="document.getElementById(\\'es-error-modal\\').remove()">Dismiss</button></div>';
     document.body.appendChild(modal);
   }
 
@@ -241,6 +242,7 @@ export class PlayRunner {
   private _blobUrl: string | null = null;
   private _moduleBlobUrl: string | null = null;
   private readonly _handlers: Set<MessageHandler> = new Set();
+  private _stopLayoutBinding: (() => void) | null = null;
   private _msgListener: ((e: MessageEvent) => void) | null = null;
   private _container: HTMLElement | null = null;
   private readonly _buildService: GameBuildService = new GameBuildService(0);
@@ -303,6 +305,7 @@ export class PlayRunner {
       "position:absolute;inset:0;width:100%;height:100%;border:none;background:#0e0e10;";
     container.appendChild(iframe);
     this._iframe = iframe;
+    this._stopLayoutBinding = bindKeyboardLayoutToIframe(iframe);
 
     this._msgListener = (e: MessageEvent) => {
       const data = e.data as RunnerMessage | undefined;
@@ -357,6 +360,8 @@ export class PlayRunner {
   }
 
   stop(): void {
+    this._stopLayoutBinding?.();
+    this._stopLayoutBinding = null;
     if (this._msgListener !== null) {
       window.removeEventListener("message", this._msgListener);
       this._msgListener = null;

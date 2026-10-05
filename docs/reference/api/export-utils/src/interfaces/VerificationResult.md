@@ -6,7 +6,7 @@
 
 # Interface: VerificationResult
 
-Defined in: [export-utils/src/index.ts:204](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L204)
+Defined in: export-utils/src/index.ts:204
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [export-utils/src/index.ts:204](https://github.com/eleferrets/emptys
 
 > **checks**: `object`[]
 
-Defined in: [export-utils/src/index.ts:206](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L206)
+Defined in: export-utils/src/index.ts:206
 
 #### detail
 
@@ -34,4 +34,4 @@ Defined in: [export-utils/src/index.ts:206](https://github.com/eleferrets/emptys
 
 > **passed**: `boolean`
 
-Defined in: [export-utils/src/index.ts:205](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L205)
+Defined in: export-utils/src/index.ts:205

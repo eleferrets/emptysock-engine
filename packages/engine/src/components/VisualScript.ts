@@ -239,7 +239,7 @@ export class VisualScriptGraphBuilder {
 }
 
 /**
- * `VisualScriptState` (RELEASE_PASS.md's "Visual Script Editor" gap) is
+ * `VisualScriptState` is
  * defined via `defineComponent`'s `SerializableRecord` constraint, which
  * rules out storing the graph itself (nodes/connections, functions and all)
  * directly on the component.
@@ -292,7 +292,7 @@ export function unregisterVisualScriptGraph(graphId: string): void {
 
 /**
  * Per-entity evaluation scope (a graph run's transient
- * outputKey -> number bindings — see `VisualScriptComponent`'s `_scope`).
+ * outputKey -> number bindings — see `VisualScriptSystem`).
  * This is genuinely per-entity, mutable, non-serializable runtime state, so
  * it lives in a side-table scoped by `World` + eid — the same shape
  * `PhysicsBody`'s callback side-table uses — rather than on the component

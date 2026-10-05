@@ -18,7 +18,7 @@ import {
 import type { ComponentSchema, SerializableRecord } from "@emptysock/engine";
 
 /**
- * ENGINE_DESIGN.md §10.1: "co-located optional schema, not decorators" —
+ * the engine design notes: "co-located optional schema, not decorators" —
  * `defineComponent`'s optional `.schema` describes each field's inspector
  * control. `ComponentDef` itself has no inspector-color field (that would
  * touch `packages/engine/src/ecs/Component.ts`, which is out of scope for

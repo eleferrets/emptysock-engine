@@ -6,7 +6,7 @@
 
 # Interface: NavMeshData
 
-Defined in: [tilemap/src/NavMeshSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/NavMeshSystem.ts#L14)
+Defined in: tilemap/src/NavMeshSystem.ts:14
 
 ## Properties
 
@@ -14,4 +14,4 @@ Defined in: [tilemap/src/NavMeshSystem.ts:14](https://github.com/eleferrets/empt
 
 > `readonly` **polygons**: readonly [`NavPolygon`](NavPolygon.md)[]
 
-Defined in: [tilemap/src/NavMeshSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/NavMeshSystem.ts#L15)
+Defined in: tilemap/src/NavMeshSystem.ts:15

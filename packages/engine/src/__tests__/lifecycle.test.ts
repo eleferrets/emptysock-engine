@@ -4,7 +4,7 @@ import { Game, defineScene } from "../Game.js";
 
 const Position = defineComponent("Position", () => ({ x: 0, y: 0 }));
 
-describe("ECS Game/Scene lifecycle (ENGINE_DESIGN.md §4)", () => {
+describe("ECS Game/Scene lifecycle", () => {
   it("loadScene creates a Scene plus an ActorSystem and PhysicsSystem", async () => {
     const game = new Game();
     const { scene, actors, physics } = await game.loadScene(defineScene({}), {
@@ -104,7 +104,7 @@ describe("ECS Game/Scene lifecycle (ENGINE_DESIGN.md §4)", () => {
     await game.loadScene(
       {
         // Cast to bypass the TS-side guard so we can exercise the JS
-        // runtime fallback path directly (ENGINE_DESIGN.md §10.2).
+        // runtime fallback path directly.
         onUpdate: (async () => {}) as unknown as (dt: number) => void,
       },
       { physics: { gravity: { x: 0, y: 0 } } },

@@ -44,7 +44,7 @@ export interface NetworkSystemOptions {
 }
 
 /**
- * The client-side half of ENGINE_DESIGN.md §23.2's networking bridge:
+ * The client-side half of the engine design notes's networking bridge:
  * "`@emptysock/network` reads/writes through the same `.get()` Proxy layer
  * ... it only ever sees the same `Component` classes and `.get()` shape
  * every other part of the engine sees."
@@ -127,8 +127,7 @@ export class NetworkSystem {
         for (const field of networkedFields) {
           schemaProxy.listen(field, (value) => {
             const component = entity.get(def) as
-              | Record<string, unknown>
-              | undefined;
+              Record<string, unknown> | undefined;
             if (component !== undefined) component[field] = value;
           });
         }
@@ -139,7 +138,7 @@ export class NetworkSystem {
   /**
    * Call once per frame (or at whatever cadence the game wants to push
    * updates — networked state is "replicated a handful of times a second",
-   * per ENGINE_DESIGN.md §23.2, not every-frame-at-60fps). Diffs the local
+   * per the engine design notes, not every-frame-at-60fps). Diffs the local
    * player's networked fields against the last value sent and calls
    * `room.send` for anything that changed.
    */

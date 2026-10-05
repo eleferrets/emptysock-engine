@@ -382,7 +382,7 @@ export function MenuBar({
   // ── Help actions ────────────────────────────────────────────────────────
 
   const openManual = useCallback((): void => {
-    window.open("/manual/", "_blank", "noopener");
+    window.open("/manual/index.html", "_blank", "noopener");
   }, []);
 
   const openLanguageRef = useCallback((): void => {

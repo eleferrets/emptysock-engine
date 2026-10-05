@@ -47,10 +47,7 @@ export interface PinchGesture {
   deltaScale: number;
 }
 export type Gesture =
-  | TapGesture
-  | LongPressGesture
-  | SwipeGesture
-  | PinchGesture;
+  TapGesture | LongPressGesture | SwipeGesture | PinchGesture;
 export interface WheelEventInfo {
   /** Horizontal scroll amount, sign/units depend on deltaMode. */
   deltaX: number;

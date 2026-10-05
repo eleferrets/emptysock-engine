@@ -18,6 +18,80 @@ import {
 import { useIDEStore } from "../../store/ideStore";
 import type { ProjectFile, FileTreeNode } from "../../store/ideStore";
 import { ProjectService } from "../../services/ProjectService";
+import { ContextMenu } from "../ui/ContextMenu";
+import type { ContextMenuEntry } from "../ui/ContextMenu";
+
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp"]);
+const BINARY_EXT = new Set([
+  "ogg",
+  "mp3",
+  "wav",
+  "ttf",
+  "otf",
+  "woff",
+  "woff2",
+  "svg",
+  "ico",
+  "zip",
+  "wasm",
+]);
+
+/**
+ * Open a tree file in the right place: text in the code editor, images in
+ * the image editor (when the file is a known asset), other binaries are only
+ * selected (they would show as garbage in a text editor).
+ */
+function openTreeFile(
+  path: string,
+  readText?: () => Promise<string | null>,
+): void {
+  const store = useIDEStore.getState();
+  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+  if (IMAGE_EXT.has(ext)) {
+    const name = path.split("/").pop() ?? path;
+    const asset = store.assets.find(
+      (a) => a.path === path || a.path.endsWith(`/${name}`) || a.name === name,
+    );
+    if (asset !== undefined) {
+      store.openImageEditor(asset.id);
+      return;
+    }
+    store.addLog("info", `${name}: import it as an asset to edit it`, "IDE");
+    return;
+  }
+  if (BINARY_EXT.has(ext)) {
+    store.addLog("info", `${path}: binary file, not opened`, "IDE");
+    return;
+  }
+  const show = (content?: string): void => {
+    store.openFile(path, content);
+    store.setActiveTab("code");
+    store.requestOpenPanel("code");
+  };
+  if (readText === undefined) show();
+  else void readText().then((c) => show(c ?? ""));
+}
+
+type MenuPos = { x: number; y: number };
+
+function copyPath(path: string): void {
+  void navigator.clipboard.writeText(path).catch(() => {});
+}
+
+function rowMenuItems(
+  isFolder: boolean,
+  path: string,
+  open: () => void,
+  toggle: () => void,
+): ContextMenuEntry[] {
+  return [
+    isFolder
+      ? { label: "Expand / Collapse", onClick: toggle }
+      : { label: "Open", onClick: open },
+    { separator: true },
+    { label: "Copy Path", onClick: () => copyPath(path) },
+  ];
+}
 
 function FileIcon({ file }: { file: ProjectFile }): React.ReactElement {
   if (file.type === "folder")
@@ -42,22 +116,48 @@ function FileTreeNode({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(depth < 2);
-  const { selectedFile, selectFile, setActiveTab } = useIDEStore();
+  const [menu, setMenu] = useState<MenuPos | null>(null);
+  const selectedFile = useIDEStore((s) => s.selectedFile);
 
   const isSelected = selectedFile === file.path;
   const handleClick = (): void => {
     if (file.type === "folder") {
       setExpanded((e) => !e);
     } else {
-      selectFile(file.path);
-      setActiveTab("code");
+      openTreeFile(file.path);
     }
   };
 
   return (
     <div>
+      {menu !== null && (
+        <ContextMenu
+          items={rowMenuItems(
+            file.type === "folder",
+            file.path,
+            handleClick,
+            handleClick,
+          ).map((i) =>
+            "onClick" in i
+              ? {
+                  ...i,
+                  onClick: () => {
+                    i.onClick();
+                    setMenu(null);
+                  },
+                }
+              : i,
+          )}
+          position={menu}
+          onClose={() => setMenu(null)}
+        />
+      )}
       <button
         onClick={handleClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,
@@ -122,25 +222,47 @@ function DiskTreeRow({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(depth < 2);
-  const openFile = useIDEStore((s) => s.openFile);
-  const setActiveTab = useIDEStore((s) => s.setActiveTab);
+  const [menu, setMenu] = useState<MenuPos | null>(null);
   const isFolder = node.children !== undefined;
 
   const handleClick = (): void => {
     if (isFolder) {
       setExpanded((e) => !e);
     } else {
-      void ProjectService.readFile(node.path).then((content) => {
-        openFile(node.path, content ?? "");
-        setActiveTab("code");
-      });
+      openTreeFile(node.path, () => ProjectService.readFile(node.path));
     }
   };
 
   return (
     <div>
+      {menu !== null && (
+        <ContextMenu
+          items={rowMenuItems(
+            isFolder,
+            node.path,
+            handleClick,
+            handleClick,
+          ).map((i) =>
+            "onClick" in i
+              ? {
+                  ...i,
+                  onClick: () => {
+                    i.onClick();
+                    setMenu(null);
+                  },
+                }
+              : i,
+          )}
+          position={menu}
+          onClose={() => setMenu(null)}
+        />
+      )}
       <button
         onClick={handleClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,

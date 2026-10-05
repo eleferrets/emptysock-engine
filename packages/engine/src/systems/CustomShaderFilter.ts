@@ -14,13 +14,14 @@
 // A "vertex" that a developer omits falls back to DEFAULT_CUSTOM_SHADER_VERTEX,
 // which is exactly what the ShaderEditor panel's vertex tab starts from.
 
-import { Filter, GlProgram, UniformGroup } from "pixi.js";
+import { Filter, GlProgram, GpuProgram, UniformGroup } from "pixi.js";
 import {
-  getGmlShader,
-  getGmlShaderUniforms,
-  getGmlShaderVersion,
+  getShader,
+  getShaderUniforms,
+  getShaderVersion,
   parseShaderUniforms,
   toFilterVertexSource,
+  toFilterWgslVertexSource,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 
@@ -69,15 +70,28 @@ export interface CustomShaderOptions {
   vertexSrc?: string;
   /**
    * Treat `vertexSrc` (or the default) as a sprite-quad MVP passthrough — the
-   * shape the GMS2 importer emits, which is not pixi's Filter vertex contract
+   * shape the asset pipeline emits, which is not pixi's Filter vertex contract
    * (`uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix` are never
    * set for a filter, so the quad collapses) — and substitute pixi's own
    * filter position maths via `toFilterVertexSource`, keeping only its `out`
-   * varyings. Set for importer-emitted shaders. When unset it is inferred:
+   * varyings. Set for generated shaders. When unset it is inferred:
    * a vertex source that does not mention `uOutputFrame` (i.e. is not already
    * written against the filter contract) is adapted the same way.
    */
   adaptVertex?: boolean;
+  /**
+   * Optional WGSL fragment stage (entry point `main`), which makes the filter
+   * usable under the WebGPU renderer. Without it the filter is GL-only and
+   * renders nothing under WebGPU (RenderSystem warns once). Must follow the
+   * pixi 8.21 filter contract: `@group(0) @binding(1/2)` `uTexture`/`uSampler`,
+   * user uniforms as ONE block at `@group(1) @binding(0)` named `uniforms`
+   * whose members are `uTime` followed by `options.uniforms` in key order
+   * (the JS UniformGroup is laid out from that order), varyings at
+   * `@location(n)` in the vertex stage's order. The asset pipeline generates it.
+   */
+  wgslFragment?: string;
+  /** Optional WGSL vertex stage (entry point `mainVertex`). Defaults to `toFilterWgslVertexSource(vertexSrc)`. */
+  wgslVertex?: string;
   /** GlProgram name, useful for debugging in browser devtools. */
   name?: string;
   /** Extra user uniforms, declared up front (pixi needs each uniform's type when the Filter is built). */
@@ -107,9 +121,28 @@ export class CustomShaderFilter extends Filter {
       uTime: { value: 0, type: "f32" },
       ...(options.uniforms ?? {}),
     });
-    super({ glProgram: program, resources: { uniforms: group } });
+    const gpuProgram =
+      options.wgslFragment === undefined
+        ? undefined
+        : GpuProgram.from({
+            name: options.name ?? "emptysock-custom-shader",
+            vertex: {
+              source: options.wgslVertex ?? toFilterWgslVertexSource(rawVertex),
+              entryPoint: "mainVertex",
+            },
+            fragment: { source: options.wgslFragment, entryPoint: "main" },
+          });
+    super({
+      glProgram: program,
+      ...(gpuProgram !== undefined ? { gpuProgram } : {}),
+      resources: { uniforms: group },
+    });
     this._group = group;
+    this.shaderName = options.name ?? "emptysock-custom-shader";
   }
+
+  /** The program name (registry id for generated shaders); used in diagnostics. */
+  readonly shaderName: string;
 
   private readonly _group: UniformGroup;
 
@@ -132,18 +165,18 @@ export function createCustomShaderFilter(
 
 /**
  * Builds a `CustomShaderFilter` for a shader registered via
- * `registerGmlShader` (what an importer-emitted `assets/<name>.shader.ts`
- * does at import time), with the vertex stage adapted to pixi's filter
+ * `registerShader` (what an generated `assets/<name>.shader.ts`
+ * does at build time), with the vertex stage adapted to pixi's filter
  * contract and every fragment-declared scalar/vector uniform declared up
  * front. Used by both the per-entity path (`RenderPipeline.
  * resolveShaderFilter`) and the per-layer path (`RenderSystem.
- * addLayerGmlShader`), so the two can never disagree about how an importer
+ * addLayerShader`), so the two can never disagree about how an asset pipeline
  * shader becomes a Filter. `undefined` when the id isn't registered.
  */
-export function buildGmlShaderFilter(
+export function buildShaderFilter(
   id: string,
 ): { filter: CustomShaderFilter; uniforms: ParsedShaderUniform[] } | undefined {
-  const source = getGmlShader(id);
+  const source = getShader(id);
   if (source === undefined) return undefined;
   const uniforms = parseShaderUniforms(source.fragmentSrc);
   const declared: NonNullable<CustomShaderOptions["uniforms"]> = {};
@@ -159,17 +192,20 @@ export function buildGmlShaderFilter(
     fragmentSrc: source.fragmentSrc,
     name: id,
     uniforms: declared,
+    ...(source.wgslFragmentSrc !== undefined
+      ? { wgslFragment: source.wgslFragmentSrc }
+      : {}),
   });
   return { filter, uniforms };
 }
 
 /** Copies the registry's current `shader_set_uniform_*` values for `id` into `filter`. Returns the registry version applied. */
-export function applyGmlShaderUniforms(
+export function applyShaderUniforms(
   filter: CustomShaderFilter,
   uniforms: ParsedShaderUniform[],
   id: string,
 ): number {
-  const registration = getGmlShaderUniforms(id);
+  const registration = getShaderUniforms(id);
   if (registration !== undefined) {
     for (const u of uniforms) {
       const v = registration.get(u.name);
@@ -182,5 +218,5 @@ export function applyGmlShaderUniforms(
       );
     }
   }
-  return getGmlShaderVersion(id);
+  return getShaderVersion(id);
 }

@@ -24,7 +24,7 @@ function layoutOf(entity: Entity): LayoutShape {
 }
 
 /**
- * RELEASE_PASS.md Track 3's called-for prototype: "prototype against one
+ * the release notes Track 3's called-for prototype: "prototype against one
  * non-trivial subtree (a scrollable list) first and confirm query
  * performance at realistic widget counts before committing the whole
  * system to this shape." A scrollable list here means one container widget

@@ -3,7 +3,6 @@ import { getAssetStore, browserAssetStore } from "../../services/AssetStore";
 import {
   Search,
   Upload,
-  PackageOpen,
   ChevronDown,
   ChevronRight,
   List,
@@ -29,7 +28,6 @@ import { AssetPreviewPopover } from "./asset-browser/AssetPreviewPopover";
 import { RoomOrderDialog } from "./asset-browser/RoomOrderDialog";
 import { SpriteSheetStripDialog } from "./asset-browser/SpriteSheetStripDialog";
 import type { StripDialog } from "./asset-browser/SpriteSheetStripDialog";
-import { importGMS2FromHandle } from "./asset-browser/gms2Import";
 
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
@@ -94,6 +92,7 @@ export function AssetBrowser(): React.ReactElement {
   const [recentOpen, setRecentOpen] = useState(true);
   const [roomOrderOpen, setRoomOrderOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     asset: AssetItem;
     position: { x: number; y: number };
@@ -174,15 +173,13 @@ export function AssetBrowser(): React.ReactElement {
       if (toImport.length > 0) {
         const store = getAssetStore();
         const writeAll = toImport.map((file) =>
-          store.write(file.name, file).catch(
-            (): AssetItem => ({
-              id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              name: file.name,
-              type: guessAssetType(file),
-              path: `${folder}${file.name}`,
-              size: file.size,
-            }),
-          ),
+          store.write(file.name, file).catch((): AssetItem => ({
+            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: guessAssetType(file),
+            path: `${folder}${file.name}`,
+            size: file.size,
+          })),
         );
         void Promise.all(writeAll).then((newItems) => {
           histSet((prev) => [...prev, ...newItems]);
@@ -208,15 +205,13 @@ export function AssetBrowser(): React.ReactElement {
     if (toImport.length > 0) {
       const store = getAssetStore();
       const writeAll = toImport.map((file) =>
-        store.write(file.name, file).catch(
-          (): AssetItem => ({
-            id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            type: guessAssetType(file),
-            path: `assets/${file.name}`,
-            size: file.size,
-          }),
-        ),
+        store.write(file.name, file).catch((): AssetItem => ({
+          id: `ast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: guessAssetType(file),
+          path: `assets/${file.name}`,
+          size: file.size,
+        })),
       );
       void Promise.all(writeAll).then((newItems) => {
         histSet((prev) => [...prev, ...newItems]);
@@ -430,40 +425,6 @@ export function AssetBrowser(): React.ReactElement {
           <List size={11} />
           Room Order
         </Button>
-        {"showDirectoryPicker" in window ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Import GMS2 Project"
-            onClick={() => {
-              type WindowWithDirPicker = Window & {
-                showDirectoryPicker(opts?: {
-                  mode?: "read" | "readwrite";
-                }): Promise<FileSystemDirectoryHandle>;
-              };
-              void (window as unknown as WindowWithDirPicker)
-                .showDirectoryPicker({ mode: "read" })
-                .then((handle) =>
-                  importGMS2FromHandle(handle, (items) =>
-                    histSet((prev) => [...prev, ...items]),
-                  ),
-                );
-            }}
-          >
-            <PackageOpen size={11} />
-            Import GMS2
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled
-            title="Requires a Chromium-based browser"
-          >
-            <PackageOpen size={11} />
-            Import GMS2
-          </Button>
-        )}
       </div>
 
       {/* Recent assets strip */}
@@ -579,6 +540,10 @@ export function AssetBrowser(): React.ReactElement {
           setIsDragOver(true);
         }}
         onDragLeave={() => setIsDragOver(false)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setBgMenu({ x: e.clientX, y: e.clientY });
+        }}
         onDrop={(e) => {
           e.preventDefault();
           setIsDragOver(false);
@@ -611,6 +576,7 @@ export function AssetBrowser(): React.ReactElement {
             onDoubleClick={() => openAssetInEditor(asset)}
             onContextMenu={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               setContextMenu({
                 asset,
                 position: { x: e.clientX, y: e.clientY },
@@ -698,6 +664,22 @@ export function AssetBrowser(): React.ReactElement {
           openFiles={openFiles}
           onPointerEnter={clearLeaveTimer}
           onPointerLeave={scheduleHide}
+        />
+      )}
+
+      {bgMenu !== null && (
+        <ContextMenu
+          items={[
+            {
+              label: "Import assets…",
+              onClick: () => {
+                fileInputRef.current?.click();
+                setBgMenu(null);
+              },
+            },
+          ]}
+          position={bgMenu}
+          onClose={() => setBgMenu(null)}
         />
       )}
 

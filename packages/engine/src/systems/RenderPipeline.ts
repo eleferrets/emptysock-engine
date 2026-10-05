@@ -1,10 +1,8 @@
-// Registers pixi's advanced blend modes (incl. "subtract", used by GML
-// gpu_set_blendmode(bm_subtract)); without it pixi silently renders "subtract"
+// Registers pixi's advanced blend modes (incl. "subtract"); without it pixi silently renders "subtract"
 // as normal — found by real-GPU verification (scripts/gpu-verify.mjs).
 import "pixi.js/advanced-blend-modes";
 import {
   BitmapFont,
-  BitmapText,
   Cache,
   Container,
   Graphics,
@@ -15,7 +13,6 @@ import {
   Rectangle,
   RenderTexture,
   Sprite as PixiSprite,
-  Text,
   Texture,
   TilingSprite,
 } from "pixi.js";
@@ -25,29 +22,29 @@ import type { FontRegistry } from "./FontRegistry.js";
 import { toPixiBitmapFontData, type BitmapFontDef } from "./BitmapFontDef.js";
 import {
   type CustomShaderFilter,
-  buildGmlShaderFilter,
-  applyGmlShaderUniforms,
+  buildShaderFilter,
+  applyShaderUniforms,
 } from "./CustomShaderFilter.js";
 import {
-  getGmlShader,
-  getGmlShaderUniforms,
-  getGmlShaderVersion,
+  getShader,
+  getShaderUniforms,
+  getShaderVersion,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 import type { Scene } from "../Scene.js";
 import type { Entity } from "../Entity.js";
 import type { SceneRenderer } from "../Game.js";
 import { Sprite, resolveSpriteFramePath } from "../components/Sprite.js";
+import { SpriteFlash } from "../components/SpriteFlash.js";
+import { FlashFilterPool } from "./SpriteFlashSystem.js";
+import { ColorOverlayFilter } from "pixi-filters";
 import { Transform } from "../components/Transform.js";
 import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+import type { LightingSystem } from "./LightingSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
-import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
-import type { GmlActionContext } from "../compat/gmlActions.js";
-import type { GmlDrawTarget } from "../compat/gml.js";
-import type { GmlSurfaceBackend } from "../compat/gmlSurfaces.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
 /**
@@ -99,405 +96,6 @@ export interface TileLayerSource {
   };
 }
 
-/**
- * The real `GmlDrawTarget` implementation (`compat/gml.ts`'s structural
- * interface) — a pixi `Graphics` wrapper, rebuilt from scratch on every
- * `onDraw`/`onDrawGui` call. Construction itself clears the previous call's
- * vector drawing and removes any `Text` children a previous `draw_text` call
- * added (pixi's `Graphics` has no text primitive of its own, so `draw_text`
- * appends a real `Text` child instead — removed here rather than left to
- * accumulate, since a `Graphics` object persists across frames for a given
- * entity while its drawing content does not).
- */
-class PixiGmlDrawTarget implements GmlDrawTarget {
-  private _color = 0x000000;
-  /** Persistent draw-state font/alignment/alpha — GameMaker's `draw_set_*` calls mutate these until changed again, applied to the next `text()`/sprite draw call. Reset to defaults on every construction (every `onDraw`/`onDrawGui` dispatch), matching this class's own "rebuilt fresh every call, no cross-frame leakage" doc comment above. */
-  private _fontFamily: string | undefined;
-  private _halign = 0; // fa_left
-  private _valign = 0; // fa_top
-  private _alpha = 1;
-
-  constructor(
-    private readonly _graphics: Graphics,
-    private readonly _resolveTexture: (path: string) => Texture,
-    private readonly _resolveShader: (
-      id: string,
-    ) => CustomShaderFilter | undefined = () => undefined,
-    private readonly _resolveBitmapFont: (
-      id: string,
-    ) => { family: string; def: BitmapFontDef } | undefined = () => undefined,
-    private readonly _resolveSurface: (
-      id: number,
-    ) => Texture | undefined = () => undefined,
-  ) {
-    this._graphics.clear();
-    this._graphics.removeChildren();
-    this._g = this._graphics;
-  }
-
-  /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
-  private _g: Graphics;
-  private _blend = 0;
-  /** Set by `clear()`: colour/alpha the owning surface backend clears its texture to before replaying this target's content. */
-  pendingClear: { colour: number; alpha: number } | undefined;
-
-  /**
-   * `gpu_set_blendmode`: a pixi `Graphics` has one blend mode, so a change
-   * starts a new child `Graphics` segment (in draw order) with that mode;
-   * sprites/text added afterwards are its children and inherit it.
-   */
-  setBlendMode(mode: number): void {
-    if (mode === this._blend) return;
-    this._blend = mode;
-    const seg = new Graphics();
-    seg.blendMode =
-      mode === 1
-        ? "add"
-        : mode === 2
-          ? "max"
-          : mode === 3
-            ? "subtract"
-            : "normal";
-    this._graphics.addChild(seg);
-    this._g = seg;
-  }
-
-  drawSurface(surfaceId: number, x: number, y: number): void {
-    const texture = this._resolveSurface(surfaceId);
-    if (texture === undefined) return;
-    const node = new PixiSprite(texture);
-    node.x = x;
-    node.y = y;
-    node.alpha = this._alpha;
-    this._g.addChild(node);
-  }
-
-  clear(colour: number, alpha: number): void {
-    this._graphics.clear();
-    this._graphics.removeChildren();
-    this._g = this._graphics;
-    this._blend = 0;
-    this.pendingClear = { colour, alpha };
-  }
-
-  ellipse(
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    outline: boolean,
-  ): void {
-    this._g.ellipse((x1 + x2) / 2, (y1 + y2) / 2, (x2 - x1) / 2, (y2 - y1) / 2);
-    if (outline) this._g.stroke({ color: this._color, width: 1 });
-    else this._g.fill({ color: this._color, alpha: this._alpha });
-  }
-
-  triangle(
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    x3: number,
-    y3: number,
-    outline: boolean,
-  ): void {
-    this._g.poly([x1, y1, x2, y2, x3, y3]);
-    if (outline) this._g.stroke({ color: this._color, width: 1 });
-    else this._g.fill({ color: this._color, alpha: this._alpha });
-  }
-
-  setColor(hex: number): void {
-    this._color = hex;
-  }
-
-  setFont(fontId: string): void {
-    this._fontFamily = fontId;
-  }
-
-  setHalign(align: number): void {
-    this._halign = align;
-  }
-
-  setValign(align: number): void {
-    this._valign = align;
-  }
-
-  setAlpha(alpha: number): void {
-    this._alpha = alpha;
-  }
-
-  /** `shader_set`/`shader_reset` — every sprite-shaped draw call made while a shader is active gets that shader's shared Filter (vector shapes/text drawn on the `Graphics` itself are not filtered). */
-  setShader(shaderId: string | null): void {
-    this._shader =
-      shaderId === null ? undefined : this._resolveShader(shaderId);
-  }
-
-  private _shader: CustomShaderFilter | undefined;
-
-  private _shade(pixiSprite: PixiSprite): void {
-    if (this._shader !== undefined) pixiSprite.filters = [this._shader];
-  }
-
-  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void {
-    this._g.rect(x1, y1, x2 - x1, y2 - y1);
-    if (outline) this._g.stroke({ color: this._color, width: 1 });
-    else this._g.fill({ color: this._color, alpha: this._alpha });
-  }
-
-  circle(x: number, y: number, r: number, outline: boolean): void {
-    this._g.circle(x, y, r);
-    if (outline) this._g.stroke({ color: this._color, width: 1 });
-    else this._g.fill({ color: this._color, alpha: this._alpha });
-  }
-
-  text(x: number, y: number, text: string): void {
-    const bitmap =
-      this._fontFamily !== undefined
-        ? this._resolveBitmapFont(this._fontFamily)
-        : undefined;
-    // A registered bitmap font (a GMS2 font's pre-rendered atlas) draws through
-    // pixi `BitmapText`; both classes expose `anchor`/`alpha`/`x`/`y`, so the
-    // alignment code below is shared. `fill` tints the (white) glyphs.
-    const label: Text | BitmapText =
-      bitmap !== undefined
-        ? new BitmapText({
-            text,
-            style: {
-              fontFamily: bitmap.family,
-              fontSize: bitmap.def.size,
-              fill: this._color,
-            },
-          })
-        : new Text({
-            text,
-            style: {
-              fill: this._color,
-              ...(this._fontFamily !== undefined
-                ? { fontFamily: this._fontFamily }
-                : {}),
-            },
-          });
-    // `fa_left`/`fa_top` (both 0) need no anchor at all — pixi's own default
-    // anchor (0,0) already puts (x,y) at the text's top-left corner, exactly
-    // matching GameMaker's own default alignment.
-    label.anchor.set(
-      this._halign === 1 ? 0.5 : this._halign === 2 ? 1 : 0,
-      this._valign === 1 ? 0.5 : this._valign === 2 ? 1 : 0,
-    );
-    label.alpha = this._alpha;
-    label.x = x;
-    label.y = y;
-    this._g.addChild(label);
-  }
-
-  line(x1: number, y1: number, x2: number, y2: number): void {
-    this._g
-      .moveTo(x1, y1)
-      .lineTo(x2, y2)
-      .stroke({ color: this._color, width: 1 });
-  }
-
-  sprite(texturePath: string, x: number, y: number): void {
-    const pixiSprite = new PixiSprite(this._resolveTexture(texturePath));
-    pixiSprite.anchor.set(0.5);
-    pixiSprite.x = x;
-    pixiSprite.y = y;
-    pixiSprite.alpha = this._alpha;
-    this._shade(pixiSprite);
-    this._g.addChild(pixiSprite);
-  }
-
-  spriteExt(
-    texturePath: string,
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    rotationDeg: number,
-    colour: number,
-    alpha: number,
-  ): void {
-    const pixiSprite = new PixiSprite(this._resolveTexture(texturePath));
-    pixiSprite.anchor.set(0.5);
-    pixiSprite.x = x;
-    pixiSprite.y = y;
-    pixiSprite.scale.set(scaleX, scaleY);
-    pixiSprite.rotation = (-rotationDeg * Math.PI) / 180;
-    pixiSprite.tint = colour;
-    pixiSprite.alpha = alpha;
-    this._shade(pixiSprite);
-    this._g.addChild(pixiSprite);
-  }
-
-  /** Crops a fresh `Texture` view onto the base texture's `(left, top, width, height)` source-pixel rectangle — real pixi `Texture`/`Rectangle` API, not an approximation. A crop rect that falls outside the base texture's own bounds is a real pixi runtime error, so callers should keep `left`/`top`/`width`/`height` inside the sprite's actual pixel dimensions, same as GameMaker's own function requires. */
-  private _cropTexture(
-    texturePath: string,
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-  ): Texture {
-    const base = this._resolveTexture(texturePath);
-    return new Texture({
-      source: base.source,
-      frame: new Rectangle(
-        base.frame.x + left,
-        base.frame.y + top,
-        width,
-        height,
-      ),
-    });
-  }
-
-  spritePart(
-    texturePath: string,
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-  ): void {
-    const pixiSprite = new PixiSprite(
-      this._cropTexture(texturePath, left, top, width, height),
-    );
-    pixiSprite.x = x;
-    pixiSprite.y = y;
-    pixiSprite.alpha = this._alpha;
-    this._shade(pixiSprite);
-    this._g.addChild(pixiSprite);
-  }
-
-  spritePartExt(
-    texturePath: string,
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    colour: number,
-    alpha: number,
-  ): void {
-    const pixiSprite = new PixiSprite(
-      this._cropTexture(texturePath, left, top, width, height),
-    );
-    pixiSprite.x = x;
-    pixiSprite.y = y;
-    pixiSprite.scale.set(scaleX, scaleY);
-    pixiSprite.tint = colour;
-    pixiSprite.alpha = alpha;
-    this._shade(pixiSprite);
-    this._g.addChild(pixiSprite);
-  }
-}
-
-/**
- * Pixi implementation of `GmlSurfaceBackend`: one `RenderTexture` per GMS2
- * surface. `beginTarget` hands out a `PixiGmlDrawTarget` over a scratch
- * `Graphics`; `endTarget` renders it into the surface texture (accumulating,
- * unless `draw_clear` was called, in which case the texture is cleared to that
- * colour first). GPU output is not verifiable headless; tests check wiring.
- */
-class PixiSurfaceBackend implements GmlSurfaceBackend {
-  private _next = 1;
-  private readonly _surfaces = new Map<
-    number,
-    { texture: RenderTexture; w: number; h: number }
-  >();
-  private readonly _open = new Map<
-    number,
-    { root: Container; target: PixiGmlDrawTarget }
-  >();
-
-  constructor(
-    private readonly _renderer: () => Renderer,
-    private readonly _makeTarget: (
-      graphics: Graphics,
-      resolveSurface: (id: number) => Texture | undefined,
-    ) => PixiGmlDrawTarget,
-  ) {}
-
-  create(width: number, height: number): number {
-    const w = Math.max(1, Math.floor(width));
-    const h = Math.max(1, Math.floor(height));
-    const id = this._next++;
-    this._surfaces.set(id, {
-      texture: RenderTexture.create({ width: w, height: h }),
-      w,
-      h,
-    });
-    return id;
-  }
-
-  exists(id: number): boolean {
-    return this._surfaces.has(id);
-  }
-
-  free(id: number): void {
-    this._surfaces.get(id)?.texture.destroy(true);
-    this._surfaces.delete(id);
-    this._open.get(id)?.root.destroy({ children: true });
-    this._open.delete(id);
-  }
-
-  width(id: number): number {
-    return this._surfaces.get(id)?.w ?? 0;
-  }
-
-  height(id: number): number {
-    return this._surfaces.get(id)?.h ?? 0;
-  }
-
-  /** The texture `draw_surface` samples; undefined for an unknown/freed surface. */
-  texture(id: number): Texture | undefined {
-    return this._surfaces.get(id)?.texture;
-  }
-
-  beginTarget(id: number): GmlDrawTarget | undefined {
-    if (!this._surfaces.has(id)) return undefined;
-    const root = new Container();
-    const graphics = new Graphics();
-    root.addChild(graphics);
-    const target = this._makeTarget(graphics, (sid) => this.texture(sid));
-    this._open.set(id, { root, target });
-    return target;
-  }
-
-  endTarget(id: number): void {
-    const open = this._open.get(id);
-    const surface = this._surfaces.get(id);
-    this._open.delete(id);
-    if (open === undefined || surface === undefined) return;
-    const clear = open.target.pendingClear;
-    this._renderer().render({
-      container: open.root,
-      target: surface.texture,
-      clear: clear !== undefined,
-      ...(clear !== undefined
-        ? {
-            clearColor: [
-              ((clear.colour >> 16) & 0xff) / 255,
-              ((clear.colour >> 8) & 0xff) / 255,
-              (clear.colour & 0xff) / 255,
-              clear.alpha,
-            ] as [number, number, number, number],
-          }
-        : {}),
-    });
-    open.root.destroy({ children: true });
-  }
-
-  destroy(): void {
-    for (const s of this._surfaces.values()) s.texture.destroy(true);
-    this._surfaces.clear();
-    for (const o of this._open.values()) o.root.destroy({ children: true });
-    this._open.clear();
-  }
-}
-
 export type { TextureLoader };
 
 export interface RenderPipelineOptions extends Omit<
@@ -508,7 +106,7 @@ export interface RenderPipelineOptions extends Omit<
   layers?: LayerSystem;
   /** Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`. */
   textureLoader?: TextureLoader;
-  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when GML `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
+  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
   fonts?: FontRegistry;
 }
 
@@ -550,12 +148,12 @@ interface MountedTilemap {
 
 /**
  * Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
- * `SceneRenderer` shape (ENGINE_DESIGN.md §4 step 7 / §12.3). Uses
+ * `SceneRenderer` shape. Uses
  * `RenderSystem` (the raw PixiJS wrapper) and `LayerSystem` (layer-level
  * ordering/visibility, via `RenderSystem`'s `getLayerContainer`/
  * `syncLayerVisibility`).
  *
- * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
+ * **On PixiJS's native Render Layers, reversed
  * after auditing the actual code:** the original plan called for rebuilding
  * `LayerSystem` on PixiJS v8.7+'s `RenderLayer` API instead of the current
  * per-layer-`Container` approach. Auditing `RenderSystem.ts` first shows why
@@ -583,19 +181,19 @@ interface MountedTilemap {
  * On `renderFrame(main, overlays)` it:
  *
  *  1. Walks `main` for every `Transform`+`Sprite` entity via `scene.each` (the
- *     bulk-iteration path, ENGINE_DESIGN.md §21 — no per-entity Proxy
+ *     bulk-iteration path, the engine design notes — no per-entity Proxy
  *     overhead), keeps a PixiJS sprite in sync with it, and places it on
  *     `layer`/`depth`.
  *  2. Does the same for each overlay `Scene`, but into a dedicated container
  *     appended to the stage *after* the main scene's layer containers — Pixi
  *     draws children in `addChild` order, so later-appended containers paint
  *     on top. Overlays are synced in the array's order, i.e. call order
- *     (ENGINE_DESIGN.md §12.3), so the most recently `loadOverlay()`-ed scene
+ *, so the most recently `loadOverlay()`-ed scene
  *     ends up topmost.
  *  3. Renders the frame.
  *
  * **Multiple live scenes and entity id collisions**: every `Scene` owns its
- * own bitECS `World`, and each `World`'s entity ids independently start from
+ * The bitECS `World`, and each `World`'s entity ids independently start from
  * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
  * therefore has several *different* entities that all report `eid === 3`.
  * Tracking sprites in one flat `Map<number, PixiSprite>` would silently
@@ -635,28 +233,19 @@ export class RenderPipeline implements SceneRenderer {
    * `RenderSystem.syncPostProcessLayerFilters()` each frame so
    * `PostProcessSystem.setLayerFilter()`'s real pixi filters
    * (`BlurFilter`/`ColorMatrixFilter`/`pixi-filters`' `OutlineFilter`, per
-   * RELEASE_PASS.md Track 2) stay in sync with the layer containers this
+   * the release notes Track 2) stay in sync with the layer containers this
    * pipeline owns. Not constructor-only, since a game may not have a
    * `PostProcessSystem` instance yet when the pipeline is constructed.
    */
   private _postProcess: PostProcessSystem | null = null;
 
-  /**
-   * Set via `attachGmlBehaviors()`. When present, `renderFrame()` dispatches
-   * the main scene's `GmlBehaviorState` entities' `onDraw`/`onDrawGui` once
-   * per frame — see `_renderGmlDraw()`'s doc comment for the real mechanism
-   * (a genuine second render pass, not a per-sprite special case).
-   */
-  private _gmlBehaviors: GmlBehaviorSystem | null = null;
-  private _gmlCtx: GmlActionContext | null = null;
-  /** Per-entity pixi `Graphics`, rebuilt (cleared + redrawn) every call — one map per draw kind, keyed by eid, scoped to whichever `Scene` is currently the main scene (mirrors `_tracking`'s per-`Scene` scoping; GML Draw/Draw GUI dispatch only ever covers the main scene today). */
-  private readonly _gmlDrawGraphics = new Map<number, Graphics>();
-  private readonly _gmlDrawGuiGraphics = new Map<number, Graphics>();
+  /** Set via `attachLighting()`. When present, `renderFrame()` calls `RenderSystem.syncLighting()` each frame for the main scene. */
+  private _lighting: { system: LightingSystem; layerId: string } | null = null;
 
   /**
-   * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
+   * the release notes Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
-   * own doc comment) with zero pixi dependency — it was never actually
+   * The doc comment) with zero pixi dependency — it was never actually
    * wired into gameplay rendering, only the IDE's canvas-based preview
    * editor. `mountParticles()`/`unmountParticles()` are that missing wire:
    * one pixi core `ParticleContainer` per mounted emitter (no new
@@ -733,21 +322,7 @@ export class RenderPipeline implements SceneRenderer {
     return entry;
   }
 
-  /**
-   * Attach (or detach, with `null`) a `GmlBehaviorSystem` and the
-   * `GmlActionContext` its dispatch calls should receive. `ctx.drawTarget`
-   * is overwritten per-call by `_renderGmlDraw()` — whatever `drawTarget` is
-   * set on the `ctx` passed here is ignored.
-   */
-  attachGmlBehaviors(
-    system: GmlBehaviorSystem | null,
-    ctx: GmlActionContext | null,
-  ): void {
-    this._gmlBehaviors = system;
-    this._gmlCtx = ctx;
-  }
-
-  /** The camera-independent overlay container `GmlBehaviorSystem`'s Draw GUI dispatch draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
+  /** The camera-independent overlay container UI/overlay content draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
   get guiLayer(): Container {
     return this._render.guiStage;
   }
@@ -785,7 +360,7 @@ export class RenderPipeline implements SceneRenderer {
         scale: true,
         color: true,
       },
-      // GameMaker's `part_type_blend` maps directly onto pixi's own
+      // `part_type_blend` maps directly onto pixi's own
       // per-container `blendMode` — every particle in a `ParticleContainer`
       // shares one blend mode (they're batched together), which is exactly
       // the granularity `ParticleEmitterOptions.blendMode` already models.
@@ -807,30 +382,45 @@ export class RenderPipeline implements SceneRenderer {
 
   private _syncParticles(): void {
     for (const [emitter, container] of this._particleContainers) {
-      container.removeParticles();
       const texture = this._particleTextures.get(emitter) ?? Texture.WHITE;
+      // Reuse pixi `Particle` objects across frames (mutate fields in place)
+      // instead of allocating one per live particle per frame; the container's
+      // `particleChildren` is rewritten to the live prefix and flagged once
+      // via `update()`.
+      let pool = this._particlePool.get(container);
+      if (pool === undefined) {
+        pool = [];
+        this._particlePool.set(container, pool);
+      }
+      const live = container.particleChildren;
+      live.length = 0;
+      let n = 0;
       for (const p of emitter.getParticles()) {
         if (!p.active) continue;
-        container.addParticle(
-          new Particle({
-            texture,
-            x: p.x,
-            y: p.y,
-            scaleX: p.scale,
-            scaleY: p.scale,
-            rotation: p.rotation,
-            anchorX: 0.5,
-            anchorY: 0.5,
-            tint: p.colour,
-            alpha: p.alpha,
-          }),
-        );
+        let part = pool[n];
+        if (part === undefined) {
+          part = new Particle({ texture, anchorX: 0.5, anchorY: 0.5 });
+          pool.push(part);
+        }
+        part.texture = texture;
+        part.x = p.x;
+        part.y = p.y;
+        part.scaleX = p.scale;
+        part.scaleY = p.scale;
+        part.rotation = p.rotation;
+        part.tint = p.colour;
+        part.alpha = p.alpha;
+        live.push(part);
+        n++;
       }
+      container.update();
     }
   }
 
+  private readonly _particlePool = new WeakMap<ParticleContainer, Particle[]>();
+
   /**
-   * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
+   * Constructs the real PixiJS renderer (WebGL by default — the engine design notes
    * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
    * production"; `RenderSystem.init()` already passes
    * `preference: ["webgpu", "webgl"]` to `autoDetectRenderer`, i.e. it tries
@@ -864,9 +454,9 @@ export class RenderPipeline implements SceneRenderer {
 
   /**
    * Thin passthrough to `RenderSystem.renderMultiCamera()` — game code
-   * (and `GmsProjectRuntime`, once wired) talks to `RenderPipeline`, never
+   * (and the runtime) talks to `RenderPipeline`, never
    * the lower-level `RenderSystem` directly, so this is the real call site
-   * for GameMaker-style multi-view compositing. Does not itself call
+   * for multi-view compositing. Does not itself call
    * `syncEntities()`/`renderFrame()` — call this *instead of*
    * `renderFrame()` for a frame that wants every active camera slot
    * composited, after the usual entity sync.
@@ -879,6 +469,38 @@ export class RenderPipeline implements SceneRenderer {
 
   resize(width: number, height: number): void {
     this._render.resize(width, height);
+  }
+
+  /**
+   * Attach (or detach, with `null`) a `LightingSystem`. While attached,
+   * `renderFrame()` rebuilds the lightmap for the main scene every frame
+   * (`RenderSystem.syncLighting()`) over the camera's visible world rect
+   * and applies it as a filter on `layerId` (default `"default"`).
+   * Detaching removes the filter and frees the lightmap.
+   */
+  attachLighting(lighting: LightingSystem | null, layerId = "default"): void {
+    if (this._lighting !== null && lighting === null) {
+      this._render.clearLighting();
+    }
+    this._lighting = lighting === null ? null : { system: lighting, layerId };
+  }
+
+  /** World-space rect the camera currently shows (stage translate + uniform scale; rotation ignored). */
+  private _visibleWorldRect(): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const stage = this._render.stage;
+    const scale = stage.scale.x !== 0 ? stage.scale.x : 1;
+    const { width: w, height: h } = this._render.renderer;
+    return {
+      x: -stage.x / scale,
+      y: -stage.y / scale,
+      width: w / scale,
+      height: h / scale,
+    };
   }
 
   /**
@@ -897,119 +519,22 @@ export class RenderPipeline implements SceneRenderer {
       this.renderTransitionOverlay(this._postProcess);
     }
     this._syncParticles();
-    this._renderGmlDraw(main);
+    if (this._lighting !== null) {
+      this._render.syncLighting(
+        this._lighting.system,
+        main,
+        this._lighting.layerId,
+        this._visibleWorldRect(),
+      );
+    }
     this._render.render();
-  }
-
-  /**
-   * Runs `GmlBehaviorSystem.renderDraw()`/`renderDrawGui()` for the main
-   * scene, once per frame — a genuine second (well, third counting the
-   * sprite sync) pass through `renderFrame()`, not a conditional bolted into
-   * `_syncOne()`'s per-sprite loop. It has to be a separate pass because the
-   * two draw kinds target structurally different containers: `onDraw`'s
-   * `Graphics` are parented under the `"foreground"` layer container (a
-   * child of `RenderSystem.stage`, so `CameraSystem`'s pan/zoom/rotate
-   * reaches it exactly like any world sprite), while `onDrawGui`'s are
-   * parented under `RenderSystem.guiStage` (a sibling of `stage`, never a
-   * descendant — see that getter's doc comment for why that alone is what
-   * gives Draw GUI its camera independence, with no per-call camera check
-   * anywhere in this method). A per-sprite special case in `_syncOne()`
-   * could not express "draw into a different container tree" at all, since
-   * that method only ever writes to one sprite's existing container.
-   *
-   * Each call's `Graphics` are cleared and redrawn from scratch (never
-   * diffed) — the same rebuild-every-frame tradeoff CLAUDE.md's
-   * "ParticleEmitter renders through a real pixi ParticleContainer" entry
-   * already accepts for particles. `_gmlDrawGraphics`/`_gmlDrawGuiGraphics`
-   * prune any entity that didn't draw this frame (destroyed, or its
-   * behavior module has no `onDraw`/`onDrawGui` this call), so a
-   * `GmlBehaviorState` entity that stops drawing doesn't leave a stale
-   * `Graphics` node in the tree.
-   */
-  private _renderGmlDraw(main: Scene): void {
-    if (this._gmlBehaviors === null || this._gmlCtx === null) return;
-    const worldContainer = this._containerFor("foreground");
-    const guiContainer = this._render.guiStage;
-
-    const drawnWorld = new Set<number>();
-    this._gmlBehaviors.renderDraw(main, this._gmlCtx, (entity) =>
-      this._acquireGmlGraphics(
-        this._gmlDrawGraphics,
-        worldContainer,
-        entity,
-        drawnWorld,
-      ),
-    );
-    this._pruneGmlGraphics(this._gmlDrawGraphics, drawnWorld);
-
-    const drawnGui = new Set<number>();
-    this._gmlBehaviors.renderDrawGui(main, this._gmlCtx, (entity) =>
-      this._acquireGmlGraphics(
-        this._gmlDrawGuiGraphics,
-        guiContainer,
-        entity,
-        drawnGui,
-      ),
-    );
-    this._pruneGmlGraphics(this._gmlDrawGuiGraphics, drawnGui);
-  }
-
-  private _acquireGmlGraphics(
-    table: Map<number, Graphics>,
-    container: Container,
-    entity: Entity,
-    drawnThisFrame: Set<number>,
-  ): GmlDrawTarget {
-    drawnThisFrame.add(entity.eid);
-    let graphics = table.get(entity.eid);
-    if (graphics === undefined) {
-      graphics = new Graphics();
-      container.addChild(graphics);
-      table.set(entity.eid, graphics);
-    }
-    return this._newDrawTarget(graphics, (id) => this.surfaces.texture(id));
-  }
-
-  private _newDrawTarget(
-    graphics: Graphics,
-    resolveSurface: (id: number) => Texture | undefined,
-  ): PixiGmlDrawTarget {
-    return new PixiGmlDrawTarget(
-      graphics,
-      (path) => this._resolveTextureForDraw(path),
-      (id) => this.resolveShaderFilter(id),
-      (id) => this._resolveBitmapFont(id),
-      resolveSurface,
-    );
-  }
-
-  private _surfaceBackend: PixiSurfaceBackend | undefined;
-
-  /** GMS2 surface backend (`surface_create`/`surface_set_target`/`draw_surface`, `compat/gmlSurfaces.ts`); wired into `GmlActionContext.surfaces` by `GmsProjectRuntime`. */
-  get surfaces(): PixiSurfaceBackend {
-    this._surfaceBackend ??= new PixiSurfaceBackend(
-      () => this._render.renderer,
-      (graphics, resolve) => this._newDrawTarget(graphics, resolve),
-    );
-    return this._surfaceBackend;
-  }
-
-  private _pruneGmlGraphics(
-    table: Map<number, Graphics>,
-    drawnThisFrame: Set<number>,
-  ): void {
-    for (const [eid, graphics] of table) {
-      if (drawnThisFrame.has(eid)) continue;
-      graphics.destroy();
-      table.delete(eid);
-    }
   }
 
   /**
    * Paints the scene-transition overlay described by `postProcess`'s
    * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
    * the stage — an overlay-based approach (a single colour rect, never two
-   * live scenes rendered simultaneously). RELEASE_PASS.md
+   * live scenes rendered simultaneously). the release notes
    * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
    * technically buildable (`renderer.render({ target: renderTexture,
    * container })`, pixi v8's real object-form API) but deliberately did
@@ -1158,7 +683,7 @@ export class RenderPipeline implements SceneRenderer {
    * a real pixi core `PerspectiveMesh` whose four corners are copied
    * straight from `Projection3D.x0..y3` (see that component's doc comment
    * for why this copy needs no reinterpretation: both sides already agree
-   * on "clockwise from top-left"). Those corners are `gmlProjection.ts`'s
+   * on "clockwise from top-left"). Those corners are the projection layer's
    * derived *result* — already-absolute positions (a `d3d_transform_set_*`
    * call bakes in translation itself) — so a projected entity's `Transform`
    * is deliberately not applied on top of them; applying both would
@@ -1269,7 +794,123 @@ export class RenderPipeline implements SceneRenderer {
     pixiSprite.visible = sprite.visible;
     pixiSprite.anchor.set(sprite.anchorX, sprite.anchorY);
     pixiSprite.zIndex = sprite.depth;
+    this._resolveSpriteFlash(pixiSprite, entity);
     this._applySpriteShader(pixiSprite, sprite.shader);
+  }
+
+  private readonly _flashPool = new FlashFilterPool();
+  private readonly _flashFilters = new WeakMap<
+    PixiSprite,
+    ColorOverlayFilter
+  >();
+
+  /** Flash filters currently attached (pool checked out). */
+  get activeFlashFilterCount(): number {
+    return this._flashPool.liveCount;
+  }
+
+  /**
+   * One white silhouette texture per source texture, built on first flash.
+   * A flash is then a second, batched sprite over the original (tinted the
+   * flash colour at `amount` alpha), which costs a quad instead of the extra
+   * render pass a filter needs per sprite.
+   */
+  private readonly _silhouettes = new WeakMap<Texture, Texture>();
+  private readonly _flashOverlays = new WeakMap<PixiSprite, PixiSprite>();
+  private readonly _overlayPool: PixiSprite[] = [];
+  private _liveOverlays = 0;
+
+  /** Flash overlays currently attached. */
+  get activeFlashOverlayCount(): number {
+    return this._liveOverlays;
+  }
+
+  /** The white silhouette of `texture` (alpha kept), or `undefined` while it cannot be built. */
+  private _silhouetteOf(texture: Texture): Texture | undefined {
+    const cached = this._silhouettes.get(texture);
+    if (cached !== undefined) return cached;
+    if (
+      !this._render.hasRenderer ||
+      texture === Texture.EMPTY ||
+      texture === Texture.WHITE ||
+      texture.orig.width <= 0 ||
+      texture.orig.height <= 0
+    )
+      return undefined;
+    const target = RenderTexture.create({
+      width: texture.orig.width,
+      height: texture.orig.height,
+      resolution: texture.source.resolution,
+    });
+    const source = new PixiSprite(texture);
+    const filter = new ColorOverlayFilter();
+    filter.color = 0xffffff;
+    filter.alpha = 1;
+    source.filters = [filter];
+    this._render.renderer.render({ container: source, target, clear: true });
+    source.destroy();
+    filter.destroy();
+    this._silhouettes.set(texture, target);
+    return target;
+  }
+
+  private _releaseFlashOverlay(pixiSprite: PixiSprite): void {
+    const overlay = this._flashOverlays.get(pixiSprite);
+    if (overlay === undefined) return;
+    this._flashOverlays.delete(pixiSprite);
+    pixiSprite.removeChild(overlay);
+    this._liveOverlays--;
+    this._overlayPool.push(overlay);
+  }
+
+  /**
+   * While the entity's `SpriteFlash.amount` is above 0 the sprite shows a
+   * silhouette overlay; the pooled `ColorOverlayFilter` remains the fallback
+   * for a texture whose silhouette cannot be built (no renderer yet, a
+   * texture still loading). `_applySpriteShader` attaches/detaches the filter.
+   */
+  private _resolveSpriteFlash(
+    pixiSprite: PixiSprite,
+    entity: { has(c: unknown): boolean; get(c: never): unknown },
+  ): void {
+    const flash = entity.has(SpriteFlash)
+      ? (entity.get(SpriteFlash as never) as { color: number; amount: number })
+      : undefined;
+    const held = this._flashFilters.get(pixiSprite);
+    if (flash === undefined || !(flash.amount > 0)) {
+      this._releaseFlashOverlay(pixiSprite);
+      if (held !== undefined) {
+        this._flashFilters.delete(pixiSprite);
+        this._flashPool.release(held);
+      }
+      return;
+    }
+    const silhouette = this._silhouetteOf(pixiSprite.texture);
+    if (silhouette !== undefined) {
+      if (held !== undefined) {
+        this._flashFilters.delete(pixiSprite);
+        this._flashPool.release(held);
+      }
+      let overlay = this._flashOverlays.get(pixiSprite);
+      if (overlay === undefined) {
+        overlay = this._overlayPool.pop() ?? new PixiSprite(silhouette);
+        this._flashOverlays.set(pixiSprite, overlay);
+        pixiSprite.addChild(overlay);
+        this._liveOverlays++;
+      }
+      if (overlay.texture !== silhouette) overlay.texture = silhouette;
+      overlay.anchor.copyFrom(pixiSprite.anchor);
+      overlay.tint = flash.color;
+      overlay.alpha = flash.amount;
+      return;
+    }
+    this._releaseFlashOverlay(pixiSprite);
+    if (held !== undefined) {
+      this._flashPool.configure(held, flash.color, flash.amount);
+      return;
+    }
+    const f = this._flashPool.acquire(flash.color, flash.amount);
+    this._flashFilters.set(pixiSprite, f);
   }
 
   /** Shared `CustomShaderFilter` per registered shader id, built lazily on first use. */
@@ -1287,20 +928,20 @@ export class RenderPipeline implements SceneRenderer {
    * The one live Filter for a registered shader id (`undefined` when the id
    * isn't registered), shared by every entity/draw call using that shader —
    * never allocated per frame. Re-registering a shader rebuilds it; uniform
-   * writes (`setGmlShaderUniform`) are copied into the Filter here, and only
+   * writes (`setShaderUniform`) are copied into the Filter here, and only
    * when the registry's version for that shader changed.
    *
    * GPU compilation of the generated program is not verified headless: the
    * tests cover the wiring (which Filter lands on which sprite), not pixels.
    */
   resolveShaderFilter(id: string): CustomShaderFilter | undefined {
-    const source = getGmlShader(id);
+    const source = getShader(id);
     if (source === undefined) return undefined;
-    const version = getGmlShaderVersion(id);
+    const version = getShaderVersion(id);
     let entry = this._shaderFilters.get(id);
-    const registration = getGmlShaderUniforms(id);
+    const registration = getShaderUniforms(id);
     if (entry === undefined || entry.source !== source) {
-      const built = buildGmlShaderFilter(id);
+      const built = buildShaderFilter(id);
       if (built === undefined) return undefined;
       entry = {
         filter: built.filter,
@@ -1309,9 +950,10 @@ export class RenderPipeline implements SceneRenderer {
         source,
       };
       this._shaderFilters.set(id, entry);
+      this._render.warnIfGlOnlyFilter(built.filter);
     }
     if (entry.appliedVersion !== version && registration !== undefined) {
-      entry.appliedVersion = applyGmlShaderUniforms(
+      entry.appliedVersion = applyShaderUniforms(
         entry.filter,
         entry.uniforms,
         id,
@@ -1320,30 +962,25 @@ export class RenderPipeline implements SceneRenderer {
     return entry.filter;
   }
 
-  /** Sets a tracked sprite's `.filters` to `[sharedFilter]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
+  /** Sets a tracked sprite's `.filters` to `[sharedShader?, flash?]`, or clears it — no write at all when already correct, so steady state allocates nothing. */
   private _applySpriteShader(
     pixiSprite: PixiSprite,
     shaderId: string | undefined,
   ): void {
-    const filter =
+    const shader =
       shaderId !== undefined && shaderId !== ""
         ? this.resolveShaderFilter(shaderId)
         : undefined;
+    const flash = this._flashFilters.get(pixiSprite);
     const current = pixiSprite.filters as readonly unknown[] | null | undefined;
-    if (filter === undefined) {
-      if (current !== null && current !== undefined && current.length > 0) {
-        pixiSprite.filters = null;
-      }
+    const want: unknown[] = [];
+    if (shader !== undefined) want.push(shader);
+    if (flash !== undefined) want.push(flash);
+    const have = current ?? [];
+    if (have.length === want.length && want.every((f, i) => have[i] === f)) {
       return;
     }
-    if (
-      current === null ||
-      current === undefined ||
-      current.length !== 1 ||
-      current[0] !== filter
-    ) {
-      pixiSprite.filters = [filter];
-    }
+    pixiSprite.filters = want.length > 0 ? (want as never) : null;
   }
 
   /**
@@ -1526,11 +1163,11 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   /**
-   * Synchronous texture lookup for `draw_sprite` (`PixiGmlDrawTarget.
+   * Synchronous texture lookup for `draw_sprite` (`PixiDrawTarget.
    * sprite()`) — unlike `_applyTexture` above, there is no live tracked
    * `PixiSprite`/`PerspectiveMesh` to update once an async load resolves:
    * a `draw_sprite` call creates a brand-new `Sprite` fresh every dispatch
-   * (GML's own semantic — it's drawn this frame, not a persistent object),
+   * (the semantic — it's drawn this frame, not a persistent object),
    * so there's nothing to retroactively re-texture. Returns the cached
    * texture if already loaded, otherwise kicks off the same shared
    * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`
@@ -1539,8 +1176,11 @@ export class RenderPipeline implements SceneRenderer {
    * placeholder, not a blank hole" fallback `_applyTexture` already uses
    * for an empty path.
    */
-  private _resolveTextureForDraw(path: string): Texture {
-    if (path === "") return Texture.WHITE;
+  private _resolveTextureForDraw(templatePath: string): Texture {
+    if (templatePath === "") return Texture.WHITE;
+    // A multi-frame sprite's path is a `frame_{n}.png` template; `draw_sprite`'s
+    // subimage is not modelled, so it draws frame 0.
+    const path = templatePath.replace("{n}", "0");
     const cached = this._textures.get(path);
     if (cached !== undefined) return cached;
     this._textures
@@ -1689,6 +1329,12 @@ export class RenderPipeline implements SceneRenderer {
   private _removeSprite(tracking: SceneTracking, eid: number): void {
     const pixiSprite = tracking.sprites.get(eid);
     if (pixiSprite === undefined) return;
+    this._releaseFlashOverlay(pixiSprite);
+    const held = this._flashFilters.get(pixiSprite);
+    if (held !== undefined) {
+      this._flashFilters.delete(pixiSprite);
+      this._flashPool.release(held);
+    }
     pixiSprite.parent?.removeChild(pixiSprite);
     pixiSprite.destroy();
     tracking.sprites.delete(eid);
@@ -1763,8 +1409,6 @@ export class RenderPipeline implements SceneRenderer {
     this._shaderFilters.clear();
     this._transitionOverlay?.destroy();
     this._transitionOverlay = null;
-    this._surfaceBackend?.destroy();
-    this._surfaceBackend = undefined;
     this._render.destroy();
     this._layers.destroy();
   }

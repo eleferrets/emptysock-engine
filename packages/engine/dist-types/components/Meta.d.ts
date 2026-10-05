@@ -1,5 +1,5 @@
 /**
- * RELEASE_PASS.md Track 0's deferred "unify `IDEBridge` into `QueryChannel`"
+ * the release notes Track 0's deferred "unify `IDEBridge` into `QueryChannel`"
  * item named the real blocker precisely: `QueryChannel`'s `EntitySummary`
  * has no `name`/`tags`/`active` fields the IDE's live Inspector needs,
  * because bitECS entities have no built-in name/tag/active-flag notion —
@@ -15,16 +15,16 @@
  * join/split serialization tax for something bitECS/`ComponentRegistry`
  * already stores as a plain field.
  *
- * `solid` mirrors GameMaker's own per-object "Solid" checkbox
- * (`compat/gmlCollisionQueries.ts`'s `place_free`/`position_free` read it),
- * independent of whether the entity also has a `PhysicsBody` — GameMaker's
- * classic non-physics DnD/GML games use "solid" as a plain instance flag,
+ * `solid` mirrors the per-object "Solid" checkbox
+ *,
+ * independent of whether the entity also has a `PhysicsBody` —
+ * classic non-physics games use "solid" as a plain instance flag,
  * not a physics-engine concept, and `Meta` is already the one component
- * `gms2-codegen.ts`'s generated prefabs carry for exactly this kind of
+ * generated prefabs carry for exactly this kind of
  * per-instance, editor-visible flag.
  *
- * `persistent` mirrors GameMaker's per-object "Persistent" checkbox;
- * `GmsProjectRuntime` carries such entities across a room change.
+ * `persistent` mirrors per-object "Persistent" checkbox;
+ * the runtime carries such entities across a room change.
  */
 export declare const Meta: import("../Component.js").ComponentDef<{
   name: string;

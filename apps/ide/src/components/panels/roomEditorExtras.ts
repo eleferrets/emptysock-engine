@@ -1,5 +1,5 @@
 /**
- * Pure helpers for editing the parts of an imported room's `.scene.json` the
+ * Pure helpers for editing the parts of an scene's `.scene.json` the
  * Room Editor's canvas does not draw as prefab instances: direct `entities`
  * (e.g. converted background layers) and camera `views`/`viewsEnabled`.
  * Every function returns a new `extra` record; unknown fields are preserved.
@@ -7,6 +7,8 @@
 export type Extra = Record<string, unknown>;
 
 export interface EditableView {
+  /** Stable view id (`SceneViewDef.id`). */
+  id: string;
   visible: boolean;
   worldX: number;
   worldY: number;
@@ -21,6 +23,8 @@ export interface EditableView {
   speedX: number;
   speedY: number;
   followObject?: string;
+  /** In-file entity reference a view follows (`follow.entity`); carried through unedited. */
+  followEntity?: { readonly $ref: string };
 }
 
 export const VIEW_NUMBER_FIELDS = [
@@ -63,8 +67,11 @@ export function patchView(
   return { ...extra, views: next };
 }
 
-interface EntityLike {
-  components?: { component: string; overrides?: Record<string, unknown> }[];
+/** A v2 scene entity (`SceneEntity`): components are a name-keyed map of overrides. */
+export interface EntityLike {
+  id?: string;
+  name?: string;
+  components?: Record<string, { data: Record<string, unknown> }>;
 }
 
 export function getEntities(extra: Extra): EntityLike[] {
@@ -73,8 +80,7 @@ export function getEntities(extra: Extra): EntityLike[] {
 }
 
 export function entityPosition(e: EntityLike): { x: number; y: number } {
-  const t = e.components?.find((c) => c.component === "Transform");
-  const o = t?.overrides ?? {};
+  const o = e.components?.["Transform"]?.data ?? {};
   return {
     x: typeof o["x"] === "number" ? o["x"] : 0,
     y: typeof o["y"] === "number" ? o["y"] : 0,
@@ -92,28 +98,24 @@ export function moveEntity(
   if (index < 0 || index >= entities.length) return extra;
   const next = entities.map((e, i) => {
     if (i !== index) return e;
-    const comps = [...(e.components ?? [])];
-    const ti = comps.findIndex((c) => c.component === "Transform");
-    if (ti >= 0) {
-      const t = comps[ti];
-      if (t) comps[ti] = { ...t, overrides: { ...t.overrides, x, y } };
-    } else {
-      comps.push({ component: "Transform", overrides: { x, y } });
-    }
-    return { ...e, components: comps };
+    const t = e.components?.["Transform"];
+    return {
+      ...e,
+      components: {
+        ...(e.components ?? {}),
+        Transform: { ...t, data: { ...(t?.data ?? {}), x, y } },
+      },
+    };
   });
   return { ...extra, entities: next };
 }
 
-/** Human label for an entity row: its Meta.name, first Sprite path, or "Entity N". */
+/** Human label for an entity row: its `name`, Meta.name, first Sprite path, or "Entity N". */
 export function entityLabel(e: EntityLike, index: number): string {
-  const name = e.components?.find((c) => c.component === "Meta")?.overrides?.[
-    "name"
-  ];
+  if (typeof e.name === "string" && e.name !== "") return e.name;
+  const name = e.components?.["Meta"]?.data["name"];
   if (typeof name === "string" && name !== "") return name;
-  const tex = e.components?.find((c) => c.component === "Sprite")?.overrides?.[
-    "texturePath"
-  ];
+  const tex = e.components?.["Sprite"]?.data["texturePath"];
   if (typeof tex === "string" && tex !== "") return tex.split("/").pop() ?? tex;
   return `Entity ${index}`;
 }
@@ -200,9 +202,7 @@ function compNumber(
   field: string,
   fallback: number,
 ): number {
-  const v = e.components?.find((c) => c.component === component)?.overrides?.[
-    field
-  ];
+  const v = e.components?.[component]?.data[field];
   return typeof v === "number" ? v : fallback;
 }
 
@@ -287,14 +287,14 @@ export function hitTestExtras(
 
 /** Object-type names offered when choosing a view's follow target: every prefab placed in the room. */
 export function followCandidates(
-  instances: readonly { prefab: string }[],
+  instances: readonly { prefab: { name: string } }[],
 ): string[] {
-  return [...new Set(instances.map((i) => i.prefab))].sort();
+  return [...new Set(instances.map((i) => i.prefab.name))].sort();
 }
 
 // ── Drawing a brand-new view ─────────────────────────────────────────────────
 
-/** GameMaker has 8 view slots per room. */
+/** Rooms have 8 view slots per room. */
 export const MAX_VIEWS = 8;
 
 /** Smallest rectangle (room pixels, each side) a drag must cover to create a view. */
@@ -315,7 +315,7 @@ export function rectFromDrag(
   };
 }
 
-/** True for an imported room's untouched placeholder slot (hidden, at the origin, following nothing). */
+/** True for a scene's untouched placeholder slot (hidden, at the origin, following nothing). */
 function isUnusedView(v: EditableView): boolean {
   return (
     !v.visible &&
@@ -327,10 +327,10 @@ function isUnusedView(v: EditableView): boolean {
 
 /**
  * Adds a new visible view looking at `rect`. It takes the first unused
- * placeholder slot (imported rooms carry 8 hidden ones) or appends, up to
+ * placeholder slot (room scenes carry 8 hidden ones) or appends, up to
  * `MAX_VIEWS`; returns the unchanged `extra` and `index: -1` when the room is
  * full or `rect` is smaller than `MIN_NEW_VIEW`. The port starts as the same
- * size at the window origin, the values GameMaker's own editor defaults to;
+ * size at the window origin, the values own editor defaults to;
  * views are switched on because a view that cannot show is no use.
  */
 export function addView(
@@ -340,7 +340,13 @@ export function addView(
   if (rect.w < MIN_NEW_VIEW || rect.h < MIN_NEW_VIEW)
     return { extra, index: -1 };
   const views = getViews(extra);
+  const usedIds = new Set(views.map((v) => v.id));
+  let n = views.length;
+  while (usedIds.has(`v${n}`)) n++;
+  const slot = views.findIndex(isUnusedView);
   const fresh: EditableView = {
+    // A recycled placeholder slot keeps its id; a new slot gets a fresh one.
+    id: slot >= 0 ? (views[slot]?.id ?? `v${n}`) : `v${n}`,
     visible: true,
     worldX: Math.round(rect.x),
     worldY: Math.round(rect.y),
@@ -355,7 +361,6 @@ export function addView(
     speedX: -1,
     speedY: -1,
   };
-  const slot = views.findIndex(isUnusedView);
   if (slot >= 0) {
     const next = views.map((v, i) => (i === slot ? fresh : v));
     return {

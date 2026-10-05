@@ -64,7 +64,7 @@ describe("runCodegenPrefabs", () => {
   it("writes a .d.ts using @emptysock/engine's own built-in components, with no --components needed", async () => {
     const prefabFile = {
       prefabName: "PlayerPrefab",
-      components: [{ component: "Transform" }],
+      components: { Transform: { data: {} } },
     };
     fs.writeFileSync(
       path.join(dir, "Player.prefab.json"),
@@ -86,7 +86,7 @@ describe("runCodegenPrefabs", () => {
       path.join(dir, "Player.prefab.json"),
       JSON.stringify({
         prefabName: "PlayerPrefab",
-        components: [{ component: "Transform" }],
+        components: { Transform: { data: {} } },
       }),
     );
     const outPath = path.join(dir, "generated", "out.d.ts");
@@ -111,7 +111,7 @@ describe("runCodegenPrefabs", () => {
       path.join(dir, "Broken.prefab.json"),
       JSON.stringify({
         prefabName: "Broken",
-        components: [{ component: "NopeNotRegistered" }],
+        components: { NopeNotRegistered: { data: {} } },
       }),
     );
 
@@ -126,7 +126,7 @@ describe("runCodegenPrefabs", () => {
       path.join(dir, "Enemy.prefab.json"),
       JSON.stringify({
         prefabName: "EnemyPrefab",
-        components: [{ component: "Transform" }, { component: "Health" }],
+        components: { Transform: { data: {} }, Health: { data: {} } },
       }),
     );
     const componentsModulePath = path.join(dir, "custom-components.mjs");

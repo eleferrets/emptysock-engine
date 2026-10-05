@@ -2,7 +2,7 @@
 
 This document is the original design rationale for the Widget system. The system is now fully implemented. For the current API reference see [`docs/reference/systems/ui-system.md`](reference/systems/ui-system.md) and for the full offline manual page see [`docs/manual/22-ui-widgets.md`](manual/22-ui-widgets.md).
 
-Reference: GameMaker's Flex Panel / UI layer. The goal is the same object model for code and the visual editor — anything you drag together you can script, and anything you script shows up in the editor.
+The goal is the same object model for code and the visual editor — anything you drag together you can script, and anything you script shows up in the editor.
 
 ---
 

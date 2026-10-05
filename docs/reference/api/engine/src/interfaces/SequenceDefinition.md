@@ -6,7 +6,7 @@
 
 # Interface: SequenceDefinition
 
-Defined in: [engine/src/systems/SequenceSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L26)
+Defined in: engine/src/systems/SequenceSystem.ts:26
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/SequenceSystem.ts:26](https://github.com/eleferr
 
 > **duration**: `number`
 
-Defined in: [engine/src/systems/SequenceSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L27)
+Defined in: engine/src/systems/SequenceSystem.ts:27
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/systems/SequenceSystem.ts:27](https://github.com/eleferr
 
 > **tracks**: [`SequenceTrackDef`](SequenceTrackDef.md)[]
 
-Defined in: [engine/src/systems/SequenceSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L28)
+Defined in: engine/src/systems/SequenceSystem.ts:28

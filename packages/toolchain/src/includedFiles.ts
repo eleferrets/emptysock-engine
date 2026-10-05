@@ -1,26 +1,16 @@
 /**
- * Project-level "Included Files" — GameMaker's real Datafiles/Included
- * Files feature (arbitrary, non-code files bundled with the build, some
- * flagged for only certain platforms), for a project authored directly on
- * this engine rather than imported from GMS2. This is a distinct concept
- * from `gms2-includedfiles-import.ts`, which converts *that* GMS2-specific
- * resource kind during a one-time import; this module is the ongoing,
- * engine-native equivalent a game keeps authoring after import (or from
- * scratch), consumed by real build steps (`desktopBuild.ts` today).
+ * Project-level "Included Files" feature (arbitrary, non-code files bundled with the build, some
+ * flagged for only certain platforms), for a project authored on
+ * this engine, consumed by real build steps (`desktopBuild.ts` today).
  *
  * The manifest lives at `<projectDir>/build-included-files.json` by default
  * (a plain, hand-editable JSON file — no IDE authoring surface yet, the
  * same "toolchain emits/reads data, wiring an editor UI is a separate
  * follow-up" split this codebase already draws elsewhere, e.g. Prefab
  * `.d.ts` codegen). Deliberately NOT named `included-files.json` — that
- * name is already taken by `gms2-includedfiles-import.ts`'s own generated
- * output file in a GMS2 import's output directory, which uses a different,
- * incompatible shape (`{ includedFiles: [{ name, outPath, copyToMask }] }`,
- * one entry per already-copied GameMaker Included File, vs. this module's
- * `{ files: [{ path, platforms? }] }`, entries the *build* step still has
- * to resolve and copy). Reusing that filename for a different schema would
- * make a GMS2-imported project's own generated file collide with this
- * one's default lookup path.
+ * name is reserved for a generated output manifest with a different,
+ * incompatible shape; this module's `{ files: [{ path, platforms? }] }`
+ * lists entries the *build* step still has to resolve and copy.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -29,14 +19,7 @@ export const INCLUDED_FILES_MANIFEST_NAME = "build-included-files.json";
 
 /** Mirrors the platform vocabulary `cli.ts`'s `export --platform` and `desktopBuild.ts`'s `DesktopPlatform` already use, plus "all" as an explicit wildcard. */
 export type IncludedFilePlatform =
-  | "all"
-  | "windows"
-  | "mac"
-  | "linux"
-  | "web"
-  | "android"
-  | "ios"
-  | "raspi";
+  "all" | "windows" | "mac" | "linux" | "web" | "android" | "ios" | "raspi";
 
 export interface IncludedFileEntry {
   /** File or directory path, relative to the manifest's own directory (a directory copies recursively). */

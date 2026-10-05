@@ -121,8 +121,7 @@ describe("BattleSystem full combat loop", () => {
     expect(events.some((e) => e.kind === "status-applied")).toBe(true);
 
     const applied = events.find((e) => e.kind === "status-applied") as
-      | Extract<BattleEvent, { kind: "status-applied" }>
-      | undefined;
+      Extract<BattleEvent, { kind: "status-applied" }> | undefined;
     expect(applied?.effectId).toBe("poisoned");
 
     battle.destroy();

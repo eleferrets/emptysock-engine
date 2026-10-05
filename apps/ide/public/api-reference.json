@@ -294,13 +294,6 @@
       "types": {
         "LayerConfig": "{ name: string; index: number; visible: boolean }"
       }
-    },
-    "GMLCompat": {
-      "description": "Namespace export (import * as GMLCompat from '@emptysock/engine') providing ~50 thin wrappers that map GameMaker Language built-in function names to JS/EmptySock equivalents. Covers math (lerp, clamp, sign, frac, lengthdir_x/y, point_distance/direction, degtorad, radtodeg, irandom, irandom_range, random, random_range, choose), strings (string, string_length, string_copy, string_pos, string_lower, string_upper, string_repeat, string_delete), ds_map and ds_list stubs backed by JS Map/Array, room_width/room_height (configurable via setRoomSize), show_message (console.log), and game_end (no-op with warning). Import from '@emptysock/engine/compat/gml' for tree-shakeable individual functions.",
-      "kind": "namespace",
-      "helpers": {
-        "setRoomSize": "(w: number, h: number) => void  // configure room_width() / room_height() return values"
-      }
     }
   }
 }

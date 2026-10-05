@@ -6,7 +6,7 @@
 
 # Interface: WindowConfig
 
-Defined in: [toolchain/src/window-config.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L6)
+Defined in: toolchain/src/window-config.ts:6
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [toolchain/src/window-config.ts:6](https://github.com/eleferrets/emp
 
 > **height**: `number`
 
-Defined in: [toolchain/src/window-config.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L9)
+Defined in: toolchain/src/window-config.ts:9
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [toolchain/src/window-config.ts:9](https://github.com/eleferrets/emp
 
 > **minHeight**: `number`
 
-Defined in: [toolchain/src/window-config.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L13)
+Defined in: toolchain/src/window-config.ts:13
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [toolchain/src/window-config.ts:13](https://github.com/eleferrets/em
 
 > **minWidth**: `number`
 
-Defined in: [toolchain/src/window-config.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L12)
+Defined in: toolchain/src/window-config.ts:12
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [toolchain/src/window-config.ts:12](https://github.com/eleferrets/em
 
 > **mode**: [`WindowMode`](../type-aliases/WindowMode.md)
 
-Defined in: [toolchain/src/window-config.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L7)
+Defined in: toolchain/src/window-config.ts:7
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [toolchain/src/window-config.ts:7](https://github.com/eleferrets/emp
 
 > **resizable**: `boolean`
 
-Defined in: [toolchain/src/window-config.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L11)
+Defined in: toolchain/src/window-config.ts:11
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [toolchain/src/window-config.ts:11](https://github.com/eleferrets/em
 
 > **title**: `string`
 
-Defined in: [toolchain/src/window-config.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L10)
+Defined in: toolchain/src/window-config.ts:10
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [toolchain/src/window-config.ts:10](https://github.com/eleferrets/em
 
 > **width**: `number`
 
-Defined in: [toolchain/src/window-config.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/window-config.ts#L8)
+Defined in: toolchain/src/window-config.ts:8

@@ -5,6 +5,7 @@ import {
   Container,
   Graphics,
   RenderTexture,
+  RendererType,
   Sprite,
   type Filter,
   type Renderer,
@@ -12,12 +13,12 @@ import {
 import { OutlineFilter, SimpleLightmapFilter } from "pixi-filters";
 import type { LayerSystem } from "./LayerSystem.js";
 import {
-  applyGmlShaderUniforms,
-  buildGmlShaderFilter,
+  applyShaderUniforms,
+  buildShaderFilter,
   type CustomShaderFilter,
 } from "./CustomShaderFilter.js";
 import {
-  getGmlShaderVersion,
+  getShaderVersion,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
@@ -37,13 +38,13 @@ import {
 
 /**
  * The structural shape `renderMultiCamera()` needs from one active camera
- * slot. Re-declared here rather than importing `GmlCameraViewport` from
- * `compat/gmlCamera.ts` — `RenderSystem.ts` is core engine rendering and
- * must stay usable by any game, not just GML-imported ones; `compat/` is a
- * GameMaker-specific translation layer that depends on the engine, never
+ * slot. Re-declared here rather than importing `ActiveCameraViewport` from
+ * the camera compat layer — `RenderSystem.ts` is core engine rendering and
+ * must stay usable by any game, not just ones; `compat/` is a
+ * translation layer that depends on the engine, never
  * the other way around (the same layering rule `RenderPipeline`'s
  * `TileLayerSource` interface already follows for `@emptysock/tilemap`).
- * `compat/gmlCamera.ts`'s exported `GmlCameraViewport` is structurally
+ * the compat layer's exported `ActiveCameraViewport` is structurally
  * identical to this and satisfies it with no adapter needed.
  */
 export interface CameraViewport {
@@ -137,6 +138,11 @@ export interface RenderSystemOptions {
    * gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
    */
   gpuTier?: GPUTier;
+  /**
+   * Renderer backends to try, in order. Default `["webgpu", "webgl"]`; pass
+   * `["webgl"]` to skip WebGPU (several filters only have a GLSL program).
+   */
+  preference?: readonly ("webgpu" | "webgl")[];
 }
 
 export class RenderSystem {
@@ -150,12 +156,12 @@ export class RenderSystem {
    * a sibling container is never touched by that transform no matter what
    * the camera does — this is what makes Draw GUI's screen-space guarantee
    * a structural property of the render tree, not a per-call check. See
-   * CLAUDE.md's "GML behavior dispatch..." entry for the full rationale.
+   * CLAUDE.md's behavior-dispatch entry for the full rationale.
    */
   private _root: Container | null = null;
   /**
    * Camera-independent overlay root, rendered after (i.e. on top of)
-   * `_stage`. `RenderPipeline.guiLayer` exposes this for `GmlBehaviorSystem`
+   * `_stage`. `RenderPipeline.guiLayer` exposes this for behavior-system
    * Draw GUI dispatch; nothing else mounts into it today.
    */
   private _guiStage: Container | null = null;
@@ -178,6 +184,9 @@ export class RenderSystem {
    * long the engine had been running before rain-glass was ever enabled.
    */
   private _rainGlassLastTick: number | null = null;
+
+  /** Host GPU tier from init(), used for the rain filter's "auto" quality. */
+  private _gpuTier: GPUTier | undefined;
   /** Real pixi objects `syncLighting()` builds and reuses across frames — see that method's doc comment. */
   private _lightingFilter: SimpleLightmapFilter | null = null;
   private _lightMapTexture: RenderTexture | null = null;
@@ -192,6 +201,7 @@ export class RenderSystem {
 
   async init(options: RenderSystemOptions = {}): Promise<void> {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
+    this._gpuTier = options.gpuTier;
     const tierDefaults =
       options.gpuTier !== undefined
         ? gpuTierRenderDefaults(options.gpuTier, dpr)
@@ -204,8 +214,8 @@ export class RenderSystem {
       antialias: options.antialias ?? tierDefaults.antialias,
       resolution: options.resolution ?? tierDefaults.resolution,
       powerPreference: "high-performance",
-      preference: ["webgpu", "webgl"],
-      // WebGL needs a back buffer for pixi's advanced blend modes (GML
+      preference: [...(options.preference ?? ["webgpu", "webgl"])],
+      // WebGL needs a back buffer for pixi's advanced blend modes (
       // bm_subtract etc.); pixi only pays for it on frames that use one.
       useBackBuffer: true,
     });
@@ -326,8 +336,8 @@ export class RenderSystem {
 
   /**
    * Synchronise layer container position from `LayerSystem.getOffset()` —
-   * the real render-side half of GameMaker's `layer_x`/`layer_y` compat
-   * functions (`compat/gmlLayer.ts`). A layer with no offset ever set reads
+   * the real render-side half of `layer_x`/`layer_y` compat
+   * functions. A layer with no offset ever set reads
    * `{ x: 0, y: 0 }` (`LayerSystem.getOffset()`'s own default), so an
    * offset-free scene renders byte-identical to before this existed. Call
    * once per frame alongside `syncLayerVisibility()`.
@@ -348,6 +358,7 @@ export class RenderSystem {
    * there produces is what gets attached here.
    */
   addLayerShaderFilter(layerName: string, filter: Filter): void {
+    this.warnIfGlOnlyFilter(filter);
     const container = this.getLayerContainer(layerName);
     // `Container.filters` is typed `readonly Filter[]` (never null/undefined)
     // but a freshly constructed Container actually has it unset until first
@@ -356,7 +367,30 @@ export class RenderSystem {
     container.filters = [...(container.filters ?? []), filter];
   }
 
-  private readonly _layerGmlShaders = new Map<
+  private _glOnlyFilterWarned = false;
+
+  /**
+   * Logs ONE clear warning (per RenderSystem) when the active renderer is
+   * WebGPU and `filter` carries only a GL program: pixi skips such a filter
+   * under WebGPU, so it would otherwise silently render nothing. Called for
+   * every layer filter attach and by `RenderPipeline` for per-entity shaders.
+   */
+  warnIfGlOnlyFilter(filter: Filter): void {
+    if (this._glOnlyFilterWarned || this._renderer === null) return;
+    if (this._renderer.type !== RendererType.WEBGPU) return;
+    // Pixi's own FilterSystem skips a filter when this mask test fails.
+    if ((filter.compatibleRenderers & this._renderer.type) !== 0) return;
+    this._glOnlyFilterWarned = true;
+    const name =
+      (filter as { shaderName?: string }).shaderName ?? filter.constructor.name;
+    console.warn(
+      `[emptysock] The WebGPU renderer is active but the shader filter "${name}" has only a GLSL (WebGL) program, so it will render nothing. ` +
+        `Give it a WGSL program (imported shaders get one automatically when the GLSL-to-WGSL conversion succeeds) or run with the WebGL renderer. ` +
+        `This warning is shown once; other GL-only filters are affected the same way.`,
+    );
+  }
+
+  private readonly _layerShaders = new Map<
     string,
     {
       layer: string;
@@ -368,29 +402,29 @@ export class RenderSystem {
   >();
 
   /**
-   * Attaches a shader registered via `registerGmlShader` (what an
-   * importer-emitted `assets/<name>.shader.ts` does on import) to a layer's
-   * container as a real per-layer Filter. The importer's sprite-quad vertex
+   * Attaches a shader registered via `registerShader` (what an
+   * generated `assets/<name>.shader.ts` does on import) to a layer's
+   * container as a real per-layer Filter. The asset pipeline's sprite-quad vertex
    * stage is adapted to pixi's filter contract (`adaptVertex`, same
    * substitution the per-entity `Sprite.shader` path uses), so the quad no
    * longer collapses. Returns the filter (pass it to
    * `removeLayerShaderFilter` to detach), or `undefined` for an unregistered
    * id. `shader_set_uniform_*` writes made later are copied in by
-   * `syncLayerGmlShaders()`, which `render()` calls each frame.
+   * `syncLayerShaders()`, which `render()` calls each frame.
    */
-  addLayerGmlShader(
+  addLayerShader(
     layerName: string,
     shaderId: string,
   ): CustomShaderFilter | undefined {
-    const built = buildGmlShaderFilter(shaderId);
+    const built = buildShaderFilter(shaderId);
     if (built === undefined) return undefined;
-    const appliedVersion = applyGmlShaderUniforms(
+    const appliedVersion = applyShaderUniforms(
       built.filter,
       built.uniforms,
       shaderId,
     );
     this.addLayerShaderFilter(layerName, built.filter);
-    this._layerGmlShaders.set(`${layerName}\u0000${shaderId}`, {
+    this._layerShaders.set(`${layerName}\u0000${shaderId}`, {
       layer: layerName,
       id: shaderId,
       filter: built.filter,
@@ -400,12 +434,12 @@ export class RenderSystem {
     return built.filter;
   }
 
-  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's registry version changed. */
-  syncLayerGmlShaders(): void {
-    for (const e of this._layerGmlShaders.values()) {
-      const version = getGmlShaderVersion(e.id);
+  /** Re-copies registry uniform values into every filter `addLayerShader` attached, only when that shader's registry version changed. */
+  syncLayerShaders(): void {
+    for (const e of this._layerShaders.values()) {
+      const version = getShaderVersion(e.id);
       if (version === e.appliedVersion) continue;
-      e.appliedVersion = applyGmlShaderUniforms(e.filter, e.uniforms, e.id);
+      e.appliedVersion = applyShaderUniforms(e.filter, e.uniforms, e.id);
     }
   }
 
@@ -414,15 +448,15 @@ export class RenderSystem {
     const container = this.getLayerContainer(layerName);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- pixi.js's own type is wrong about this at runtime
     container.filters = (container.filters ?? []).filter((f) => f !== filter);
-    for (const [key, e] of this._layerGmlShaders) {
-      if (e.filter === filter) this._layerGmlShaders.delete(key);
+    for (const [key, e] of this._layerShaders) {
+      if (e.filter === filter) this._layerShaders.delete(key);
     }
   }
 
   /**
    * Reads `postProcess.layerFilters` and applies the real PixiJS filter for
    * each entry to that layer's container, per the effect-to-library mapping
-   * decided in RELEASE_PASS.md Track 0's scope-hardening section: `blur` →
+   * decided in the release notes Track 0's scope-hardening section: `blur` →
    * pixi.js core's `BlurFilter`; `brightness`/`contrast`/`saturate`/
    * `hue-rotate`/`invert`/`colour-grade`/`colourblind` → pixi.js core's
    * `ColorMatrixFilter` (colourblind reuses `PostProcessSystem`'s own
@@ -455,7 +489,7 @@ export class RenderSystem {
   }
 
   /**
-   * Advances every live `RainGlassFilter`'s `uTime` uniform by the wall-clock
+   * Ticks every live `RainGlassFilter` (sim step, map upload, `uTime`) by the wall-clock
    * seconds elapsed since the last call that had at least one — droplets
    * fall by real time, not by frame count, so this stays correct under a
    * variable frame rate the same way `Game.update(dt)`'s own delta-time
@@ -520,7 +554,7 @@ export class RenderSystem {
       case "colourblind":
         return new ColorMatrixFilter();
       case "rain-glass":
-        return new RainGlassFilter();
+        return new RainGlassFilter({}, this._gpuTier);
       default:
         return null;
     }
@@ -631,6 +665,19 @@ export class RenderSystem {
           rainOptions.dropletSpeed = opts.dropletSpeed;
         if (opts.streakAmount !== undefined)
           rainOptions.streakAmount = opts.streakAmount;
+        if (opts.quality !== undefined) rainOptions.quality = opts.quality;
+        if (opts.fog !== undefined) rainOptions.fog = opts.fog;
+        if (opts.blur !== undefined) rainOptions.blur = opts.blur;
+        if (opts.slope !== undefined) rainOptions.slope = opts.slope;
+        if (opts.wind !== undefined) rainOptions.wind = opts.wind;
+        if (opts.seed !== undefined) rainOptions.seed = opts.seed;
+        if (opts.wiperEnabled !== undefined || opts.wiperPeriod !== undefined) {
+          rainOptions.wiper = {};
+          if (opts.wiperEnabled !== undefined)
+            rainOptions.wiper.enabled = opts.wiperEnabled;
+          if (opts.wiperPeriod !== undefined)
+            rainOptions.wiper.periodSec = opts.wiperPeriod;
+        }
         rain.setOptions(rainOptions);
         rain.setResolution(
           this._renderer?.width ?? 1,
@@ -669,7 +716,7 @@ export class RenderSystem {
    * bakes its gradient into a texture the first time it's used, and that
    * path has not been verified to run under the headless Node/Vitest harness
    * (no confirmed canvas-free code path) — concentric `Graphics.circle()`
-   * calls are the same primitive `compat/gml.ts`'s `draw_circle` and
+   * calls are the same primitive the compat layer's `draw_circle` and
    * `RenderPipeline`'s scene-transition overlay already use, so this stays
    * on a rendering primitive this codebase has already verified works
    * headless. One `RenderTexture` and one lightmap `Container` are built
@@ -763,7 +810,7 @@ export class RenderSystem {
   }
 
   /**
-   * Real GameMaker-style multi-camera compositing: renders the *same*
+   * Real multi-camera compositing: renders the *same*
    * `_stage` content once per active viewport (each pass using that
    * viewport's own position/zoom/rotation, the exact convention
    * `CameraSystem.update()` already writes to `_stage` — `stage.x =
@@ -785,8 +832,8 @@ export class RenderSystem {
    * single-camera `render()` path never sees any effect from a call here,
    * and `render()` itself is completely untouched by this method's
    * existence. Call this instead of `render()` for a frame that wants
-   * GameMaker's multiple-simultaneous-view-slot rendering (see
-   * `compat/gmlCamera.ts`'s `buildActiveGmlCameraViewports()`, which
+   * multiple-simultaneous-view-slot rendering (see
+   * the compat layer's `buildActiveCameraViewports()`, which
    * produces the `viewports` array this method expects); call `render()` as
    * before for the ordinary single-camera case.
    *
@@ -801,7 +848,7 @@ export class RenderSystem {
    * A real N-full-render-pass-per-frame cost, same caveat
    * `SceneTransitionManager`'s and this file's own `syncLighting()`'s doc
    * comments already raise: bounded by how many camera slots a game
-   * actually activates at once, not GameMaker's fixed 8-slot ceiling, but
+   * actually activates at once, not fixed 8-slot ceiling, but
    * still needs real device profiling before a game leans on many
    * simultaneous cameras — this method does not attempt that profiling.
    */
@@ -809,7 +856,7 @@ export class RenderSystem {
     if (this._renderer === null || this._stage === null) return;
     this.syncLayerVisibility();
     this.syncLayerOffsets();
-    this.syncLayerGmlShaders();
+    this.syncLayerShaders();
 
     // Preserve whatever CameraSystem.update() last wrote to `_stage` so this
     // opt-in path can never leak into the ordinary single-camera render().
@@ -880,6 +927,11 @@ export class RenderSystem {
     this._renderer.render(this._multiCameraCompositor);
   }
 
+  /** `true` once `init()` has built the pixi renderer. */
+  get hasRenderer(): boolean {
+    return this._renderer !== null;
+  }
+
   get renderer(): Renderer {
     if (this._renderer === null)
       throw new Error("RenderSystem not initialized");
@@ -913,7 +965,7 @@ export class RenderSystem {
     // Sync visibility each frame so setVisible() changes are reflected.
     this.syncLayerVisibility();
     this.syncLayerOffsets();
-    this.syncLayerGmlShaders();
+    this.syncLayerShaders();
     this._renderer.render(this._root);
   }
 
@@ -937,7 +989,7 @@ export class RenderSystem {
     this._layerContainers.clear();
     this._defaultContainer = null;
     this._layerSystem = null;
-    this._renderer?.destroy();
+    this._renderer?.destroy({ releaseGlobalResources: true });
     this._renderer = null;
     this._stage = null;
     this._guiStage = null;

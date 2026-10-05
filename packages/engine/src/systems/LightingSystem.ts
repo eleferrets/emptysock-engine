@@ -5,7 +5,7 @@
 // objects). This file never imports pixi.js, so it stays inside the engine
 // environment boundary and is fully unit-testable under plain Node/Vitest.
 //
-// Library-vs-hand-roll audit (RELEASE_PASS.md's "as little engine-original
+// Library-vs-hand-roll audit (the release notes "as little engine-original
 // code as this can honestly get away with" methodology): `pixi-filters@6.1.5`
 // — already an engine dependency, already used by PostProcessSystem's
 // `outline` mapping — ships a real, purpose-built `SimpleLightmapFilter`

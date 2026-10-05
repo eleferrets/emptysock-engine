@@ -6,7 +6,7 @@
 
 # Interface: CGEntry
 
-Defined in: [engine/src/systems/CGGallery.ts:3](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L3)
+Defined in: engine/src/systems/CGGallery.ts:3
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/CGGallery.ts:3](https://github.com/eleferrets/em
 
 > **id**: `string`
 
-Defined in: [engine/src/systems/CGGallery.ts:4](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L4)
+Defined in: engine/src/systems/CGGallery.ts:4
 
 ***
 
@@ -22,17 +22,7 @@ Defined in: [engine/src/systems/CGGallery.ts:4](https://github.com/eleferrets/em
 
 > **imagePath**: `string`
 
-Defined in: [engine/src/systems/CGGallery.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L5)
-
-***
-
-### saveKey?
-
-> `optional` **saveKey?**: `string`
-
-Defined in: [engine/src/systems/CGGallery.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L8)
-
-Save slot key used to persist the unlocked flag. Defaults to `cg_${id}`
+Defined in: engine/src/systems/CGGallery.ts:5
 
 ***
 
@@ -40,4 +30,4 @@ Save slot key used to persist the unlocked flag. Defaults to `cg_${id}`
 
 > `optional` **title?**: `string`
 
-Defined in: [engine/src/systems/CGGallery.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L6)
+Defined in: engine/src/systems/CGGallery.ts:6

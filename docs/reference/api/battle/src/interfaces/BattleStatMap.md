@@ -6,7 +6,7 @@
 
 # Interface: BattleStatMap
 
-Defined in: [battle/src/BattleSystem.ts:119](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L119)
+Defined in: battle/src/BattleSystem.ts:112
 
 Maps logical stat roles to the key names in your BattleStats objects.
 All fields are optional and default to the canonical name ('attack', etc.).
@@ -27,7 +27,7 @@ statMap: { attack: 'spellPower' }
 
 > `optional` **attack?**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L121)
+Defined in: battle/src/BattleSystem.ts:114
 
 Stat key used as attack power. Default: 'attack'.
 
@@ -37,7 +37,7 @@ Stat key used as attack power. Default: 'attack'.
 
 > `optional` **defense?**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:123](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L123)
+Defined in: battle/src/BattleSystem.ts:116
 
 Stat key used as defense. Default: 'defense'.
 
@@ -47,7 +47,7 @@ Stat key used as defense. Default: 'defense'.
 
 > `optional` **luck?**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L127)
+Defined in: battle/src/BattleSystem.ts:120
 
 Stat key added to crit chance. Default: 'luck'.
 
@@ -57,6 +57,6 @@ Stat key added to crit chance. Default: 'luck'.
 
 > `optional` **speed?**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:125](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L125)
+Defined in: battle/src/BattleSystem.ts:118
 
 Stat key used for turn order. Default: 'speed'.

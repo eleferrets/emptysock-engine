@@ -6,7 +6,7 @@
 
 # Interface: VisualScriptGraph
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:106](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L106)
+Defined in: engine/src/components/VisualScript.ts:104
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:106](https://github.
 
 > **connections**: [`VSConnection`](VSConnection.md)[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:108](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L108)
+Defined in: engine/src/components/VisualScript.ts:106
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:108](https://github.
 
 > **nodes**: [`VSNode`](../type-aliases/VSNode.md)[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:107](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L107)
+Defined in: engine/src/components/VisualScript.ts:105

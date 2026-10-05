@@ -5,7 +5,7 @@ import type { Scene } from "../Scene.js";
 
 const NOOP_PHYSICS = { physics: { gravity: { x: 0, y: 0 } } } as const;
 
-describe("ECS Game overlay scenes (ENGINE_DESIGN.md §12.3)", () => {
+describe("ECS Game overlay scenes", () => {
   it("loadOverlay stacks on top of the main scene without unloading it", async () => {
     const game = new Game();
     const main = await game.loadScene(defineScene({}), NOOP_PHYSICS);

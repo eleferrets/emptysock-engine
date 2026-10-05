@@ -6,7 +6,7 @@
 
 # Interface: HostMessage
 
-Defined in: [types/src/index.ts:228](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L228)
+Defined in: types/src/index.ts:254
 
 Minimal event envelope delivered to HostAdapter message listeners.
 Mirrors the fields of DOM MessageEvent that the engine actually uses,
@@ -18,7 +18,7 @@ without importing any DOM type.
 
 > `readonly` **data**: `unknown`
 
-Defined in: [types/src/index.ts:229](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L229)
+Defined in: types/src/index.ts:255
 
 ***
 
@@ -26,4 +26,4 @@ Defined in: [types/src/index.ts:229](https://github.com/eleferrets/emptysock-eng
 
 > `readonly` **origin**: `string`
 
-Defined in: [types/src/index.ts:230](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L230)
+Defined in: types/src/index.ts:256

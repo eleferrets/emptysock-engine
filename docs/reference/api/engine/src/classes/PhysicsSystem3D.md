@@ -6,7 +6,7 @@
 
 # Class: PhysicsSystem3D
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:113](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L113)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:112
 
 ## Constructors
 
@@ -20,13 +20,29 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:113](https://github.com/elefe
 
 ## Accessors
 
+### interpolationAlpha
+
+#### Get Signature
+
+> **get** **interpolationAlpha**(): `number`
+
+Defined in: engine/src/systems/PhysicsSystem3D.ts:155
+
+How far (0..1) the current render frame sits between the last two physics steps.
+
+##### Returns
+
+`number`
+
+***
+
 ### isInitialized
 
 #### Get Signature
 
 > **get** **isInitialized**(): `boolean`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:380](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L380)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:451
 
 ##### Returns
 
@@ -38,7 +54,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:380](https://github.com/elefe
 
 > **\[dispose\]**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:376](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L376)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:447
 
 #### Returns
 
@@ -50,7 +66,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:376](https://github.com/elefe
 
 > **addBody**(`options?`): [`Physics3DHandle`](../interfaces/Physics3DHandle.md)
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:146](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L146)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:193
 
 #### Parameters
 
@@ -68,10 +84,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:146](https://github.com/elefe
 
 > **castRay**(`origin`, `direction`, `maxDistance`): [`RaycastHit`](../interfaces/RaycastHit.md) \| `null`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:304](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L304)
-
-Cast a ray from `origin` in `direction` (does not need to be normalised)
-up to `maxDistance` world units. Returns the closest hit, or null.
+Defined in: engine/src/systems/PhysicsSystem3D.ts:350
 
 #### Parameters
 
@@ -97,10 +110,10 @@ up to `maxDistance` world units. Returns the closest hit, or null.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:365](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L365)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:434
 
-Free all Rapier WASM memory. MUST be called when the scene unloads.
-The GC cannot see Rapier's WASM heap — not calling this leaks memory permanently.
+Free all Rapier WASM memory. MUST be called when the scene unloads —
+see CLAUDE.md "PhysicsSystem3D must be destroyed".
 
 #### Returns
 
@@ -108,17 +121,41 @@ The GC cannot see Rapier's WASM heap — not calling this leaks memory permanent
 
 ***
 
-### init()
+### getInterpolatedTransform()
 
-> **init**(`gravity?`): `Promise`\<`void`\>
+> **getInterpolatedTransform**(`bodyIndex`, `alpha?`): `Snapshot3D`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:128](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L128)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:160
+
+Linearly interpolated transform for a body, for rendering.
 
 #### Parameters
 
-##### gravity?
+##### bodyIndex
 
-[`Vec3`](../interfaces/Vec3.md) = `...`
+`number`
+
+##### alpha?
+
+`number` = `...`
+
+#### Returns
+
+`Snapshot3D`
+
+***
+
+### init()
+
+> **init**(`options?`): `Promise`\<`void`\>
+
+Defined in: engine/src/systems/PhysicsSystem3D.ts:130
+
+#### Parameters
+
+##### options?
+
+[`PhysicsSystem3DOptions`](../interfaces/PhysicsSystem3DOptions.md) = `{}`
 
 #### Returns
 
@@ -130,9 +167,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:128](https://github.com/elefe
 
 > **onCollisionEnter**(`cb`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L137)
-
-Register a callback fired when two bodies begin overlapping this frame.
+Defined in: engine/src/systems/PhysicsSystem3D.ts:146
 
 #### Parameters
 
@@ -150,9 +185,7 @@ Register a callback fired when two bodies begin overlapping this frame.
 
 > **onCollisionExit**(`cb`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:142](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L142)
-
-Register a callback fired when two bodies stop overlapping.
+Defined in: engine/src/systems/PhysicsSystem3D.ts:150
 
 #### Parameters
 
@@ -170,7 +203,7 @@ Register a callback fired when two bodies stop overlapping.
 
 > **removeBody**(`index`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:287](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L287)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:337
 
 #### Parameters
 
@@ -188,9 +221,12 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:287](https://github.com/elefe
 
 > **update**(`dt`): `void`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:331](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L331)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:382
 
-Step the simulation by dt seconds. Call once per game-loop tick.
+Fixed-timestep accumulation (§10.3), mirroring the 2D `PhysicsSystem`:
+`dt` (real frame time) accumulates and the world steps zero or more
+times at exactly `fixedTimestep` seconds each, keeping a
+previous/current snapshot per body for `getInterpolatedTransform`.
 
 #### Parameters
 

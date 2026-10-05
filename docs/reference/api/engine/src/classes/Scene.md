@@ -6,292 +6,79 @@
 
 # Class: Scene
 
-Defined in: [engine/src/core/Scene.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L9)
+Defined in: engine/src/Scene.ts:73
 
 ## Constructors
 
 ### Constructor
 
-> **new Scene**(`name`): `Scene`
+> **new Scene**(): `Scene`
 
-Defined in: [engine/src/core/Scene.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L24)
-
-#### Parameters
-
-##### name
-
-`string`
+Defined in: engine/src/Scene.ts:89
 
 #### Returns
 
 `Scene`
-
-## Properties
-
-### backgroundColor
-
-> **backgroundColor**: `number` = `0x1a1a2e`
-
-Defined in: [engine/src/core/Scene.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L11)
-
-***
-
-### name
-
-> `readonly` **name**: `string`
-
-Defined in: [engine/src/core/Scene.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L10)
-
-***
-
-### systems
-
-> `readonly` **systems**: [`SystemManager`](SystemManager.md)
-
-Defined in: [engine/src/core/Scene.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L21)
-
-The scene's system registry. `addSystem()`/`removeSystem()` are sugar
-over this — there is one system-collection concept in the engine
-(`SystemManager`), and every scene owns one. Reach for `this.systems`
-directly only if you need `SystemManager`'s `get()` lookup.
-
-***
-
-### ui
-
-> `readonly` **ui**: [`UISystem`](UISystem.md)
-
-Defined in: [engine/src/core/Scene.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L13)
-
-Per-scene UI system. Add widgets here; cleared automatically on destroy.
 
 ## Accessors
 
-### engine
+### entityCount
 
 #### Get Signature
 
-> **get** **engine**(): `object`
+> **get** **entityCount**(): `number`
 
-Defined in: [engine/src/core/Scene.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L29)
+Defined in: engine/src/Scene.ts:333
 
-Access engine-level operations (scene stack, error logging, debug API).
+Number of entities currently alive in this scene.
 
 ##### Returns
 
-###### popScene
-
-> **popScene**: () => `void`
-
-Pop the top scene off the stack and resume the scene underneath.
-
-Pop the current scene off the stack and resume the scene underneath.
-Calls onDestroy() on the popped scene and clears its UI.
-No-op if the stack is empty.
-
-###### Returns
-
-`void`
-
-###### pushScene
-
-> **pushScene**: (`scene`) => `void`
-
-Push a new scene on top of the active scene (e.g. a pause menu over the game).
-The scene underneath is paused but stays in memory. Call popScene() to return.
-
-Push a new scene on top of the current one. The current scene is paused
-but stays in memory. Its onDestroy is NOT called — use popScene() to resume.
-onLoad() on the incoming scene runs before the first update tick.
-
-###### Parameters
-
-###### scene
-
-`Scene`
-
-###### Returns
-
-`void`
-
-###### debugBreak()
-
-> **debugBreak**(`label`, `vars?`): `void`
-
-Trigger a labelled breakpoint from game code. If `label` is in the active
-breakpoint set, pauses the game loop and posts a debug:break message to
-the host frame via the registered HostAdapter.
-
-Example:
-  Engine.debugBreak('player-hit', { hp: player.hp, x: player.x });
-
-The IDE must have registered this label via addBreakpoint() in the
-Debugger panel for the call to have any effect.
-
-###### Parameters
-
-###### label
-
-`string`
-
-###### vars?
-
-`Record`\<`string`, `unknown`\> = `{}`
-
-###### Returns
-
-`void`
-
-###### init()
-
-> **init**(`adapter`): `void`
-
-Attach a HostAdapter so the debugger message listener and postMessage
-calls route through the correct host environment. Call once at startup
-from the IDE layer or PlayRunner; game code should not call this.
-
-###### Parameters
-
-###### adapter
-
-[`HostAdapter`](../interfaces/HostAdapter.md)
-
-###### Returns
-
-`void`
-
-###### isDebugPaused()
-
-> **isDebugPaused**(): `boolean`
-
-Returns true when the IDE debugger has paused the game loop.
-Scene.update() checks this each frame to skip updates while paused.
-
-###### Returns
-
-`boolean`
-
-###### logDebugError()
-
-> **logDebugError**(`msg`): `void`
-
-Log a debug-level message without triggering error handlers.
-
-###### Parameters
-
-###### msg
-
-`string`
-
-###### Returns
-
-`void`
-
-###### logError()
-
-> **logError**(`msg`): `void`
-
-Log a runtime error to registered handlers and the console.
-
-###### Parameters
-
-###### msg
-
-`string`
-
-###### Returns
-
-`void`
-
-###### logErrorToFile()
-
-> **logErrorToFile**(`msg`): `void`
-
-Delegate to the file-log handler registered by the host layer. No-op if not set.
-
-###### Parameters
-
-###### msg
-
-`string`
-
-###### Returns
-
-`void`
-
-###### onError()
-
-> **onError**(`handler`): () => `void`
-
-Register a callback invoked whenever Engine.logError is called. Returns an unsubscribe function.
-
-###### Parameters
-
-###### handler
-
-`ErrorHandler`
-
-###### Returns
-
-() => `void`
-
-###### onFileLog()
-
-> **onFileLog**(`handler`): () => `void`
-
-Register a callback that receives the message when logErrorToFile is called.
-Wire this up in the IDE/Tauri layer; game code and the engine core must not
-import Tauri APIs directly. Returns an unsubscribe function.
-
-###### Parameters
-
-###### handler
-
-`ErrorHandler`
-
-###### Returns
-
-() => `void`
-
-###### setBreakpoints()
-
-> **setBreakpoints**(`labels`): `void`
-
-Programmatically set the active breakpoint labels. Prefer letting the IDE
-keep this list in sync via debug:setBreakpoints postMessage, but this
-method is available for use in tests or headless contexts.
-
-###### Parameters
-
-###### labels
-
-`string`[]
-
-###### Returns
-
-`void`
-
-***
-
-### isRunning
-
-#### Get Signature
-
-> **get** **isRunning**(): `boolean`
-
-Defined in: [engine/src/core/Scene.ts:157](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L157)
-
-##### Returns
-
-`boolean`
+`number`
 
 ## Methods
 
-### addEntity()
+### childrenOf()
 
-> **addEntity**(`entity`): [`Entity`](Entity.md)
+> **childrenOf**(`e`): [`Entity`](Entity.md)[]
 
-Defined in: [engine/src/core/Scene.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L85)
+Defined in: engine/src/Scene.ts:314
+
+`ChildOf` children of `e`, in the order they were parented.
+
+#### Parameters
+
+##### e
+
+[`Entity`](Entity.md)
+
+#### Returns
+
+[`Entity`](Entity.md)[]
+
+***
+
+### destroy()
+
+> **destroy**(`entity`): `void`
+
+Defined in: engine/src/Scene.ts:189
+
+Destroy an entity. If it was spawned with `{ pool: true }` from a
+prefab, this returns it to that prefab's pool instead of deallocating
+it (§12.4) — its component data is stripped now and reset on reuse; the
+caller sees the same call either way. Note one deliberate asymmetry: a
+pooled entity's bitECS id is *not* released back to bitECS's own
+recycling (`entity.isAlive` stays `true`) — that's what reserves the id
+for this prefab's own pool instead of letting an unrelated `spawn()`
+elsewhere claim it first. It has zero components after this call, so
+`.get()` on any old handle simply returns `undefined` for everything,
+same practical effect as "destroyed" for game code that isn't reaching
+into the pool machinery itself. A non-pooled entity's handle (and any
+other handle holding the same id) becomes stale immediately —
+`entity.isAlive` reads `false` and `.get()`/`.add()` on it fail rather
+than resolving onto whatever entity bitECS's id-recycling later hands
+the freed slot to (§23).
 
 #### Parameters
 
@@ -301,262 +88,73 @@ Defined in: [engine/src/core/Scene.ts:85](https://github.com/eleferrets/emptysoc
 
 #### Returns
 
+`void`
+
+***
+
+### each()
+
+> **each**\<`T`\>(...`args`): `void`
+
+Defined in: engine/src/Scene.ts:344
+
+Bulk-iteration power path (the engine design notes — `each`, not
+`query`). Bypasses the `.get()` proxy layer entirely: components are
+read straight off bitECS's arrays, and `entity` is only constructed
+(cheaply — it's a handle, not an allocation of game state) for the
+cases that still need it, e.g. `scene.destroy(entity)` inside the loop.
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* readonly [`ComponentDef`](../interfaces/ComponentDef.md)\<[`SerializableRecord`](../type-aliases/SerializableRecord.md)\>[]
+
+#### Parameters
+
+##### args
+
+...\[`...T[]`, `EachCallback`\<`T`\>\]
+
+#### Returns
+
+`void`
+
+***
+
+### hasAll()
+
+> **hasAll**(`entity`, ...`defs`): `boolean`
+
+Defined in: engine/src/Scene.ts:373
+
+`true` if `entity` (still alive) carries every listed component.
+
+#### Parameters
+
+##### entity
+
 [`Entity`](Entity.md)
 
-***
+##### defs
 
-### addSystem()
-
-> **addSystem**(`name`, `fn`): `void`
-
-Defined in: [engine/src/core/Scene.ts:137](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L137)
-
-#### Parameters
-
-##### name
-
-`string`
-
-##### fn
-
-[`SystemFn`](../type-aliases/SystemFn.md)
+...[`ComponentDef`](../interfaces/ComponentDef.md)\<[`SerializableRecord`](../type-aliases/SerializableRecord.md)\>[]
 
 #### Returns
 
-`void`
+`boolean`
 
 ***
 
-### createEntity()
+### idOf()
 
-> **createEntity**(`name?`): [`Entity`](Entity.md)
+> **idOf**(`entity`): `number`
 
-Defined in: [engine/src/core/Scene.ts:79](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L79)
+Defined in: engine/src/Scene.ts:244
 
-#### Parameters
-
-##### name?
-
-`string`
-
-#### Returns
-
-[`Entity`](Entity.md)
-
-***
-
-### getEntities()
-
-> **getEntities**(): `ReadonlyMap`\<`number`, [`Entity`](Entity.md)\>
-
-Defined in: [engine/src/core/Scene.ts:131](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L131)
-
-#### Returns
-
-`ReadonlyMap`\<`number`, [`Entity`](Entity.md)\>
-
-***
-
-### getEntitiesByTag()
-
-> **getEntitiesByTag**(`tag`): [`Entity`](Entity.md)[]
-
-Defined in: [engine/src/core/Scene.ts:116](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L116)
-
-#### Parameters
-
-##### tag
-
-`string`
-
-#### Returns
-
-[`Entity`](Entity.md)[]
-
-***
-
-### getEntitiesWithComponent()
-
-> **getEntitiesWithComponent**(`type`): [`Entity`](Entity.md)[]
-
-Defined in: [engine/src/core/Scene.ts:125](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L125)
-
-Return all entities that have the given component type string attached.
-The type string must match the `Component.type` field exactly — it is not
-derived from a constructor name (which is unsafe under minification).
-
-#### Parameters
-
-##### type
-
-`string` \| [`ComponentType`](../type-aliases/ComponentType.md)
-
-#### Returns
-
-[`Entity`](Entity.md)[]
-
-***
-
-### getEntity()
-
-> **getEntity**(`id`): [`Entity`](Entity.md) \| `undefined`
-
-Defined in: [engine/src/core/Scene.ts:104](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L104)
-
-#### Parameters
-
-##### id
-
-`number`
-
-#### Returns
-
-[`Entity`](Entity.md) \| `undefined`
-
-***
-
-### getEntityByName()
-
-> **getEntityByName**(`name`): [`Entity`](Entity.md) \| `undefined`
-
-Defined in: [engine/src/core/Scene.ts:109](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L109)
-
-Find an entity by name. Returns the first match, or undefined.
-
-#### Parameters
-
-##### name
-
-`string`
-
-#### Returns
-
-[`Entity`](Entity.md) \| `undefined`
-
-***
-
-### onDestroy()
-
-> **onDestroy**(): `void`
-
-Defined in: [engine/src/core/Scene.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L63)
-
-Called when the scene is removed from the stack or replaced. Cancel timers,
-audio, and external subscriptions here.
-
-#### Returns
-
-`void`
-
-***
-
-### onFixedUpdate()
-
-> **onFixedUpdate**(`_dt`): `void`
-
-Defined in: [engine/src/core/Scene.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L57)
-
-Called every physics tick (fixed 1/60 s by default) while the scene is
-running. Use for velocity, force, and physics state reads.
-
-#### Parameters
-
-##### \_dt
-
-`number`
-
-#### Returns
-
-`void`
-
-***
-
-### onLoad()
-
-> **onLoad**(): `Promise`\<`void`\>
-
-Defined in: [engine/src/core/Scene.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L39)
-
-Called once before the scene begins updating. May be async — awaited by
-SceneManager before the first update() tick.
-
-#### Returns
-
-`Promise`\<`void`\>
-
-***
-
-### onPause()
-
-> **onPause**(): `void`
-
-Defined in: [engine/src/core/Scene.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L69)
-
-Called when another scene is pushed on top of this one (scene is now
-paused beneath an overlay). Stop movement / AI here.
-
-#### Returns
-
-`void`
-
-***
-
-### onResume()
-
-> **onResume**(): `void`
-
-Defined in: [engine/src/core/Scene.ts:75](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L75)
-
-Called when the overlay above this scene is popped and this scene
-becomes active again.
-
-#### Returns
-
-`void`
-
-***
-
-### onStart()
-
-> **onStart**(): `void`
-
-Defined in: [engine/src/core/Scene.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L45)
-
-Called once after `onLoad` resolves, just before the first frame.
-Use for work that must run after all assets are ready but is synchronous.
-
-#### Returns
-
-`void`
-
-***
-
-### onUpdate()
-
-> **onUpdate**(`_dt`): `void`
-
-Defined in: [engine/src/core/Scene.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L51)
-
-Called every frame while the scene is running. Must be synchronous.
-Use coroutines for multi-frame work.
-
-#### Parameters
-
-##### \_dt
-
-`number`
-
-#### Returns
-
-`void`
-
-***
-
-### removeEntity()
-
-> **removeEntity**(`entity`): `boolean`
-
-Defined in: [engine/src/core/Scene.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L100)
+Stable per-scene id for `entity`, assigned on first call (monotonic,
+never reused within this scene). Throws for a destroyed entity or one
+from another scene.
 
 #### Parameters
 
@@ -566,39 +164,298 @@ Defined in: [engine/src/core/Scene.ts:100](https://github.com/eleferrets/emptyso
 
 #### Returns
 
-`boolean`
+`number`
 
 ***
 
-### removeSystem()
+### onDestroyed()
 
-> **removeSystem**(`name`): `boolean`
+> **onDestroyed**(`cb`): () => `void`
 
-Defined in: [engine/src/core/Scene.ts:141](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L141)
+Defined in: engine/src/Scene.ts:277
+
+Observe destruction of any entity in this scene (fires before teardown,
+once per entity, children of a cascade included). `Game` forwards this to
+the `entity:destroyed` signal. Returns an unsubscribe.
 
 #### Parameters
 
-##### name
+##### cb
 
-`string`
+(`ref`) => `void`
 
 #### Returns
 
-`boolean`
+() => `void`
 
 ***
 
-### update()
+### onParented()
 
-> **update**(`deltaTime`): `void`
+> **onParented**(`cb`): () => `void`
 
-Defined in: [engine/src/core/Scene.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Scene.ts#L176)
+Defined in: engine/src/Scene.ts:283
+
+Observe `setParent` calls (`parent` is `NO_REF` when cleared). Returns an unsubscribe.
 
 #### Parameters
 
-##### deltaTime
+##### cb
 
-`number`
+(`child`, `parent`) => `void`
+
+#### Returns
+
+() => `void`
+
+***
+
+### parentOf()
+
+> **parentOf**(`e`): [`Entity`](Entity.md) \| `undefined`
+
+Defined in: engine/src/Scene.ts:309
+
+`ChildOf` parent of `e`, if any.
+
+#### Parameters
+
+##### e
+
+[`Entity`](Entity.md)
+
+#### Returns
+
+[`Entity`](Entity.md) \| `undefined`
+
+***
+
+### refTo()
+
+> **refTo**(`entity`): [`EntityRef`](../type-aliases/EntityRef.md)
+
+Defined in: engine/src/Scene.ts:255
+
+`EntityRef` for `entity` (see `idOf`).
+
+#### Parameters
+
+##### entity
+
+[`Entity`](Entity.md)
+
+#### Returns
+
+[`EntityRef`](../type-aliases/EntityRef.md)
+
+***
+
+### relate()
+
+> **relate**(`subject`, `relation`, `target`): `void`
+
+Defined in: engine/src/Scene.ts:289
+
+Add the edge `subject --relation--> target` (see `RelationDef`).
+
+#### Parameters
+
+##### subject
+
+[`Entity`](Entity.md)
+
+##### relation
+
+[`RelationDef`](../interfaces/RelationDef.md)
+
+##### target
+
+[`Entity`](Entity.md)
+
+#### Returns
+
+`void`
+
+***
+
+### resolve()
+
+> **resolve**(`ref`): [`Entity`](Entity.md) \| `undefined`
+
+Defined in: engine/src/Scene.ts:265
+
+The live entity `ref` points at, or `undefined` when it is `NO_REF`,
+never existed, or was destroyed. A pooled-and-recycled entity counts as
+destroyed: pooled destroy drops its id, so the ref does not alias the
+entity's next occupant.
+
+#### Parameters
+
+##### ref
+
+[`EntityRef`](../type-aliases/EntityRef.md) \| `null` \| `undefined`
+
+#### Returns
+
+[`Entity`](Entity.md) \| `undefined`
+
+***
+
+### setParent()
+
+> **setParent**(`child`, `parent`): `void`
+
+Defined in: engine/src/Scene.ts:322
+
+Set (or with `undefined`, clear) `child`'s parent. Opt-in hierarchy:
+destroying a parent destroys its children. Throws on a cycle.
+
+#### Parameters
+
+##### child
+
+[`Entity`](Entity.md)
+
+##### parent
+
+[`Entity`](Entity.md) \| `undefined`
+
+#### Returns
+
+`void`
+
+***
+
+### spawn()
+
+#### Call Signature
+
+> **spawn**(`name?`): [`Entity`](Entity.md)
+
+Defined in: engine/src/Scene.ts:100
+
+Spawn a new, empty entity. Attach components with `entity.add(...)`.
+
+##### Parameters
+
+###### name?
+
+`string`
+
+##### Returns
+
+[`Entity`](Entity.md)
+
+#### Call Signature
+
+> **spawn**\<`T`\>(`prefab`, `props?`, `options?`): [`Entity`](Entity.md)
+
+Defined in: engine/src/Scene.ts:111
+
+Spawn a `Prefab` as a unit onto one new entity
+— every component the prefab declares, plus everything it `extends`
+flattened in first. `props` is a flat, `Serializable` prop bag applied
+on top of the prefab's own per-component defaults/overrides: a value
+whose key matches a field name on one of the prefab's components
+overrides that field (matching every component that happens to declare
+a field with that name, e.g. `x`/`y` on any `Transform`-shaped
+component in the prefab).
+
+##### Type Parameters
+
+###### T
+
+`T` *extends* [`SerializableRecord`](../type-aliases/SerializableRecord.md)
+
+##### Parameters
+
+###### prefab
+
+[`PrefabDef`](../interfaces/PrefabDef.md)\<`T`\>
+
+###### props?
+
+`Partial`\<`T`\>
+
+###### options?
+
+[`SpawnOptions`](../interfaces/SpawnOptions.md)
+
+##### Returns
+
+[`Entity`](Entity.md)
+
+***
+
+### subjectsOf()
+
+> **subjectsOf**(`target`, `relation`): [`Entity`](Entity.md)[]
+
+Defined in: engine/src/Scene.ts:304
+
+Entities pointing at `target` through `relation`, in insertion order.
+
+#### Parameters
+
+##### target
+
+[`Entity`](Entity.md)
+
+##### relation
+
+[`RelationDef`](../interfaces/RelationDef.md)
+
+#### Returns
+
+[`Entity`](Entity.md)[]
+
+***
+
+### targetsOf()
+
+> **targetsOf**(`subject`, `relation`): [`Entity`](Entity.md)[]
+
+Defined in: engine/src/Scene.ts:299
+
+Entities `subject` points at through `relation`, in insertion order.
+
+#### Parameters
+
+##### subject
+
+[`Entity`](Entity.md)
+
+##### relation
+
+[`RelationDef`](../interfaces/RelationDef.md)
+
+#### Returns
+
+[`Entity`](Entity.md)[]
+
+***
+
+### unrelate()
+
+> **unrelate**(`subject`, `relation`, `target?`): `void`
+
+Defined in: engine/src/Scene.ts:294
+
+Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted.
+
+#### Parameters
+
+##### subject
+
+[`Entity`](Entity.md)
+
+##### relation
+
+[`RelationDef`](../interfaces/RelationDef.md)
+
+##### target?
+
+[`Entity`](Entity.md)
 
 #### Returns
 

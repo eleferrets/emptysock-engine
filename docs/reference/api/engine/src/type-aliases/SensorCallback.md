@@ -8,15 +8,13 @@
 
 > **SensorCallback** = (`other`) => `void`
 
-Defined in: [engine/src/components/PhysicsBody.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/PhysicsBody.ts#L26)
-
-Called with the other body's PhysicsBody on sensor enter/exit/stay.
+Defined in: engine/src/components/PhysicsBody.ts:15
 
 ## Parameters
 
 ### other
 
-[`PhysicsBody`](../classes/PhysicsBody.md)
+[`Entity`](../classes/Entity.md)
 
 ## Returns
 

@@ -12,7 +12,7 @@ export interface FileResult {
 }
 
 function hasFileSystemAccess(): boolean {
-  return typeof window !== 'undefined' && 'showOpenFilePicker' in window;
+  return typeof window !== "undefined" && "showOpenFilePicker" in window;
 }
 
 export const BrowserFileService = {
@@ -22,21 +22,31 @@ export const BrowserFileService = {
 
   async openFile(): Promise<FileResult> {
     if (!hasFileSystemAccess()) {
-      return { success: false, error: 'File System Access API not supported in this browser. Use Chrome or Edge.' };
+      return {
+        success: false,
+        error:
+          "File System Access API not supported in this browser. Use Chrome or Edge.",
+      };
     }
     try {
       const handles = await window.showOpenFilePicker({
-        types: [{ description: 'TypeScript / JavaScript', accept: { 'text/plain': ['.ts', '.js', '.json'] } }],
+        types: [
+          {
+            description: "TypeScript / JavaScript",
+            accept: { "text/plain": [".ts", ".js", ".json"] },
+          },
+        ],
         multiple: false,
       });
       const handle = handles[0];
-      if (handle === undefined) return { success: false, error: 'No file selected' };
+      if (handle === undefined)
+        return { success: false, error: "No file selected" };
       const file = await handle.getFile();
       const content = await file.text();
       return { success: true, content, path: file.name };
     } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') {
-        return { success: false, error: 'Cancelled' };
+      if (e instanceof Error && e.name === "AbortError") {
+        return { success: false, error: "Cancelled" };
       }
       return { success: false, error: String(e) };
     }
@@ -47,24 +57,26 @@ export const BrowserFileService = {
       try {
         const handle = await window.showSaveFilePicker({
           suggestedName: filename,
-          types: [{ description: 'TypeScript', accept: { 'text/plain': ['.ts'] } }],
+          types: [
+            { description: "TypeScript", accept: { "text/plain": [".ts"] } },
+          ],
         });
         const writable = await handle.createWritable();
         await writable.write(content);
         await writable.close();
         return { success: true, path: handle.name };
       } catch (e) {
-        if (e instanceof Error && e.name === 'AbortError') {
-          return { success: false, error: 'Cancelled' };
+        if (e instanceof Error && e.name === "AbortError") {
+          return { success: false, error: "Cancelled" };
         }
         return { success: false, error: String(e) };
       }
     }
 
     // Fallback: trigger a browser download
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
@@ -75,7 +87,7 @@ export const BrowserFileService = {
   /** Download arbitrary binary content (e.g. a zip file). */
   downloadBlob(filename: string, blob: Blob): void {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();

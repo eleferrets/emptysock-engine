@@ -8,7 +8,7 @@
 
 > **dialogueTreeToStoryGraph**(`tree`): [`StoryGraph`](../interfaces/StoryGraph.md)
 
-Defined in: [vn/src/VNScriptConvert.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L143)
+Defined in: vn/src/VNScriptConvert.ts:143
 
 Convert a VNSystem DialogueTree (.vnscript JSON) back into a Story Graph for
 display in the IDE's Story Graph editor. Positional data is auto-generated

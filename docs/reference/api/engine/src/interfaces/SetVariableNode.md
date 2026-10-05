@@ -6,7 +6,7 @@
 
 # Interface: SetVariableNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L60)
+Defined in: engine/src/components/VisualScript.ts:58
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:60](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"setVariable"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L61)
+Defined in: engine/src/components/VisualScript.ts:59
 
 #### Overrides
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:61](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 
@@ -56,7 +56,7 @@ Node ids wired to this node's execution output(s), in port order.
 
 > **value**: `number` \| \{ `fromKey`: `string`; \}
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:64](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L64)
+Defined in: engine/src/components/VisualScript.ts:62
 
 Literal value, or an evaluation-scope key produced by an earlier getVariable node.
 
@@ -66,4 +66,4 @@ Literal value, or an evaluation-scope key produced by an earlier getVariable nod
 
 > **variableIndex**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:62](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L62)
+Defined in: engine/src/components/VisualScript.ts:60

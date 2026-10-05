@@ -6,7 +6,7 @@
 
 # Class: CoroutineSystem
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L29)
+Defined in: engine/src/systems/CoroutineSystem.ts:29
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/CoroutineSystem.ts:29](https://github.com/elefer
 
 > **onError**: ((`id`, `error`) => `void`) \| `null` = `null`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L37)
+Defined in: engine/src/systems/CoroutineSystem.ts:37
 
 Called when a coroutine throws. Receives the coroutine id and the error.
 The coroutine is stopped before this is called.
@@ -36,7 +36,7 @@ When unset, errors are logged to `console.error`.
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:95](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L95)
+Defined in: engine/src/systems/CoroutineSystem.ts:95
 
 Cancel all running coroutines. The system remains usable; new coroutines can be started after this call.
 
@@ -50,7 +50,7 @@ Cancel all running coroutines. The system remains usable; new coroutines can be 
 
 > **start**(`id`, `gen`): `void`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L39)
+Defined in: engine/src/systems/CoroutineSystem.ts:39
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [engine/src/systems/CoroutineSystem.ts:39](https://github.com/elefer
 
 > **stop**(`id`): `void`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L51)
+Defined in: engine/src/systems/CoroutineSystem.ts:51
 
 #### Parameters
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/systems/CoroutineSystem.ts:51](https://github.com/elefer
 
 > **stopAll**(): `void`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:83](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L83)
+Defined in: engine/src/systems/CoroutineSystem.ts:83
 
 Stop all running coroutines by returning from each generator, then clear
 the map. The system remains usable; new coroutines can be started after
@@ -106,7 +106,7 @@ this call.
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/CoroutineSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CoroutineSystem.ts#L55)
+Defined in: engine/src/systems/CoroutineSystem.ts:55
 
 #### Parameters
 

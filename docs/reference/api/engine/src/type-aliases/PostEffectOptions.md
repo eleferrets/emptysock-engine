@@ -6,6 +6,6 @@
 
 # Type Alias: PostEffectOptions
 
-> **PostEffectOptions** = `BloomOptions` \| `VignetteOptions` \| `BlurOptions` \| `PixelateOptions` \| `ColourGradeOptions` \| `ChromaticAberrationOptions` \| `ShockwaveOptions` \| `OutlineOptions` \| `ScanlinesOptions` \| `NoiseOptions`
+> **PostEffectOptions** = [`BloomOptions`](../interfaces/BloomOptions.md) \| [`VignetteOptions`](../interfaces/VignetteOptions.md) \| [`BlurOptions`](../interfaces/BlurOptions.md) \| [`PixelateOptions`](../interfaces/PixelateOptions.md) \| [`ColourGradeOptions`](../interfaces/ColourGradeOptions.md) \| [`ChromaticAberrationOptions`](../interfaces/ChromaticAberrationOptions.md) \| [`ShockwaveOptions`](../interfaces/ShockwaveOptions.md) \| [`OutlineOptions`](../interfaces/OutlineOptions.md) \| [`ScanlinesOptions`](../interfaces/ScanlinesOptions.md) \| [`NoiseOptions`](../interfaces/NoiseOptions.md)
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:178](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L178)
+Defined in: engine/src/systems/PostProcessSystem.ts:204

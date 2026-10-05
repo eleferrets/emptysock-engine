@@ -1,5 +1,5 @@
 /**
- * Layout style *inputs* for one widget entity (RELEASE_PASS.md Track 3 /
+ * Layout style *inputs* for one widget entity (the release notes Track 3 /
  * ground rule 4a). Mirrors the subset of `yoga-layout`'s `Node` setters
  * `WidgetTree`'s layout pass actually drives — a small, deliberately
  * incomplete slice (enough for a scrollable list: a column or row of
@@ -39,6 +39,14 @@ export declare const LayoutStyle: import("../Component.js").ComponentDef<{
   positionType: number;
   left: number;
   top: number;
+  /**
+   * 0 = visible (default), 1 = hidden (children clipped to this widget's
+   * box), 2 = scroll (clipped, and children are shifted by
+   * `scrollX`/`scrollY`, clamped to the content extent).
+   */
+  overflow: number;
+  scrollX: number;
+  scrollY: number;
 }>;
 export type LayoutStyleShape = ReturnType<typeof LayoutStyle.createDefaults>;
 /**

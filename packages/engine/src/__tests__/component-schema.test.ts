@@ -4,7 +4,7 @@ import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { PhysicsBody } from "../components/PhysicsBody.js";
 
-describe("defineComponent schema (ENGINE_DESIGN.md §10.1)", () => {
+describe("defineComponent schema", () => {
   it("is undefined when no schema option is passed — not an error", () => {
     const NoSchema = defineComponent("NoSchemaThing", () => ({ hp: 10 }));
     expect(NoSchema.schema).toBeUndefined();
@@ -60,5 +60,25 @@ describe("defineComponent schema (ENGINE_DESIGN.md §10.1)", () => {
     // Engine-managed / nested fields are deliberately left unscheduled.
     expect(PhysicsBody.schema?.bodyHandle).toBeUndefined();
     expect(PhysicsBody.schema?.position).toBeUndefined();
+  });
+});
+
+describe("entityRef schema kind", () => {
+  it("is accepted with and without a relation hint", () => {
+    const Follow = defineComponent(
+      "EntityRefSchemaFollow",
+      () => ({ target: { $ref: 0 }, aux: { $ref: 0 } }),
+      {
+        schema: {
+          target: { kind: "entityRef" },
+          aux: { kind: "entityRef", relation: "ChildOf" },
+        },
+      },
+    );
+    expect(Follow.schema?.target).toEqual({ kind: "entityRef" });
+    expect(Follow.schema?.aux).toEqual({
+      kind: "entityRef",
+      relation: "ChildOf",
+    });
   });
 });

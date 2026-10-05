@@ -31,7 +31,3 @@ await input.saveBindings(storage);
 ## Keyboard layouts
 
 Key bindings use `KeyboardEvent.code` (physical position: `"KeyW"`, `"Space"`, `"ArrowLeft"`), which is layout-independent: the key labelled Z on AZERTY still reports the QWERTY-`KeyW` position. WASD-style movement therefore stays ergonomic on AZERTY/Dvorak, but a settings UI showing "W" would be wrong on AZERTY; label keys with `navigator.keyboard.getLayoutMap()` where available. `KeyboardEvent.key` (the produced character) is not used for bindings.
-
-## GML compat
-
-`keyboard_check`/`_pressed`/`_released` (`compat/gmlInput.ts`) read raw physical codes through `vkToDomCode`, not action bindings: `vk_space` is `Space` regardless of what an action is rebound to. GML `ord("A")` letters map to `KeyA` positions, so they are also physical rather than layout-aware. Both read the same frozen snapshot as `isDown`.

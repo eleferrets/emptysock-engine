@@ -5,11 +5,11 @@ export const tokens = {
   spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
   // CSS variable names (used in style={{ color: 'var(--text)' }})
   color: {
-    bg: 'var(--bg)',
-    surface: 'var(--surface)',
-    border: 'var(--border)',
-    text: 'var(--text)',
-    muted: 'var(--text-muted)',
-    accent: 'var(--accent)',
+    bg: "var(--bg)",
+    surface: "var(--surface)",
+    border: "var(--border)",
+    text: "var(--text)",
+    muted: "var(--text-muted)",
+    accent: "var(--accent)",
   },
 } as const;

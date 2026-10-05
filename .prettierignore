@@ -2,3 +2,8 @@
 # Excluded from formatting so regeneration doesn't produce noisy reformatting
 # diffs; typedoc-plugin-markdown's own output style is authoritative here.
 docs/reference/api/
+
+# Vendored agent skills (installed with npx skills add, excluded from formatting)
+.claude/skills/
+skills-lock.json
+pnpm-lock.yaml

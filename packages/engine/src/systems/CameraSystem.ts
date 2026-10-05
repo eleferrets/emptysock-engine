@@ -56,7 +56,7 @@ export class CameraSystem {
     };
   }
 
-  // GMS2-compatible view accessors
+  // View accessors
   get viewX(): number {
     return this._x;
   }

@@ -1,4 +1,5 @@
 import { GamepadSystem } from "./systems/GamepadSystem.js";
+import { type KeyboardLayout } from "./systems/KeyboardLayout.js";
 import { InputSystem } from "./systems/InputSystem.js";
 import {
   PointerSystem,
@@ -18,7 +19,16 @@ import type { StorageAdapter } from "./systems/StorageAdapter.js";
 export type Binding =
   | {
       readonly kind: "key";
+      /** Physical `KeyboardEvent.code`. Always present; the fallback when `char` cannot be resolved. */
       readonly code: string;
+      /**
+       * Optional: "the key that types this letter". When set and the active
+       * layout knows a key for it, that key is read instead of `code`
+       * (`layout.codeForChar(char) ?? code`). Letters only. Absent means a
+       * purely physical binding, which is what old saves and authored
+       * defaults are.
+       */
+      readonly char?: string;
     }
   | {
       readonly kind: "gamepadButton";
@@ -33,9 +43,12 @@ export type Binding =
       readonly padIndex?: number;
     };
 export type ActionMap = Record<string, readonly Binding[]>;
-/** Read-only, per-frame-frozen keyboard state — ENGINE_DESIGN.md §15.3's raw escape hatch. */
+/** Read-only, per-frame-frozen keyboard state — the engine design notes's raw escape hatch. */
 export interface KeyboardSnapshot {
+  /** Physical: is the key with this `KeyboardEvent.code` down. */
   isDown(code: string): boolean;
+  /** Layout-aware: is the key that types this letter on the active layout down. False when the layout has no such key. */
+  isCharDown(ch: string): boolean;
 }
 /** Read-only, per-frame-frozen state for one gamepad. */
 export interface GamepadSnapshot {
@@ -45,8 +58,29 @@ export interface GamepadSnapshot {
 }
 /** Default `StorageAdapter` key for `saveBindings`/`loadBindings`. */
 export declare const INPUT_BINDINGS_STORAGE_KEY = "emptysock_input_bindings";
+export type CaptureKind = "key" | "gamepadButton" | "gamepadAxis";
+export interface CaptureOptions {
+  /** Which input kinds may be captured. Default: all. */
+  kinds?: readonly CaptureKind[];
+  /** Resolve `null` if nothing is captured within this many ms. Default: none. */
+  timeoutMs?: number;
+  /** Key codes that cancel the capture (resolve `null`). Default `["Escape"]`. */
+  cancelCodes?: readonly string[];
+  /** `"physical"` (default) records `code` only; `"char"` also records `char` for letter keys the layout knows. */
+  mode?: "physical" | "char";
+  /** Resolve `null` when aborted. */
+  signal?: AbortSignal;
+  /** Accept a lone Shift/Ctrl/Alt/Meta press. Default false. */
+  allowModifiers?: boolean;
+  /** Axis magnitude that counts as a press. Default 0.5. */
+  axisThreshold?: number;
+}
+export interface CaptureResult {
+  readonly binding: Binding;
+  readonly label: string;
+}
 /**
- * ENGINE_DESIGN.md §4 step 1 / §15.3 — the action-mapping input layer.
+ * the engine design notes step 1 / §15.3 — the action-mapping input layer.
  *
  * `input.isDown("jump")` is the default and only thing most games touch;
  * `input.keyboard`/`input.gamepad(0)`/`input.pointers`/`input.gestures`/
@@ -72,7 +106,7 @@ export declare class InputManager {
   private _actions;
   /**
    * The `actions` map this instance was constructed with, kept verbatim so
-   * `resetToDefaults()` has something real to restore to (ENGINE_DESIGN.md
+   * `resetToDefaults()` has something real to restore to (the engine design notes
    * §15.3's accessibility primitive #1: a player can always get back to the
    * shipped control scheme after rebinding).
    */
@@ -85,6 +119,9 @@ export declare class InputManager {
   private readonly _prevActive;
   private readonly _pressed;
   private readonly _released;
+  private _capture;
+  /** Inputs swallowed by a capture, hidden until physically released. Ids: `k:<code>`, `b:<pad>:<idx>`, `a:<pad>:<axis>:<+|->`. */
+  private readonly _suppressed;
   constructor(
     actions?: ActionMap,
     input?: InputSystem,
@@ -138,7 +175,7 @@ export declare class InputManager {
    */
   loadBindings(adapter: StorageAdapter, key?: string): Promise<boolean>;
   /**
-   * ENGINE_DESIGN.md §4 step 1. Copies the current live device state into
+   * the engine design notes step 1. Copies the current live device state into
    * this frame's frozen snapshot. `Game.update()` calls this exactly once,
    * before anything else runs. Calling it again mid-frame (nothing in the
    * engine does) would advance the snapshot early — tests that want to
@@ -153,6 +190,8 @@ export declare class InputManager {
   wasReleased(action: string): boolean;
   /** True if any binding for `action` is active in the current frozen snapshot. */
   isDown(action: string): boolean;
+  /** The keyboard layout translation layer. Hosts call `layout.setProvider(...)` at bootstrap; the engine itself never touches `navigator`. */
+  get layout(): KeyboardLayout;
   /** Raw keyboard escape hatch (§15.3) — reads the frozen snapshot, not live state. */
   get keyboard(): KeyboardSnapshot;
   /** Raw gamepad escape hatch (§15.3) — reads the frozen snapshot, not live state. */
@@ -183,8 +222,31 @@ export declare class InputManager {
    * point: it is how the freeze-for-the-frame behavior gets exercised by a
    * test without needing a real `KeyboardEvent`.
    */
-  simulateKeyDown(code: string): void;
+  simulateKeyDown(code: string, key?: string): void;
   /** See `simulateKeyDown`. */
   simulateKeyUp(code: string): void;
+  /**
+   * Wait for the next new input and resolve with a `Binding` for it, or
+   * `null` on cancel (Escape by default), timeout or abort. Arms on the
+   * next `snapshot()`; anything already held at that moment must be released
+   * first. The captured press is swallowed (reads as up) until released so
+   * it does not also trigger the game action. Only one capture is pending
+   * at a time: starting a new one cancels the previous with `null`.
+   */
+  captureNext(opts?: CaptureOptions): Promise<CaptureResult | null>;
+  /** `captureNext`, then `rebind` (or `addBinding` with `add: true`) the action to the result. Resolves `null` if cancelled. */
+  rebindByCapture(
+    action: string,
+    opts?: CaptureOptions & {
+      add?: boolean;
+    },
+  ): Promise<CaptureResult | null>;
+  private _applySuppressionAndCapture;
+  private _swallow;
+  private _keyBinding;
+  private _rawGamepadIdDown;
+  private _resolveKeyCode;
+  /** Human label for a binding ("A", "Q", "Space", "Pad A", "Axis 1+"). Key labels follow the active layout. */
+  bindingLabel(b: Binding): string;
   private _isBindingActive;
 }

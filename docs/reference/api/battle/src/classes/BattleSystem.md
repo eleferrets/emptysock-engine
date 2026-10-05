@@ -6,7 +6,7 @@
 
 # Class: BattleSystem
 
-Defined in: [battle/src/BattleSystem.ts:177](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L177)
+Defined in: battle/src/BattleSystem.ts:170
 
 Turn-based RPG combat engine. Owns combatant state, turn order, damage
 formulas, status-effect resolution, and the input/resolving/victory/defeat
@@ -28,7 +28,7 @@ internal — there is no public API for stepping through them piecemeal.
 
 > **new BattleSystem**(`options?`): `BattleSystem`
 
-Defined in: [battle/src/BattleSystem.ts:219](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L219)
+Defined in: battle/src/BattleSystem.ts:212
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [battle/src/BattleSystem.ts:219](https://github.com/eleferrets/empty
 
 > **destroy**(): `void`
 
-Defined in: [battle/src/BattleSystem.ts:345](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L345)
+Defined in: battle/src/BattleSystem.ts:338
 
 #### Returns
 
@@ -58,7 +58,7 @@ Defined in: [battle/src/BattleSystem.ts:345](https://github.com/eleferrets/empty
 
 > **getCombatant**(`id`): [`Combatant`](../interfaces/Combatant.md) \| `undefined`
 
-Defined in: [battle/src/BattleSystem.ts:332](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L332)
+Defined in: battle/src/BattleSystem.ts:325
 
 #### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [battle/src/BattleSystem.ts:332](https://github.com/eleferrets/empty
 
 > **getEnemies**(): [`Combatant`](../interfaces/Combatant.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:341](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L341)
+Defined in: battle/src/BattleSystem.ts:334
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [battle/src/BattleSystem.ts:341](https://github.com/eleferrets/empty
 
 > **getParty**(): [`Combatant`](../interfaces/Combatant.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:337](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L337)
+Defined in: battle/src/BattleSystem.ts:330
 
 #### Returns
 
@@ -100,7 +100,7 @@ Defined in: [battle/src/BattleSystem.ts:337](https://github.com/eleferrets/empty
 
 > **getPhase**(): [`BattlePhase`](../type-aliases/BattlePhase.md)
 
-Defined in: [battle/src/BattleSystem.ts:325](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L325)
+Defined in: battle/src/BattleSystem.ts:318
 
 #### Returns
 
@@ -112,7 +112,7 @@ Defined in: [battle/src/BattleSystem.ts:325](https://github.com/eleferrets/empty
 
 > **getRound**(): `number`
 
-Defined in: [battle/src/BattleSystem.ts:328](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L328)
+Defined in: battle/src/BattleSystem.ts:321
 
 #### Returns
 
@@ -124,7 +124,7 @@ Defined in: [battle/src/BattleSystem.ts:328](https://github.com/eleferrets/empty
 
 > **loadDatabase**(`db`): `void`
 
-Defined in: [battle/src/BattleSystem.ts:239](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L239)
+Defined in: battle/src/BattleSystem.ts:232
 
 Load skill and status effect definitions. Call before `start()`.
 
@@ -144,7 +144,7 @@ Load skill and status effect definitions. Call before `start()`.
 
 > **setDamageFormula**(`fn`): `void`
 
-Defined in: [battle/src/BattleSystem.ts:256](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L256)
+Defined in: battle/src/BattleSystem.ts:249
 
 Replace the physical damage formula. Called with a `DamageContext` that
 exposes status-adjusted attack/defense and full combatant snapshots (for
@@ -175,7 +175,7 @@ battle.setDamageFormula((ctx) => {
 
 > **start**(`party`, `enemies`): `void`
 
-Defined in: [battle/src/BattleSystem.ts:277](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L277)
+Defined in: battle/src/BattleSystem.ts:270
 
 Begin a battle with the given party and enemy roster. Replaces any
 previous roster. Emits `'battle-start'`, then `'round-start'`, then
@@ -201,7 +201,7 @@ readonly [`Combatant`](../interfaces/Combatant.md)[]
 
 > **submitAction**(`combatantId`, `action`): `void`
 
-Defined in: [battle/src/BattleSystem.ts:300](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L300)
+Defined in: battle/src/BattleSystem.ts:293
 
 Submit an action for a party member. Once every party member awaiting
 input has submitted, the round resolves automatically: enemies act,
@@ -228,7 +228,7 @@ ends in victory/defeat.
 
 > **subscribe**(`handler`): () => `void`
 
-Defined in: [battle/src/BattleSystem.ts:263](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L263)
+Defined in: battle/src/BattleSystem.ts:256
 
 Subscribe to battle events. Returns an unsubscribe function.
 

@@ -6,7 +6,7 @@
 
 # Class: ParticleSystem
 
-Defined in: [engine/src/systems/ParticleSystem.ts:243](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L243)
+Defined in: engine/src/systems/ParticleSystem.ts:330
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:243](https://github.com/elefer
 
 > **get** **emitters**(): `ReadonlySet`\<[`ParticleEmitter`](ParticleEmitter.md)\>
 
-Defined in: [engine/src/systems/ParticleSystem.ts:264](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L264)
+Defined in: engine/src/systems/ParticleSystem.ts:351
 
 ##### Returns
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:264](https://github.com/elefer
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:268](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L268)
+Defined in: engine/src/systems/ParticleSystem.ts:355
 
 #### Returns
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:268](https://github.com/elefer
 
 > **create**(`options?`): [`ParticleEmitter`](ParticleEmitter.md)
 
-Defined in: [engine/src/systems/ParticleSystem.ts:246](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L246)
+Defined in: engine/src/systems/ParticleSystem.ts:333
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:246](https://github.com/elefer
 
 > **destroy**(): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:272](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L272)
+Defined in: engine/src/systems/ParticleSystem.ts:359
 
 #### Returns
 
@@ -80,7 +80,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:272](https://github.com/elefer
 
 > **remove**(`emitter`): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:252](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L252)
+Defined in: engine/src/systems/ParticleSystem.ts:339
 
 #### Parameters
 
@@ -98,7 +98,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:252](https://github.com/elefer
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:258](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L258)
+Defined in: engine/src/systems/ParticleSystem.ts:345
 
 #### Parameters
 

@@ -6,7 +6,7 @@
 
 # Interface: SchemaProxyLike\<T\>
 
-Defined in: [network/src/colyseusTypes.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L26)
+Defined in: network/src/colyseusTypes.ts:26
 
 The `$(instance).listen(field, cb)` shape colyseus.js's schema-callbacks proxy exposes.
 
@@ -22,7 +22,7 @@ The `$(instance).listen(field, cb)` shape colyseus.js's schema-callbacks proxy e
 
 > **listen**\<`K`\>(`field`, `callback`): () => `void`
 
-Defined in: [network/src/colyseusTypes.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L27)
+Defined in: network/src/colyseusTypes.ts:27
 
 #### Type Parameters
 

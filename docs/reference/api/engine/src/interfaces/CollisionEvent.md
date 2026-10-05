@@ -6,7 +6,7 @@
 
 # Interface: CollisionEvent
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L68)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:65
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:68](https://github.com/elefer
 
 > **bodyA**: `number`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L69)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:66
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [engine/src/systems/PhysicsSystem3D.ts:69](https://github.com/elefer
 
 > **bodyB**: `number`
 
-Defined in: [engine/src/systems/PhysicsSystem3D.ts:70](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PhysicsSystem3D.ts#L70)
+Defined in: engine/src/systems/PhysicsSystem3D.ts:67

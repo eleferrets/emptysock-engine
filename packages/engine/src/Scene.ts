@@ -12,22 +12,28 @@ import type { ComponentDef } from "./Component.js";
 import { componentRegistry } from "./ComponentRegistry.js";
 import { Entity, type ProxyCache } from "./Entity.js";
 import {
+  entityIdTable,
+  type EntityId,
+  type EntityRef,
+  NO_REF,
+} from "./EntityRef.js";
+import {
   assertSerializableOverrides,
   flattenPrefab,
   type PrefabDef,
 } from "./Prefab.js";
+import { ChildOf, RelationStore, type RelationDef } from "./Relations.js";
 import type { SerializableRecord } from "./Serializable.js";
 import { clearPhysicsBody } from "./components/PhysicsBody.js";
 import { clearVisualScriptScope } from "./components/VisualScript.js";
 import { clearCoroutines } from "./Coroutines.js";
-import { clearGmlActionState } from "./compat/gmlActions.js";
-import { clearGmlInstanceVars } from "./compat/gmlInstanceVars.js";
+import { clearEntitySignals } from "./systems/SignalBus.js";
 
 /**
  * A `scene.each(...)` callback receives one live component object per
  * component argument, plus the `Entity` handle last. Unlike `entity.get()`,
  * these are read directly off bitECS's raw arrays for the frame's iteration
- * — no proxy allocation (ENGINE_DESIGN.md §21: "measurably faster because it
+ * — no proxy allocation (the engine design notes: "measurably faster because it
  * skips proxy overhead altogether"). Mutate them in place; the write lands
  * straight in the underlying array.
  */
@@ -39,7 +45,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
 ) => void;
 
 /**
- * ENGINE_DESIGN.md §3/§16.1/§21 — the ECS world for one running scene. A
+ * the engine design notes/§16.1/§21 — the ECS world for one running scene. A
  * `Scene` owns exactly one bitECS `World`, with versioned entity IDs enabled
  * by default (§23) so a stale `Entity` handle can never silently alias a
  * different, newly-spawned entity.
@@ -50,7 +56,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
  * headless testing harness in `testing/index.ts` possible without dragging
  * in a renderer.
  */
-/** Options for `scene.spawn(prefab, props, options)` — ENGINE_DESIGN.md §12.4. */
+/** Options for `scene.spawn(prefab, props, options)` — the engine design notes */
 export interface SpawnOptions {
   /**
    * Fold pooling into spawn/destroy (§12.4). When `true`, `scene.destroy()`
@@ -74,15 +80,26 @@ export class Scene {
   /** eid -> the prefab it was spawned from, only tracked for pooled spawns. */
   private readonly _pooledOrigin = new Map<number, PrefabDef>();
 
+  private readonly _relations: RelationStore;
+  private readonly _destroyedHooks = new Set<(ref: EntityRef) => void>();
+  private readonly _parentedHooks = new Set<
+    (child: EntityRef, parent: EntityRef) => void
+  >();
+
   constructor() {
     // §23: versioned entity IDs, enabled by default, not configurable off.
     this.world = createWorld(createEntityIndex(withVersioning()));
+    this._relations = new RelationStore(
+      this.world,
+      (eid) => new Entity(this.world, eid, this._proxyCache),
+      (e) => this.destroy(e),
+    );
   }
 
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
   spawn(name?: string): Entity;
   /**
-   * Spawn a `Prefab` (ENGINE_DESIGN.md §11.2) as a unit onto one new entity
+   * Spawn a `Prefab` as a unit onto one new entity
    * — every component the prefab declares, plus everything it `extends`
    * flattened in first. `props` is a flat, `Serializable` prop bag applied
    * on top of the prefab's own per-component defaults/overrides: a value
@@ -171,9 +188,20 @@ export class Scene {
    */
   destroy(entity: Entity): void {
     if (!entity.isAlive) return;
+    // Notify while the entity is still alive; the ref is NO_REF when nothing
+    // ever asked for this entity's id (ids are assigned lazily).
+    if (this._destroyedHooks.size > 0) {
+      const ref = { $ref: entityIdTable(this.world).peek(entity.eid) };
+      for (const cb of [...this._destroyedHooks]) cb(ref);
+    }
+    clearEntitySignals(this.world, entity.eid);
+    // Cascade/unlink relations first: "destroy"-policy subjects go through
+    // this same method, and pooled entities never reach bitECS removal.
+    if (this._relations.active) this._relations.onDestroyed(entity);
     const pooledFrom = this._pooledOrigin.get(entity.eid);
     this._liveEntities.delete(entity.eid);
     this._proxyCache.delete(entity.eid);
+    entityIdTable(this.world).drop(entity.eid);
     // This is the one place that actually knows "this entity's component
     // data is being reset/removed", regardless of which component types
     // were attached — so it's also the right call site to clear
@@ -191,12 +219,6 @@ export class Scene {
     // Same reasoning again for a Visual Script run's per-entity evaluation
     // scope — see `clearVisualScriptScope`'s doc comment.
     clearVisualScriptScope(this.world, entity.eid);
-    // Same reasoning again for GML DnD-action compat state (velocity,
-    // friction, alarms) — see `clearGmlActionState`'s doc comment.
-    clearGmlActionState(this.world, entity.eid);
-    // Same reasoning again for a GML instance's implicit (undeclared-var)
-    // per-instance fields — see `clearGmlInstanceVars`'s doc comment.
-    clearGmlInstanceVars(this.world, entity.eid);
 
     if (pooledFrom !== undefined) {
       for (const { def } of flattenPrefab(pooledFrom)) {
@@ -214,13 +236,106 @@ export class Scene {
     bitecsRemoveEntity(this.world, entity.eid);
   }
 
+  /**
+   * Stable per-scene id for `entity`, assigned on first call (monotonic,
+   * never reused within this scene). Throws for a destroyed entity or one
+   * from another scene.
+   */
+  idOf(entity: Entity): EntityId {
+    if (entity.world !== this.world) {
+      throw new Error("Scene.idOf(): entity belongs to a different scene.");
+    }
+    if (!entity.isAlive) {
+      throw new Error("Scene.idOf(): entity is destroyed.");
+    }
+    return entityIdTable(this.world).idOf(entity);
+  }
+
+  /** `EntityRef` for `entity` (see `idOf`). */
+  refTo(entity: Entity): EntityRef {
+    return { $ref: this.idOf(entity) };
+  }
+
+  /**
+   * The live entity `ref` points at, or `undefined` when it is `NO_REF`,
+   * never existed, or was destroyed. A pooled-and-recycled entity counts as
+   * destroyed: pooled destroy drops its id, so the ref does not alias the
+   * entity's next occupant.
+   */
+  resolve(ref: EntityRef | null | undefined): Entity | undefined {
+    if (ref === null || ref === undefined || ref.$ref === NO_REF.$ref) {
+      return undefined;
+    }
+    return entityIdTable(this.world).get(ref.$ref);
+  }
+
+  /**
+   * Observe destruction of any entity in this scene (fires before teardown,
+   * once per entity, children of a cascade included). `Game` forwards this to
+   * the `entity:destroyed` signal. Returns an unsubscribe.
+   */
+  onDestroyed(cb: (ref: EntityRef) => void): () => void {
+    this._destroyedHooks.add(cb);
+    return () => this._destroyedHooks.delete(cb);
+  }
+
+  /** Observe `setParent` calls (`parent` is `NO_REF` when cleared). Returns an unsubscribe. */
+  onParented(cb: (child: EntityRef, parent: EntityRef) => void): () => void {
+    this._parentedHooks.add(cb);
+    return () => this._parentedHooks.delete(cb);
+  }
+
+  /** Add the edge `subject --relation--> target` (see `RelationDef`). */
+  relate(subject: Entity, relation: RelationDef, target: Entity): void {
+    this._relations.relate(subject, relation, target);
+  }
+
+  /** Remove one edge, or all of `subject`'s edges of `relation` when `target` is omitted. */
+  unrelate(subject: Entity, relation: RelationDef, target?: Entity): void {
+    this._relations.unrelate(subject, relation, target);
+  }
+
+  /** Entities `subject` points at through `relation`, in insertion order. */
+  targetsOf(subject: Entity, relation: RelationDef): Entity[] {
+    return this._relations.targetsOf(subject, relation);
+  }
+
+  /** Entities pointing at `target` through `relation`, in insertion order. */
+  subjectsOf(target: Entity, relation: RelationDef): Entity[] {
+    return this._relations.subjectsOf(target, relation);
+  }
+
+  /** `ChildOf` parent of `e`, if any. */
+  parentOf(e: Entity): Entity | undefined {
+    return this._relations.targetsOf(e, ChildOf)[0];
+  }
+
+  /** `ChildOf` children of `e`, in the order they were parented. */
+  childrenOf(e: Entity): Entity[] {
+    return this._relations.subjectsOf(e, ChildOf);
+  }
+
+  /**
+   * Set (or with `undefined`, clear) `child`'s parent. Opt-in hierarchy:
+   * destroying a parent destroys its children. Throws on a cycle.
+   */
+  setParent(child: Entity, parent: Entity | undefined): void {
+    if (parent === undefined) this._relations.unrelate(child, ChildOf);
+    else this._relations.relate(child, ChildOf, parent);
+    if (this._parentedHooks.size > 0) {
+      const c = this.refTo(child);
+      const p = parent === undefined ? NO_REF : this.refTo(parent);
+      for (const cb of [...this._parentedHooks]) cb(c, p);
+    }
+  }
+
   /** Number of entities currently alive in this scene. */
   get entityCount(): number {
     return this._liveEntities.size;
   }
 
   /**
-   * Bulk-iteration power path (ENGINE_DESIGN.md §11.3 — `each`, not
+   * Bulk-iteration power path (the engine design notes — `each`, not
    * `query`). Bypasses the `.get()` proxy layer entirely: components are
    * read straight off bitECS's arrays, and `entity` is only constructed
    * (cheaply — it's a handle, not an allocation of game state) for the
@@ -237,7 +352,7 @@ export class Scene {
     // One reusable "cursor" view per component, built with real
     // getters/setters (not a Proxy trap) bound to a shared mutable index —
     // zero per-entity allocation, and no Proxy indirection at all, matching
-    // ENGINE_DESIGN.md §21's "bypasses the proxy layer entirely, iterates
+    // the engine design notes's "bypasses the proxy layer entirely, iterates
     // the raw arrays directly" (this is the fast path `.get()`'s cached
     // per-entity Proxy exists to be faster than).
     const cursor = { i: 0 };
@@ -269,7 +384,7 @@ export class Scene {
 
 /**
  * Builds one reusable, no-Proxy view onto a component's parallel arrays for
- * `scene.each` (ENGINE_DESIGN.md §21). Built once per `each()` call (not per
+ * `scene.each`. Built once per `each()` call (not per
  * entity), it exposes one real accessor property per field, closing over
  * `cursor` — the caller advances `cursor.i` to the current entity id before
  * invoking the callback each iteration. No Proxy trap indirection, no

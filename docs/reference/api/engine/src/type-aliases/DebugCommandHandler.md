@@ -8,7 +8,7 @@
 
 > **DebugCommandHandler** = (`args`) => `string` \| `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L22)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:15
 
 ## Parameters
 

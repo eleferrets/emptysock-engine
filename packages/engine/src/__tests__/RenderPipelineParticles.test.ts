@@ -25,7 +25,7 @@ const { ParticleSystem } = await import("../systems/ParticleSystem.js");
 const { Texture, ParticleContainer } = await import("pixi.js");
 
 /**
- * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` was already a pure
+ * the release notes Track 4's real gap: `ParticleEmitter` was already a pure
  * simulation with zero pixi dependency, but nothing wired it into real
  * gameplay rendering (only the IDE's canvas preview editor consumed
  * `getParticles()`). `mountParticles()`/`unmountParticles()` close that gap
@@ -55,6 +55,27 @@ describe("ECS RenderPipeline — particle wiring", () => {
       c.children.some((cc) => cc instanceof ParticleContainer),
     );
     expect(found).toBe(true);
+  });
+
+  it("reuses pixi Particle objects across frames instead of reallocating", async () => {
+    const emitter = particles.create({
+      emissionRate: 1000,
+      lifetime: { min: 10, max: 10 },
+      maxParticles: 5,
+    });
+    await pipeline.mountParticles(emitter);
+    particles.update(0.5);
+    pipeline.renderFrame(scene);
+    const container = pipeline.stage.children
+      .flatMap((c) => c.children)
+      .find((c) => c instanceof ParticleContainer) as InstanceType<
+      typeof ParticleContainer
+    >;
+    const first = [...container.particleChildren];
+    expect(first.length).toBeGreaterThan(0);
+    pipeline.renderFrame(scene);
+    expect(container.particleChildren).toEqual(first);
+    expect(container.particleChildren[0]).toBe(first[0]);
   });
 
   it("syncs active particles from the emitter into the mounted container each renderFrame()", async () => {

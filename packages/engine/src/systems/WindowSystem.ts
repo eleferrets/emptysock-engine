@@ -132,7 +132,7 @@ export class WindowSystem {
    * the backing element's CSS pixels in the browser — whatever `apply()`/
    * `setSize()` most recently set (or `DEFAULT_CONFIG`'s value if neither
    * has run yet). Not an async live query of the real OS window (unlike
-   * `setSize`, which does await one) — GML's own `window_get_width`/
+   * `setSize`, which does await one) — the `window_get_width`/
    * `_height` are synchronous, so this reads back the same authored value
    * this class itself is the source of truth for, matching every other
    * compat function's "read the value this engine already tracks" shape.

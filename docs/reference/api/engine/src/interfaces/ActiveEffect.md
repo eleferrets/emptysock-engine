@@ -6,7 +6,7 @@
 
 # Interface: ActiveEffect
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:190](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L190)
+Defined in: engine/src/systems/PostProcessSystem.ts:216
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:190](https://github.com/ele
 
 > `optional` **lifetime?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:194](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L194)
+Defined in: engine/src/systems/PostProcessSystem.ts:220
 
 Transient effects (flash, shockwave) carry a remaining lifetime in seconds.
 
@@ -24,7 +24,7 @@ Transient effects (flash, shockwave) carry a remaining lifetime in seconds.
 
 > **options**: [`PostEffectOptions`](../type-aliases/PostEffectOptions.md)
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:192](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L192)
+Defined in: engine/src/systems/PostProcessSystem.ts:218
 
 ***
 
@@ -32,4 +32,4 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:192](https://github.com/ele
 
 > **type**: [`PostEffectType`](../type-aliases/PostEffectType.md)
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:191](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L191)
+Defined in: engine/src/systems/PostProcessSystem.ts:217

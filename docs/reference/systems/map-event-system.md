@@ -1,6 +1,6 @@
 # MapEventSystem
 
-`MapEventSystem` is a tile-aligned event system similar to RPG Maker / GMS2. Events sit at tile coordinates, run a command list when triggered, and can be gated on persistent state via [`VariableStore`](./variable-store.md).
+`MapEventSystem` is a tile-aligned event system similar to RPG Maker. Events sit at tile coordinates, run a command list when triggered, and can be gated on persistent state via [`VariableStore`](./variable-store.md).
 
 Import: `import { MapEventSystem, type MapEvent, type EventCommand, type EventTriggerType } from '@emptysock/engine';`
 

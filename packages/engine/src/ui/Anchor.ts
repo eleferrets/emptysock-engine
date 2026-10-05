@@ -5,7 +5,7 @@
  * doc comment names as a real, tracked gap ("no anchor resolution"). This
  * closes it: a pure function, not a component or a system, since anchor
  * math needs nothing beyond the four numbers below — a widget entity's
- * `LayoutStyle.left`/`.top` (RELEASE_PASS.md's `positionType: 1` "opts a
+ * `LayoutStyle.left`/`.top` (the release notes `positionType: 1` "opts a
  * widget out of the parent's flex flow, positioned by left/top alone")
  * should be set to this function's resolved output at spawn time, not to
  * the raw designer `x`/`y`.

@@ -6,7 +6,7 @@
 
 # Interface: BranchNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L44)
+Defined in: engine/src/components/VisualScript.ts:42
 
 ## Extends
 
@@ -16,9 +16,9 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:44](https://github.c
 
 ### comparator
 
-> **comparator**: `"eq"` \| `"neq"` \| `"gt"` \| `"lt"` \| `"gte"` \| `"lte"`
+> **comparator**: `"eq"` \| `"neq"` \| `"gt"` \| `"gte"` \| `"lt"` \| `"lte"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L48)
+Defined in: engine/src/components/VisualScript.ts:46
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:48](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -38,7 +38,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"branch"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:45](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L45)
+Defined in: engine/src/components/VisualScript.ts:43
 
 #### Overrides
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:45](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 
@@ -64,7 +64,7 @@ Node ids wired to this node's execution output(s), in port order.
 
 > **value**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L49)
+Defined in: engine/src/components/VisualScript.ts:47
 
 ***
 
@@ -72,6 +72,6 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:49](https://github.c
 
 > **variableIndex**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L47)
+Defined in: engine/src/components/VisualScript.ts:45
 
 Variable index (VariableStore) compared against `value`.

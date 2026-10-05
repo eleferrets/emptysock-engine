@@ -52,41 +52,7 @@ export type SaveSlot = z.infer<typeof SaveSlotSchema>;
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 
-export const ComponentDataSchema = z.object({
-  type: z.string(),
-  data: z.record(z.string(), z.unknown()),
-});
-
-export const EntitySchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  tags: z.array(z.string()).default([]),
-  active: z.boolean().default(true),
-  components: z.array(ComponentDataSchema).default([]),
-  children: z.array(z.lazy((): z.ZodTypeAny => EntitySchema)).default([]),
-});
-
-export type EntityData = z.infer<typeof EntitySchema>;
-
-export const SceneSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  version: z.number().int().positive().default(1),
-  backgroundColor: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .default("#1a1a2e"),
-  entities: z.array(EntitySchema).default([]),
-  metadata: z
-    .object({
-      author: z.string().optional(),
-      createdAt: z.number().optional(),
-      updatedAt: z.number().optional(),
-    })
-    .default({}),
-});
-
-export type Scene = z.infer<typeof SceneSchema>;
+export * from "./scene.js";
 
 // ─── Asset Manifest ───────────────────────────────────────────────────────────
 
@@ -120,6 +86,50 @@ export const AssetManifestSchema = z.object({
 });
 
 export type AssetManifest = z.infer<typeof AssetManifestSchema>;
+
+// ─── Asset index (typed lookup facts, not the loader manifest above) ─────────
+
+export const AssetKindSchema = z.enum([
+  "sprite",
+  "font",
+  "sound",
+  "object",
+  "room",
+  "shader",
+  "tileset",
+  "sequence",
+  "note",
+]);
+export type AssetKind = z.infer<typeof AssetKindSchema>;
+
+export const AssetIndexEntrySchema = z.object({
+  kind: AssetKindSchema,
+  /** Resource name, unique per kind. */
+  name: z.string(),
+  /** Runtime reference string as transpiled (sprite: texture path; others: name). */
+  id: z.string(),
+  width: z.number().int().nonnegative().optional(),
+  height: z.number().int().nonnegative().optional(),
+  frameCount: z.number().int().positive().optional(),
+  originX: z.number().optional(),
+  originY: z.number().optional(),
+  /** Font point size. */
+  size: z.number().optional(),
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  /** Primary file, relative to the output dir. */
+  path: z.string().optional(),
+});
+export type AssetIndexEntry = z.infer<typeof AssetIndexEntrySchema>;
+
+export const AssetIndexSchema = z.object({
+  version: z.literal(1),
+  entries: z.array(AssetIndexEntrySchema),
+  collisions: z
+    .array(z.object({ name: z.string(), kinds: z.array(AssetKindSchema) }))
+    .default([]),
+});
+export type AssetIndex = z.infer<typeof AssetIndexSchema>;
 
 // ─── GPU Tier ─────────────────────────────────────────────────────────────────
 
@@ -207,6 +217,22 @@ export interface IUIRenderer {
   /** Draw a pre-loaded image into the context at the given position and size. */
   drawImage(
     image: object,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void;
+  /**
+   * Optional 9-argument (source-region) form of `drawImage`, used by
+   * `UISystem` to blit bitmap-font glyphs from an atlas. Canvas2D satisfies
+   * it structurally. Renderers without it get the CSS-font text path.
+   */
+  drawImageRegion?(
+    image: object,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
     dx: number,
     dy: number,
     dw: number,

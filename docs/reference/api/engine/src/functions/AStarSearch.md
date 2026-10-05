@@ -8,7 +8,7 @@
 
 > **AStarSearch**\<`TNode`\>(`options`): [`AStarSearchResult`](../interfaces/AStarSearchResult.md)\<`TNode`\>
 
-Defined in: [engine/src/core/AStarSearch.ts:136](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/AStarSearch.ts#L136)
+Defined in: engine/src/AStarSearch.ts:136
 
 Run a generic A* search over any weighted graph.
 

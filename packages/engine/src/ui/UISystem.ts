@@ -3,7 +3,7 @@ import type { Texture } from "pixi.js";
 import type { IUIRenderer } from "@emptysock/types";
 import type { Entity } from "../Entity.js";
 import type { Scene } from "../Scene.js";
-import { Layout } from "../components/Layout.js";
+import { Layout, LayoutStyle } from "../components/Layout.js";
 import {
   ButtonState,
   Checkbox,
@@ -17,6 +17,13 @@ import {
 import type { WidgetTree } from "./WidgetTree.js";
 import { widgetRoundRect } from "./canvasHelpers.js";
 import type { FontRegistry } from "../systems/FontRegistry.js";
+import { layoutBitmapText } from "../systems/BitmapFontDef.js";
+
+/** True for the untinted default text colours (`#fff`/`#ffffff`/`white`, any case). */
+function isUntintedWhite(color: string): boolean {
+  const c = color.trim().toLowerCase();
+  return c === "#fff" || c === "#ffffff" || c === "white";
+}
 
 /** A press that moves further than this before release is a drag, not a click. */
 const CLICK_DRAG_THRESHOLD = 6;
@@ -39,7 +46,7 @@ export interface UISystemOptions {
 }
 
 /**
- * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
+ * `UISystem`, built on `WidgetTree`'s
  * entity-per-widget layout foundation (ground rule 4a) and the widget-kind
  * components in `components/Widgets.ts`. Covers hit-testing,
  * press/drag/click/hover dispatch, and rendering against a `Scene`'s live
@@ -74,9 +81,151 @@ export class UISystem {
     return `${fontSize}px ${font}`;
   }
 
+  /**
+   * The drawable behind an already-loaded texture at `src`, kicking off a
+   * (deduplicated) load when it is not loaded yet. `undefined` while loading,
+   * after a failed load, or when the texture has no drawable resource.
+   */
+  private _resourceFor(src: string): object | undefined {
+    const texture = this._textures.get(src);
+    if (texture === undefined) {
+      if (!this._imageState.has(src)) {
+        this._imageState.set(src, "loading");
+        this._textures
+          .load(src)
+          .then(() => {
+            this._imageState.delete(src);
+          })
+          .catch((err: unknown) => {
+            this._imageState.set(src, "error");
+            console.error(`[UISystem] failed to load image "${src}":`, err);
+          });
+      }
+      return undefined;
+    }
+    // `texture.source.resource` is the underlying drawable (an
+    // `ImageBitmap`/`HTMLImageElement`/canvas, depending on host and asset
+    // type) pixi's loader resolved — exactly the `object` shape
+    // `IUIRenderer.drawImage()` accepts, without this file importing any
+    // DOM image type itself.
+    const resource: unknown = texture.source.resource;
+    if (resource === null || resource === undefined) return undefined;
+    return resource as object;
+  }
+
+  /**
+   * Draws `text` for a widget. Precedence: `fontId` with a registered
+   * `BitmapFontDef` and a loaded atlas > `fontId` CSS descriptor > raw
+   * `font`/`fontSize`. The bitmap path needs the renderer's optional
+   * `drawImageRegion`, and only runs for the default white text colour:
+   * region blits cannot tint, and bitmap-font atlases are white-on-transparent, so
+   * a coloured widget keeps the (correctly coloured) CSS path instead of
+   * drawing the wrong colour. Whenever the bitmap path is unavailable
+   * (no def, no `drawImageRegion`, atlas still loading/failed, tinted) it
+   * falls back to `fillText` exactly as before. On the bitmap path the def's
+   * The metrics win over any CSS descriptor registered for the same id.
+   *
+   * `align`: 0 left / 1 center / 2 right relative to `anchorX`; text is
+   * vertically centred on `centerY`. Multi-line text aligns as one block.
+   */
+  private _drawText(
+    ctx: IUIRenderer,
+    text: string,
+    fontId: string,
+    font: string,
+    fontSize: number,
+    color: string,
+    align: number,
+    anchorX: number,
+    centerY: number,
+  ): void {
+    ctx.fillStyle = color;
+    if (this._drawBitmapText(ctx, text, fontId, color, align, anchorX, centerY))
+      return;
+    ctx.font = this._resolveFont(fontId, font, fontSize);
+    ctx.textBaseline = "middle";
+    ctx.textAlign = align === 1 ? "center" : align === 2 ? "right" : "left";
+    ctx.fillText(text, anchorX, centerY);
+  }
+
+  private _drawBitmapText(
+    ctx: IUIRenderer,
+    text: string,
+    fontId: string,
+    color: string,
+    align: number,
+    anchorX: number,
+    centerY: number,
+  ): boolean {
+    if (ctx.drawImageRegion === undefined) return false;
+    if (fontId.length === 0 || this._fonts === undefined) return false;
+    const def = this._fonts.getBitmap(fontId);
+    if (def === undefined || !isUntintedWhite(color)) return false;
+    const atlas = this._resourceFor(def.atlasPath);
+    if (atlas === undefined) return false;
+    const layout = layoutBitmapText(def, text);
+    const ox =
+      align === 1
+        ? anchorX - layout.width / 2
+        : align === 2
+          ? anchorX - layout.width
+          : anchorX;
+    const oy = centerY - layout.height / 2;
+    for (const p of layout.placements) {
+      const g = p.glyph;
+      ctx.drawImageRegion(
+        atlas,
+        g.x,
+        g.y,
+        g.w,
+        g.h,
+        ox + p.x,
+        oy + p.y,
+        g.w,
+        g.h,
+      );
+    }
+    return true;
+  }
+
   private _isVisible(entity: Entity): boolean {
     const appearance = entity.get(WidgetAppearance);
     return appearance === undefined || appearance.visible;
+  }
+
+  /**
+   * Intersection of the boxes of every ancestor with `overflow` hidden or
+   * scroll, or `undefined` when no ancestor clips.
+   */
+  private _clipRect(
+    scene: Scene,
+    entity: Entity,
+  ): { x: number; y: number; width: number; height: number } | undefined {
+    let rect:
+      { x: number; y: number; width: number; height: number } | undefined;
+    let cur = this._tree.parentOf(scene, entity);
+    while (cur !== undefined) {
+      const style = cur.get(LayoutStyle);
+      const box = cur.get(Layout);
+      if (style !== undefined && style.overflow > 0 && box !== undefined) {
+        if (rect === undefined) {
+          rect = { x: box.x, y: box.y, width: box.width, height: box.height };
+        } else {
+          const x = Math.max(rect.x, box.x);
+          const y = Math.max(rect.y, box.y);
+          const r = Math.min(rect.x + rect.width, box.x + box.width);
+          const b = Math.min(rect.y + rect.height, box.y + box.height);
+          rect = {
+            x,
+            y,
+            width: Math.max(0, r - x),
+            height: Math.max(0, b - y),
+          };
+        }
+      }
+      cur = this._tree.parentOf(scene, cur);
+    }
+    return rect;
   }
 
   private _contains(entity: Entity, x: number, y: number): boolean {
@@ -94,7 +243,7 @@ export class UISystem {
    * Topmost widget under `(x, y)`, or `undefined`. `WidgetTree.orderedWidgets()`
    * returns root-first order; walking it in reverse visits the most
    * recently added leaf-most widgets first, giving "children win over their
-   * own parent, later siblings win over earlier ones" without needing a
+   * The parent, later siblings win over earlier ones" without needing a
    * second recursive per-level pass.
    */
   hitTest(scene: Scene, x: number, y: number): Entity | undefined {
@@ -103,7 +252,17 @@ export class UISystem {
       const entity = order[i];
       if (entity === undefined) continue;
       if (!this._isVisible(entity)) continue;
-      if (this._contains(entity, x, y)) return entity;
+      if (!this._contains(entity, x, y)) continue;
+      const clip = this._clipRect(scene, entity);
+      if (
+        clip !== undefined &&
+        (x < clip.x ||
+          x > clip.x + clip.width ||
+          y < clip.y ||
+          y > clip.y + clip.height)
+      )
+        continue;
+      return entity;
     }
     return undefined;
   }
@@ -200,6 +359,12 @@ export class UISystem {
       if (box === undefined) continue;
       const appearance = entity.get(WidgetAppearance);
       ctx.save();
+      const clip = this._clipRect(scene, entity);
+      if (clip !== undefined) {
+        ctx.beginPath();
+        ctx.rect(clip.x, clip.y, clip.width, clip.height);
+        ctx.clip();
+      }
       ctx.globalAlpha = appearance?.alpha ?? 1;
 
       const panel = entity.get(PanelStyle);
@@ -272,11 +437,17 @@ export class UISystem {
       button.borderRadius,
     );
     ctx.fill();
-    ctx.fillStyle = button.color;
-    ctx.font = this._resolveFont(button.fontId, button.font, button.fontSize);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(button.label, box.x + box.width / 2, box.y + box.height / 2);
+    this._drawText(
+      ctx,
+      button.label,
+      button.fontId,
+      button.font,
+      button.fontSize,
+      button.color,
+      1,
+      box.x + box.width / 2,
+      box.y + box.height / 2,
+    );
   }
 
   private _renderCheckbox(
@@ -301,15 +472,17 @@ export class UISystem {
       ctx.stroke();
     }
     if (checkbox.label.length > 0) {
-      ctx.fillStyle = checkbox.color;
-      ctx.font = this._resolveFont(
+      this._drawText(
+        ctx,
+        checkbox.label,
         checkbox.fontId,
         checkbox.font,
         checkbox.fontSize,
+        checkbox.color,
+        0,
+        box.x + boxSize + 8,
+        box.y + box.height / 2,
       );
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(checkbox.label, box.x + boxSize + 8, box.y + box.height / 2);
     }
   }
 
@@ -357,18 +530,23 @@ export class UISystem {
     box: { x: number; y: number; width: number; height: number },
     label: ReturnType<typeof Label.createDefaults>,
   ): void {
-    ctx.fillStyle = label.color;
-    ctx.font = this._resolveFont(label.fontId, label.font, label.fontSize);
-    ctx.textBaseline = "middle";
     const tx =
       label.align === 1
         ? box.x + box.width / 2
         : label.align === 2
           ? box.x + box.width
           : box.x;
-    ctx.textAlign =
-      label.align === 1 ? "center" : label.align === 2 ? "right" : "left";
-    ctx.fillText(label.text, tx, box.y + box.height / 2);
+    this._drawText(
+      ctx,
+      label.text,
+      label.fontId,
+      label.font,
+      label.fontSize,
+      label.color,
+      label.align,
+      tx,
+      box.y + box.height / 2,
+    );
   }
 
   /**
@@ -390,34 +568,12 @@ export class UISystem {
       this._renderImagePlaceholder(ctx, box);
       return;
     }
-    const texture = this._textures.get(src);
-    if (texture === undefined) {
-      if (!this._imageState.has(src)) {
-        this._imageState.set(src, "loading");
-        this._textures
-          .load(src)
-          .then(() => {
-            this._imageState.delete(src);
-          })
-          .catch((err: unknown) => {
-            this._imageState.set(src, "error");
-            console.error(`[UISystem] failed to load image "${src}":`, err);
-          });
-      }
+    const resource = this._resourceFor(src);
+    if (resource === undefined) {
       this._renderImagePlaceholder(ctx, box);
       return;
     }
-    // `texture.source.resource` is the underlying drawable (an
-    // `ImageBitmap`/`HTMLImageElement`/canvas, depending on host and asset
-    // type) pixi's loader resolved — exactly the `object` shape
-    // `IUIRenderer.drawImage()` accepts, without this file importing any
-    // DOM image type itself.
-    const resource: unknown = texture.source.resource;
-    if (resource === null || resource === undefined) {
-      this._renderImagePlaceholder(ctx, box);
-      return;
-    }
-    ctx.drawImage(resource as object, box.x, box.y, box.width, box.height);
+    ctx.drawImage(resource, box.x, box.y, box.width, box.height);
   }
 
   /** Fallback for an `ImageWidget` with no source set yet, a source still loading, or a source that failed to load — a grey placeholder box. */

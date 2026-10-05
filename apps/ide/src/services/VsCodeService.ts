@@ -1,6 +1,6 @@
 // VsCodeService — "Open in VS Code" toolbar action.
 //
-// Per ENGINE_DESIGN.md §20 this is deliberately NOT a theme/extension import:
+// Per the engine design notes this is deliberately NOT a theme/extension import:
 // it just launches the user's own installed VS Code against the current
 // project folder. Behaviour differs by host, and the browser-preview case is
 // a real limitation, not a bug to paper over — see the two mode functions

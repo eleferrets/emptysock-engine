@@ -130,7 +130,7 @@ describe("ECS ECS core", () => {
   });
 });
 
-describe("ECS entity versioning / stale handles (ENGINE_DESIGN.md §23)", () => {
+describe("ECS entity versioning / stale handles", () => {
   it("marks a destroyed entity as not alive", () => {
     const scene = new Scene();
     const entity = scene.spawn();

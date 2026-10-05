@@ -8,4 +8,4 @@
 
 > **AssetEntry** = `z.infer`\<*typeof* [`AssetEntrySchema`](../variables/AssetEntrySchema.md)\>
 
-Defined in: [types/src/index.ts:115](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L115)
+Defined in: types/src/index.ts:81

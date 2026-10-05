@@ -317,7 +317,7 @@ export function CanvasPreview(): React.ReactElement {
 
   return (
     <div
-      className="relative flex-1 flex flex-col overflow-hidden"
+      className="relative flex-1 flex flex-col overflow-hidden h-full"
       ref={containerRef}
     >
       <ViewControls />

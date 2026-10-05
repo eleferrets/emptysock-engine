@@ -6,15 +6,25 @@
 
 # Interface: LayerFilterOptions
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L33)
+Defined in: engine/src/systems/PostProcessSystem.ts:35
 
 ## Properties
+
+### blur?
+
+> `optional` **blur?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:66
+
+rain-glass: max fog blur radius in scene px. Default 6.
+
+***
 
 ### colour?
 
 > `optional` **colour?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L46)
+Defined in: engine/src/systems/PostProcessSystem.ts:48
 
 outline: colour 0xRRGGBB
 
@@ -24,7 +34,7 @@ outline: colour 0xRRGGBB
 
 > `optional` **contrast?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L42)
+Defined in: engine/src/systems/PostProcessSystem.ts:44
 
 colour-grade: independent contrast override (0..2, 1 = identity)
 
@@ -34,9 +44,29 @@ colour-grade: independent contrast override (0..2, 1 = identity)
 
 > `optional` **degrees?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L44)
+Defined in: engine/src/systems/PostProcessSystem.ts:46
 
 hue-rotate: degrees
+
+***
+
+### dropletSize?
+
+> `optional` **dropletSize?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:56
+
+rain-glass: droplet size; 0.12 is the default, radii scale proportionally.
+
+***
+
+### dropletSpeed?
+
+> `optional` **dropletSpeed?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:58
+
+rain-glass: slide speed; 0.35 is the default, speed scales proportionally.
 
 ***
 
@@ -44,7 +74,27 @@ hue-rotate: degrees
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L51)
+Defined in: engine/src/systems/PostProcessSystem.ts:77
+
+***
+
+### fog?
+
+> `optional` **fog?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:64
+
+rain-glass: 0..1 condensation fog. Default 0.
+
+***
+
+### intensity?
+
+> `optional` **intensity?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:54
+
+rain-glass: 0..1 spawn rate and refraction strength. Default 0.6.
 
 ***
 
@@ -52,9 +102,19 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:51](https://github.com/elef
 
 > `optional` **mode?**: [`ColourblindMode`](../type-aliases/ColourblindMode.md)
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L50)
+Defined in: engine/src/systems/PostProcessSystem.ts:52
 
 colourblind: which deficiency to simulate
+
+***
+
+### quality?
+
+> `optional` **quality?**: [`RainQuality`](../type-aliases/RainQuality.md)
+
+Defined in: engine/src/systems/PostProcessSystem.ts:62
+
+rain-glass: quality tier, "auto" (default) follows the host GPU tier.
 
 ***
 
@@ -62,7 +122,7 @@ colourblind: which deficiency to simulate
 
 > `optional` **radius?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L36)
+Defined in: engine/src/systems/PostProcessSystem.ts:38
 
 blur: radius in px
 
@@ -72,9 +132,39 @@ blur: radius in px
 
 > `optional` **saturation?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L40)
+Defined in: engine/src/systems/PostProcessSystem.ts:42
 
 colour-grade: independent saturation override (0..2, 1 = identity)
+
+***
+
+### seed?
+
+> `optional` **seed?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:72
+
+rain-glass: sim RNG seed. Default 1.
+
+***
+
+### slope?
+
+> `optional` **slope?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:68
+
+rain-glass: 0..1 gravity scale (0 flat, 1 vertical glass). Default 1.
+
+***
+
+### streakAmount?
+
+> `optional` **streakAmount?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:60
+
+rain-glass: trail amount; 0.5 is the default, 0 disables trails.
 
 ***
 
@@ -82,7 +172,7 @@ colour-grade: independent saturation override (0..2, 1 = identity)
 
 > `optional` **thickness?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L48)
+Defined in: engine/src/systems/PostProcessSystem.ts:50
 
 outline: thickness px
 
@@ -92,7 +182,7 @@ outline: thickness px
 
 > **type**: [`LayerFilterType`](../type-aliases/LayerFilterType.md)
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L34)
+Defined in: engine/src/systems/PostProcessSystem.ts:36
 
 ***
 
@@ -100,6 +190,36 @@ Defined in: [engine/src/systems/PostProcessSystem.ts:34](https://github.com/elef
 
 > `optional` **value?**: `number`
 
-Defined in: [engine/src/systems/PostProcessSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PostProcessSystem.ts#L38)
+Defined in: engine/src/systems/PostProcessSystem.ts:40
 
 colour-grade, brightness, contrast, saturate: 0..2 (1 = identity)
+
+***
+
+### wind?
+
+> `optional` **wind?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:70
+
+rain-glass: lateral wind in map px/s. Default 0.
+
+***
+
+### wiperEnabled?
+
+> `optional` **wiperEnabled?**: `boolean`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:74
+
+rain-glass: run the wiper continuously. Default false.
+
+***
+
+### wiperPeriod?
+
+> `optional` **wiperPeriod?**: `number`
+
+Defined in: engine/src/systems/PostProcessSystem.ts:76
+
+rain-glass: wiper out-and-back time in seconds.

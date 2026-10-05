@@ -8,7 +8,7 @@
  *
  * The bundler here is Rolldown (the real Node package `rolldown`), not
  * `@rolldown/browser` — this is the toolchain CLI's Node-side build, which
- * ENGINE_DESIGN.md §16.3/§17 migrates first and separately from the IDE's
+ * the engine design notes/§17 migrates first and separately from the IDE's
  * in-browser `esbuild-wasm`/`GameBuildService` path (apps/ide's live
  * preview build). That path is untouched: it needs a WASM-compiled bundler
  * that runs inside the browser preview iframe, which is exactly what
@@ -133,8 +133,7 @@ export interface BundleGameEntryOptions {
 }
 
 export type BundleGameEntryResult =
-  | { success: true; code: string }
-  | { success: false; error: string };
+  { success: true; code: string } | { success: false; error: string };
 
 /**
  * Bundles a single game entry point into one IIFE string, in memory — the

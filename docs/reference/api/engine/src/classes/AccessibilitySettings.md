@@ -6,7 +6,7 @@
 
 # Class: AccessibilitySettings
 
-Defined in: [engine/src/ui/AccessibilitySettings.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/AccessibilitySettings.ts#L9)
+Defined in: engine/src/ui/AccessibilitySettings.ts:9
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/ui/AccessibilitySettings.ts:9](https://github.com/elefer
 
 > **get** **textScale**(): `number`
 
-Defined in: [engine/src/ui/AccessibilitySettings.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/AccessibilitySettings.ts#L13)
+Defined in: engine/src/ui/AccessibilitySettings.ts:13
 
 Multiplier applied to every LabelWidget's fontSize at render time.
 
@@ -38,7 +38,7 @@ Multiplier applied to every LabelWidget's fontSize at render time.
 
 > **set** **textScale**(`value`): `void`
 
-Defined in: [engine/src/ui/AccessibilitySettings.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/AccessibilitySettings.ts#L17)
+Defined in: engine/src/ui/AccessibilitySettings.ts:17
 
 ##### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [engine/src/ui/AccessibilitySettings.ts:17](https://github.com/elefe
 
 > **reset**(): `void`
 
-Defined in: [engine/src/ui/AccessibilitySettings.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/ui/AccessibilitySettings.ts#L21)
+Defined in: engine/src/ui/AccessibilitySettings.ts:21
 
 #### Returns
 

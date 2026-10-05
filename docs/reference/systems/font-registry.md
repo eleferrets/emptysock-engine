@@ -1,6 +1,6 @@
 # FontRegistry
 
-`FontRegistry` is a `Game`-scoped registry mapping a font id string to a `FontDescriptor` (family/size/bold/italic). It's the real component for working with named fonts — a GMS2-imported font (`gms2-font-import.ts`'s `buildFontAsset`) registers into it once, and any `Label`/`ButtonState`/`Checkbox` widget references it by id instead of spelling out `font`/`fontSize` by hand every time.
+`FontRegistry` is a `Game`-scoped registry mapping a font id string to a `FontDescriptor` (family/size/bold/italic). It's the real component for working with named fonts — a font registers into it once, and any `Label`/`ButtonState`/`Checkbox` widget references it by id instead of spelling out `font`/`fontSize` by hand every time.
 
 Import: `import { FontRegistry, type FontDescriptor } from '@emptysock/engine';`
 
@@ -37,7 +37,7 @@ Precomposed `"[italic ][bold ]<size>px <family>"` CSS font string — the exact 
 
 ## `fonts.registerBitmap(id: string, def: BitmapFontDef): void`
 
-Registers a pre-rendered bitmap font (atlas image plus glyph rects, advances and kerning) — what `@emptysock/toolchain`'s GMS2 importer emits as `<Name>FontBitmap` for a font resource that has a glyph atlas. Independent of `register()`; an id may have a CSS descriptor, a bitmap def, or both. GML `draw_set_font`/`draw_text` (via `RenderPipeline`, given `fonts: game.fonts`) draws with pixi `BitmapText` when a def exists and its atlas has loaded, falling back to Canvas text until then. `getBitmap(id)` and `hasBitmap(id)` read it back. `BitmapFontDef` is `{ name, atlasPath, size, lineHeight, glyphs: Record<codePoint, { x, y, w, h, shift, offset }>, kerning: [first, second, amount][] }`; `layoutBitmapText(def, text)` and `bitmapKerning(def, a, b)` are pixi-free helpers for the glyph maths.
+Registers a pre-rendered bitmap font (atlas image plus glyph rects, advances and kerning). Independent of `register()`; an id may have a CSS descriptor, a bitmap def, or both. `getBitmap(id)` and `hasBitmap(id)` read it back. `BitmapFontDef` is `{ name, atlasPath, size, lineHeight, glyphs: Record<codePoint, { x, y, w, h, shift, offset }>, kerning: [first, second, amount][] }`; `layoutBitmapText(def, text)` and `bitmapKerning(def, a, b)` are pixi-free helpers for the glyph maths.
 
 ## `fonts.keys(): IterableIterator<string>`
 
@@ -72,15 +72,3 @@ entity.add(Label, { text: "Play", fontId: "fnt_menu" });
 `UISystemOptions.fonts` is optional — omit it entirely and every widget always renders from its own raw `font`/`fontSize`, unchanged.
 
 ---
-
-## GMS2 font import
-
-`@emptysock/toolchain`'s GMS2 importer converts a font resource's metadata (family/size/bold/italic — never its glyph atlas PNG, since this engine's text rendering is plain Canvas/CSS, not a bitmap-font renderer) into a generated `assets/<name>.font.ts` module exporting a plain `{ name, family, size, bold, italic, cssFont }` object, ready to hand to `FontRegistry.register()`:
-
-```typescript
-import { FntMenuFont } from "./assets/fnt_menu.font.js";
-game.fonts.register(FntMenuFont.name, FntMenuFont);
-entity.add(Label, { fontId: FntMenuFont.name });
-```
-
-See `docs/manual/05-systems-reference.md` and the `GMS2 .yyp/.yy` quirks entry in the engine's `CLAUDE.md` for the full importer behaviour.

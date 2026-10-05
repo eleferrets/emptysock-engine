@@ -6,16 +6,16 @@
 
 # Function: createCustomShaderFilter()
 
-> **createCustomShaderFilter**(`options`): [`CustomShaderFilter`](../classes/CustomShaderFilter.md)
+> **createCustomShaderFilter**(`options`): [`CustomShaderFilter`](../interfaces/CustomShaderFilter.md)
 
-Defined in: [engine/src/systems/CustomShaderFilter.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CustomShaderFilter.ts#L85)
+Defined in: engine/src/systems/CustomShaderFilter.ts:160
 
 ## Parameters
 
 ### options
 
-[`CustomShaderOptions`](../interfaces/CustomShaderOptions.md)
+`CustomShaderOptions`
 
 ## Returns
 
-[`CustomShaderFilter`](../classes/CustomShaderFilter.md)
+[`CustomShaderFilter`](../interfaces/CustomShaderFilter.md)

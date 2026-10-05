@@ -4,61 +4,60 @@
 
 [emptysock-engine](../../../README.md) / [engine/src](../README.md) / SaveSystem
 
-# Class: SaveSystem\<TSlot\>
+# Class: SaveSystem
 
-Defined in: [engine/src/systems/SaveSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L49)
+Defined in: engine/src/systems/SaveSystem.ts:195
 
-Generic key-value persistence for save slots, backed by `localStorage`.
+the engine design notes/§19.3 — generic save/load for any ECS-core component
+built on the `Serializable` constraint. No per-component save/load code
+is required for the common case: `SaveSystem` reads every configured
+component's fields straight off the entity via the name-keyed component
+lookup already in `Entity`/`ComponentRegistry`.
 
-`SaveSystem` itself only knows how to store and retrieve an opaque JSON
-object per slot under a prefixed key, and validate that a loaded slot
-matches a schema — it has no opinion on what a "save slot" contains.
-The *shape* of a slot is supplied as a Zod schema:
-
-- Construct with no schema to get the default `GameSaveSlot` shape
-  (`{ scene, data, timestamp, playtime }`), matching a typical
-  `startScene`-driven game.
-- Construct with `new SaveSystem(prefix, mySchema)` to store any other
-  slot shape your game needs (e.g. per-character saves, a different set
-  of bookkeeping fields, no `scene` field at all). `mySchema` must
-  describe the full slot including an `id: string` field — `save()`
-  fills `id` in from the slot name automatically.
-
-## Type Parameters
-
-### TSlot
-
-`TSlot` *extends* `object` = [`GameSaveSlot`](../interfaces/GameSaveSlot.md)
+A `SaveSystem` is bound to one `Scene` and one explicit list of
+"save-aware" `ComponentDef`s at construction. The explicit list (rather
+than some global "every component ever defined" registry) mirrors
+`scene.each(...)`'s own design — Scene/ComponentRegistry deliberately
+don't track a global list of every `ComponentDef` that has ever existed,
+only per-world, per-name storage — and keeps `SaveSystem` from silently
+saving components a game never intended to persist (e.g. purely-visual
+runtime state).
 
 ## Constructors
 
 ### Constructor
 
-> **new SaveSystem**\<`TSlot`\>(`prefix?`, `schema?`): `SaveSystem`\<`TSlot`\>
+> **new SaveSystem**(`scene`, `components`, `options?`): `SaveSystem`
 
-Defined in: [engine/src/systems/SaveSystem.ts:54](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L54)
+Defined in: engine/src/systems/SaveSystem.ts:204
 
 #### Parameters
 
-##### prefix?
+##### scene
 
-`string` = `STORAGE_PREFIX`
+[`Scene`](Scene.md)
 
-##### schema?
+##### components
 
-`ZodType`\<`TSlot`, `ZodTypeDef`, `TSlot`\>
+readonly [`ComponentDef`](../interfaces/ComponentDef.md)\<[`SerializableRecord`](../type-aliases/SerializableRecord.md)\>[]
+
+##### options?
+
+[`SaveSystemOptions`](../interfaces/SaveSystemOptions.md) = `{}`
 
 #### Returns
 
-`SaveSystem`\<`TSlot`\>
+`SaveSystem`
 
 ## Methods
 
-### delete()
+### deleteSave()
 
-> **delete**(`slotId`): `void`
+> **deleteSave**(`slotId`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L143)
+Defined in: engine/src/systems/SaveSystem.ts:253
+
+Delete a save slot. No-op if it doesn't exist.
 
 #### Parameters
 
@@ -68,27 +67,82 @@ Defined in: [engine/src/systems/SaveSystem.ts:143](https://github.com/eleferrets
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
+
+***
+
+### hasSave()
+
+> **hasSave**(`slotId`): `Promise`\<`boolean`\>
+
+Defined in: engine/src/systems/SaveSystem.ts:242
+
+`true` if a save exists under `slotId`.
+
+#### Parameters
+
+##### slotId
+
+`string`
+
+#### Returns
+
+`Promise`\<`boolean`\>
 
 ***
 
 ### listSlots()
 
-> **listSlots**(): `TSlot`[]
+> **listSlots**(): `Promise`\<`string`[]\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:121](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L121)
+Defined in: engine/src/systems/SaveSystem.ts:247
+
+All slot ids currently saved.
 
 #### Returns
 
-`TSlot`[]
+`Promise`\<`string`[]\>
 
 ***
 
 ### load()
 
-> **load**(`slotId`): `TSlot` \| `null`
+> **load**(`slotId`, `options?`): `Promise`\<`boolean`\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:109](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L109)
+Defined in: engine/src/systems/SaveSystem.ts:267
+
+Load `slotId` into this `SaveSystem`'s scene, spawning one fresh entity
+per saved entity and re-populating its components by name. A
+version-mismatched component either runs its registered `migrate()`
+hook, or — if none is registered — logs a warning and drops just that
+component's data. Neither case throws or aborts the rest of the load;
+a corrupt/outdated single component never corrupts the whole save.
+
+Returns `false` (and loads nothing) if the slot doesn't exist.
+
+#### Parameters
+
+##### slotId
+
+`string`
+
+##### options?
+
+[`LoadOptions`](../interfaces/LoadOptions.md) = `{}`
+
+#### Returns
+
+`Promise`\<`boolean`\>
+
+***
+
+### peek()
+
+> **peek**(`slotId`): `Promise`\<[`SaveHeader`](../interfaces/SaveHeader.md) \| `null`\>
+
+Defined in: engine/src/systems/SaveSystem.ts:321
+
+Header of `slotId` (version, provenance, room) without loading it; `null` if absent or unreadable. Throws `SaveFormatError` for a newer format.
 
 #### Parameters
 
@@ -98,25 +152,46 @@ Defined in: [engine/src/systems/SaveSystem.ts:109](https://github.com/eleferrets
 
 #### Returns
 
-`TSlot` \| `null`
+`Promise`\<[`SaveHeader`](../interfaces/SaveHeader.md) \| `null`\>
+
+***
+
+### registerMigration()
+
+> **registerMigration**(`componentName`, `migrate`): `void`
+
+Defined in: engine/src/systems/SaveSystem.ts:228
+
+Register a migration for `componentName`, run on load when a saved
+instance's stamped version doesn't match the currently-registered
+def's version. Only one migration per component name is kept — the
+latest registration wins — since it is expected to migrate from
+whatever old version is found straight to the current one in one step.
+
+#### Parameters
+
+##### componentName
+
+`string`
+
+##### migrate
+
+[`MigrateFn`](../type-aliases/MigrateFn.md)
+
+#### Returns
+
+`void`
 
 ***
 
 ### save()
 
-> **save**(`slotId`, `entry`): `void`
+> **save**(`slotId`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/SaveSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L72)
+Defined in: engine/src/systems/SaveSystem.ts:236
 
-Persist a save slot.
-
-With the default schema, `timestamp` defaults to `Date.now()` and
-`playtime` defaults to `0` when omitted, so a minimal call only needs
-`scene` and `data`. With a custom schema, `entry` must supply every
-field the schema requires except `id` (which comes from `slotId`).
-
-If the assembled slot does not validate against the schema, the save
-is rejected and a warning is logged — nothing is written to storage.
+Snapshot every live entity's save-aware components and persist them
+under `slotId`.
 
 #### Parameters
 
@@ -124,28 +199,6 @@ is rejected and a warning is logged — nothing is written to storage.
 
 `string`
 
-##### entry
-
-`TSlot` *extends* [`GameSaveSlot`](../interfaces/GameSaveSlot.md) ? `object` : `Omit`\<`TSlot`, `"id"`\>
-
 #### Returns
 
-`void`
-
-***
-
-### update()
-
-> **update**(`_dt`): `void`
-
-Defined in: [engine/src/systems/SaveSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SaveSystem.ts#L151)
-
-#### Parameters
-
-##### \_dt
-
-`number`
-
-#### Returns
-
-`void`
+`Promise`\<`void`\>

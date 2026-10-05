@@ -8,4 +8,4 @@
 
 > **ActorId** = `string`
 
-Defined in: [engine/src/core/Actor.ts:1](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Actor.ts#L1)
+Defined in: engine/src/Actor.ts:1

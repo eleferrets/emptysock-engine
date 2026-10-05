@@ -1,7 +1,7 @@
 import type { SerializableRecord } from "./Serializable.js";
 
 /**
- * Per-field inspector schema entry (ENGINE_DESIGN.md §10.1: "co-located
+ * Per-field inspector schema entry (the engine design notes: "co-located
  * optional schema, not decorators"). Describes how the IDE's Inspector
  * should render one field of a component's defaults object — enough to
  * pick a typed control (number input, text input, checkbox, dropdown), not
@@ -12,7 +12,15 @@ export type ComponentFieldSchema =
   | { readonly kind: "number" }
   | { readonly kind: "string" }
   | { readonly kind: "boolean" }
-  | { readonly kind: "enum"; readonly options: readonly string[] };
+  | { readonly kind: "enum"; readonly options: readonly string[] }
+  /**
+   * The field holds an `EntityRef` (`{ $ref: number }`, `NO_REF` when
+   * empty). Scene load, save/load and room carry-over remap exactly the
+   * fields declared this way (`remapRefs`). `relation`, when set, names a
+   * `RelationDef` the pointed-at entity is expected to be linked through
+   * (Inspector hint only; not enforced).
+   */
+  | { readonly kind: "entityRef"; readonly relation?: string };
 
 /**
  * A component's schema maps each field name in its defaults object to a
@@ -27,7 +35,7 @@ export type ComponentSchema<T extends SerializableRecord> = {
 };
 
 /**
- * A registered component definition. ENGINE_DESIGN.md §23.1: component
+ * A registered component definition. the engine design notes: component
  * identity for bitECS's purposes is a plain object reference, which breaks
  * under hot-reload (a re-evaluated module produces a *new* reference for
  * what should be "the same" component). We fix that by keying identity on
@@ -46,7 +54,7 @@ export interface ComponentDef<
    * stamps every saved component instance with this number; on load, a
    * mismatch against the currently-registered def's version triggers that
    * component's registered `migrate()` hook, or a warn+drop of just that
-   * component's data if none is registered (ENGINE_DESIGN.md §19.3).
+   * component's data if none is registered.
    */
   readonly version: number;
   /**
@@ -56,6 +64,26 @@ export interface ComponentDef<
    * not as an error.
    */
   readonly schema?: ComponentSchema<T>;
+  /**
+   * Optional hook run on a plain copy of this component's fields when its
+   * entity is carried into another scene (`captureEntities`). Return the data
+   * to keep: use it to reset engine-managed state that belongs to the old
+   * world, e.g. `PhysicsBody` nulls its Rapier handles. Absent means the
+   * fields are copied as-is.
+   */
+  readonly transfer?: (
+    data: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  /**
+   * Optional hook run when a scene file entry was written at a different
+   * `version` than this def's: receives the stored overrides and that older
+   * version, returns the overrides in the current shape. Without it, the data
+   * is applied as written and a warning is logged.
+   */
+  readonly migrate?: (
+    data: Record<string, unknown>,
+    fromVersion: number,
+  ) => Record<string, unknown>;
 }
 
 /** Optional extra config for `defineComponent`. */
@@ -66,6 +94,15 @@ export interface DefineComponentOptions<
   readonly version?: number;
   /** See `ComponentSchema`. Omit for components with no Inspector schema. */
   readonly schema?: ComponentSchema<T>;
+  /** See `ComponentDef.transfer`. */
+  readonly transfer?: (
+    data: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  /** See `ComponentDef.migrate`. */
+  readonly migrate?: (
+    data: Record<string, unknown>,
+    fromVersion: number,
+  ) => Record<string, unknown>;
 }
 
 /**
@@ -77,7 +114,7 @@ export interface DefineComponentOptions<
  * player.get(Position).x; // 100
  * ```
  *
- * The name is load-bearing (ENGINE_DESIGN.md §23.1) — hot-reloading the
+ * The name is load-bearing — hot-reloading the
  * module that calls `defineComponent("Position", ...)` produces a new JS
  * object every time, but the engine's component registry treats two defs
  * with the same `componentName` as the *same* component, replacing the old
@@ -93,5 +130,7 @@ export function defineComponent<T extends SerializableRecord>(
     createDefaults,
     version: options?.version ?? 1,
     ...(options?.schema !== undefined ? { schema: options.schema } : {}),
+    ...(options?.transfer !== undefined ? { transfer: options.transfer } : {}),
+    ...(options?.migrate !== undefined ? { migrate: options.migrate } : {}),
   };
 }

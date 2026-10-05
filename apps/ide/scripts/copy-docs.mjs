@@ -75,11 +75,6 @@ const sections = [
     html: "10-language-reference.html",
   },
   {
-    file: "11-gms2-migration.md",
-    title: "11 — GameMaker Migration",
-    html: "11-gms2-migration.html",
-  },
-  {
     file: "12-tutorial-platformer.md",
     title: "12 — Tutorial: Platformer",
     html: "12-tutorial-platformer.html",
@@ -91,11 +86,6 @@ const sections = [
   },
   { file: "14-glossary.md", title: "14 — Glossary", html: "14-glossary.html" },
   {
-    file: "15-gmrt-roadmap.md",
-    title: "15 — Roadmap",
-    html: "15-gmrt-roadmap.html",
-  },
-  {
     file: "16-hot-reload.md",
     title: "16 — Hot Reload",
     html: "16-hot-reload.html",
@@ -104,11 +94,6 @@ const sections = [
     file: "17-spine-animation.md",
     title: "17 — Spine Animation",
     html: "17-spine-animation.html",
-  },
-  {
-    file: "18-debugger-plan.md",
-    title: "18 — Debugger",
-    html: "18-debugger-plan.html",
   },
   {
     file: "19-multiplayer-boilerplate.md",
@@ -167,10 +152,21 @@ function inlineFormat(text) {
   // Strike
   text = text.replace(/~~(.+?)~~/g, "<del>$1</del>");
   // Links [text](url)
-  text = text.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2">$1</a>',
-  );
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => {
+    // Links to other manual pages point at the generated .html; links to docs
+    // that are not shipped with the manual (../guides, ../reference, CLAUDE.md)
+    // would 404, so they render as plain text.
+    const [target, hash = ""] = href.split("#");
+    if (/^(https?:|mailto:|#)/.test(href))
+      return `<a href="${href}">${label}</a>`;
+    if (target.endsWith(".md")) {
+      const name = target.replace(/^\.\//, "");
+      if (!name.includes("/"))
+        return `<a href="${name.replace(/\.md$/, ".html")}${hash ? `#${hash}` : ""}">${label}</a>`;
+      return label;
+    }
+    return `<a href="${href}">${label}</a>`;
+  });
   return text;
 }
 
@@ -227,7 +223,11 @@ function convertMarkdown(md) {
     }
 
     // Tables — detect by pipe-separated rows
-    if (/^\|/.test(raw) && i + 1 < lines.length && /^\|[-| :]+\|/.test(lines[i + 1])) {
+    if (
+      /^\|/.test(raw) &&
+      i + 1 < lines.length &&
+      /^\|[-| :]+\|/.test(lines[i + 1])
+    ) {
       // Collect table rows
       const rows = [];
       while (i < lines.length && /^\|/.test(lines[i])) {
@@ -701,7 +701,14 @@ const sharedCss = `
   }
 `;
 
-function pageTemplate({ title, bodyHtml, prevSection, nextSection, allSections, currentHtml }) {
+function pageTemplate({
+  title,
+  bodyHtml,
+  prevSection,
+  nextSection,
+  allSections,
+  currentHtml,
+}) {
   const sidebarLinks = allSections
     .map((s) => {
       const cls = s.html === currentHtml ? " active" : "";
@@ -709,15 +716,13 @@ function pageTemplate({ title, bodyHtml, prevSection, nextSection, allSections, 
     })
     .join("\n");
 
-  const prevLink =
-    prevSection
-      ? `<a class="nav-prev" href="${prevSection.html}">← Previous<strong>${prevSection.title}</strong></a>`
-      : `<span class="nav-spacer"></span>`;
+  const prevLink = prevSection
+    ? `<a class="nav-prev" href="${prevSection.html}">← Previous<strong>${prevSection.title}</strong></a>`
+    : `<span class="nav-spacer"></span>`;
 
-  const nextLink =
-    nextSection
-      ? `<a class="nav-next" href="${nextSection.html}">Next →<strong>${nextSection.title}</strong></a>`
-      : `<span class="nav-spacer"></span>`;
+  const nextLink = nextSection
+    ? `<a class="nav-next" href="${nextSection.html}">Next →<strong>${nextSection.title}</strong></a>`
+    : `<span class="nav-spacer"></span>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -872,7 +877,8 @@ for (let idx = 0; idx < availableSections.length; idx++) {
   const bodyHtml = convertMarkdown(md);
 
   const prevSection = idx > 0 ? availableSections[idx - 1] : null;
-  const nextSection = idx < availableSections.length - 1 ? availableSections[idx + 1] : null;
+  const nextSection =
+    idx < availableSections.length - 1 ? availableSections[idx + 1] : null;
 
   const page = pageTemplate({
     title: section.title,
@@ -888,7 +894,10 @@ for (let idx = 0; idx < availableSections.length; idx++) {
 }
 
 // Write index
-fs.writeFileSync(path.join(outDir, "index.html"), buildIndex(availableSections));
+fs.writeFileSync(
+  path.join(outDir, "index.html"),
+  buildIndex(availableSections),
+);
 
 // Copy api-reference.json to public/ so Help → API Reference works offline.
 const apiSrc = path.resolve(__dirname, "../../../api-reference.json");
@@ -902,7 +911,10 @@ const wasmSrc = path.resolve(
   __dirname,
   "../../../node_modules/.pnpm/esbuild-wasm@0.28.2/node_modules/esbuild-wasm/esbuild.wasm",
 );
-const wasmFallback = path.resolve(__dirname, "../node_modules/esbuild-wasm/esbuild.wasm");
+const wasmFallback = path.resolve(
+  __dirname,
+  "../node_modules/esbuild-wasm/esbuild.wasm",
+);
 const wasmDst = path.resolve(__dirname, "../public/esbuild.wasm");
 const wasmResolved = fs.existsSync(wasmSrc)
   ? wasmSrc
@@ -919,7 +931,9 @@ if (wasmResolved) {
     const resolved = req.resolve("esbuild-wasm/esbuild.wasm");
     fs.copyFileSync(resolved, wasmDst);
   } catch {
-    console.warn("[copy-docs] could not locate esbuild-wasm/esbuild.wasm — skipping");
+    console.warn(
+      "[copy-docs] could not locate esbuild-wasm/esbuild.wasm — skipping",
+    );
   }
 }
 
