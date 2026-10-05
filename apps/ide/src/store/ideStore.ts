@@ -336,6 +336,81 @@ async function main(): Promise<void> {
 void main();
 `;
 
+// Content for the starter project's other files, shown when they are opened.
+const STARTER_FILES: Record<string, string> = {
+  "src/main.ts": `import { Game, defineScene, RenderPipeline, Transform, Sprite } from '@emptysock/engine';
+
+// Entry point: Run builds the file open in the editor, so this one is
+// self-contained. It draws a single square.
+const scene = defineScene({
+  onLoad(s) {
+    const box = s.spawn('Box');
+    box.add(Transform, { x: 640, y: 360, scaleX: 96, scaleY: 96 });
+    box.add(Sprite, { tint: 0x7c6af7 });
+  },
+});
+
+async function main(): Promise<void> {
+  const game = new Game();
+  const renderer = new RenderPipeline();
+  await renderer.init({ width: 1280, height: 720 });
+  game.attachRenderer(renderer);
+  document.body.appendChild(renderer.canvas);
+  await game.loadScene(scene, { manageLifecycle: false });
+  let last = performance.now();
+  const frame = (now: number): void => {
+    game.update((now - last) / 1000);
+    last = now;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+void main();
+`,
+  "src/scenes/MenuScene.ts": `import { defineScene, Transform, Sprite } from '@emptysock/engine';
+
+// A minimal title screen: one tinted sprite stretched into a banner.
+export const menuScene = defineScene({
+  onLoad(scene) {
+    const title = scene.spawn('Title');
+    title.add(Transform, { x: 640, y: 200, scaleX: 480, scaleY: 80 });
+    title.add(Sprite, { tint: 0x7c6af7 });
+  },
+});
+`,
+  "src/entities/Player.ts": `import { Transform, Sprite, type Scene } from '@emptysock/engine';
+
+// Spawn helper for the player entity.
+export function spawnPlayer(scene: Scene, x: number, y: number) {
+  const player = scene.spawn('Player');
+  player.add(Transform, { x, y, scaleX: 64, scaleY: 64 });
+  player.add(Sprite, { tint: 0x7c6af7 });
+  return player;
+}
+`,
+  "src/entities/Enemy.js": `// Plain JavaScript works too: spawn an enemy as a red square.
+import { Transform, Sprite } from '@emptysock/engine';
+
+export function spawnEnemy(scene, x, y) {
+  const enemy = scene.spawn('Enemy');
+  enemy.add(Transform, { x, y, scaleX: 48, scaleY: 48 });
+  enemy.add(Sprite, { tint: 0xf87171 });
+  return enemy;
+}
+`,
+  "emptysock.project.json": JSON.stringify(
+    {
+      name: "MyPlatformer",
+      version: "0.1.0",
+      entryPoint: "src/main.ts",
+      targetResolution: { width: 1280, height: 720 },
+    },
+    null,
+    2,
+  ),
+};
+
 const INITIAL_FILES: ProjectFile[] = [
   {
     name: "src",
@@ -678,7 +753,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   openFile: (path, content) => {
     set((s) => {
       const existing = s.openFiles[path];
-      const newContent = content ?? existing ?? "";
+      const newContent = content ?? existing ?? STARTER_FILES[path] ?? "";
       const name = path.split("/").pop() ?? path;
       const entry: RecentFile = { path, name, openedAt: Date.now() };
       const filtered = s.recentFiles.filter((r) => r.path !== path);
