@@ -169,4 +169,4 @@ Touch input in the preview iframe is handled natively by `InputSystem` — no co
 
 ---
 
-Next: [From GameMaker](./from-gamemaker.md) — migrating an existing GMS2 project.
+Next: [Engine Overview](./engine-overview.md) — the ECS core and module packages.

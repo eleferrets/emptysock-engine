@@ -3,6 +3,9 @@ import { useIDEStore } from "../store/ideStore";
 import { useLocalisationStore } from "../store/localisationStore";
 import { useGameGlobalsStore } from "../store/gameGlobalsStore";
 
+// Snapshot of the starter project the IDE boots with (before any reset).
+const starter = useIDEStore.getState();
+
 // Reset to a known clean state before each test so tests do not bleed into each other.
 beforeEach(() => {
   useIDEStore.getState().resetProject();
@@ -17,7 +20,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe("ideStore — default project boilerplate targets the real engine API", () => {
   it("imports and calls only real engine API shapes", () => {
-    const code = useIDEStore.getState().editorCode;
+    const code = starter.editorCode;
     expect(code).toContain("defineScene");
     expect(code).toContain("scene.spawn(");
     expect(code).toContain(".add(Transform");
@@ -29,8 +32,16 @@ describe("ideStore — default project boilerplate targets the real engine API",
   });
 
   it('seeds the same code into openFiles["src/scenes/GameScene.ts"]', () => {
+    expect(starter.openFiles["src/scenes/GameScene.ts"]).toBe(
+      starter.editorCode,
+    );
+  });
+
+  it("resetProject creates a blank project, not the starter", () => {
     const state = useIDEStore.getState();
-    expect(state.openFiles["src/scenes/GameScene.ts"]).toBe(state.editorCode);
+    expect(state.projectName).toBe("Untitled");
+    expect(state.editorCode).not.toContain("defineScene");
+    expect(Object.keys(state.openFiles)).toEqual(["src/main.ts"]);
   });
 });
 

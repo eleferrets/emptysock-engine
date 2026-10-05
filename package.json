@@ -10,10 +10,7 @@
     "test": "turbo run test",
     "clean": "turbo run clean",
     "docs:generate": "typedoc",
-    "prepare": "husky",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

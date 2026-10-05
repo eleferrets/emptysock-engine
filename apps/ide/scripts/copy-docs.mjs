@@ -75,11 +75,6 @@ const sections = [
     html: "10-language-reference.html",
   },
   {
-    file: "11-gms2-migration.md",
-    title: "11 — GameMaker Migration",
-    html: "11-gms2-migration.html",
-  },
-  {
     file: "12-tutorial-platformer.md",
     title: "12 — Tutorial: Platformer",
     html: "12-tutorial-platformer.html",
@@ -91,11 +86,6 @@ const sections = [
   },
   { file: "14-glossary.md", title: "14 — Glossary", html: "14-glossary.html" },
   {
-    file: "15-gmrt-roadmap.md",
-    title: "15 — Roadmap",
-    html: "15-gmrt-roadmap.html",
-  },
-  {
     file: "16-hot-reload.md",
     title: "16 — Hot Reload",
     html: "16-hot-reload.html",
@@ -104,11 +94,6 @@ const sections = [
     file: "17-spine-animation.md",
     title: "17 — Spine Animation",
     html: "17-spine-animation.html",
-  },
-  {
-    file: "18-debugger-plan.md",
-    title: "18 — Debugger",
-    html: "18-debugger-plan.html",
   },
   {
     file: "19-multiplayer-boilerplate.md",

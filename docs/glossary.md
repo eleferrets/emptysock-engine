@@ -46,5 +46,4 @@ This file is the single source of truth for term spelling and capitalisation acr
 ## Usage notes
 
 - When introducing a term for the first time in a document, use the canonical form in **bold** and give a one-line definition.
-- Deprecated aliases may appear in migration docs (`11-gms2-migration.md`, `ai/CLAUDE.md`) only when explicitly contrasting old and new terminology.
 - Code samples must use the exact casing shown in the **Canonical Term** column — e.g. `import { ActorSystem } from '@emptysock/engine'`, not `Actor System` or `Actorsystem`.
