@@ -1,8 +1,8 @@
 import { type AssetIndexEntry, type AssetKind } from "@emptysock/types";
 /**
- * `Game`-scoped lookup of import-time asset facts (sprite size, font size,
- * which objects/rooms/... exist), loaded from the `asset-index.json` the GMS2
- * importer emits. Named `AssetRegistry`/`AssetIndex*` because `AssetManifest`
+ * `Game`-scoped lookup of build-time asset facts (sprite size, font size,
+ * which objects/rooms/... exist), loaded from the `asset-index.json` the asset
+ * asset pipeline emits. Named `AssetRegistry`/`AssetIndex*` because `AssetManifest`
  * is the (unrelated) loader. Holds lookup facts only: `FontRegistry` still
  * owns rendering data. Storage is keyed `(kind, name)` so cross-kind name
  * collisions never overwrite each other; `resolve()` reports them.

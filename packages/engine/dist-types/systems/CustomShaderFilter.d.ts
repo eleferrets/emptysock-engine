@@ -20,11 +20,11 @@ export interface CustomShaderOptions {
   vertexSrc?: string;
   /**
    * Treat `vertexSrc` (or the default) as a sprite-quad MVP passthrough — the
-   * shape the GMS2 importer emits, which is not pixi's Filter vertex contract
+   * shape the asset pipeline emits, which is not pixi's Filter vertex contract
    * (`uProjectionMatrix`/`uWorldTransformMatrix`/`uTransformMatrix` are never
    * set for a filter, so the quad collapses) — and substitute pixi's own
    * filter position maths via `toFilterVertexSource`, keeping only its `out`
-   * varyings. Set for importer-emitted shaders. When unset it is inferred:
+   * varyings. Set for generated shaders. When unset it is inferred:
    * a vertex source that does not mention `uOutputFrame` (i.e. is not already
    * written against the filter contract) is adapted the same way.
    */
@@ -37,7 +37,7 @@ export interface CustomShaderOptions {
    * user uniforms as ONE block at `@group(1) @binding(0)` named `uniforms`
    * whose members are `uTime` followed by `options.uniforms` in key order
    * (the JS UniformGroup is laid out from that order), varyings at
-   * `@location(n)` in the vertex stage's order. The importer generates it.
+   * `@location(n)` in the vertex stage's order. The asset pipeline generates it.
    */
   wgslFragment?: string;
   /** Optional WGSL vertex stage (entry point `mainVertex`). Defaults to `toFilterWgslVertexSource(vertexSrc)`. */
@@ -61,7 +61,7 @@ export interface CustomShaderOptions {
  */
 export declare class CustomShaderFilter extends Filter {
   constructor(options: CustomShaderOptions);
-  /** The program name (registry id for importer shaders); used in diagnostics. */
+  /** The program name (registry id for generated shaders); used in diagnostics. */
   readonly shaderName: string;
   private readonly _group;
   /** Writes a uniform previously declared via `options.uniforms`; undeclared names are ignored. */
@@ -74,22 +74,22 @@ export declare function createCustomShaderFilter(
 ): CustomShaderFilter;
 /**
  * Builds a `CustomShaderFilter` for a shader registered via
- * `registerGmlShader` (what an importer-emitted `assets/<name>.shader.ts`
- * does at import time), with the vertex stage adapted to pixi's filter
+ * `registerShader` (what an generated `assets/<name>.shader.ts`
+ * does at build time), with the vertex stage adapted to pixi's filter
  * contract and every fragment-declared scalar/vector uniform declared up
  * front. Used by both the per-entity path (`RenderPipeline.
  * resolveShaderFilter`) and the per-layer path (`RenderSystem.
- * addLayerGmlShader`), so the two can never disagree about how an importer
+ * addLayerShader`), so the two can never disagree about how an asset pipeline
  * shader becomes a Filter. `undefined` when the id isn't registered.
  */
-export declare function buildGmlShaderFilter(id: string):
+export declare function buildShaderFilter(id: string):
   | {
       filter: CustomShaderFilter;
       uniforms: ParsedShaderUniform[];
     }
   | undefined;
 /** Copies the registry's current `shader_set_uniform_*` values for `id` into `filter`. Returns the registry version applied. */
-export declare function applyGmlShaderUniforms(
+export declare function applyShaderUniforms(
   filter: CustomShaderFilter,
   uniforms: ParsedShaderUniform[],
   id: string,

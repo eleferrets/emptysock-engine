@@ -1,8 +1,8 @@
 /**
- * Module-level registry of named GLSL shaders, keyed by the GameMaker shader
+ * Module-level registry of named GLSL shaders, keyed by the shader
  * resource name (`sh_white`). Same "register once, look up by string id"
- * shape as `registerGmlBehavior`/`FontRegistry`, but module-level rather than
- * a `Game` service because GML's `shader_set(sh_white)` addresses shaders by
+ * shape as `FontRegistry`, but module-level rather than
+ * a `Game` service because `shader_set(sh_white)` addresses shaders by
  * global asset name with no `Game` in reach of a bare compat call.
  *
  * Plain data only — no pixi import, so this file stays inside the engine
@@ -11,16 +11,16 @@
  * shader id, shared by every entity using that shader.
  *
  * Uniforms are per-shader-id, shared by every entity using that shader —
- * GameMaker's own uniforms are global-until-changed state on the currently
+ * The uniforms are global-until-changed state on the currently
  * bound shader, not per-instance, so this matches it rather than approximating
  * it. A per-entity uniform value would need one Filter per entity.
  */
-export interface GmlShaderSource {
-  /** The translated (GLSL ES 3.00) vertex stage the importer emitted. Only its `out` varyings are read; see `toFilterVertexSource`. */
+export interface ShaderSource {
+  /** The translated (GLSL ES 3.00) vertex stage the asset pipeline emitted. Only its `out` varyings are read; see `toFilterVertexSource`. */
   vertexSrc: string;
   fragmentSrc: string;
   /**
-   * Optional WGSL fragment stage (entry point `main`) the importer converted
+   * Optional WGSL fragment stage (entry point `main`) the asset pipeline converted
    * from the GLSL one at build time. Present, the shader can also run under
    * the WebGPU renderer; absent, it is GL-only. Its bind layout and locations
    * follow pixi 8.21's filter contract, see `toFilterWgslVertexSource`.
@@ -28,16 +28,16 @@ export interface GmlShaderSource {
   wgslFragmentSrc?: string;
 }
 
-export type GmlShaderUniformKind = "f" | "i";
+export type ShaderUniformKind = "f" | "i";
 
-export interface GmlShaderUniformValue {
-  kind: GmlShaderUniformKind;
+export interface ShaderUniformValue {
+  kind: ShaderUniformKind;
   values: number[];
 }
 
 interface ShaderEntry {
-  source: GmlShaderSource;
-  uniforms: Map<string, GmlShaderUniformValue>;
+  source: ShaderSource;
+  uniforms: Map<string, ShaderUniformValue>;
   /** Bumped by every uniform write / re-registration; `RenderPipeline` re-applies uniforms to its cached Filter only when this changed. */
   version: number;
 }
@@ -49,7 +49,7 @@ function normaliseNewlines(src: string): string {
 }
 
 /** Registers (or replaces) a shader. CR/CRLF line endings are normalised to LF — a lone `\r` inside a `//` comment is not reliably a line end to every GLSL compiler. */
-export function registerGmlShader(id: string, source: GmlShaderSource): void {
+export function registerShader(id: string, source: ShaderSource): void {
   const prev = shaders.get(id);
   shaders.set(id, {
     source: {
@@ -64,32 +64,32 @@ export function registerGmlShader(id: string, source: GmlShaderSource): void {
   });
 }
 
-export function unregisterGmlShader(id: string): void {
+export function unregisterShader(id: string): void {
   shaders.delete(id);
 }
 
-export function hasGmlShader(id: string): boolean {
+export function hasShader(id: string): boolean {
   return shaders.has(id);
 }
 
-export function getGmlShader(id: string): GmlShaderSource | undefined {
+export function getShader(id: string): ShaderSource | undefined {
   return shaders.get(id)?.source;
 }
 
-export function gmlShaderIds(): string[] {
+export function shaderIds(): string[] {
   return Array.from(shaders.keys());
 }
 
 /** Test isolation. */
-export function clearGmlShaders(): void {
+export function clearShaders(): void {
   shaders.clear();
 }
 
 /** Writes one uniform on a registered shader; `false` (nothing written) for an unregistered id. */
-export function setGmlShaderUniform(
+export function setShaderUniform(
   id: string,
   name: string,
-  kind: GmlShaderUniformKind,
+  kind: ShaderUniformKind,
   values: number[],
 ): boolean {
   const entry = shaders.get(id);
@@ -102,13 +102,13 @@ export function setGmlShaderUniform(
   return true;
 }
 
-export function getGmlShaderUniforms(
+export function getShaderUniforms(
   id: string,
-): ReadonlyMap<string, GmlShaderUniformValue> | undefined {
+): ReadonlyMap<string, ShaderUniformValue> | undefined {
   return shaders.get(id)?.uniforms;
 }
 
-export function getGmlShaderVersion(id: string): number {
+export function getShaderVersion(id: string): number {
   return shaders.get(id)?.version ?? 0;
 }
 
@@ -131,7 +131,7 @@ const UNIFORM_TYPES: Record<string, ParsedShaderUniform["type"]> = {
  * Scans a fragment shader for user-declared scalar/vector uniforms
  * (`uniform float u_time;`). Samplers, matrices and the engine's own
  * `uTexture`/`uTime` are skipped: pixi needs each uniform's type declared up
- * front when the Filter is constructed, and GML's `shader_set_uniform_f/_i`
+ * front when the Filter is constructed, and `shader_set_uniform_f/_i`
  * only ever write scalars/vectors.
  */
 export function parseShaderUniforms(
@@ -156,17 +156,17 @@ export function parseShaderUniforms(
 }
 
 /**
- * Builds the vertex stage a pixi *Filter* needs from a translated GMS2
- * vertex shader. The importer's vertex stage is a sprite-quad MVP
+ * Builds the vertex stage a pixi *Filter* needs from a translated
+ * vertex shader. The asset pipeline's vertex stage is a sprite-quad MVP
  * passthrough (`uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix`),
  * which is not pixi's Filter contract (a filter's quad is positioned through
  * `uOutputFrame`/`uOutputTexture`/`uInputSize`, and those MVP matrices are
  * never set for a filter — that vertex would collapse the quad). Since the
- * importer only accepts the standard passthrough position transform, the
+ * asset pipeline only accepts the standard passthrough position transform, the
  * position half is safely replaced with pixi's own `filterVertexPosition`
  * maths and only the `out` varyings are carried over: texcoord-named
  * varyings take the filter's texture coordinate, everything else
- * (`v_vColour`) is `vec4(1.0)`, matching what the importer's own vertex stage
+ * (`v_vColour`) is `vec4(1.0)`, matching what the own vertex stage
  * assigns them.
  */
 export function toFilterVertexSource(vertexSrc: string): string {
@@ -201,14 +201,14 @@ ${assigns}
 }
 
 /**
- * The WGSL vertex stage that pairs with an importer-generated WGSL fragment
+ * The WGSL vertex stage that pairs with an generated WGSL fragment
  * (pixi 8.21 filter contract, verified in docs/research/11): `gfu` global
  * filter uniforms at group 0 binding 0, `mainVertex(@location(0) aPosition)`,
  * pixi's `filterVertexPosition` maths, and one `@location(n)` output per
  * vertex-stage varying in declaration order (texcoord-named varyings carry
  * the filter texture coordinate, the rest are `vec4(1.0)`), mirroring
  * `toFilterVertexSource` for GLSL. Takes the translated GLSL ES 3.00 vertex
- * (`out` lines) the importer emits.
+ * (`out` lines) the asset pipeline emits.
  */
 export function toFilterWgslVertexSource(vertexSrc: string): string {
   const varyings: Array<{ type: string; name: string }> = [];

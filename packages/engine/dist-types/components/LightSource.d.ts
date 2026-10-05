@@ -40,7 +40,7 @@ export declare const LightSource: import("../Component.js").ComponentDef<{
    * why a value `>= 360` never enters the cone-clipping path at all). A
    * value `< 360` restricts the light to a real pie-slice wedge — a
    * flashlight, a headlamp, a streetlamp's downward cone — the common
-   * "spot light" case real GameMaker lighting systems (e.g. the
+   * "spot light" case 2D lighting systems (e.g. the
    * `Crystal`/`ED5` community lighting assets) support alongside plain
    * point lights.
    */

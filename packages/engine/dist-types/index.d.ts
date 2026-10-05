@@ -139,21 +139,21 @@ export type {
   EmitterShape,
 } from "./systems/ParticleSystem.js";
 export {
-  registerGmlShader,
-  unregisterGmlShader,
-  hasGmlShader,
-  getGmlShader,
-  gmlShaderIds,
-  clearGmlShaders,
-  setGmlShaderUniform,
-  getGmlShaderUniforms,
+  registerShader,
+  unregisterShader,
+  hasShader,
+  getShader,
+  shaderIds,
+  clearShaders,
+  setShaderUniform,
+  getShaderUniforms,
   parseShaderUniforms,
   toFilterVertexSource,
   toFilterWgslVertexSource,
 } from "./systems/ShaderRegistry.js";
 export type {
-  GmlShaderSource,
-  GmlShaderUniformValue,
+  ShaderSource,
+  ShaderUniformValue,
   ParsedShaderUniform,
 } from "./systems/ShaderRegistry.js";
 export { createCustomShaderFilter } from "./systems/CustomShaderFilter.js";

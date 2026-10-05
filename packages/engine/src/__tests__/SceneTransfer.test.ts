@@ -21,7 +21,7 @@ const Link = defineComponent("XferLink", () => ({ to: NO_REF as EntityRef }), {
   schema: { to: { kind: "entityRef" } },
 });
 
-// A stand-in side table keyed by (world, eid), like the GML ones.
+// A stand-in side table keyed by (world, eid), like the compat ones.
 const table = new Map<string, unknown>();
 const worldIds = new WeakMap<object, number>();
 let nextWorldId = 1;

@@ -7,7 +7,7 @@
  *
  * Key state elsewhere stays keyed by physical `KeyboardEvent.code`. This
  * class only answers "which physical code types this character?" so letter
- * lookups (GML `ord("A")`, `Binding.char`) can follow the active layout.
+ * lookups (`ord("A")`, `Binding.char`) can follow the active layout.
  */
 /** Host-injected layout source. Must be synchronous, pure and cheap. */
 export interface KeyboardLayoutProvider {

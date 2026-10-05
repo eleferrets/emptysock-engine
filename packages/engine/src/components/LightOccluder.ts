@@ -7,7 +7,7 @@ import { defineComponent } from "../Component.js";
  * pass and rendered as a real masked region in `RenderSystem.syncLighting()`.
  *
  * **Why this is a dedicated component rather than reusing `Meta.solid`.**
- * `Meta.solid` (see that file's doc comment) is GameMaker's per-object
+ * `Meta.solid` (see that file's doc comment) is per-object
  * "Solid" checkbox — a plain collision-query flag with no geometry of its
  * own; `place_meeting`/`place_free` derive their AABB from
  * `spriteHalfExtents()` instead. Light occlusion needs real, purpose-fit
@@ -27,7 +27,7 @@ import { defineComponent } from "../Component.js";
  * carries `PhysicsBody`/`Meta.solid` *and* `LightOccluder` — two components,
  * same entity, exactly the ordinary "compose components" ECS answer.
  *
- * **Deliberately axis-aligned, no rotation field.** Real GameMaker/2D
+ * **Deliberately axis-aligned, no rotation field.** Real 2D
  * top-down/platformer level geometry is overwhelmingly axis-aligned tile
  * walls; a rotated occluder is a real, separate feature (rotating the box's
  * four corners before building its edge segments) with no verified caller

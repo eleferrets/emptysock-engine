@@ -3,7 +3,7 @@ import type { BitmapFontDef } from "./BitmapFontDef.js";
 /**
  * A real component for working with fonts — a `Game`-scoped registry of
  * named font descriptors (family/size/bold/italic, plus a precomposed CSS
- * font string), the exact shape `@emptysock/toolchain`'s GMS2 font importer
+ * font string), the exact shape `@emptysock/toolchain`'s font pipeline
  * already emits (`buildFontAsset` — family/size/style metadata, no
  * bitmap-glyph-atlas rendering path since this engine's text is plain
  * Canvas/CSS, see that function's own doc comment). Before this, a
@@ -34,7 +34,7 @@ export class FontRegistry {
   /**
    * Registers a pre-rendered bitmap font (atlas + glyph rects, see
    * `BitmapFontDef`) under `id`. Independent of `register()`: an id may have
-   * a CSS descriptor, a bitmap def, or both — `PixiGmlDrawTarget` prefers the
+   * a CSS descriptor, a bitmap def, or both — `PixiDrawTarget` prefers the
    * bitmap def for `draw_text` when one exists, and `UISystem`'s Canvas text
    * keeps using the descriptor.
    */

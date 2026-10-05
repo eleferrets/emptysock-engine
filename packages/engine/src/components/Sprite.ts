@@ -50,52 +50,52 @@ export const Sprite = defineComponent(
      * `frameCount` is `<= 1`, and `RenderPipeline` resolves `texturePath`
      * literally, exactly as it always has. `> 1` means `texturePath` is a
      * *template* containing the literal substring `"{n}"`, which
-     * `RenderPipeline` replaces with the current frame index (GMS2 import's
-     * own convention: `./assets/sprites/<name>/frame_{n}.png`, matching the
+     * `RenderPipeline` replaces with the current frame index (the asset pipeline's
+     * The convention: `./assets/sprites/<name>/frame_{n}.png`, matching the
      * `frame_0.png`/`frame_1.png`/… files `buildSpriteAsset` actually
      * writes to disk).
      */
     frameCount: 1,
     /**
      * The currently-displayed frame, `0`-based. `SpriteAnimationSystem`
-     * advances this every tick by `frameSpeed`; game/GML code (`image_index`,
-     * see `gms2-transpile.ts`) may also assign it directly — a direct
+     * advances this every tick by `frameSpeed`; game code (`image_index`,
+     * ) may also assign it directly — a direct
      * assignment simply overrides this tick's displayed frame, since the
      * system re-advances from wherever it's left on the next tick anyway.
      * Not an integer in general — `SpriteAnimationSystem` keeps the
-     * fractional part between ticks (matching GameMaker's real
+     * fractional part between ticks (matching real
      * `image_index`, which is itself a float) so a fractional `frameSpeed`
      * accumulates correctly; `RenderPipeline` floors it before indexing.
      */
     currentFrame: 0,
     /**
-     * Frames advanced per engine tick — GameMaker's `image_speed`. Can be
-     * fractional (GameMaker allows e.g. `0.5` to halve playback rate).
-     * `0` means static (GameMaker's own "image_speed 0" convention) —
+     * Frames advanced per engine tick — `image_speed`. Can be
+     * fractional (e.g. `0.5` to halve playback rate).
+     * `0` means static (the "image_speed 0" convention) —
      * `SpriteAnimationSystem` never advances `currentFrame` in that case,
      * even if `frameCount > 1`. Defaults to `1`, matching a freshly-created
-     * GameMaker instance's default `image_speed`.
+     * instance's default `image_speed`.
      */
     frameSpeed: 1,
     /**
-     * `true` (GameMaker's own default for `image_speed > 0`): `currentFrame`
+     * `true` (the default for `image_speed > 0`): `currentFrame`
      * wraps via modulo against `frameCount` once it reaches the end.
      * `false`: playback clamps at the last frame (`frameCount - 1`) and
      * stops advancing — there is no `image_speed`-level way to express this
-     * in real GML, but it's a real, common authoring need (a one-shot
+     * in a plain speed value, but it's a real, common authoring need (a one-shot
      * death/hit animation), so it's exposed here as a plain field rather
      * than left unmodelled.
      */
     loop: true as boolean,
     /**
      * Real per-sprite pixel dimensions, `0` when genuinely unknown (a
-     * hand-authored entity with no imported sprite data). The GMS2 importer
-     * (`gms2-codegen.ts`'s `buildObjectPrefabJSON`) populates these from the
-     * sprite resource's own real `.yy` `width`/`height` fields at import
-     * time. `compat/gmlCollisionQueries.ts`'s `spriteHalfExtents()` reads
+     * hand-authored entity with no sprite data). The asset pipeline
+     * populates these from the
+     * sprite resource's own `width`/`height` fields at build
+     * time. Collision queries read
      * these when present (real, per-sprite collision extents) and falls
-     * back to a fixed 32x32 box only when both are `0` — see that file's
-     * own doc comment.
+     * back to a fixed 32x32 box only when both are `0` — see the collision-query layer's
+     * The doc comment.
      */
     width: 0,
     height: 0,
@@ -104,26 +104,26 @@ export const Sprite = defineComponent(
      * sprite, `1` nine-slice (corners fixed at the `slice*` guide sizes,
      * edges/centre stretched), `2` tiled (texture repeated, clipped to
      * `width` x `height`). Sliced/tiled modes need `width`/`height > 0` to
-     * have any effect. Set by the GMS2 importer (`nineSlice.enabled`, a
+     * have any effect. Set by the asset pipeline (`nineSlice.enabled`, a
      * `GMRBackgroundLayer`'s `htiled`/`vtiled`) or marked by hand in the
      * IDE Room Editor; `RenderPipeline._syncSliced()` renders modes 1/2 (see CLAUDE.md).
      */
     sliceMode: 0,
-    /** Nine-slice guide sizes in source-texture pixels (GMS2 `nineSlice.left/right/top/bottom`). */
+    /** Nine-slice guide sizes in source-texture pixels (`nineSlice.left/right/top/bottom`). */
     sliceLeft: 0,
     sliceRight: 0,
     sliceTop: 0,
     sliceBottom: 0,
     /**
-     * Registered shader id (`ShaderRegistry`, e.g. GameMaker's `sh_white`) to
+     * Registered shader id (`ShaderRegistry`, e.g. `sh_white`) to
      * render this sprite through, `""` for none. `RenderPipeline._syncOne()`
      * sets the tracked pixi sprite's `.filters` to the one shared Filter for
-     * that id (never one per entity) and clears it when this is empty. GML's
+     * that id (never one per entity) and clears it when this is empty. The
      * `shader_set`/`shader_reset` write it outside a Draw event.
      */
     shader: "",
     /**
-     * Collision-mask box as offsets from the sprite origin (GMS2 `bbox_*`,
+     * Collision-mask box as offsets from the sprite origin (`bbox_*`,
      * right/bottom exclusive). All `0` means "no mask data": collision then
      * uses the whole `width` x `height` image positioned by the anchor.
      */

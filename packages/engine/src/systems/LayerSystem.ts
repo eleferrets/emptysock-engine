@@ -1,6 +1,6 @@
 // LayerSystem — explicit named rendering layers with per-entity depth.
 //
-// Unlike GMS2's global `depth` variable (which is a magic integer that the
+// Unlike global `depth` variable (which is a magic integer that the
 // runtime re-sorts without telling you), depth here is always explicit:
 //   layer.addEntity(entity.id, 'foreground', 10)
 // The renderer calls getSortKey(id) and sorts ascending: lower layerIndex
@@ -64,7 +64,7 @@ export class LayerSystem {
   /**
    * Assign an entity to a layer at a specific depth.
    * depth controls draw order within the layer: lower depth = drawn first (behind).
-   * Default depth is 0. Unlike GMS2, this never changes implicitly.
+   * Default depth is 0. This never changes implicitly.
    */
   addEntity(entityId: number, layerName: string, depth = 0): void {
     if (!this._layers.has(layerName)) {
@@ -125,20 +125,20 @@ export class LayerSystem {
   }
 
   /** True if a layer with this exact name has been defined — the real
-   * backing for GameMaker's `layer_exists()` compat function
-   * (`compat/gmlLayer.ts`). */
+   * backing for `layer_exists()` compat function
+   *. */
   hasLayer(name: string): boolean {
     return this._layers.has(name);
   }
 
   /**
    * Set a named layer's render-position offset — the real backing for
-   * GameMaker's `layer_x`/`layer_y` compat functions (`compat/gmlLayer.ts`),
+   * `layer_x`/`layer_y` compat functions,
    * typically used for manual parallax scrolling. A no-op for a layer that
    * hasn't been defined (`defineLayer()`/the built-in four) — matching this
    * codebase's established "no live layer/instance to even ask" honest
    * no-op convention (`QueryChannel`'s `no-live-instance`,
-   * `stepGmlCameraFollow`'s no-target no-op) rather than fabricating a new
+   * camera-follow's no-target no-op) rather than fabricating a new
    * layer just to hold an offset nobody will ever render.
    */
   setOffset(name: string, x: number, y: number): void {

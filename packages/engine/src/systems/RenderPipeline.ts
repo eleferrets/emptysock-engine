@@ -22,13 +22,13 @@ import type { FontRegistry } from "./FontRegistry.js";
 import { toPixiBitmapFontData, type BitmapFontDef } from "./BitmapFontDef.js";
 import {
   type CustomShaderFilter,
-  buildGmlShaderFilter,
-  applyGmlShaderUniforms,
+  buildShaderFilter,
+  applyShaderUniforms,
 } from "./CustomShaderFilter.js";
 import {
-  getGmlShader,
-  getGmlShaderUniforms,
-  getGmlShaderVersion,
+  getShader,
+  getShaderUniforms,
+  getShaderVersion,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 import type { Scene } from "../Scene.js";
@@ -105,7 +105,7 @@ export interface RenderPipelineOptions extends Omit<
   layers?: LayerSystem;
   /** Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`. */
   textureLoader?: TextureLoader;
-  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when GML `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
+  /** Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`. */
   fonts?: FontRegistry;
 }
 
@@ -192,7 +192,7 @@ interface MountedTilemap {
  *  3. Renders the frame.
  *
  * **Multiple live scenes and entity id collisions**: every `Scene` owns its
- * own bitECS `World`, and each `World`'s entity ids independently start from
+ * The bitECS `World`, and each `World`'s entity ids independently start from
  * 0 (see `Scene.ts`). A `Game` with a main scene plus one or more overlays
  * therefore has several *different* entities that all report `eid === 3`.
  * Tracking sprites in one flat `Map<number, PixiSprite>` would silently
@@ -241,7 +241,7 @@ export class RenderPipeline implements SceneRenderer {
   /**
    * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
-   * own doc comment) with zero pixi dependency — it was never actually
+   * The doc comment) with zero pixi dependency — it was never actually
    * wired into gameplay rendering, only the IDE's canvas-based preview
    * editor. `mountParticles()`/`unmountParticles()` are that missing wire:
    * one pixi core `ParticleContainer` per mounted emitter (no new
@@ -356,7 +356,7 @@ export class RenderPipeline implements SceneRenderer {
         scale: true,
         color: true,
       },
-      // GameMaker's `part_type_blend` maps directly onto pixi's own
+      // `part_type_blend` maps directly onto pixi's own
       // per-container `blendMode` — every particle in a `ParticleContainer`
       // shares one blend mode (they're batched together), which is exactly
       // the granularity `ParticleEmitterOptions.blendMode` already models.
@@ -450,9 +450,9 @@ export class RenderPipeline implements SceneRenderer {
 
   /**
    * Thin passthrough to `RenderSystem.renderMultiCamera()` — game code
-   * (and `GmsProjectRuntime`, once wired) talks to `RenderPipeline`, never
+   * (and the runtime) talks to `RenderPipeline`, never
    * the lower-level `RenderSystem` directly, so this is the real call site
-   * for GameMaker-style multi-view compositing. Does not itself call
+   * for multi-view compositing. Does not itself call
    * `syncEntities()`/`renderFrame()` — call this *instead of*
    * `renderFrame()` for a frame that wants every active camera slot
    * composited, after the usual entity sync.
@@ -639,7 +639,7 @@ export class RenderPipeline implements SceneRenderer {
    * a real pixi core `PerspectiveMesh` whose four corners are copied
    * straight from `Projection3D.x0..y3` (see that component's doc comment
    * for why this copy needs no reinterpretation: both sides already agree
-   * on "clockwise from top-left"). Those corners are `gmlProjection.ts`'s
+   * on "clockwise from top-left"). Those corners are the projection layer's
    * derived *result* — already-absolute positions (a `d3d_transform_set_*`
    * call bakes in translation itself) — so a projected entity's `Transform`
    * is deliberately not applied on top of them; applying both would
@@ -884,20 +884,20 @@ export class RenderPipeline implements SceneRenderer {
    * The one live Filter for a registered shader id (`undefined` when the id
    * isn't registered), shared by every entity/draw call using that shader —
    * never allocated per frame. Re-registering a shader rebuilds it; uniform
-   * writes (`setGmlShaderUniform`) are copied into the Filter here, and only
+   * writes (`setShaderUniform`) are copied into the Filter here, and only
    * when the registry's version for that shader changed.
    *
    * GPU compilation of the generated program is not verified headless: the
    * tests cover the wiring (which Filter lands on which sprite), not pixels.
    */
   resolveShaderFilter(id: string): CustomShaderFilter | undefined {
-    const source = getGmlShader(id);
+    const source = getShader(id);
     if (source === undefined) return undefined;
-    const version = getGmlShaderVersion(id);
+    const version = getShaderVersion(id);
     let entry = this._shaderFilters.get(id);
-    const registration = getGmlShaderUniforms(id);
+    const registration = getShaderUniforms(id);
     if (entry === undefined || entry.source !== source) {
-      const built = buildGmlShaderFilter(id);
+      const built = buildShaderFilter(id);
       if (built === undefined) return undefined;
       entry = {
         filter: built.filter,
@@ -909,7 +909,7 @@ export class RenderPipeline implements SceneRenderer {
       this._render.warnIfGlOnlyFilter(built.filter);
     }
     if (entry.appliedVersion !== version && registration !== undefined) {
-      entry.appliedVersion = applyGmlShaderUniforms(
+      entry.appliedVersion = applyShaderUniforms(
         entry.filter,
         entry.uniforms,
         id,
@@ -1119,11 +1119,11 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   /**
-   * Synchronous texture lookup for `draw_sprite` (`PixiGmlDrawTarget.
+   * Synchronous texture lookup for `draw_sprite` (`PixiDrawTarget.
    * sprite()`) — unlike `_applyTexture` above, there is no live tracked
    * `PixiSprite`/`PerspectiveMesh` to update once an async load resolves:
    * a `draw_sprite` call creates a brand-new `Sprite` fresh every dispatch
-   * (GML's own semantic — it's drawn this frame, not a persistent object),
+   * (the semantic — it's drawn this frame, not a persistent object),
    * so there's nothing to retroactively re-texture. Returns the cached
    * texture if already loaded, otherwise kicks off the same shared
    * `_loadTexture`/`_textureCache` load-and-cache path as `_applyTexture`

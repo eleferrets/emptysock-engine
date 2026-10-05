@@ -44,12 +44,12 @@ export declare class UISystem {
    * `BitmapFontDef` and a loaded atlas > `fontId` CSS descriptor > raw
    * `font`/`fontSize`. The bitmap path needs the renderer's optional
    * `drawImageRegion`, and only runs for the default white text colour:
-   * region blits cannot tint, and GMS2 atlases are white-on-transparent, so
+   * region blits cannot tint, and bitmap-font atlases are white-on-transparent, so
    * a coloured widget keeps the (correctly coloured) CSS path instead of
    * drawing the wrong colour. Whenever the bitmap path is unavailable
    * (no def, no `drawImageRegion`, atlas still loading/failed, tinted) it
    * falls back to `fillText` exactly as before. On the bitmap path the def's
-   * own metrics win over any CSS descriptor registered for the same id.
+   * The metrics win over any CSS descriptor registered for the same id.
    *
    * `align`: 0 left / 1 center / 2 right relative to `anchorX`; text is
    * vertically centred on `centerY`. Multi-line text aligns as one block.
@@ -67,7 +67,7 @@ export declare class UISystem {
    * Topmost widget under `(x, y)`, or `undefined`. `WidgetTree.orderedWidgets()`
    * returns root-first order; walking it in reverse visits the most
    * recently added leaf-most widgets first, giving "children win over their
-   * own parent, later siblings win over earlier ones" without needing a
+   * The parent, later siblings win over earlier ones" without needing a
    * second recursive per-level pass.
    */
   hitTest(scene: Scene, x: number, y: number): Entity | undefined;

@@ -50,7 +50,7 @@ export declare function entityRefLeaf(
  * visited set so cycles are safe), replacing every leaf `leaf` claims.
  * Containers are mutated in place; the (possibly replaced) top-level value is
  * returned. Class instances that `leaf` does not claim are left alone. Used
- * for untyped payloads such as GML instance variables, where no schema says
+ * for untyped payloads such as per-instance variables, where no schema says
  * which fields hold references.
  */
 export declare function remapValue(

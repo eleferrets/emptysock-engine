@@ -1,6 +1,6 @@
 /**
  * Plain-data corner state for a pseudo-3D projected sprite — see
- * `compat/gmlProjection.ts` and CLAUDE.md's "Pseudo-3D projection" entry for
+ * the projection compat layer and CLAUDE.md's "Pseudo-3D projection" entry for
  * the full mechanism. Corners are clockwise from top-left
  * (`x0,y0`/`x1,y1`/`x2,y2`/`x3,y3`), the exact same convention
  * `PerspectiveMesh.setCorners()` uses — `RenderPipeline`'s sprite-sync pass
@@ -12,7 +12,7 @@
  * `Serializable`-only, like every other component (`defineComponent`
  * rejects a function field at the type level) — the actual per-entity
  * transform state (`d3d_transform_set_*`'s accumulated matrix) that
- * *produces* these corners lives in `gmlProjection.ts`'s own side-table, the
+ * *produces* these corners lives in the projection layer's own side-table, the
  * same "component holds the current derived result, a side-table holds the
  * mutable working state" split `VisualScriptState`'s evaluation scope and
  * `PhysicsBody`'s callbacks already use — `Projection3D` itself is just the

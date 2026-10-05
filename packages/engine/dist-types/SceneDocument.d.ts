@@ -1,6 +1,6 @@
 /**
  * Unified scene document (`SceneDocument`, `formatVersion: 2`) - the one
- * on-disk `.scene.json` shape shared by the IDE, the toolchain importer and
+ * on-disk `.scene.json` shape shared by the IDE, the toolchain and
  * the runtime loader (docs/research/13-unified-scene-shape.md).
  *
  * The engine is zod-free, so these are structural interfaces mirroring the
@@ -47,7 +47,7 @@ export interface SceneEntity {
   readonly components?: Readonly<Record<string, SceneComponentEntry>>;
   readonly layer?: string;
   readonly pool?: boolean;
-  /** Namespaced tool/compat data, e.g. `ext.gml.vars` (GameMaker instance variable overrides). */
+  /** Namespaced tool/compat data, e.g. `ext.<namespace>.<key>`. */
   readonly ext?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 export interface SceneLayerDef {
@@ -66,7 +66,7 @@ export interface ScenePoint {
   readonly x: number;
   readonly y: number;
 }
-/** One room view (up to 8; index = GameMaker view slot 0-7). */
+/** One room view (up to 8; index = view slot 0-7). */
 export interface SceneViewDef {
   readonly id: string;
   readonly visible: boolean;
@@ -75,7 +75,7 @@ export interface SceneViewDef {
   readonly border?: ScenePoint;
   readonly speed?: ScenePoint;
   readonly follow?: {
-    /** GameMaker object-type name, resolved against `Meta.name` at runtime. */
+    /** Object-type name, resolved against `Meta.name` at runtime. */
     readonly object?: string;
     readonly entity?: EntityRefJson;
   };
@@ -83,7 +83,7 @@ export interface SceneViewDef {
 export interface SceneRoom {
   readonly width: number;
   readonly height: number;
-  /** GameMaker `view_enabled`. */
+  /** Whether views are enabled for the room. */
   readonly viewsEnabled?: boolean;
   readonly views?: readonly SceneViewDef[];
   readonly layers?: readonly SceneLayerDef[];
@@ -92,7 +92,7 @@ export interface SceneDocument {
   readonly formatVersion: typeof SCENE_FORMAT_VERSION;
   readonly id?: string;
   readonly name: string;
-  /** Room-level state cache flag (GMS `roomSettings.persistent`). */
+  /** Room-level state cache flag (`roomSettings.persistent`). */
   readonly persistent?: boolean;
   readonly backgroundColor?: string;
   /** Module/system names this scene needs (informational for now). */

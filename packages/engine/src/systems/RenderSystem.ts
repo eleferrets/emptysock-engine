@@ -13,12 +13,12 @@ import {
 import { OutlineFilter, SimpleLightmapFilter } from "pixi-filters";
 import type { LayerSystem } from "./LayerSystem.js";
 import {
-  applyGmlShaderUniforms,
-  buildGmlShaderFilter,
+  applyShaderUniforms,
+  buildShaderFilter,
   type CustomShaderFilter,
 } from "./CustomShaderFilter.js";
 import {
-  getGmlShaderVersion,
+  getShaderVersion,
   type ParsedShaderUniform,
 } from "./ShaderRegistry.js";
 import { gpuTierRenderDefaults } from "./ViewportSystem.js";
@@ -38,13 +38,13 @@ import {
 
 /**
  * The structural shape `renderMultiCamera()` needs from one active camera
- * slot. Re-declared here rather than importing `GmlCameraViewport` from
- * `compat/gmlCamera.ts` — `RenderSystem.ts` is core engine rendering and
- * must stay usable by any game, not just GML-imported ones; `compat/` is a
- * GameMaker-specific translation layer that depends on the engine, never
+ * slot. Re-declared here rather than importing `ActiveCameraViewport` from
+ * the camera compat layer — `RenderSystem.ts` is core engine rendering and
+ * must stay usable by any game, not just ones; `compat/` is a
+ * translation layer that depends on the engine, never
  * the other way around (the same layering rule `RenderPipeline`'s
  * `TileLayerSource` interface already follows for `@emptysock/tilemap`).
- * `compat/gmlCamera.ts`'s exported `GmlCameraViewport` is structurally
+ * the compat layer's exported `ActiveCameraViewport` is structurally
  * identical to this and satisfies it with no adapter needed.
  */
 export interface CameraViewport {
@@ -156,12 +156,12 @@ export class RenderSystem {
    * a sibling container is never touched by that transform no matter what
    * the camera does — this is what makes Draw GUI's screen-space guarantee
    * a structural property of the render tree, not a per-call check. See
-   * CLAUDE.md's "GML behavior dispatch..." entry for the full rationale.
+   * CLAUDE.md's behavior-dispatch entry for the full rationale.
    */
   private _root: Container | null = null;
   /**
    * Camera-independent overlay root, rendered after (i.e. on top of)
-   * `_stage`. `RenderPipeline.guiLayer` exposes this for `GmlBehaviorSystem`
+   * `_stage`. `RenderPipeline.guiLayer` exposes this for behavior-system
    * Draw GUI dispatch; nothing else mounts into it today.
    */
   private _guiStage: Container | null = null;
@@ -215,7 +215,7 @@ export class RenderSystem {
       resolution: options.resolution ?? tierDefaults.resolution,
       powerPreference: "high-performance",
       preference: [...(options.preference ?? ["webgpu", "webgl"])],
-      // WebGL needs a back buffer for pixi's advanced blend modes (GML
+      // WebGL needs a back buffer for pixi's advanced blend modes (
       // bm_subtract etc.); pixi only pays for it on frames that use one.
       useBackBuffer: true,
     });
@@ -336,8 +336,8 @@ export class RenderSystem {
 
   /**
    * Synchronise layer container position from `LayerSystem.getOffset()` —
-   * the real render-side half of GameMaker's `layer_x`/`layer_y` compat
-   * functions (`compat/gmlLayer.ts`). A layer with no offset ever set reads
+   * the real render-side half of `layer_x`/`layer_y` compat
+   * functions. A layer with no offset ever set reads
    * `{ x: 0, y: 0 }` (`LayerSystem.getOffset()`'s own default), so an
    * offset-free scene renders byte-identical to before this existed. Call
    * once per frame alongside `syncLayerVisibility()`.
@@ -390,7 +390,7 @@ export class RenderSystem {
     );
   }
 
-  private readonly _layerGmlShaders = new Map<
+  private readonly _layerShaders = new Map<
     string,
     {
       layer: string;
@@ -402,29 +402,29 @@ export class RenderSystem {
   >();
 
   /**
-   * Attaches a shader registered via `registerGmlShader` (what an
-   * importer-emitted `assets/<name>.shader.ts` does on import) to a layer's
-   * container as a real per-layer Filter. The importer's sprite-quad vertex
+   * Attaches a shader registered via `registerShader` (what an
+   * generated `assets/<name>.shader.ts` does on import) to a layer's
+   * container as a real per-layer Filter. The asset pipeline's sprite-quad vertex
    * stage is adapted to pixi's filter contract (`adaptVertex`, same
    * substitution the per-entity `Sprite.shader` path uses), so the quad no
    * longer collapses. Returns the filter (pass it to
    * `removeLayerShaderFilter` to detach), or `undefined` for an unregistered
    * id. `shader_set_uniform_*` writes made later are copied in by
-   * `syncLayerGmlShaders()`, which `render()` calls each frame.
+   * `syncLayerShaders()`, which `render()` calls each frame.
    */
-  addLayerGmlShader(
+  addLayerShader(
     layerName: string,
     shaderId: string,
   ): CustomShaderFilter | undefined {
-    const built = buildGmlShaderFilter(shaderId);
+    const built = buildShaderFilter(shaderId);
     if (built === undefined) return undefined;
-    const appliedVersion = applyGmlShaderUniforms(
+    const appliedVersion = applyShaderUniforms(
       built.filter,
       built.uniforms,
       shaderId,
     );
     this.addLayerShaderFilter(layerName, built.filter);
-    this._layerGmlShaders.set(`${layerName}\u0000${shaderId}`, {
+    this._layerShaders.set(`${layerName}\u0000${shaderId}`, {
       layer: layerName,
       id: shaderId,
       filter: built.filter,
@@ -434,12 +434,12 @@ export class RenderSystem {
     return built.filter;
   }
 
-  /** Re-copies registry uniform values into every filter `addLayerGmlShader` attached, only when that shader's registry version changed. */
-  syncLayerGmlShaders(): void {
-    for (const e of this._layerGmlShaders.values()) {
-      const version = getGmlShaderVersion(e.id);
+  /** Re-copies registry uniform values into every filter `addLayerShader` attached, only when that shader's registry version changed. */
+  syncLayerShaders(): void {
+    for (const e of this._layerShaders.values()) {
+      const version = getShaderVersion(e.id);
       if (version === e.appliedVersion) continue;
-      e.appliedVersion = applyGmlShaderUniforms(e.filter, e.uniforms, e.id);
+      e.appliedVersion = applyShaderUniforms(e.filter, e.uniforms, e.id);
     }
   }
 
@@ -448,8 +448,8 @@ export class RenderSystem {
     const container = this.getLayerContainer(layerName);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- pixi.js's own type is wrong about this at runtime
     container.filters = (container.filters ?? []).filter((f) => f !== filter);
-    for (const [key, e] of this._layerGmlShaders) {
-      if (e.filter === filter) this._layerGmlShaders.delete(key);
+    for (const [key, e] of this._layerShaders) {
+      if (e.filter === filter) this._layerShaders.delete(key);
     }
   }
 
@@ -716,7 +716,7 @@ export class RenderSystem {
    * bakes its gradient into a texture the first time it's used, and that
    * path has not been verified to run under the headless Node/Vitest harness
    * (no confirmed canvas-free code path) — concentric `Graphics.circle()`
-   * calls are the same primitive `compat/gml.ts`'s `draw_circle` and
+   * calls are the same primitive the compat layer's `draw_circle` and
    * `RenderPipeline`'s scene-transition overlay already use, so this stays
    * on a rendering primitive this codebase has already verified works
    * headless. One `RenderTexture` and one lightmap `Container` are built
@@ -810,7 +810,7 @@ export class RenderSystem {
   }
 
   /**
-   * Real GameMaker-style multi-camera compositing: renders the *same*
+   * Real multi-camera compositing: renders the *same*
    * `_stage` content once per active viewport (each pass using that
    * viewport's own position/zoom/rotation, the exact convention
    * `CameraSystem.update()` already writes to `_stage` — `stage.x =
@@ -832,8 +832,8 @@ export class RenderSystem {
    * single-camera `render()` path never sees any effect from a call here,
    * and `render()` itself is completely untouched by this method's
    * existence. Call this instead of `render()` for a frame that wants
-   * GameMaker's multiple-simultaneous-view-slot rendering (see
-   * `compat/gmlCamera.ts`'s `buildActiveGmlCameraViewports()`, which
+   * multiple-simultaneous-view-slot rendering (see
+   * the compat layer's `buildActiveCameraViewports()`, which
    * produces the `viewports` array this method expects); call `render()` as
    * before for the ordinary single-camera case.
    *
@@ -848,7 +848,7 @@ export class RenderSystem {
    * A real N-full-render-pass-per-frame cost, same caveat
    * `SceneTransitionManager`'s and this file's own `syncLighting()`'s doc
    * comments already raise: bounded by how many camera slots a game
-   * actually activates at once, not GameMaker's fixed 8-slot ceiling, but
+   * actually activates at once, not fixed 8-slot ceiling, but
    * still needs real device profiling before a game leans on many
    * simultaneous cameras — this method does not attempt that profiling.
    */
@@ -856,7 +856,7 @@ export class RenderSystem {
     if (this._renderer === null || this._stage === null) return;
     this.syncLayerVisibility();
     this.syncLayerOffsets();
-    this.syncLayerGmlShaders();
+    this.syncLayerShaders();
 
     // Preserve whatever CameraSystem.update() last wrote to `_stage` so this
     // opt-in path can never leak into the ordinary single-camera render().
@@ -965,7 +965,7 @@ export class RenderSystem {
     // Sync visibility each frame so setVisible() changes are reflected.
     this.syncLayerVisibility();
     this.syncLayerOffsets();
-    this.syncLayerGmlShaders();
+    this.syncLayerShaders();
     this._renderer.render(this._root);
   }
 

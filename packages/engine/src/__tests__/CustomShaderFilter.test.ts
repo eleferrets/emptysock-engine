@@ -53,14 +53,14 @@ describe("CustomShaderFilter", () => {
   });
 });
 
-describe("CustomShaderFilter adaptVertex (importer-emitted shaders)", () => {
+describe("CustomShaderFilter adaptVertex (generated shaders)", () => {
   const frag = `precision mediump float;
 in vec2 v_vTexcoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
 void main() { finalColor = texture(uTexture, v_vTexcoord); }
 `;
-  const importerVertex = `in vec2 aPosition;
+  const generatedVertex = `in vec2 aPosition;
 out vec2 v_vTexcoord;
 out vec4 v_vColour;
 uniform mat3 uProjectionMatrix;
@@ -76,7 +76,7 @@ void main() {
   it("replaces the sprite-MVP vertex with pixi's filter position maths, keeping the varyings", () => {
     const f = createCustomShaderFilter({
       fragmentSrc: frag,
-      vertexSrc: importerVertex,
+      vertexSrc: generatedVertex,
       adaptVertex: true,
     });
     const v = f.glProgram.vertex;
@@ -89,7 +89,7 @@ void main() {
   it("leaves the vertex stage untouched with adaptVertex: false", () => {
     const f = createCustomShaderFilter({
       fragmentSrc: frag,
-      vertexSrc: importerVertex,
+      vertexSrc: generatedVertex,
       adaptVertex: false,
     });
     expect(f.glProgram.vertex).toContain("uProjectionMatrix");
@@ -98,32 +98,32 @@ void main() {
   it("adapts a sprite-contract vertex stage by default (no aUV/projection uniforms reach the GPU)", () => {
     const f = createCustomShaderFilter({
       fragmentSrc: frag,
-      vertexSrc: importerVertex,
+      vertexSrc: generatedVertex,
     });
     expect(f.glProgram.vertex).toContain("uOutputFrame");
     expect(f.glProgram.vertex).not.toContain("uProjectionMatrix");
   });
 
-  it("buildGmlShaderFilter adapts a registered shader and declares its uniforms; unknown id is undefined", async () => {
-    const { registerGmlShader, clearGmlShaders } =
+  it("buildShaderFilter adapts a registered shader and declares its uniforms; unknown id is undefined", async () => {
+    const { registerShader, clearShaders } =
       await import("../systems/ShaderRegistry.js");
-    const { buildGmlShaderFilter } =
+    const { buildShaderFilter } =
       await import("../systems/CustomShaderFilter.js");
-    clearGmlShaders();
-    registerGmlShader("sh_x", {
-      vertexSrc: importerVertex,
+    clearShaders();
+    registerShader("sh_x", {
+      vertexSrc: generatedVertex,
       fragmentSrc: frag + "uniform float u_amount;\n",
     });
-    const built = buildGmlShaderFilter("sh_x");
+    const built = buildShaderFilter("sh_x");
     expect(built?.filter.glProgram.vertex).toContain("uOutputFrame");
     expect(built?.uniforms.map((u) => u.name)).toEqual(["u_amount"]);
-    expect(buildGmlShaderFilter("nope")).toBeUndefined();
-    clearGmlShaders();
+    expect(buildShaderFilter("nope")).toBeUndefined();
+    clearShaders();
   });
   describe("WGSL program (WebGPU)", () => {
     const fragmentSrc =
       "in vec2 vUV; out vec4 finalColor; uniform sampler2D uTexture; void main(){ finalColor = texture(uTexture, vUV); }";
-    // Shape of an importer/naga-generated fragment (pixi 8.21 filter contract).
+    // Shape of an naga-generated fragment (pixi 8.21 filter contract).
     const wgslFragment = `struct Uniforms {
     uTime: f32,
     u_amount: f32,
@@ -206,24 +206,24 @@ fn main(@location(0) v_vTexcoord: vec2<f32>) -> FragmentOutput {
       expect(v).toContain("vec4<f32>(1.0), uv)");
     });
 
-    it("buildGmlShaderFilter passes a registered wgslFragmentSrc through", async () => {
-      const { registerGmlShader, clearGmlShaders } =
+    it("buildShaderFilter passes a registered wgslFragmentSrc through", async () => {
+      const { registerShader, clearShaders } =
         await import("../systems/ShaderRegistry.js");
-      const { buildGmlShaderFilter } =
+      const { buildShaderFilter } =
         await import("../systems/CustomShaderFilter.js");
-      clearGmlShaders();
-      registerGmlShader("sh_w", {
+      clearShaders();
+      registerShader("sh_w", {
         vertexSrc: "out vec2 v_vTexcoord;\nvoid main(){}",
         fragmentSrc: fragmentSrc + "uniform float u_amount;\n",
         wgslFragmentSrc: wgslFragment,
       });
-      registerGmlShader("sh_gl", {
+      registerShader("sh_gl", {
         vertexSrc: "out vec2 v_vTexcoord;\nvoid main(){}",
         fragmentSrc,
       });
-      expect(buildGmlShaderFilter("sh_w")?.filter.gpuProgram).toBeDefined();
-      expect(buildGmlShaderFilter("sh_gl")?.filter.gpuProgram).toBeUndefined();
-      clearGmlShaders();
+      expect(buildShaderFilter("sh_w")?.filter.gpuProgram).toBeDefined();
+      expect(buildShaderFilter("sh_gl")?.filter.gpuProgram).toBeUndefined();
+      clearShaders();
     });
   });
 });

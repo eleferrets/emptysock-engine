@@ -26,8 +26,7 @@ import { type SceneFileV1 } from "./SceneMigrations.js";
  * File naming convention (not enforced by the loader, just what the IDE and
  * toolchain agree on): a prefab template lives at `<Name>.prefab.json` next
  * to the code that references it; a scene lives at `<Name>.scene.json`.
- * Both are plain JSON — no comments, no trailing commas (unlike the GMS2
- * importer's `.yy` quirk-handling, these are files *this* engine writes,
+ * Both are plain JSON — no comments, no trailing commas (these are files *this* engine writes,
  * so there's no legacy format to tolerate).
  */
 /**
@@ -105,9 +104,8 @@ export interface LoadSceneFileOptions {
    * component attached, every prop applied) — the one real hook point for
    * "run one-time post-spawn setup" without `Scene`/`SceneFile` growing a
    * required dependency on any specific optional system. This is the
-   * integration point `GmlBehaviorSystem.dispatchCreate()` uses to fire a
-   * GMS2-imported prefab instance's `onCreate` (see that method's doc
-   * comment): a GMS2-imported room's `.scene.json` is loaded through exactly
+   * integration point behavior systems use to fire a
+   * prefab instance's `onCreate`: a room's `.scene.json` is loaded through exactly
    * this function, and `onSpawned` is where a game calling `loadSceneFile()`
    * dispatches per-entity setup that depends on data only available once the
    * entity is live (its final component values), not at prefab-definition
@@ -127,9 +125,9 @@ export interface LoadSceneFileOptions {
 /**
  * Stamps a spawned prefab instance's `Meta.name` with the `PrefabDef` it was
  * spawned from, when nothing already gave it a name — this is what lets
- * `systems/GmlCollision.ts`'s `resolveGmlObjectType()` (and anything else
- * that wants "which object type is this instance") resolve a GMS2-imported
- * room's prefab instances back to their GameMaker object name, reusing the
+ * object-type lookups (anything that
+ * wants "which object type is this instance") resolve a scene's prefab
+ * instances back to their object name, reusing the
  * one existing "this entity has an editor/tooling-visible name" component
  * (`Meta`, see CLAUDE.md's `QueryChannel`/`Meta.name`/`Meta.tags` note)
  * rather than inventing a second identity concept just for this. A prefab

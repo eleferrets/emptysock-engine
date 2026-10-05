@@ -22,7 +22,7 @@ import type { Scene } from "./Scene.js";
  * tables, `restoreEntities` respawns them in another scene and remaps
  * references through the shared two-phase remap (`RefRemap.ts`). Both are
  * synchronous. Core never imports `compat/`: state kept outside components
- * (GML instance variables, motion) is contributed by `EntityExtra`s.
+ * (instance variables, motion) is contributed by `EntityExtra`s.
  */
 
 /** State one entity keeps outside its components (a per-`(World, eid)` side table). */

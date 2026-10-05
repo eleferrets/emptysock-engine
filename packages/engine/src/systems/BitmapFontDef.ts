@@ -1,11 +1,11 @@
 /**
  * A pixi-free description of a pre-rendered bitmap font: an atlas image plus
  * per-glyph rectangles, advances and kerning. This is the shape
- * `@emptysock/toolchain`'s GMS2 font importer emits for a real GameMaker
- * font resource (`.yy` `glyphs` map + `kerningPairs`), registered in
+ * `@emptysock/toolchain`'s font pipeline emits for a
+ * font resource (`glyphs` map + `kerningPairs`), registered in
  * `FontRegistry.registerBitmap(id, def)`. Keeping it free of any pixi import
  * keeps the registry, the layout maths and their tests inside the engine
- * environment boundary; `RenderPipeline`'s `PixiGmlDrawTarget` is the one
+ * environment boundary; `RenderPipeline`'s `PixiDrawTarget` is the one
  * place a def becomes a real pixi `BitmapFont`/`BitmapText`.
  */
 export interface BitmapGlyph {
@@ -14,9 +14,9 @@ export interface BitmapGlyph {
   y: number;
   w: number;
   h: number;
-  /** Horizontal advance to the next glyph (GameMaker's `shift`). */
+  /** Horizontal advance to the next glyph (`shift`). */
   shift: number;
-  /** Horizontal offset applied when drawing the glyph rect (GameMaker's `offset`, the left bearing). */
+  /** Horizontal offset applied when drawing the glyph rect (`offset`, the left bearing). */
   offset: number;
 }
 
@@ -24,9 +24,9 @@ export interface BitmapFontDef {
   name: string;
   /** Path of the atlas image, loaded through the same texture path `Sprite.texturePath` uses. */
   atlasPath: string;
-  /** The font's nominal point size (GameMaker's `size`). */
+  /** The font's nominal point size (`size`). */
   size: number;
-  /** Distance between baselines: the tallest glyph's `h`, since every GameMaker glyph rect spans its own full line box. */
+  /** Distance between baselines: the tallest glyph's `h`, since every glyph rect spans its own full line box. */
   lineHeight: number;
   /** Glyph rectangles keyed by Unicode code point. */
   glyphs: Record<number, BitmapGlyph>;
@@ -61,7 +61,7 @@ export interface BitmapTextLayout {
 }
 
 /**
- * Lays out `text` (`\n` starts a new line) the way GameMaker draws a bitmap
+ * Lays out `text` (`\n` starts a new line) the way a bitmap
  * font: each glyph rect is drawn at `penX + offset`, then the pen advances by
  * `shift` plus any kerning against the next glyph. Code points with no glyph
  * are skipped. Pure maths, used to verify the pixi wiring against a known

@@ -21,7 +21,7 @@ const { RenderPipeline } = await import("../systems/RenderPipeline.js");
 const { Scene } = await import("../Scene.js");
 const { Transform } = await import("../components/Transform.js");
 const { Sprite } = await import("../components/Sprite.js");
-const { registerGmlShader, clearGmlShaders, setGmlShaderUniform } =
+const { registerShader, clearShaders, setShaderUniform } =
   await import("../systems/ShaderRegistry.js");
 
 const FRAG = `precision mediump float;
@@ -49,8 +49,8 @@ describe("RenderPipeline per-entity shader filters", () => {
     )._tracking.get(scene)?.sprites ?? new Map();
 
   beforeEach(async () => {
-    clearGmlShaders();
-    registerGmlShader("sh_white", { vertexSrc: VERT, fragmentSrc: FRAG });
+    clearShaders();
+    registerShader("sh_white", { vertexSrc: VERT, fragmentSrc: FRAG });
     pipeline = new RenderPipeline({
       textureLoader: vi.fn(() => Promise.resolve(Texture.WHITE)),
     });
@@ -116,22 +116,22 @@ describe("RenderPipeline per-entity shader filters", () => {
     const f = pipeline.resolveShaderFilter("sh_white") as unknown as {
       resources: { uniforms: { uniforms: Record<string, unknown> } };
     };
-    setGmlShaderUniform("sh_white", "u_amount", "f", [0.25]);
+    setShaderUniform("sh_white", "u_amount", "f", [0.25]);
     pipeline.resolveShaderFilter("sh_white");
     expect(f.resources.uniforms.uniforms["u_amount"]).toBe(0.25);
   });
 
   it("re-registering a shader rebuilds its filter", () => {
     const first = pipeline.resolveShaderFilter("sh_white");
-    registerGmlShader("sh_white", { vertexSrc: VERT, fragmentSrc: FRAG });
+    registerShader("sh_white", { vertexSrc: VERT, fragmentSrc: FRAG });
     expect(pipeline.resolveShaderFilter("sh_white")).not.toBe(first);
   });
 });
 
-describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
+describe("per-layer generated shader (RenderSystem.addLayerShader)", () => {
   type LayerRender = {
     _render: {
-      addLayerGmlShader: (layer: string, id: string) => unknown;
+      addLayerShader: (layer: string, id: string) => unknown;
       removeLayerShaderFilter: (layer: string, f: unknown) => void;
       getLayerContainer: (layer: string) => {
         filters: readonly {
@@ -139,14 +139,14 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
           resources: { uniforms: Record<string, { value: unknown }> };
         }[];
       };
-      syncLayerGmlShaders: () => void;
+      syncLayerShaders: () => void;
     };
   };
   let render: LayerRender["_render"];
 
   beforeEach(async () => {
-    clearGmlShaders();
-    registerGmlShader("sh_white", {
+    clearShaders();
+    registerShader("sh_white", {
       vertexSrc:
         "in vec2 aPosition;\nout vec2 v_vTexcoord;\nout vec4 v_vColour;\nuniform mat3 uProjectionMatrix;\nvoid main(){}\n",
       fragmentSrc: FRAG,
@@ -159,7 +159,7 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
   });
 
   it("attaches a filter with the filter-compatible vertex stage to the layer container", () => {
-    const f = render.addLayerGmlShader("default", "sh_white");
+    const f = render.addLayerShader("default", "sh_white");
     expect(f).toBeDefined();
     const filters = render.getLayerContainer("default").filters;
     expect(filters).toHaveLength(1);
@@ -168,7 +168,7 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
   });
 
   it("returns undefined and attaches nothing for an unregistered id", () => {
-    expect(render.addLayerGmlShader("default", "sh_missing")).toBeUndefined();
+    expect(render.addLayerShader("default", "sh_missing")).toBeUndefined();
     expect(
       (render.getLayerContainer("default").filters as
         readonly unknown[] | undefined) ?? [],
@@ -176,9 +176,9 @@ describe("per-layer importer shader (RenderSystem.addLayerGmlShader)", () => {
   });
 
   it("syncs later uniform writes and can be detached", () => {
-    const f = render.addLayerGmlShader("default", "sh_white");
-    setGmlShaderUniform("sh_white", "u_amount", "f", [0.5]);
-    render.syncLayerGmlShaders();
+    const f = render.addLayerShader("default", "sh_white");
+    setShaderUniform("sh_white", "u_amount", "f", [0.5]);
+    render.syncLayerShaders();
     expect(
       (
         render.getLayerContainer("default").filters[0]?.resources[

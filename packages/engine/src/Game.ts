@@ -47,7 +47,7 @@ export interface SceneDefinition {
   /**
    * Makes this a persistent room: when it is left, the state of its entities
    * is cached under this key and `SceneLifecycle.restoreRoom()` brings it back
-   * on the next visit (GameMaker's room "Persistent" flag).
+   * on the next visit (room "Persistent" flag).
    */
   persistentKey?: string;
   /**
@@ -95,7 +95,7 @@ export interface SceneLifecycle {
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
    * `GlobalStore` for the lifetime of this `Game`. This is the real target
-   * for GameMaker's `global.x = expr` semantic (arbitrary named,
+   * for `global.x = expr` semantic (arbitrary named,
    * arbitrary-typed values reachable from anywhere) — see
    * `systems/GlobalStore.ts`'s own doc comment for why it's a distinct
    * service from `variables` rather than reusing `VariableStore`'s
@@ -106,7 +106,7 @@ export interface SceneLifecycle {
   readonly signals: SignalBus;
   /** Game-owned, same reasoning as `globals` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
   readonly fonts: FontRegistry;
-  /** Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded from the importer's `asset-index.json`. See `systems/AssetRegistry.ts`. */
+  /** Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded from the asset pipeline's `asset-index.json`. See `systems/AssetRegistry.ts`. */
   readonly assets: AssetRegistry;
   /**
    * Game-owned, same reasoning as `audio`/`input`/`variables` — one
@@ -167,11 +167,11 @@ export interface LoadSceneOptions {
   carry?: TransferPolicy | false;
   /**
    * Marks this load as a restart. `"room"` discards the cached state of the
-   * room being loaded (GameMaker `room_restart`); `"game"` discards every
+   * room being loaded (room restart); `"game"` discards every
    * cached room, skips caching the outgoing one and sets `Game.restarting`
    * during the unload so runtimes drop their own carry-over (`game_restart`:
    * persistent rooms are reset and persistent objects removed). Globals are
-   * untouched, matching GameMaker.
+   * untouched.
    */
   restart?: "room" | "game";
   /**
@@ -328,7 +328,7 @@ function runFrame(loaded: LoadedScene, dt: number): void {
     loaded.lifecycle.physics.update(loaded.lifecycle.scene, dt);
   }
 
-  // General-purpose, not GML-specific (see `SpriteAnimationSystem`'s own
+  // General-purpose, not tied to any scripting layer (see `SpriteAnimationSystem`'s
   // doc comment) — every loaded scene (main + overlays) gets its `Sprite`
   // frames advanced every tick, the same reach `actors`/`physics` above get.
   spriteAnimation.update(loaded.lifecycle.scene);
@@ -827,7 +827,7 @@ export class Game {
    *    this to never construct or touch a real Pixi renderer.
    *
    * Overlays run steps 2-5 too — their own `ActorSystem` mailbox flush, their
-   * own physics step (steps 3-4, only if `loadOverlay({ physics })` actually
+   * The physics step (steps 3-4, only if `loadOverlay({ physics })` actually
    * initialized one — the common HUD-only overlay's inert default
    * `PhysicsSystem` stays unstepped, §12.3: "no PhysicsSystem by default"),
    * and their own `onUpdate(dt)` — right after the main scene's, in call
