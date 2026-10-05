@@ -62,7 +62,7 @@ function buildRapierImportMap(vendorBaseUrl: string): string {
   return `<script type="importmap">${escapeForInlineScript(JSON.stringify(map))}</script>`;
 }
 
-function buildIframeHtml(
+export function buildIframeHtml(
   engineBundle: string,
   userModuleUrl: string,
   vendorBaseUrl: string,
@@ -99,7 +99,7 @@ ${buildRapierImportMap(vendorBaseUrl)}
     var modal = document.createElement('div');
     modal.id = 'es-error-modal';
     var safe = String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    modal.innerHTML = '<div class="box"><div class="title">Runtime Error</div><pre>' + safe + '</pre><button onclick="document.getElementById(\'es-error-modal\').remove()">Dismiss</button></div>';
+    modal.innerHTML = '<div class="box"><div class="title">Runtime Error</div><pre>' + safe + '</pre><button onclick="document.getElementById(\\'es-error-modal\\').remove()">Dismiss</button></div>';
     document.body.appendChild(modal);
   }
 

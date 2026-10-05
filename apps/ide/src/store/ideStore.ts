@@ -574,7 +574,15 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
 
   setPlayState: (state) => {
-    set({ playState: state });
+    // Running needs the Preview panel mounted: bring it to the front.
+    set(
+      state === "playing"
+        ? {
+            playState: state,
+            openPanelRequest: { panelId: "canvas", ts: Date.now() },
+          }
+        : { playState: state },
+    );
     const { addLog } = get();
     if (state === "playing") addLog("info", "Game started", "Engine");
     else if (state === "paused") addLog("info", "Game paused", "Engine");
