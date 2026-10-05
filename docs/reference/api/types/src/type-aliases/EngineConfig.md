@@ -8,4 +8,4 @@
 
 > **EngineConfig** = `z.infer`\<*typeof* [`EngineConfigSchema`](../variables/EngineConfigSchema.md)\>
 
-Defined in: types/src/index.ts:166
+Defined in: types/src/index.ts:163

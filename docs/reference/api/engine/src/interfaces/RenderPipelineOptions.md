@@ -6,11 +6,11 @@
 
 # Interface: RenderPipelineOptions
 
-Defined in: engine/src/systems/RenderPipeline.ts:100
+Defined in: engine/src/systems/RenderPipeline.ts:101
 
 ## Extends
 
-- `Omit`\<`RenderSystemOptions`, `"layerSystem"`\>
+- `Omit`\<[`RenderSystemOptions`](RenderSystemOptions.md), `"layerSystem"`\>
 
 ## Properties
 
@@ -22,7 +22,7 @@ Defined in: engine/src/systems/RenderSystem.ts:131
 
 #### Inherited from
 
-`Omit.antialias`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`antialias`](RenderSystemOptions.md#antialias)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: engine/src/systems/RenderSystem.ts:130
 
 #### Inherited from
 
-`Omit.backgroundColor`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`backgroundColor`](RenderSystemOptions.md#backgroundcolor)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: engine/src/systems/RenderSystem.ts:130
 
 > `optional` **fonts?**: [`FontRegistry`](../classes/FontRegistry.md)
 
-Defined in: engine/src/systems/RenderPipeline.ts:109
+Defined in: engine/src/systems/RenderPipeline.ts:110
 
 Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`.
 
@@ -61,7 +61,7 @@ gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
 
 #### Inherited from
 
-`Omit.gpuTier`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`gpuTier`](RenderSystemOptions.md#gputier)
 
 ***
 
@@ -73,7 +73,7 @@ Defined in: engine/src/systems/RenderSystem.ts:129
 
 #### Inherited from
 
-`Omit.height`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`height`](RenderSystemOptions.md#height)
 
 ***
 
@@ -81,7 +81,7 @@ Defined in: engine/src/systems/RenderSystem.ts:129
 
 > `optional` **layers?**: [`LayerSystem`](../classes/LayerSystem.md)
 
-Defined in: engine/src/systems/RenderPipeline.ts:105
+Defined in: engine/src/systems/RenderPipeline.ts:106
 
 Supply a LayerSystem to share with other code; a fresh one is created otherwise.
 
@@ -98,7 +98,7 @@ Renderer backends to try, in order. Default `["webgpu", "webgl"]`; pass
 
 #### Inherited from
 
-`Omit.preference`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`preference`](RenderSystemOptions.md#preference)
 
 ***
 
@@ -110,7 +110,7 @@ Defined in: engine/src/systems/RenderSystem.ts:132
 
 #### Inherited from
 
-`Omit.resolution`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`resolution`](RenderSystemOptions.md#resolution)
 
 ***
 
@@ -118,7 +118,7 @@ Defined in: engine/src/systems/RenderSystem.ts:132
 
 > `optional` **textureLoader?**: [`TextureLoader`](../type-aliases/TextureLoader.md)
 
-Defined in: engine/src/systems/RenderPipeline.ts:107
+Defined in: engine/src/systems/RenderPipeline.ts:108
 
 Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`.
 
@@ -132,4 +132,4 @@ Defined in: engine/src/systems/RenderSystem.ts:128
 
 #### Inherited from
 
-`Omit.width`
+[`RenderSystemOptions`](RenderSystemOptions.md).[`width`](RenderSystemOptions.md#width)

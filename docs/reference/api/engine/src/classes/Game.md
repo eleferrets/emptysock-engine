@@ -82,7 +82,7 @@ The `Game`'s single `AssetRegistry` — see that class's own doc comment.
 
 #### Get Signature
 
-> **get** **audio**(): `AudioSystem`
+> **get** **audio**(): [`AudioSystem`](AudioSystem.md)
 
 Defined in: engine/src/Game.ts:490
 
@@ -90,7 +90,7 @@ The `Game`'s single `AudioSystem` (§18 — Howler-backed).
 
 ##### Returns
 
-`AudioSystem`
+[`AudioSystem`](AudioSystem.md)
 
 ***
 

@@ -6,7 +6,7 @@
 
 # Class: NullHostAdapter
 
-Defined in: types/src/index.ts:289
+Defined in: types/src/index.ts:286
 
 No-op adapter for Node.js tests and contexts without a host frame.
 
@@ -30,7 +30,7 @@ No-op adapter for Node.js tests and contexts without a host frame.
 
 > **addMessageListener**(`_handler`): `void`
 
-Defined in: types/src/index.ts:291
+Defined in: types/src/index.ts:288
 
 Register a listener for messages arriving from the host.
 
@@ -54,7 +54,7 @@ Register a listener for messages arriving from the host.
 
 > **clearInterval**(`_id`): `void`
 
-Defined in: types/src/index.ts:296
+Defined in: types/src/index.ts:293
 
 Cancel a handle returned by setInterval.
 
@@ -78,7 +78,7 @@ Cancel a handle returned by setInterval.
 
 > **detectGPUTier**(): `"potato"` \| `"low"` \| `"mid"` \| `"high"` \| `"ultra"`
 
-Defined in: types/src/index.ts:297
+Defined in: types/src/index.ts:294
 
 Detect GPU capability tier. Returns the best tier the host can determine;
 return 'mid' when information is unavailable.
@@ -97,7 +97,7 @@ return 'mid' when information is unavailable.
 
 > **postMessage**(`_data`, `_targetOrigin`): `void`
 
-Defined in: types/src/index.ts:290
+Defined in: types/src/index.ts:287
 
 Post a structured message to the parent / host frame.
 
@@ -125,7 +125,7 @@ Post a structured message to the parent / host frame.
 
 > **removeMessageListener**(`_handler`): `void`
 
-Defined in: types/src/index.ts:292
+Defined in: types/src/index.ts:289
 
 Deregister a previously registered message listener.
 
@@ -149,7 +149,7 @@ Deregister a previously registered message listener.
 
 > **setInterval**(`_fn`, `_ms`): `unknown`
 
-Defined in: types/src/index.ts:293
+Defined in: types/src/index.ts:290
 
 Schedule a recurring callback. Returns an opaque handle.
 

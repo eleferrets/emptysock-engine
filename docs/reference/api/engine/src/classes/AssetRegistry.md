@@ -68,7 +68,7 @@ Defined in: engine/src/systems/AssetRegistry.ts:67
 
 ##### kind
 
-`"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`
+`"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`
 
 ##### ref
 
@@ -100,7 +100,7 @@ Defined in: engine/src/systems/AssetRegistry.ts:87
 
 ### get()
 
-> **get**(`kind`, `ref`): \{ `bold?`: `boolean`; `frameCount?`: `number`; `height?`: `number`; `id`: `string`; `italic?`: `boolean`; `kind`: `"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`; `name`: `string`; `originX?`: `number`; `originY?`: `number`; `path?`: `string`; `size?`: `number`; `width?`: `number`; \} \| `undefined`
+> **get**(`kind`, `ref`): \{ `bold?`: `boolean`; `frameCount?`: `number`; `height?`: `number`; `id`: `string`; `italic?`: `boolean`; `kind`: `"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`; `name`: `string`; `originX?`: `number`; `originY?`: `number`; `path?`: `string`; `size?`: `number`; `width?`: `number`; \} \| `undefined`
 
 Defined in: engine/src/systems/AssetRegistry.ts:61
 
@@ -108,7 +108,7 @@ Defined in: engine/src/systems/AssetRegistry.ts:61
 
 ##### kind
 
-`"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`
+`"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`
 
 ##### ref
 
@@ -116,7 +116,7 @@ Defined in: engine/src/systems/AssetRegistry.ts:61
 
 #### Returns
 
-\{ `bold?`: `boolean`; `frameCount?`: `number`; `height?`: `number`; `id`: `string`; `italic?`: `boolean`; `kind`: `"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`; `name`: `string`; `originX?`: `number`; `originY?`: `number`; `path?`: `string`; `size?`: `number`; `width?`: `number`; \} \| `undefined`
+\{ `bold?`: `boolean`; `frameCount?`: `number`; `height?`: `number`; `id`: `string`; `italic?`: `boolean`; `kind`: `"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`; `name`: `string`; `originX?`: `number`; `originY?`: `number`; `path?`: `string`; `size?`: `number`; `width?`: `number`; \} \| `undefined`
 
 ***
 
@@ -150,7 +150,7 @@ Defined in: engine/src/systems/AssetRegistry.ts:91
 
 ##### kind
 
-`"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`
+`"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`
 
 #### Returns
 
@@ -192,7 +192,7 @@ Adds or overwrites one entry (within its kind). Manual/test use.
 
 ###### kind
 
-`"object"` \| `"script"` \| `"path"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"timeline"` \| `"sequence"` \| `"note"`
+`"object"` \| `"font"` \| `"shader"` \| `"sprite"` \| `"sound"` \| `"room"` \| `"tileset"` \| `"sequence"` \| `"note"`
 
 ###### name
 

@@ -8,4 +8,4 @@
 
 > **AssetIndex** = `z.infer`\<*typeof* [`AssetIndexSchema`](../variables/AssetIndexSchema.md)\>
 
-Defined in: types/src/index.ts:135
+Defined in: types/src/index.ts:132

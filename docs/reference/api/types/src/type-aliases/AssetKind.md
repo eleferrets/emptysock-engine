@@ -8,4 +8,4 @@
 
 > **AssetKind** = `z.infer`\<*typeof* [`AssetKindSchema`](../variables/AssetKindSchema.md)\>
 
-Defined in: types/src/index.ts:106
+Defined in: types/src/index.ts:103

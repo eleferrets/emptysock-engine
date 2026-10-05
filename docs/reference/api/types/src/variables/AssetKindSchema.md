@@ -6,6 +6,6 @@
 
 # Variable: AssetKindSchema
 
-> `const` **AssetKindSchema**: `ZodEnum`\<\[`"sprite"`, `"font"`, `"sound"`, `"object"`, `"room"`, `"script"`, `"shader"`, `"tileset"`, `"path"`, `"timeline"`, `"sequence"`, `"note"`\]\>
+> `const` **AssetKindSchema**: `ZodEnum`\<\[`"sprite"`, `"font"`, `"sound"`, `"object"`, `"room"`, `"shader"`, `"tileset"`, `"sequence"`, `"note"`\]\>
 
 Defined in: types/src/index.ts:92

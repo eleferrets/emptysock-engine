@@ -6,7 +6,7 @@
 
 # Interface: HostMessage
 
-Defined in: types/src/index.ts:257
+Defined in: types/src/index.ts:254
 
 Minimal event envelope delivered to HostAdapter message listeners.
 Mirrors the fields of DOM MessageEvent that the engine actually uses,
@@ -18,7 +18,7 @@ without importing any DOM type.
 
 > `readonly` **data**: `unknown`
 
-Defined in: types/src/index.ts:258
+Defined in: types/src/index.ts:255
 
 ***
 
@@ -26,4 +26,4 @@ Defined in: types/src/index.ts:258
 
 > `readonly` **origin**: `string`
 
-Defined in: types/src/index.ts:259
+Defined in: types/src/index.ts:256

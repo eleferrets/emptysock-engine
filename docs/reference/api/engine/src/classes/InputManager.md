@@ -43,15 +43,15 @@ Defined in: engine/src/Input.ts:268
 
 ##### input?
 
-`InputSystem` = `...`
+[`InputSystem`](InputSystem.md) = `...`
 
 ##### gamepadSystem?
 
-`GamepadSystem` = `...`
+[`GamepadSystem`](GamepadSystem.md) = `...`
 
 ##### pointerSystem?
 
-`PointerSystem` = `...`
+[`PointerSystem`](PointerSystem.md) = `...`
 
 #### Returns
 

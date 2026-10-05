@@ -6,7 +6,7 @@
 
 # Interface: TileLayerSource
 
-Defined in: engine/src/systems/RenderPipeline.ts:74
+Defined in: engine/src/systems/RenderPipeline.ts:75
 
 The subset of `@emptysock/tilemap`'s `Tilemap` shape that `RenderPipeline`
 actually reads. `RenderPipeline` lives in the core engine and must not
@@ -22,7 +22,7 @@ types in scope at once.
 
 > `readonly` **data**: `object`
 
-Defined in: engine/src/systems/RenderPipeline.ts:75
+Defined in: engine/src/systems/RenderPipeline.ts:76
 
 #### cols
 

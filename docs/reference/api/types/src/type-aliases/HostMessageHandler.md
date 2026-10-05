@@ -8,7 +8,7 @@
 
 > **HostMessageHandler** = (`event`) => `void`
 
-Defined in: types/src/index.ts:262
+Defined in: types/src/index.ts:259
 
 ## Parameters
 

@@ -12,7 +12,7 @@ Defined in: engine/src/systems/PointerSystem.ts:45
 
 ### direction
 
-> **direction**: `SwipeDirection`
+> **direction**: [`SwipeDirection`](../type-aliases/SwipeDirection.md)
 
 Defined in: engine/src/systems/PointerSystem.ts:50
 

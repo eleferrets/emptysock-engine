@@ -6,7 +6,7 @@
 
 # Interface: AutoTileResolver
 
-Defined in: engine/src/systems/RenderPipeline.ts:56
+Defined in: engine/src/systems/RenderPipeline.ts:57
 
 The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
 the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
@@ -20,7 +20,7 @@ implementation" pattern as `TileLayerSource`/`Tilemap` below.
 
 > **resolve**(`col`, `row`, `baseTileIndex`, `tileAt`): `number`
 
-Defined in: engine/src/systems/RenderPipeline.ts:57
+Defined in: engine/src/systems/RenderPipeline.ts:58
 
 #### Parameters
 

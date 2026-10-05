@@ -6,7 +6,7 @@
 
 # Interface: IUIRenderer
 
-Defined in: types/src/index.ts:183
+Defined in: types/src/index.ts:180
 
 Minimal drawing-context interface accepted by UISystem.render().
 
@@ -20,7 +20,7 @@ require no changes.
 
 > **fillStyle**: `string` \| `object`
 
-Defined in: types/src/index.ts:185
+Defined in: types/src/index.ts:182
 
 Colour or style used by fill operations. Accepts any string colour value.
 
@@ -30,7 +30,7 @@ Colour or style used by fill operations. Accepts any string colour value.
 
 > **font**: `string`
 
-Defined in: types/src/index.ts:189
+Defined in: types/src/index.ts:186
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: types/src/index.ts:189
 
 > **globalAlpha**: `number`
 
-Defined in: types/src/index.ts:192
+Defined in: types/src/index.ts:189
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: types/src/index.ts:192
 
 > **lineWidth**: `number`
 
-Defined in: types/src/index.ts:188
+Defined in: types/src/index.ts:185
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: types/src/index.ts:188
 
 > **strokeStyle**: `string` \| `object`
 
-Defined in: types/src/index.ts:187
+Defined in: types/src/index.ts:184
 
 Colour or style used by stroke operations. Accepts any string colour value.
 
@@ -64,7 +64,7 @@ Colour or style used by stroke operations. Accepts any string colour value.
 
 > **textAlign**: `string`
 
-Defined in: types/src/index.ts:190
+Defined in: types/src/index.ts:187
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: types/src/index.ts:190
 
 > **textBaseline**: `string`
 
-Defined in: types/src/index.ts:191
+Defined in: types/src/index.ts:188
 
 ## Methods
 
@@ -80,7 +80,7 @@ Defined in: types/src/index.ts:191
 
 > **arc**(`x`, `y`, `r`, `startAngle`, `endAngle`): `void`
 
-Defined in: types/src/index.ts:212
+Defined in: types/src/index.ts:209
 
 #### Parameters
 
@@ -114,7 +114,7 @@ Defined in: types/src/index.ts:212
 
 > **arcTo**(`x1`, `y1`, `x2`, `y2`, `r`): `void`
 
-Defined in: types/src/index.ts:211
+Defined in: types/src/index.ts:208
 
 #### Parameters
 
@@ -148,7 +148,7 @@ Defined in: types/src/index.ts:211
 
 > **beginPath**(): `void`
 
-Defined in: types/src/index.ts:196
+Defined in: types/src/index.ts:193
 
 #### Returns
 
@@ -160,7 +160,7 @@ Defined in: types/src/index.ts:196
 
 > **clip**(): `void`
 
-Defined in: types/src/index.ts:247
+Defined in: types/src/index.ts:244
 
 Restrict subsequent drawing to the current path, until the next restore().
 
@@ -174,7 +174,7 @@ Restrict subsequent drawing to the current path, until the next restore().
 
 > **closePath**(): `void`
 
-Defined in: types/src/index.ts:197
+Defined in: types/src/index.ts:194
 
 #### Returns
 
@@ -186,7 +186,7 @@ Defined in: types/src/index.ts:197
 
 > **drawImage**(`image`, `dx`, `dy`, `dw`, `dh`): `void`
 
-Defined in: types/src/index.ts:221
+Defined in: types/src/index.ts:218
 
 Draw a pre-loaded image into the context at the given position and size.
 
@@ -222,7 +222,7 @@ Draw a pre-loaded image into the context at the given position and size.
 
 > `optional` **drawImageRegion**(`image`, `sx`, `sy`, `sw`, `sh`, `dx`, `dy`, `dw`, `dh`): `void`
 
-Defined in: types/src/index.ts:233
+Defined in: types/src/index.ts:230
 
 Optional 9-argument (source-region) form of `drawImage`, used by
 `UISystem` to blit bitmap-font glyphs from an atlas. Canvas2D satisfies
@@ -276,7 +276,7 @@ it structurally. Renderers without it get the CSS-font text path.
 
 > **fill**(): `void`
 
-Defined in: types/src/index.ts:198
+Defined in: types/src/index.ts:195
 
 #### Returns
 
@@ -288,7 +288,7 @@ Defined in: types/src/index.ts:198
 
 > **fillRect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: types/src/index.ts:244
+Defined in: types/src/index.ts:241
 
 #### Parameters
 
@@ -318,7 +318,7 @@ Defined in: types/src/index.ts:244
 
 > **fillText**(`text`, `x`, `y`): `void`
 
-Defined in: types/src/index.ts:219
+Defined in: types/src/index.ts:216
 
 #### Parameters
 
@@ -344,7 +344,7 @@ Defined in: types/src/index.ts:219
 
 > **lineTo**(`x`, `y`): `void`
 
-Defined in: types/src/index.ts:210
+Defined in: types/src/index.ts:207
 
 #### Parameters
 
@@ -366,7 +366,7 @@ Defined in: types/src/index.ts:210
 
 > **moveTo**(`x`, `y`): `void`
 
-Defined in: types/src/index.ts:209
+Defined in: types/src/index.ts:206
 
 #### Parameters
 
@@ -388,7 +388,7 @@ Defined in: types/src/index.ts:209
 
 > **rect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: types/src/index.ts:200
+Defined in: types/src/index.ts:197
 
 #### Parameters
 
@@ -418,7 +418,7 @@ Defined in: types/src/index.ts:200
 
 > **restore**(): `void`
 
-Defined in: types/src/index.ts:195
+Defined in: types/src/index.ts:192
 
 #### Returns
 
@@ -430,7 +430,7 @@ Defined in: types/src/index.ts:195
 
 > `optional` **roundRect**(`x`, `y`, `w`, `h`, `r`): `void`
 
-Defined in: types/src/index.ts:202
+Defined in: types/src/index.ts:199
 
 Optional — present in modern canvas implementations.
 
@@ -466,7 +466,7 @@ Optional — present in modern canvas implementations.
 
 > **save**(): `void`
 
-Defined in: types/src/index.ts:194
+Defined in: types/src/index.ts:191
 
 #### Returns
 
@@ -478,7 +478,7 @@ Defined in: types/src/index.ts:194
 
 > **stroke**(): `void`
 
-Defined in: types/src/index.ts:199
+Defined in: types/src/index.ts:196
 
 #### Returns
 
@@ -490,7 +490,7 @@ Defined in: types/src/index.ts:199
 
 > **strokeRect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: types/src/index.ts:245
+Defined in: types/src/index.ts:242
 
 #### Parameters
 

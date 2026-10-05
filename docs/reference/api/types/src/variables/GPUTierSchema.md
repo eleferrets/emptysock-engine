@@ -8,4 +8,4 @@
 
 > `const` **GPUTierSchema**: `ZodEnum`\<\[`"potato"`, `"low"`, `"mid"`, `"high"`, `"ultra"`\]\>
 
-Defined in: types/src/index.ts:139
+Defined in: types/src/index.ts:136

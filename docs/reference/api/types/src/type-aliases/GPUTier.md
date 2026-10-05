@@ -8,4 +8,4 @@
 
 > **GPUTier** = `z.infer`\<*typeof* [`GPUTierSchema`](../variables/GPUTierSchema.md)\>
 
-Defined in: types/src/index.ts:140
+Defined in: types/src/index.ts:137

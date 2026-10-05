@@ -6,7 +6,7 @@
 
 # Interface: HostAdapter
 
-Defined in: types/src/index.ts:270
+Defined in: types/src/index.ts:267
 
 Abstraction layer between the engine and its host environment (browser
 iframe, Tauri WebView, or Node test harness). Inject a concrete
@@ -19,7 +19,7 @@ NullHostAdapter in contexts where no host integration is needed.
 
 > **addMessageListener**(`handler`): `void`
 
-Defined in: types/src/index.ts:274
+Defined in: types/src/index.ts:271
 
 Register a listener for messages arriving from the host.
 
@@ -39,7 +39,7 @@ Register a listener for messages arriving from the host.
 
 > **clearInterval**(`id`): `void`
 
-Defined in: types/src/index.ts:280
+Defined in: types/src/index.ts:277
 
 Cancel a handle returned by setInterval.
 
@@ -59,7 +59,7 @@ Cancel a handle returned by setInterval.
 
 > **detectGPUTier**(): `"potato"` \| `"low"` \| `"mid"` \| `"high"` \| `"ultra"`
 
-Defined in: types/src/index.ts:285
+Defined in: types/src/index.ts:282
 
 Detect GPU capability tier. Returns the best tier the host can determine;
 return 'mid' when information is unavailable.
@@ -74,7 +74,7 @@ return 'mid' when information is unavailable.
 
 > **postMessage**(`data`, `targetOrigin`): `void`
 
-Defined in: types/src/index.ts:272
+Defined in: types/src/index.ts:269
 
 Post a structured message to the parent / host frame.
 
@@ -98,7 +98,7 @@ Post a structured message to the parent / host frame.
 
 > **removeMessageListener**(`handler`): `void`
 
-Defined in: types/src/index.ts:276
+Defined in: types/src/index.ts:273
 
 Deregister a previously registered message listener.
 
@@ -118,7 +118,7 @@ Deregister a previously registered message listener.
 
 > **setInterval**(`fn`, `ms`): `unknown`
 
-Defined in: types/src/index.ts:278
+Defined in: types/src/index.ts:275
 
 Schedule a recurring callback. Returns an opaque handle.
 

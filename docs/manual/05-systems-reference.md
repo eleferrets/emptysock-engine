@@ -1734,26 +1734,30 @@ Supports multiple simultaneous pointers, keyed by `pointerId`, for multi-touch. 
 
 ---
 
-## 5.35 VisualScriptComponent
+## 5.35 Visual Script
 
-Node-graph interpreter component. Holds a serialized `VisualScriptGraph` (nodes + `next` edges) and walks it each frame (`onUpdate` nodes) or when fired (`onEvent` nodes via `fireEvent()`). Backs the Visual Script Editor panel; graphs can equally be hand-written with `VisualScriptGraphBuilder`.
+Node-graph runtime. A `VisualScriptGraph` (nodes + `next` edges) is registered under a `graphId` with `registerVisualScriptGraph`; entities carry the small `VisualScriptState` component (`{ graphId }`); `VisualScriptSystem` compiles each distinct graph once and runs it each frame (`onUpdate` nodes) or when fired (`onEvent` nodes via `fireEvent(scene, eventType)`). Backs the Logic Script panel; graphs can equally be hand-written with `VisualScriptGraphBuilder`.
 
 ```typescript
 import {
   VisualScriptGraphBuilder,
-  VisualScriptComponent,
+  VisualScriptState,
+  VisualScriptSystem,
+  registerVisualScriptGraph,
 } from "@emptysock/engine";
 
 const b = new VisualScriptGraphBuilder();
 const start = b.onUpdate();
 const setHp = b.setVariable(1, 100);
 b.connect(start, setHp);
+registerVisualScriptGraph("heal", b.build());
 
-const vs = new VisualScriptComponent({ graph: b.build() });
-entity.addComponent(vs);
+const vs = new VisualScriptSystem({ variables: ctx.variables });
+scene.spawn("Healer").add(VisualScriptState, { graphId: "heal" });
+vs.update(scene); // call from your scene's onUpdate
 ```
 
-Node kinds: `onUpdate`, `onEvent`, `sequence`, `branch` (compares a `VariableStore` variable), `getVariable`/`setVariable`, `getSwitch`/`setSwitch`, `sendMessage` (dispatches through `ActorSystem.send()`). `VisualScriptComponent.TYPE` is `"VisualScript"`. See the [VisualScriptComponent reference](../reference/systems/visual-script-component.md) for the full node table and execution semantics, including the step cap that guards against a self-cycling graph.
+Node kinds: `onUpdate`, `onEvent`, `sequence`, `branch` (compares a `VariableStore` variable), `getVariable`/`setVariable`, `getSwitch`/`setSwitch`, `sendMessage` (dispatches through `ActorSystem.send()`). `VisualScriptSystem` is not run by `Game` automatically. See the [Visual Script reference](../reference/systems/visual-script.md) for the full node table and execution semantics, including the step cap that guards against a self-cycling graph.
 
 ---
 
@@ -1788,7 +1792,7 @@ tweens.update(deltaTime); // per frame
 
 ## 5.38 LightingSystem
 
-Real 2D dynamic point/spot lights with shadow-casting occlusion, collected each frame from `LightSource`/`LightOccluder` components and rendered by `RenderSystem.syncLighting()` via a real offscreen lightmap texture composited with `pixi-filters`' `SimpleLightmapFilter`.
+Real 2D dynamic point/spot lights with shadow-casting occlusion, collected each frame from `LightSource`/`LightOccluder` components and rendered by `RenderSystem.syncLighting()` (called every frame by `RenderPipeline.renderFrame()` once `RenderPipeline.attachLighting(lighting, layerId?)` has been called; the camera rect ignores rotation) via a real offscreen lightmap texture composited with `pixi-filters`' `SimpleLightmapFilter`.
 
 - `LightSource` fields: `radius`, `colour` (`0xRRGGBB`), `intensity`, `falloff`, `offsetX`/`offsetY`, `enabled`, and `coneAngle`/`coneDirection` (degrees) — `coneAngle: 360` (the default) is an ordinary point light; a smaller value restricts the light to a real pie-slice wedge (a flashlight/spotlight), still fully shadow-cast against `LightOccluder`s within its radius.
 - `LightOccluder` fields: `width`/`height` (an axis-aligned box), `offsetX`/`offsetY`, `enabled`.
@@ -1806,8 +1810,10 @@ wall.add(LightOccluder, { width: 32, height: 96 });
 
 const lighting = new LightingSystem();
 lighting.ambient = { colour: 0xffffff, level: 0.1 };
-const lights = lighting.collectLights(scene, { x: cameraX, y: cameraY });
-renderSystem.syncLighting(lights, lighting.ambient, viewport);
+// Attach to the pipeline once; renderFrame() then syncs the lightmap every
+// frame over the camera's visible rect and filters the "default" layer.
+pipeline.attachLighting(lighting, "default");
+// pipeline.attachLighting(null) detaches and frees the lightmap.
 ```
 
 ---

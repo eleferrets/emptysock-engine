@@ -32,7 +32,7 @@ Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded
 
 ### audio
 
-> `readonly` **audio**: `AudioSystem`
+> `readonly` **audio**: [`AudioSystem`](../classes/AudioSystem.md)
 
 Defined in: engine/src/Game.ts:84
 

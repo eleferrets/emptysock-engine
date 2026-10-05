@@ -1,6 +1,6 @@
 # LightingSystem
 
-Real 2D dynamic point/spot lights with shadow-casting occlusion. Data collection is framework-agnostic (`LightingSystem`, `packages/engine/src/systems/LightingSystem.ts`); actual pixels come from `RenderSystem.syncLighting()`, which composites an offscreen lightmap texture with `pixi-filters`' `SimpleLightmapFilter`.
+Real 2D dynamic point/spot lights with shadow-casting occlusion. Data collection is framework-agnostic (`LightingSystem`, `packages/engine/src/systems/LightingSystem.ts`); actual pixels come from `RenderSystem.syncLighting()`, which `RenderPipeline.renderFrame()` calls every frame once you call `pipeline.attachLighting(lighting, layerId = "default")` (`attachLighting(null)` detaches and frees the lightmap). The lightmap covers the camera's visible world rect (stage translate and scale; camera rotation is ignored) and the ambient filter is applied to that one layer. It composites an offscreen lightmap texture with `pixi-filters`' `SimpleLightmapFilter`.
 
 ## Components
 

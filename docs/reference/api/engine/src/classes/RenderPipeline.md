@@ -6,7 +6,7 @@
 
 # Class: RenderPipeline
 
-Defined in: engine/src/systems/RenderPipeline.ts:219
+Defined in: engine/src/systems/RenderPipeline.ts:220
 
 Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
 `SceneRenderer` shape. Uses
@@ -88,7 +88,7 @@ one underlying `Map<Scene, SceneTracking>`.
 
 > **new RenderPipeline**(`options?`): `RenderPipeline`
 
-Defined in: engine/src/systems/RenderPipeline.ts:267
+Defined in: engine/src/systems/RenderPipeline.ts:271
 
 #### Parameters
 
@@ -108,7 +108,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:267
 
 > **get** **activeFlashFilterCount**(): `number`
 
-Defined in: engine/src/systems/RenderPipeline.ts:764
+Defined in: engine/src/systems/RenderPipeline.ts:808
 
 Flash filters currently attached (pool checked out).
 
@@ -124,7 +124,7 @@ Flash filters currently attached (pool checked out).
 
 > **get** **activeFlashOverlayCount**(): `number`
 
-Defined in: engine/src/systems/RenderPipeline.ts:780
+Defined in: engine/src/systems/RenderPipeline.ts:824
 
 Flash overlays currently attached.
 
@@ -140,7 +140,7 @@ Flash overlays currently attached.
 
 > **get** **canvas**(): `HTMLCanvasElement`
 
-Defined in: engine/src/systems/RenderPipeline.ts:447
+Defined in: engine/src/systems/RenderPipeline.ts:451
 
 ##### Returns
 
@@ -154,7 +154,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:447
 
 > **get** **guiLayer**(): `Container`
 
-Defined in: engine/src/systems/RenderPipeline.ts:322
+Defined in: engine/src/systems/RenderPipeline.ts:326
 
 The camera-independent overlay container UI/overlay content draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`.
 
@@ -170,7 +170,7 @@ The camera-independent overlay container UI/overlay content draws into — see `
 
 > **get** **layers**(): [`LayerSystem`](LayerSystem.md)
 
-Defined in: engine/src/systems/RenderPipeline.ts:435
+Defined in: engine/src/systems/RenderPipeline.ts:439
 
 The engine's LayerSystem — call `defineLayer()` on it for custom draw order.
 
@@ -186,7 +186,7 @@ The engine's LayerSystem — call `defineLayer()` on it for custom draw order.
 
 > **get** **renderer**(): `Renderer`
 
-Defined in: engine/src/systems/RenderPipeline.ts:439
+Defined in: engine/src/systems/RenderPipeline.ts:443
 
 ##### Returns
 
@@ -200,7 +200,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:439
 
 > **get** **stage**(): `Container`
 
-Defined in: engine/src/systems/RenderPipeline.ts:443
+Defined in: engine/src/systems/RenderPipeline.ts:447
 
 ##### Returns
 
@@ -212,7 +212,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:443
 
 > **attachFonts**(`fonts`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:281
+Defined in: engine/src/systems/RenderPipeline.ts:285
 
 Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up in.
 
@@ -228,11 +228,39 @@ Supplies (or clears, with `null`) the `FontRegistry` bitmap fonts are looked up 
 
 ***
 
+### attachLighting()
+
+> **attachLighting**(`lighting`, `layerId?`): `void`
+
+Defined in: engine/src/systems/RenderPipeline.ts:481
+
+Attach (or detach, with `null`) a `LightingSystem`. While attached,
+`renderFrame()` rebuilds the lightmap for the main scene every frame
+(`RenderSystem.syncLighting()`) over the camera's visible world rect
+and applies it as a filter on `layerId` (default `"default"`).
+Detaching removes the filter and frees the lightmap.
+
+#### Parameters
+
+##### lighting
+
+[`LightingSystem`](LightingSystem.md) \| `null`
+
+##### layerId?
+
+`string` = `"default"`
+
+#### Returns
+
+`void`
+
+***
+
 ### attachPostProcess()
 
 > **attachPostProcess**(`postProcess`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:327
+Defined in: engine/src/systems/RenderPipeline.ts:331
 
 Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers.
 
@@ -240,7 +268,7 @@ Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `ren
 
 ##### postProcess
 
-`PostProcessSystem` \| `null`
+[`PostProcessSystem`](PostProcessSystem.md) \| `null`
 
 #### Returns
 
@@ -252,7 +280,7 @@ Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `ren
 
 > **destroy**(): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:1348
+Defined in: engine/src/systems/RenderPipeline.ts:1392
 
 #### Returns
 
@@ -264,7 +292,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:1348
 
 > **init**(`options?`): `Promise`\<`void`\>
 
-Defined in: engine/src/systems/RenderPipeline.ts:430
+Defined in: engine/src/systems/RenderPipeline.ts:434
 
 Constructs the real PixiJS renderer (WebGL by default — the engine design notes
 §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
@@ -293,7 +321,7 @@ driven purely through `testing/index.ts` never reaches this call).
 
 > **mountParticles**(`emitter`, `layerName?`): `Promise`\<`void`\>
 
-Defined in: engine/src/systems/RenderPipeline.ts:342
+Defined in: engine/src/systems/RenderPipeline.ts:346
 
 Mounts `emitter`'s particles into a real pixi `ParticleContainer` on
 layer `layerName`, resynced every `renderFrame()`. Loads the emitter's
@@ -325,7 +353,7 @@ exist before the texture resolves simply aren't drawn yet.
 
 > **mountTilemap**(`tilemap`, `renderLayer?`, `autoTile?`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:1012
+Defined in: engine/src/systems/RenderPipeline.ts:1056
 
 Build real tile sprites for `tilemap` and add them to `renderLayer`
 (defaults to `"default"`). Pass an `AutoTileResolver` to resolve
@@ -357,7 +385,7 @@ after edits.
 
 > **releaseOverlay**(`scene`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:1326
+Defined in: engine/src/systems/RenderPipeline.ts:1370
 
 Explicitly release an overlay's tracking/container — safe to call even if `renderFrame` would have pruned it anyway.
 
@@ -377,7 +405,7 @@ Explicitly release an overlay's tracking/container — safe to call even if `ren
 
 > **renderFrame**(`main`, `overlays?`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:477
+Defined in: engine/src/systems/RenderPipeline.ts:513
 
 `Game.update()` step 7's entry point (via `Game.attachRenderer(this)` —
 this method is what makes `RenderPipeline` satisfy `SceneRenderer`
@@ -409,7 +437,7 @@ readonly [`Scene`](Scene.md)[] = `[]`
 
 > **renderMultiCamera**(`viewports`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:460
+Defined in: engine/src/systems/RenderPipeline.ts:464
 
 Thin passthrough to `RenderSystem.renderMultiCamera()` — game code
 (and the runtime) talks to `RenderPipeline`, never
@@ -435,7 +463,7 @@ readonly [`CameraViewport`](../interfaces/CameraViewport.md)[]
 
 > **renderTransitionOverlay**(`postProcess`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:507
+Defined in: engine/src/systems/RenderPipeline.ts:551
 
 Paints the scene-transition overlay described by `postProcess`'s
 `transitionEffect`/`transitionProgress`/`transitionColour` on top of
@@ -458,7 +486,7 @@ actually possible.
 
 ##### postProcess
 
-`PostProcessSystem`
+[`PostProcessSystem`](PostProcessSystem.md)
 
 #### Returns
 
@@ -470,7 +498,7 @@ actually possible.
 
 > **resize**(`width`, `height`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:466
+Defined in: engine/src/systems/RenderPipeline.ts:470
 
 #### Parameters
 
@@ -492,7 +520,7 @@ Defined in: engine/src/systems/RenderPipeline.ts:466
 
 > **resolveShaderFilter**(`id`): [`CustomShaderFilter`](../interfaces/CustomShaderFilter.md) \| `undefined`
 
-Defined in: engine/src/systems/RenderPipeline.ts:893
+Defined in: engine/src/systems/RenderPipeline.ts:937
 
 The one live Filter for a registered shader id (`undefined` when the id
 isn't registered), shared by every entity/draw call using that shader —
@@ -519,7 +547,7 @@ tests cover the wiring (which Filter lands on which sprite), not pixels.
 
 > **syncEntities**(`scene`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:557
+Defined in: engine/src/systems/RenderPipeline.ts:601
 
 Sync the main scene's PixiJS sprites without rendering. Exposed for tests/custom loops.
 
@@ -539,7 +567,7 @@ Sync the main scene's PixiJS sprites without rendering. Exposed for tests/custom
 
 > **unmountParticles**(`emitter`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:371
+Defined in: engine/src/systems/RenderPipeline.ts:375
 
 Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on an emitter that was never mounted (a no-op).
 
@@ -559,7 +587,7 @@ Detaches and destroys `emitter`'s mounted `ParticleContainer`. Safe to call on a
 
 > **unmountTilemap**(`tilemap`): `void`
 
-Defined in: engine/src/systems/RenderPipeline.ts:1025
+Defined in: engine/src/systems/RenderPipeline.ts:1069
 
 #### Parameters
 

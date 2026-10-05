@@ -28,7 +28,7 @@ Defined in: engine/src/systems/ParticleSystem.ts:53
 
 ### blendMode?
 
-> `optional` **blendMode?**: `ParticleBlendMode`
+> `optional` **blendMode?**: [`ParticleBlendMode`](../type-aliases/ParticleBlendMode.md)
 
 Defined in: engine/src/systems/ParticleSystem.ts:98
 

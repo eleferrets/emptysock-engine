@@ -4,13 +4,13 @@ import type { VisualScriptGraph } from "@emptysock/engine";
 // ── State / actions ──────────────────────────────────────────────────────────
 //
 // Holds the real VisualScriptGraph shape (nodes + connections) that
-// VisualScriptComponent's constructor and VisualScriptGraphBuilder both
+// registerVisualScriptGraph and VisualScriptGraphBuilder both
 // produce/consume. The panel saves exactly this shape — zero translation
-// is needed to drop it into `new VisualScriptComponent({ graph })`.
+// is needed to drop it into `registerVisualScriptGraph(id, graph)`.
 //
 // Node canvas positions are session-only editor state (not part of the
 // runtime graph shape) and are kept separately so the saved graph never
-// carries x/y fields that VisualScriptComponent doesn't know about.
+// carries x/y fields that the runtime graph doesn't know about.
 
 interface LogicScriptLayoutEntry {
   x: number;

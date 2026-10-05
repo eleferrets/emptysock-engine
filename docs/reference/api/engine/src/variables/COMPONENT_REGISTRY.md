@@ -8,7 +8,7 @@
 
 > `const` **COMPONENT\_REGISTRY**: readonly `string`[]
 
-Defined in: engine/src/index.ts:458
+Defined in: engine/src/index.ts:516
 
 Curated list of built-in `componentName`s an editor's "Add Component"
 picker can offer for an entity that isn't live yet — there is no running

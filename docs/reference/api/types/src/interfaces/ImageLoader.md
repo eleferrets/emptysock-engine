@@ -6,7 +6,7 @@
 
 # Interface: ImageLoader
 
-Defined in: types/src/index.ts:170
+Defined in: types/src/index.ts:167
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: types/src/index.ts:170
 
 > **load**(`src`): `Promise`\<`string` \| `ImageBitmap`\>
 
-Defined in: types/src/index.ts:171
+Defined in: types/src/index.ts:168
 
 #### Parameters
 
