@@ -95,11 +95,8 @@ export const AssetKindSchema = z.enum([
   "sound",
   "object",
   "room",
-  "script",
   "shader",
   "tileset",
-  "path",
-  "timeline",
   "sequence",
   "note",
 ]);

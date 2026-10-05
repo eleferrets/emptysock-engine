@@ -19,7 +19,7 @@ const index = {
     { kind: "sound" as const, name: "snd_a", id: "snd_a" },
     // cross-kind name collision
     { kind: "object" as const, name: "thing", id: "thing" },
-    { kind: "script" as const, name: "thing", id: "thing" },
+    { kind: "shader" as const, name: "thing", id: "thing" },
   ],
 };
 
@@ -62,9 +62,9 @@ describe("AssetRegistry", () => {
         .resolve("thing")
         .map((e) => e.kind)
         .sort(),
-    ).toEqual(["object", "script"]);
+    ).toEqual(["object", "shader"]);
     expect(reg.exists("object", "thing")).toBe(true);
-    expect(reg.exists("script", "thing")).toBe(true);
+    expect(reg.exists("shader", "thing")).toBe(true);
     expect(reg.exists("sprite", "thing")).toBe(false);
   });
 
