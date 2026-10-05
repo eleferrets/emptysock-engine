@@ -235,7 +235,7 @@ The `public/manifest.webmanifest` file contains the app name, theme color (`#7c6
 The panel has two modes, switched with the tabs at the top of the panel:
 
 - **Scene Scaffold** — a node graph for sketching a scene's entity/component tree (Scene → Entity → Component nodes). "Export Code" generates a starter `Scene` subclass from the graph; it is a code-scaffolding aid, not a runtime graph.
-- **Logic Script** — authors a real `VisualScriptGraph`, the exact shape `VisualScriptComponent` (`packages/engine/src/components/VisualScriptComponent.ts`) interprets at runtime. Anything built here can be dropped straight into `new VisualScriptComponent({ graph })` with zero translation — the panel's save path (`toVisualScriptGraph()` in `visual-script/logicHelpers.ts`) is proven equal to the code-first `VisualScriptGraphBuilder` output by test (`apps/ide/src/__tests__/logicScriptGraph.test.ts`).
+- **Logic Script** — authors a real `VisualScriptGraph`, the exact shape the engine's visual script interpreter (`packages/engine/src/components/VisualScript.ts`) runs. Anything built here can be registered with `registerVisualScriptGraph` with zero translation — the panel's save path (`toVisualScriptGraph()` in `visual-script/logicHelpers.ts`) is proven equal to the code-first `VisualScriptGraphBuilder` output by test (`apps/ide/src/__tests__/logicScriptGraph.test.ts`).
 
 **Opening the panel:** Drag the Visual Script Editor tab from the tab bar into a docked pane, or open it via View → Panels → Visual Script Editor.
 
@@ -253,7 +253,7 @@ The panel has two modes, switched with the tabs at the top of the panel:
 
 **Node palette:** `On Update`, `On Event`, `Sequence`, `Branch`, `Get Variable`, `Set Variable`, `Get Switch`, `Set Switch`, `Send Message` — added from the "+ Node" picker in the toolbar. `Branch` nodes expose two output ports (`true`/`false`). Selecting a node opens its property panel on the right for kind-specific fields (comparator, variable/switch index, target actor id, and so on).
 
-**Saving:** The graph and each node's canvas position are kept in `logicScriptStore.ts` (Zustand) as the source of truth, synced on every edit. Canvas position is editor-only state — the graph handed to `VisualScriptComponent` never carries `x`/`y`.
+**Saving:** The graph and each node's canvas position are kept in `logicScriptStore.ts` (Zustand) as the source of truth, synced on every edit. Canvas position is editor-only state — the graph handed to the engine never carries `x`/`y`.
 
 **Limitations:** Visual scripts run through a graph interpreter at runtime — expect slower execution than native TypeScript for hot paths (e.g., heavy per-frame computation). Use TypeScript for performance-critical logic; use Logic Script for event-driven, low-frequency logic (cutscenes, dialogue triggers, UI flows).
 
