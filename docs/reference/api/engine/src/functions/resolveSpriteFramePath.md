@@ -8,7 +8,7 @@
 
 > **resolveSpriteFramePath**(`sprite`): `string`
 
-Defined in: engine/src/components/Sprite.ts:175
+Defined in: engine/src/components/Sprite.ts:173
 
 Resolves `Sprite.texturePath`/`currentFrame`/`frameCount` into the actual
 path to load/display this tick. A `frameCount <= 1` sprite (the common,

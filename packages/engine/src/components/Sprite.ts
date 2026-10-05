@@ -58,13 +58,11 @@ export const Sprite = defineComponent(
     frameCount: 1,
     /**
      * The currently-displayed frame, `0`-based. `SpriteAnimationSystem`
-     * advances this every tick by `frameSpeed`; game code (`image_index`,
-     * ) may also assign it directly — a direct
+     * advances this every tick by `frameSpeed`; game code may also assign it directly — a direct
      * assignment simply overrides this tick's displayed frame, since the
      * system re-advances from wherever it's left on the next tick anyway.
      * Not an integer in general — `SpriteAnimationSystem` keeps the
-     * fractional part between ticks (matching real
-     * `image_index`, which is itself a float) so a fractional `frameSpeed`
+     * fractional part between ticks so a fractional `frameSpeed`
      * accumulates correctly; `RenderPipeline` floors it before indexing.
      */
     currentFrame: 0,

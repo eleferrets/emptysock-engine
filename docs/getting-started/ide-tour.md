@@ -135,7 +135,7 @@ Shows staged and unstaged files with status indicators. Click **+** to stage, **
 
 A node graph panel for wiring component logic without writing TypeScript. Open via **View → Panels → Visual Script Editor**.
 
-Saved as `.esvs` files. Referenced at runtime via `VisualScriptComponent`.
+Saved as `.esvs` files. Registered at runtime with `registerVisualScriptGraph` and driven through `VisualScriptState`.
 
 > **Note:** Visual scripts run through a graph interpreter, so expect roughly 10× slower execution than native TypeScript for heavy per-frame computation. Reach for TypeScript when performance actually matters.
 
