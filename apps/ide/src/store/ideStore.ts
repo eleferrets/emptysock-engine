@@ -300,11 +300,11 @@ const INITIAL_CODE = `import { Game, defineScene, RenderPipeline, Transform, Spr
 const gameScene = defineScene({
   onLoad(scene) {
     const player = scene.spawn('Player');
-    player.add(Transform, { x: 640, y: 360 });
+    player.add(Transform, { x: 640, y: 360, scaleX: 64, scaleY: 64 });
     player.add(Sprite, { tint: 0x7c6af7 });
 
     const ground = scene.spawn('Ground');
-    ground.add(Transform, { x: 640, y: 680 });
+    ground.add(Transform, { x: 640, y: 680, scaleX: 1280, scaleY: 40 });
     ground.add(Sprite, { tint: 0x4ade80 });
 
     console.log('GameScene loaded');
