@@ -381,7 +381,7 @@ describe("RoomEditor — nine-slice / tiled instances", () => {
   });
 });
 
-describe("RoomEditor — imported room views and entities", () => {
+describe("RoomEditor — scene views and entities", () => {
   it("edits a view field and an entity position, preserving other fields", async () => {
     const view = {
       visible: true,

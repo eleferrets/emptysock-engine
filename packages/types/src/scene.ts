@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Unified scene document (`SceneDocument`, `formatVersion: 2`) shared by the
- * IDE, the toolchain importer and the runtime loader. See
+ * IDE, the toolchain and the runtime loader. See
  * docs/research/13-unified-scene-shape.md. The engine keeps a zod-free
  * structural copy (`packages/engine/src/SceneDocument.ts`); this file is the
  * validation source of truth for tools that can depend on zod.
@@ -44,7 +44,7 @@ export const SceneEntitySchema = z.object({
   components: z.record(z.string(), ComponentEntrySchema).optional(),
   layer: z.string().optional(),
   pool: z.boolean().optional(),
-  /** Namespaced tool/compat data, e.g. ext.gml.vars. */
+  /** Namespaced tool/compat data, e.g. ext.<namespace>.<key>. */
   ext: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
 });
 export type SceneEntity = z.infer<typeof SceneEntitySchema>;
@@ -74,7 +74,7 @@ export const ViewDefSchema = z.object({
   speed: PointSchema.optional(),
   follow: z
     .object({
-      /** GML object type name (was followObject). */
+      /** Object type name (was followObject). */
       object: z.string().optional(),
       entity: EntityRefJsonSchema.optional(),
     })
@@ -88,7 +88,7 @@ const SceneDocumentBaseSchema = z.object({
   formatVersion: z.literal(SCENE_FORMAT_VERSION),
   id: z.string().optional(),
   name: z.string().min(1),
-  /** Room-level state cache flag (GMS roomSettings.persistent). */
+  /** Room-level state cache flag (`roomSettings.persistent). */
   persistent: z.boolean().optional(),
   backgroundColor: z
     .string()

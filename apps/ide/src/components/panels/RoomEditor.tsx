@@ -88,7 +88,7 @@ function handlePoints(b: Box): [number, number][] {
 
 const QUIPS = [
   "Drag it somewhere it belongs. Or doesn't. Your call.",
-  "Every pixel here was once a GameMaker instance with opinions.",
+  "Every pixel here was once an instance with opinions.",
   "Snap to grid: for when your mouse hand shakes less than your resolve.",
   "Nothing selected. The room stares back, unbothered.",
 ];
@@ -228,7 +228,7 @@ function withPos(inst: RoomInstance, x: number, y: number): RoomInstance {
 }
 
 /** Rotation (degrees, matching `Transform.rotation`'s on-disk convention elsewhere in this
- * importer's prefab props) and non-uniform scale — mirrors `Transform`'s own field names
+ * asset pipeline's prefab props) and non-uniform scale — mirrors `Transform`'s own field names
  * (`rotation`/`scaleX`/`scaleY`) so a room-editor edit round-trips through `loadSceneFile()`
  * without a translation step. */
 function instanceTransform(inst: RoomInstance): {

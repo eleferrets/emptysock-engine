@@ -3,7 +3,7 @@ import { Grid3X3, Magnet, Ruler } from "lucide-react";
 import { useIDEStore } from "../../../store/ideStore";
 
 /**
- * GMS2-style view options cluster: small icon buttons pinned to the top-right
+ * View options cluster: small icon buttons pinned to the top-right
  * corner of an editor's canvas. Grid/snap/ruler only mean something inside a
  * specific tool's canvas, so this lives per-panel rather than in the global
  * toolbar (see CLAUDE.md "IDE UI checklist").

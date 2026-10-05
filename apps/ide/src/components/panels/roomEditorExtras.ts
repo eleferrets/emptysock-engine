@@ -1,5 +1,5 @@
 /**
- * Pure helpers for editing the parts of an imported room's `.scene.json` the
+ * Pure helpers for editing the parts of an scene's `.scene.json` the
  * Room Editor's canvas does not draw as prefab instances: direct `entities`
  * (e.g. converted background layers) and camera `views`/`viewsEnabled`.
  * Every function returns a new `extra` record; unknown fields are preserved.
@@ -294,7 +294,7 @@ export function followCandidates(
 
 // ── Drawing a brand-new view ─────────────────────────────────────────────────
 
-/** GameMaker has 8 view slots per room. */
+/** Rooms have 8 view slots per room. */
 export const MAX_VIEWS = 8;
 
 /** Smallest rectangle (room pixels, each side) a drag must cover to create a view. */
@@ -315,7 +315,7 @@ export function rectFromDrag(
   };
 }
 
-/** True for an imported room's untouched placeholder slot (hidden, at the origin, following nothing). */
+/** True for a scene's untouched placeholder slot (hidden, at the origin, following nothing). */
 function isUnusedView(v: EditableView): boolean {
   return (
     !v.visible &&
@@ -327,10 +327,10 @@ function isUnusedView(v: EditableView): boolean {
 
 /**
  * Adds a new visible view looking at `rect`. It takes the first unused
- * placeholder slot (imported rooms carry 8 hidden ones) or appends, up to
+ * placeholder slot (room scenes carry 8 hidden ones) or appends, up to
  * `MAX_VIEWS`; returns the unchanged `extra` and `index: -1` when the room is
  * full or `rect` is smaller than `MIN_NEW_VIEW`. The port starts as the same
- * size at the window origin, the values GameMaker's own editor defaults to;
+ * size at the window origin, the values own editor defaults to;
  * views are switched on because a view that cannot show is no use.
  */
 export function addView(

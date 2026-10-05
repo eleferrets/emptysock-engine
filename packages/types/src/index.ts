@@ -107,7 +107,7 @@ export type AssetKind = z.infer<typeof AssetKindSchema>;
 
 export const AssetIndexEntrySchema = z.object({
   kind: AssetKindSchema,
-  /** GameMaker resource name, unique per kind. */
+  /** Resource name, unique per kind. */
   name: z.string(),
   /** Runtime reference string as transpiled (sprite: texture path; others: name). */
   id: z.string(),

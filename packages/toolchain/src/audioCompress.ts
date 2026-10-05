@@ -1,12 +1,11 @@
 /**
- * Optional audio transcoding for the GMS2 sound importer (see
- * `gms2-sound-import.ts`'s `buildSoundAsset`). `AudioSystem` is
+ * Optional audio transcoding for the sound asset pipeline. `AudioSystem` is
  * Howler-backed and already plays `.wav`/`.ogg`/`.mp3`/`.m4a` transparently
  * — see CLAUDE.md, playback format is not the gap. The real gap is size:
- * raw GameMaker sound assets are very often uncompressed `.wav`, and
+ * raw sound assets are very often uncompressed `.wav`, and
  * shipping those as-is bloats the built game. This module re-encodes an
  * uncompressed source into a real compressed format (Ogg/Vorbis by
- * default, or Opus) at import time.
+ * default, or Opus) at build time.
  *
  * No pure-JS/WASM vorbis/opus *encoder* npm package exists that is both
  * genuinely maintained and produces real, correct output (WASM decoders

@@ -36,7 +36,7 @@ export interface RoomEditorState {
   order: readonly string[];
 }
 
-/** Room size used only when a document without `room` gains views in the editor (the GameMaker default). */
+/** Room size used only when a document without `room` gains views in the editor (the default). */
 const DEFAULT_ROOM = { width: 1024, height: 768 };
 
 export function viewToEditable(v: SceneViewDef): EditableView {

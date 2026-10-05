@@ -344,7 +344,7 @@ anim.stop(); // returns to first frame of defaultClip
 console.log(anim.currentClip, anim.isPlaying, anim.frame);
 ```
 
-**Clip names** are defined in the `.esanim` file created by the spritesheet importer. The TilemapEditor does not produce `.esanim` files — use the asset importer for that.
+**Clip names** are defined in the `.esanim` file created by the spritesheet asset pipeline. The TilemapEditor does not produce `.esanim` files — use the asset asset pipeline for that.
 
 ---
 

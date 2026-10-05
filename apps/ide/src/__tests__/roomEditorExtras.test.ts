@@ -250,7 +250,7 @@ describe("addView / rectFromDrag", () => {
     });
   });
 
-  it("takes the first unused placeholder slot of an imported room", () => {
+  it("takes the first unused placeholder slot of an scene", () => {
     const first = { ...unused(), visible: true, worldX: 5 };
     const extra = { views: [first, unused(), unused()] };
     const r = addView(extra, { x: 64, y: 64, w: 128, h: 96 });
