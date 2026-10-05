@@ -6,10 +6,10 @@
 
 # Interface: TileLayerSource
 
-Defined in: [engine/src/systems/RenderPipeline.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L27)
+Defined in: engine/src/systems/RenderPipeline.ts:74
 
-The subset of `@emptysock/tilemap`'s `Tilemap` shape that RenderPipeline
-actually reads. RenderPipeline lives in the core engine and must not
+The subset of `@emptysock/tilemap`'s `Tilemap` shape that `RenderPipeline`
+actually reads. `RenderPipeline` lives in the core engine and must not
 depend on the optional `@emptysock/tilemap` module package (§13.1), so it
 depends on this structural interface instead — `Tilemap` satisfies it
 without either package importing the other. Only `mountTilemap()`'s
@@ -22,7 +22,7 @@ types in scope at once.
 
 > `readonly` **data**: `object`
 
-Defined in: [engine/src/systems/RenderPipeline.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L28)
+Defined in: engine/src/systems/RenderPipeline.ts:75
 
 #### cols
 

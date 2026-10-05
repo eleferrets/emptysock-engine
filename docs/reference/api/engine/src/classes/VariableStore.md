@@ -6,7 +6,7 @@
 
 # Class: VariableStore
 
-Defined in: [engine/src/systems/VariableStore.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L34)
+Defined in: engine/src/systems/VariableStore.ts:34
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [engine/src/systems/VariableStore.ts:34](https://github.com/eleferre
 
 > **getSwitch**(`index`): `boolean`
 
-Defined in: [engine/src/systems/VariableStore.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L61)
+Defined in: engine/src/systems/VariableStore.ts:61
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/systems/VariableStore.ts:61](https://github.com/eleferre
 
 > **getSwitchName**(`index`): `string`
 
-Defined in: [engine/src/systems/VariableStore.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L69)
+Defined in: engine/src/systems/VariableStore.ts:69
 
 #### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [engine/src/systems/VariableStore.ts:69](https://github.com/eleferre
 
 > **getVar**(`index`): `number`
 
-Defined in: [engine/src/systems/VariableStore.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L40)
+Defined in: engine/src/systems/VariableStore.ts:40
 
 #### Parameters
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/systems/VariableStore.ts:40](https://github.com/eleferre
 
 > **getVarName**(`index`): `string`
 
-Defined in: [engine/src/systems/VariableStore.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L53)
+Defined in: engine/src/systems/VariableStore.ts:53
 
 #### Parameters
 
@@ -96,7 +96,7 @@ Defined in: [engine/src/systems/VariableStore.ts:53](https://github.com/eleferre
 
 > **load**(): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:81](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L81)
+Defined in: engine/src/systems/VariableStore.ts:81
 
 #### Returns
 
@@ -108,7 +108,7 @@ Defined in: [engine/src/systems/VariableStore.ts:81](https://github.com/eleferre
 
 > **reset**(): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:94](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L94)
+Defined in: engine/src/systems/VariableStore.ts:94
 
 #### Returns
 
@@ -120,7 +120,7 @@ Defined in: [engine/src/systems/VariableStore.ts:94](https://github.com/eleferre
 
 > **restore**(`data`): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:123](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L123)
+Defined in: engine/src/systems/VariableStore.ts:123
 
 #### Parameters
 
@@ -138,7 +138,7 @@ Defined in: [engine/src/systems/VariableStore.ts:123](https://github.com/eleferr
 
 > **save**(): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:77](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L77)
+Defined in: engine/src/systems/VariableStore.ts:77
 
 #### Returns
 
@@ -150,7 +150,7 @@ Defined in: [engine/src/systems/VariableStore.ts:77](https://github.com/eleferre
 
 > **setSwitch**(`index`, `value`): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L65)
+Defined in: engine/src/systems/VariableStore.ts:65
 
 #### Parameters
 
@@ -172,7 +172,7 @@ Defined in: [engine/src/systems/VariableStore.ts:65](https://github.com/eleferre
 
 > **setSwitchName**(`index`, `name`): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L73)
+Defined in: engine/src/systems/VariableStore.ts:73
 
 #### Parameters
 
@@ -194,7 +194,7 @@ Defined in: [engine/src/systems/VariableStore.ts:73](https://github.com/eleferre
 
 > **setVar**(`index`, `value`): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L49)
+Defined in: engine/src/systems/VariableStore.ts:49
 
 Store a variable value. Values are stored as integers — fractional parts
 are truncated. This matches RPG Maker's variable behaviour and is intentional.
@@ -220,7 +220,7 @@ Use separate fields in your save data if you need float precision.
 
 > **setVarName**(`index`, `name`): `void`
 
-Defined in: [engine/src/systems/VariableStore.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L57)
+Defined in: engine/src/systems/VariableStore.ts:57
 
 #### Parameters
 
@@ -242,7 +242,7 @@ Defined in: [engine/src/systems/VariableStore.ts:57](https://github.com/eleferre
 
 > **snapshot**(): [`VariableStoreData`](../interfaces/VariableStoreData.md)
 
-Defined in: [engine/src/systems/VariableStore.ts:101](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VariableStore.ts#L101)
+Defined in: engine/src/systems/VariableStore.ts:101
 
 #### Returns
 

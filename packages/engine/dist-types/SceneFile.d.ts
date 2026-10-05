@@ -9,7 +9,7 @@ import type {
 } from "./SceneDocument.js";
 import { type SceneFileV1 } from "./SceneMigrations.js";
 /**
- * ENGINE_DESIGN.md §13.4 — "scene/prefab files: JSON with generated `.d.ts`
+ * the engine design notes — "scene/prefab files: JSON with generated `.d.ts`
  * types alongside". This module is the *runtime* half: parsing an
  * already-loaded JSON blob (a `.prefab.json`/`.scene.json` file's contents)
  * into the engine's `PrefabDef`/spawn calls, plus loading a scene's own

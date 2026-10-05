@@ -202,7 +202,7 @@ ${assigns}
 
 /**
  * The WGSL vertex stage that pairs with an generated WGSL fragment
- * (pixi 8.21 filter contract, verified in docs/research/11): `gfu` global
+ *: `gfu` global
  * filter uniforms at group 0 binding 0, `mainVertex(@location(0) aPosition)`,
  * pixi's `filterVertexPosition` maths, and one `@location(n)` output per
  * vertex-stage varying in declaration order (texcoord-named varyings carry

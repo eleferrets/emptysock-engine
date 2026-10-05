@@ -2,7 +2,7 @@ import type { ComponentDef } from "./Component.js";
 import type { Serializable, SerializableRecord } from "./Serializable.js";
 
 /**
- * ENGINE_DESIGN.md §11.2 — "flat scenes, composable prefabs (prefabs can
+ * the engine design notes — "flat scenes, composable prefabs (prefabs can
  * contain prefabs)". A `Prefab` is a named template: a list of components
  * (by registered name, with prop overrides applied over that component's
  * own defaults) plus, optionally, other prefabs to flatten in first. There
@@ -13,7 +13,7 @@ import type { Serializable, SerializableRecord } from "./Serializable.js";
  * A prefab entry's `overrides` must satisfy the same `Serializable`
  * constraint every component field already does (`ecs/Serializable.ts`) —
  * prefab/scene JSON files are exactly the data that constraint exists for
- * (ENGINE_DESIGN.md §12.1), so a prop override can never smuggle in a
+ *, so a prop override can never smuggle in a
  * function or class instance a JSON file could never have represented
  * anyway.
  */
@@ -38,7 +38,7 @@ export interface PrefabDef<T extends SerializableRecord = SerializableRecord> {
    * (`packages/toolchain/src/prefabCodegen.ts`) is what emits a
    * concretely-typed `declare const SomePrefab: PrefabDef<{ x: number; ... }>`
    * for a JSON-authored prefab, which is what actually drives autocomplete
-   * on `scene.spawn(SomePrefab, props)` per ENGINE_DESIGN.md §13.4.
+   * on `scene.spawn(SomePrefab, props)` per the engine design notes
    */
   readonly __props?: T;
 }

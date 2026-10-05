@@ -6,7 +6,7 @@
 
 # Interface: Combatant
 
-Defined in: [battle/src/BattleSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L33)
+Defined in: battle/src/BattleSystem.ts:33
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:33](https://github.com/eleferrets/emptys
 
 > **id**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L34)
+Defined in: battle/src/BattleSystem.ts:34
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [battle/src/BattleSystem.ts:34](https://github.com/eleferrets/emptys
 
 > **isParty**: `boolean`
 
-Defined in: [battle/src/BattleSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L38)
+Defined in: battle/src/BattleSystem.ts:38
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [battle/src/BattleSystem.ts:38](https://github.com/eleferrets/emptys
 
 > **name**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L35)
+Defined in: battle/src/BattleSystem.ts:35
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [battle/src/BattleSystem.ts:35](https://github.com/eleferrets/emptys
 
 > **stats**: [`BattleStats`](../type-aliases/BattleStats.md)
 
-Defined in: [battle/src/BattleSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L36)
+Defined in: battle/src/BattleSystem.ts:36
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [battle/src/BattleSystem.ts:36](https://github.com/eleferrets/emptys
 
 > **statusEffects**: readonly [`StatusEffect`](StatusEffect.md)[]
 
-Defined in: [battle/src/BattleSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L37)
+Defined in: battle/src/BattleSystem.ts:37

@@ -6,7 +6,7 @@
 
 # Interface: TileCell
 
-Defined in: [tilemap/src/TilemapSystem.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L17)
+Defined in: tilemap/src/TilemapSystem.ts:17
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [tilemap/src/TilemapSystem.ts:17](https://github.com/eleferrets/empt
 
 > `optional` **solid?**: `boolean`
 
-Defined in: [tilemap/src/TilemapSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L21)
+Defined in: tilemap/src/TilemapSystem.ts:21
 
 Whether this cell blocks movement
 
@@ -24,6 +24,6 @@ Whether this cell blocks movement
 
 > **tileIndex**: `number`
 
-Defined in: [tilemap/src/TilemapSystem.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/tilemap/src/TilemapSystem.ts#L19)
+Defined in: tilemap/src/TilemapSystem.ts:19
 
 Tileset tile index (0-based). -1 = empty.

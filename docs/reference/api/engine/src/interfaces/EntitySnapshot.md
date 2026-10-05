@@ -6,68 +6,38 @@
 
 # Interface: EntitySnapshot
 
-Defined in: [engine/src/core/IDEBridge.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L13)
+Defined in: engine/src/SceneTransfer.ts:79
 
 ## Properties
 
-### active
-
-> **active**: `boolean`
-
-Defined in: [engine/src/core/IDEBridge.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L16)
-
-***
-
 ### components
 
-> **components**: `string`[]
+> `readonly` **components**: readonly `object`[]
 
-Defined in: [engine/src/core/IDEBridge.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L17)
-
-***
-
-### id
-
-> **id**: `string`
-
-Defined in: [engine/src/core/IDEBridge.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L14)
+Defined in: engine/src/SceneTransfer.ts:83
 
 ***
 
-### name
+### extras
 
-> **name**: `string`
+> `readonly` **extras**: `Readonly`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [engine/src/core/IDEBridge.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L15)
-
-***
-
-### rotation
-
-> **rotation**: `number`
-
-Defined in: [engine/src/core/IDEBridge.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L21)
+Defined in: engine/src/SceneTransfer.ts:87
 
 ***
 
-### tags
+### oldEid
 
-> **tags**: `string`[]
+> `readonly` **oldEid**: `number`
 
-Defined in: [engine/src/core/IDEBridge.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L18)
-
-***
-
-### x
-
-> **x**: `number`
-
-Defined in: [engine/src/core/IDEBridge.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L19)
+Defined in: engine/src/SceneTransfer.ts:82
 
 ***
 
-### y
+### oldId
 
-> **y**: `number`
+> `readonly` **oldId**: `number`
 
-Defined in: [engine/src/core/IDEBridge.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/IDEBridge.ts#L20)
+Defined in: engine/src/SceneTransfer.ts:81
+
+The entity's `Scene.idOf` in the source scene.

@@ -3,7 +3,7 @@ import type { Entity } from "./Entity.js";
 import { type EntityIdMap, type RemapOptions } from "./RefRemap.js";
 import type { Scene } from "./Scene.js";
 /**
- * Carries entities across a scene swap (docs/research/07-persistence.md 3.1).
+ * Carries entities across a scene swap.
  * A new `Scene` is a new bitECS world, so entities cannot move literally:
  * `captureEntities` copies the selected ones (components plus registered
  * per-entity extras) into a plain `SceneSnapshot` and clears their side

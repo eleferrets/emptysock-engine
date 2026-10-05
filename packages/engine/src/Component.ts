@@ -1,7 +1,7 @@
 import type { SerializableRecord } from "./Serializable.js";
 
 /**
- * Per-field inspector schema entry (ENGINE_DESIGN.md §10.1: "co-located
+ * Per-field inspector schema entry (the engine design notes: "co-located
  * optional schema, not decorators"). Describes how the IDE's Inspector
  * should render one field of a component's defaults object — enough to
  * pick a typed control (number input, text input, checkbox, dropdown), not
@@ -35,7 +35,7 @@ export type ComponentSchema<T extends SerializableRecord> = {
 };
 
 /**
- * A registered component definition. ENGINE_DESIGN.md §23.1: component
+ * A registered component definition. the engine design notes: component
  * identity for bitECS's purposes is a plain object reference, which breaks
  * under hot-reload (a re-evaluated module produces a *new* reference for
  * what should be "the same" component). We fix that by keying identity on
@@ -54,7 +54,7 @@ export interface ComponentDef<
    * stamps every saved component instance with this number; on load, a
    * mismatch against the currently-registered def's version triggers that
    * component's registered `migrate()` hook, or a warn+drop of just that
-   * component's data if none is registered (ENGINE_DESIGN.md §19.3).
+   * component's data if none is registered.
    */
   readonly version: number;
   /**
@@ -114,7 +114,7 @@ export interface DefineComponentOptions<
  * player.get(Position).x; // 100
  * ```
  *
- * The name is load-bearing (ENGINE_DESIGN.md §23.1) — hot-reloading the
+ * The name is load-bearing — hot-reloading the
  * module that calls `defineComponent("Position", ...)` produces a new JS
  * object every time, but the engine's component registry treats two defs
  * with the same `componentName` as the *same* component, replacing the old

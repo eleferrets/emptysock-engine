@@ -20,7 +20,7 @@ export interface TransitionEffectSink {
 }
 
 /**
- * Scene-transition **timing** logic (RELEASE_PASS.md Track 6) —
+ * Scene-transition **timing** logic —
  * deliberately not scene registration/lifecycle. `Game.ts` already owns
  * real scene swapping (`loadScene()`/`loadOverlay()`/`unloadScene()`) with
  * its own lifecycle guarantees — this class's only job is timing a

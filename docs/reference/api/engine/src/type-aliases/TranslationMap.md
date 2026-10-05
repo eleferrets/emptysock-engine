@@ -8,4 +8,4 @@
 
 > **TranslationMap** = `Record`\<`string`, `string`\>
 
-Defined in: [engine/src/systems/LocalisationSystem.ts:2](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/LocalisationSystem.ts#L2)
+Defined in: engine/src/systems/LocalisationSystem.ts:2

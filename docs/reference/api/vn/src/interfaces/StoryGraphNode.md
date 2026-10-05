@@ -6,7 +6,7 @@
 
 # Interface: StoryGraphNode
 
-Defined in: [vn/src/VNScriptConvert.ts:6](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L6)
+Defined in: vn/src/VNScriptConvert.ts:6
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNScriptConvert.ts:6](https://github.com/eleferrets/emptysoc
 
 > `optional` **condition?**: `VariableCondition`
 
-Defined in: [vn/src/VNScriptConvert.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L21)
+Defined in: vn/src/VNScriptConvert.ts:21
 
 Present only on `"condition"` nodes — the gate evaluated to pick a branch.
 
@@ -24,7 +24,7 @@ Present only on `"condition"` nodes — the gate evaluated to pick a branch.
 
 > **id**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L7)
+Defined in: vn/src/VNScriptConvert.ts:7
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [vn/src/VNScriptConvert.ts:7](https://github.com/eleferrets/emptysoc
 
 > `optional` **options?**: `string`[]
 
-Defined in: [vn/src/VNScriptConvert.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L13)
+Defined in: vn/src/VNScriptConvert.ts:13
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [vn/src/VNScriptConvert.ts:13](https://github.com/eleferrets/emptyso
 
 > `optional` **optionWhens?**: (`VariableCondition` \| `undefined`)[]
 
-Defined in: [vn/src/VNScriptConvert.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L19)
+Defined in: vn/src/VNScriptConvert.ts:19
 
 Per-option `when` gate, aligned by index with `options`. Present only on
 `"choice"` nodes; an `undefined` entry (or a shorter/absent array) means
@@ -52,7 +52,7 @@ that option has no condition and is always shown.
 
 > `optional` **speaker?**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:11](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L11)
+Defined in: vn/src/VNScriptConvert.ts:11
 
 ***
 
@@ -60,7 +60,7 @@ Defined in: [vn/src/VNScriptConvert.ts:11](https://github.com/eleferrets/emptyso
 
 > **text**: `string`
 
-Defined in: [vn/src/VNScriptConvert.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L12)
+Defined in: vn/src/VNScriptConvert.ts:12
 
 ***
 
@@ -68,7 +68,7 @@ Defined in: [vn/src/VNScriptConvert.ts:12](https://github.com/eleferrets/emptyso
 
 > **type**: `"condition"` \| `"dialogue"` \| `"choice"`
 
-Defined in: [vn/src/VNScriptConvert.ts:8](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L8)
+Defined in: vn/src/VNScriptConvert.ts:8
 
 ***
 
@@ -76,7 +76,7 @@ Defined in: [vn/src/VNScriptConvert.ts:8](https://github.com/eleferrets/emptysoc
 
 > **x**: `number`
 
-Defined in: [vn/src/VNScriptConvert.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L9)
+Defined in: vn/src/VNScriptConvert.ts:9
 
 ***
 
@@ -84,4 +84,4 @@ Defined in: [vn/src/VNScriptConvert.ts:9](https://github.com/eleferrets/emptysoc
 
 > **y**: `number`
 
-Defined in: [vn/src/VNScriptConvert.ts:10](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L10)
+Defined in: vn/src/VNScriptConvert.ts:10

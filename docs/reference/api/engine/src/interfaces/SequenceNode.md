@@ -6,7 +6,7 @@
 
 # Interface: SequenceNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L40)
+Defined in: engine/src/components/VisualScript.ts:38
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:40](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"sequence"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L41)
+Defined in: engine/src/components/VisualScript.ts:39
 
 #### Overrides
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:41](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 

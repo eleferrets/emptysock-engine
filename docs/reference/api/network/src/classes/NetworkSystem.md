@@ -6,9 +6,9 @@
 
 # Class: NetworkSystem
 
-Defined in: [network/src/NetworkSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L59)
+Defined in: network/src/NetworkSystem.ts:59
 
-The client-side half of ENGINE_DESIGN.md §23.2's networking bridge:
+The client-side half of the engine design notes's networking bridge:
 "`@emptysock/network` reads/writes through the same `.get()` Proxy layer
 ... it only ever sees the same `Component` classes and `.get()` shape
 every other part of the engine sees."
@@ -26,7 +26,7 @@ bitECS's entity ids either: the network<->local mapping is entirely
 
 > **new NetworkSystem**(`options`): `NetworkSystem`
 
-Defined in: [network/src/NetworkSystem.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L72)
+Defined in: network/src/NetworkSystem.ts:72
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [network/src/NetworkSystem.ts:72](https://github.com/eleferrets/empt
 
 > `readonly` **entities**: [`NetworkEntityMap`](NetworkEntityMap.md)
 
-Defined in: [network/src/NetworkSystem.ts:60](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L60)
+Defined in: network/src/NetworkSystem.ts:60
 
 ## Methods
 
@@ -52,7 +52,7 @@ Defined in: [network/src/NetworkSystem.ts:60](https://github.com/eleferrets/empt
 
 > **destroy**(): `void`
 
-Defined in: [network/src/NetworkSystem.ts:218](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L218)
+Defined in: network/src/NetworkSystem.ts:217
 
 Stop listening to the collection's onAdd/onRemove. Does not disconnect the room.
 
@@ -66,7 +66,7 @@ Stop listening to the collection's onAdd/onRemove. Does not disconnect the room.
 
 > **getEntity**(`networkId`): `Entity` \| `undefined`
 
-Defined in: [network/src/NetworkSystem.ts:208](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L208)
+Defined in: network/src/NetworkSystem.ts:207
 
 Look up the local `Entity` mirroring a network id, if any.
 
@@ -86,7 +86,7 @@ Look up the local `Entity` mirroring a network id, if any.
 
 > **getNetworkId**(`entity`): `string` \| `undefined`
 
-Defined in: [network/src/NetworkSystem.ts:213](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L213)
+Defined in: network/src/NetworkSystem.ts:212
 
 Look up the network id a local `Entity` was registered under, if any.
 
@@ -106,7 +106,7 @@ Look up the network id a local `Entity` was registered under, if any.
 
 > **reconcile**(): `void`
 
-Defined in: [network/src/NetworkSystem.ts:196](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L196)
+Defined in: network/src/NetworkSystem.ts:195
 
 Drop the mapping for any tracked entity that was destroyed *locally*
 (`scene.destroy(entity)` called directly by gameplay code, not via the
@@ -138,11 +138,11 @@ only if something needs the mapping reconciled off that cadence.
 
 > **sync**(): `void`
 
-Defined in: [network/src/NetworkSystem.ts:146](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L146)
+Defined in: network/src/NetworkSystem.ts:145
 
 Call once per frame (or at whatever cadence the game wants to push
 updates — networked state is "replicated a handful of times a second",
-per ENGINE_DESIGN.md §23.2, not every-frame-at-60fps). Diffs the local
+per the engine design notes, not every-frame-at-60fps). Diffs the local
 player's networked fields against the last value sent and calls
 `room.send` for anything that changed.
 

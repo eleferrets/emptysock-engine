@@ -6,7 +6,7 @@
 
 # Interface: ChoiceOption
 
-Defined in: [vn/src/VNSystem.ts:48](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L48)
+Defined in: vn/src/VNSystem.ts:47
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNSystem.ts:48](https://github.com/eleferrets/emptysock-engi
 
 > **label**: `string`
 
-Defined in: [vn/src/VNSystem.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L49)
+Defined in: vn/src/VNSystem.ts:48
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [vn/src/VNSystem.ts:49](https://github.com/eleferrets/emptysock-engi
 
 > **next**: `string`
 
-Defined in: [vn/src/VNSystem.ts:50](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L50)
+Defined in: vn/src/VNSystem.ts:49
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [vn/src/VNSystem.ts:50](https://github.com/eleferrets/emptysock-engi
 
 > `optional` **when?**: `VariableCondition`
 
-Defined in: [vn/src/VNSystem.ts:51](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L51)
+Defined in: vn/src/VNSystem.ts:50

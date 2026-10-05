@@ -9,7 +9,7 @@
  * `RenderPipeline.ts`'s `TileLayerSource` doc comment), so this test — which
  * needs both a real `RenderPipeline` and a real `Tilemap` — lives here, in
  * the package that already depends on both, rather than in the engine.
- * `AutoTileSystem` itself moved here too (RELEASE_PASS.md Track 2) — it's
+ * `AutoTileSystem` itself moved here too — it's
  * imported from `../AutoTileSystem.js` now, not `@emptysock/engine`, which
  * only knows its structural `AutoTileResolver` shape.
  */

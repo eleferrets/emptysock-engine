@@ -1,0 +1,41 @@
+[**emptysock-engine**](../../../README.md)
+
+***
+
+[emptysock-engine](../../../README.md) / [engine/src](../README.md) / Sprite
+
+# Variable: Sprite
+
+> `const` **Sprite**: [`ComponentDef`](../interfaces/ComponentDef.md)\<\{ `alpha`: `number`; `anchorX`: `number`; `anchorY`: `number`; `bboxBottom`: `number`; `bboxLeft`: `number`; `bboxRight`: `number`; `bboxTop`: `number`; `currentFrame`: `number`; `depth`: `number`; `frameCount`: `number`; `frameSpeed`: `number`; `height`: `number`; `layer`: `string`; `loop`: `boolean`; `shader`: `string`; `sliceBottom`: `number`; `sliceLeft`: `number`; `sliceMode`: `number`; `sliceRight`: `number`; `sliceTop`: `number`; `texturePath`: `string`; `tint`: `number`; `visible`: `true`; `width`: `number`; \}\>
+
+Defined in: engine/src/components/Sprite.ts:34
+
+ECS-core equivalent of `../../components/Sprite.ts`. Attaching `Sprite` alongside
+`Transform` is the entire contract for "this entity shows up on screen" —
+`RenderPipeline.renderFrame()` finds every `Transform`+`Sprite` entity each
+frame and keeps a PixiJS sprite in sync with it.
+
+**Non-numeric fields and component storage (read this before adding another
+render component):** `texturePath` is a `string`, and `layer` is a
+`string` — both satisfy `Serializable` (`ecs/Serializable.ts`) just fine,
+and `ComponentRegistry.ensure()` backs every field with a plain
+`unknown[]` array, not a typed array (see `ComponentRegistry.ts`), so a
+string field costs nothing extra here. There is no bitECS "SoA numbers
+only" constraint to work around for *this* component.
+
+What genuinely cannot live in a component's field bag is the **PixiJS
+`Sprite` display-object instance itself** — it holds methods, a WebGL
+texture reference, and a scene-graph parent pointer, none of which are
+`Serializable`, and it also isn't game data any component should expose
+(game code never needs to reach into Pixi internals). `RenderPipeline`
+keeps that association in its *own* side table instead —
+`Map<Scene, Map<number, PixiSprite>>` keyed by the owning `Scene` and the
+entity's `eid` — the outer `Scene` key exists because a `Game` can have
+several live scenes — main plus overlays — whose `eid`s independently
+start from 0 and would otherwise collide. If a later Track 1 system
+(physics collision callbacks, audio
+playback handles) needs to associate a non-serializable runtime object
+with an entity, follow this same pattern: a plain component holding only
+`Serializable` fields, plus an external `Map`/`WeakMap` owned by the
+system that actually needs the non-serializable handle — never smuggle it
+into the component's field bag.

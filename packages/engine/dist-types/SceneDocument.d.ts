@@ -1,7 +1,7 @@
 /**
  * Unified scene document (`SceneDocument`, `formatVersion: 2`) - the one
  * on-disk `.scene.json` shape shared by the IDE, the toolchain and
- * the runtime loader (docs/research/13-unified-scene-shape.md).
+ * the runtime loader.
  *
  * The engine is zod-free, so these are structural interfaces mirroring the
  * zod schemas in `@emptysock/types` (`packages/types/src/scene.ts`), which

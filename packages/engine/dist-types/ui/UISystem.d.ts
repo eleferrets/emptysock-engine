@@ -13,7 +13,7 @@ export interface UISystemOptions {
   fonts?: FontRegistry;
 }
 /**
- * `UISystem` (RELEASE_PASS.md Track 3), built on `WidgetTree`'s
+ * `UISystem`, built on `WidgetTree`'s
  * entity-per-widget layout foundation (ground rule 4a) and the widget-kind
  * components in `components/Widgets.ts`. Covers hit-testing,
  * press/drag/click/hover dispatch, and rendering against a `Scene`'s live

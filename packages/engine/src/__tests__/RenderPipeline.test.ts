@@ -29,7 +29,7 @@ function makeTestTexture(): Texture {
   return Texture.WHITE;
 }
 
-describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
+describe("ECS RenderPipeline", () => {
   let pipeline: InstanceType<typeof RenderPipeline>;
   let scene: InstanceType<typeof Scene>;
 
@@ -237,7 +237,7 @@ describe("ECS RenderPipeline (ENGINE_DESIGN.md §4 step 7 / §12.3)", () => {
   });
 });
 
-describe("ECS RenderPipeline transition overlay (RELEASE_PASS.md Track 6)", () => {
+describe("ECS RenderPipeline transition overlay", () => {
   let pipeline: InstanceType<typeof RenderPipeline>;
 
   beforeEach(async () => {

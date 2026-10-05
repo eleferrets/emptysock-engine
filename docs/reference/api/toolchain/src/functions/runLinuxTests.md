@@ -8,7 +8,7 @@
 
 > **runLinuxTests**(`opts`): [`VMRunResult`](../interfaces/VMRunResult.md)
 
-Defined in: [toolchain/src/VMRunner.ts:149](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/VMRunner.ts#L149)
+Defined in: toolchain/src/VMRunner.ts:149
 
 ## Parameters
 

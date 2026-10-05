@@ -17,7 +17,7 @@ import { type TransferPolicy } from "./SceneTransfer.js";
 import type { EntityIdMap } from "./RefRemap.js";
 import { RoomStateCache } from "./RoomStateCache.js";
 /**
- * A game-defined update hook. TypeScript enforces ENGINE_DESIGN.md §4's
+ * A game-defined update hook. TypeScript enforces the engine design notes's
  * "onUpdate cannot be async" at compile time by typing this as returning
  * `void`, not `Promise<void>` — a TS caller declaring `async onUpdate` gets
  * a type error, not a runtime footgun. JS callers get no compile-time check,
@@ -161,7 +161,7 @@ export interface LoadSceneOptions {
    */
   restart?: "room" | "game";
   /**
-   * ENGINE_DESIGN.md §4's escape hatch. `false` hands back the raw
+   * the engine design notes's escape hatch. `false` hands back the raw
    * `ActorSystem`/`PhysicsSystem` instances for the caller to own (create,
    * destroy, share across scenes) instead of the engine doing it
    * automatically. Default `true`.
@@ -171,7 +171,7 @@ export interface LoadSceneOptions {
   physics?: Parameters<PhysicsSystem["init"]>[0];
   /**
    * Force step 7 (render) to stay a no-op for this scene regardless of
-   * whether a renderer is attached (ENGINE_DESIGN.md §15.1's headless
+   * whether a renderer is attached (the engine design notes's headless
    * testing harness uses this). Game code never sets this directly — see
    * `packages/engine/src/testing`. Belt-and-suspenders alongside "no
    * renderer attached": a headless game that somehow has a renderer
@@ -181,7 +181,7 @@ export interface LoadSceneOptions {
   headless?: boolean;
 }
 /**
- * ENGINE_DESIGN.md §12.3 — options for `Game.loadOverlay()`. Deliberately a
+ * the engine design notes — options for `Game.loadOverlay()`. Deliberately a
  * narrower surface than `LoadSceneOptions`: an overlay has no `physics` field
  * unless the caller opts in, because "no PhysicsSystem by default, since a
  * HUD doesn't need one" is the whole point of overlays being a separate call
@@ -206,7 +206,7 @@ export interface LoadOverlayOptions {
   headless?: boolean;
 }
 /**
- * ENGINE_DESIGN.md §4 step 7 / §12.3 — the minimal shape `Game.attachRenderer()`
+ * the engine design notes step 7 / §12.3 — the minimal shape `Game.attachRenderer()`
  * needs. Deliberately a plain structural interface, not an import of the
  * concrete Pixi-backed `ecs/systems/RenderPipeline` — `Game.ts` must stay
  * inside the engine environment boundary (CLAUDE.md: "the engine package
@@ -223,13 +223,13 @@ export interface SceneRenderer {
   /**
    * Render `main` (the currently loaded scene), then every entry of
    * `overlays` on top of it, in array order — array order is call order
-   * (ENGINE_DESIGN.md §12.3: overlays "stack in call order"), so the most
+   *, so the most
    * recently `loadOverlay()`-ed scene paints last/topmost.
    */
   renderFrame(main: Scene, overlays: readonly Scene[]): void;
 }
 /**
- * ENGINE_DESIGN.md §4/§10.2 — "`onUpdate` cannot be `async` — not
+ * the engine design notes/§10.2 — "`onUpdate` cannot be `async` — not
  * 'shouldn't,' _cannot_. The type it's assigned to is `(dt: number) =>
  * void`; returning a `Promise<void>` is a type error."
  *
@@ -270,7 +270,7 @@ export declare function defineScene<T extends SceneDefinition>(
   definition: T & RejectAsyncOnUpdate<T>,
 ): T;
 /**
- * ENGINE_DESIGN.md §4 — "the engine owns everything it creates". `Game` is
+ * the engine design notes — "the engine owns everything it creates". `Game` is
  * the one place that constructs and tears down a scene's `ActorSystem`/
  * `PhysicsSystem`, and the one place that runs the fixed, one-phase-per-
  * frame update order. There is no code path where a developer constructs
@@ -280,7 +280,7 @@ export declare function defineScene<T extends SceneDefinition>(
 /** Options passed to `new Game(options)` / `Game.create(options)`. */
 export interface GameOptions {
   /**
-   * ENGINE_DESIGN.md §15.2 — opt-in cross-platform bit-for-bit-deterministic
+   * the engine design notes — opt-in cross-platform bit-for-bit-deterministic
    * physics. Swaps `@dimforge/rapier{2,3}d-compat` for the
    * `-deterministic-compat` builds for every scene's `PhysicsSystem` this
    * `Game` creates, unless a call's own `options.physics.deterministic`
@@ -311,7 +311,7 @@ export declare class Game {
   private readonly _roomCache;
   private _restarting;
   /**
-   * Overlay scenes, in call order (ENGINE_DESIGN.md §12.3: "stack in call
+   * Overlay scenes, in call order (the engine design notes: "stack in call
    * order"). A `Set` would lose that order; an array preserves it and gives
    * `renderFrame()`'s `overlays` argument its topmost-last ordering for
    * free.
@@ -319,7 +319,7 @@ export declare class Game {
   private readonly _overlays;
   private _renderer;
   /**
-   * ENGINE_DESIGN.md §5 — process-global for the lifetime of this `Game`
+   * the engine design notes — process-global for the lifetime of this `Game`
    * instance, constructed once here (not per-scene, unlike `actors`/
    * `physics` in `SceneLifecycle`) and never reset by `loadScene`/
    * `unloadScene`. `PluginSystem` and `VariableStore` are registered here in
@@ -327,7 +327,7 @@ export declare class Game {
    */
   readonly services: ServiceRegistry;
   /**
-   * Game-owned, not per-scene (ENGINE_DESIGN.md §4 step 1 / §15.3) — one
+   * Game-owned, not per-scene — one
    * `InputManager` for the lifetime of this `Game`, snapshotted once per
    * `update()` call. Never recreated on `loadScene`/`loadOverlay`, since
    * raw device state has no relationship to which scene is loaded.
@@ -351,7 +351,7 @@ export declare class Game {
   /** Undo `attachRenderer` — step 7 goes back to a no-op. */
   detachRenderer(): void;
   /**
-   * The `Game`'s single `InputManager` (ENGINE_DESIGN.md §15.3). Call
+   * The `Game`'s single `InputManager`. Call
    * `game.input.attach()` from browser/Tauri bootstrap code to start
    * listening to real device events — `Game` itself never calls `attach()`,
    * so a headless/Node `Game` never touches `window` (CLAUDE.md's
@@ -406,7 +406,7 @@ export declare class Game {
   private warnCrossRefs;
   private _unload;
   /**
-   * ENGINE_DESIGN.md §12.3 — stack an additional, independently-lifecycled
+   * the engine design notes — stack an additional, independently-lifecycled
    * scene on top of whatever `loadScene()` currently has loaded (a HUD,
    * pause menu, minimap). Unlike `loadScene`, this never tears anything
    * down first: multiple overlays stack, in call order, and an overlay
@@ -442,7 +442,7 @@ export declare class Game {
   get currentScene(): Scene | null;
   get lifecycle(): SceneLifecycle | null;
   /**
-   * Runs the fixed, one-phase-per-frame update order from ENGINE_DESIGN.md
+   * Runs the fixed, one-phase-per-frame update order from the engine design notes
    * §4:
    *
    * 1. Input snapshot (§15.3) — `this._input.snapshot()`, unconditional and
@@ -459,7 +459,7 @@ export declare class Game {
    * 5. The scene definition's `onUpdate(dt)`.
    * 6. Camera/viewport resolve — Track 1/2 scope, no-op here.
    * 7. Render — the main scene, then any active overlays on top of it, in
-   *    call order (ENGINE_DESIGN.md §12.3). A no-op if no renderer is
+   *    call order. A no-op if no renderer is
    *    attached (`attachRenderer()`), or if the currently loaded scene was
    *    loaded with `headless: true` — the headless testing harness relies on
    *    this to never construct or touch a real Pixi renderer.

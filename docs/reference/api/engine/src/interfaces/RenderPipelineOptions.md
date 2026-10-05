@@ -6,11 +6,11 @@
 
 # Interface: RenderPipelineOptions
 
-Defined in: [engine/src/systems/RenderPipeline.ts:56](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L56)
+Defined in: engine/src/systems/RenderPipeline.ts:100
 
 ## Extends
 
-- `Omit`\<[`RenderSystemOptions`](RenderSystemOptions.md), `"layerSystem"`\>
+- `Omit`\<`RenderSystemOptions`, `"layerSystem"`\>
 
 ## Properties
 
@@ -18,11 +18,11 @@ Defined in: [engine/src/systems/RenderPipeline.ts:56](https://github.com/eleferr
 
 > `optional` **antialias?**: `boolean`
 
-Defined in: [engine/src/systems/RenderSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L15)
+Defined in: engine/src/systems/RenderSystem.ts:131
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`antialias`](RenderSystemOptions.md#antialias)
+`Omit.antialias`
 
 ***
 
@@ -30,11 +30,21 @@ Defined in: [engine/src/systems/RenderSystem.ts:15](https://github.com/eleferret
 
 > `optional` **backgroundColor?**: `number`
 
-Defined in: [engine/src/systems/RenderSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L14)
+Defined in: engine/src/systems/RenderSystem.ts:130
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`backgroundColor`](RenderSystemOptions.md#backgroundcolor)
+`Omit.backgroundColor`
+
+***
+
+### fonts?
+
+> `optional` **fonts?**: [`FontRegistry`](../classes/FontRegistry.md)
+
+Defined in: engine/src/systems/RenderPipeline.ts:109
+
+Font registry consulted for bitmap fonts (`FontRegistry.registerBitmap`) when `draw_set_font`/`draw_text` runs. Usually `game.fonts`; can also be set later via `attachFonts()`.
 
 ***
 
@@ -42,7 +52,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:14](https://github.com/eleferret
 
 > `optional` **gpuTier?**: `"potato"` \| `"low"` \| `"mid"` \| `"high"` \| `"ultra"`
 
-Defined in: [engine/src/systems/RenderSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L24)
+Defined in: engine/src/systems/RenderSystem.ts:140
 
 When provided (and `antialias`/`resolution` are not explicitly set),
 caps resolution and disables antialiasing below "mid" tier so weak GPUs
@@ -51,7 +61,7 @@ gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`gpuTier`](RenderSystemOptions.md#gputier)
+`Omit.gpuTier`
 
 ***
 
@@ -59,11 +69,11 @@ gpuTierRenderDefaults() in ViewportSystem.ts for the thresholds.
 
 > `optional` **height?**: `number`
 
-Defined in: [engine/src/systems/RenderSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L13)
+Defined in: engine/src/systems/RenderSystem.ts:129
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`height`](RenderSystemOptions.md#height)
+`Omit.height`
 
 ***
 
@@ -71,9 +81,24 @@ Defined in: [engine/src/systems/RenderSystem.ts:13](https://github.com/eleferret
 
 > `optional` **layers?**: [`LayerSystem`](../classes/LayerSystem.md)
 
-Defined in: [engine/src/systems/RenderPipeline.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L61)
+Defined in: engine/src/systems/RenderPipeline.ts:105
 
 Supply a LayerSystem to share with other code; a fresh one is created otherwise.
+
+***
+
+### preference?
+
+> `optional` **preference?**: readonly (`"webgpu"` \| `"webgl"`)[]
+
+Defined in: engine/src/systems/RenderSystem.ts:145
+
+Renderer backends to try, in order. Default `["webgpu", "webgl"]`; pass
+`["webgl"]` to skip WebGPU (several filters only have a GLSL program).
+
+#### Inherited from
+
+`Omit.preference`
 
 ***
 
@@ -81,11 +106,11 @@ Supply a LayerSystem to share with other code; a fresh one is created otherwise.
 
 > `optional` **resolution?**: `number`
 
-Defined in: [engine/src/systems/RenderSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L16)
+Defined in: engine/src/systems/RenderSystem.ts:132
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`resolution`](RenderSystemOptions.md#resolution)
+`Omit.resolution`
 
 ***
 
@@ -93,7 +118,7 @@ Defined in: [engine/src/systems/RenderSystem.ts:16](https://github.com/eleferret
 
 > `optional` **textureLoader?**: [`TextureLoader`](../type-aliases/TextureLoader.md)
 
-Defined in: [engine/src/systems/RenderPipeline.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderPipeline.ts#L63)
+Defined in: engine/src/systems/RenderPipeline.ts:107
 
 Override how texture paths resolve to PixiJS textures — defaults to `Assets.load`.
 
@@ -103,8 +128,8 @@ Override how texture paths resolve to PixiJS textures — defaults to `Assets.lo
 
 > `optional` **width?**: `number`
 
-Defined in: [engine/src/systems/RenderSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/RenderSystem.ts#L12)
+Defined in: engine/src/systems/RenderSystem.ts:128
 
 #### Inherited from
 
-[`RenderSystemOptions`](RenderSystemOptions.md).[`width`](RenderSystemOptions.md#width)
+`Omit.width`

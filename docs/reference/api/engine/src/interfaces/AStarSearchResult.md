@@ -6,7 +6,7 @@
 
 # Interface: AStarSearchResult\<TNode\>
 
-Defined in: [engine/src/core/AStarSearch.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/AStarSearch.ts#L35)
+Defined in: engine/src/AStarSearch.ts:35
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [engine/src/core/AStarSearch.ts:35](https://github.com/eleferrets/em
 
 > `readonly` **found**: `boolean`
 
-Defined in: [engine/src/core/AStarSearch.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/AStarSearch.ts#L38)
+Defined in: engine/src/AStarSearch.ts:38
 
 ***
 
@@ -28,6 +28,6 @@ Defined in: [engine/src/core/AStarSearch.ts:38](https://github.com/eleferrets/em
 
 > `readonly` **path**: readonly `TNode`[]
 
-Defined in: [engine/src/core/AStarSearch.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/AStarSearch.ts#L37)
+Defined in: engine/src/AStarSearch.ts:37
 
 Full path from start to goal, inclusive. Empty when `found` is false.

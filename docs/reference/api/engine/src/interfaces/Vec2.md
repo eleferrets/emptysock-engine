@@ -6,9 +6,9 @@
 
 # Interface: Vec2
 
-Defined in: [engine/src/core/Entity.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L17)
+Defined in: engine/src/Entity.ts:23
 
-Simple 2-component vector used for position and scale.
+A plain `{x, y}` pair — used by `AStarSearch`/`NavMeshSystem` and any component needing a 2D point without pulling in a math library.
 
 ## Properties
 
@@ -16,7 +16,7 @@ Simple 2-component vector used for position and scale.
 
 > **x**: `number`
 
-Defined in: [engine/src/core/Entity.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L18)
+Defined in: engine/src/Entity.ts:24
 
 ***
 
@@ -24,4 +24,4 @@ Defined in: [engine/src/core/Entity.ts:18](https://github.com/eleferrets/emptyso
 
 > **y**: `number`
 
-Defined in: [engine/src/core/Entity.ts:19](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L19)
+Defined in: engine/src/Entity.ts:25

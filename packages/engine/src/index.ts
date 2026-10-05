@@ -1,5 +1,5 @@
 /**
- * `@emptysock/engine` — the bitECS-backed ECS core (see ENGINE_DESIGN.md and
+ * `@emptysock/engine` — the bitECS-backed ECS core (see the engine design notes and
  * CLAUDE.md). This is the engine's one and only game-authoring surface:
  * `apps/ide` bundles it as `window.EmptySockEngine` for the preview iframe
  * and types Monaco's Code editor against it, and it's the surface every

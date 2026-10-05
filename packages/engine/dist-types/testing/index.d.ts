@@ -1,5 +1,5 @@
 /**
- * `@emptysock/engine/testing` — ENGINE_DESIGN.md §15.1's headless testing
+ * `@emptysock/engine/testing` — the engine design notes's headless testing
  * harness. `spawn`/`each`/physics/actor messaging behave identically to a
  * real running game; only the render step is swapped for a no-op, so tests
  * never need a canvas, a WebGL context, or jsdom to exercise game logic.
@@ -40,7 +40,7 @@ export type { StorageAdapter } from "../systems/StorageAdapter.js";
 /**
  * A `Game` whose `loadScene`/`loadOverlay` always run headless — the
  * physics/actor lifecycle the real engine creates and tears down
- * (ENGINE_DESIGN.md §4) still runs exactly as it would in a real game; only
+ * still runs exactly as it would in a real game; only
  * the render step is forced to a no-op via `headless: true`, satisfying
  * §15.1's "render system swapped for a no-op" regardless of whether a real
  * renderer happens to be attached (`Game.attachRenderer` — see

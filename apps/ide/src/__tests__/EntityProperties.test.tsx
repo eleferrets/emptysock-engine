@@ -6,9 +6,9 @@ import { useIDEStore } from "../store/ideStore.js";
 import { engineChannel } from "../services/EngineChannel.js";
 
 /**
- * Covers RELEASE_PASS.md's "IDE: schema-driven Inspector property panels"
+ * Covers the release notes "IDE: schema-driven Inspector property panels"
  * bullet — a component whose v2 `ComponentDef` carries `.schema`
- * (ENGINE_DESIGN.md §10.1) gets real typed controls in the Inspector; one
+ * gets real typed controls in the Inspector; one
  * with no schema keeps the pre-existing raw per-field text editor.
  */
 

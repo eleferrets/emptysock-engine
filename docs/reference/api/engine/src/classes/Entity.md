@@ -6,103 +6,32 @@
 
 # Class: Entity
 
-Defined in: [engine/src/core/Entity.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L30)
+Defined in: engine/src/Entity.ts:82
 
-## Constructors
+A lightweight, cheap-to-copy handle onto a bitECS entity (the engine design notes
+§3). It carries no game state itself — state lives in the component
+arrays `.get()` reaches into — only the bitECS world it belongs to and its
+(already version-bit-encoded) entity id.
 
-### Constructor
-
-> **new Entity**(`name?`): `Entity`
-
-Defined in: [engine/src/core/Entity.ts:64](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L64)
-
-#### Parameters
-
-##### name?
-
-`string` = `"Entity"`
-
-#### Returns
-
-`Entity`
-
-## Properties
-
-### active
-
-> **active**: `boolean` = `true`
-
-Defined in: [engine/src/core/Entity.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L33)
-
-***
-
-### id
-
-> `readonly` **id**: `number`
-
-Defined in: [engine/src/core/Entity.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L31)
-
-***
-
-### name
-
-> **name**: `string`
-
-Defined in: [engine/src/core/Entity.ts:32](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L32)
-
-***
-
-### position
-
-> **position**: [`Vec2`](../interfaces/Vec2.md)
-
-Defined in: [engine/src/core/Entity.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L36)
-
-World-space position. Mutate directly or via `setPosition()` / `translate()`.
-
-***
-
-### rotation
-
-> **rotation**: `number` = `0`
-
-Defined in: [engine/src/core/Entity.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L38)
-
-Rotation in radians.
-
-***
-
-### scale
-
-> **scale**: [`Vec2`](../interfaces/Vec2.md)
-
-Defined in: [engine/src/core/Entity.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L40)
-
-Non-uniform scale. Default 1×1.
+Because bitECS's versioned entity IDs are enabled by default (§23), a
+handle to a destroyed entity never silently resolves onto whatever entity
+happens to reuse its slot: `entityExists` compares the *whole* id,
+version bits included, so a stale handle fails `.get()`/`.add()` loudly
+instead of aliasing.
 
 ## Accessors
 
-### children
+### isAlive
 
 #### Get Signature
 
-> **get** **children**(): readonly `Entity`[]
+> **get** **isAlive**(): `boolean`
 
-Defined in: [engine/src/core/Entity.ts:187](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L187)
+Defined in: engine/src/Entity.ts:124
 
-##### Returns
-
-readonly `Entity`[]
-
-***
-
-### isDestroyed
-
-#### Get Signature
-
-> **get** **isDestroyed**(): `boolean`
-
-Defined in: [engine/src/core/Entity.ts:254](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L254)
+`false` once this entity (or the slot it used to occupy) has been
+destroyed and, for a stale handle, recycled — bitECS's versioned ids
+make this comparison exact rather than "probably still valid".
 
 ##### Returns
 
@@ -110,97 +39,47 @@ Defined in: [engine/src/core/Entity.ts:254](https://github.com/eleferrets/emptys
 
 ***
 
-### parent
+### rawId
 
 #### Get Signature
 
-> **get** **parent**(): `Entity` \| `null`
+> **get** **rawId**(): `number`
 
-Defined in: [engine/src/core/Entity.ts:183](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L183)
+Defined in: engine/src/Entity.ts:98
 
-##### Returns
-
-`Entity` \| `null`
-
-***
-
-### tags
-
-#### Get Signature
-
-> **get** **tags**(): `ReadonlySet`\<`string`\>
-
-Defined in: [engine/src/core/Entity.ts:44](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L44)
+Raw numeric id, version bits stripped — mainly useful for logging.
 
 ##### Returns
 
-`ReadonlySet`\<`string`\>
+`number`
 
 ## Methods
 
-### addBehavior()
+### add()
 
-> **addBehavior**(`behavior`): `this`
+> **add**\<`T`\>(`def`, `overrides?`): `T`
 
-Defined in: [engine/src/core/Entity.ts:166](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L166)
+Defined in: engine/src/Entity.ts:133
 
-Attach a behavior to this entity. `onAttach()` is called immediately.
-The behavior's `update()` is called every frame via `entity.update()`.
-
-#### Parameters
-
-##### behavior
-
-`BehaviorLike`
-
-#### Returns
-
-`this`
-
-#### Example
-
-```typescript
-const move = new EightDirBehavior(input, 200)
-player.addBehavior(move)
-```
-
-***
-
-### addChild()
-
-> **addChild**(`child`): `void`
-
-Defined in: [engine/src/core/Entity.ts:191](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L191)
-
-#### Parameters
-
-##### child
-
-`Entity`
-
-#### Returns
-
-`void`
-
-***
-
-### addComponent()
-
-> **addComponent**\<`T`\>(`component`): `T`
-
-Defined in: [engine/src/core/Entity.ts:112](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L112)
+Add a component to this entity. Throws on a stale/destroyed handle
+(mutating something that no longer exists is a bug, not a no-op) and
+throws if the component is already present — "one shot" semantics.
 
 #### Type Parameters
 
 ##### T
 
-`T` *extends* [`Component`](Component.md)
+`T` *extends* [`SerializableRecord`](../type-aliases/SerializableRecord.md)
 
 #### Parameters
 
-##### component
+##### def
 
-`T`
+[`ComponentDef`](../interfaces/ComponentDef.md)\<`T`\>
+
+##### overrides?
+
+`Partial`\<`T`\>
 
 #### Returns
 
@@ -208,120 +87,28 @@ Defined in: [engine/src/core/Entity.ts:112](https://github.com/eleferrets/emptys
 
 ***
 
-### addTag()
+### get()
 
-> **addTag**(`tag`): `this`
+> **get**\<`T`\>(`def`): `T` \| `undefined`
 
-Defined in: [engine/src/core/Entity.ts:400](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L400)
+Defined in: engine/src/Entity.ts:168
 
-#### Parameters
-
-##### tag
-
-`string`
-
-#### Returns
-
-`this`
-
-***
-
-### angleTo()
-
-> **angleTo**(`other`): `number`
-
-Defined in: [engine/src/core/Entity.ts:104](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L104)
-
-Angle in radians from this entity toward `other`.
-
-#### Parameters
-
-##### other
-
-`Entity` \| [`Vec2`](../interfaces/Vec2.md)
-
-#### Returns
-
-`number`
-
-***
-
-### destroy()
-
-> **destroy**(): `void`
-
-Defined in: [engine/src/core/Entity.ts:217](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L217)
-
-Mark this entity as destroyed. Detaches from parent, calls `onDetach` on
-all components, stops all coroutines, and sets `active = false`. The Scene
-removes destroyed entities on the next `removeEntity()` call — entities
-call this themselves; the scene listens for the `destroy` event to clean up.
-
-#### Returns
-
-`void`
-
-***
-
-### distanceTo()
-
-> **distanceTo**(`other`): `number`
-
-Defined in: [engine/src/core/Entity.ts:95](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L95)
-
-Euclidean distance to `other`.
-
-#### Parameters
-
-##### other
-
-`Entity` \| [`Vec2`](../interfaces/Vec2.md)
-
-#### Returns
-
-`number`
-
-***
-
-### emit()
-
-> **emit**(`event`, ...`args`): `void`
-
-Defined in: [engine/src/core/Entity.ts:286](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L286)
-
-#### Parameters
-
-##### event
-
-`string`
-
-##### args
-
-...`unknown`[]
-
-#### Returns
-
-`void`
-
-***
-
-### getComponent()
-
-> **getComponent**\<`T`\>(`type`): `T` \| `undefined`
-
-Defined in: [engine/src/core/Entity.ts:123](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L123)
+Returns the cached proxy for this (entity, component) pair, or
+`undefined` if the entity is stale/destroyed or never had the
+component. Per the engine design notes, the proxy is built once per pair
+and reused for every subsequent call — never reallocated.
 
 #### Type Parameters
 
 ##### T
 
-`T` *extends* [`Component`](Component.md)
+`T` *extends* [`SerializableRecord`](../type-aliases/SerializableRecord.md)
 
 #### Parameters
 
-##### type
+##### def
 
-`string` \| [`ComponentType`](../type-aliases/ComponentType.md)\<`T`\>
+[`ComponentDef`](../interfaces/ComponentDef.md)\<`T`\>
 
 #### Returns
 
@@ -329,29 +116,25 @@ Defined in: [engine/src/core/Entity.ts:123](https://github.com/eleferrets/emptys
 
 ***
 
-### getComponents()
+### has()
 
-> **getComponents**(): `ReadonlyMap`\<`string`, [`Component`](Component.md)\>
+> **has**\<`T`\>(`def`): `boolean`
 
-Defined in: [engine/src/core/Entity.ts:150](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L150)
+Defined in: engine/src/Entity.ts:156
 
-#### Returns
+`true` if this (living) entity carries the given component.
 
-`ReadonlyMap`\<`string`, [`Component`](Component.md)\>
+#### Type Parameters
 
-***
+##### T
 
-### hasComponent()
-
-> **hasComponent**(`type`): `boolean`
-
-Defined in: [engine/src/core/Entity.ts:139](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L139)
+`T` *extends* [`SerializableRecord`](../type-aliases/SerializableRecord.md)
 
 #### Parameters
 
-##### type
+##### def
 
-`string` \| [`ComponentType`](../type-aliases/ComponentType.md)
+[`ComponentDef`](../interfaces/ComponentDef.md)\<`T`\>
 
 #### Returns
 
@@ -359,213 +142,40 @@ Defined in: [engine/src/core/Entity.ts:139](https://github.com/eleferrets/emptys
 
 ***
 
-### hasTag()
+### ref()
 
-> **hasTag**(`tag`): `boolean`
+> **ref**(): [`EntityRef`](../type-aliases/EntityRef.md)
 
-Defined in: [engine/src/core/Entity.ts:396](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L396)
+Defined in: engine/src/Entity.ts:112
 
-#### Parameters
-
-##### tag
-
-`string`
+Stable serialisable reference to this entity (assigns a per-scene id on
+first call). Throws on a destroyed entity. See `EntityRef`.
 
 #### Returns
 
-`boolean`
+[`EntityRef`](../type-aliases/EntityRef.md)
 
 ***
 
-### off()
+### remove()
 
-> **off**(`event`, `handler`): `this`
+> **remove**\<`T`\>(`def`): `void`
 
-Defined in: [engine/src/core/Entity.ts:280](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L280)
+Defined in: engine/src/Entity.ts:187
+
+Remove a component. No-op if the entity is stale or lacks it.
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`SerializableRecord`](../type-aliases/SerializableRecord.md)
 
 #### Parameters
 
-##### event
+##### def
 
-`string`
-
-##### handler
-
-`EventHandler`
-
-#### Returns
-
-`this`
-
-***
-
-### on()
-
-> **on**(`event`, `handler`): `this`
-
-Defined in: [engine/src/core/Entity.ts:260](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L260)
-
-#### Parameters
-
-##### event
-
-`string`
-
-##### handler
-
-`EventHandler`
-
-#### Returns
-
-`this`
-
-***
-
-### once()
-
-> **once**(`event`, `handler`): `this`
-
-Defined in: [engine/src/core/Entity.ts:270](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L270)
-
-#### Parameters
-
-##### event
-
-`string`
-
-##### handler
-
-`EventHandler`
-
-#### Returns
-
-`this`
-
-***
-
-### onCollisionEnter()
-
-> **onCollisionEnter**(`handler`): () => `void`
-
-Defined in: [engine/src/core/Entity.ts:305](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L305)
-
-Register a callback for when this entity begins a physics collision.
-
-#### Parameters
-
-##### handler
-
-(`other`, `contact`) => `void`
-
-#### Returns
-
-() => `void`
-
-***
-
-### onCollisionExit()
-
-> **onCollisionExit**(`handler`): () => `void`
-
-Defined in: [engine/src/core/Entity.ts:315](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L315)
-
-Register a callback for when this entity ends a physics collision.
-
-#### Parameters
-
-##### handler
-
-(`other`, `contact`) => `void`
-
-#### Returns
-
-() => `void`
-
-***
-
-### onSensorEnter()
-
-> **onSensorEnter**(`handler`): () => `void`
-
-Defined in: [engine/src/core/Entity.ts:325](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L325)
-
-Register a callback for when another entity enters this sensor.
-
-#### Parameters
-
-##### handler
-
-(`other`) => `void`
-
-#### Returns
-
-() => `void`
-
-***
-
-### onSensorExit()
-
-> **onSensorExit**(`handler`): () => `void`
-
-Defined in: [engine/src/core/Entity.ts:333](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L333)
-
-Register a callback for when another entity exits this sensor.
-
-#### Parameters
-
-##### handler
-
-(`other`) => `void`
-
-#### Returns
-
-() => `void`
-
-***
-
-### removeBehavior()
-
-> **removeBehavior**(`behavior`): `boolean`
-
-Defined in: [engine/src/core/Entity.ts:173](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L173)
-
-Remove a previously attached behavior. Calls `onDetach()`.
-
-#### Parameters
-
-##### behavior
-
-`BehaviorLike`
-
-#### Returns
-
-`boolean`
-
-***
-
-### removeComponent()
-
-> **removeComponent**(`type`): `boolean`
-
-Defined in: [engine/src/core/Entity.ts:143](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L143)
-
-#### Parameters
-
-##### type
-
-`string` \| [`ComponentType`](../type-aliases/ComponentType.md)
-
-#### Returns
-
-`boolean`
-
-***
-
-### removeFromParent()
-
-> **removeFromParent**(): `void`
-
-Defined in: [engine/src/core/Entity.ts:205](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L205)
+[`ComponentDef`](../interfaces/ComponentDef.md)\<`T`\>
 
 #### Returns
 
@@ -573,106 +183,31 @@ Defined in: [engine/src/core/Entity.ts:205](https://github.com/eleferrets/emptys
 
 ***
 
-### removeTag()
-
-> **removeTag**(`tag`): `this`
-
-Defined in: [engine/src/core/Entity.ts:405](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L405)
-
-#### Parameters
-
-##### tag
-
-`string`
-
-#### Returns
-
-`this`
-
-***
-
-### requireComponent()
-
-> **requireComponent**\<`T`\>(`type`): `T`
-
-Defined in: [engine/src/core/Entity.ts:129](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L129)
-
-#### Type Parameters
-
-##### T
-
-`T` *extends* [`Component`](Component.md)
-
-#### Parameters
-
-##### type
-
-`string` \| [`ComponentType`](../type-aliases/ComponentType.md)\<`T`\>
-
-#### Returns
-
-`T`
-
-***
-
-### rotateTo()
-
-> **rotateTo**(`target`): `this`
-
-Defined in: [engine/src/core/Entity.ts:86](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L86)
-
-Set rotation to face `target`, returning `this` for chaining.
-
-#### Parameters
-
-##### target
-
-[`Vec2`](../interfaces/Vec2.md)
-
-#### Returns
-
-`this`
-
-***
-
-### setPosition()
-
-> **setPosition**(`x`, `y`): `this`
-
-Defined in: [engine/src/core/Entity.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L72)
-
-Set position by component, returning `this` for chaining.
-
-#### Parameters
-
-##### x
-
-`number`
-
-##### y
-
-`number`
-
-#### Returns
-
-`this`
-
-***
-
 ### startCoroutine()
 
-> **startCoroutine**(`gen`, `id?`): [`CoroutineHandle`](../interfaces/CoroutineHandle.md)
+> **startCoroutine**(`factory`, `id?`): [`CoroutineHandle`](../interfaces/CoroutineHandle.md)
 
-Defined in: [engine/src/core/Entity.ts:354](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L354)
+Defined in: engine/src/Entity.ts:210
 
-Start a coroutine on this entity. Returns a handle with a `cancel()` method.
-The coroutine is stopped automatically when the entity is destroyed.
+Start a coroutine on this entity for work that spans multiple frames —
+the required escape hatch for anything `onUpdate` can't do directly,
+since `onUpdate` must not be `async` (CLAUDE.md's "onUpdate must not be
+async"). The coroutine stops automatically the instant this entity is
+no longer alive; see `ecs/Coroutines.ts` for the full cancellation
+story (liveness check plus an opt-in `AbortSignal` for real async work).
+
+```typescript
+entity.startCoroutine(function* () {
+  yield waitSeconds(1.0);
+  doSomething();
+});
+```
 
 #### Parameters
 
-##### gen
+##### factory
 
-[`CoroutineGen`](../type-aliases/CoroutineGen.md) \| (() => [`CoroutineGen`](../type-aliases/CoroutineGen.md))
+[`CoroutineFactory`](../type-aliases/CoroutineFactory.md)
 
 ##### id?
 
@@ -682,72 +217,21 @@ The coroutine is stopped automatically when the entity is destroyed.
 
 [`CoroutineHandle`](../interfaces/CoroutineHandle.md)
 
-#### Example
-
-```typescript
-entity.startCoroutine(function* () {
-  yield waitSeconds(1.0)
-  doSomething()
-})
-```
-
 ***
 
 ### stopCoroutine()
 
 > **stopCoroutine**(`id`): `void`
 
-Defined in: [engine/src/core/Entity.ts:372](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L372)
+Defined in: engine/src/Entity.ts:215
 
-Stop a coroutine by its ID (the one returned from `startCoroutine`).
+Stop a coroutine by its id (the one returned from `startCoroutine`).
 
 #### Parameters
 
 ##### id
 
 `string`
-
-#### Returns
-
-`void`
-
-***
-
-### translate()
-
-> **translate**(`dx`, `dy`): `this`
-
-Defined in: [engine/src/core/Entity.ts:79](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L79)
-
-Translate by a delta, returning `this` for chaining.
-
-#### Parameters
-
-##### dx
-
-`number`
-
-##### dy
-
-`number`
-
-#### Returns
-
-`this`
-
-***
-
-### update()
-
-> **update**(`deltaTime`): `void`
-
-Defined in: [engine/src/core/Entity.ts:378](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/Entity.ts#L378)
-
-#### Parameters
-
-##### deltaTime
-
-`number`
 
 #### Returns
 

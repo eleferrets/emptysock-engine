@@ -8,7 +8,7 @@ import type { SerializableRecord } from "./Serializable.js";
 /**
  * Storage bookkeeping for one registered component name *within one bitECS
  * world*. `store` is the plain object of parallel arrays bitECS reads/
- * writes directly (ENGINE_DESIGN.md §21) — one array per field, indexed by
+ * writes directly — one array per field, indexed by
  * entity id. It is created once per (world, componentName) pair and reused
  * for that world's lifetime: this is what makes component identity survive
  * hot-reload (§23.1) even though bitECS itself keys a component's storage

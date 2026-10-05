@@ -6,7 +6,7 @@
 
 # Interface: SequenceTrackDef
 
-Defined in: [engine/src/systems/SequenceSystem.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L18)
+Defined in: engine/src/systems/SequenceSystem.ts:18
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/SequenceSystem.ts:18](https://github.com/eleferr
 
 > `optional` **ease?**: [`EasingName`](../type-aliases/EasingName.md)
 
-Defined in: [engine/src/systems/SequenceSystem.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L23)
+Defined in: engine/src/systems/SequenceSystem.ts:23
 
 Easing applied to every segment of this track. Defaults to "linear".
 
@@ -22,9 +22,9 @@ Easing applied to every segment of this track. Defaults to "linear".
 
 ### keyframes
 
-> **keyframes**: [`SequenceKeyframe`](SequenceKeyframe.md)[]
+> **keyframes**: `SequenceKeyframe`[]
 
-Defined in: [engine/src/systems/SequenceSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L21)
+Defined in: engine/src/systems/SequenceSystem.ts:21
 
 ***
 
@@ -32,6 +32,6 @@ Defined in: [engine/src/systems/SequenceSystem.ts:21](https://github.com/eleferr
 
 > **property**: `string`
 
-Defined in: [engine/src/systems/SequenceSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/SequenceSystem.ts#L20)
+Defined in: engine/src/systems/SequenceSystem.ts:20
 
 Key set on the target object, e.g. "x", "rotation", "alpha".

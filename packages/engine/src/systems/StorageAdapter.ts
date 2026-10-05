@@ -1,5 +1,5 @@
 /**
- * `SaveSystem`'s storage boundary. ENGINE_DESIGN.md §19.3 asks for one
+ * `SaveSystem`'s storage boundary. the engine design notes asks for one
  * save/load API that auto-picks IndexedDB in the browser preview and
  * Tauri's fs plugin on desktop — but CLAUDE.md's "Engine environment
  * boundary" forbids the engine package from importing DOM or Tauri APIs

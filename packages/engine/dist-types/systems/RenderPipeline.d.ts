@@ -76,12 +76,12 @@ export interface RenderPipelineOptions extends Omit<
 }
 /**
  * Built on the `defineComponent`/`Scene.each` object model, and `Game`'s
- * `SceneRenderer` shape (ENGINE_DESIGN.md §4 step 7 / §12.3). Uses
+ * `SceneRenderer` shape. Uses
  * `RenderSystem` (the raw PixiJS wrapper) and `LayerSystem` (layer-level
  * ordering/visibility, via `RenderSystem`'s `getLayerContainer`/
  * `syncLayerVisibility`).
  *
- * **On PixiJS's native Render Layers (RELEASE_PASS.md Track 2), reversed
+ * **On PixiJS's native Render Layers, reversed
  * after auditing the actual code:** the original plan called for rebuilding
  * `LayerSystem` on PixiJS v8.7+'s `RenderLayer` API instead of the current
  * per-layer-`Container` approach. Auditing `RenderSystem.ts` first shows why
@@ -109,14 +109,14 @@ export interface RenderPipelineOptions extends Omit<
  * On `renderFrame(main, overlays)` it:
  *
  *  1. Walks `main` for every `Transform`+`Sprite` entity via `scene.each` (the
- *     bulk-iteration path, ENGINE_DESIGN.md §21 — no per-entity Proxy
+ *     bulk-iteration path, the engine design notes — no per-entity Proxy
  *     overhead), keeps a PixiJS sprite in sync with it, and places it on
  *     `layer`/`depth`.
  *  2. Does the same for each overlay `Scene`, but into a dedicated container
  *     appended to the stage *after* the main scene's layer containers — Pixi
  *     draws children in `addChild` order, so later-appended containers paint
  *     on top. Overlays are synced in the array's order, i.e. call order
- *     (ENGINE_DESIGN.md §12.3), so the most recently `loadOverlay()`-ed scene
+ *, so the most recently `loadOverlay()`-ed scene
  *     ends up topmost.
  *  3. Renders the frame.
  *
@@ -159,13 +159,13 @@ export declare class RenderPipeline implements SceneRenderer {
    * `RenderSystem.syncPostProcessLayerFilters()` each frame so
    * `PostProcessSystem.setLayerFilter()`'s real pixi filters
    * (`BlurFilter`/`ColorMatrixFilter`/`pixi-filters`' `OutlineFilter`, per
-   * RELEASE_PASS.md Track 2) stay in sync with the layer containers this
+   * the release notes Track 2) stay in sync with the layer containers this
    * pipeline owns. Not constructor-only, since a game may not have a
    * `PostProcessSystem` instance yet when the pipeline is constructed.
    */
   private _postProcess;
   /**
-   * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
+   * the release notes Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
    * The doc comment) with zero pixi dependency — it was never actually
    * wired into gameplay rendering, only the IDE's canvas-based preview
@@ -216,7 +216,7 @@ export declare class RenderPipeline implements SceneRenderer {
   private _syncParticles;
   private readonly _particlePool;
   /**
-   * Constructs the real PixiJS renderer (WebGL by default — ENGINE_DESIGN.md
+   * Constructs the real PixiJS renderer (WebGL by default — the engine design notes
    * §18's audit finding: "Pixi's own guidance is still to prefer WebGL for
    * production"; `RenderSystem.init()` already passes
    * `preference: ["webgpu", "webgl"]` to `autoDetectRenderer`, i.e. it tries
@@ -258,7 +258,7 @@ export declare class RenderPipeline implements SceneRenderer {
    * Paints the scene-transition overlay described by `postProcess`'s
    * `transitionEffect`/`transitionProgress`/`transitionColour` on top of
    * the stage — an overlay-based approach (a single colour rect, never two
-   * live scenes rendered simultaneously). RELEASE_PASS.md
+   * live scenes rendered simultaneously). the release notes
    * Track 6 / ground rule 11 confirmed a true two-scene crossfade is
    * technically buildable (`renderer.render({ target: renderTexture,
    * container })`, pixi v8's real object-form API) but deliberately did

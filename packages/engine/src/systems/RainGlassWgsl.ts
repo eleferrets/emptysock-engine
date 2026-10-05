@@ -2,7 +2,7 @@
 // RainGlassFilter.ts), so the filter also runs under pixi's WebGPU renderer.
 // Plain strings only, no pixi import.
 //
-// Follows pixi 8.21's WebGPU filter contract (docs/research/11-glsl-to-wgsl.md,
+// Follows pixi 8.21's WebGPU filter contract (the design notes,
 // "Verified against pixi 8.21 source"):
 //   group 0: binding 0 `gfu` global filter uniforms (declared by the vertex
 //            stage), binding 1 `uTexture`, binding 2 `uSampler` (filter input)

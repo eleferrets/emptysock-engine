@@ -8,7 +8,7 @@
 
 > **clearNetworkedFields**(): `void`
 
-Defined in: [network/src/NetworkedFields.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkedFields.ts#L73)
+Defined in: network/src/NetworkedFields.ts:73
 
 Test/dev hook: forget every marked component. Mirrors `componentRegistry.clearAll()`.
 

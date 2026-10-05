@@ -8,7 +8,7 @@
 
 > **storyGraphToDialogueTree**(`graph`): [`DialogueTree`](../interfaces/DialogueTree.md)
 
-Defined in: [vn/src/VNScriptConvert.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNScriptConvert.ts#L47)
+Defined in: vn/src/VNScriptConvert.ts:47
 
 Convert a Story Graph (visual-editor format) to a VNSystem DialogueTree
 (.vnscript JSON). The returned tree is ready to pass to `new VNSystem().load()`.

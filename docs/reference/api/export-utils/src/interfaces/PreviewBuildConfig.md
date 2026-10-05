@@ -6,7 +6,7 @@
 
 # Interface: PreviewBuildConfig
 
-Defined in: [export-utils/src/index.ts:367](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L367)
+Defined in: export-utils/src/index.ts:367
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [export-utils/src/index.ts:367](https://github.com/eleferrets/emptys
 
 > **code**: `string`
 
-Defined in: [export-utils/src/index.ts:368](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L368)
+Defined in: export-utils/src/index.ts:368
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [export-utils/src/index.ts:368](https://github.com/eleferrets/emptys
 
 > **mode**: `"debug"` \| `"release"`
 
-Defined in: [export-utils/src/index.ts:369](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L369)
+Defined in: export-utils/src/index.ts:369
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [export-utils/src/index.ts:369](https://github.com/eleferrets/emptys
 
 > `optional` **projectDir?**: `string`
 
-Defined in: [export-utils/src/index.ts:370](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L370)
+Defined in: export-utils/src/index.ts:370

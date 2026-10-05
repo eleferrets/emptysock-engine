@@ -1,5 +1,5 @@
 /**
- * Shared fixed-timestep accumulation (ENGINE_DESIGN.md §10.3), extracted out
+ * Shared fixed-timestep accumulation, extracted out
  * of `PhysicsSystem.ts` (2D) and `PhysicsSystem3D.ts`, which each kept a
  * near-identical copy of the same `_fixedTimestep`/`_accumulator`/`_alpha`
  * bookkeeping and while-loop. Behavior is unchanged — this is a pure

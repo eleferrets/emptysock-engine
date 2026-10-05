@@ -10,7 +10,7 @@ import type { Entity } from "./Entity.js";
 
 /**
  * What happens to a subject when the target of one of its edges is
- * destroyed (docs/research/06-cross-entity-relationships.md 3.3).
+ * destroyed.
  *
  * - `"remove"`: only the edge is dropped; the subject lives on.
  * - `"destroy"`: the subject is destroyed too, through `Scene.destroy`, so

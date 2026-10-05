@@ -6,7 +6,7 @@
 
 # Class: NetworkEntityMap
 
-Defined in: [network/src/NetworkEntityMap.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L18)
+Defined in: network/src/NetworkEntityMap.ts:18
 
 Bidirectional map between a Colyseus network id (a room state schema
 instance's key in its parent `MapSchema` — typically the owning client's
@@ -40,7 +40,7 @@ only place that knows both.
 
 > **get** **size**(): `number`
 
-Defined in: [network/src/NetworkEntityMap.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L67)
+Defined in: network/src/NetworkEntityMap.ts:89
 
 ##### Returns
 
@@ -52,7 +52,7 @@ Defined in: [network/src/NetworkEntityMap.ts:67](https://github.com/eleferrets/e
 
 > **deleteByEntity**(`entity`): `void`
 
-Defined in: [network/src/NetworkEntityMap.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L55)
+Defined in: network/src/NetworkEntityMap.ts:74
 
 Drop the mapping for `entity` (it was destroyed locally). No-op if unmapped.
 
@@ -72,7 +72,7 @@ Drop the mapping for `entity` (it was destroyed locally). No-op if unmapped.
 
 > **deleteByNetworkId**(`networkId`): `void`
 
-Defined in: [network/src/NetworkEntityMap.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L47)
+Defined in: network/src/NetworkEntityMap.ts:65
 
 Drop the mapping for `networkId` (the remote entity left/despawned). No-op if unmapped.
 
@@ -92,7 +92,7 @@ Drop the mapping for `networkId` (the remote entity left/despawned). No-op if un
 
 > **entries**(): `IterableIterator`\<\[`string`, `Entity`\]\>
 
-Defined in: [network/src/NetworkEntityMap.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L63)
+Defined in: network/src/NetworkEntityMap.ts:85
 
 All currently-mapped `[networkId, Entity]` pairs.
 
@@ -106,7 +106,7 @@ All currently-mapped `[networkId, Entity]` pairs.
 
 > **getEntity**(`networkId`): `Entity` \| `undefined`
 
-Defined in: [network/src/NetworkEntityMap.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L37)
+Defined in: network/src/NetworkEntityMap.ts:54
 
 The local `Entity` mirroring `networkId`, if one has been registered.
 
@@ -126,7 +126,7 @@ The local `Entity` mirroring `networkId`, if one has been registered.
 
 > **getNetworkId**(`entity`): `string` \| `undefined`
 
-Defined in: [network/src/NetworkEntityMap.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L42)
+Defined in: network/src/NetworkEntityMap.ts:59
 
 The network id `entity` was registered under, if any.
 
@@ -146,7 +146,7 @@ The network id `entity` was registered under, if any.
 
 > **set**(`networkId`, `entity`): `void`
 
-Defined in: [network/src/NetworkEntityMap.ts:23](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkEntityMap.ts#L23)
+Defined in: network/src/NetworkEntityMap.ts:36
 
 Register `entity` as the local mirror of `networkId`. Replaces any prior mapping for either side.
 

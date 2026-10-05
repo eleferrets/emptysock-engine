@@ -6,7 +6,7 @@
 
 # Class: VNSystem
 
-Defined in: [vn/src/VNSystem.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L67)
+Defined in: vn/src/VNSystem.ts:66
 
 ## Constructors
 
@@ -14,29 +14,23 @@ Defined in: [vn/src/VNSystem.ts:67](https://github.com/eleferrets/emptysock-engi
 
 > **new VNSystem**(`store?`): `VNSystem`
 
-Defined in: [vn/src/VNSystem.ts:100](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L100)
+Defined in: vn/src/VNSystem.ts:95
 
 #### Parameters
 
 ##### store?
 
-`VariableStore` = `variableStore`
+`VariableStore` = `...`
 
 The store backing `"condition"` nodes and conditional
-`when` choice options. Defaults to `@emptysock/engine`'s shared,
-process-global `variableStore` singleton — the SAME instance every
-other caller in the game gets unless they too pass an explicit store.
-That default is convenient (dialogue "just works" against the switches
-your game logic already sets) but it is implicit, undocumented sharing:
-a game using `@emptysock/vn` for dialogue AND reading/writing
-`variableStore` directly elsewhere gets cross-talk for free — a VN
-choice gated on switch 12 can be silently affected by an unrelated
-`variableStore.setSwitch(12, ...)` call anywhere else in the game, and
-vice versa. Pass an explicit `VariableStore` instance here (isolated
-per-save-slot, or a plain test double) whenever that sharing is not
-what you want. See CLAUDE.md's "Non-obvious decisions" for the
-rationale (matches how `SaveSystem`'s `MemoryStorageAdapter` default is
-documented there).
+`when` choice options. Defaults to a fresh, isolated `VariableStore` —
+dialogue gated on switches/variables stays local to this `VNSystem`
+instance unless you explicitly opt into sharing. Pass `ctx.variables`
+(the same `Game`-owned instance every scene's `onLoad` receives via
+`SceneLifecycle`, per `@emptysock/engine`'s `Game` service registry) to
+make dialogue "just work" against the switches your game logic already
+sets — that's an explicit choice at the call site now, not an implicit
+process-global default.
 
 #### Returns
 
@@ -48,7 +42,7 @@ documented there).
 
 > `readonly` **variables**: `Map`\<`string`, `unknown`\>
 
-Defined in: [vn/src/VNSystem.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L73)
+Defined in: vn/src/VNSystem.ts:72
 
 Runtime variable store — populated automatically by variable-set nodes.
 
@@ -60,7 +54,7 @@ Runtime variable store — populated automatically by variable-set nodes.
 
 > **get** **currentNode**(): [`DialogueNode`](../type-aliases/DialogueNode.md) \| `null`
 
-Defined in: [vn/src/VNSystem.ts:127](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L127)
+Defined in: vn/src/VNSystem.ts:122
 
 ##### Returns
 
@@ -72,7 +66,7 @@ Defined in: [vn/src/VNSystem.ts:127](https://github.com/eleferrets/emptysock-eng
 
 > **advance**(): `void`
 
-Defined in: [vn/src/VNSystem.ts:132](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L132)
+Defined in: vn/src/VNSystem.ts:127
 
 #### Returns
 
@@ -84,7 +78,7 @@ Defined in: [vn/src/VNSystem.ts:132](https://github.com/eleferrets/emptysock-eng
 
 > **getVariable**(`key`): `unknown`
 
-Defined in: [vn/src/VNSystem.ts:151](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L151)
+Defined in: vn/src/VNSystem.ts:146
 
 Read a runtime variable set by variable-set nodes. Returns undefined if not set.
 
@@ -104,7 +98,7 @@ Read a runtime variable set by variable-set nodes. Returns undefined if not set.
 
 > **load**(`tree`): `void`
 
-Defined in: [vn/src/VNSystem.ts:112](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L112)
+Defined in: vn/src/VNSystem.ts:107
 
 #### Parameters
 
@@ -122,7 +116,7 @@ Defined in: [vn/src/VNSystem.ts:112](https://github.com/eleferrets/emptysock-eng
 
 > **removeListener**(): `void`
 
-Defined in: [vn/src/VNSystem.ts:108](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L108)
+Defined in: vn/src/VNSystem.ts:103
 
 #### Returns
 
@@ -134,7 +128,7 @@ Defined in: [vn/src/VNSystem.ts:108](https://github.com/eleferrets/emptysock-eng
 
 > **selectOption**(`next`): `void`
 
-Defined in: [vn/src/VNSystem.ts:146](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L146)
+Defined in: vn/src/VNSystem.ts:141
 
 #### Parameters
 
@@ -152,7 +146,7 @@ Defined in: [vn/src/VNSystem.ts:146](https://github.com/eleferrets/emptysock-eng
 
 > **setListener**(`listener`): `void`
 
-Defined in: [vn/src/VNSystem.ts:104](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNSystem.ts#L104)
+Defined in: vn/src/VNSystem.ts:99
 
 #### Parameters
 

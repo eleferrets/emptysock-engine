@@ -6,7 +6,7 @@
 
 # Interface: ViewportSize
 
-Defined in: [engine/src/systems/ViewportSystem.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L25)
+Defined in: engine/src/systems/ViewportSystem.ts:25
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:25](https://github.com/eleferr
 
 > **height**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L28)
+Defined in: engine/src/systems/ViewportSystem.ts:28
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:28](https://github.com/eleferr
 
 > **offsetX**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L30)
+Defined in: engine/src/systems/ViewportSystem.ts:30
 
 Offset applied for letterboxing/pillarboxing (fit mode) in CSS pixels.
 
@@ -32,7 +32,7 @@ Offset applied for letterboxing/pillarboxing (fit mode) in CSS pixels.
 
 > **offsetY**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L31)
+Defined in: engine/src/systems/ViewportSystem.ts:31
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:31](https://github.com/eleferr
 
 > **scale**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:33](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L33)
+Defined in: engine/src/systems/ViewportSystem.ts:33
 
 Scale factor from design resolution to rendered size.
 
@@ -50,6 +50,6 @@ Scale factor from design resolution to rendered size.
 
 > **width**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L27)
+Defined in: engine/src/systems/ViewportSystem.ts:27
 
 The rendered canvas size in CSS pixels.

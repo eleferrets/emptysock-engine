@@ -8,7 +8,7 @@
 
 > **detectToolchain**(`settings`, `targets?`): [`ToolchainReport`](../interfaces/ToolchainReport.md)
 
-Defined in: [toolchain/src/ToolchainDetector.ts:282](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainDetector.ts#L282)
+Defined in: toolchain/src/ToolchainDetector.ts:282
 
 ## Parameters
 

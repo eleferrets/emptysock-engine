@@ -6,7 +6,7 @@
 
 # Interface: SendMessageNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:79](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L79)
+Defined in: engine/src/components/VisualScript.ts:77
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:79](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"sendMessage"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:80](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L80)
+Defined in: engine/src/components/VisualScript.ts:78
 
 #### Overrides
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:80](https://github.c
 
 > **messageType**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:82](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L82)
+Defined in: engine/src/components/VisualScript.ts:80
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:82](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 
@@ -64,7 +64,7 @@ Node ids wired to this node's execution output(s), in port order.
 
 > `optional` **payload?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:84](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L84)
+Defined in: engine/src/components/VisualScript.ts:82
 
 Extra fields merged into the outgoing Message.
 
@@ -74,4 +74,4 @@ Extra fields merged into the outgoing Message.
 
 > **targetActorId**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:81](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L81)
+Defined in: engine/src/components/VisualScript.ts:79

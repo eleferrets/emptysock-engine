@@ -8,7 +8,7 @@
 
 > **HostMessageHandler** = (`event`) => `void`
 
-Defined in: [types/src/index.ts:233](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L233)
+Defined in: types/src/index.ts:262
 
 ## Parameters
 

@@ -6,7 +6,7 @@
 
 # Interface: SafeAreaInsets
 
-Defined in: [engine/src/systems/ViewportSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L36)
+Defined in: engine/src/systems/ViewportSystem.ts:36
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:36](https://github.com/eleferr
 
 > **bottom**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L39)
+Defined in: engine/src/systems/ViewportSystem.ts:39
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:39](https://github.com/eleferr
 
 > **left**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L40)
+Defined in: engine/src/systems/ViewportSystem.ts:40
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/ViewportSystem.ts:40](https://github.com/eleferr
 
 > **right**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L38)
+Defined in: engine/src/systems/ViewportSystem.ts:38
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/ViewportSystem.ts:38](https://github.com/eleferr
 
 > **top**: `number`
 
-Defined in: [engine/src/systems/ViewportSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ViewportSystem.ts#L37)
+Defined in: engine/src/systems/ViewportSystem.ts:37

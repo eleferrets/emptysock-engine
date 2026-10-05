@@ -6,7 +6,7 @@
 
 # Interface: IUIRenderer
 
-Defined in: [types/src/index.ts:170](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L170)
+Defined in: types/src/index.ts:183
 
 Minimal drawing-context interface accepted by UISystem.render().
 
@@ -20,7 +20,7 @@ require no changes.
 
 > **fillStyle**: `string` \| `object`
 
-Defined in: [types/src/index.ts:172](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L172)
+Defined in: types/src/index.ts:185
 
 Colour or style used by fill operations. Accepts any string colour value.
 
@@ -30,7 +30,7 @@ Colour or style used by fill operations. Accepts any string colour value.
 
 > **font**: `string`
 
-Defined in: [types/src/index.ts:176](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L176)
+Defined in: types/src/index.ts:189
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [types/src/index.ts:176](https://github.com/eleferrets/emptysock-eng
 
 > **globalAlpha**: `number`
 
-Defined in: [types/src/index.ts:179](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L179)
+Defined in: types/src/index.ts:192
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [types/src/index.ts:179](https://github.com/eleferrets/emptysock-eng
 
 > **lineWidth**: `number`
 
-Defined in: [types/src/index.ts:175](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L175)
+Defined in: types/src/index.ts:188
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [types/src/index.ts:175](https://github.com/eleferrets/emptysock-eng
 
 > **strokeStyle**: `string` \| `object`
 
-Defined in: [types/src/index.ts:174](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L174)
+Defined in: types/src/index.ts:187
 
 Colour or style used by stroke operations. Accepts any string colour value.
 
@@ -64,7 +64,7 @@ Colour or style used by stroke operations. Accepts any string colour value.
 
 > **textAlign**: `string`
 
-Defined in: [types/src/index.ts:177](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L177)
+Defined in: types/src/index.ts:190
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: [types/src/index.ts:177](https://github.com/eleferrets/emptysock-eng
 
 > **textBaseline**: `string`
 
-Defined in: [types/src/index.ts:178](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L178)
+Defined in: types/src/index.ts:191
 
 ## Methods
 
@@ -80,7 +80,7 @@ Defined in: [types/src/index.ts:178](https://github.com/eleferrets/emptysock-eng
 
 > **arc**(`x`, `y`, `r`, `startAngle`, `endAngle`): `void`
 
-Defined in: [types/src/index.ts:199](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L199)
+Defined in: types/src/index.ts:212
 
 #### Parameters
 
@@ -114,7 +114,7 @@ Defined in: [types/src/index.ts:199](https://github.com/eleferrets/emptysock-eng
 
 > **arcTo**(`x1`, `y1`, `x2`, `y2`, `r`): `void`
 
-Defined in: [types/src/index.ts:198](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L198)
+Defined in: types/src/index.ts:211
 
 #### Parameters
 
@@ -148,7 +148,7 @@ Defined in: [types/src/index.ts:198](https://github.com/eleferrets/emptysock-eng
 
 > **beginPath**(): `void`
 
-Defined in: [types/src/index.ts:183](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L183)
+Defined in: types/src/index.ts:196
 
 #### Returns
 
@@ -160,7 +160,7 @@ Defined in: [types/src/index.ts:183](https://github.com/eleferrets/emptysock-eng
 
 > **clip**(): `void`
 
-Defined in: [types/src/index.ts:218](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L218)
+Defined in: types/src/index.ts:247
 
 Restrict subsequent drawing to the current path, until the next restore().
 
@@ -174,7 +174,7 @@ Restrict subsequent drawing to the current path, until the next restore().
 
 > **closePath**(): `void`
 
-Defined in: [types/src/index.ts:184](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L184)
+Defined in: types/src/index.ts:197
 
 #### Returns
 
@@ -186,7 +186,7 @@ Defined in: [types/src/index.ts:184](https://github.com/eleferrets/emptysock-eng
 
 > **drawImage**(`image`, `dx`, `dy`, `dw`, `dh`): `void`
 
-Defined in: [types/src/index.ts:208](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L208)
+Defined in: types/src/index.ts:221
 
 Draw a pre-loaded image into the context at the given position and size.
 
@@ -218,11 +218,65 @@ Draw a pre-loaded image into the context at the given position and size.
 
 ***
 
+### drawImageRegion()?
+
+> `optional` **drawImageRegion**(`image`, `sx`, `sy`, `sw`, `sh`, `dx`, `dy`, `dw`, `dh`): `void`
+
+Defined in: types/src/index.ts:233
+
+Optional 9-argument (source-region) form of `drawImage`, used by
+`UISystem` to blit bitmap-font glyphs from an atlas. Canvas2D satisfies
+it structurally. Renderers without it get the CSS-font text path.
+
+#### Parameters
+
+##### image
+
+`object`
+
+##### sx
+
+`number`
+
+##### sy
+
+`number`
+
+##### sw
+
+`number`
+
+##### sh
+
+`number`
+
+##### dx
+
+`number`
+
+##### dy
+
+`number`
+
+##### dw
+
+`number`
+
+##### dh
+
+`number`
+
+#### Returns
+
+`void`
+
+***
+
 ### fill()
 
 > **fill**(): `void`
 
-Defined in: [types/src/index.ts:185](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L185)
+Defined in: types/src/index.ts:198
 
 #### Returns
 
@@ -234,7 +288,7 @@ Defined in: [types/src/index.ts:185](https://github.com/eleferrets/emptysock-eng
 
 > **fillRect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: [types/src/index.ts:215](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L215)
+Defined in: types/src/index.ts:244
 
 #### Parameters
 
@@ -264,7 +318,7 @@ Defined in: [types/src/index.ts:215](https://github.com/eleferrets/emptysock-eng
 
 > **fillText**(`text`, `x`, `y`): `void`
 
-Defined in: [types/src/index.ts:206](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L206)
+Defined in: types/src/index.ts:219
 
 #### Parameters
 
@@ -290,7 +344,7 @@ Defined in: [types/src/index.ts:206](https://github.com/eleferrets/emptysock-eng
 
 > **lineTo**(`x`, `y`): `void`
 
-Defined in: [types/src/index.ts:197](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L197)
+Defined in: types/src/index.ts:210
 
 #### Parameters
 
@@ -312,7 +366,7 @@ Defined in: [types/src/index.ts:197](https://github.com/eleferrets/emptysock-eng
 
 > **moveTo**(`x`, `y`): `void`
 
-Defined in: [types/src/index.ts:196](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L196)
+Defined in: types/src/index.ts:209
 
 #### Parameters
 
@@ -334,7 +388,7 @@ Defined in: [types/src/index.ts:196](https://github.com/eleferrets/emptysock-eng
 
 > **rect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: [types/src/index.ts:187](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L187)
+Defined in: types/src/index.ts:200
 
 #### Parameters
 
@@ -364,7 +418,7 @@ Defined in: [types/src/index.ts:187](https://github.com/eleferrets/emptysock-eng
 
 > **restore**(): `void`
 
-Defined in: [types/src/index.ts:182](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L182)
+Defined in: types/src/index.ts:195
 
 #### Returns
 
@@ -376,7 +430,7 @@ Defined in: [types/src/index.ts:182](https://github.com/eleferrets/emptysock-eng
 
 > `optional` **roundRect**(`x`, `y`, `w`, `h`, `r`): `void`
 
-Defined in: [types/src/index.ts:189](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L189)
+Defined in: types/src/index.ts:202
 
 Optional — present in modern canvas implementations.
 
@@ -412,7 +466,7 @@ Optional — present in modern canvas implementations.
 
 > **save**(): `void`
 
-Defined in: [types/src/index.ts:181](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L181)
+Defined in: types/src/index.ts:194
 
 #### Returns
 
@@ -424,7 +478,7 @@ Defined in: [types/src/index.ts:181](https://github.com/eleferrets/emptysock-eng
 
 > **stroke**(): `void`
 
-Defined in: [types/src/index.ts:186](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L186)
+Defined in: types/src/index.ts:199
 
 #### Returns
 
@@ -436,7 +490,7 @@ Defined in: [types/src/index.ts:186](https://github.com/eleferrets/emptysock-eng
 
 > **strokeRect**(`x`, `y`, `w`, `h`): `void`
 
-Defined in: [types/src/index.ts:216](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/types/src/index.ts#L216)
+Defined in: types/src/index.ts:245
 
 #### Parameters
 

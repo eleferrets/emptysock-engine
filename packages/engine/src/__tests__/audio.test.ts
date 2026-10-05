@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 // there is nothing ECS-shaped to migrate; see CLAUDE.md's "Audio stays a
 // Game-owned singleton" entry), so its behavior under mocked Howler is
 // unchanged. This asserts the ECS-specific part: `Game` owns one `AudioSystem`
-// for its lifetime and playback never throws headless (ENGINE_DESIGN.md §18).
+// for its lifetime and playback never throws headless.
 vi.mock("howler", () => {
   const Howl = vi.fn().mockImplementation(function () {
     return {
@@ -22,7 +22,7 @@ vi.mock("howler", () => {
 
 import { Game, defineScene } from "../Game.js";
 
-describe("ECS Game-owned AudioSystem (ENGINE_DESIGN.md §18)", () => {
+describe("ECS Game-owned AudioSystem", () => {
   it("game.audio exists and load/play/stop never throw headless", async () => {
     const game = new Game();
     await game.loadScene(defineScene({}), {

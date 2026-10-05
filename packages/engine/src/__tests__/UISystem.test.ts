@@ -58,7 +58,7 @@ function styleOf(entity: Entity): LayoutStyleShape {
 }
 
 /**
- * RELEASE_PASS.md Track 3's `UISystem`, built on top of the `WidgetTree`
+ * the release notes Track 3's `UISystem`, built on top of the `WidgetTree`
  * prototype — hit-testing, press/drag/click/hover dispatch: click-vs-drag
  * threshold, disabled buttons don't hover/press, topmost-widget-wins
  * hit-testing.

@@ -6,7 +6,7 @@
 
 # Interface: LongPressGesture
 
-Defined in: [engine/src/systems/PointerSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L36)
+Defined in: engine/src/systems/PointerSystem.ts:36
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:36](https://github.com/eleferre
 
 > **pointerId**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:40](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L40)
+Defined in: engine/src/systems/PointerSystem.ts:40
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:40](https://github.com/eleferre
 
 > **type**: `"longpress"`
 
-Defined in: [engine/src/systems/PointerSystem.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L37)
+Defined in: engine/src/systems/PointerSystem.ts:37
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:37](https://github.com/eleferre
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L38)
+Defined in: engine/src/systems/PointerSystem.ts:38
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/PointerSystem.ts:38](https://github.com/eleferre
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L39)
+Defined in: engine/src/systems/PointerSystem.ts:39

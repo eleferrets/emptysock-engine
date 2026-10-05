@@ -5,7 +5,7 @@ import { Game, defineScene } from "../Game.js";
 import { MemoryStorageAdapter } from "../systems/StorageAdapter.js";
 import { PointerSystem } from "../systems/PointerSystem.js";
 
-describe("ECS InputManager (ENGINE_DESIGN.md §4 step 1 / §15.3)", () => {
+describe("ECS InputManager", () => {
   it("isDown reflects an action bound to a key that is simulated down", () => {
     const input = new InputManager({ jump: [{ kind: "key", code: "Space" }] });
     input.snapshot();
@@ -125,7 +125,7 @@ describe("ECS InputManager (ENGINE_DESIGN.md §4 step 1 / §15.3)", () => {
 });
 
 // Covers rebind, reset-to-defaults, and save/load persistence scenarios,
-// all living directly on `InputManager` per RELEASE_PASS.md's Track 1
+// all living directly on `InputManager` per the release notes Track 1
 // decision to fold named-action rebinding into the input layer rather than
 // a second, parallel implementation.
 describe("InputManager rebinding and persistence", () => {
@@ -232,7 +232,7 @@ describe("InputManager merged remap API (ex-KeyBindings)", () => {
 });
 
 // PointerSystem integration — pointer/touch/gesture/wheel folded into the
-// same frozen-per-frame snapshot as keyboard/gamepad, per RELEASE_PASS.md's
+// same frozen-per-frame snapshot as keyboard/gamepad, per the release notes
 // Track 1 decision to wrap PointerSystem inside InputManager rather than
 // leave it a disconnected system nothing feeds into the frozen snapshot.
 describe("InputManager PointerSystem integration", () => {

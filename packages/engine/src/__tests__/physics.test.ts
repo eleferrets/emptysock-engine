@@ -18,7 +18,7 @@ function mustGetPhysicsBody(entity: Entity): PhysicsBodyHandle {
   return handle;
 }
 
-describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
+describe("ECS PhysicsSystem", () => {
   it("steps a dynamic body under gravity, syncing position back onto PhysicsBody", async () => {
     const game = new Game();
     const { scene } = await game.loadScene(defineScene({}), {
@@ -98,7 +98,7 @@ describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
 
     expect(collided).toBe(true);
     // A fresh `Entity` handle is constructed per `scene.each` iteration
-    // (ENGINE_DESIGN.md §21 — handles are cheap, not cached), so compare by
+    //, so compare by
     // eid rather than object identity.
     expect((otherEntity as { eid: number }).eid).toBe(ball.eid);
 
@@ -156,7 +156,7 @@ describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
     entity.add(PhysicsBody, { type: "dynamic", position: { x: 0, y: 10 } });
 
     // A dt that isn't a whole multiple of the fixed timestep leaves a
-    // fractional remainder in the accumulator (ENGINE_DESIGN.md §10.3).
+    // fractional remainder in the accumulator.
     game.update(1 / 60);
 
     expect(physics.interpolationAlpha).toBeGreaterThanOrEqual(0);

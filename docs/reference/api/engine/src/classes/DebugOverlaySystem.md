@@ -6,15 +6,32 @@
 
 # Class: DebugOverlaySystem
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L27)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:28
+
+Disabled by default; a stats line + scrollback console, a command
+registry, rendered through `WidgetTree`/`UISystem` (`PanelStyle` +
+`Label` widgets), so it works identically in Node/tests, the browser
+preview, and the Tauri WebView. Uses `Layout`'s `positionType: "absolute"`
+(added for exactly this: a fixed HUD overlay position independent of any
+sibling flex layout).
 
 ## Constructors
 
 ### Constructor
 
-> **new DebugOverlaySystem**(): `DebugOverlaySystem`
+> **new DebugOverlaySystem**(`scene`, `tree`): `DebugOverlaySystem`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L42)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:43
+
+#### Parameters
+
+##### scene
+
+[`Scene`](Scene.md)
+
+##### tree
+
+[`WidgetTree`](WidgetTree.md)
 
 #### Returns
 
@@ -24,9 +41,9 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:42](https://github.com/ele
 
 ### root
 
-> `readonly` **root**: [`PanelWidget`](PanelWidget.md)
+> `readonly` **root**: [`Entity`](Entity.md)
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L38)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:39
 
 ## Accessors
 
@@ -36,7 +53,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:38](https://github.com/ele
 
 > **get** **commandNames**(): readonly `string`[]
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:173](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L173)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:186
 
 ##### Returns
 
@@ -50,7 +67,7 @@ readonly `string`[]
 
 > **get** **enabled**(): `boolean`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:84](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L84)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:88
 
 ##### Returns
 
@@ -64,7 +81,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:84](https://github.com/ele
 
 > **get** **history**(): readonly [`DebugLogEntry`](../interfaces/DebugLogEntry.md)[]
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:134](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L134)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:147
 
 ##### Returns
 
@@ -76,7 +93,7 @@ readonly [`DebugLogEntry`](../interfaces/DebugLogEntry.md)[]
 
 > **disable**(): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:93](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L93)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:98
 
 #### Returns
 
@@ -88,7 +105,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:93](https://github.com/ele
 
 > **enable**(): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:88](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L88)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:92
 
 #### Returns
 
@@ -100,7 +117,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:88](https://github.com/ele
 
 > **log**(`message`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:123](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L123)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:136
 
 #### Parameters
 
@@ -118,7 +135,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:123](https://github.com/el
 
 > **logError**(`message`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:130](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L130)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:143
 
 Intended to be wired to Engine.logError so runtime errors surface in-overlay.
 
@@ -138,7 +155,7 @@ Intended to be wired to Engine.logError so runtime errors surface in-overlay.
 
 > **registerCommand**(`name`, `handler`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:145](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L145)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:158
 
 #### Parameters
 
@@ -160,7 +177,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:145](https://github.com/el
 
 > **runCommand**(`line`): `string`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:154](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L154)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:167
 
 Parses "name arg1 arg2" and dispatches to a registered command.
 
@@ -180,7 +197,7 @@ Parses "name arg1 arg2" and dispatches to a registered command.
 
 > **toggle**(): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:98](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L98)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:104
 
 #### Returns
 
@@ -192,7 +209,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:98](https://github.com/ele
 
 > **unregisterCommand**(`name`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:149](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L149)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:162
 
 #### Parameters
 
@@ -210,7 +227,7 @@ Defined in: [engine/src/systems/DebugOverlaySystem.ts:149](https://github.com/el
 
 > **update**(`dt`, `entityCount`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:103](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L103)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:110
 
 Call once per frame with the frame's delta time (seconds) and current entity count.
 
@@ -234,7 +251,7 @@ Call once per frame with the frame's delta time (seconds) and current entity cou
 
 > **warn**(`message`): `void`
 
-Defined in: [engine/src/systems/DebugOverlaySystem.ts:126](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/DebugOverlaySystem.ts#L126)
+Defined in: engine/src/systems/DebugOverlaySystem.ts:139
 
 #### Parameters
 

@@ -3,7 +3,7 @@ import type { Entity } from "./Entity.js";
 import type { Scene } from "./Scene.js";
 /**
  * Old-identity to new-entity lookup, the input to the shared two-phase remap
- * (docs/research/06-cross-entity-relationships.md 3.4): phase 1 spawns every
+ *: phase 1 spawns every
  * entity while recording `oldId -> Entity`; phase 2 (`remapRefs` /
  * `remapValue`) rewrites references through this map once all entities
  * exist. `oldId` is a number for save blobs and room carry-over (old

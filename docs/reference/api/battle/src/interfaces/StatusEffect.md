@@ -6,7 +6,7 @@
 
 # Interface: StatusEffect
 
-Defined in: [battle/src/BattleSystem.ts:27](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L27)
+Defined in: battle/src/BattleSystem.ts:27
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:27](https://github.com/eleferrets/emptys
 
 > **id**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L28)
+Defined in: battle/src/BattleSystem.ts:28
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [battle/src/BattleSystem.ts:28](https://github.com/eleferrets/emptys
 
 > **name**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:29](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L29)
+Defined in: battle/src/BattleSystem.ts:29
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [battle/src/BattleSystem.ts:29](https://github.com/eleferrets/emptys
 
 > **turnsRemaining**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:30](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L30)
+Defined in: battle/src/BattleSystem.ts:30

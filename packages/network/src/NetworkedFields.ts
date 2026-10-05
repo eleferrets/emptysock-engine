@@ -5,7 +5,7 @@ import type { ComponentDef, SerializableRecord } from "@emptysock/engine";
  * Keyed by `componentName` (the same stable string `ComponentRegistry`
  * keys on), *not* by the `ComponentDef` object's identity — a hot-reloaded
  * module produces a new `ComponentDef` reference for "the same" component
- * (ENGINE_DESIGN.md §23.1), and client/server are two separately-loaded
+ *, and client/server are two separately-loaded
  * copies of the game's component definitions to begin with, so object
  * identity was never going to survive the trip. Name-keying this registry
  * is what makes it compose with `ComponentRegistry` rather than needing a

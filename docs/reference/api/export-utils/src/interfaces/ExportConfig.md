@@ -6,7 +6,7 @@
 
 # Interface: ExportConfig
 
-Defined in: [export-utils/src/index.ts:66](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L66)
+Defined in: export-utils/src/index.ts:66
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [export-utils/src/index.ts:66](https://github.com/eleferrets/emptyso
 
 > `optional` **dropConsole?**: `boolean`
 
-Defined in: [export-utils/src/index.ts:72](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L72)
+Defined in: export-utils/src/index.ts:72
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [export-utils/src/index.ts:72](https://github.com/eleferrets/emptyso
 
 > `optional` **mangleProps?**: `boolean`
 
-Defined in: [export-utils/src/index.ts:73](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L73)
+Defined in: export-utils/src/index.ts:73
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [export-utils/src/index.ts:73](https://github.com/eleferrets/emptyso
 
 > `optional` **minify?**: `boolean`
 
-Defined in: [export-utils/src/index.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L69)
+Defined in: export-utils/src/index.ts:69
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [export-utils/src/index.ts:69](https://github.com/eleferrets/emptyso
 
 > **outDir**: `string`
 
-Defined in: [export-utils/src/index.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L68)
+Defined in: export-utils/src/index.ts:68
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [export-utils/src/index.ts:68](https://github.com/eleferrets/emptyso
 
 > **projectDir**: `string`
 
-Defined in: [export-utils/src/index.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L67)
+Defined in: export-utils/src/index.ts:67
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [export-utils/src/index.ts:67](https://github.com/eleferrets/emptyso
 
 > `optional` **sourcemap?**: `boolean`
 
-Defined in: [export-utils/src/index.ts:70](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L70)
+Defined in: export-utils/src/index.ts:70
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [export-utils/src/index.ts:70](https://github.com/eleferrets/emptyso
 
 > `optional` **target?**: `string`[]
 
-Defined in: [export-utils/src/index.ts:71](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/export-utils/src/index.ts#L71)
+Defined in: export-utils/src/index.ts:71

@@ -6,7 +6,7 @@
 
 # Class: ParticleEmitter
 
-Defined in: [engine/src/systems/ParticleSystem.ts:84](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L84)
+Defined in: engine/src/systems/ParticleSystem.ts:130
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:84](https://github.com/eleferr
 
 > **new ParticleEmitter**(`options?`): `ParticleEmitter`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:95](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L95)
+Defined in: engine/src/systems/ParticleSystem.ts:141
 
 #### Parameters
 
@@ -32,7 +32,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:95](https://github.com/eleferr
 
 > **active**: `boolean` = `true`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:93](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L93)
+Defined in: engine/src/systems/ParticleSystem.ts:139
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:93](https://github.com/eleferr
 
 > `readonly` **options**: `Required`\<[`ParticleEmitterOptions`](../interfaces/ParticleEmitterOptions.md)\>
 
-Defined in: [engine/src/systems/ParticleSystem.ts:87](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L87)
+Defined in: engine/src/systems/ParticleSystem.ts:133
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:87](https://github.com/eleferr
 
 > **x**: `number` = `0`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:85](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L85)
+Defined in: engine/src/systems/ParticleSystem.ts:131
 
 ***
 
@@ -56,7 +56,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:85](https://github.com/eleferr
 
 > **y**: `number` = `0`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:86](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L86)
+Defined in: engine/src/systems/ParticleSystem.ts:132
 
 ## Accessors
 
@@ -66,7 +66,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:86](https://github.com/eleferr
 
 > **get** **activeCount**(): `number`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:225](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L225)
+Defined in: engine/src/systems/ParticleSystem.ts:312
 
 ##### Returns
 
@@ -78,7 +78,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:225](https://github.com/elefer
 
 > **clear**(): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:233](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L233)
+Defined in: engine/src/systems/ParticleSystem.ts:320
 
 #### Returns
 
@@ -90,7 +90,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:233](https://github.com/elefer
 
 > **emit**(`count`): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:120](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L120)
+Defined in: engine/src/systems/ParticleSystem.ts:170
 
 Burst-emit N particles immediately.
 
@@ -110,7 +110,7 @@ Burst-emit N particles immediately.
 
 > **getParticles**(): readonly `Particle`[]
 
-Defined in: [engine/src/systems/ParticleSystem.ts:221](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L221)
+Defined in: engine/src/systems/ParticleSystem.ts:308
 
 Read-only snapshot of active particles for the render layer.
 
@@ -124,7 +124,7 @@ readonly `Particle`[]
 
 > **stop**(): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:229](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L229)
+Defined in: engine/src/systems/ParticleSystem.ts:316
 
 #### Returns
 
@@ -136,7 +136,7 @@ Defined in: [engine/src/systems/ParticleSystem.ts:229](https://github.com/elefer
 
 > **update**(`deltaTime`): `void`
 
-Defined in: [engine/src/systems/ParticleSystem.ts:189](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/ParticleSystem.ts#L189)
+Defined in: engine/src/systems/ParticleSystem.ts:239
 
 #### Parameters
 

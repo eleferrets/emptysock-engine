@@ -5,7 +5,7 @@ import { ServiceRegistry } from "../Services.js";
 import { SaveSystem } from "../systems/SaveSystem.js";
 import { MemoryStorageAdapter } from "../systems/StorageAdapter.js";
 
-describe("ServiceRegistry (ENGINE_DESIGN.md §5)", () => {
+describe("ServiceRegistry", () => {
   class ScoreService {
     score = 0;
     add(n: number): void {
@@ -57,7 +57,7 @@ const Health = defineComponent("SaveTestHealth", () => ({ hp: 100 }), {
   version: 2,
 });
 
-describe("SaveSystem (ENGINE_DESIGN.md §12.1/§19.3)", () => {
+describe("SaveSystem", () => {
   it("round-trips entity/component state through save + load into a fresh scene", async () => {
     const sceneA = new Scene();
     const adapter = new MemoryStorageAdapter();

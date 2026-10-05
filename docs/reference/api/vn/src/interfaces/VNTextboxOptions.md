@@ -6,7 +6,7 @@
 
 # Interface: VNTextboxOptions
 
-Defined in: [vn/src/VNTextbox.ts:5](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L5)
+Defined in: vn/src/VNTextbox.ts:14
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [vn/src/VNTextbox.ts:5](https://github.com/eleferrets/emptysock-engi
 
 > **canvasHeight**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:9](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L9)
+Defined in: vn/src/VNTextbox.ts:18
 
 Canvas height — used to position the textbox at the bottom.
 
@@ -24,7 +24,7 @@ Canvas height — used to position the textbox at the bottom.
 
 > **canvasWidth**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:7](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L7)
+Defined in: vn/src/VNTextbox.ts:16
 
 Canvas width — used to size and position the textbox.
 
@@ -34,7 +34,7 @@ Canvas width — used to size and position the textbox.
 
 > `optional` **fontFamily?**: `string`
 
-Defined in: [vn/src/VNTextbox.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L34)
+Defined in: vn/src/VNTextbox.ts:42
 
 Font family used for text measurement. Must match the font your renderer
 applies to dialogue text so that line breaks are calculated correctly.
@@ -46,7 +46,7 @@ Default 'sans-serif'.
 
 > `optional` **fontSize?**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L28)
+Defined in: vn/src/VNTextbox.ts:36
 
 Font size for dialogue text. Default 16.
 
@@ -56,7 +56,7 @@ Font size for dialogue text. Default 16.
 
 > `optional` **height?**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L16)
+Defined in: vn/src/VNTextbox.ts:24
 
 Height of the dialogue panel in pixels. Default 160.
 
@@ -66,7 +66,7 @@ Height of the dialogue panel in pixels. Default 160.
 
 > `optional` **namePlateColor?**: `string`
 
-Defined in: [vn/src/VNTextbox.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L24)
+Defined in: vn/src/VNTextbox.ts:32
 
 Fill colour of the name plate as a CSS colour string. Default '#3c2d6e'.
 
@@ -76,7 +76,7 @@ Fill colour of the name plate as a CSS colour string. Default '#3c2d6e'.
 
 > `optional` **namePlateHeight?**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L18)
+Defined in: vn/src/VNTextbox.ts:26
 
 Height of the speaker name plate in pixels. Default 36.
 
@@ -86,7 +86,7 @@ Height of the speaker name plate in pixels. Default 36.
 
 > `optional` **paddingX?**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L20)
+Defined in: vn/src/VNTextbox.ts:28
 
 Horizontal padding inside the panel. Default 24.
 
@@ -96,9 +96,19 @@ Horizontal padding inside the panel. Default 24.
 
 > `optional` **panelColor?**: `string`
 
-Defined in: [vn/src/VNTextbox.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L22)
+Defined in: vn/src/VNTextbox.ts:30
 
 Fill colour of the dialogue panel as a CSS colour string. Default '#0d0d1a'.
+
+***
+
+### scene
+
+> **scene**: `Scene`
+
+Defined in: vn/src/VNTextbox.ts:20
+
+The scene to spawn the textbox's widget entities into.
 
 ***
 
@@ -106,9 +116,19 @@ Fill colour of the dialogue panel as a CSS colour string. Default '#0d0d1a'.
 
 > `optional` **textColor?**: `string`
 
-Defined in: [vn/src/VNTextbox.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L26)
+Defined in: vn/src/VNTextbox.ts:34
 
 Text colour as a CSS colour string. Default '#ffffff'.
+
+***
+
+### tree
+
+> **tree**: `WidgetTree`
+
+Defined in: vn/src/VNTextbox.ts:22
+
+The scene's widget tree — the textbox's entities are spawned/destroyed through it.
 
 ***
 
@@ -116,20 +136,9 @@ Text colour as a CSS colour string. Default '#ffffff'.
 
 > `optional` **typewriterSpeed?**: `number`
 
-Defined in: [vn/src/VNTextbox.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L41)
+Defined in: vn/src/VNTextbox.ts:49
 
 Typewriter reveal speed in characters per second. When set, text is
 revealed character by character with line breaks pre-calculated so words
-never split across lines mid-reveal. Click or call skipTypewriter() to
-jump to the end. Set to 0 or omit for instant display.
-
-***
-
-### ui
-
-> **ui**: `UISystem`
-
-Defined in: [vn/src/VNTextbox.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/vn/src/VNTextbox.ts#L14)
-
-Scene UI system. The textbox registers itself as a root widget here and
-removes itself when destroy() is called.
+never split across lines mid-reveal. Call `handlePointerDown()` or
+`skipTypewriter()` to jump to the end. Set to 0 or omit for instant display.

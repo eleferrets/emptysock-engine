@@ -49,7 +49,7 @@ export interface CoroutineHandle {
  * than instantiating one `CoroutineSystem` per entity for what is usually
  * zero or one running coroutine per entity at a time.
  *
- * Cancellation is two-layered, per RELEASE_PASS.md's Track 0 decision:
+ * Cancellation is two-layered, per the release notes Track 0 decision:
  * 1. **Liveness check.** `updateCoroutines()` checks `entity.isAlive` before
  *    resuming each coroutine and stops it (without resuming) the moment the
  *    entity is dead — the same versioned-handle guarantee every other ECS

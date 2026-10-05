@@ -4,7 +4,7 @@ import { Transform } from "../components/Transform.js";
 import { Sprite } from "../components/Sprite.js";
 import { PhysicsBody } from "../components/PhysicsBody.js";
 
-describe("defineComponent schema (ENGINE_DESIGN.md §10.1)", () => {
+describe("defineComponent schema", () => {
   it("is undefined when no schema option is passed — not an error", () => {
     const NoSchema = defineComponent("NoSchemaThing", () => ({ hp: 10 }));
     expect(NoSchema.schema).toBeUndefined();

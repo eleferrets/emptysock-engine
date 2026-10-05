@@ -8,7 +8,7 @@
 
 > **loadToolchainSettings**(`projectDir`): `object`
 
-Defined in: [toolchain/src/ToolchainSettings.ts:74](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/toolchain/src/ToolchainSettings.ts#L74)
+Defined in: toolchain/src/ToolchainSettings.ts:115
 
 ## Parameters
 

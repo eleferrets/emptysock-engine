@@ -1,7 +1,7 @@
 import { defineComponent } from "../Component.js";
 
 /**
- * Layout style *inputs* for one widget entity (RELEASE_PASS.md Track 3 /
+ * Layout style *inputs* for one widget entity (the release notes Track 3 /
  * ground rule 4a). Mirrors the subset of `yoga-layout`'s `Node` setters
  * `WidgetTree`'s layout pass actually drives — a small, deliberately
  * incomplete slice (enough for a scrollable list: a column or row of

@@ -46,7 +46,7 @@ export type Binding =
 
 export type ActionMap = Record<string, readonly Binding[]>;
 
-/** Read-only, per-frame-frozen keyboard state — ENGINE_DESIGN.md §15.3's raw escape hatch. */
+/** Read-only, per-frame-frozen keyboard state — the engine design notes's raw escape hatch. */
 export interface KeyboardSnapshot {
   /** Physical: is the key with this `KeyboardEvent.code` down. */
   isDown(code: string): boolean;
@@ -222,7 +222,7 @@ const EMPTY_FROZEN_STATE: FrozenInputState = {
 };
 
 /**
- * ENGINE_DESIGN.md §4 step 1 / §15.3 — the action-mapping input layer.
+ * the engine design notes step 1 / §15.3 — the action-mapping input layer.
  *
  * `input.isDown("jump")` is the default and only thing most games touch;
  * `input.keyboard`/`input.gamepad(0)`/`input.pointers`/`input.gestures`/
@@ -248,7 +248,7 @@ export class InputManager {
   private _actions: ActionMap;
   /**
    * The `actions` map this instance was constructed with, kept verbatim so
-   * `resetToDefaults()` has something real to restore to (ENGINE_DESIGN.md
+   * `resetToDefaults()` has something real to restore to (the engine design notes
    * §15.3's accessibility primitive #1: a player can always get back to the
    * shipped control scheme after rebinding).
    */
@@ -412,7 +412,7 @@ export class InputManager {
   }
 
   /**
-   * ENGINE_DESIGN.md §4 step 1. Copies the current live device state into
+   * the engine design notes step 1. Copies the current live device state into
    * this frame's frozen snapshot. `Game.update()` calls this exactly once,
    * before anything else runs. Calling it again mid-frame (nothing in the
    * engine does) would advance the snapshot early — tests that want to

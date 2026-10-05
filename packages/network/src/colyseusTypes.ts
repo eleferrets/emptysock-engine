@@ -4,7 +4,7 @@
  * (`getStateCallbacks(room)` returning a `$(instance)` proxy with
  * `.listen(field, cb)`, and collections exposing `.onAdd`/`.onRemove` — see
  * https://docs.colyseus.io/state/callbacks and the 0.16 migration guide)
- * rather than assumed from memory, per ENGINE_DESIGN.md's own standard for
+ * rather than assumed from memory, per the engine design notes own standard for
  * load-bearing external-library claims.
  *
  * Kept structural/minimal (not `import type { Room } from "colyseus.js"`

@@ -23,7 +23,7 @@ import { componentRegistry } from "../ComponentRegistry.js";
 import { Layout, LayoutStyle } from "../components/Layout.js";
 
 /**
- * RELEASE_PASS.md Track 3 / ground rule 4a's real relation. Every widget
+ * the release notes Track 3 / ground rule 4a's real relation. Every widget
  * entity that has a parent carries one `WidgetParent(parentEid)` pair
  * component pointing at it. `withAutoRemoveSubject()` means destroying a
  * parent widget's underlying entity cascades: bitECS removes the relation
@@ -48,14 +48,14 @@ export const WidgetParent: Relation<unknown> = createRelation(
  * sorts that query's results by hierarchy depth ascending, so every root
  * widget (depth 0, no `WidgetParent` component) comes before its children,
  * and every child comes before its own children in turn. This is the real
- * mechanism RELEASE_PASS.md's "queryHierarchy/Cascade" note was pointing
+ * mechanism the release notes "queryHierarchy/Cascade" note was pointing
  * at: `queryHierarchy` itself is an internal bitECS function, not part of
  * the public API surface bitecs@0.4.0 actually exports — the *documented*
  * and exported way to get the same depth-ordered traversal is `query()`
  * plus the `Hierarchy()`/`Cascade()` query-term modifier (the two are
  * literally the same function under an alias in this version).
  *
- * `yoga-layout@3.2.1` does the actual measure/arrange math (RELEASE_PASS.md
+ * `yoga-layout@3.2.1` does the actual measure/arrange math (the release notes
  * Track 3's library-first decision) — this class never reimplements flexbox
  * itself. It mirrors the bitECS relation tree into yoga `Node`s, one per widget
  * id, reused across `layout()` calls (styles updated, children re-linked,
@@ -71,7 +71,7 @@ export class WidgetTree {
   /**
    * Loads yoga's WASM module. Must be awaited before the first `layout()`
    * call. Deliberately separate from the constructor (which stays
-   * synchronous) — RELEASE_PASS.md flagged confirming yoga's async
+   * synchronous) — the release notes flagged confirming yoga's async
    * `loadYoga()` composes with the engine's synchronous boot path as the
    * one real integration risk here; keeping `init()` as an explicit,
    * separately-awaited step (the same shape `RenderPipeline.init()` and

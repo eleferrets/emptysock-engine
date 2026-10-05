@@ -6,7 +6,7 @@
  * component (there is no 3D component) — there is no plan to retrofit it
  * onto `PhysicsBody`/bitECS, since `SceneLifecycle` (Game.ts) only has room
  * for one physics system slot and 3D games are the minority case
- * (ENGINE_DESIGN.md §10 round 1 item 3: "3D is not held to the same
+ * (the engine design notes round 1 item 3: "3D is not held to the same
  * 'hide everything' bar as 2D"). A 3D game constructs and owns this
  * directly, the same way `{ manageLifecycle: false }` hands back raw
  * systems for manual ownership — see `Game.ts`'s escape hatch. It adds

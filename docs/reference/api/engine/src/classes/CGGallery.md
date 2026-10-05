@@ -6,7 +6,17 @@
 
 # Class: CGGallery
 
-Defined in: [engine/src/systems/CGGallery.ts:18](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L18)
+Defined in: engine/src/systems/CGGallery.ts:24
+
+the release notes Track 3 — a real, confirmed-live IDE feature, not dead
+code. Persists unlock flags through a `StorageAdapter`, the same
+interface `InputManager.saveBindings()`/`loadBindings()` already use for
+a `Game`-level settings blob, not `SaveSystem` — a CG gallery's unlock
+flags are exactly the same shape of problem `InputManager`'s bindings
+were: a small, scene-independent blob, not per-entity component data, so
+`SaveSystem`'s `Scene`/`ComponentDef`-bound save/load API (it serializes
+a `Scene`'s live entities, not an arbitrary settings object) is the wrong
+shape for it.
 
 ## Constructors
 
@@ -14,7 +24,7 @@ Defined in: [engine/src/systems/CGGallery.ts:18](https://github.com/eleferrets/e
 
 > **new CGGallery**(`opts`): `CGGallery`
 
-Defined in: [engine/src/systems/CGGallery.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L24)
+Defined in: engine/src/systems/CGGallery.ts:28
 
 #### Parameters
 
@@ -34,7 +44,7 @@ Defined in: [engine/src/systems/CGGallery.ts:24](https://github.com/eleferrets/e
 
 > **get** **entries**(): readonly [`CGEntry`](../interfaces/CGEntry.md)[]
 
-Defined in: [engine/src/systems/CGGallery.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L53)
+Defined in: engine/src/systems/CGGallery.ts:74
 
 ##### Returns
 
@@ -48,7 +58,7 @@ readonly [`CGEntry`](../interfaces/CGEntry.md)[]
 
 > **get** **totalCount**(): `number`
 
-Defined in: [engine/src/systems/CGGallery.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L61)
+Defined in: engine/src/systems/CGGallery.ts:82
 
 ##### Returns
 
@@ -62,7 +72,7 @@ Defined in: [engine/src/systems/CGGallery.ts:61](https://github.com/eleferrets/e
 
 > **get** **unlockedCount**(): `number`
 
-Defined in: [engine/src/systems/CGGallery.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L65)
+Defined in: engine/src/systems/CGGallery.ts:86
 
 ##### Returns
 
@@ -76,7 +86,7 @@ Defined in: [engine/src/systems/CGGallery.ts:65](https://github.com/eleferrets/e
 
 > **get** **unlockedEntries**(): [`CGEntry`](../interfaces/CGEntry.md)[]
 
-Defined in: [engine/src/systems/CGGallery.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L57)
+Defined in: engine/src/systems/CGGallery.ts:78
 
 ##### Returns
 
@@ -88,7 +98,7 @@ Defined in: [engine/src/systems/CGGallery.ts:57](https://github.com/eleferrets/e
 
 > **isUnlocked**(`id`): `boolean`
 
-Defined in: [engine/src/systems/CGGallery.ts:49](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L49)
+Defined in: engine/src/systems/CGGallery.ts:70
 
 #### Parameters
 
@@ -104,32 +114,50 @@ Defined in: [engine/src/systems/CGGallery.ts:49](https://github.com/eleferrets/e
 
 ### load()
 
-> **load**(): `void`
+> **load**(`adapter`, `key?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/CGGallery.ts:31](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L31)
+Defined in: engine/src/systems/CGGallery.ts:33
 
-Load unlocked flags from the save system
+Load previously `save()`-persisted unlock flags. Leaves the gallery untouched if nothing was stored under `key` or it couldn't be parsed.
+
+#### Parameters
+
+##### adapter
+
+[`StorageAdapter`](../interfaces/StorageAdapter.md)
+
+##### key?
+
+`string` = `"emptysock_cg_gallery"`
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
 ***
 
 ### unlock()
 
-> **unlock**(`id`): `void`
+> **unlock**(`adapter`, `id`, `key?`): `Promise`\<`void`\>
 
-Defined in: [engine/src/systems/CGGallery.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CGGallery.ts#L43)
+Defined in: engine/src/systems/CGGallery.ts:60
 
-Mark a CG as unlocked and persist
+Mark a CG as unlocked and persist immediately.
 
 #### Parameters
+
+##### adapter
+
+[`StorageAdapter`](../interfaces/StorageAdapter.md)
 
 ##### id
 
 `string`
 
+##### key?
+
+`string` = `"emptysock_cg_gallery"`
+
 #### Returns
 
-`void`
+`Promise`\<`void`\>

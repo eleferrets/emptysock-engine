@@ -6,7 +6,7 @@
 
 # Interface: PinchGesture
 
-Defined in: [engine/src/systems/PointerSystem.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L55)
+Defined in: engine/src/systems/PointerSystem.ts:55
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:55](https://github.com/eleferre
 
 > **deltaScale**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L65)
+Defined in: engine/src/systems/PointerSystem.ts:65
 
 scale delta since the previous pinch event this gesture.
 
@@ -24,7 +24,7 @@ scale delta since the previous pinch event this gesture.
 
 > **distance**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:61](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L61)
+Defined in: engine/src/systems/PointerSystem.ts:61
 
 Current distance between the two pointers.
 
@@ -34,7 +34,7 @@ Current distance between the two pointers.
 
 > **scale**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:63](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L63)
+Defined in: engine/src/systems/PointerSystem.ts:63
 
 distance / startDistance — 1 means no change, >1 means spreading, <1 means pinching in.
 
@@ -44,7 +44,7 @@ distance / startDistance — 1 means no change, >1 means spreading, <1 means pin
 
 > **type**: `"pinch"`
 
-Defined in: [engine/src/systems/PointerSystem.ts:56](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L56)
+Defined in: engine/src/systems/PointerSystem.ts:56
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: [engine/src/systems/PointerSystem.ts:56](https://github.com/eleferre
 
 > **x**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:58](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L58)
+Defined in: engine/src/systems/PointerSystem.ts:58
 
 Center point between the two pointers, in the same coordinate space as pointer x/y.
 
@@ -62,4 +62,4 @@ Center point between the two pointers, in the same coordinate space as pointer x
 
 > **y**: `number`
 
-Defined in: [engine/src/systems/PointerSystem.ts:59](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/PointerSystem.ts#L59)
+Defined in: engine/src/systems/PointerSystem.ts:59

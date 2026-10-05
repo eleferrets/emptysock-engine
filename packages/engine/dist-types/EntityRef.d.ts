@@ -1,6 +1,6 @@
 /**
  * Stable, serialisable reference to an entity within one `Scene`
- * (docs/research/06-cross-entity-relationships.md section 3.1).
+ *.
  *
  * A plain object so it satisfies `Serializable` and survives a JSON round
  * trip. `$ref` is a per-scene `EntityId`: a monotonic counter that is never

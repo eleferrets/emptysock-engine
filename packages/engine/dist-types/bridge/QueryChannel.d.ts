@@ -5,7 +5,7 @@ import { type PhysicsSystem } from "../systems/PhysicsSystem.js";
 import type { ActorSystem } from "../ActorSystem.js";
 import type { Message } from "../Actor.js";
 /**
- * ENGINE_DESIGN.md §8 / RELEASE_PASS.md "MCP live bridge" — the engine-side
+ * the engine design notes / the release notes "MCP live bridge" — the engine-side
  * half of the query/command channel `emptysock-mcp`'s physics/scene tools
  * (`physics_raycast_2d`, `physics_overlap_circle`, `physics_body_state`,
  * entity/component reads and scene entity listing, entity creation,
@@ -48,7 +48,7 @@ import type { Message } from "../Actor.js";
  *
  * ## No live instance, no fabricated answer
  *
- * ENGINE_DESIGN.md §8: "No live instance connected → a clear error, not a
+ * the engine design notes: "No live instance connected → a clear error, not a
  * fabricated answer." Every `handle()` call first checks whether a `Scene`
  * is attached at all; if not, every query kind — including ones that would
  * otherwise have a legitimate "empty" answer, like `listEntities` — returns
@@ -223,7 +223,7 @@ export interface EntitySummary {
   entityId: number;
   components: string[];
   /**
-   * From the entity's optional `Meta` component (RELEASE_PASS.md Track 0's
+   * From the entity's optional `Meta` component (the release notes Track 0's
    * deferred IDEBridge/QueryChannel unification, resolved by
    * `ecs/components/Meta.ts`) — `undefined`/absent fields mean the entity
    * carries no `Meta` component at all, the common case for a purely
@@ -283,7 +283,7 @@ export interface QueryChannelAttachOptions {
   navmesh?: NavMeshQuerySource;
 }
 /**
- * The engine-side query/command channel (ENGINE_DESIGN.md §8). See the
+ * The engine-side query/command channel. See the
  * module doc comment above for the transport-agnostic contract and the
  * no-live-instance-vs-empty-result distinction. One instance is meant to be
  * long-lived across scene reloads: call `attach()` again after every

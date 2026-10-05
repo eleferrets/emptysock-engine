@@ -174,7 +174,7 @@ export declare class RenderSystem {
   /**
    * Reads `postProcess.layerFilters` and applies the real PixiJS filter for
    * each entry to that layer's container, per the effect-to-library mapping
-   * decided in RELEASE_PASS.md Track 0's scope-hardening section: `blur` →
+   * decided in the release notes Track 0's scope-hardening section: `blur` →
    * pixi.js core's `BlurFilter`; `brightness`/`contrast`/`saturate`/
    * `hue-rotate`/`invert`/`colour-grade`/`colourblind` → pixi.js core's
    * `ColorMatrixFilter` (colourblind reuses `PostProcessSystem`'s own

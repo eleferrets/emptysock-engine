@@ -8,7 +8,7 @@ import {
 
 const Health = defineComponent("Health", () => ({ hp: 100 }));
 
-describe("@emptysock/engine/testing (ENGINE_DESIGN.md §15.1)", () => {
+describe("@emptysock/engine/testing", () => {
   it("createHeadlessScene supports spawn/add/get/each with no Game wrapper", () => {
     const scene = createHeadlessScene();
     const entity = scene.spawn();

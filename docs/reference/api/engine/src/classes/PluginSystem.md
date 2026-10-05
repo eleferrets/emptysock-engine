@@ -6,7 +6,7 @@
 
 # Class: PluginSystem
 
-Defined in: [engine/src/core/PluginSystem.ts:17](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L17)
+Defined in: engine/src/PluginSystem.ts:17
 
 ## Constructors
 
@@ -26,7 +26,7 @@ Defined in: [engine/src/core/PluginSystem.ts:17](https://github.com/eleferrets/e
 
 > **get** **registeredPlugins**(): readonly `string`[]
 
-Defined in: [engine/src/core/PluginSystem.ts:46](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L46)
+Defined in: engine/src/PluginSystem.ts:51
 
 ##### Returns
 
@@ -38,7 +38,7 @@ readonly `string`[]
 
 > **inject**\<`T`\>(`key`): `T` \| `undefined`
 
-Defined in: [engine/src/core/PluginSystem.ts:42](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L42)
+Defined in: engine/src/PluginSystem.ts:47
 
 #### Type Parameters
 
@@ -62,7 +62,7 @@ Defined in: [engine/src/core/PluginSystem.ts:42](https://github.com/eleferrets/e
 
 > **register**(`plugin`): `Promise`\<`void`\>
 
-Defined in: [engine/src/core/PluginSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L26)
+Defined in: engine/src/PluginSystem.ts:29
 
 #### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [engine/src/core/PluginSystem.ts:26](https://github.com/eleferrets/e
 
 > **unregister**(`name`): `Promise`\<`void`\>
 
-Defined in: [engine/src/core/PluginSystem.ts:35](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/core/PluginSystem.ts#L35)
+Defined in: engine/src/PluginSystem.ts:40
 
 #### Parameters
 

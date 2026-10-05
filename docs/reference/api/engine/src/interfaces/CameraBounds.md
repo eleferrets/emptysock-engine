@@ -6,7 +6,7 @@
 
 # Interface: CameraBounds
 
-Defined in: [engine/src/systems/CameraSystem.ts:12](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L12)
+Defined in: engine/src/systems/CameraSystem.ts:12
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:12](https://github.com/eleferret
 
 > **maxX**: `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:15](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L15)
+Defined in: engine/src/systems/CameraSystem.ts:15
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:15](https://github.com/eleferret
 
 > **maxY**: `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:16](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L16)
+Defined in: engine/src/systems/CameraSystem.ts:16
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/systems/CameraSystem.ts:16](https://github.com/eleferret
 
 > **minX**: `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:13](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L13)
+Defined in: engine/src/systems/CameraSystem.ts:13
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [engine/src/systems/CameraSystem.ts:13](https://github.com/eleferret
 
 > **minY**: `number`
 
-Defined in: [engine/src/systems/CameraSystem.ts:14](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/CameraSystem.ts#L14)
+Defined in: engine/src/systems/CameraSystem.ts:14

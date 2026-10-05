@@ -33,7 +33,7 @@ import { clearEntitySignals } from "./systems/SignalBus.js";
  * A `scene.each(...)` callback receives one live component object per
  * component argument, plus the `Entity` handle last. Unlike `entity.get()`,
  * these are read directly off bitECS's raw arrays for the frame's iteration
- * — no proxy allocation (ENGINE_DESIGN.md §21: "measurably faster because it
+ * — no proxy allocation (the engine design notes: "measurably faster because it
  * skips proxy overhead altogether"). Mutate them in place; the write lands
  * straight in the underlying array.
  */
@@ -45,7 +45,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
 ) => void;
 
 /**
- * ENGINE_DESIGN.md §3/§16.1/§21 — the ECS world for one running scene. A
+ * the engine design notes/§16.1/§21 — the ECS world for one running scene. A
  * `Scene` owns exactly one bitECS `World`, with versioned entity IDs enabled
  * by default (§23) so a stale `Entity` handle can never silently alias a
  * different, newly-spawned entity.
@@ -56,7 +56,7 @@ type EachCallback<T extends readonly ComponentDef[]> = (
  * headless testing harness in `testing/index.ts` possible without dragging
  * in a renderer.
  */
-/** Options for `scene.spawn(prefab, props, options)` — ENGINE_DESIGN.md §12.4. */
+/** Options for `scene.spawn(prefab, props, options)` — the engine design notes */
 export interface SpawnOptions {
   /**
    * Fold pooling into spawn/destroy (§12.4). When `true`, `scene.destroy()`
@@ -99,7 +99,7 @@ export class Scene {
   /** Spawn a new, empty entity. Attach components with `entity.add(...)`. */
   spawn(name?: string): Entity;
   /**
-   * Spawn a `Prefab` (ENGINE_DESIGN.md §11.2) as a unit onto one new entity
+   * Spawn a `Prefab` as a unit onto one new entity
    * — every component the prefab declares, plus everything it `extends`
    * flattened in first. `props` is a flat, `Serializable` prop bag applied
    * on top of the prefab's own per-component defaults/overrides: a value
@@ -335,7 +335,7 @@ export class Scene {
   }
 
   /**
-   * Bulk-iteration power path (ENGINE_DESIGN.md §11.3 — `each`, not
+   * Bulk-iteration power path (the engine design notes — `each`, not
    * `query`). Bypasses the `.get()` proxy layer entirely: components are
    * read straight off bitECS's arrays, and `entity` is only constructed
    * (cheaply — it's a handle, not an allocation of game state) for the
@@ -352,7 +352,7 @@ export class Scene {
     // One reusable "cursor" view per component, built with real
     // getters/setters (not a Proxy trap) bound to a shared mutable index —
     // zero per-entity allocation, and no Proxy indirection at all, matching
-    // ENGINE_DESIGN.md §21's "bypasses the proxy layer entirely, iterates
+    // the engine design notes's "bypasses the proxy layer entirely, iterates
     // the raw arrays directly" (this is the fast path `.get()`'s cached
     // per-entity Proxy exists to be faster than).
     const cursor = { i: 0 };
@@ -384,7 +384,7 @@ export class Scene {
 
 /**
  * Builds one reusable, no-Proxy view onto a component's parallel arrays for
- * `scene.each` (ENGINE_DESIGN.md §21). Built once per `each()` call (not per
+ * `scene.each`. Built once per `each()` call (not per
  * entity), it exposes one real accessor property per field, closing over
  * `cursor` — the caller advances `cursor.i` to the current entity id before
  * invoking the callback each iteration. No Proxy trap indirection, no

@@ -8,7 +8,7 @@
 
 > **StateCallbacksProxy**\<`T`\> = [`SchemaProxyLike`](../interfaces/SchemaProxyLike.md)\<`T`\> & [`SchemaCollectionLike`](../interfaces/SchemaCollectionLike.md)\<`T`\> & `object`
 
-Defined in: [network/src/colyseusTypes.ts:47](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/colyseusTypes.ts#L47)
+Defined in: network/src/colyseusTypes.ts:47
 
 What `getStateCallbacks(room)` returns: calling it on a `Schema` instance
 gives you `SchemaProxyLike`; calling it on a `MapSchema`/`ArraySchema`

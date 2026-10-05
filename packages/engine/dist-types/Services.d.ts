@@ -1,5 +1,5 @@
 /**
- * ENGINE_DESIGN.md §5 — the typed, explicit replacement for Godot-style
+ * the engine design notes — the typed, explicit replacement for Godot-style
  * autoloads: `PluginSystem` and `VariableStore` are registered here (see
  * `Game`'s constructor), rather than either shipping as a bare module-level
  * singleton, so a consumer never has to thread a reference through scene

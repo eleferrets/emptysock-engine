@@ -9,7 +9,7 @@ export interface ContactInfo {
 export type CollisionCallback = (other: Entity, contact: ContactInfo) => void;
 export type SensorCallback = (other: Entity) => void;
 /**
- * Plain-data shape of `PhysicsBody` (ENGINE_DESIGN.md §6) — everything Rapier
+ * Plain-data shape of `PhysicsBody` — everything Rapier
  * needs, expressed in plain-language properties instead of raw Rapier
  * descriptors/handles. This is the object `defineComponent` stores in
  * bitECS's per-field arrays, so it must satisfy `SerializableRecord` — no

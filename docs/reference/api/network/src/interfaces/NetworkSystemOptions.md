@@ -6,7 +6,7 @@
 
 # Interface: NetworkSystemOptions
 
-Defined in: [network/src/NetworkSystem.ts:20](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L20)
+Defined in: network/src/NetworkSystem.ts:20
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [network/src/NetworkSystem.ts:20](https://github.com/eleferrets/empt
 
 > `readonly` **collection**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:24](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L24)
+Defined in: network/src/NetworkSystem.ts:24
 
 Property name on `room.state` holding the `MapSchema` of networked entities, e.g. `"players"`.
 
@@ -24,7 +24,7 @@ Property name on `room.state` holding the `MapSchema` of networked entities, e.g
 
 > `readonly` **components**: readonly `ComponentDef`\<`SerializableRecord`\>[]
 
-Defined in: [network/src/NetworkSystem.ts:26](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L26)
+Defined in: network/src/NetworkSystem.ts:26
 
 Every `ComponentDef` a networked entity in this collection may carry. Only fields marked via `networked()` are synced.
 
@@ -34,7 +34,7 @@ Every `ComponentDef` a networked entity in this collection may carry. Only field
 
 > `readonly` **getStateCallbacks**: [`GetStateCallbacksFn`](../type-aliases/GetStateCallbacksFn.md)
 
-Defined in: [network/src/NetworkSystem.ts:43](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L43)
+Defined in: network/src/NetworkSystem.ts:43
 
 Injectable in place of colyseus.js's real `getStateCallbacks` — lets
 tests supply a fake room/schema without a live Colyseus server. In
@@ -47,7 +47,7 @@ game code, pass the real `getStateCallbacks` imported from
 
 > `readonly` `optional` **localId?**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:34](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L34)
+Defined in: network/src/NetworkSystem.ts:34
 
 Network id owned by this client (usually `room.sessionId`). The entity
 mapped to this id is treated as locally-authoritative: its networked
@@ -61,7 +61,7 @@ server-authoritative / spectator setup where nothing is sent outbound.
 
 > `readonly` `optional` **messageType?**: `string`
 
-Defined in: [network/src/NetworkSystem.ts:36](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L36)
+Defined in: network/src/NetworkSystem.ts:36
 
 `room.send` message type used for outbound field updates. Default `"networkSync"`.
 
@@ -71,7 +71,7 @@ Defined in: [network/src/NetworkSystem.ts:36](https://github.com/eleferrets/empt
 
 > `readonly` **room**: [`RoomLike`](RoomLike.md)
 
-Defined in: [network/src/NetworkSystem.ts:22](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L22)
+Defined in: network/src/NetworkSystem.ts:22
 
 ***
 
@@ -79,4 +79,4 @@ Defined in: [network/src/NetworkSystem.ts:22](https://github.com/eleferrets/empt
 
 > `readonly` **scene**: `Scene`
 
-Defined in: [network/src/NetworkSystem.ts:21](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/network/src/NetworkSystem.ts#L21)
+Defined in: network/src/NetworkSystem.ts:21

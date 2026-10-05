@@ -6,7 +6,7 @@
 
 # Interface: GetVariableNode
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:53](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L53)
+Defined in: engine/src/components/VisualScript.ts:51
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:53](https://github.c
 
 > **id**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L25)
+Defined in: engine/src/components/VisualScript.ts:23
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:25](https://github.c
 
 > **kind**: `"getVariable"`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:54](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L54)
+Defined in: engine/src/components/VisualScript.ts:52
 
 #### Overrides
 
@@ -42,7 +42,7 @@ Defined in: [engine/src/components/VisualScriptComponent.ts:54](https://github.c
 
 > **next**: `string`[]
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:28](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L28)
+Defined in: engine/src/components/VisualScript.ts:26
 
 Node ids wired to this node's execution output(s), in port order.
 
@@ -56,7 +56,7 @@ Node ids wired to this node's execution output(s), in port order.
 
 > **outputKey**: `string`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:57](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L57)
+Defined in: engine/src/components/VisualScript.ts:55
 
 Result is written into this evaluation-scope key for downstream nodes.
 
@@ -66,4 +66,4 @@ Result is written into this evaluation-scope key for downstream nodes.
 
 > **variableIndex**: `number`
 
-Defined in: [engine/src/components/VisualScriptComponent.ts:55](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/components/VisualScriptComponent.ts#L55)
+Defined in: engine/src/components/VisualScript.ts:53

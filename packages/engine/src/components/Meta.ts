@@ -1,7 +1,7 @@
 import { defineComponent } from "../Component.js";
 
 /**
- * RELEASE_PASS.md Track 0's deferred "unify `IDEBridge` into `QueryChannel`"
+ * the release notes Track 0's deferred "unify `IDEBridge` into `QueryChannel`"
  * item named the real blocker precisely: `QueryChannel`'s `EntitySummary`
  * has no `name`/`tags`/`active` fields the IDE's live Inspector needs,
  * because bitECS entities have no built-in name/tag/active-flag notion —

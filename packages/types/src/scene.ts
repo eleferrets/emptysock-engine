@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Unified scene document (`SceneDocument`, `formatVersion: 2`) shared by the
  * IDE, the toolchain and the runtime loader. See
- * docs/research/13-unified-scene-shape.md. The engine keeps a zod-free
+ * the design notes. The engine keeps a zod-free
  * structural copy (`packages/engine/src/SceneDocument.ts`); this file is the
  * validation source of truth for tools that can depend on zod.
  */

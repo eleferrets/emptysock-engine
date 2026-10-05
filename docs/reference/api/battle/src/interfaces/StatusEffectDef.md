@@ -6,7 +6,7 @@
 
 # Interface: StatusEffectDef
 
-Defined in: [battle/src/BattleSystem.ts:65](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L65)
+Defined in: battle/src/BattleSystem.ts:58
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [battle/src/BattleSystem.ts:65](https://github.com/eleferrets/emptys
 
 > `optional` **attackMultiplier?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:69](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L69)
+Defined in: battle/src/BattleSystem.ts:62
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [battle/src/BattleSystem.ts:69](https://github.com/eleferrets/emptys
 
 > `optional` **defenseMultiplier?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:70](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L70)
+Defined in: battle/src/BattleSystem.ts:63
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [battle/src/BattleSystem.ts:70](https://github.com/eleferrets/emptys
 
 > `optional` **hpDrainPercentPerTurn?**: `number`
 
-Defined in: [battle/src/BattleSystem.ts:68](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L68)
+Defined in: battle/src/BattleSystem.ts:61
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [battle/src/BattleSystem.ts:68](https://github.com/eleferrets/emptys
 
 > **id**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:66](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L66)
+Defined in: battle/src/BattleSystem.ts:59
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [battle/src/BattleSystem.ts:66](https://github.com/eleferrets/emptys
 
 > **name**: `string`
 
-Defined in: [battle/src/BattleSystem.ts:67](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/battle/src/BattleSystem.ts#L67)
+Defined in: battle/src/BattleSystem.ts:60

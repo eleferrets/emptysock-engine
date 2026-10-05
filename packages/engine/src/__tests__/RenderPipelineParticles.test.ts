@@ -25,7 +25,7 @@ const { ParticleSystem } = await import("../systems/ParticleSystem.js");
 const { Texture, ParticleContainer } = await import("pixi.js");
 
 /**
- * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` was already a pure
+ * the release notes Track 4's real gap: `ParticleEmitter` was already a pure
  * simulation with zero pixi dependency, but nothing wired it into real
  * gameplay rendering (only the IDE's canvas preview editor consumed
  * `getParticles()`). `mountParticles()`/`unmountParticles()` close that gap

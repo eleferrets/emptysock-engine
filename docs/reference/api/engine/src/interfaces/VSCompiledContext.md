@@ -6,7 +6,7 @@
 
 # Interface: VSCompiledContext
 
-Defined in: [engine/src/systems/VisualScriptCompiler.ts:37](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VisualScriptCompiler.ts#L37)
+Defined in: engine/src/systems/VisualScriptSystem.ts:33
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [engine/src/systems/VisualScriptCompiler.ts:37](https://github.com/e
 
 > **actorSystem**: [`ActorSystem`](../classes/ActorSystem.md) \| `null`
 
-Defined in: [engine/src/systems/VisualScriptCompiler.ts:39](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VisualScriptCompiler.ts#L39)
+Defined in: engine/src/systems/VisualScriptSystem.ts:35
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [engine/src/systems/VisualScriptCompiler.ts:39](https://github.com/e
 
 > **scope**: `Map`\<`string`, `number`\>
 
-Defined in: [engine/src/systems/VisualScriptCompiler.ts:41](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VisualScriptCompiler.ts#L41)
+Defined in: engine/src/systems/VisualScriptSystem.ts:37
 
 Per-trigger-run evaluation scope, cleared before each onUpdate/onEvent chain.
 
@@ -32,4 +32,4 @@ Per-trigger-run evaluation scope, cleared before each onUpdate/onEvent chain.
 
 > **variables**: [`VariableStore`](../classes/VariableStore.md)
 
-Defined in: [engine/src/systems/VisualScriptCompiler.ts:38](https://github.com/eleferrets/emptysock-engine/blob/8ae2998a8719cb4220793bada344be0c018e8882/packages/engine/src/systems/VisualScriptCompiler.ts#L38)
+Defined in: engine/src/systems/VisualScriptSystem.ts:34
