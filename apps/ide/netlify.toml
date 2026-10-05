@@ -7,6 +7,17 @@
   NODE_VERSION = "22"
   PNPM_VERSION = "9"
 
+# The static manual lives under /manual/ (directory index)
+[[redirects]]
+  from   = "/manual"
+  to     = "/manual/index.html"
+  status = 301
+
+[[redirects]]
+  from   = "/manual/"
+  to     = "/manual/index.html"
+  status = 200
+
 # SPA fallback — all routes serve index.html
 [[redirects]]
   from   = "/*"

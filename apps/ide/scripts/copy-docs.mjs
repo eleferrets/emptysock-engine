@@ -152,7 +152,21 @@ function inlineFormat(text) {
   // Strike
   text = text.replace(/~~(.+?)~~/g, "<del>$1</del>");
   // Links [text](url)
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => {
+    // Links to other manual pages point at the generated .html; links to docs
+    // that are not shipped with the manual (../guides, ../reference, CLAUDE.md)
+    // would 404, so they render as plain text.
+    const [target, hash = ""] = href.split("#");
+    if (/^(https?:|mailto:|#)/.test(href))
+      return `<a href="${href}">${label}</a>`;
+    if (target.endsWith(".md")) {
+      const name = target.replace(/^\.\//, "");
+      if (!name.includes("/"))
+        return `<a href="${name.replace(/\.md$/, ".html")}${hash ? `#${hash}` : ""}">${label}</a>`;
+      return label;
+    }
+    return `<a href="${href}">${label}</a>`;
+  });
   return text;
 }
 

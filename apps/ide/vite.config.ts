@@ -158,6 +158,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // The static manual is separate HTML, not part of the app shell.
+        navigateFallbackDenylist: [/^\/manual\//],
       },
     }),
     visualizer({ open: false, filename: "stats.html", gzipSize: true }),
