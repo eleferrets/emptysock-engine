@@ -520,7 +520,7 @@ const ui = new UISystem(widgetTree, { fonts: game.fonts });
 entity.add(Label, { text: "Play", fontId: "fnt_menu" });
 ```
 
-`Label`, `ButtonState`, and `Checkbox` each carry a `fontId` field alongside their existing raw `font`/`fontSize` fields — `fontId` is resolved through the injected `FontRegistry` when set and registered, falling back to the widget's own raw `font`/`fontSize` otherwise. `@emptysock/toolchain`'s GMS2 importer emits a generated `assets/<name>.font.ts` module (family/size/style metadata, plus a `BitmapFontDef` and a copied glyph atlas when the GameMaker font has one) ready to hand to `game.fonts.register()` / `game.fonts.registerBitmap()`. GML `draw_text` renders bitmap-font ids with pixi `BitmapText`; `Label` widgets still use the Canvas/CSS descriptor.
+`Label`, `ButtonState`, and `Checkbox` each carry a `fontId` field alongside their existing raw `font`/`fontSize` fields — `fontId` is resolved through the injected `FontRegistry` when set and registered, falling back to the widget's own raw `font`/`fontSize` otherwise.
 
 ---
 
@@ -900,7 +900,7 @@ evaluateCondition(vars, hasKey); // reads vars.getSwitch(2)
 
 ## 5.20 MapEventSystem
 
-Tile-aligned event system similar to RPG Maker / GMS2. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
+Tile-aligned event system similar to RPG Maker. Place events on tile coordinates; call `update()` each frame with the player's current tile position.
 
 ```typescript
 import { MapEventSystem, variableStore } from "@emptysock/engine";
@@ -1809,10 +1809,6 @@ lighting.ambient = { colour: 0xffffff, level: 0.1 };
 const lights = lighting.collectLights(scene, { x: cameraX, y: cameraY });
 renderSystem.syncLighting(lights, lighting.ambient, viewport);
 ```
-
-**GML compat.** `compat/gmlLighting.ts` wires a real, custom GameMaker lighting system (a `lightrender`-style controller plus per-instance light objects — GameMaker itself has no built-in lighting API) onto `LightSource`/`LightOccluder`: `light_attach(entity, ctx, radius, colour, options?)`, `light_set_enabled`/`_colour`/`_radius`/`_intensity`, `light_remove`, `light_occluder_attach(entity, ctx, width?, height?)`, `light_occluder_set_enabled`/`_remove`, and `lighting_set_ambient(ctx, colour, level)`/`lighting_get_ambient(ctx)` against an optional `ctx.lighting: LightingSystem`. See [LightingSystem reference](../reference/systems/lighting-system.md).
-
-**GML surface/blend cutout lighting.** `compat/gmlSurfaces.ts` supports the surface-based technique (`surface_create`/`surface_set_target`/`surface_reset_target`/`draw_surface`/`draw_clear`, `gpu_set_blendmode` with `bm_normal`/`bm_add`/`bm_max`/`bm_subtract`, `draw_ellipse_color`/`draw_triangle_color`, legacy `view_*view`) via `GmlActionContext.surfaces` (`RenderPipeline.surfaces`). See the reference page's cutout-lighting section.
 
 ---
 

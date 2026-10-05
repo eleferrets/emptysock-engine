@@ -75,7 +75,7 @@ Data is stored as `Record<"col,row", tileIndex>` per layer. Export the tilemap J
 
 ## 7.7 RoomEditor
 
-A canvas-based editor for placing and moving a scene's instances — the visual counterpart to a `.scene.json` file (the same format `@emptysock/toolchain`'s GMS2 room importer generates, see `RoomLayer`/`SceneFilePrefabInstance` in `@emptysock/engine`).
+A canvas-based editor for placing and moving a scene's instances — the visual counterpart to a `.scene.json` file (see `RoomLayer`/`SceneFilePrefabInstance` in `@emptysock/engine`).
 
 **Controls:**
 
@@ -85,17 +85,13 @@ A canvas-based editor for placing and moving a scene's instances — the visual 
 - **Position panel** (right, appears once an instance is selected): numeric X/Y, Rotation (degrees), and Scale X/Scale Y fields for precise placement — the same field names `Transform` uses, written straight into the instance's `props` so they round-trip through `loadSceneFile()` with no translation step.
 - **Undo/Redo**: toolbar buttons, also bound to Ctrl+Z / Ctrl+Shift+Z, capped at 50 steps per the IDE's shared `useHistory` convention.
 
-Every edit (drag, or a typed X/Y/Rotation/Scale field) writes the updated `.scene.json` straight back into the IDE's open-file store — the same file a GMS2-imported room's `prefabInstances` array lives in, so a room built by the importer is immediately editable here with no conversion step.
+Every edit (drag, or a typed X/Y/Rotation/Scale field) writes the updated `.scene.json` straight back into the IDE's open-file store (its `prefabInstances` array).
 
 ### Nine-slice and tiled instances
 
 An instance can be marked **Nine-slice** or **Tiled** with the side panel's **Slicing** select (writes `sliceMode` 1 or 2 into the instance's `props`; the matching `Sprite` fields are `sliceMode`, `sliceLeft/Right/Top/Bottom`, `width`, `height`). Such instances draw at their real `width` x `height`: nine-slice keeps corners at the guide sizes and stretches edges and centre (guides default to a third of the texture when all zero, like a real project's `draw_9slice`); tiled repeats the texture clipped to the box. The texture comes from the instance's or its open `*.prefab.json`'s `Sprite.texturePath` (a `data:` URL in an open file, else the path as a URL); until it loads, a labeled placeholder box of the real size is drawn.
 
 Select a nine-slice/tiled instance to get eight drag handles (corners and edge midpoints). The opposite edge stays fixed, the dragged edge snaps to the grid when Snap is on, and the result is written back to the `.scene.json` (`x`/`y` stay the centre) and is undoable. **Width**, **Height** and, for nine-slice, the four guide fields are also editable numerically. Saving preserves every other top-level field of the scene file (`entities`, `views`, ...).
-
-The GMS2 importer feeds this data: a sprite `.yy` `nineSlice` block with `enabled: true` seeds the prefab's `Sprite` slice fields, and a `GMRBackgroundLayer` with `htiled`/`vtiled` becomes a tiled `Sprite` entity (room-wide on the tiled axis). The runtime renderer does not draw slice/tile modes yet.
-
-There is no camera-viewport overlay: `@emptysock/toolchain`'s GMS2 room importer (`gms2-room-import.ts`) does not currently capture a room's view/camera data from the `.yy` file, so there is nothing for this editor to visualise yet. Capturing that data during import is the prerequisite for adding the overlay, not a RoomEditor-side gap.
 
 ---
 
@@ -501,10 +497,9 @@ directly into `NavMeshSystem.load()` with zero transformation.
 Undo/redo works within the panel session (`Ctrl+Z` / `Ctrl+Shift+Z`), backed
 by the shared `useHistory` hook, capped at 50 steps.
 
-**Known v1 gap:** there is no background tilemap/level image shown under the
+**Known limitation:** there is no background tilemap/level image shown under the
 navmesh layer yet — the canvas is a plain grid. A navmesh is normally
-authored over a level's tile layout, so this is a real, deliberately deferred
-follow-up (see `RELEASE_PASS.md`), not a silently dropped feature.
+authored over a level's tile layout, so this is a known limitation.
 
 ---
 

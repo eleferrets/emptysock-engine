@@ -162,7 +162,7 @@ Read-only snapshot: `{ x, y, zoom, rotation, viewWidth, viewHeight }`.
 
 ### `camera.viewX / viewY / viewWidth / viewHeight: number`
 
-Individual accessors matching GMS2's camera view conventions.
+Individual view accessors.
 
 ---
 
