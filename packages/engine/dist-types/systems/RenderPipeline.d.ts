@@ -9,6 +9,7 @@ import type { SceneRenderer } from "../Game.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+import type { LightingSystem } from "./LightingSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
 /**
  * The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
@@ -164,6 +165,8 @@ export declare class RenderPipeline implements SceneRenderer {
    * `PostProcessSystem` instance yet when the pipeline is constructed.
    */
   private _postProcess;
+  /** Set via `attachLighting()`. When present, `renderFrame()` calls `RenderSystem.syncLighting()` each frame for the main scene. */
+  private _lighting;
   /**
    * the release notes Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
@@ -246,6 +249,16 @@ export declare class RenderPipeline implements SceneRenderer {
     viewports: Parameters<RenderSystem["renderMultiCamera"]>[0],
   ): void;
   resize(width: number, height: number): void;
+  /**
+   * Attach (or detach, with `null`) a `LightingSystem`. While attached,
+   * `renderFrame()` rebuilds the lightmap for the main scene every frame
+   * (`RenderSystem.syncLighting()`) over the camera's visible world rect
+   * and applies it as a filter on `layerId` (default `"default"`).
+   * Detaching removes the filter and frees the lightmap.
+   */
+  attachLighting(lighting: LightingSystem | null, layerId?: string): void;
+  /** World-space rect the camera currently shows (stage translate + uniform scale; rotation ignored). */
+  private _visibleWorldRect;
   /**
    * `Game.update()` step 7's entry point (via `Game.attachRenderer(this)` —
    * this method is what makes `RenderPipeline` satisfy `SceneRenderer`

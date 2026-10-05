@@ -43,6 +43,7 @@ import { Projection3D } from "../components/Projection3D.js";
 import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
+import type { LightingSystem } from "./LightingSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
 import { getOrCreateMapEntry } from "../internal/scoped.js";
 
@@ -237,6 +238,9 @@ export class RenderPipeline implements SceneRenderer {
    * `PostProcessSystem` instance yet when the pipeline is constructed.
    */
   private _postProcess: PostProcessSystem | null = null;
+
+  /** Set via `attachLighting()`. When present, `renderFrame()` calls `RenderSystem.syncLighting()` each frame for the main scene. */
+  private _lighting: { system: LightingSystem; layerId: string } | null = null;
 
   /**
    * the release notes Track 4's real gap: `ParticleEmitter` is already a
@@ -468,6 +472,38 @@ export class RenderPipeline implements SceneRenderer {
   }
 
   /**
+   * Attach (or detach, with `null`) a `LightingSystem`. While attached,
+   * `renderFrame()` rebuilds the lightmap for the main scene every frame
+   * (`RenderSystem.syncLighting()`) over the camera's visible world rect
+   * and applies it as a filter on `layerId` (default `"default"`).
+   * Detaching removes the filter and frees the lightmap.
+   */
+  attachLighting(lighting: LightingSystem | null, layerId = "default"): void {
+    if (this._lighting !== null && lighting === null) {
+      this._render.clearLighting();
+    }
+    this._lighting = lighting === null ? null : { system: lighting, layerId };
+  }
+
+  /** World-space rect the camera currently shows (stage translate + uniform scale; rotation ignored). */
+  private _visibleWorldRect(): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const stage = this._render.stage;
+    const scale = stage.scale.x !== 0 ? stage.scale.x : 1;
+    const { width: w, height: h } = this._render.renderer;
+    return {
+      x: -stage.x / scale,
+      y: -stage.y / scale,
+      width: w / scale,
+      height: h / scale,
+    };
+  }
+
+  /**
    * `Game.update()` step 7's entry point (via `Game.attachRenderer(this)` —
    * this method is what makes `RenderPipeline` satisfy `SceneRenderer`
    * structurally). Syncs the main scene, then every overlay in call order,
@@ -483,6 +519,14 @@ export class RenderPipeline implements SceneRenderer {
       this.renderTransitionOverlay(this._postProcess);
     }
     this._syncParticles();
+    if (this._lighting !== null) {
+      this._render.syncLighting(
+        this._lighting.system,
+        main,
+        this._lighting.layerId,
+        this._visibleWorldRect(),
+      );
+    }
     this._render.render();
   }
 
