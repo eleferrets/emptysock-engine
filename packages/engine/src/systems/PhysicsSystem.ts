@@ -11,8 +11,6 @@ import {
   FixedTimestepAccumulator,
   lerpSnapshot,
 } from "./FixedTimestepAccumulator.js";
-import type { GmlActionContext } from "../compat/gmlActions.js";
-import { dispatchGmlCollision } from "./GmlCollision.js";
 
 type RapierModule = typeof RAPIER_TYPE;
 type World = InstanceType<RapierModule["World"]>;
@@ -107,17 +105,6 @@ export class PhysicsSystem {
   private readonly _colliderToEid = new Map<number, number>();
   /** Active sensor pairs, key `min(eid1,eid2):max(eid1,eid2)` — drives sensorStay. */
   private readonly _activeSensorPairs = new Map<string, [number, number]>();
-  /**
-   * Optional — set via `attachGmlDispatch()` by a game that wants physics
-   * contacts to also fire a GMS2-imported object's GML `onCollideWith<Type>`
-   * handler (CLAUDE.md's "GML behavior dispatch" entry: a `physicsObject:
-   * true` GameMaker object still has a real Collision event in GameMaker
-   * even though it also gets a `PhysicsBody`). `undefined` by default —
-   * `PhysicsSystem` has no GML concept otherwise and must not require one to
-   * function, the same "engine defines the interface, whoever has a live
-   * instance wires the concrete implementation" pattern as `StorageAdapter`.
-   */
-  private _gmlContext: GmlActionContext | undefined;
 
   async init(options: PhysicsSystemOptions = {}): Promise<void> {
     // Imported via a non-literal specifier on purpose: the deterministic
@@ -175,19 +162,6 @@ export class PhysicsSystem {
    * fixed timestep, and dispatches collision/sensor callbacks after each
    * step (ENGINE_DESIGN.md §4 steps 3–4). Called from `Game.update()`.
    */
-  /**
-   * Opts this `PhysicsSystem` into also dispatching a real physics contact
-   * to a `GmlBehaviorState` entity's `onCollideWith<Type>` handler, for GML
-   * fidelity on `physicsObject: true` GMS2-imported objects (see this
-   * field's own doc comment). Pass a `GmlActionContext` once, typically the
-   * same one a game already builds for `GmlBehaviorSystem`/`gmlActions.ts`
-   * calls; omit this call entirely for a project with no GML behaviors —
-   * `_drainCollisionEvents` no-ops the dispatch when this is unset.
-   */
-  attachGmlDispatch(ctx: GmlActionContext): void {
-    this._gmlContext = ctx;
-  }
-
   update(scene: Scene, dt: number): void {
     if (this._world === null || this._eventQueue === null) return;
 
@@ -336,18 +310,6 @@ export class PhysicsSystem {
         if (started) {
           cb1.onCollisionEnter?.(record2.entity, contact);
           cb2.onCollisionEnter?.(record1.entity, contact);
-          if (this._gmlContext !== undefined) {
-            dispatchGmlCollision(
-              record1.entity,
-              record2.entity,
-              this._gmlContext,
-            );
-            dispatchGmlCollision(
-              record2.entity,
-              record1.entity,
-              this._gmlContext,
-            );
-          }
         } else {
           cb1.onCollisionExit?.(record2.entity, contact);
           cb2.onCollisionExit?.(record1.entity, contact);

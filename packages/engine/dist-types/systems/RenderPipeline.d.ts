@@ -1,9 +1,8 @@
 import "pixi.js/advanced-blend-modes";
-import { Container, Graphics, Texture } from "pixi.js";
+import { Container } from "pixi.js";
 import type { Renderer } from "pixi.js";
 import { type TextureLoader } from "./TextureStore.js";
 import type { FontRegistry } from "./FontRegistry.js";
-import { type BitmapFontDef } from "./BitmapFontDef.js";
 import { type CustomShaderFilter } from "./CustomShaderFilter.js";
 import type { Scene } from "../Scene.js";
 import type { SceneRenderer } from "../Game.js";
@@ -11,10 +10,6 @@ import { RenderSystem, type RenderSystemOptions } from "./RenderSystem.js";
 import { LayerSystem } from "./LayerSystem.js";
 import type { PostProcessSystem } from "./PostProcessSystem.js";
 import type { ParticleEmitter } from "./ParticleSystem.js";
-import type { GmlBehaviorSystem } from "./GmlBehaviorSystem.js";
-import type { GmlActionContext } from "../compat/gmlActions.js";
-import type { GmlDrawTarget } from "../compat/gml.js";
-import type { GmlSurfaceBackend } from "../compat/gmlSurfaces.js";
 /**
  * The minimal shape `mountTilemap()` needs from an auto-tile resolver — just
  * the one `resolve()` method it actually calls. `@emptysock/tilemap`'s
@@ -66,151 +61,6 @@ export interface TileLayerSource {
       >;
     }>;
   };
-}
-declare class PixiGmlDrawTarget implements GmlDrawTarget {
-  private readonly _graphics;
-  private readonly _resolveTexture;
-  private readonly _resolveShader;
-  private readonly _resolveBitmapFont;
-  private readonly _resolveSurface;
-  private _color;
-  /** Persistent draw-state font/alignment/alpha — GameMaker's `draw_set_*` calls mutate these until changed again, applied to the next `text()`/sprite draw call. Reset to defaults on every construction (every `onDraw`/`onDrawGui` dispatch), matching this class's own "rebuilt fresh every call, no cross-frame leakage" doc comment above. */
-  private _fontFamily;
-  private _halign;
-  private _valign;
-  private _alpha;
-  constructor(
-    _graphics: Graphics,
-    _resolveTexture: (path: string) => Texture,
-    _resolveShader?: (id: string) => CustomShaderFilter | undefined,
-    _resolveBitmapFont?: (id: string) =>
-      | {
-          family: string;
-          def: BitmapFontDef;
-        }
-      | undefined,
-    _resolveSurface?: (id: number) => Texture | undefined,
-  );
-  /**
-   * Detach the previous call's children: `Text`/`BitmapText` labels go back to
-   * this `Graphics`' pool for reuse by `text()`; everything else is destroyed
-   * (pixi's `removeChildren()` alone does not destroy).
-   */
-  private _discardChildren;
-  private _harvest;
-  /** Where draw calls currently land: the base `Graphics`, or the latest blend-mode segment child. */
-  private _g;
-  private _blend;
-  /** Set by `clear()`: colour/alpha the owning surface backend clears its texture to before replaying this target's content. */
-  pendingClear:
-    | {
-        colour: number;
-        alpha: number;
-      }
-    | undefined;
-  /**
-   * `gpu_set_blendmode`: a pixi `Graphics` has one blend mode, so a change
-   * starts a new child `Graphics` segment (in draw order) with that mode;
-   * sprites/text added afterwards are its children and inherit it.
-   */
-  setBlendMode(mode: number): void;
-  drawSurface(surfaceId: number, x: number, y: number): void;
-  clear(colour: number, alpha: number): void;
-  ellipse(
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    outline: boolean,
-  ): void;
-  triangle(
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    x3: number,
-    y3: number,
-    outline: boolean,
-  ): void;
-  setColor(hex: number): void;
-  setFont(fontId: string): void;
-  setHalign(align: number): void;
-  setValign(align: number): void;
-  setAlpha(alpha: number): void;
-  /** `shader_set`/`shader_reset` — every sprite-shaped draw call made while a shader is active gets that shader's shared Filter (vector shapes/text drawn on the `Graphics` itself are not filtered). */
-  setShader(shaderId: string | null): void;
-  private _shader;
-  private _shade;
-  rect(x1: number, y1: number, x2: number, y2: number, outline: boolean): void;
-  circle(x: number, y: number, r: number, outline: boolean): void;
-  text(x: number, y: number, text: string): void;
-  line(x1: number, y1: number, x2: number, y2: number): void;
-  sprite(texturePath: string, x: number, y: number): void;
-  spriteExt(
-    texturePath: string,
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    rotationDeg: number,
-    colour: number,
-    alpha: number,
-  ): void;
-  /** Crops a fresh `Texture` view onto the base texture's `(left, top, width, height)` source-pixel rectangle — real pixi `Texture`/`Rectangle` API, not an approximation. A crop rect that falls outside the base texture's own bounds is a real pixi runtime error, so callers should keep `left`/`top`/`width`/`height` inside the sprite's actual pixel dimensions, same as GameMaker's own function requires. */
-  private _cropTexture;
-  spritePart(
-    texturePath: string,
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-  ): void;
-  spritePartExt(
-    texturePath: string,
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    colour: number,
-    alpha: number,
-  ): void;
-}
-/**
- * Pixi implementation of `GmlSurfaceBackend`: one `RenderTexture` per GMS2
- * surface. `beginTarget` hands out a `PixiGmlDrawTarget` over a scratch
- * `Graphics`; `endTarget` renders it into the surface texture (accumulating,
- * unless `draw_clear` was called, in which case the texture is cleared to that
- * colour first). GPU output is not verifiable headless; tests check wiring.
- */
-declare class PixiSurfaceBackend implements GmlSurfaceBackend {
-  private readonly _renderer;
-  private readonly _makeTarget;
-  private _next;
-  private readonly _surfaces;
-  private readonly _open;
-  constructor(
-    _renderer: () => Renderer,
-    _makeTarget: (
-      graphics: Graphics,
-      resolveSurface: (id: number) => Texture | undefined,
-    ) => PixiGmlDrawTarget,
-  );
-  create(width: number, height: number): number;
-  exists(id: number): boolean;
-  free(id: number): void;
-  width(id: number): number;
-  height(id: number): number;
-  /** The texture `draw_surface` samples; undefined for an unknown/freed surface. */
-  texture(id: number): Texture | undefined;
-  beginTarget(id: number): GmlDrawTarget | undefined;
-  endTarget(id: number): void;
-  destroy(): void;
 }
 export type { TextureLoader };
 export interface RenderPipelineOptions extends Omit<
@@ -315,17 +165,6 @@ export declare class RenderPipeline implements SceneRenderer {
    */
   private _postProcess;
   /**
-   * Set via `attachGmlBehaviors()`. When present, `renderFrame()` dispatches
-   * the main scene's `GmlBehaviorState` entities' `onDraw`/`onDrawGui` once
-   * per frame — see `_renderGmlDraw()`'s doc comment for the real mechanism
-   * (a genuine second render pass, not a per-sprite special case).
-   */
-  private _gmlBehaviors;
-  private _gmlCtx;
-  /** Per-entity pixi `Graphics`, rebuilt (cleared + redrawn) every call — one map per draw kind, keyed by eid, scoped to whichever `Scene` is currently the main scene (mirrors `_tracking`'s per-`Scene` scoping; GML Draw/Draw GUI dispatch only ever covers the main scene today). */
-  private readonly _gmlDrawGraphics;
-  private readonly _gmlDrawGuiGraphics;
-  /**
    * RELEASE_PASS.md Track 4's real gap: `ParticleEmitter` is already a
    * pure, renderer-agnostic simulation (see `systems/ParticleSystem.ts`'s
    * own doc comment) with zero pixi dependency — it was never actually
@@ -356,17 +195,7 @@ export declare class RenderPipeline implements SceneRenderer {
    * shape `_resolveTextureForDraw` uses for `draw_sprite`).
    */
   private _resolveBitmapFont;
-  /**
-   * Attach (or detach, with `null`) a `GmlBehaviorSystem` and the
-   * `GmlActionContext` its dispatch calls should receive. `ctx.drawTarget`
-   * is overwritten per-call by `_renderGmlDraw()` — whatever `drawTarget` is
-   * set on the `ctx` passed here is ignored.
-   */
-  attachGmlBehaviors(
-    system: GmlBehaviorSystem | null,
-    ctx: GmlActionContext | null,
-  ): void;
-  /** The camera-independent overlay container `GmlBehaviorSystem`'s Draw GUI dispatch draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
+  /** The camera-independent overlay container UI/overlay content draws into — see `RenderSystem.guiStage`'s doc comment for why it's never affected by `CameraSystem`. */
   get guiLayer(): Container;
   /** Attach (or detach, with `null`) the `PostProcessSystem` whose layer filters `renderFrame()` should keep synced onto this pipeline's layer containers. */
   attachPostProcess(postProcess: PostProcessSystem | null): void;
@@ -425,38 +254,6 @@ export declare class RenderPipeline implements SceneRenderer {
    * renders once.
    */
   renderFrame(main: Scene, overlays?: readonly Scene[]): void;
-  /**
-   * Runs `GmlBehaviorSystem.renderDraw()`/`renderDrawGui()` for the main
-   * scene, once per frame — a genuine second (well, third counting the
-   * sprite sync) pass through `renderFrame()`, not a conditional bolted into
-   * `_syncOne()`'s per-sprite loop. It has to be a separate pass because the
-   * two draw kinds target structurally different containers: `onDraw`'s
-   * `Graphics` are parented under the `"foreground"` layer container (a
-   * child of `RenderSystem.stage`, so `CameraSystem`'s pan/zoom/rotate
-   * reaches it exactly like any world sprite), while `onDrawGui`'s are
-   * parented under `RenderSystem.guiStage` (a sibling of `stage`, never a
-   * descendant — see that getter's doc comment for why that alone is what
-   * gives Draw GUI its camera independence, with no per-call camera check
-   * anywhere in this method). A per-sprite special case in `_syncOne()`
-   * could not express "draw into a different container tree" at all, since
-   * that method only ever writes to one sprite's existing container.
-   *
-   * Each call's `Graphics` are cleared and redrawn from scratch (never
-   * diffed) — the same rebuild-every-frame tradeoff CLAUDE.md's
-   * "ParticleEmitter renders through a real pixi ParticleContainer" entry
-   * already accepts for particles. `_gmlDrawGraphics`/`_gmlDrawGuiGraphics`
-   * prune any entity that didn't draw this frame (destroyed, or its
-   * behavior module has no `onDraw`/`onDrawGui` this call), so a
-   * `GmlBehaviorState` entity that stops drawing doesn't leave a stale
-   * `Graphics` node in the tree.
-   */
-  private _renderGmlDraw;
-  private _acquireGmlGraphics;
-  private _newDrawTarget;
-  private _surfaceBackend;
-  /** GMS2 surface backend (`surface_create`/`surface_set_target`/`draw_surface`, `compat/gmlSurfaces.ts`); wired into `GmlActionContext.surfaces` by `GmsProjectRuntime`. */
-  get surfaces(): PixiSurfaceBackend;
-  private _pruneGmlGraphics;
   /**
    * Paints the scene-transition overlay described by `postProcess`'s
    * `transitionEffect`/`transitionProgress`/`transitionColour` on top of

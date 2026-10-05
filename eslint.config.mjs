@@ -7,8 +7,6 @@ export default [
       "**/dist/**",
       "**/dist-types/**",
       "**/node_modules/**",
-      // Scratch output of the toolchain smoke tests (gitignored).
-      "**/.gms2-smoke-tmp/**",
       "**/*.js",
       "**/*.mjs",
       // Checked-in fallback stub for a build-generated file (the real
@@ -72,8 +70,6 @@ export default [
       // Rebind-capture timeout is real wall-clock UI time, not game time, so a
       // TweenManager (which ticks with the game loop) would never fire while paused.
       "packages/engine/src/Input.ts",
-      // Mocks pixi.js like the other Render* tests above.
-      "packages/engine/src/__tests__/RenderPipelineGmlDrawLifecycle.test.ts",
       "packages/engine/src/ui/UISystem.ts",
       "packages/engine/src/__tests__/RenderPipeline.test.ts",
       "packages/engine/src/__tests__/RenderSystem.test.ts",
@@ -83,8 +79,6 @@ export default [
       "packages/engine/src/__tests__/RenderPipelineParticles.test.ts",
       "packages/engine/src/__tests__/RenderPipelineShaders.test.ts",
       "packages/engine/src/__tests__/SpriteFlash.test.ts",
-      "packages/engine/src/__tests__/GmlBehaviorSystem.test.ts",
-      "packages/engine/src/__tests__/gmlSurfaces.test.ts",
       "packages/engine/src/__tests__/ViewportSystem.test.ts",
       "packages/engine/src/__tests__/UISystem.test.ts",
     ],

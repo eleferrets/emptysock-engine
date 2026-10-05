@@ -21,13 +21,8 @@ const { RenderPipeline } = await import("../systems/RenderPipeline.js");
 const { Scene } = await import("../Scene.js");
 const { Transform } = await import("../components/Transform.js");
 const { Sprite } = await import("../components/Sprite.js");
-const { GmlBehaviorState, registerGmlBehavior } =
-  await import("../components/GmlBehavior.js");
-const { GmlBehaviorSystem } = await import("../systems/GmlBehaviorSystem.js");
 const { registerGmlShader, clearGmlShaders, setGmlShaderUniform } =
   await import("../systems/ShaderRegistry.js");
-const { shader_set, shader_reset, shader_set_uniform_f } =
-  await import("../compat/gmlShaders.js");
 
 const FRAG = `precision mediump float;
 in vec2 v_vTexcoord;
@@ -130,41 +125,6 @@ describe("RenderPipeline per-entity shader filters", () => {
     const first = pipeline.resolveShaderFilter("sh_white");
     registerGmlShader("sh_white", { vertexSrc: VERT, fragmentSrc: FRAG });
     expect(pipeline.resolveShaderFilter("sh_white")).not.toBe(first);
-  });
-
-  it("obj_pShootable's shader_set(sh_white); draw_self(); shader_reset() shape filters only the drawn sprite", () => {
-    registerGmlBehavior("shootable", {
-      onDraw: (entity, ctx) => {
-        ctx.drawTarget?.sprite("a.png", 1, 2);
-        shader_set(entity, ctx, "sh_white");
-        shader_set_uniform_f(entity, ctx, "u_amount", 1);
-        ctx.drawTarget?.sprite("b.png", 1, 2);
-        shader_reset(entity, ctx);
-        ctx.drawTarget?.sprite("c.png", 1, 2);
-      },
-    });
-    const e = scene.spawn();
-    e.add(Transform);
-    e.add(Sprite);
-    e.add(GmlBehaviorState, { behaviorId: "shootable" });
-    pipeline.attachGmlBehaviors(new GmlBehaviorSystem(), { scene } as never);
-    pipeline.renderFrame(scene);
-
-    const g = (
-      pipeline as unknown as {
-        _gmlDrawGraphics: Map<number, { children: Tracked[] }>;
-      }
-    )._gmlDrawGraphics.get(e.eid);
-    const kids = g?.children ?? [];
-    expect(kids).toHaveLength(3);
-    expect(kids[0]?.filters ?? []).toHaveLength(0);
-    expect(kids[1]?.filters?.[0]).toBe(
-      pipeline.resolveShaderFilter("sh_white"),
-    );
-    expect(kids[2]?.filters ?? []).toHaveLength(0);
-    // the tint-white approximation is gone: nothing touched Sprite.tint/shader
-    expect(e.get(Sprite)?.tint).toBe(0xffffff);
-    expect(e.get(Sprite)?.shader).toBe("");
   });
 });
 

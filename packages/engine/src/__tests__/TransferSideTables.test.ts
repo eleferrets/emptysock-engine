@@ -29,10 +29,7 @@ const src = (rel: string): string =>
  * managed (recreated or meaningless after a transfer). A new `clear*` call in
  * `Scene.destroy` fails this test until it is classified here.
  */
-const COVERED_BY_EXTRA: Record<string, string> = {
-  clearGmlActionState: "GmsRuntime.ts",
-  clearGmlInstanceVars: "GmsRuntime.ts",
-};
+const COVERED_BY_EXTRA: Record<string, string> = {};
 const ENGINE_MANAGED: Record<string, string> = {
   clearEntitySignals: "subscriptions belong to the old scene's bus wiring",
   clearPhysicsBody:
@@ -53,7 +50,7 @@ describe("Scene.destroy side tables vs EntityExtra", () => {
   ];
 
   it("finds the helpers", () => {
-    expect(helpers.length).toBeGreaterThanOrEqual(6);
+    expect(helpers.length).toBeGreaterThanOrEqual(4);
   });
 
   it("classifies every clear* helper as extra-covered or engine-managed", () => {

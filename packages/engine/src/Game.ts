@@ -5,7 +5,6 @@ import { LocalisationSystem } from "./systems/LocalisationSystem.js";
 import { VariableStore } from "./systems/VariableStore.js";
 import { GlobalStore } from "./systems/GlobalStore.js";
 import { SignalBus } from "./systems/SignalBus.js";
-import { GmlFileSystem } from "./systems/GmlFileSystem.js";
 import { FontRegistry } from "./systems/FontRegistry.js";
 import { AssetRegistry } from "./systems/AssetRegistry.js";
 import { ViewportSystem } from "./systems/ViewportSystem.js";
@@ -105,9 +104,7 @@ export interface SceneLifecycle {
   readonly globals: GlobalStore;
   /** Game-owned signal/broadcast bus — see `systems/SignalBus.ts`. */
   readonly signals: SignalBus;
-  /** Game-owned, same reasoning as `globals` — one `GmlFileSystem` for the lifetime of this `Game`, real handle-based file_text_* support. See `systems/GmlFileSystem.ts`'s own doc comment. */
-  readonly files: GmlFileSystem;
-  /** Game-owned, same reasoning as `globals`/`files` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
+  /** Game-owned, same reasoning as `globals` — one `FontRegistry` for the lifetime of this `Game`, a real component for working with fonts. See `systems/FontRegistry.ts`'s own doc comment. */
   readonly fonts: FontRegistry;
   /** Game-owned typed asset lookup (sprite sizes, font sizes, asset existence) loaded from the importer's `asset-index.json`. See `systems/AssetRegistry.ts`. */
   readonly assets: AssetRegistry;
@@ -447,7 +444,6 @@ export class Game {
     this.services.register(VariableStore);
     this.services.register(GlobalStore);
     this.services.register(SignalBus);
-    this.services.register(GmlFileSystem);
     this.services.register(FontRegistry);
     this.services.register(AssetRegistry);
     this.services.register(LocalisationSystem);
@@ -529,11 +525,6 @@ export class Game {
     return this.services.get(GlobalStore);
   }
 
-  /** The `Game`'s single `GmlFileSystem` — see that class's own doc comment. */
-  get files(): GmlFileSystem {
-    return this.services.get(GmlFileSystem);
-  }
-
   /** The `Game`'s single `AssetRegistry` — see that class's own doc comment. */
   get assets(): AssetRegistry {
     return this.services.get(AssetRegistry);
@@ -600,7 +591,6 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       signals: this.services.get(SignalBus),
-      files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
       assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),
@@ -744,7 +734,6 @@ export class Game {
       variables: this.services.get(VariableStore),
       globals: this.services.get(GlobalStore),
       signals: this.services.get(SignalBus),
-      files: this.services.get(GmlFileSystem),
       fonts: this.services.get(FontRegistry),
       assets: this.services.get(AssetRegistry),
       plugins: this.services.get(PluginSystem),

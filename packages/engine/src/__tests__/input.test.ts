@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GamepadSystem } from "../systems/GamepadSystem.js";
 import { InputManager, INPUT_BINDINGS_STORAGE_KEY } from "../Input.js";
-import { keyboard_check } from "../compat/gmlInput.js";
 import { Game, defineScene } from "../Game.js";
 import { MemoryStorageAdapter } from "../systems/StorageAdapter.js";
 import { PointerSystem } from "../systems/PointerSystem.js";
@@ -229,19 +228,6 @@ describe("InputManager merged remap API (ex-KeyBindings)", () => {
     );
     expect(await input.loadBindings(adapter)).toBe(true);
     expect(input.getBindings("jump")).toEqual([K("KeyQ")]);
-  });
-
-  it("GML keyboard_check reads raw codes, independent of action rebinding", () => {
-    const game = new Game();
-    game.input.rebind("jump", [K("KeyZ")]);
-    game.input.simulateKeyDown("Space");
-    game.input.snapshot();
-    // vk_space is physical Space regardless of what "jump" is bound to.
-    expect(keyboard_check({ game }, 32)).toBe(true);
-    expect(game.input.isDown("jump")).toBe(false);
-    game.input.simulateKeyDown("KeyZ");
-    game.input.snapshot();
-    expect(game.input.isDown("jump")).toBe(true);
   });
 });
 

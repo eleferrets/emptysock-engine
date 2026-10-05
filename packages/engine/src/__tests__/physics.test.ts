@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Game, defineScene } from "../Game.js";
 import {
   PhysicsBody,
@@ -8,13 +8,6 @@ import {
 import type { Entity } from "../Entity.js";
 import { Scene } from "../Scene.js";
 import { definePrefab } from "../Prefab.js";
-import { Meta } from "../components/Meta.js";
-import {
-  GmlBehaviorState,
-  registerGmlBehavior,
-  unregisterGmlBehavior,
-  type GmlBehaviorModule,
-} from "../components/GmlBehavior.js";
 
 /** No-`!` narrowing helper — `getPhysicsBody` is only `undefined` for a dead/componentless entity, never for the freshly-spawned ones these tests use. */
 function mustGetPhysicsBody(entity: Entity): PhysicsBodyHandle {
@@ -151,93 +144,6 @@ describe("ECS PhysicsSystem (ENGINE_DESIGN.md §6/§10.3)", () => {
     expect(collided).toBe(false);
 
     await game.unloadScene();
-  });
-
-  describe("GML onCollideWith<Type> dispatch on real physics contact", () => {
-    afterEach(() => {
-      unregisterGmlBehavior("physics-floor");
-    });
-
-    it("fires the matching GML onCollideWith<Type> handler when attachGmlDispatch is wired, on real physics contact", async () => {
-      const game = new Game();
-      const { scene, physics } = await game.loadScene(defineScene({}), {
-        physics: { gravity: { x: 0, y: -20 } },
-      });
-      physics.attachGmlDispatch({ scene } as never);
-
-      const floor = scene.spawn();
-      floor.add(PhysicsBody, {
-        type: "static",
-        shape: "box",
-        width: 20,
-        height: 1,
-        position: { x: 0, y: 0 },
-      });
-      floor.add(GmlBehaviorState, { behaviorId: "physics-floor" });
-
-      const hits: number[] = [];
-      registerGmlBehavior("physics-floor", {
-        onCollideWithBall: (_entity: unknown, other: { eid: number }) => {
-          hits.push(other.eid);
-        },
-      } as GmlBehaviorModule);
-
-      const ball = scene.spawn();
-      ball.add(PhysicsBody, {
-        type: "dynamic",
-        shape: "circle",
-        radius: 0.5,
-        position: { x: 0, y: 2 },
-        restitution: 0,
-      });
-      ball.add(Meta, { name: "Ball" });
-
-      for (let i = 0; i < 180; i++) game.update(1 / 60);
-
-      expect(hits).toEqual([ball.eid]);
-
-      await game.unloadScene();
-    });
-
-    it("never dispatches GML collision handlers when attachGmlDispatch was never called", async () => {
-      const game = new Game();
-      const { scene } = await game.loadScene(defineScene({}), {
-        physics: { gravity: { x: 0, y: -20 } },
-      });
-
-      const floor = scene.spawn();
-      floor.add(PhysicsBody, {
-        type: "static",
-        shape: "box",
-        width: 20,
-        height: 1,
-        position: { x: 0, y: 0 },
-      });
-      floor.add(GmlBehaviorState, { behaviorId: "physics-floor" });
-
-      let fired = false;
-      registerGmlBehavior("physics-floor", {
-        onCollideWithBall: () => {
-          fired = true;
-        },
-      } as GmlBehaviorModule);
-
-      const ball = scene.spawn();
-      ball.add(PhysicsBody, {
-        type: "dynamic",
-        shape: "circle",
-        radius: 0.5,
-        position: { x: 0, y: 2 },
-        restitution: 0,
-      });
-      ball.add(Meta, { name: "Ball" });
-
-      for (let i = 0; i < 180; i++) game.update(1 / 60);
-
-      expect(fired).toBe(false);
-
-      await game.unloadScene();
-    });
   });
 
   it("exposes an interpolation alpha in [0, 1) and an interpolated transform", async () => {
