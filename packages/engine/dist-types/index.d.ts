@@ -131,12 +131,14 @@ export { SpriteFlash, startSpriteFlash } from "./components/SpriteFlash.js";
 export type { SpriteFlashOptions } from "./components/SpriteFlash.js";
 export {
   ParticleEmitter,
+  ParticleSystem,
   rainParticlePreset,
 } from "./systems/ParticleSystem.js";
 export type { RainPresetOptions } from "./systems/ParticleSystem.js";
 export type {
   ParticleEmitterOptions,
   EmitterShape,
+  ParticleBlendMode,
 } from "./systems/ParticleSystem.js";
 export {
   registerShader,
@@ -253,7 +255,18 @@ export type {
   CaptureOptions,
   CaptureResult,
 } from "./Input.js";
+export {
+  PointerSystem,
+  MIN_TOUCH_TARGET_SIZE,
+} from "./systems/PointerSystem.js";
 export type {
+  GestureType,
+  SwipeDirection,
+  PointerDownHandler,
+  PointerMoveHandler,
+  PointerUpHandler,
+  GestureHandler,
+  WheelHandler,
   PointerState,
   Gesture,
   TapGesture,
@@ -314,7 +327,52 @@ export type {
   TileLayerSource,
   AutoTileResolver,
 } from "./systems/RenderPipeline.js";
-export type { CameraViewport } from "./systems/RenderSystem.js";
+export { RenderSystem } from "./systems/RenderSystem.js";
+export type {
+  CameraViewport,
+  RenderSystemOptions,
+} from "./systems/RenderSystem.js";
+export { InputSystem } from "./systems/InputSystem.js";
+export type { KeyState } from "./systems/InputSystem.js";
+export { GamepadSystem } from "./systems/GamepadSystem.js";
+export type {
+  GamepadState,
+  DualRumbleOptions,
+} from "./systems/GamepadSystem.js";
+export { AudioSystem } from "./systems/AudioSystem.js";
+export type { SoundOptions } from "./systems/AudioSystem.js";
+export {
+  PostProcessSystem,
+  COLOURBLIND_MATRICES,
+  colourblindFilterId,
+  colourblindFilterDefsSVG,
+} from "./systems/PostProcessSystem.js";
+export type {
+  LayerFilterType,
+  LayerFilterOptions,
+  LayerFilter,
+  ColourblindMode,
+  PostEffectType,
+  PostEffectOptions,
+  ActiveEffect,
+  BloomOptions,
+  VignetteOptions,
+  BlurOptions,
+  PixelateOptions,
+  ColourGradeOptions,
+  ChromaticAberrationOptions,
+  ShockwaveOptions,
+  OutlineOptions,
+  ScanlinesOptions,
+  NoiseOptions,
+  FlashOptions,
+  FadeOptions,
+} from "./systems/PostProcessSystem.js";
+export { CoroutineSystem } from "./systems/CoroutineSystem.js";
+export {
+  accessibilitySettings,
+  AccessibilitySettings,
+} from "./ui/AccessibilitySettings.js";
 export { ServiceRegistry } from "./Services.js";
 export type { ServiceConstructor } from "./Services.js";
 export {
