@@ -418,15 +418,26 @@ let entityIdCounter = 0;
 // ── Initial project state factory ───────────────────────────────────────────
 // All fields that should be wiped on resetProject() or loadProjectFiles().
 // Adding a new resettable field here automatically propagates to both callers.
+const BLANK_MAIN = "// New project\n";
+const BLANK_FILES: ProjectFile[] = [
+  {
+    name: "src",
+    path: "src",
+    type: "folder",
+    children: [{ name: "main.ts", path: "src/main.ts", type: "file" }],
+  },
+  { name: "assets", path: "assets", type: "folder", children: [] },
+];
+
 function initialProjectState() {
   return {
-    projectName: "MyPlatformer",
+    projectName: "Untitled",
     projectFolder: "",
-    files: INITIAL_FILES,
-    selectedFile: "src/scenes/GameScene.ts",
-    editorCode: INITIAL_CODE,
-    openFiles: { "src/scenes/GameScene.ts": INITIAL_CODE },
-    activeFilePath: "src/scenes/GameScene.ts",
+    files: BLANK_FILES,
+    selectedFile: "src/main.ts",
+    editorCode: BLANK_MAIN,
+    openFiles: { "src/main.ts": BLANK_MAIN },
+    activeFilePath: "src/main.ts",
     playState: "stopped" as const,
     buildStatus: "idle" as const,
     buildErrors: [] as string[],

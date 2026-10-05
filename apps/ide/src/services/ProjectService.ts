@@ -202,7 +202,10 @@ export const ProjectService = {
         if (_tauriDirPath === null) return null;
         const { readTextFile } = await import("@tauri-apps/plugin-fs");
         const { join } = await import("@tauri-apps/api/path");
-        const fullPath = await join(_tauriDirPath, path);
+        // Tree paths from openDirectoryTauri are already absolute.
+        const fullPath = path.startsWith(_tauriDirPath)
+          ? path
+          : await join(_tauriDirPath, path);
         return readTextFile(fullPath);
       }
       if (_browserDirHandle === null) return null;

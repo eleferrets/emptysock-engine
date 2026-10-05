@@ -94,6 +94,7 @@ export function AssetBrowser(): React.ReactElement {
   const [recentOpen, setRecentOpen] = useState(true);
   const [roomOrderOpen, setRoomOrderOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     asset: AssetItem;
     position: { x: number; y: number };
@@ -575,6 +576,10 @@ export function AssetBrowser(): React.ReactElement {
           setIsDragOver(true);
         }}
         onDragLeave={() => setIsDragOver(false)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setBgMenu({ x: e.clientX, y: e.clientY });
+        }}
         onDrop={(e) => {
           e.preventDefault();
           setIsDragOver(false);
@@ -607,6 +612,7 @@ export function AssetBrowser(): React.ReactElement {
             onDoubleClick={() => openAssetInEditor(asset)}
             onContextMenu={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               setContextMenu({
                 asset,
                 position: { x: e.clientX, y: e.clientY },
@@ -694,6 +700,22 @@ export function AssetBrowser(): React.ReactElement {
           openFiles={openFiles}
           onPointerEnter={clearLeaveTimer}
           onPointerLeave={scheduleHide}
+        />
+      )}
+
+      {bgMenu !== null && (
+        <ContextMenu
+          items={[
+            {
+              label: "Import assets…",
+              onClick: () => {
+                fileInputRef.current?.click();
+                setBgMenu(null);
+              },
+            },
+          ]}
+          position={bgMenu}
+          onClose={() => setBgMenu(null)}
         />
       )}
 

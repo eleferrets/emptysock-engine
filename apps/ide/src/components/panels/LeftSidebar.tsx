@@ -18,6 +18,29 @@ import {
 import { useIDEStore } from "../../store/ideStore";
 import type { ProjectFile, FileTreeNode } from "../../store/ideStore";
 import { ProjectService } from "../../services/ProjectService";
+import { ContextMenu } from "../ui/ContextMenu";
+import type { ContextMenuEntry } from "../ui/ContextMenu";
+
+type MenuPos = { x: number; y: number };
+
+function copyPath(path: string): void {
+  void navigator.clipboard.writeText(path).catch(() => {});
+}
+
+function rowMenuItems(
+  isFolder: boolean,
+  path: string,
+  open: () => void,
+  toggle: () => void,
+): ContextMenuEntry[] {
+  return [
+    isFolder
+      ? { label: "Expand / Collapse", onClick: toggle }
+      : { label: "Open", onClick: open },
+    { separator: true },
+    { label: "Copy Path", onClick: () => copyPath(path) },
+  ];
+}
 
 function FileIcon({ file }: { file: ProjectFile }): React.ReactElement {
   if (file.type === "folder")
@@ -42,22 +65,49 @@ function FileTreeNode({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(depth < 2);
-  const { selectedFile, selectFile, setActiveTab } = useIDEStore();
+  const [menu, setMenu] = useState<MenuPos | null>(null);
+  const { selectedFile, openFile, setActiveTab } = useIDEStore();
 
   const isSelected = selectedFile === file.path;
   const handleClick = (): void => {
     if (file.type === "folder") {
       setExpanded((e) => !e);
     } else {
-      selectFile(file.path);
+      openFile(file.path);
       setActiveTab("code");
     }
   };
 
   return (
     <div>
+      {menu !== null && (
+        <ContextMenu
+          items={rowMenuItems(
+            file.type === "folder",
+            file.path,
+            handleClick,
+            handleClick,
+          ).map((i) =>
+            "onClick" in i
+              ? {
+                  ...i,
+                  onClick: () => {
+                    i.onClick();
+                    setMenu(null);
+                  },
+                }
+              : i,
+          )}
+          position={menu}
+          onClose={() => setMenu(null)}
+        />
+      )}
       <button
         onClick={handleClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,
@@ -122,6 +172,7 @@ function DiskTreeRow({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(depth < 2);
+  const [menu, setMenu] = useState<MenuPos | null>(null);
   const openFile = useIDEStore((s) => s.openFile);
   const setActiveTab = useIDEStore((s) => s.setActiveTab);
   const isFolder = node.children !== undefined;
@@ -139,8 +190,34 @@ function DiskTreeRow({
 
   return (
     <div>
+      {menu !== null && (
+        <ContextMenu
+          items={rowMenuItems(
+            isFolder,
+            node.path,
+            handleClick,
+            handleClick,
+          ).map((i) =>
+            "onClick" in i
+              ? {
+                  ...i,
+                  onClick: () => {
+                    i.onClick();
+                    setMenu(null);
+                  },
+                }
+              : i,
+          )}
+          position={menu}
+          onClose={() => setMenu(null)}
+        />
+      )}
       <button
         onClick={handleClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         className="flex items-center w-full gap-1 py-0.5 pr-2 rounded text-left transition-colors"
         style={{
           paddingLeft: `${8 + depth * 12}px`,
