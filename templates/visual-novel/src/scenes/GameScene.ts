@@ -1,112 +1,97 @@
-import {
-  Scene,
-  VNSystem,
-  LocalisationSystem,
-  InputSystem,
-} from "@emptysock/engine";
-import type { DialogueTree } from "@emptysock/engine";
+import { defineScene } from "@emptysock/engine";
+import type { InputManager } from "@emptysock/engine";
 
-const DIALOGUE_TREE: DialogueTree = {
-  startNode: "intro",
-  nodes: {
-    intro: {
-      type: "dialogue",
-      speaker: "Narrator",
-      text: "You stand at a crossroads in a mysterious forest.",
-      next: "ask",
-    },
-    ask: {
-      type: "choice",
-      text: "Which path do you take?",
-      options: [
-        { label: "The dark path", next: "dark" },
-        { label: "The bright path", next: "bright" },
-      ],
-    },
-    dark: {
-      type: "event",
-      eventName: "takePath",
-      data: { path: "dark" },
-      next: "dark_result",
-    },
-    dark_result: {
-      type: "dialogue",
-      speaker: "Narrator",
-      text: "You venture into the shadows...",
-      next: "end",
-    },
-    bright: {
-      type: "dialogue",
-      speaker: "Narrator",
-      text: "Sunlight guides your way.",
-      next: "end",
-    },
-    end: {
-      type: "dialogue",
-      speaker: "Narrator",
-      text: "The adventure continues...",
-    },
+// The engine ships no dialogue runner, so this template keeps a tiny one
+// inline: a node graph plus a cursor. Swap it for your own system, or drive
+// the story with VisualScriptState / the VariableStore on `ctx.variables`.
+interface DialogueNode {
+  readonly speaker: string;
+  readonly text: string;
+  /** Next node id; omit to end the story. */
+  readonly next?: string;
+  /** If present the player picks one instead of following `next`. */
+  readonly options?: readonly { label: string; next: string }[];
+}
+
+const START_NODE = "intro";
+
+const DIALOGUE: Readonly<Record<string, DialogueNode>> = {
+  intro: {
+    speaker: "Narrator",
+    text: "You stand at a crossroads in a mysterious forest.",
+    next: "ask",
   },
+  ask: {
+    speaker: "Narrator",
+    text: "Which path do you take?",
+    options: [
+      { label: "The dark path", next: "dark" },
+      { label: "The bright path", next: "bright" },
+    ],
+  },
+  dark: {
+    speaker: "Narrator",
+    text: "You venture into the shadows...",
+    next: "end",
+  },
+  bright: {
+    speaker: "Narrator",
+    text: "Sunlight guides your way.",
+    next: "end",
+  },
+  end: { speaker: "Narrator", text: "The adventure continues..." },
 };
 
-export class GameScene extends Scene {
-  private readonly _vn: VNSystem = new VNSystem();
-  private readonly _loc: LocalisationSystem = new LocalisationSystem();
-  private readonly _input: InputSystem = new InputSystem();
-
-  constructor() {
-    super("GameScene");
+function show(node: DialogueNode): void {
+  console.log(`[${node.speaker}]: ${node.text}`);
+  if (node.options !== undefined) {
+    console.log(
+      node.options.map((o, i) => `${String(i + 1)}) ${o.label}`).join("  "),
+    );
   }
+}
 
-  override start(): void {
-    super.start();
+export function createGameScene() {
+  let current: DialogueNode | undefined;
+  let choice: number | undefined;
+  let input: InputManager | undefined;
 
-    this._input.attach(window);
+  const goTo = (id: string | undefined): void => {
+    current = id === undefined ? undefined : DIALOGUE[id];
+    if (current !== undefined) show(current);
+  };
 
-    // Set up localisation
-    this._loc.addTranslations("en", {
-      "ui.advance": "Press SPACE to continue",
-      "ui.choose": "Click a choice",
-    });
-    this._loc.setLocale("en");
-
-    // Set up VN callbacks
-    this._vn.onEvent = (eventName, data) => {
-      console.log(`VN Event: ${eventName}`, data);
-    };
-
-    this._vn.onChoice = (options) => {
-      console.log(
-        "Player must choose:",
-        options.map((o) => o.label).join(" | "),
-      );
-      // In a real game, show UI buttons and call _vn.selectOption(next)
-    };
-
-    this._vn.load(DIALOGUE_TREE);
-
-    // Advance dialogue on SPACE
-    this.addSystem("vn-input", (_scene, _dt) => {
-      if (this._input.isKeyPressed("Space")) {
-        this._vn.advance();
-        const node = this._vn.currentNode;
-        if (node !== null) {
-          if (node.type === "dialogue") {
-            console.log(`[${node.speaker}]: ${node.text}`);
-          }
-        }
+  return defineScene({
+    onLoad(_scene, ctx) {
+      ctx.input.setActions({
+        advance: [
+          { kind: "key", code: "Space" },
+          { kind: "key", code: "Enter" },
+        ],
+        choose1: [{ kind: "key", code: "Digit1" }],
+        choose2: [{ kind: "key", code: "Digit2" }],
+      });
+      ctx.localisation.addTranslations("en", {
+        "ui.advance": "Press SPACE to continue",
+        "ui.choose": "Press 1 or 2 to choose",
+      });
+      ctx.localisation.setLocale("en");
+      console.log(ctx.localisation.t("ui.advance"));
+      goTo(START_NODE);
+      input = ctx.input;
+    },
+    onUpdate() {
+      if (current === undefined || input === undefined) return;
+      if (current.options !== undefined) {
+        if (input.wasPressed("choose1")) choice = 0;
+        else if (input.wasPressed("choose2")) choice = 1;
+        const picked =
+          choice === undefined ? undefined : current.options[choice];
+        choice = undefined;
+        if (picked !== undefined) goTo(picked.next);
+      } else if (input.wasPressed("advance")) {
+        goTo(current.next);
       }
-      this._input.flush();
-    });
-
-    console.log("Visual Novel GameScene started");
-    const first = this._vn.currentNode;
-    if (first?.type === "dialogue")
-      console.log(`[${first.speaker}]: ${first.text}`);
-  }
-
-  override stop(): void {
-    this._input.detach();
-    super.stop();
-  }
+    },
+  });
 }

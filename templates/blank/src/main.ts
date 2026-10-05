@@ -1,10 +1,7 @@
 import {
-  RenderPipeline,
-  PhysicsSystem,
-  InputSystem,
-  AudioSystem,
-  SceneManager,
   CameraSystem,
+  Game,
+  RenderPipeline,
   ViewportSystem,
 } from "@emptysock/engine";
 import { GameScene } from "./scenes/GameScene";
@@ -19,35 +16,29 @@ async function main(): Promise<void> {
     height: 720,
     backgroundColor: 0x1a1a2e,
   });
-
-  const physics = new PhysicsSystem();
-  await physics.init({
-    gravity: { x: 0, y: -200 },
-  });
-
-  const input = new InputSystem();
-  input.attach(window);
-
-  const audio = new AudioSystem();
-  audio.masterVolume = 1;
+  document.body.appendChild(renderPipeline.canvas);
 
   const camera = new CameraSystem();
   camera.attach(renderPipeline.stage);
 
-  document.body.appendChild(renderPipeline.canvas);
+  // Game owns input, audio, physics (created per scene), actors and the fixed
+  // per-frame update order. Attaching the renderer makes Game.update() draw.
+  const game = Game.create();
+  game.attachRenderer(renderPipeline);
+  game.input.attach(window);
 
   // ViewportSystem letterboxes the 1280x720 design resolution into whatever
   // size the browser window (or, in Tauri, the WebView) actually gives us,
   // and keeps RenderPipeline + CameraSystem in sync on resize/orientation
   // change — no manual resize listener required.
-  const viewport = new ViewportSystem();
-  viewport.init(
-    { designWidth: 1280, designHeight: 720, scaleMode: "fit" },
-    { renderTarget: renderPipeline, cameraSystem: camera },
-  );
+  game.services
+    .get(ViewportSystem)
+    .init(
+      { designWidth: 1280, designHeight: 720, scaleMode: "fit" },
+      { renderTarget: renderPipeline, cameraSystem: camera },
+    );
 
-  SceneManager.register("game", () => new GameScene());
-  SceneManager.load("game");
+  await game.loadScene(GameScene);
 
   let lastTime = performance.now();
 
@@ -55,15 +46,8 @@ async function main(): Promise<void> {
     const deltaTime = Math.min((now - lastTime) / 1000, 0.05); // cap at 50ms
     lastTime = now;
 
-    physics.step(deltaTime);
+    game.update(deltaTime);
     camera.update(deltaTime);
-    SceneManager.update(deltaTime);
-    const scene = SceneManager.current;
-    if (scene !== null) {
-      physics.syncToTransforms(scene.getEntities().values());
-      renderPipeline.renderFrame(scene);
-    }
-    input.flush();
 
     requestAnimationFrame(loop);
   }
