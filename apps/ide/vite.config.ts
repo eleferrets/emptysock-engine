@@ -156,7 +156,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       manifest: false, // use public/manifest.webmanifest
       workbox: {
-        globPatterns: ["**/*.{js,css,html,wasm,png,svg,ico}"],
+        globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
     }),
