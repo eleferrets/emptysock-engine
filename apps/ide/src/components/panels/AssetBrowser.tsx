@@ -3,7 +3,6 @@ import { getAssetStore, browserAssetStore } from "../../services/AssetStore";
 import {
   Search,
   Upload,
-  PackageOpen,
   ChevronDown,
   ChevronRight,
   List,
@@ -29,7 +28,6 @@ import { AssetPreviewPopover } from "./asset-browser/AssetPreviewPopover";
 import { RoomOrderDialog } from "./asset-browser/RoomOrderDialog";
 import { SpriteSheetStripDialog } from "./asset-browser/SpriteSheetStripDialog";
 import type { StripDialog } from "./asset-browser/SpriteSheetStripDialog";
-import { importGMS2FromHandle } from "./asset-browser/gms2Import";
 
 export function AssetBrowser(): React.ReactElement {
   const assets = useIDEStore((s) => s.assets);
@@ -427,40 +425,6 @@ export function AssetBrowser(): React.ReactElement {
           <List size={11} />
           Room Order
         </Button>
-        {"showDirectoryPicker" in window ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Import GMS2 Project"
-            onClick={() => {
-              type WindowWithDirPicker = Window & {
-                showDirectoryPicker(opts?: {
-                  mode?: "read" | "readwrite";
-                }): Promise<FileSystemDirectoryHandle>;
-              };
-              void (window as unknown as WindowWithDirPicker)
-                .showDirectoryPicker({ mode: "read" })
-                .then((handle) =>
-                  importGMS2FromHandle(handle, (items) =>
-                    histSet((prev) => [...prev, ...items]),
-                  ),
-                );
-            }}
-          >
-            <PackageOpen size={11} />
-            Import GMS2
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled
-            title="Requires a Chromium-based browser"
-          >
-            <PackageOpen size={11} />
-            Import GMS2
-          </Button>
-        )}
       </div>
 
       {/* Recent assets strip */}
